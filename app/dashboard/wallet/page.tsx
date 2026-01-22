@@ -135,52 +135,8 @@ function WalletContent() {
                 throw new Error(data.error || 'Failed to initialize payment')
             }
 
-            // Load Paystack inline popup
-            const PaystackPop = (window as any).PaystackPop
-            if (!PaystackPop) {
-                // Fallback to redirect if inline script not loaded
-                window.location.href = data.authorization_url
-                return
-            }
-
-            const handler = PaystackPop.setup({
-                key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY,
-                email: dbUser.email,
-                amount: Math.round((amount + fee) * 100), // Amount in pesewas
-                currency: 'GHS',
-                ref: data.reference,
-                callback: async (response: { reference: string }) => {
-                    // Verify payment on server
-                    try {
-                        const verifyResponse = await fetch(`/api/payments/verify?reference=${response.reference}`, {
-                            credentials: 'include',
-                            headers: { 'Accept': 'application/json' },
-                        })
-                        const verifyData = await verifyResponse.json()
-
-                        if (verifyData.success) {
-                            toast.success('Wallet topped up successfully!')
-                            setTopUpAmount('')
-                            fetchWalletData()
-                        } else {
-                            toast.error(verifyData.error || 'Payment verification failed')
-                        }
-                    } catch {
-                        toast.error('Payment verification failed')
-                    }
-                    setIsProcessing(false)
-                },
-                onClose: () => {
-                    setIsProcessing(false)
-                },
-            })
-
-            // If we have an access_code, use resumeTransaction for the already-initialized transaction
-            if (data.access_code) {
-                handler.resumeTransaction(data.access_code)
-            } else {
-                handler.openIframe()
-            }
+            // Redirect to Paystack checkout
+            window.location.href = data.authorization_url
         } catch (error: any) {
             toast.error(error.message || 'Failed to process payment')
             setIsProcessing(false)
