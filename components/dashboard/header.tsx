@@ -35,7 +35,7 @@ export function DashboardHeader() {
         const { count } = await supabase
             .from('notifications')
             .select('*', { count: 'exact', head: true })
-            .eq('user_id', dbUser?.id)
+            .eq('user_id', dbUser?.id as any)
             .eq('is_read', false)
 
         setUnreadCount(count || 0)
