@@ -102,9 +102,9 @@ export async function POST(request: NextRequest) {
         if (affectedOrders.length > 0) {
             console.log(`[AdminStatusUpdate] Sending notifications for ${affectedOrders.length} orders`)
             const notifications = affectedOrders.map(order => ({
-                user_id: order.user_id,
+                user_id: (order as any).user_id,
                 title: `Order ${status.charAt(0).toUpperCase() + status.slice(1)}`,
-                message: `Your order ${order.reference_code} has been marked as ${status}.`,
+                message: `Your order ${(order as any).reference_code} has been marked as ${status}.`,
                 type: 'order_update',
                 action_url: `/dashboard/my-orders`,
                 is_read: false

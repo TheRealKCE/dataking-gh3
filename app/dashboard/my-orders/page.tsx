@@ -86,21 +86,20 @@ export default function MyOrdersPage() {
             const { data, error } = await supabase
                 .from('orders')
                 .select('*')
-                .eq('user_id', dbUser?.id)
+                .eq('user_id', dbUser?.id as any)
                 .order('created_at', { ascending: false })
 
             if (error) throw error
 
             setOrders(data || [])
 
-            // Calculate stats
-            const total = data?.length || 0
-            const completed = data?.filter(o => o.status === 'completed').length || 0
-            const processing = data?.filter(o => o.status === 'processing').length || 0
-            const failed = data?.filter(o => o.status === 'failed').length || 0
-            const pending = data?.filter(o => o.status === 'pending').length || 0
-
-            setStats({ total, completed, processing, failed, pending })
+            setStats({
+                total: data?.length || 0,
+                completed: (data as any[]).filter(o => o.status === 'completed').length,
+                processing: (data as any[]).filter(o => o.status === 'processing').length,
+                failed: (data as any[]).filter(o => o.status === 'failed').length,
+                pending: (data as any[]).filter(o => o.status === 'pending').length
+            })
         } catch (error) {
             console.error('Error fetching orders:', error)
             toast.error('Failed to load orders')
@@ -142,7 +141,7 @@ export default function MyOrdersPage() {
 
         setIsSubmitting(true)
         try {
-            const { error } = await supabase.from('complaints').insert({
+            const { error } = await (supabase.from('complaints') as any).insert({
                 user_id: dbUser?.id,
                 order_id: complaintOrder.id,
                 title: `Issue with order ${complaintOrder.reference_code}`,

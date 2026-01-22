@@ -39,7 +39,7 @@ export default function NotificationsPage() {
             const { data, error } = await supabase
                 .from('notifications')
                 .select('*')
-                .eq('user_id', dbUser?.id)
+                .eq('user_id', dbUser?.id as any)
                 .order('created_at', { ascending: false })
 
             if (error) throw error
@@ -54,8 +54,8 @@ export default function NotificationsPage() {
 
     const markAsRead = async (id: string) => {
         try {
-            await supabase
-                .from('notifications')
+            await (supabase
+                .from('notifications') as any)
                 .update({ is_read: true })
                 .eq('id', id)
 
@@ -69,10 +69,10 @@ export default function NotificationsPage() {
 
     const markAllAsRead = async () => {
         try {
-            await supabase
-                .from('notifications')
+            await (supabase
+                .from('notifications') as any)
                 .update({ is_read: true })
-                .eq('user_id', dbUser?.id)
+                .eq('user_id', dbUser?.id as any)
                 .eq('is_read', false)
 
             setNotifications(prev => prev.map(n => ({ ...n, is_read: true })))
@@ -84,8 +84,8 @@ export default function NotificationsPage() {
 
     const deleteNotification = async (id: string) => {
         try {
-            await supabase
-                .from('notifications')
+            await (supabase
+                .from('notifications') as any)
                 .delete()
                 .eq('id', id)
 
@@ -176,8 +176,8 @@ export default function NotificationsPage() {
                         <Card
                             key={notification.id}
                             className={`transition-all ${!notification.is_read
-                                    ? 'bg-blue-50/50 dark:bg-blue-950/20 border-l-4 border-l-blue-500'
-                                    : ''
+                                ? 'bg-blue-50/50 dark:bg-blue-950/20 border-l-4 border-l-blue-500'
+                                : ''
                                 }`}
                         >
                             <CardContent className="p-4">

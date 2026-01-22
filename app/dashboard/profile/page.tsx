@@ -63,15 +63,15 @@ export default function ProfilePage() {
     const handleSave = async () => {
         setIsSaving(true)
         try {
-            const { error } = await supabase
-                .from('users')
+            const { error } = await (supabase
+                .from('users') as any)
                 .update({
                     first_name: formData.first_name,
                     last_name: formData.last_name,
                     phone_number: formData.phone_number,
                     updated_at: new Date().toISOString(),
                 })
-                .eq('id', dbUser?.id)
+                .eq('id', dbUser?.id as any)
 
             if (error) throw error
 

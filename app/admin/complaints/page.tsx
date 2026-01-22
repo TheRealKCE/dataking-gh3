@@ -62,8 +62,8 @@ export default function AdminComplaintsPage() {
         if (!selectedComplaint) return
 
         try {
-            const { error } = await supabase
-                .from('complaints')
+            const { error } = await (supabase
+                .from('complaints') as any)
                 .update({
                     status,
                     resolution_notes: resolutionNotes,
@@ -80,7 +80,7 @@ export default function AdminComplaintsPage() {
             ))
 
             // Notify user
-            await supabase.from('notifications').insert({
+            await (supabase.from('notifications') as any).insert({
                 user_id: selectedComplaint.user_id,
                 title: `Complaint ${status === 'resolved' ? 'Resolved' : 'Rejected'}`,
                 message: `Your complaint regarding order ${selectedComplaint.orders?.reference_code} has been ${status}.`,

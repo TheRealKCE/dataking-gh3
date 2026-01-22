@@ -29,39 +29,39 @@ export async function GET(request: NextRequest) {
 
         for (const order of orders || []) {
             try {
-                if (!order.codecraft_reference) continue
+                if (!(order as any).codecraft_reference) continue
 
                 // Check status based on network type
-                const statusResult = order.network === 'AT-BigTime'
-                    ? await checkBigTimeOrderStatus(order.codecraft_reference)
-                    : await checkRegularOrderStatus(order.codecraft_reference)
+                const statusResult = (order as any).network === 'AT-BigTime'
+                    ? await checkBigTimeOrderStatus((order as any).codecraft_reference)
+                    : await checkRegularOrderStatus((order as any).codecraft_reference)
 
                 if (statusResult.success) {
                     const newStatus = statusResult.status
 
-                    if (newStatus !== order.status) {
+                    if (newStatus !== (order as any).status) {
                         // Update order status
-                        await supabase
-                            .from('orders')
+                        await (supabase
+                            .from('orders') as any)
                             .update({
                                 status: newStatus,
                                 updated_at: new Date().toISOString(),
                             })
-                            .eq('id', order.id)
+                            .eq('id', (order as any).id)
 
                         // Update fulfillment log
-                        await supabase
-                            .from('fulfillment_logs')
+                        await (supabase
+                            .from('fulfillment_logs') as any)
                             .update({
                                 status: newStatus,
                                 updated_at: new Date().toISOString(),
                             })
-                            .eq('order_id', order.id)
+                            .eq('order_id', (order as any).id)
 
                         // Create notification
-                        const notifData = orderUpdateNotification(order.reference_code, newStatus)
+                        const notifData = orderUpdateNotification((order as any).reference_code, newStatus)
                         await createNotification({
-                            userId: order.user_id,
+                            userId: (order as any).user_id,
                             ...notifData,
                         })
 
@@ -70,34 +70,34 @@ export async function GET(request: NextRequest) {
                             const { data: wallet } = await supabase
                                 .from('wallets')
                                 .select('*')
-                                .eq('user_id', order.user_id)
+                                .eq('user_id', (order as any).user_id)
                                 .single()
 
                             if (wallet) {
-                                await supabase
-                                    .from('wallets')
+                                await (supabase
+                                    .from('wallets') as any)
                                     .update({
-                                        balance: wallet.balance + order.price,
-                                        total_spent: wallet.total_spent - order.price,
+                                        balance: (wallet as any).balance + (order as any).price,
+                                        total_spent: (wallet as any).total_spent - (order as any).price,
                                         updated_at: new Date().toISOString(),
                                     })
-                                    .eq('id', wallet.id)
+                                    .eq('id', (wallet as any).id)
 
-                                await supabase.from('wallet_transactions').insert({
-                                    wallet_id: wallet.id,
-                                    user_id: order.user_id,
+                                await (supabase.from('wallet_transactions') as any).insert({
+                                    wallet_id: (wallet as any).id,
+                                    user_id: (order as any).user_id,
                                     type: 'credit',
-                                    amount: order.price,
-                                    description: `Refund for failed order ${order.reference_code}`,
-                                    reference: order.reference_code,
+                                    amount: (order as any).price,
+                                    description: `Refund for failed order ${(order as any).reference_code}`,
+                                    reference: (order as any).reference_code,
                                     source: 'refund',
                                     status: 'completed',
                                 })
 
-                                await supabase
-                                    .from('orders')
+                                await (supabase
+                                    .from('orders') as any)
                                     .update({ payment_status: 'refunded' })
-                                    .eq('id', order.id)
+                                    .eq('id', (order as any).id)
                             }
                         }
 

@@ -65,21 +65,21 @@ export async function POST(request: NextRequest) {
         }
 
         // Check balance
-        if (wallet.balance < pkg.price) {
+        if ((wallet as any).balance < (pkg as any).price) {
             return NextResponse.json({ error: 'Insufficient balance' }, { status: 400 })
         }
 
         const referenceCode = generateReferenceCode()
 
         // Create order
-        const { data: order, error: orderError } = await supabase
-            .from('orders')
+        const { data: order, error: orderError } = await (supabase
+            .from('orders') as any)
             .insert({
                 user_id: userId,
                 phone_number: phoneNumber,
-                network: pkg.network,
-                size: pkg.size,
-                price: pkg.price,
+                network: (pkg as any).network,
+                size: (pkg as any).size,
+                price: (pkg as any).price,
                 status: 'pending',
                 payment_status: 'paid',
                 reference_code: referenceCode,
@@ -94,54 +94,54 @@ export async function POST(request: NextRequest) {
         }
 
         // Debit wallet
-        const newBalance = wallet.balance - pkg.price
-        const { error: debitError } = await supabase
-            .from('wallets')
+        const newBalance = (wallet as any).balance - (pkg as any).price
+        const { error: debitError } = await (supabase
+            .from('wallets') as any)
             .update({
                 balance: newBalance,
-                total_spent: (wallet.total_spent || 0) + pkg.price,
+                total_spent: ((wallet as any).total_spent || 0) + (pkg as any).price,
                 updated_at: new Date().toISOString(),
             })
-            .eq('id', wallet.id)
+            .eq('id', (wallet as any).id)
 
         if (debitError) {
             console.error('Wallet debit error:', debitError)
             // Rollback order
-            await supabase.from('orders').delete().eq('id', order.id)
+            await (supabase.from('orders') as any).delete().eq('id', (order as any).id)
             return NextResponse.json({ error: 'Failed to debit wallet' }, { status: 500 })
         }
 
         // Create wallet transaction
-        await supabase.from('wallet_transactions').insert({
-            wallet_id: wallet.id,
+        await (supabase.from('wallet_transactions') as any).insert({
+            wallet_id: (wallet as any).id,
             user_id: userId,
             type: 'debit',
-            amount: pkg.price,
-            description: `Data purchase: ${pkg.size} for ${phoneNumber}`,
+            amount: (pkg as any).price,
+            description: `Data purchase: ${(pkg as any).size} for ${phoneNumber}`,
             reference: referenceCode,
             source: 'purchase',
             status: 'completed',
         })
 
         // Update customer purchases
-        await updateCustomerPurchases(supabase, userId!, phoneNumber, pkg.price)
+        await updateCustomerPurchases(supabase, userId!, phoneNumber, (pkg as any).price)
 
         // Create notification
-        await supabase.from('notifications').insert({
+        await (supabase.from('notifications') as any).insert({
             user_id: userId,
             title: 'Order Placed',
-            message: `Your order for ${pkg.size} to ${phoneNumber} has been placed and is being processed.`,
+            message: `Your order for ${(pkg as any).size} to ${phoneNumber} has been placed and is being processed.`,
             type: 'order_update',
             action_url: `/dashboard/my-orders`,
         })
 
         // Trigger auto-fulfillment (async)
-        triggerFulfillment(order.id, pkg.network)
+        triggerFulfillment((order as any).id, (pkg as any).network)
 
         return NextResponse.json({
             success: true,
             order: {
-                id: order.id,
+                id: (order as any).id,
                 reference_code: referenceCode,
                 status: 'pending',
             },

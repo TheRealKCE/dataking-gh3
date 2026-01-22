@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
         for (const order of orders || []) {
             try {
                 // Get tracking record
-                const tracking = order.mtn_fulfillment_tracking?.[0]
+                const tracking = (order as any).mtn_fulfillment_tracking?.[0]
                 if (!tracking?.api_response?.reference) continue
 
                 const statusResult = await checkMTNOrderStatus(tracking.api_response.reference)
@@ -37,29 +37,29 @@ export async function GET(request: NextRequest) {
                 if (statusResult.success) {
                     const newStatus = statusResult.status
 
-                    if (newStatus !== order.status) {
+                    if (newStatus !== (order as any).status) {
                         // Update order status
-                        await supabase
-                            .from('orders')
+                        await (supabase
+                            .from('orders') as any)
                             .update({
                                 status: newStatus,
                                 updated_at: new Date().toISOString(),
                             })
-                            .eq('id', order.id)
+                            .eq('id', (order as any).id)
 
                         // Update tracking
-                        await supabase
-                            .from('mtn_fulfillment_tracking')
+                        await (supabase
+                            .from('mtn_fulfillment_tracking') as any)
                             .update({
                                 status: newStatus,
                                 updated_at: new Date().toISOString(),
                             })
-                            .eq('id', tracking.id)
+                            .eq('id', (tracking as any).id)
 
                         // Create notification
-                        const notifData = orderUpdateNotification(order.reference_code, newStatus)
+                        const notifData = orderUpdateNotification((order as any).reference_code, newStatus)
                         await createNotification({
-                            userId: order.user_id,
+                            userId: (order as any).user_id,
                             ...notifData,
                         })
 
@@ -68,36 +68,36 @@ export async function GET(request: NextRequest) {
                             const { data: wallet } = await supabase
                                 .from('wallets')
                                 .select('*')
-                                .eq('user_id', order.user_id)
+                                .eq('user_id', (order as any).user_id)
                                 .single()
 
                             if (wallet) {
-                                await supabase
-                                    .from('wallets')
+                                await (supabase
+                                    .from('wallets') as any)
                                     .update({
-                                        balance: wallet.balance + order.price,
-                                        total_spent: wallet.total_spent - order.price,
+                                        balance: (wallet as any).balance + (order as any).price,
+                                        total_spent: (wallet as any).total_spent - (order as any).price,
                                         updated_at: new Date().toISOString(),
                                     })
-                                    .eq('id', wallet.id)
+                                    .eq('id', (wallet as any).id)
 
                                 // Create refund transaction
-                                await supabase.from('wallet_transactions').insert({
-                                    wallet_id: wallet.id,
-                                    user_id: order.user_id,
+                                await (supabase.from('wallet_transactions') as any).insert({
+                                    wallet_id: (wallet as any).id,
+                                    user_id: (order as any).user_id,
                                     type: 'credit',
-                                    amount: order.price,
-                                    description: `Refund for failed order ${order.reference_code}`,
-                                    reference: order.reference_code,
+                                    amount: (order as any).price,
+                                    description: `Refund for failed order ${(order as any).reference_code}`,
+                                    reference: (order as any).reference_code,
                                     source: 'refund',
                                     status: 'completed',
                                 })
 
                                 // Update order payment status
-                                await supabase
-                                    .from('orders')
+                                await (supabase
+                                    .from('orders') as any)
                                     .update({ payment_status: 'refunded' })
-                                    .eq('id', order.id)
+                                    .eq('id', (order as any).id)
                             }
                         }
 
@@ -105,7 +105,7 @@ export async function GET(request: NextRequest) {
                     }
                 }
             } catch (orderError) {
-                console.error(`Error processing order ${order.id}:`, orderError)
+                console.error(`Error processing order ${(order as any).id}:`, orderError)
                 failed++
             }
         }

@@ -45,7 +45,7 @@ export default function AFAOrdersPage() {
             .single()
 
         if (data) {
-            setApplicationStatus(data.status)
+            setApplicationStatus((data as any).status)
         }
     }
 
@@ -54,7 +54,7 @@ export default function AFAOrdersPage() {
         setIsSubmitting(true)
 
         try {
-            const { error } = await supabase.from('afa_orders').insert({
+            const { error } = await (supabase.from('afa_orders') as any).insert({
                 user_id: dbUser?.id,
                 ...formData,
                 status: 'pending'

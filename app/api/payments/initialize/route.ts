@@ -37,8 +37,8 @@ export async function POST(request: NextRequest) {
             .single()
 
         if (!wallet) {
-            const { data: newWallet } = await supabase
-                .from('wallets')
+            const { data: newWallet } = await (supabase
+                .from('wallets') as any)
                 .insert({ user_id: userId })
                 .select()
                 .single()
@@ -50,11 +50,11 @@ export async function POST(request: NextRequest) {
         const reference = `WAL-${generateReferenceCode()}`
 
         // Create payment record
-        const { data: payment, error: paymentError } = await supabase
-            .from('wallet_payments')
+        const { data: payment, error: paymentError } = await (supabase
+            .from('wallet_payments') as any)
             .insert({
                 user_id: userId,
-                wallet_id: wallet!.id,
+                wallet_id: (wallet as any)!.id,
                 amount: amount,
                 fee: fee,
                 total_amount: totalAmount,
@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                email: user?.email || session.user.email,
+                email: (user as any)?.email || session.user.email,
                 amount: Math.round(totalAmount * 100), // Paystack uses kobo/pesewas
                 currency: 'GHS',
                 reference: reference,
@@ -96,18 +96,18 @@ export async function POST(request: NextRequest) {
 
         if (!paystackData.status) {
             console.error('Paystack error:', paystackData)
-            await supabase
-                .from('wallet_payments')
+            await (supabase
+                .from('wallet_payments') as any)
                 .update({ status: 'failed' })
-                .eq('id', payment.id)
+                .eq('id', (payment as any).id)
             return NextResponse.json({ error: 'Failed to initialize payment' }, { status: 500 })
         }
 
         // Update payment with Paystack reference
-        await supabase
-            .from('wallet_payments')
+        await (supabase
+            .from('wallet_payments') as any)
             .update({ provider_reference: paystackData.data.reference })
-            .eq('id', payment.id)
+            .eq('id', (payment as any).id)
 
         return NextResponse.json({
             success: true,

@@ -107,7 +107,7 @@ export default function AdminPackagesPage() {
             network: pkg.network,
             size: pkg.size,
             price: pkg.price,
-            cost_price: pkg.cost_price || 0,
+            cost_price: (pkg as any).cost_price || 0,
             description: pkg.description || '',
             is_available: pkg.is_available,
             sort_order: pkg.sort_order,
@@ -124,8 +124,8 @@ export default function AdminPackagesPage() {
         setIsSaving(true)
         try {
             if (editingPackage) {
-                const { error } = await supabase
-                    .from('data_packages')
+                const { error } = await (supabase
+                    .from('data_packages') as any)
                     .update({
                         ...formData,
                         updated_at: new Date().toISOString(),
@@ -135,8 +135,8 @@ export default function AdminPackagesPage() {
                 if (error) throw error
                 toast.success('Package updated successfully')
             } else {
-                const { error } = await supabase
-                    .from('data_packages')
+                const { error } = await (supabase
+                    .from('data_packages') as any)
                     .insert(formData)
 
                 if (error) throw error
@@ -157,8 +157,8 @@ export default function AdminPackagesPage() {
         if (!confirm('Are you sure you want to delete this package?')) return
 
         try {
-            const { error } = await supabase
-                .from('data_packages')
+            const { error } = await (supabase
+                .from('data_packages') as any)
                 .delete()
                 .eq('id', id)
 
@@ -172,8 +172,8 @@ export default function AdminPackagesPage() {
 
     const toggleAvailability = async (pkg: DataPackage) => {
         try {
-            const { error } = await supabase
-                .from('data_packages')
+            const { error } = await (supabase
+                .from('data_packages') as any)
                 .update({ is_available: !pkg.is_available })
                 .eq('id', pkg.id)
 
