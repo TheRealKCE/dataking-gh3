@@ -16,8 +16,8 @@ export async function GET(request: NextRequest) {
 
     try {
         // Force update the user to admin
-        const { error } = await supabase
-            .from('users')
+        const { error } = await (supabase
+            .from('users') as any)
             .update({ role: 'admin' })
             .eq('id', userId)
 
