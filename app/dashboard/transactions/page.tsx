@@ -63,13 +63,13 @@ export default function TransactionsPage() {
 
             // Calculate stats
             const today = new Date().toISOString().split('T')[0]
-            const todayTxns = data?.filter(t => t.created_at.startsWith(today)) || []
+            const todayTxns = (data as any)?.filter((t: any) => t.created_at.startsWith(today)) || []
 
             setStats({
                 total: data?.length || 0,
-                todayCredits: todayTxns.filter(t => t.type === 'credit' && t.source !== 'refund').reduce((sum, t) => sum + t.amount, 0),
-                todayDebits: todayTxns.filter(t => t.type === 'debit').reduce((sum, t) => sum + t.amount, 0),
-                todayRefunds: todayTxns.filter(t => t.source === 'refund').reduce((sum, t) => sum + t.amount, 0),
+                todayCredits: todayTxns.filter((t: any) => t.type === 'credit' && t.source !== 'refund').reduce((sum: number, t: any) => sum + t.amount, 0),
+                todayDebits: todayTxns.filter((t: any) => t.type === 'debit').reduce((sum: number, t: any) => sum + t.amount, 0),
+                todayRefunds: todayTxns.filter((t: any) => t.source === 'refund').reduce((sum: number, t: any) => sum + t.amount, 0),
             })
         } catch (error) {
             console.error('Error fetching transactions:', error)
