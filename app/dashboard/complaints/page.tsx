@@ -32,7 +32,7 @@ export default function ComplaintsPage() {
             const { data, error } = await supabase
                 .from('complaints')
                 .select('*')
-                .eq('user_id', dbUser?.id)
+                .eq('user_id', dbUser?.id as any)
                 .order('created_at', { ascending: false })
 
             if (error) throw error
@@ -40,9 +40,9 @@ export default function ComplaintsPage() {
 
             setStats({
                 total: data?.length || 0,
-                pending: data?.filter(c => c.status === 'pending' || c.status === 'in_review').length || 0,
-                resolved: data?.filter(c => c.status === 'resolved').length || 0,
-                rejected: data?.filter(c => c.status === 'rejected').length || 0,
+                pending: (data as any)?.filter((c: any) => c.status === 'pending' || c.status === 'in_review').length || 0,
+                resolved: (data as any)?.filter((c: any) => c.status === 'resolved').length || 0,
+                rejected: (data as any)?.filter((c: any) => c.status === 'rejected').length || 0,
             })
         } catch (error) {
             console.error('Error fetching complaints:', error)
@@ -155,9 +155,9 @@ export default function ComplaintsPage() {
                             <CardContent className="p-6">
                                 <div className="flex items-start gap-4">
                                     <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${complaint.status === 'resolved' ? 'bg-green-100 dark:bg-green-900/30' :
-                                            complaint.status === 'rejected' ? 'bg-red-100 dark:bg-red-900/30' :
-                                                complaint.status === 'in_review' ? 'bg-blue-100 dark:bg-blue-900/30' :
-                                                    'bg-amber-100 dark:bg-amber-900/30'
+                                        complaint.status === 'rejected' ? 'bg-red-100 dark:bg-red-900/30' :
+                                            complaint.status === 'in_review' ? 'bg-blue-100 dark:bg-blue-900/30' :
+                                                'bg-amber-100 dark:bg-amber-900/30'
                                         }`}>
                                         {getStatusIcon(complaint.status)}
                                     </div>
