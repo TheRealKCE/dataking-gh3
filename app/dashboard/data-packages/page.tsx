@@ -88,7 +88,7 @@ export default function DataPackagesPage() {
             .eq('user_id', dbUser.id)
             .single()
 
-        setWalletBalance(data?.balance || 0)
+        setWalletBalance((data as any)?.balance || 0)
     }
 
     const filterPackages = () => {
