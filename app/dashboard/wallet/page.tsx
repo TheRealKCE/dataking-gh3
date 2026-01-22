@@ -80,9 +80,9 @@ function WalletContent() {
                 .single()
 
             if (wallet) {
-                setWalletBalance(wallet.balance)
-                setTotalCredited(wallet.total_credited)
-                setTotalDebited(wallet.total_spent)
+                setWalletBalance((wallet as any).balance)
+                setTotalCredited((wallet as any).total_credited)
+                setTotalDebited((wallet as any).total_spent)
             }
 
             // Fetch recent transactions
