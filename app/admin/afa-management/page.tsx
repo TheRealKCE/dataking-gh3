@@ -25,7 +25,7 @@ export default function AdminAfaManagementPage() {
     }
 
     const updateStatus = async (id: string, status: string) => {
-        const { error } = await supabase.from('afa_orders').update({ status }).eq('id', id)
+        const { error } = await (supabase.from('afa_orders') as any).update({ status }).eq('id', id)
         if (error) {
             toast.error('Failed to update status')
         } else {
