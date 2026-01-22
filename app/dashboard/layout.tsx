@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Script from 'next/script'
 import { useAuth } from '@/contexts/auth-context'
 import { UIProvider } from '@/contexts/ui-context'
 import { DashboardSidebar } from '@/components/dashboard/sidebar'
@@ -40,6 +41,9 @@ export default function DashboardLayout({
 
     return (
         <UIProvider>
+            {/* Paystack Inline Script */}
+            <Script src="https://js.paystack.co/v1/inline.js" strategy="lazyOnload" />
+
             <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
                 <DashboardSidebar />
                 <div className="lg:pl-72">
