@@ -14,7 +14,7 @@ export async function createNotification(data: NotificationData) {
     const supabase = createServerClient()
 
     try {
-        const { error } = await supabase.from('notifications').insert({
+        const { error } = await (supabase.from('notifications') as any).insert({
             user_id: data.userId,
             title: data.title,
             message: data.message,
@@ -38,8 +38,8 @@ export async function createNotification(data: NotificationData) {
 export async function markAsRead(notificationId: string, userId: string) {
     const supabase = createServerClient()
 
-    const { error } = await supabase
-        .from('notifications')
+    const { error } = await (supabase
+        .from('notifications') as any)
         .update({ is_read: true })
         .eq('id', notificationId)
         .eq('user_id', userId)
@@ -50,8 +50,8 @@ export async function markAsRead(notificationId: string, userId: string) {
 export async function markAllAsRead(userId: string) {
     const supabase = createServerClient()
 
-    const { error } = await supabase
-        .from('notifications')
+    const { error } = await (supabase
+        .from('notifications') as any)
         .update({ is_read: true })
         .eq('user_id', userId)
         .eq('is_read', false)
@@ -62,8 +62,8 @@ export async function markAllAsRead(userId: string) {
 export async function deleteNotification(notificationId: string, userId: string) {
     const supabase = createServerClient()
 
-    const { error } = await supabase
-        .from('notifications')
+    const { error } = await (supabase
+        .from('notifications') as any)
         .delete()
         .eq('id', notificationId)
         .eq('user_id', userId)
@@ -78,8 +78,8 @@ export async function cleanupOldNotifications() {
     const cutoffDate = new Date()
     cutoffDate.setHours(cutoffDate.getHours() - 72)
 
-    const { error } = await supabase
-        .from('notifications')
+    const { error } = await (supabase
+        .from('notifications') as any)
         .delete()
         .eq('is_read', true)
         .lt('created_at', cutoffDate.toISOString())
