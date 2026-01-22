@@ -17,8 +17,8 @@ export default function AdminAfaManagementPage() {
     }, [])
 
     const fetchApplications = async () => {
-        const { data } = await supabase
-            .from('afa_orders')
+        const { data } = await (supabase
+            .from('afa_orders') as any)
             .select('*')
             .order('created_at', { ascending: false })
         setApplications(data || [])

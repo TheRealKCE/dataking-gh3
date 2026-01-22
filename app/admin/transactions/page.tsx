@@ -27,8 +27,8 @@ export default function AdminTransactionsPage() {
 
     const fetchTransactions = async () => {
         try {
-            const { data, error } = await supabase
-                .from('wallet_transactions')
+            const { data, error } = await (supabase
+                .from('wallet_transactions') as any)
                 .select(`
           *,
           users (
@@ -112,7 +112,7 @@ export default function AdminTransactionsPage() {
                                     </TableCell>
                                     <TableCell>
                                         <span className={`text-xs capitalize ${txn.status === 'completed' ? 'text-green-600' :
-                                                txn.status === 'failed' ? 'text-red-600' : 'text-amber-600'
+                                            txn.status === 'failed' ? 'text-red-600' : 'text-amber-600'
                                             }`}>
                                             {txn.status}
                                         </span>

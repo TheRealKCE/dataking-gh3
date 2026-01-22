@@ -15,8 +15,8 @@ export default function AdminMtnLogsPage() {
     }, [])
 
     const fetchLogs = async () => {
-        const { data } = await supabase
-            .from('mtn_fulfillment_tracking')
+        const { data } = await (supabase
+            .from('mtn_fulfillment_tracking') as any)
             .select(`
         *,
         orders (
