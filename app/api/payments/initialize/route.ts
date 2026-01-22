@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createRouteClient, createServerClient } from '@/lib/supabase'
+import { createRouteClient } from '@/lib/supabase-server'
+import { createServerClient } from '@/lib/supabase'
 import { calculatePaystackFee, generateReferenceCode } from '@/lib/utils'
 
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY!

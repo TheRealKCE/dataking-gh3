@@ -1,6 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import { createClientComponentClient, createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { Database } from '@/types/supabase'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
@@ -20,9 +19,4 @@ export const createServerClient = () => {
             persistSession: false,
         },
     })
-}
-
-// Route handler client for API routes (reads session from cookies)
-export const createRouteClient = () => {
-    return createRouteHandlerClient<Database>({ cookies })
 }
