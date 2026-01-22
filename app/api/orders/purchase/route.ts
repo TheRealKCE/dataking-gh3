@@ -1,0 +1,193 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createServerClient } from '@/lib/supabase'
+import { generateReferenceCode } from '@/lib/utils'
+
+export async function POST(request: NextRequest) {
+    try {
+        const supabase = createServerClient()
+        const { packageId, phoneNumber } = await request.json()
+
+        // Get user from auth header
+        const authHeader = request.headers.get('authorization')
+        if (!authHeader) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+
+        const token = authHeader.replace('Bearer ', '')
+        const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+
+        if (authError || !user) {
+            // Try to get user from cookies/session
+            const { data: { session } } = await supabase.auth.getSession()
+            if (!session?.user) {
+                return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            }
+        }
+
+        const userId = user?.id
+
+        // Get package details
+        const { data: pkg, error: pkgError } = await supabase
+            .from('data_packages')
+            .select('*')
+            .eq('id', packageId)
+            .eq('is_available', true)
+            .single()
+
+        if (pkgError || !pkg) {
+            return NextResponse.json({ error: 'Package not found' }, { status: 404 })
+        }
+
+        // Check if phone is blacklisted
+        const { data: blacklisted } = await supabase
+            .from('phone_blacklist')
+            .select('id')
+            .eq('phone_number', phoneNumber)
+            .single()
+
+        if (blacklisted) {
+            return NextResponse.json({ error: 'This phone number is not allowed' }, { status: 400 })
+        }
+
+        // Get user's wallet
+        const { data: wallet, error: walletError } = await supabase
+            .from('wallets')
+            .select('*')
+            .eq('user_id', userId)
+            .single()
+
+        if (walletError || !wallet) {
+            return NextResponse.json({ error: 'Wallet not found' }, { status: 404 })
+        }
+
+        // Check balance
+        if (wallet.balance < pkg.price) {
+            return NextResponse.json({ error: 'Insufficient balance' }, { status: 400 })
+        }
+
+        const referenceCode = generateReferenceCode()
+
+        // Create order
+        const { data: order, error: orderError } = await supabase
+            .from('orders')
+            .insert({
+                user_id: userId,
+                phone_number: phoneNumber,
+                network: pkg.network,
+                size: pkg.size,
+                price: pkg.price,
+                status: 'pending',
+                payment_status: 'paid',
+                reference_code: referenceCode,
+                fulfillment_method: 'auto',
+            })
+            .select()
+            .single()
+
+        if (orderError) {
+            console.error('Order creation error:', orderError)
+            return NextResponse.json({ error: 'Failed to create order' }, { status: 500 })
+        }
+
+        // Debit wallet
+        const newBalance = wallet.balance - pkg.price
+        const { error: debitError } = await supabase
+            .from('wallets')
+            .update({
+                balance: newBalance,
+                total_spent: wallet.total_spent + pkg.price,
+                updated_at: new Date().toISOString(),
+            })
+            .eq('id', wallet.id)
+
+        if (debitError) {
+            console.error('Wallet debit error:', debitError)
+            // Rollback order
+            await supabase.from('orders').delete().eq('id', order.id)
+            return NextResponse.json({ error: 'Failed to debit wallet' }, { status: 500 })
+        }
+
+        // Create wallet transaction
+        await supabase.from('wallet_transactions').insert({
+            wallet_id: wallet.id,
+            user_id: userId,
+            type: 'debit',
+            amount: pkg.price,
+            description: `Data purchase: ${pkg.size} for ${phoneNumber}`,
+            reference: referenceCode,
+            source: 'purchase',
+            status: 'completed',
+        })
+
+        // Update customer purchases
+        await updateCustomerPurchases(supabase, userId!, phoneNumber, pkg.price)
+
+        // Create notification
+        await supabase.from('notifications').insert({
+            user_id: userId,
+            title: 'Order Placed',
+            message: `Your order for ${pkg.size} to ${phoneNumber} has been placed and is being processed.`,
+            type: 'order_update',
+            action_url: `/dashboard/my-orders`,
+        })
+
+        // Trigger auto-fulfillment (async)
+        triggerFulfillment(order.id, pkg.network)
+
+        return NextResponse.json({
+            success: true,
+            order: {
+                id: order.id,
+                reference_code: referenceCode,
+                status: 'pending',
+            },
+        })
+    } catch (error) {
+        console.error('Purchase error:', error)
+        return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    }
+}
+
+async function updateCustomerPurchases(
+    supabase: any,
+    userId: string,
+    phoneNumber: string,
+    amount: number
+) {
+    const { data: existing } = await supabase
+        .from('customer_purchases')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('customer_phone', phoneNumber)
+        .single()
+
+    if (existing) {
+        await supabase
+            .from('customer_purchases')
+            .update({
+                total_purchases: existing.total_purchases + 1,
+                total_spent: existing.total_spent + amount,
+                last_purchase_at: new Date().toISOString(),
+            })
+            .eq('id', existing.id)
+    } else {
+        await supabase.from('customer_purchases').insert({
+            user_id: userId,
+            customer_phone: phoneNumber,
+            total_purchases: 1,
+            total_spent: amount,
+            first_purchase_at: new Date().toISOString(),
+            last_purchase_at: new Date().toISOString(),
+        })
+    }
+}
+
+async function triggerFulfillment(orderId: string, network: string) {
+    // This would be called asynchronously to trigger the fulfillment service
+    // For now, we'll just log it and rely on the cron job
+    console.log(`Triggering fulfillment for order ${orderId} on ${network}`)
+
+    // In production, you'd call:
+    // - MTN API for MTN orders
+    // - CodeCraft API for Telecel, AT-iShare, AT-BigTime orders
+}

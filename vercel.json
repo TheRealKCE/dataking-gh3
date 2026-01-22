@@ -1,0 +1,16 @@
+{
+    "crons": [
+        {
+            "path": "/api/cron/sync-mtn-status",
+            "schedule": "* * * * *"
+        },
+        {
+            "path": "/api/cron/verify-pending-payments",
+            "schedule": "*/2 * * * *"
+        },
+        {
+            "path": "/api/cron/sync-codecraft-status",
+            "schedule": "* * * * *"
+        }
+    ]
+}
