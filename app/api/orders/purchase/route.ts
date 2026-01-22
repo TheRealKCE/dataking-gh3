@@ -1,30 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { generateReferenceCode } from '@/lib/utils'
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { cookies } from 'next/headers'
 
 export async function POST(request: NextRequest) {
     try {
-        const supabase = createServerClient()
-        const { packageId, phoneNumber } = await request.json()
+        const supabaseUserClient = createRouteHandlerClient({ cookies })
+        const { data: { session }, error: sessionError } = await supabaseUserClient.auth.getSession()
 
-        // Get user from auth header
-        const authHeader = request.headers.get('authorization')
-        if (!authHeader) {
+        if (sessionError || !session?.user) {
+            console.error('Order API: Unauthorized - Session error or missing user:', sessionError?.message)
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        const token = authHeader.replace('Bearer ', '')
-        const { data: { user }, error: authError } = await supabase.auth.getUser(token)
+        const user = session.user
+        const userId = user.id
 
-        if (authError || !user) {
-            // Try to get user from cookies/session
-            const { data: { session } } = await supabase.auth.getSession()
-            if (!session?.user) {
-                return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-            }
+        let body;
+        try {
+            body = await request.json()
+        } catch (e) {
+            console.error('Order API: Failed to parse request body')
+            return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
         }
 
-        const userId = user?.id
+        const { packageId, phoneNumber } = body
+
+        // Service role client for privileged operations
+        const supabase = createServerClient()
 
         // Get package details
         const { data: pkg, error: pkgError } = await supabase
@@ -95,7 +99,7 @@ export async function POST(request: NextRequest) {
             .from('wallets')
             .update({
                 balance: newBalance,
-                total_spent: wallet.total_spent + pkg.price,
+                total_spent: (wallet.total_spent || 0) + pkg.price,
                 updated_at: new Date().toISOString(),
             })
             .eq('id', wallet.id)

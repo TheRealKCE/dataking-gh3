@@ -183,6 +183,7 @@ export interface Database {
                     fulfillment_method: 'auto' | 'manual'
                     codecraft_reference: string | null
                     error_message: string | null
+                    download_batch_id: string | null
                     created_at: string
                     updated_at: string
                 }
@@ -199,6 +200,7 @@ export interface Database {
                     fulfillment_method?: 'auto' | 'manual'
                     codecraft_reference?: string | null
                     error_message?: string | null
+                    download_batch_id?: string | null
                     created_at?: string
                     updated_at?: string
                 }
@@ -207,6 +209,7 @@ export interface Database {
                     payment_status?: 'paid' | 'refunded'
                     codecraft_reference?: string | null
                     error_message?: string | null
+                    download_batch_id?: string | null
                     updated_at?: string
                 }
             }
@@ -416,6 +419,27 @@ export interface Database {
                     last_purchase_at?: string
                 }
             }
+            download_batches: {
+                Row: {
+                    id: string
+                    filename: string
+                    network: string
+                    order_count: number
+                    created_at: string
+                }
+                Insert: {
+                    id?: string
+                    filename: string
+                    network: string
+                    order_count: number
+                    created_at?: string
+                }
+                Update: {
+                    filename?: string
+                    network?: string
+                    order_count?: number
+                }
+            }
         }
     }
 }
@@ -431,3 +455,4 @@ export type Complaint = Database['public']['Tables']['complaints']['Row']
 export type AdminSetting = Database['public']['Tables']['admin_settings']['Row']
 export type AFAOrder = Database['public']['Tables']['afa_orders']['Row']
 export type CustomerPurchase = Database['public']['Tables']['customer_purchases']['Row']
+export type DownloadBatch = Database['public']['Tables']['download_batches']['Row']

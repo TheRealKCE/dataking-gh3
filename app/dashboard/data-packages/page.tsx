@@ -36,7 +36,7 @@ import { DataPackage } from '@/types/supabase'
 const NETWORKS = ['All', 'MTN', 'Telecel', 'AT-iShare', 'AT-BigTime'] as const
 
 export default function DataPackagesPage() {
-    const { dbUser } = useAuth()
+    const { dbUser, session } = useAuth()
     const [packages, setPackages] = useState<DataPackage[]>([])
     const [filteredPackages, setFilteredPackages] = useState<DataPackage[]>([])
     const [selectedNetwork, setSelectedNetwork] = useState<string>('All')
@@ -155,7 +155,10 @@ export default function DataPackagesPage() {
         try {
             const response = await fetch('/api/orders/purchase', {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session?.access_token}`
+                },
                 body: JSON.stringify({
                     packageId: selectedPackage.id,
                     phoneNumber: validation.normalizedNumber,

@@ -74,23 +74,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 data: {
                     first_name: data.firstName,
                     last_name: data.lastName,
+                    phone_number: data.phoneNumber,
                 },
             },
         })
 
         if (authError) return { error: authError }
-
-        if (authData.user) {
-            const { error: profileError } = await supabase.from('users').insert({
-                id: authData.user.id,
-                email: data.email,
-                first_name: data.firstName,
-                last_name: data.lastName,
-                phone_number: data.phoneNumber,
-            })
-
-            if (profileError) return { error: profileError }
-        }
 
         return { error: null }
     }

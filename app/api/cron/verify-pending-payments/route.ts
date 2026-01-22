@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
+import { processCompletedWalletPayment } from '@/lib/payments'
 
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY!
 
@@ -32,7 +33,7 @@ export async function GET(request: NextRequest) {
             try {
                 // Verify with Paystack
                 const response = await fetch(
-                    `https://api.paystack.co/transaction/verify/${payment.reference}`,
+                    `https://api.paystack.co/transaction/verify/${(payment as any).reference}`,
                     {
                         headers: {
                             'Authorization': `Bearer ${PAYSTACK_SECRET_KEY}`,
@@ -43,69 +44,27 @@ export async function GET(request: NextRequest) {
                 const data = await response.json()
 
                 if (data.status && data.data.status === 'success') {
-                    // Payment successful - credit wallet
-                    const { data: wallet } = await supabase
-                        .from('wallets')
-                        .select('*')
-                        .eq('id', payment.wallet_id)
-                        .single()
-
-                    if (wallet) {
-                        await supabase
-                            .from('wallets')
-                            .update({
-                                balance: wallet.balance + payment.amount,
-                                total_credited: wallet.total_credited + payment.amount,
-                                updated_at: new Date().toISOString(),
-                            })
-                            .eq('id', wallet.id)
-
-                        await supabase.from('wallet_transactions').insert({
-                            wallet_id: wallet.id,
-                            user_id: payment.user_id,
-                            type: 'credit',
-                            amount: payment.amount,
-                            description: 'Wallet top-up via Paystack (verified by cron)',
-                            reference: payment.reference,
-                            source: 'payment',
-                            status: 'completed',
-                        })
-
-                        await supabase.from('notifications').insert({
-                            user_id: payment.user_id,
-                            title: 'Wallet Topped Up',
-                            message: `Your wallet has been credited with GHS ${payment.amount.toFixed(2)}`,
-                            type: 'payment_success',
-                            action_url: '/dashboard/wallet',
-                        })
+                    // Process the payment using shared utility
+                    const result = await processCompletedWalletPayment((payment as any).reference, data.data)
+                    if (result.success) {
+                        verified++
                     }
-
-                    await supabase
-                        .from('wallet_payments')
-                        .update({
-                            status: 'completed',
-                            metadata: data.data,
-                            updated_at: new Date().toISOString(),
-                        })
-                        .eq('id', payment.id)
-
-                    verified++
                 } else if (data.data?.status === 'failed' || data.data?.status === 'abandoned') {
                     // Payment failed
-                    await supabase
-                        .from('wallet_payments')
+                    await (supabase
+                        .from('wallet_payments') as any)
                         .update({
                             status: 'failed',
                             metadata: data.data,
                             updated_at: new Date().toISOString(),
                         })
-                        .eq('id', payment.id)
+                        .eq('id', (payment as any).id)
 
                     failed++
                 }
                 // If still pending at Paystack, leave as-is
             } catch (paymentError) {
-                console.error(`Error verifying payment ${payment.id}:`, paymentError)
+                console.error(`Error verifying payment ${(payment as any).id}:`, paymentError)
             }
         }
 

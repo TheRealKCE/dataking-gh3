@@ -42,16 +42,24 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Label } from '@/components/ui/label'
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select'
 
 export default function AdminUsersPage() {
     const [users, setUsers] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
     const [searchTerm, setSearchTerm] = useState('')
 
-    // Wallet Credit Dialog State
-    const [creditDialogUser, setCreditDialogUser] = useState<any>(null)
-    const [creditAmount, setCreditAmount] = useState('')
-    const [creditDescription, setCreditDescription] = useState('Admin manual credit')
+    // Wallet Adjustment Dialog State
+    const [adjustmentDialogUser, setAdjustmentDialogUser] = useState<any>(null)
+    const [adjustmentAmount, setAdjustmentAmount] = useState('')
+    const [adjustmentType, setAdjustmentType] = useState<'credit' | 'debit'>('credit')
+    const [adjustmentDescription, setAdjustmentDescription] = useState('Admin manual adjustment')
 
     useEffect(() => {
         fetchUsers()
@@ -59,21 +67,16 @@ export default function AdminUsersPage() {
 
     const fetchUsers = async () => {
         try {
-            const { data, error } = await supabase
-                .from('users')
-                .select(`
-          *,
-          wallets (
-            balance
-          )
-        `)
-                .order('created_at', { ascending: false })
-
-            if (error) throw error
+            const response = await fetch('/api/admin/users')
+            if (!response.ok) {
+                const result = await response.json()
+                throw new Error(result.error || 'Failed to fetch users')
+            }
+            const data = await response.json()
             setUsers(data || [])
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error fetching users:', error)
-            toast.error('Failed to load users')
+            toast.error(error.message || 'Failed to load users')
         } finally {
             setLoading(false)
         }
@@ -81,8 +84,8 @@ export default function AdminUsersPage() {
 
     const handleStatusChange = async (userId: string, newStatus: string) => {
         try {
-            const { error } = await supabase
-                .from('users')
+            const { error } = await (supabase
+                .from('users') as any)
                 .update({ status: newStatus })
                 .eq('id', userId)
 
@@ -99,66 +102,60 @@ export default function AdminUsersPage() {
         if (!confirm(`Are you sure you want to make this user ${newRole}?`)) return
 
         try {
-            const { error } = await supabase
-                .from('users')
-                .update({ role: newRole })
-                .eq('id', userId)
+            setLoading(true)
+            const response = await fetch('/api/admin/users/role', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId, role: newRole })
+            })
 
-            if (error) throw error
+            const result = await response.json()
+            if (!response.ok) throw new Error(result.error || 'Failed to update user role')
 
             setUsers(users.map(u => u.id === userId ? { ...u, role: newRole } : u))
             toast.success(`User role updated to ${newRole}`)
-        } catch (error) {
-            toast.error('Failed to update user role')
+        } catch (error: any) {
+            console.error('Role change error:', error)
+            toast.error(error.message || 'Failed to update user role')
+        } finally {
+            setLoading(false)
         }
     }
 
-    const handleManualCredit = async () => {
-        if (!creditDialogUser || !creditAmount) return
+    const handleManualAdjustment = async () => {
+        if (!adjustmentDialogUser || !adjustmentAmount) return
 
-        const amount = parseFloat(creditAmount)
+        const amount = parseFloat(adjustmentAmount)
         if (isNaN(amount) || amount <= 0) {
             toast.error('Invalid amount')
             return
         }
 
         try {
-            // Get wallet
-            const { data: wallet } = await supabase
-                .from('wallets')
-                .select('id, balance, total_credited')
-                .eq('user_id', creditDialogUser.id)
-                .single()
-
-            if (!wallet) throw new Error('Wallet not found')
-
-            // Update wallet
-            await supabase
-                .from('wallets')
-                .update({
-                    balance: wallet.balance + amount,
-                    total_credited: wallet.total_credited + amount
+            setLoading(true)
+            const response = await fetch('/api/admin/users/wallet/adjustment', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId: adjustmentDialogUser.id,
+                    amount: amount,
+                    type: adjustmentType,
+                    description: adjustmentDescription
                 })
-                .eq('id', wallet.id)
-
-            // Transaction log
-            await supabase.from('wallet_transactions').insert({
-                wallet_id: wallet.id,
-                user_id: creditDialogUser.id,
-                type: 'credit',
-                amount: amount,
-                description: creditDescription,
-                source: 'admin',
-                status: 'completed'
             })
 
-            toast.success('Wallet credited successfully')
+            const result = await response.json()
+            if (!response.ok) throw new Error(result.error || 'Failed to adjust wallet')
+
+            toast.success(`Wallet ${adjustmentType === 'credit' ? 'credited' : 'debited'} successfully`)
             fetchUsers() // Refresh list to show new balance
-            setCreditDialogUser(null)
-            setCreditAmount('')
-        } catch (error) {
-            console.error('Credit error:', error)
-            toast.error('Failed to credit wallet')
+            setAdjustmentDialogUser(null)
+            setAdjustmentAmount('')
+        } catch (error: any) {
+            console.error('Adjustment error:', error)
+            toast.error(error.message || `Failed to ${adjustmentType} wallet`)
+        } finally {
+            setLoading(false)
         }
     }
 
@@ -230,7 +227,9 @@ export default function AdminUsersPage() {
                                                 </Badge>
                                             </TableCell>
                                             <TableCell className="font-semibold text-green-600">
-                                                {formatCurrency(user.wallets?.[0]?.balance || 0)}
+                                                {formatCurrency(
+                                                    (Array.isArray(user.wallets) ? user.wallets[0]?.balance : user.wallets?.balance) || 0
+                                                )}
                                             </TableCell>
                                             <TableCell className="text-sm text-muted-foreground">
                                                 {formatDate(user.created_at)}
@@ -245,9 +244,22 @@ export default function AdminUsersPage() {
                                                     <DropdownMenuContent align="end">
                                                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
 
-                                                        <DropdownMenuItem onClick={() => setCreditDialogUser(user)}>
+                                                        <DropdownMenuItem onClick={() => {
+                                                            setAdjustmentDialogUser(user)
+                                                            setAdjustmentType('credit')
+                                                            setAdjustmentDescription('Admin manual credit')
+                                                        }}>
                                                             <Wallet className="w-4 h-4 mr-2" />
                                                             Credit Wallet
+                                                        </DropdownMenuItem>
+
+                                                        <DropdownMenuItem onClick={() => {
+                                                            setAdjustmentDialogUser(user)
+                                                            setAdjustmentType('debit')
+                                                            setAdjustmentDescription('Admin manual debit')
+                                                        }}>
+                                                            <Wallet className="w-4 h-4 mr-2 text-red-500" />
+                                                            Debit Wallet
                                                         </DropdownMenuItem>
 
                                                         {user.status !== 'suspended' ? (
@@ -285,36 +297,56 @@ export default function AdminUsersPage() {
                 </CardContent>
             </Card>
 
-            {/* Credit Wallet Dialog */}
-            <Dialog open={!!creditDialogUser} onOpenChange={() => setCreditDialogUser(null)}>
+            {/* Wallet Adjustment Dialog */}
+            <Dialog open={!!adjustmentDialogUser} onOpenChange={() => setAdjustmentDialogUser(null)}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Credit User Wallet</DialogTitle>
+                        <DialogTitle>{adjustmentType === 'credit' ? 'Credit' : 'Debit'} User Wallet</DialogTitle>
                         <DialogDescription>
-                            Add funds manually to {creditDialogUser?.first_name} {creditDialogUser?.last_name}'s wallet.
+                            {adjustmentType === 'credit' ? 'Add funds to' : 'Deduct funds from'} {adjustmentDialogUser?.first_name} {adjustmentDialogUser?.last_name}'s wallet.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
                         <div className="space-y-2">
+                            <Label>Adjustment Type</Label>
+                            <Select
+                                value={adjustmentType}
+                                onValueChange={(value: 'credit' | 'debit') => setAdjustmentType(value)}
+                            >
+                                <SelectTrigger>
+                                    <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="credit">Credit (+)</SelectItem>
+                                    <SelectItem value="debit">Debit (-)</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-2">
                             <Label>Amount (GHS)</Label>
                             <Input
                                 type="number"
-                                value={creditAmount}
-                                onChange={(e) => setCreditAmount(e.target.value)}
+                                value={adjustmentAmount}
+                                onChange={(e) => setAdjustmentAmount(e.target.value)}
                                 placeholder="0.00"
                             />
                         </div>
                         <div className="space-y-2">
                             <Label>Description</Label>
                             <Input
-                                value={creditDescription}
-                                onChange={(e) => setCreditDescription(e.target.value)}
+                                value={adjustmentDescription}
+                                onChange={(e) => setAdjustmentDescription(e.target.value)}
                             />
                         </div>
                     </div>
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setCreditDialogUser(null)}>Cancel</Button>
-                        <Button onClick={handleManualCredit}>Credit Wallet</Button>
+                        <Button variant="outline" onClick={() => setAdjustmentDialogUser(null)}>Cancel</Button>
+                        <Button
+                            variant={adjustmentType === 'debit' ? 'destructive' : 'default'}
+                            onClick={handleManualAdjustment}
+                        >
+                            {adjustmentType === 'credit' ? 'Credit Wallet' : 'Debit Wallet'}
+                        </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

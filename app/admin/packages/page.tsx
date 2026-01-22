@@ -49,6 +49,7 @@ interface PackageFormData {
     network: typeof NETWORKS[number]
     size: string
     price: number
+    cost_price: number
     description: string
     is_available: boolean
     sort_order: number
@@ -58,6 +59,7 @@ const defaultFormData: PackageFormData = {
     network: 'MTN',
     size: '',
     price: 0,
+    cost_price: 0,
     description: '',
     is_available: true,
     sort_order: 0,
@@ -105,6 +107,7 @@ export default function AdminPackagesPage() {
             network: pkg.network,
             size: pkg.size,
             price: pkg.price,
+            cost_price: pkg.cost_price || 0,
             description: pkg.description || '',
             is_available: pkg.is_available,
             sort_order: pkg.sort_order,
@@ -287,7 +290,7 @@ export default function AdminPackagesPage() {
                         </div>
                         <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
-                                <Label>Price (GHS)</Label>
+                                <Label>Selling Price (GHS)</Label>
                                 <Input
                                     type="number"
                                     value={formData.price}
@@ -295,6 +298,17 @@ export default function AdminPackagesPage() {
                                     placeholder="0.00"
                                 />
                             </div>
+                            <div className="space-y-2">
+                                <Label>Cost Price (GHS)</Label>
+                                <Input
+                                    type="number"
+                                    value={formData.cost_price}
+                                    onChange={(e) => setFormData(prev => ({ ...prev, cost_price: parseFloat(e.target.value) || 0 }))}
+                                    placeholder="0.00"
+                                />
+                            </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label>Sort Order</Label>
                                 <Input

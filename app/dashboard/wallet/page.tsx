@@ -1,7 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { useAuth } from '@/contexts/auth-context'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency, formatDate, calculatePaystackFee } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -30,7 +31,7 @@ const QUICK_AMOUNTS = [50, 100, 200, 500]
 const MIN_AMOUNT = 5
 const PAYSTACK_FEE_PERCENT = 1.95
 
-export default function WalletPage() {
+function WalletContent() {
     const { dbUser } = useAuth()
     const [walletBalance, setWalletBalance] = useState(0)
     const [totalCredited, setTotalCredited] = useState(0)
@@ -39,12 +40,35 @@ export default function WalletPage() {
     const [isLoading, setIsLoading] = useState(true)
     const [topUpAmount, setTopUpAmount] = useState('')
     const [isProcessing, setIsProcessing] = useState(false)
+    const searchParams = useSearchParams()
+    const router = useRouter()
 
     useEffect(() => {
         if (dbUser) {
             fetchWalletData()
         }
     }, [dbUser])
+
+    useEffect(() => {
+        const success = searchParams.get('success')
+        const error = searchParams.get('error')
+
+        if (success === 'true') {
+            toast.success('Wallet topped up successfully!')
+            fetchWalletData()
+            // Clean up URL
+            router.replace('/dashboard/wallet')
+        } else if (error) {
+            let message = 'Failed to process payment'
+            if (error === 'payment_failed') message = 'Payment was not successful'
+            if (error === 'verification_failed') message = 'Could not verify payment'
+            if (error === 'no_reference') message = 'Invalid payment reference'
+
+            toast.error(message)
+            // Clean up URL
+            router.replace('/dashboard/wallet')
+        }
+    }, [searchParams, router])
 
     const fetchWalletData = async () => {
         try {
@@ -296,8 +320,8 @@ export default function WalletPage() {
                                 >
                                     <div className="flex items-center gap-4">
                                         <div className={`w-10 h-10 rounded-full flex items-center justify-center ${txn.type === 'credit'
-                                                ? 'bg-green-100 dark:bg-green-900/30'
-                                                : 'bg-red-100 dark:bg-red-900/30'
+                                            ? 'bg-green-100 dark:bg-green-900/30'
+                                            : 'bg-red-100 dark:bg-red-900/30'
                                             }`}>
                                             {txn.type === 'credit' ? (
                                                 <ArrowDownLeft className="w-5 h-5 text-green-600" />
@@ -328,5 +352,22 @@ export default function WalletPage() {
                 </CardContent>
             </Card>
         </div>
+    )
+}
+
+export default function WalletPage() {
+    return (
+        <Suspense fallback={
+            <div className="space-y-6 p-6">
+                <Skeleton className="h-48 w-full max-w-md" />
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {[...Array(3)].map((_, i) => (
+                        <Skeleton key={i} className="h-24" />
+                    ))}
+                </div>
+            </div>
+        }>
+            <WalletContent />
+        </Suspense>
     )
 }

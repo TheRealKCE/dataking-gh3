@@ -38,44 +38,14 @@ export default function AdminDashboardPage() {
 
     const fetchStats = async () => {
         try {
-            // Fetch users count
-            const { count: usersCount } = await supabase
-                .from('users')
-                .select('*', { count: 'exact', head: true })
-
-            // Fetch orders
-            const { data: orders } = await supabase
-                .from('orders')
-                .select('status, price, created_at')
-
-            const totalOrders = orders?.length || 0
-            const completedOrders = orders?.filter(o => o.status === 'completed').length || 0
-            const pendingOrders = orders?.filter(o => o.status === 'pending' || o.status === 'processing').length || 0
-            const totalRevenue = orders?.filter(o => o.status === 'completed').reduce((sum, o) => sum + o.price, 0) || 0
-            const successRate = totalOrders > 0 ? Math.round((completedOrders / totalOrders) * 100) : 0
-
-            // Today's orders
-            const today = new Date().toISOString().split('T')[0]
-            const todayOrders = orders?.filter(o => o.created_at.startsWith(today)).length || 0
-
-            // Total wallet balance
-            const { data: wallets } = await supabase
-                .from('wallets')
-                .select('balance')
-
-            const totalWalletBalance = wallets?.reduce((sum, w) => sum + w.balance, 0) || 0
-
-            setStats({
-                totalUsers: usersCount || 0,
-                totalOrders,
-                completedOrders,
-                pendingOrders,
-                totalRevenue,
-                totalWalletBalance,
-                successRate,
-                todayOrders,
-            })
-        } catch (error) {
+            const response = await fetch('/api/admin/stats')
+            if (!response.ok) {
+                const result = await response.json()
+                throw new Error(result.error || 'Failed to fetch stats')
+            }
+            const data = await response.json()
+            setStats(data)
+        } catch (error: any) {
             console.error('Error fetching admin stats:', error)
         } finally {
             setIsLoading(false)
