@@ -154,6 +154,7 @@ function WalletContent() {
                     try {
                         const verifyResponse = await fetch(`/api/payments/verify?reference=${response.reference}`, {
                             credentials: 'include',
+                            headers: { 'Accept': 'application/json' },
                         })
                         const verifyData = await verifyResponse.json()
 
@@ -174,7 +175,12 @@ function WalletContent() {
                 },
             })
 
-            handler.openIframe()
+            // If we have an access_code, use resumeTransaction for the already-initialized transaction
+            if (data.access_code) {
+                handler.resumeTransaction(data.access_code)
+            } else {
+                handler.openIframe()
+            }
         } catch (error: any) {
             toast.error(error.message || 'Failed to process payment')
             setIsProcessing(false)
@@ -248,99 +254,102 @@ function WalletContent() {
                                 Add funds to your wallet using mobile money, card, or bank transfer
                             </CardDescription>
                         </CardHeader>
-                        <CardContent className="space-y-6">
-                            {/* Quick Amounts */}
-                            <div>
-                                <Label className="text-sm text-muted-foreground mb-3 block">Quick Select</Label>
-                                <div className="grid grid-cols-4 gap-3">
-                                    {QUICK_AMOUNTS.map((amount) => (
-                                        <Button
-                                            key={amount}
-                                            variant={topUpAmount === amount.toString() ? 'default' : 'outline'}
-                                            onClick={() => handleQuickAmount(amount)}
-                                            className="h-12"
-                                        >
-                                            {formatCurrency(amount)}
-                                        </Button>
-                                    ))}
-                                </div>
-                            </div>
-
-                            {/* Custom Amount */}
-                            <div>
-                                <Label htmlFor="amount">Custom Amount (GHS)</Label>
-                                <div className="relative mt-2">
-                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">GHS</span>
-                                    <Input
-                                        id="amount"
-                                        type="number"
-                                        placeholder="Enter amount"
-                                        value={topUpAmount}
-                                        onChange={(e) => setTopUpAmount(e.target.value)}
-                                        className="pl-12 h-12 text-lg"
-                                        min={MIN_AMOUNT}
-                                    />
-                                </div>
-                                <p className="text-xs text-muted-foreground mt-1">Minimum: {formatCurrency(MIN_AMOUNT)}</p>
-                            </div>
-
-                            {/* Summary */}
-                            {topUpAmount && parseFloat(topUpAmount) >= MIN_AMOUNT && (
-                                <div className="p-4 rounded-xl bg-muted/50 space-y-2">
-                                    <div className="flex justify-between text-sm">
-                                        <span className="text-muted-foreground">Top-up amount</span>
-                                        <span>{formatCurrency(parseFloat(topUpAmount))}</span>
-                                    </div>
-                                    <div className="flex justify-between text-sm">
-                                        <span className="text-muted-foreground">Transaction fee ({PAYSTACK_FEE_PERCENT}%)</span>
-                                        <span>{formatCurrency(fee)}</span>
-                                    </div>
-                                    <Separator />
-                                    <div className="flex justify-between font-semibold">
-                                        <span>Total to pay</span>
-                                        <span className="text-primary">{formatCurrency(totalAmount)}</span>
+                        <form onSubmit={(e) => { e.preventDefault(); handleTopUp(); }}>
+                            <CardContent className="space-y-6">
+                                {/* Quick Amounts */}
+                                <div>
+                                    <Label className="text-sm text-muted-foreground mb-3 block">Quick Select</Label>
+                                    <div className="grid grid-cols-4 gap-3">
+                                        {QUICK_AMOUNTS.map((amount) => (
+                                            <Button
+                                                key={amount}
+                                                type="button"
+                                                variant={topUpAmount === amount.toString() ? 'default' : 'outline'}
+                                                onClick={() => handleQuickAmount(amount)}
+                                                className="h-12"
+                                            >
+                                                {formatCurrency(amount)}
+                                            </Button>
+                                        ))}
                                     </div>
                                 </div>
-                            )}
 
-                            {/* Payment Methods */}
-                            <div>
-                                <Label className="text-sm text-muted-foreground mb-3 block">Payment Methods</Label>
-                                <div className="grid grid-cols-3 gap-3">
-                                    <div className="p-4 rounded-xl border bg-background text-center">
-                                        <Smartphone className="w-6 h-6 mx-auto mb-2 text-yellow-500" />
-                                        <span className="text-sm">Mobile Money</span>
+                                {/* Custom Amount */}
+                                <div>
+                                    <Label htmlFor="amount">Custom Amount (GHS)</Label>
+                                    <div className="relative mt-2">
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground">GHS</span>
+                                        <Input
+                                            id="amount"
+                                            type="number"
+                                            placeholder="Enter amount"
+                                            value={topUpAmount}
+                                            onChange={(e) => setTopUpAmount(e.target.value)}
+                                            className="pl-12 h-12 text-lg"
+                                            min={MIN_AMOUNT}
+                                        />
                                     </div>
-                                    <div className="p-4 rounded-xl border bg-background text-center">
-                                        <CreditCard className="w-6 h-6 mx-auto mb-2 text-blue-500" />
-                                        <span className="text-sm">Card</span>
-                                    </div>
-                                    <div className="p-4 rounded-xl border bg-background text-center">
-                                        <Building className="w-6 h-6 mx-auto mb-2 text-purple-500" />
-                                        <span className="text-sm">Bank Transfer</span>
-                                    </div>
+                                    <p className="text-xs text-muted-foreground mt-1">Minimum: {formatCurrency(MIN_AMOUNT)}</p>
                                 </div>
-                            </div>
 
-                            {/* Pay Button */}
-                            <Button
-                                className="w-full h-12 text-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-                                onClick={handleTopUp}
-                                disabled={isProcessing || !topUpAmount || parseFloat(topUpAmount) < MIN_AMOUNT}
-                            >
-                                {isProcessing ? (
-                                    <>
-                                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                                        Processing...
-                                    </>
-                                ) : (
-                                    <>
-                                        <Plus className="w-5 h-5 mr-2" />
-                                        Top Up {topUpAmount && parseFloat(topUpAmount) >= MIN_AMOUNT && formatCurrency(parseFloat(topUpAmount))}
-                                    </>
+                                {/* Summary */}
+                                {topUpAmount && parseFloat(topUpAmount) >= MIN_AMOUNT && (
+                                    <div className="p-4 rounded-xl bg-muted/50 space-y-2">
+                                        <div className="flex justify-between text-sm">
+                                            <span className="text-muted-foreground">Top-up amount</span>
+                                            <span>{formatCurrency(parseFloat(topUpAmount))}</span>
+                                        </div>
+                                        <div className="flex justify-between text-sm">
+                                            <span className="text-muted-foreground">Transaction fee ({PAYSTACK_FEE_PERCENT}%)</span>
+                                            <span>{formatCurrency(fee)}</span>
+                                        </div>
+                                        <Separator />
+                                        <div className="flex justify-between font-semibold">
+                                            <span>Total to pay</span>
+                                            <span className="text-primary">{formatCurrency(totalAmount)}</span>
+                                        </div>
+                                    </div>
                                 )}
-                            </Button>
-                        </CardContent>
+
+                                {/* Payment Methods */}
+                                <div>
+                                    <Label className="text-sm text-muted-foreground mb-3 block">Payment Methods</Label>
+                                    <div className="grid grid-cols-3 gap-3">
+                                        <div className="p-4 rounded-xl border bg-background text-center">
+                                            <Smartphone className="w-6 h-6 mx-auto mb-2 text-yellow-500" />
+                                            <span className="text-sm">Mobile Money</span>
+                                        </div>
+                                        <div className="p-4 rounded-xl border bg-background text-center">
+                                            <CreditCard className="w-6 h-6 mx-auto mb-2 text-blue-500" />
+                                            <span className="text-sm">Card</span>
+                                        </div>
+                                        <div className="p-4 rounded-xl border bg-background text-center">
+                                            <Building className="w-6 h-6 mx-auto mb-2 text-purple-500" />
+                                            <span className="text-sm">Bank Transfer</span>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Pay Button */}
+                                <Button
+                                    type="submit"
+                                    className="w-full h-12 text-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                                    disabled={isProcessing || !topUpAmount || parseFloat(topUpAmount) < MIN_AMOUNT}
+                                >
+                                    {isProcessing ? (
+                                        <>
+                                            <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                                            Processing...
+                                        </>
+                                    ) : (
+                                        <>
+                                            <Plus className="w-5 h-5 mr-2" />
+                                            Top Up {topUpAmount && parseFloat(topUpAmount) >= MIN_AMOUNT && formatCurrency(parseFloat(topUpAmount))}
+                                        </>
+                                    )}
+                                </Button>
+                            </CardContent>
+                        </form>
                     </Card>
                 </div>
             </div>

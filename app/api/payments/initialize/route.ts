@@ -114,6 +114,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({
             success: true,
             authorization_url: paystackData.data.authorization_url,
+            access_code: paystackData.data.access_code,
             reference: reference,
         })
     } catch (error) {
