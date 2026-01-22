@@ -28,8 +28,8 @@ export default function AdminSettingsPage() {
 
     const fetchSettings = async () => {
         try {
-            const { data, error } = await supabase
-                .from('admin_settings')
+            const { data, error } = await (supabase
+                .from('admin_settings') as any)
                 .select('*')
 
             if (error) throw error
@@ -65,8 +65,8 @@ export default function AdminSettingsPage() {
                 { key: 'auto_fulfillment_enabled', value: String(autoFulfillment) }
             ]
 
-            const { error } = await supabase
-                .from('admin_settings')
+            const { error } = await (supabase
+                .from('admin_settings') as any)
                 .upsert(updates)
 
             if (error) throw error
