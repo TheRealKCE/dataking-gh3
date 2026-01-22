@@ -119,6 +119,7 @@ function WalletContent() {
             const response = await fetch('/api/payments/initialize', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
                 body: JSON.stringify({ amount }),
             })
 
