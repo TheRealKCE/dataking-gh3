@@ -55,7 +55,7 @@ export default function TransactionsPage() {
             const { data, error } = await supabase
                 .from('wallet_transactions')
                 .select('*')
-                .eq('user_id', dbUser?.id)
+                .eq('user_id', dbUser?.id as any)
                 .order('created_at', { ascending: false })
 
             if (error) throw error
@@ -214,8 +214,8 @@ export default function TransactionsPage() {
                                     <TableRow key={txn.id}>
                                         <TableCell>
                                             <div className={`w-8 h-8 rounded-full flex items-center justify-center ${txn.type === 'credit'
-                                                    ? 'bg-green-100 dark:bg-green-900/30'
-                                                    : 'bg-red-100 dark:bg-red-900/30'
+                                                ? 'bg-green-100 dark:bg-green-900/30'
+                                                : 'bg-red-100 dark:bg-red-900/30'
                                                 }`}>
                                                 {txn.type === 'credit' ? (
                                                     <ArrowDownLeft className="w-4 h-4 text-green-600" />
