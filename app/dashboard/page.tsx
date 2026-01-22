@@ -60,27 +60,27 @@ export default function DashboardPage() {
             const { data: orders } = await supabase
                 .from('orders')
                 .select('status')
-                .eq('user_id', dbUser?.id)
+                .eq('user_id', dbUser?.id as any)
 
             const totalOrders = orders?.length || 0
-            const completedOrders = orders?.filter(o => o.status === 'completed').length || 0
-            const processingOrders = orders?.filter(o => o.status === 'processing').length || 0
-            const failedOrders = orders?.filter(o => o.status === 'failed').length || 0
-            const pendingOrders = orders?.filter(o => o.status === 'pending').length || 0
+            const completedOrders = (orders as any)?.filter((o: any) => o.status === 'completed').length || 0
+            const processingOrders = (orders as any)?.filter((o: any) => o.status === 'processing').length || 0
+            const failedOrders = (orders as any)?.filter((o: any) => o.status === 'failed').length || 0
+            const pendingOrders = (orders as any)?.filter((o: any) => o.status === 'pending').length || 0
             const successRate = totalOrders > 0 ? Math.round((completedOrders / totalOrders) * 100) : 0
 
             // Fetch wallet balance
             const { data: wallet } = await supabase
                 .from('wallets')
                 .select('balance')
-                .eq('user_id', dbUser?.id)
+                .eq('user_id', dbUser?.id as any)
                 .single()
 
             // Fetch recent orders
             const { data: recent } = await supabase
                 .from('orders')
                 .select('id, phone_number, network, size, price, status, created_at')
-                .eq('user_id', dbUser?.id)
+                .eq('user_id', dbUser?.id as any)
                 .order('created_at', { ascending: false })
                 .limit(5)
 
@@ -91,7 +91,7 @@ export default function DashboardPage() {
                 failedOrders,
                 pendingOrders,
                 successRate,
-                walletBalance: wallet?.balance || 0,
+                walletBalance: (wallet as any)?.balance || 0,
             })
             setRecentOrders(recent || [])
         } catch (error) {
