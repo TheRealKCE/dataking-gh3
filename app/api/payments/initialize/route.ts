@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase'
+import { createRouteClient, createServerClient } from '@/lib/supabase'
 import { calculatePaystackFee, generateReferenceCode } from '@/lib/utils'
 
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY!
@@ -7,7 +7,8 @@ const PAYSTACK_FEE_PERCENT = 1.95
 
 export async function POST(request: NextRequest) {
     try {
-        const supabase = createServerClient()
+        const supabase = createRouteClient()
+        const supabaseAdmin = createServerClient() // For database operations
         const { amount } = await request.json()
 
         if (!amount || amount < 5) {
