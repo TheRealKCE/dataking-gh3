@@ -25,21 +25,21 @@ export async function POST(request: NextRequest) {
         const userId = session.user.id
 
         // Get user details
-        const { data: user } = await supabase
+        const { data: user } = await supabaseAdmin
             .from('users')
             .select('email')
             .eq('id', userId)
             .single()
 
         // Get or create wallet
-        let { data: wallet } = await supabase
-            .from('wallets')
+        let { data: wallet } = await (supabaseAdmin
+            .from('wallets') as any)
             .select('id')
             .eq('user_id', userId)
             .single()
 
         if (!wallet) {
-            const { data: newWallet } = await (supabase
+            const { data: newWallet } = await (supabaseAdmin
                 .from('wallets') as any)
                 .insert({ user_id: userId })
                 .select()
@@ -52,7 +52,7 @@ export async function POST(request: NextRequest) {
         const reference = `WAL-${generateReferenceCode()}`
 
         // Create payment record
-        const { data: payment, error: paymentError } = await (supabase
+        const { data: payment, error: paymentError } = await (supabaseAdmin
             .from('wallet_payments') as any)
             .insert({
                 user_id: userId,
@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
 
         if (!paystackData.status) {
             console.error('Paystack error:', paystackData)
-            await (supabase
+            await (supabaseAdmin
                 .from('wallet_payments') as any)
                 .update({ status: 'failed' })
                 .eq('id', (payment as any).id)
@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Update payment with Paystack reference
-        await (supabase
+        await (supabaseAdmin
             .from('wallet_payments') as any)
             .update({ provider_reference: paystackData.data.reference })
             .eq('id', (payment as any).id)
