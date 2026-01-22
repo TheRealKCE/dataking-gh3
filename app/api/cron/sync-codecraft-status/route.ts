@@ -105,7 +105,7 @@ export async function GET(request: NextRequest) {
                     }
                 }
             } catch (orderError) {
-                console.error(`Error processing order ${order.id}:`, orderError)
+                console.error(`Error processing order ${(order as any).id}:`, orderError)
                 failed++
             }
         }
