@@ -76,7 +76,7 @@ function WalletContent() {
             const { data: wallet } = await supabase
                 .from('wallets')
                 .select('*')
-                .eq('user_id', dbUser?.id)
+                .eq('user_id', dbUser?.id as any)
                 .single()
 
             if (wallet) {
@@ -89,7 +89,7 @@ function WalletContent() {
             const { data: txns } = await supabase
                 .from('wallet_transactions')
                 .select('*')
-                .eq('user_id', dbUser?.id)
+                .eq('user_id', dbUser?.id as any)
                 .order('created_at', { ascending: false })
                 .limit(10)
 
