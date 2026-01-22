@@ -142,7 +142,7 @@ export default function MyOrdersPage() {
         setIsSubmitting(true)
         try {
             const { error } = await (supabase.from('complaints') as any).insert({
-                user_id: dbUser?.id,
+                user_id: dbUser?.id as any,
                 order_id: complaintOrder.id,
                 title: `Issue with order ${complaintOrder.reference_code}`,
                 description: complaintDescription,
