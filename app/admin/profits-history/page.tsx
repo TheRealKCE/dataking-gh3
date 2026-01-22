@@ -13,6 +13,7 @@ import {
     TableRow,
 } from '@/components/ui/table'
 import { TrendingUp, TrendingDown, DollarSign, Activity } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 
 export default function AdminProfitsPage() {
     const [loading, setLoading] = useState(true)
@@ -55,32 +56,34 @@ export default function AdminProfitsPage() {
             let totalCost = 0
 
             // Daily aggregation
-            const dailyMap = new Map<string, { revenue: number, profit: number }>()
+            const dailyMap = new Map<string, { revenue: number, profit: number }>();
 
-            orders.forEach(order => {
-                const revenue = order.price || 0
-                // Use recorded cost_price or estimate 80% if not set (legacy data)
-                const cost = order.cost_price || (revenue * 0.8)
-                const profit = revenue - cost
+            if (orders) {
+                for (const order of (orders as any[])) {
+                    const revenue = order.price || 0;
+                    // Use recorded cost_price or estimate 80% if not set (legacy data)
+                    const cost = order.cost_price || (revenue * 0.8);
+                    const profit = revenue - cost;
 
-                totalRevenue += revenue
-                totalCost += cost
+                    totalRevenue += revenue;
+                    totalCost += cost;
 
-                const day = order.created_at.split('T')[0]
-                const current = dailyMap.get(day) || { revenue: 0, profit: 0 }
-                dailyMap.set(day, {
-                    revenue: current.revenue + revenue,
-                    profit: current.profit + profit
-                })
-            })
+                    const day = (order.created_at as string).split('T')[0];
+                    const current = dailyMap.get(day) || { revenue: 0, profit: 0 };
+                    dailyMap.set(day, {
+                        revenue: current.revenue + revenue,
+                        profit: current.profit + profit
+                    });
+                }
+            }
 
             const totalProfit = totalRevenue - totalCost
             const profitMargin = totalRevenue > 0 ? (totalProfit / totalRevenue) * 100 : 0
 
             // Convert map to sorted array
             const dailyRevenue = Array.from(dailyMap.entries())
-                .map(([date, data]) => ({ date, ...data }))
-                .sort((a, b) => b.date.localeCompare(a.date)) // Recent first
+                .map(([date, data]: any) => ({ date, ...data }))
+                .sort((a, b) => (b as any).date.localeCompare((a as any).date)); // Recent first
 
             setStats({
                 totalRevenue,
