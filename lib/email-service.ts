@@ -78,7 +78,8 @@ export async function sendEmail(options: SendEmailOptions): Promise<EmailResult>
         }
 
         const data = await apiInstance.sendTransacEmail(sendSmtpEmail)
-        const messageId = data.body?.messageId || data.response?.headers?.['x-message-id']
+        const rawMessageId = data.body?.messageId || data.response?.headers?.['x-message-id']
+        const messageId = Array.isArray(rawMessageId) ? rawMessageId[0] : rawMessageId
         console.log('Email sent successfully:', messageId)
 
         return { success: true, messageId }
