@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { useAuth } from '@/contexts/auth-context'
 import { useUI } from '@/contexts/ui-context'
@@ -90,8 +91,14 @@ export function DashboardSidebar() {
                 {/* Logo */}
                 <div className="h-16 flex items-center justify-between px-4 border-b border-gray-200 dark:border-gray-800">
                     <Link href="/dashboard" className="flex items-center space-x-2">
-                        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0">
-                            <Wifi className="w-5 h-5 text-white" />
+                        <div className="relative w-10 h-10 flex-shrink-0">
+                            <Image
+                                src="/logo.png"
+                                alt="KING FLEXY DATA LTD"
+                                fill
+                                className="object-contain"
+                                priority
+                            />
                         </div>
                         {!isCollapsed && (
                             <span className="text-xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">

@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/auth-context'
 import { Button } from '@/components/ui/button'
@@ -114,8 +115,14 @@ export default function SignupPage() {
                 {/* Logo */}
                 <div className="text-center mb-8">
                     <Link href="/" className="inline-flex items-center space-x-2">
-                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                            <Wifi className="w-7 h-7 text-white" />
+                        <div className="relative w-12 h-12">
+                            <Image
+                                src="/logo.png"
+                                alt="KING FLEXY DATA LTD"
+                                fill
+                                className="object-contain"
+                                priority
+                            />
                         </div>
                         <span className="text-2xl font-bold text-white">KING FLEXY DATA LTD</span>
                     </Link>
