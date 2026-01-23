@@ -181,27 +181,27 @@ function WalletContent() {
                 {/* Balance Card */}
                 <div className="lg:col-span-1">
                     <Card className="overflow-hidden">
-                        <div className="bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 p-6 text-white">
+                        <div className="bg-[#FACC15] p-6 text-[#1A1A1A]">
                             <div className="flex items-center justify-between mb-6">
                                 <div className="flex items-center gap-2">
                                     <Wallet className="w-6 h-6" />
                                     <span className="font-medium">Your Wallet</span>
                                 </div>
-                                <Badge className="bg-white/20 text-white border-0">Active</Badge>
+                                <Badge className="bg-[#1A1A1A]/10 text-[#1A1A1A] border-0">Active</Badge>
                             </div>
-                            <p className="text-sm text-white/70 mb-1">Available Balance</p>
+                            <p className="text-sm text-[#1A1A1A]/70 mb-1">Available Balance</p>
                             <p className="text-4xl font-bold mb-6">{formatCurrency(walletBalance)}</p>
 
-                            <div className="grid grid-cols-2 gap-4 pt-4 border-t border-white/20">
+                            <div className="grid grid-cols-2 gap-4 pt-4 border-t border-[#1A1A1A]/10">
                                 <div>
-                                    <div className="flex items-center gap-1 text-green-300 text-sm mb-1">
+                                    <div className="flex items-center gap-1 text-[#1A1A1A]/70 text-sm mb-1">
                                         <TrendingUp className="w-4 h-4" />
                                         <span>Credited</span>
                                     </div>
                                     <p className="font-semibold">{formatCurrency(totalCredited)}</p>
                                 </div>
                                 <div>
-                                    <div className="flex items-center gap-1 text-red-300 text-sm mb-1">
+                                    <div className="flex items-center gap-1 text-[#1A1A1A]/70 text-sm mb-1">
                                         <TrendingDown className="w-4 h-4" />
                                         <span>Spent</span>
                                     </div>

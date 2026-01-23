@@ -143,14 +143,14 @@ export default function AdminDashboardPage() {
                     </CardContent>
                 </Card>
 
-                <Card className="bg-gradient-to-br from-amber-500 to-amber-600 text-white border-0">
+                <Card className="bg-[#FACC15] text-[#1A1A1A] border-0">
                     <CardContent className="p-6">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-amber-100 text-sm font-medium">Total Wallet Balance</p>
+                                <p className="text-[#1A1A1A]/70 text-sm font-medium">Total Wallet Balance</p>
                                 <p className="text-3xl font-bold mt-1">{formatCurrency(stats?.totalWalletBalance || 0)}</p>
                             </div>
-                            <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
+                            <div className="w-12 h-12 rounded-xl bg-[#1A1A1A]/10 flex items-center justify-center">
                                 <Wallet className="w-6 h-6" />
                             </div>
                         </div>

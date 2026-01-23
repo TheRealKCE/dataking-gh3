@@ -235,14 +235,14 @@ export default function DashboardPage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Wallet Card */}
                 <Card className="lg:col-span-1 overflow-hidden">
-                    <div className="bg-gradient-to-br from-indigo-600 via-purple-600 to-pink-600 p-6 text-white">
+                    <div className="bg-[#FACC15] p-6 text-[#1A1A1A]">
                         <div className="flex items-center justify-between mb-4">
-                            <p className="text-white/80 font-medium">Wallet Balance</p>
-                            <Wallet className="w-6 h-6 text-white/60" />
+                            <p className="text-[#1A1A1A]/80 font-medium">Wallet Balance</p>
+                            <Wallet className="w-6 h-6 text-[#1A1A1A]/60" />
                         </div>
                         <p className="text-4xl font-bold mb-6">{formatCurrency(stats?.walletBalance || 0)}</p>
                         <Link href="/dashboard/wallet">
-                            <Button className="w-full bg-white/20 hover:bg-white/30 text-white border-0">
+                            <Button className="w-full bg-[#1A1A1A]/10 hover:bg-[#1A1A1A]/20 text-[#1A1A1A] border-0">
                                 <Plus className="w-4 h-4 mr-2" />
                                 Top Up Wallet
                             </Button>
