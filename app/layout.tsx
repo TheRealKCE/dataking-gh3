@@ -8,12 +8,12 @@ import { Toaster } from '@/components/ui/sonner'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-    title: 'GHData - Mobile Data & Airtime Platform',
+    title: 'KING FLEXY DATA LTD - Mobile Data & Airtime Platform',
     description: 'Purchase data packages for MTN, Telecel, and AirtelTigo networks in Ghana. Fast, reliable, and affordable.',
     keywords: ['Ghana', 'mobile data', 'airtime', 'MTN', 'Telecel', 'AirtelTigo', 'data bundles'],
-    authors: [{ name: 'GHData' }],
+    authors: [{ name: 'KING FLEXY DATA LTD' }],
     openGraph: {
-        title: 'GHData - Mobile Data & Airtime Platform',
+        title: 'KING FLEXY DATA LTD - Mobile Data & Airtime Platform',
         description: 'Purchase data packages for all Ghanaian networks',
         type: 'website',
     },

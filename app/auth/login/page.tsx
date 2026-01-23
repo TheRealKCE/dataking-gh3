@@ -53,7 +53,7 @@ export default function LoginPage() {
                         <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
                             <Wifi className="w-7 h-7 text-white" />
                         </div>
-                        <span className="text-2xl font-bold text-white">GHData</span>
+                        <span className="text-2xl font-bold text-white">KING FLEXY DATA LTD</span>
                     </Link>
                 </div>
 

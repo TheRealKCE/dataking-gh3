@@ -22,7 +22,7 @@ export default function HomePage() {
                             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
                                 <Wifi className="w-6 h-6 text-white" />
                             </div>
-                            <span className="text-xl font-bold text-white">GHData</span>
+                            <span className="text-xl font-bold text-white">KING FLEXY DATA LTD</span>
                         </div>
                         <div className="flex items-center space-x-4">
                             <Link href="/auth/login">
@@ -102,7 +102,7 @@ export default function HomePage() {
                 <div className="max-w-7xl mx-auto">
                     <div className="text-center mb-16">
                         <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
-                            Why Choose GHData?
+                            Why Choose KING FLEXY DATA LTD?
                         </h2>
                         <p className="text-white/60 max-w-xl mx-auto">
                             Experience the fastest and most reliable way to purchase mobile data in Ghana
@@ -205,7 +205,7 @@ export default function HomePage() {
                                 Ready to Get Started?
                             </h2>
                             <p className="text-white/80 max-w-xl mx-auto mb-8">
-                                Join thousands of Ghanaians who trust GHData for their mobile data needs.
+                                Join thousands of Ghanaians who trust KING FLEXY DATA LTD for their mobile data needs.
                             </p>
                             <Link href="/auth/signup">
                                 <Button size="xl" className="bg-white text-purple-600 hover:bg-white/90 text-lg px-8">
@@ -226,10 +226,10 @@ export default function HomePage() {
                             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
                                 <Wifi className="w-4 h-4 text-white" />
                             </div>
-                            <span className="text-lg font-semibold text-white">GHData</span>
+                            <span className="text-lg font-semibold text-white">KING FLEXY DATA LTD</span>
                         </div>
                         <p className="text-white/40 text-sm">
-                            © 2026 GHData. All rights reserved.
+                            © 2026 KING FLEXY DATA LTD. All rights reserved.
                         </p>
                     </div>
                 </div>
