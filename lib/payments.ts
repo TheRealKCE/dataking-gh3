@@ -22,13 +22,11 @@ export async function processCompletedWalletPayment(reference: string, providerM
         return { success: false, error: 'Payment not found' }
     }
 
-    // 2. Check if already processed (Idempotency)
-    if (payment.status === 'completed') {
-        return { success: true, alreadyProcessed: true }
-    }
-
-    // 3. Update payment status
-    const { error: updatePaymentError } = await (supabase
+    // 2. Atomic Update (Idempotency Check)
+    // We attempt to update the status to 'completed' ONLY if it is currently 'pending'.
+    // If the record exists but status is not 'pending', this will return 0 rows
+    // (or empty data), meaning it was already processed.
+    const { data: updatedPayment, error: updatePaymentError } = await (supabase
         .from('wallet_payments') as any)
         .update({
             status: 'completed',
@@ -36,10 +34,24 @@ export async function processCompletedWalletPayment(reference: string, providerM
             updated_at: new Date().toISOString(),
         })
         .eq('id', payment.id)
+        .eq('status', 'pending')
+        .select()
+        .single()
 
     if (updatePaymentError) {
+        // If error is just "no rows returned", it means condition failed (already completed)
+        // But .single() might throw if 0 rows. Use MaybeSingle if available or handle error code.
+        // Actually, Supabase .single() returns error code PGRST116 for no rows.
+        if (updatePaymentError.code === 'PGRST116') {
+            return { success: true, alreadyProcessed: true }
+        }
         console.error('[PaymentProcess] Update payment error:', updatePaymentError)
         return { success: false, error: 'Failed to update payment status' }
+    }
+
+    if (!updatedPayment) {
+        // Fallback if no error was thrown but no data returned (dependent on client version)
+        return { success: true, alreadyProcessed: true }
     }
 
     // 4. Credit wallet
