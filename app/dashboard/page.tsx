@@ -19,7 +19,8 @@ import {
     ArrowRight,
     Package,
     AlertCircle,
-    Plus
+    Plus,
+    Banknote
 } from 'lucide-react'
 
 interface DashboardStats {
@@ -30,6 +31,7 @@ interface DashboardStats {
     pendingOrders: number
     successRate: number
     walletBalance: number
+    totalSpent: number
 }
 
 interface RecentOrder {
@@ -59,7 +61,7 @@ export default function DashboardPage() {
             // Fetch orders stats
             const { data: orders } = await supabase
                 .from('orders')
-                .select('status')
+                .select('status, price')
                 .eq('user_id', dbUser?.id as any)
 
             const totalOrders = orders?.length || 0
@@ -68,6 +70,7 @@ export default function DashboardPage() {
             const failedOrders = (orders as any)?.filter((o: any) => o.status === 'failed').length || 0
             const pendingOrders = (orders as any)?.filter((o: any) => o.status === 'pending').length || 0
             const successRate = totalOrders > 0 ? Math.round((completedOrders / totalOrders) * 100) : 0
+            const totalSpent = (orders as any)?.filter((o: any) => o.status === 'completed').reduce((acc: number, curr: any) => acc + (curr.price || 0), 0) || 0
 
             // Fetch wallet balance
             const { data: wallet } = await supabase
@@ -92,6 +95,7 @@ export default function DashboardPage() {
                 pendingOrders,
                 successRate,
                 walletBalance: (wallet as any)?.balance || 0,
+                totalSpent,
             })
             setRecentOrders(recent || [])
         } catch (error) {
@@ -142,11 +146,11 @@ export default function DashboardPage() {
         <div className="space-y-6">
             {/* Stats Cards */}
             <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0">
+                <Card className="bg-[#0056B3] text-white border-0">
                     <CardContent className="p-6">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-blue-100 text-sm font-medium">Total Orders</p>
+                                <p className="text-white/80 text-sm font-medium">Total Orders</p>
                                 <p className="text-3xl font-bold mt-1">{stats?.totalOrders}</p>
                             </div>
                             <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
@@ -156,39 +160,39 @@ export default function DashboardPage() {
                     </CardContent>
                 </Card>
 
-                <Card className="bg-gradient-to-br from-emerald-500 to-emerald-600 text-white border-0">
+                <Card className="bg-[#25D366] text-black border-0">
                     <CardContent className="p-6">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-emerald-100 text-sm font-medium">Completed</p>
+                                <p className="text-black/70 text-sm font-medium">Completed</p>
                                 <p className="text-3xl font-bold mt-1">{stats?.completedOrders}</p>
                             </div>
-                            <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
+                            <div className="w-12 h-12 rounded-xl bg-black/10 flex items-center justify-center">
                                 <CheckCircle2 className="w-6 h-6" />
                             </div>
                         </div>
                     </CardContent>
                 </Card>
 
-                <Card className="bg-gradient-to-br from-amber-500 to-amber-600 text-white border-0">
+                <Card className="bg-[#FFCE00] text-black border-0">
                     <CardContent className="p-6">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-amber-100 text-sm font-medium">Processing</p>
+                                <p className="text-black/70 text-sm font-medium">Processing</p>
                                 <p className="text-3xl font-bold mt-1">{stats?.processingOrders}</p>
                             </div>
-                            <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
+                            <div className="w-12 h-12 rounded-xl bg-black/10 flex items-center justify-center">
                                 <Clock className="w-6 h-6" />
                             </div>
                         </div>
                     </CardContent>
                 </Card>
 
-                <Card className="bg-gradient-to-br from-red-500 to-red-600 text-white border-0">
+                <Card className="bg-[#E60000] text-white border-0">
                     <CardContent className="p-6">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-red-100 text-sm font-medium">Failed</p>
+                                <p className="text-white/80 text-sm font-medium">Failed</p>
                                 <p className="text-3xl font-bold mt-1">{stats?.failedOrders}</p>
                             </div>
                             <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
@@ -207,6 +211,20 @@ export default function DashboardPage() {
                             </div>
                             <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
                                 <TrendingUp className="w-6 h-6" />
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card className="bg-[#E5E7EB] text-gray-900 border-0">
+                    <CardContent className="p-6">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-gray-600 text-sm font-medium">Total Spent</p>
+                                <p className="text-3xl font-bold mt-1">{formatCurrency(stats?.totalSpent || 0)}</p>
+                            </div>
+                            <div className="w-12 h-12 rounded-xl bg-gray-900/10 flex items-center justify-center">
+                                <Banknote className="w-6 h-6" />
                             </div>
                         </div>
                     </CardContent>
