@@ -58,11 +58,32 @@ export default function DashboardPage() {
 
     const fetchDashboardData = async () => {
         try {
-            // Fetch orders stats
-            const { data: orders } = await supabase
-                .from('orders')
-                .select('status, price')
-                .eq('user_id', dbUser?.id as any)
+            const [ordersRes, walletRes, recentRes] = await Promise.all([
+                // Fetch orders stats
+                supabase
+                    .from('orders')
+                    .select('status, price')
+                    .eq('user_id', dbUser?.id as any),
+
+                // Fetch wallet balance
+                supabase
+                    .from('wallets')
+                    .select('balance')
+                    .eq('user_id', dbUser?.id as any)
+                    .single(),
+
+                // Fetch recent orders
+                supabase
+                    .from('orders')
+                    .select('id, phone_number, network, size, price, status, created_at')
+                    .eq('user_id', dbUser?.id as any)
+                    .order('created_at', { ascending: false })
+                    .limit(5)
+            ])
+
+            const orders = ordersRes.data
+            const wallet = walletRes.data
+            const recent = recentRes.data
 
             const totalOrders = orders?.length || 0
             const completedOrders = (orders as any)?.filter((o: any) => o.status === 'completed').length || 0
@@ -71,21 +92,6 @@ export default function DashboardPage() {
             const pendingOrders = (orders as any)?.filter((o: any) => o.status === 'pending').length || 0
             const successRate = totalOrders > 0 ? Math.round((completedOrders / totalOrders) * 100) : 0
             const totalSpent = (orders as any)?.filter((o: any) => o.status === 'completed').reduce((acc: number, curr: any) => acc + (curr.price || 0), 0) || 0
-
-            // Fetch wallet balance
-            const { data: wallet } = await supabase
-                .from('wallets')
-                .select('balance')
-                .eq('user_id', dbUser?.id as any)
-                .single()
-
-            // Fetch recent orders
-            const { data: recent } = await supabase
-                .from('orders')
-                .select('id, phone_number, network, size, price, status, created_at')
-                .eq('user_id', dbUser?.id as any)
-                .order('created_at', { ascending: false })
-                .limit(5)
 
             setStats({
                 totalOrders,

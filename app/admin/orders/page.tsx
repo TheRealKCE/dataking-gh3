@@ -3,7 +3,8 @@
 import { useEffect, useState, Fragment } from 'react'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import { utils, writeFile } from 'xlsx'
+// @ts-ignore
+import { utils, writeFile } from 'xlsx-js-style'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -243,6 +244,28 @@ export default function AdminOrdersPage() {
             }))
 
             const worksheet = utils.json_to_sheet(dataToExport)
+
+            // Reduce text size
+            const range = utils.decode_range(worksheet['!ref'] || 'A1:A1')
+            for (let R = range.s.r; R <= range.e.r; ++R) {
+                for (let C = range.s.c; C <= range.e.c; ++C) {
+                    const cell_address = utils.encode_cell({ r: R, c: C })
+                    if (!worksheet[cell_address]) continue
+
+                    // Keep existing style if any, but enforce font size
+                    worksheet[cell_address].s = {
+                        font: { sz: 10, name: 'Arial' },
+                        alignment: { horizontal: "center", vertical: "center" }
+                    }
+                }
+            }
+
+            // Set column widths
+            worksheet['!cols'] = [
+                { wch: 15 }, // Number
+                { wch: 10 }  // Data Size
+            ]
+
             const workbook = utils.book_new()
             utils.book_append_sheet(workbook, worksheet, "Orders")
 
@@ -276,6 +299,28 @@ export default function AdminOrdersPage() {
             }))
 
             const worksheet = utils.json_to_sheet(dataToExport)
+
+            // Reduce text size
+            const range = utils.decode_range(worksheet['!ref'] || 'A1:A1')
+            for (let R = range.s.r; R <= range.e.r; ++R) {
+                for (let C = range.s.c; C <= range.e.c; ++C) {
+                    const cell_address = utils.encode_cell({ r: R, c: C })
+                    if (!worksheet[cell_address]) continue
+
+                    // Keep existing style if any, but enforce font size
+                    worksheet[cell_address].s = {
+                        font: { sz: 10, name: 'Arial' },
+                        alignment: { horizontal: "center", vertical: "center" }
+                    }
+                }
+            }
+
+            // Set column widths
+            worksheet['!cols'] = [
+                { wch: 15 }, // Number
+                { wch: 10 }  // Data Size
+            ]
+
             const workbook = utils.book_new()
             utils.book_append_sheet(workbook, worksheet, "Orders")
             writeFile(workbook, batch.filename)

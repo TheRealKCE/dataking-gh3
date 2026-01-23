@@ -72,12 +72,33 @@ function WalletContent() {
 
     const fetchWalletData = async () => {
         try {
-            // Fetch wallet
-            const { data: wallet } = await supabase
-                .from('wallets')
-                .select('*')
-                .eq('user_id', dbUser?.id as any)
-                .single()
+            const [walletRes, txnsRes, feeSettingRes] = await Promise.all([
+                // Fetch wallet
+                supabase
+                    .from('wallets')
+                    .select('*')
+                    .eq('user_id', dbUser?.id as any)
+                    .single(),
+
+                // Fetch recent transactions
+                supabase
+                    .from('wallet_transactions')
+                    .select('*')
+                    .eq('user_id', dbUser?.id as any)
+                    .order('created_at', { ascending: false })
+                    .limit(10),
+
+                // Fetch settings
+                supabase
+                    .from('admin_settings')
+                    .select('value')
+                    .eq('key', 'paystack_fee_percent')
+                    .single()
+            ])
+
+            const wallet = walletRes.data
+            const txns = txnsRes.data
+            const feeSetting = feeSettingRes.data
 
             if (wallet) {
                 setWalletBalance((wallet as any).balance)
@@ -85,22 +106,7 @@ function WalletContent() {
                 setTotalDebited((wallet as any).total_spent)
             }
 
-            // Fetch recent transactions
-            const { data: txns } = await supabase
-                .from('wallet_transactions')
-                .select('*')
-                .eq('user_id', dbUser?.id as any)
-                .order('created_at', { ascending: false })
-                .limit(10)
-
             setTransactions(txns || [])
-
-            // Fetch settings
-            const { data: feeSetting } = await supabase
-                .from('admin_settings')
-                .select('value')
-                .eq('key', 'paystack_fee_percent')
-                .single()
 
             if ((feeSetting as any)?.value) {
                 const val = (feeSetting as any).value
