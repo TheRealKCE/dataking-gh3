@@ -38,7 +38,8 @@ import {
     Wallet,
     UserCog,
     Shield,
-    ShieldAlert
+    ShieldAlert,
+    Loader2
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Label } from '@/components/ui/label'
@@ -60,6 +61,7 @@ export default function AdminUsersPage() {
     const [adjustmentAmount, setAdjustmentAmount] = useState('')
     const [adjustmentType, setAdjustmentType] = useState<'credit' | 'debit'>('credit')
     const [adjustmentDescription, setAdjustmentDescription] = useState('Admin manual adjustment')
+    const [isAdjusting, setIsAdjusting] = useState(false)
 
     useEffect(() => {
         fetchUsers()
@@ -131,8 +133,8 @@ export default function AdminUsersPage() {
             return
         }
 
+        setIsAdjusting(true)
         try {
-            setLoading(true)
             const response = await fetch('/api/admin/users/wallet/adjustment', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -155,7 +157,7 @@ export default function AdminUsersPage() {
             console.error('Adjustment error:', error)
             toast.error(error.message || `Failed to ${adjustmentType} wallet`)
         } finally {
-            setLoading(false)
+            setIsAdjusting(false)
         }
     }
 
@@ -344,7 +346,9 @@ export default function AdminUsersPage() {
                         <Button
                             variant={adjustmentType === 'debit' ? 'destructive' : 'default'}
                             onClick={handleManualAdjustment}
+                            disabled={isAdjusting}
                         >
+                            {isAdjusting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                             {adjustmentType === 'credit' ? 'Credit Wallet' : 'Debit Wallet'}
                         </Button>
                     </DialogFooter>

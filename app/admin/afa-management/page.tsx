@@ -7,10 +7,11 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
-import { CheckCircle2, XCircle } from 'lucide-react'
+import { CheckCircle2, XCircle, Loader2 } from 'lucide-react'
 
 export default function AdminAfaManagementPage() {
     const [applications, setApplications] = useState<any[]>([])
+    const [updatingId, setUpdatingId] = useState<string | null>(null)
 
     useEffect(() => {
         fetchApplications()
@@ -25,12 +26,17 @@ export default function AdminAfaManagementPage() {
     }
 
     const updateStatus = async (id: string, status: string) => {
-        const { error } = await (supabase.from('afa_orders') as any).update({ status }).eq('id', id)
-        if (error) {
-            toast.error('Failed to update status')
-        } else {
-            toast.success(`Application marked as ${status}`)
-            fetchApplications()
+        setUpdatingId(id)
+        try {
+            const { error } = await (supabase.from('afa_orders') as any).update({ status }).eq('id', id)
+            if (error) {
+                toast.error('Failed to update status')
+            } else {
+                toast.success(`Application marked as ${status}`)
+                fetchApplications()
+            }
+        } finally {
+            setUpdatingId(null)
         }
     }
 
@@ -67,11 +73,11 @@ export default function AdminAfaManagementPage() {
                                         <div className="flex gap-2">
                                             {app.status === 'pending' && (
                                                 <>
-                                                    <Button size="sm" onClick={() => updateStatus(app.id, 'completed')}>
-                                                        <CheckCircle2 className="w-4 h-4 mr-1" /> Approve
+                                                    <Button size="sm" onClick={() => updateStatus(app.id, 'completed')} disabled={updatingId === app.id}>
+                                                        {updatingId === app.id ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <CheckCircle2 className="w-4 h-4 mr-1" />} Approve
                                                     </Button>
-                                                    <Button size="sm" variant="destructive" onClick={() => updateStatus(app.id, 'cancelled')}>
-                                                        <XCircle className="w-4 h-4 mr-1" /> Reject
+                                                    <Button size="sm" variant="destructive" onClick={() => updateStatus(app.id, 'cancelled')} disabled={updatingId === app.id}>
+                                                        {updatingId === app.id ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : <XCircle className="w-4 h-4 mr-1" />} Reject
                                                     </Button>
                                                 </>
                                             )}

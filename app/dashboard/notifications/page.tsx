@@ -17,7 +17,8 @@ import {
     Wallet,
     Trash2,
     Check,
-    AlertCircle
+    AlertCircle,
+    Loader2
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Notification } from '@/types/supabase'
@@ -27,6 +28,7 @@ export default function NotificationsPage() {
     const [notifications, setNotifications] = useState<Notification[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [filter, setFilter] = useState<'all' | 'unread'>('all')
+    const [markingAllRead, setMarkingAllRead] = useState(false)
 
     useEffect(() => {
         if (dbUser) {
@@ -68,6 +70,7 @@ export default function NotificationsPage() {
     }
 
     const markAllAsRead = async () => {
+        setMarkingAllRead(true)
         try {
             await (supabase
                 .from('notifications') as any)
@@ -79,6 +82,8 @@ export default function NotificationsPage() {
             toast.success('All notifications marked as read')
         } catch (error) {
             toast.error('Failed to mark all as read')
+        } finally {
+            setMarkingAllRead(false)
         }
     }
 
@@ -137,8 +142,8 @@ export default function NotificationsPage() {
                     </p>
                 </div>
                 {unreadCount > 0 && (
-                    <Button variant="outline" onClick={markAllAsRead}>
-                        <Check className="w-4 h-4 mr-2" />
+                    <Button variant="outline" onClick={markAllAsRead} disabled={markingAllRead}>
+                        {markingAllRead ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
                         Mark all as read
                     </Button>
                 )}

@@ -23,7 +23,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from '@/components/ui/dialog'
-import { CheckCircle2, XCircle, Clock, AlertCircle } from 'lucide-react'
+import { CheckCircle2, XCircle, Clock, AlertCircle, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Complaint } from '@/types/supabase'
 
@@ -32,6 +32,7 @@ export default function AdminComplaintsPage() {
     const [loading, setLoading] = useState(true)
     const [selectedComplaint, setSelectedComplaint] = useState<any>(null)
     const [resolutionNotes, setResolutionNotes] = useState('')
+    const [isResolving, setIsResolving] = useState(false)
 
     useEffect(() => {
         fetchComplaints()
@@ -61,6 +62,7 @@ export default function AdminComplaintsPage() {
     const handleResolve = async (status: 'resolved' | 'rejected') => {
         if (!selectedComplaint) return
 
+        setIsResolving(true)
         try {
             const { error } = await (supabase
                 .from('complaints') as any)
@@ -93,6 +95,8 @@ export default function AdminComplaintsPage() {
             setResolutionNotes('')
         } catch (error) {
             toast.error('Failed to update complaint')
+        } finally {
+            setIsResolving(false)
         }
     }
 
@@ -202,10 +206,12 @@ export default function AdminComplaintsPage() {
                     <DialogFooter className="gap-2 sm:gap-0">
                         {(selectedComplaint?.status === 'pending' || selectedComplaint?.status === 'in_review') ? (
                             <>
-                                <Button variant="outline" onClick={() => handleResolve('rejected')}>
+                                <Button variant="outline" onClick={() => handleResolve('rejected')} disabled={isResolving}>
+                                    {isResolving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                                     Reject
                                 </Button>
-                                <Button onClick={() => handleResolve('resolved')}>
+                                <Button onClick={() => handleResolve('resolved')} disabled={isResolving}>
+                                    {isResolving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                                     Mark Resolved
                                 </Button>
                             </>

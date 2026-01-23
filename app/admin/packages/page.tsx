@@ -71,6 +71,7 @@ export default function AdminPackagesPage() {
     const [editingPackage, setEditingPackage] = useState<DataPackage | null>(null)
     const [formData, setFormData] = useState<PackageFormData>(defaultFormData)
     const [isSaving, setIsSaving] = useState(false)
+    const [deletingId, setDeletingId] = useState<string | null>(null)
 
     useEffect(() => {
         fetchPackages()
@@ -144,6 +145,7 @@ export default function AdminPackagesPage() {
     const handleDelete = async (id: string) => {
         if (!confirm('Are you sure you want to delete this package?')) return
 
+        setDeletingId(id)
         try {
             const res = await fetch(`/api/admin/packages?id=${id}`, {
                 method: 'DELETE',
@@ -155,6 +157,8 @@ export default function AdminPackagesPage() {
             fetchPackages()
         } catch (error) {
             toast.error('Failed to delete package')
+        } finally {
+            setDeletingId(null)
         }
     }
 
@@ -227,8 +231,8 @@ export default function AdminPackagesPage() {
                                             <Button size="sm" variant="outline" onClick={() => openEditDialog(pkg)}>
                                                 <Pencil className="w-4 h-4" />
                                             </Button>
-                                            <Button size="sm" variant="destructive" onClick={() => handleDelete(pkg.id)}>
-                                                <Trash2 className="w-4 h-4" />
+                                            <Button size="sm" variant="destructive" onClick={() => handleDelete(pkg.id)} disabled={deletingId === pkg.id}>
+                                                {deletingId === pkg.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
                                             </Button>
                                         </div>
                                     </TableCell>
