@@ -5,13 +5,15 @@
  * It provides reusable functions for sending various types of emails.
  */
 
-// @ts-ignore - Brevo SDK doesn't have type definitions
+// @ts-ignore - Brevo SDK doesn't have complete type definitions
 import * as SibApiV3Sdk from '@getbrevo/brevo'
 
-// Initialize API instance
+// Initialize API instance with API key
 const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi()
-const apiKey = apiInstance.authentications['apiKey']
-apiKey.apiKey = process.env.BREVO_API_KEY || ''
+
+// Set API key using the correct method
+// @ts-ignore - SDK type definitions are incomplete
+apiInstance.setApiKey(SibApiV3Sdk.TransactionalEmailsApiApiKeys.apiKey, process.env.BREVO_API_KEY || '')
 
 // Sender configuration
 const DEFAULT_SENDER = {
