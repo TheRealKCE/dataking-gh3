@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
+import { sendOrderCompletedEmail, sendOrderFailedEmail } from '@/lib/email-service'
 
 export async function POST(request: NextRequest) {
     try {
@@ -114,6 +115,47 @@ export async function POST(request: NextRequest) {
             if (notifyError) {
                 console.error('[AdminStatusUpdate] Notification insert error:', notifyError)
                 // Don't fail the whole request if notifications fail
+            }
+
+            // Send email notifications for completed/failed orders
+            if (status === 'completed' || status === 'failed') {
+                // Process emails in the background (non-blocking)
+                Promise.all(affectedOrders.map(async (order: any) => {
+                    try {
+                        // Get full order details and user info
+                        const { data: fullOrder } = await supabase
+                            .from('orders')
+                            .select('*, users(email, first_name)')
+                            .eq('id', order.id)
+                            .single()
+
+                        if (fullOrder && (fullOrder as any).users?.email) {
+                            const user = (fullOrder as any).users
+                            const orderDetails = {
+                                referenceCode: (fullOrder as any).reference_code,
+                                phoneNumber: (fullOrder as any).phone_number,
+                                network: (fullOrder as any).network,
+                                size: (fullOrder as any).size
+                            }
+
+                            if (status === 'completed') {
+                                await sendOrderCompletedEmail(
+                                    user.email,
+                                    user.first_name || 'Customer',
+                                    orderDetails
+                                )
+                            } else if (status === 'failed') {
+                                await sendOrderFailedEmail(
+                                    user.email,
+                                    user.first_name || 'Customer',
+                                    orderDetails
+                                )
+                            }
+                        }
+                    } catch (emailError) {
+                        console.error(`[AdminStatusUpdate] Email error for order ${order.id}:`, emailError)
+                    }
+                })).catch(err => console.error('[AdminStatusUpdate] Batch email error:', err))
             }
         }
 

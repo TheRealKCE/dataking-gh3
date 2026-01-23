@@ -1,4 +1,5 @@
 import { createServerClient } from './supabase'
+import { sendPaymentSuccessEmail } from './email-service'
 
 /**
  * Processes a completed payment by updating the status, 
@@ -109,6 +110,28 @@ export async function processCompletedWalletPayment(reference: string, providerM
 
     if (notifyError) {
         console.error('[PaymentProcess] Notification error:', notifyError)
+    }
+
+    // 7. Send email notification
+    try {
+        // Get user details for email
+        const { data: userData } = await supabase
+            .from('users')
+            .select('email, first_name')
+            .eq('id', payment.user_id)
+            .single()
+
+        if (userData) {
+            await sendPaymentSuccessEmail(
+                (userData as any).email,
+                (userData as any).first_name || 'Customer',
+                payment.amount,
+                reference
+            )
+        }
+    } catch (emailError) {
+        // Don't fail the payment process if email fails
+        console.error('[PaymentProcess] Email notification error:', emailError)
     }
 
     return { success: true }

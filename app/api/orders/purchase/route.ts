@@ -3,6 +3,7 @@ import { createServerClient } from '@/lib/supabase'
 import { generateReferenceCode } from '@/lib/utils'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
+import { sendOrderConfirmationEmail } from '@/lib/email-service'
 
 export async function POST(request: NextRequest) {
     try {
@@ -134,6 +135,32 @@ export async function POST(request: NextRequest) {
             type: 'order_update',
             action_url: `/dashboard/my-orders`,
         })
+
+        // Send order confirmation email (async, non-blocking)
+        try {
+            // Get user details for email
+            const { data: userData } = await supabase
+                .from('users')
+                .select('email, first_name')
+                .eq('id', userId)
+                .single()
+
+            if (userData) {
+                sendOrderConfirmationEmail(
+                    (userData as any).email,
+                    (userData as any).first_name || 'Customer',
+                    {
+                        referenceCode,
+                        phoneNumber,
+                        network: (pkg as any).network,
+                        size: (pkg as any).size,
+                        price: (pkg as any).price
+                    }
+                ).catch(err => console.error('[Order] Email notification error:', err))
+            }
+        } catch (emailError) {
+            console.error('[Order] Failed to send email notification:', emailError)
+        }
 
         // Trigger auto-fulfillment (async)
         triggerFulfillment((order as any).id, (pkg as any).network)

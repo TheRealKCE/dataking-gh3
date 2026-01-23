@@ -76,6 +76,16 @@ export default function SignupPage() {
                 return
             }
 
+            // Send welcome email (async, non-blocking)
+            fetch('/api/emails/welcome', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    email: formData.email,
+                    firstName: formData.firstName
+                })
+            }).catch(err => console.error('Welcome email error:', err))
+
             // Auto login if session is created
             if (data?.session) {
                 toast.success('Account created! logging in...')
