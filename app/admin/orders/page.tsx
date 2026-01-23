@@ -3,8 +3,6 @@
 import { useEffect, useState, Fragment } from 'react'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency, formatDate } from '@/lib/utils'
-// @ts-ignore
-import { utils, writeFile } from 'xlsx-js-style'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -67,8 +65,12 @@ export default function AdminOrdersPage() {
     const PAGE_SIZE = 20
 
     useEffect(() => {
-        fetchOrders()
-        fetchBatches()
+        const loadData = async () => {
+            setLoading(true)
+            await Promise.all([fetchOrders(), fetchBatches()])
+            setLoading(false)
+        }
+        loadData()
     }, [])
 
     const fetchOrders = async () => {
@@ -83,8 +85,6 @@ export default function AdminOrdersPage() {
         } catch (error: any) {
             console.error('Error fetching orders:', error)
             toast.error(error.message || 'Failed to load orders')
-        } finally {
-            setLoading(false)
         }
     }
 
@@ -243,6 +243,10 @@ export default function AdminOrdersPage() {
                 'Data Size': order.size.replace(/GB/i, '')
             }))
 
+            // Dynamic import
+            // @ts-ignore
+            const { utils, writeFile } = await import('xlsx-js-style')
+
             const worksheet = utils.json_to_sheet(dataToExport)
 
             // Reduce text size
@@ -297,6 +301,10 @@ export default function AdminOrdersPage() {
                 'Number': order.phone_number,
                 'Data Size': order.size.replace(/GB/i, '')
             }))
+
+            // Dynamic import
+            // @ts-ignore
+            const { utils, writeFile } = await import('xlsx-js-style')
 
             const worksheet = utils.json_to_sheet(dataToExport)
 

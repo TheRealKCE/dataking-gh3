@@ -26,20 +26,27 @@ export async function GET(request: NextRequest) {
         // Service role client to bypass RLS
         const supabase = createServerClient()
 
-        // 1. Fetch users count
-        const { count: usersCount } = await supabase
-            .from('users')
-            .select('*', { count: 'exact', head: true })
+        // Fetch data in parallel
+        const [usersRes, ordersRes, walletsRes] = await Promise.all([
+            // 1. Fetch users count
+            supabase
+                .from('users')
+                .select('*', { count: 'exact', head: true }),
 
-        // 2. Fetch orders for stats
-        const { data: orders } = await supabase
-            .from('orders')
-            .select('status, price, created_at')
+            // 2. Fetch orders for stats
+            supabase
+                .from('orders')
+                .select('status, price, created_at'),
 
-        // 3. Fetch wallets for balance
-        const { data: wallets } = await supabase
-            .from('wallets')
-            .select('balance')
+            // 3. Fetch wallets for balance
+            supabase
+                .from('wallets')
+                .select('balance')
+        ])
+
+        const usersCount = usersRes.count
+        const orders = ordersRes.data
+        const wallets = walletsRes.data
 
         const totalOrders = orders?.length || 0
         const completedOrders = (orders as any[])?.filter(o => o.status === 'completed').length || 0
