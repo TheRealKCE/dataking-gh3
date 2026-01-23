@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
 import { formatCurrency } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -79,13 +78,9 @@ export default function AdminPackagesPage() {
 
     const fetchPackages = async () => {
         try {
-            const { data, error } = await supabase
-                .from('data_packages')
-                .select('*')
-                .order('network')
-                .order('sort_order')
-
-            if (error) throw error
+            const res = await fetch('/api/admin/packages')
+            if (!res.ok) throw new Error('Failed to fetch packages')
+            const data = await res.json()
             setPackages(data || [])
         } catch (error) {
             console.error('Error fetching packages:', error)
@@ -123,26 +118,19 @@ export default function AdminPackagesPage() {
 
         setIsSaving(true)
         try {
-            if (editingPackage) {
-                const { error } = await (supabase
-                    .from('data_packages') as any)
-                    .update({
-                        ...formData,
-                        updated_at: new Date().toISOString(),
-                    })
-                    .eq('id', editingPackage.id)
+            const method = editingPackage ? 'PUT' : 'POST'
+            const body = editingPackage ? { ...formData, id: editingPackage.id } : formData
 
-                if (error) throw error
-                toast.success('Package updated successfully')
-            } else {
-                const { error } = await (supabase
-                    .from('data_packages') as any)
-                    .insert(formData)
+            const res = await fetch('/api/admin/packages', {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body)
+            })
 
-                if (error) throw error
-                toast.success('Package created successfully')
-            }
+            const data = await res.json()
+            if (!res.ok) throw new Error(data.error || 'Failed to save package')
 
+            toast.success(editingPackage ? 'Package updated successfully' : 'Package created successfully')
             setIsDialogOpen(false)
             fetchPackages()
         } catch (error) {
@@ -157,12 +145,12 @@ export default function AdminPackagesPage() {
         if (!confirm('Are you sure you want to delete this package?')) return
 
         try {
-            const { error } = await (supabase
-                .from('data_packages') as any)
-                .delete()
-                .eq('id', id)
+            const res = await fetch(`/api/admin/packages?id=${id}`, {
+                method: 'DELETE',
+            })
 
-            if (error) throw error
+            if (!res.ok) throw new Error('Failed to delete package')
+
             toast.success('Package deleted successfully')
             fetchPackages()
         } catch (error) {
@@ -172,12 +160,17 @@ export default function AdminPackagesPage() {
 
     const toggleAvailability = async (pkg: DataPackage) => {
         try {
-            const { error } = await (supabase
-                .from('data_packages') as any)
-                .update({ is_available: !pkg.is_available })
-                .eq('id', pkg.id)
+            const res = await fetch('/api/admin/packages', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: pkg.id,
+                    is_available: !pkg.is_available
+                })
+            })
 
-            if (error) throw error
+            if (!res.ok) throw new Error('Failed to update package')
+
             setPackages(prev =>
                 prev.map(p => p.id === pkg.id ? { ...p, is_available: !p.is_available } : p)
             )

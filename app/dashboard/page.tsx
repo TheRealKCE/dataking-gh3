@@ -141,7 +141,7 @@ export default function DashboardPage() {
     return (
         <div className="space-y-6">
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-0">
                     <CardContent className="p-6">
                         <div className="flex items-center justify-between">
