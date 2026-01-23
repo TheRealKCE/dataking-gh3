@@ -33,13 +33,13 @@ import {
 import { toast } from 'sonner'
 import { DataPackage } from '@/types/supabase'
 
-const NETWORKS = ['All', 'MTN', 'Telecel', 'AT-iShare', 'AT-BigTime'] as const
+const NETWORKS = ['MTN', 'Telecel', 'AT-iShare', 'AT-BigTime'] as const
 
 export default function DataPackagesPage() {
     const { dbUser, session } = useAuth()
     const [packages, setPackages] = useState<DataPackage[]>([])
     const [filteredPackages, setFilteredPackages] = useState<DataPackage[]>([])
-    const [selectedNetwork, setSelectedNetwork] = useState<string>('All')
+    const [selectedNetwork, setSelectedNetwork] = useState<string>('MTN')
     const [searchQuery, setSearchQuery] = useState('')
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
     const [isLoading, setIsLoading] = useState(true)
@@ -94,9 +94,8 @@ export default function DataPackagesPage() {
     const filterPackages = () => {
         let filtered = packages
 
-        if (selectedNetwork !== 'All') {
-            filtered = filtered.filter(p => p.network === selectedNetwork)
-        }
+        // Filter by network
+        filtered = filtered.filter(p => p.network === selectedNetwork)
 
         if (searchQuery) {
             const query = searchQuery.toLowerCase()
@@ -248,7 +247,7 @@ export default function DataPackagesPage() {
                 <TabsList className="flex-wrap">
                     {NETWORKS.map((network) => (
                         <TabsTrigger key={network} value={network} className="flex items-center gap-2">
-                            {network !== 'All' && <span>{getNetworkIcon(network)}</span>}
+                            <span>{getNetworkIcon(network)}</span>
                             {network}
                         </TabsTrigger>
                     ))}
@@ -265,24 +264,29 @@ export default function DataPackagesPage() {
                             {filteredPackages.map((pkg) => (
                                 <Card
                                     key={pkg.id}
-                                    className="group overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer"
+                                    className={`group overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer border-0 ${pkg.network === 'MTN' ? 'bg-[#FACC15] text-black' :
+                                            pkg.network === 'Telecel' ? 'bg-[#E60000] text-white' :
+                                                'bg-[#0056B3] text-white'
+                                        }`}
                                     onClick={() => handlePurchaseClick(pkg)}
                                 >
-                                    <div className={`h-2 bg-gradient-to-r ${getNetworkGradient(pkg.network)}`} />
                                     <CardContent className="p-6">
                                         <div className="flex items-start justify-between mb-4">
                                             <div className="text-3xl">{getNetworkIcon(pkg.network)}</div>
-                                            <Badge variant={pkg.network === 'MTN' ? 'mtn' : pkg.network === 'Telecel' ? 'telecel' : 'airteltigo'}>
+                                            <Badge variant="outline" className={`border-current ${pkg.network === 'MTN' ? 'text-black' : 'text-white'
+                                                }`}>
                                                 {pkg.network}
                                             </Badge>
                                         </div>
                                         <h3 className="text-2xl font-bold mb-2">{pkg.size}</h3>
-                                        <p className="text-sm text-muted-foreground mb-4 line-clamp-2">
+                                        <p className={`text-sm mb-4 line-clamp-2 ${pkg.network === 'MTN' ? 'text-black/80' : 'text-white/80'
+                                            }`}>
                                             {pkg.description || `${pkg.size} data bundle for ${pkg.network}`}
                                         </p>
                                         <div className="flex items-center justify-between">
-                                            <span className="text-2xl font-bold text-primary">{formatCurrency(pkg.price)}</span>
-                                            <Button size="sm" className="group-hover:bg-primary group-hover:text-white transition-colors">
+                                            <span className="text-2xl font-bold">{formatCurrency(pkg.price)}</span>
+                                            <Button size="sm" className={`transition-colors ${pkg.network === 'MTN' ? 'bg-black text-white hover:bg-black/80' : 'bg-white text-black hover:bg-white/90'
+                                                }`}>
                                                 Buy Now
                                             </Button>
                                         </div>
@@ -295,27 +299,34 @@ export default function DataPackagesPage() {
                             {filteredPackages.map((pkg) => (
                                 <Card
                                     key={pkg.id}
-                                    className="group hover:shadow-lg transition-all cursor-pointer"
+                                    className={`group hover:shadow-lg transition-all cursor-pointer border-0 ${pkg.network === 'MTN' ? 'bg-[#FACC15] text-black' :
+                                            pkg.network === 'Telecel' ? 'bg-[#E60000] text-white' :
+                                                'bg-[#0056B3] text-white'
+                                        }`}
                                     onClick={() => handlePurchaseClick(pkg)}
                                 >
                                     <CardContent className="p-4 flex items-center justify-between">
                                         <div className="flex items-center gap-4">
-                                            <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${getNetworkGradient(pkg.network)} flex items-center justify-center text-2xl`}>
+                                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl ${pkg.network === 'MTN' ? 'bg-black/10' : 'bg-white/20'
+                                                }`}>
                                                 {getNetworkIcon(pkg.network)}
                                             </div>
                                             <div>
                                                 <div className="flex items-center gap-2">
                                                     <h3 className="font-semibold">{pkg.size}</h3>
-                                                    <Badge variant={pkg.network === 'MTN' ? 'mtn' : pkg.network === 'Telecel' ? 'telecel' : 'airteltigo'} className="text-xs">
+                                                    <Badge variant="outline" className={`text-xs border-current ${pkg.network === 'MTN' ? 'text-black' : 'text-white'
+                                                        }`}>
                                                         {pkg.network}
                                                     </Badge>
                                                 </div>
-                                                <p className="text-sm text-muted-foreground">{pkg.description}</p>
+                                                <p className={`text-sm ${pkg.network === 'MTN' ? 'text-black/70' : 'text-white/70'
+                                                    }`}>{pkg.description}</p>
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-4">
                                             <span className="text-xl font-bold">{formatCurrency(pkg.price)}</span>
-                                            <Button size="sm">Buy</Button>
+                                            <Button size="sm" className={`${pkg.network === 'MTN' ? 'bg-black text-white hover:bg-black/80' : 'bg-white text-black hover:bg-white/90'
+                                                }`}>Buy</Button>
                                         </div>
                                     </CardContent>
                                 </Card>
