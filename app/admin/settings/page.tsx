@@ -116,7 +116,7 @@ export default function AdminSettingsPage() {
                                 <Input
                                     value={supportEmail}
                                     onChange={(e) => setSupportEmail(e.target.value)}
-                                    placeholder="support@ghdata.com"
+                                    placeholder="support@kingflexydataltd.com"
                                 />
                             </div>
                         </CardContent>

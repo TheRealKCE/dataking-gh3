@@ -1,7 +1,7 @@
 // Moolre SMS Service
 
 const MOOLRE_API_KEY = process.env.MOOLRE_API_KEY || ''
-const MOOLRE_SENDER_ID = process.env.MOOLRE_SENDER_ID || 'GHData'
+const MOOLRE_SENDER_ID = process.env.MOOLRE_SENDER_ID || 'KingFlexy'
 const SMS_ENABLED = process.env.SMS_ENABLED === 'true'
 
 interface SMSResponse {
@@ -63,19 +63,19 @@ export async function sendSMS(
 
 // SMS Templates
 export function getWalletTopUpSMS(amount: number, newBalance: number): string {
-    return `GHData: Your wallet has been credited with GHS ${amount.toFixed(2)}. New balance: GHS ${newBalance.toFixed(2)}`
+    return `KING FLEXY DATA LTD: Your wallet has been credited with GHS ${amount.toFixed(2)}. New balance: GHS ${newBalance.toFixed(2)}`
 }
 
 export function getOrderSuccessSMS(phoneNumber: string, dataSize: string): string {
-    return `GHData: ${dataSize} data has been sent to ${phoneNumber}. Thank you for using GHData!`
+    return `KING FLEXY DATA LTD: ${dataSize} data has been sent to ${phoneNumber}. Thank you for using KING FLEXY DATA LTD!`
 }
 
 export function getOrderFailedSMS(phoneNumber: string, dataSize: string): string {
-    return `GHData: Failed to send ${dataSize} to ${phoneNumber}. Please contact support or file a complaint.`
+    return `KING FLEXY DATA LTD: Failed to send ${dataSize} to ${phoneNumber}. Please contact support or file a complaint.`
 }
 
 export function getOrderProcessingSMS(phoneNumber: string, dataSize: string): string {
-    return `GHData: Your order for ${dataSize} to ${phoneNumber} is being processed. You will be notified when complete.`
+    return `KING FLEXY DATA LTD: Your order for ${dataSize} to ${phoneNumber} is being processed. You will be notified when complete.`
 }
 
 export async function notifyAdmin(message: string): Promise<void> {
