@@ -63,7 +63,7 @@ export default function SignupPage() {
         setIsLoading(true)
 
         try {
-            const { error } = await signUp({
+            const { error, data } = await signUp({
                 email: formData.email,
                 password: formData.password,
                 firstName: formData.firstName,
@@ -73,6 +73,13 @@ export default function SignupPage() {
 
             if (error) {
                 setError(error.message)
+                return
+            }
+
+            // Auto login if session is created
+            if (data?.session) {
+                toast.success('Account created! logging in...')
+                router.push('/dashboard') // Or router.refresh() depending on logic
                 return
             }
 

@@ -13,7 +13,7 @@ interface AuthContextType {
     isLoading: boolean
     isAdmin: boolean
     signIn: (email: string, password: string) => Promise<{ error: Error | null }>
-    signUp: (data: SignUpData) => Promise<{ error: Error | null }>
+    signUp: (data: SignUpData) => Promise<{ error: Error | null, data: { user: User | null, session: Session | null } | null }>
     signOut: () => Promise<void>
     refreshUser: () => Promise<void>
 }
@@ -79,9 +79,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             },
         })
 
-        if (authError) return { error: authError }
+        if (authError) return { error: authError, data: null }
 
-        return { error: null }
+        return { error: null, data: authData }
     }
 
     const signOut = async () => {
