@@ -264,39 +264,49 @@ export default function MyOrdersPage() {
             <Card>
                 <CardContent className="p-4">
                     <div className="flex flex-col md:flex-row gap-4">
-                        <div className="relative flex-1">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                            <Input
-                                placeholder="Search by phone, reference..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="pl-9"
-                            />
+                        <div className="flex-1 space-y-1">
+                            <Label htmlFor="search" className="text-xs text-muted-foreground">Search</Label>
+                            <div className="relative">
+                                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                <Input
+                                    id="search"
+                                    placeholder="Search by phone, reference..."
+                                    value={searchQuery}
+                                    onChange={(e) => setSearchQuery(e.target.value)}
+                                    className="pl-9"
+                                />
+                            </div>
                         </div>
-                        <Select value={networkFilter} onValueChange={setNetworkFilter}>
-                            <SelectTrigger className="w-[150px]">
-                                <SelectValue placeholder="Network" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {NETWORKS.map((network) => (
-                                    <SelectItem key={network} value={network}>
-                                        {network}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
-                        <Select value={statusFilter} onValueChange={setStatusFilter}>
-                            <SelectTrigger className="w-[150px]">
-                                <SelectValue placeholder="Status" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                {STATUSES.map((status) => (
-                                    <SelectItem key={status} value={status}>
-                                        {status.charAt(0).toUpperCase() + status.slice(1)}
-                                    </SelectItem>
-                                ))}
-                            </SelectContent>
-                        </Select>
+                        <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">Network</Label>
+                            <Select value={networkFilter} onValueChange={setNetworkFilter}>
+                                <SelectTrigger className="w-[150px]">
+                                    <SelectValue placeholder="Network" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {NETWORKS.map((network) => (
+                                        <SelectItem key={network} value={network}>
+                                            {network}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                        <div className="space-y-1">
+                            <Label className="text-xs text-muted-foreground">Status</Label>
+                            <Select value={statusFilter} onValueChange={setStatusFilter}>
+                                <SelectTrigger className="w-[150px]">
+                                    <SelectValue placeholder="Status" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {STATUSES.map((status) => (
+                                        <SelectItem key={status} value={status}>
+                                            {status.charAt(0).toUpperCase() + status.slice(1)}
+                                        </SelectItem>
+                                    ))}
+                                </SelectContent>
+                            </Select>
+                        </div>
                     </div>
                 </CardContent>
             </Card>
@@ -314,12 +324,11 @@ export default function MyOrdersPage() {
                             <Table>
                                 <TableHeader>
                                     <TableRow>
-                                        <TableHead>Reference</TableHead>
+                                        <TableHead>Status</TableHead>
                                         <TableHead>Phone</TableHead>
                                         <TableHead>Network</TableHead>
-                                        <TableHead>Size</TableHead>
-                                        <TableHead>Price</TableHead>
-                                        <TableHead>Status</TableHead>
+                                        <TableHead>Size & Price</TableHead>
+                                        <TableHead>Reference</TableHead>
                                         <TableHead>Date</TableHead>
                                         <TableHead>Actions</TableHead>
                                     </TableRow>
@@ -327,21 +336,25 @@ export default function MyOrdersPage() {
                                 <TableBody>
                                     {filteredOrders.map((order) => (
                                         <TableRow key={order.id}>
-                                            <TableCell className="font-mono text-sm">{order.reference_code}</TableCell>
-                                            <TableCell>{order.phone_number}</TableCell>
-                                            <TableCell>
-                                                <Badge variant={order.network === 'MTN' ? 'mtn' : order.network === 'Telecel' ? 'telecel' : 'airteltigo'}>
-                                                    {order.network}
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell>{order.size}</TableCell>
-                                            <TableCell>{formatCurrency(order.price)}</TableCell>
                                             <TableCell>
                                                 <div className="flex items-center gap-2">
                                                     {getStatusIcon(order.status)}
                                                     {getStatusBadge(order.status)}
                                                 </div>
                                             </TableCell>
+                                            <TableCell>{order.phone_number}</TableCell>
+                                            <TableCell>
+                                                <Badge variant={order.network === 'MTN' ? 'mtn' : order.network === 'Telecel' ? 'telecel' : 'airteltigo'}>
+                                                    {order.network}
+                                                </Badge>
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="flex flex-col">
+                                                    <span className="font-medium">{order.size}</span>
+                                                    <span className="text-sm text-muted-foreground">{formatCurrency(order.price)}</span>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="font-mono text-sm">{order.reference_code}</TableCell>
                                             <TableCell className="text-muted-foreground text-sm">
                                                 {formatDate(order.created_at)}
                                             </TableCell>
