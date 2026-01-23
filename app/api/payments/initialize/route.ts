@@ -4,7 +4,7 @@ import { createServerClient } from '@/lib/supabase'
 import { calculatePaystackFee, generateReferenceCode } from '@/lib/utils'
 
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY!
-const PAYSTACK_FEE_PERCENT = 1.95
+
 
 export async function POST(request: NextRequest) {
     try {
@@ -47,7 +47,23 @@ export async function POST(request: NextRequest) {
             wallet = newWallet
         }
 
-        const fee = calculatePaystackFee(amount, PAYSTACK_FEE_PERCENT)
+        // Get Paystack fee setting
+        const { data: feeSetting } = await supabaseAdmin
+            .from('admin_settings')
+            .select('value')
+            .eq('key', 'paystack_fee_percent')
+            .single()
+
+        // Parse fee percent (handle string/number difference in JSONB)
+        let feePercent = 1.95 // Default fallback
+        if ((feeSetting as any)?.value) {
+            // value is JSONB, could be string "1.95" or number 1.95
+            const val = (feeSetting as any).value
+            const parsed = typeof val === 'string' ? parseFloat(val) : (typeof val === 'number' ? val : 1.95)
+            if (!isNaN(parsed)) feePercent = parsed
+        }
+
+        const fee = calculatePaystackFee(amount, feePercent)
         const totalAmount = amount + fee
         const reference = `WAL-${generateReferenceCode()}`
 

@@ -29,7 +29,6 @@ import { WalletTransaction } from '@/types/supabase'
 
 const QUICK_AMOUNTS = [50, 100, 200, 500]
 const MIN_AMOUNT = 5
-const PAYSTACK_FEE_PERCENT = 1.95
 
 function WalletContent() {
     const { dbUser } = useAuth()
@@ -40,6 +39,7 @@ function WalletContent() {
     const [isLoading, setIsLoading] = useState(true)
     const [topUpAmount, setTopUpAmount] = useState('')
     const [isProcessing, setIsProcessing] = useState(false)
+    const [paystackFeePercent, setPaystackFeePercent] = useState(1.95)
     const searchParams = useSearchParams()
     const router = useRouter()
 
@@ -94,6 +94,20 @@ function WalletContent() {
                 .limit(10)
 
             setTransactions(txns || [])
+
+            // Fetch settings
+            const { data: feeSetting } = await supabase
+                .from('admin_settings')
+                .select('value')
+                .eq('key', 'paystack_fee_percent')
+                .single()
+
+            if ((feeSetting as any)?.value) {
+                const val = (feeSetting as any).value
+                // Handle possible string "1.95" or number 1.95
+                const parsed = typeof val === 'string' ? parseFloat(val) : (typeof val === 'number' ? val : 1.95)
+                if (!isNaN(parsed)) setPaystackFeePercent(parsed)
+            }
         } catch (error) {
             console.error('Error fetching wallet data:', error)
         } finally {
@@ -143,7 +157,7 @@ function WalletContent() {
         }
     }
 
-    const fee = topUpAmount ? calculatePaystackFee(parseFloat(topUpAmount) || 0, PAYSTACK_FEE_PERCENT) : 0
+    const fee = topUpAmount ? calculatePaystackFee(parseFloat(topUpAmount) || 0, paystackFeePercent) : 0
     const totalAmount = topUpAmount ? (parseFloat(topUpAmount) || 0) + fee : 0
 
     if (isLoading) {
@@ -256,7 +270,7 @@ function WalletContent() {
                                             <span>{formatCurrency(parseFloat(topUpAmount))}</span>
                                         </div>
                                         <div className="flex justify-between text-sm">
-                                            <span className="text-muted-foreground">Transaction fee ({PAYSTACK_FEE_PERCENT}%)</span>
+                                            <span className="text-muted-foreground">Transaction fee ({paystackFeePercent}%)</span>
                                             <span>{formatCurrency(fee)}</span>
                                         </div>
                                         <Separator />
