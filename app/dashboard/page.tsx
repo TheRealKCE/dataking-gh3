@@ -151,13 +151,13 @@ export default function DashboardPage() {
     return (
         <div className="space-y-6">
             {/* Stats Cards */}
-            <div className="grid grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
                 <Card className="bg-[#0056B3] text-white border-0">
                     <CardContent className="p-6">
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-white/80 text-sm font-medium">Total Orders</p>
-                                <p className="text-3xl font-bold mt-1">{stats?.totalOrders}</p>
+                                <p className="text-2xl lg:text-3xl font-bold mt-1">{stats?.totalOrders}</p>
                             </div>
                             <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
                                 <ShoppingCart className="w-6 h-6" />
@@ -171,7 +171,7 @@ export default function DashboardPage() {
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-black/70 text-sm font-medium">Completed</p>
-                                <p className="text-3xl font-bold mt-1">{stats?.completedOrders}</p>
+                                <p className="text-2xl lg:text-3xl font-bold mt-1">{stats?.completedOrders}</p>
                             </div>
                             <div className="w-12 h-12 rounded-xl bg-black/10 flex items-center justify-center">
                                 <CheckCircle2 className="w-6 h-6" />
@@ -185,7 +185,7 @@ export default function DashboardPage() {
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-black/70 text-sm font-medium">Processing</p>
-                                <p className="text-3xl font-bold mt-1">{stats?.processingOrders}</p>
+                                <p className="text-2xl lg:text-3xl font-bold mt-1">{stats?.processingOrders}</p>
                             </div>
                             <div className="w-12 h-12 rounded-xl bg-black/10 flex items-center justify-center">
                                 <Clock className="w-6 h-6" />
@@ -199,7 +199,7 @@ export default function DashboardPage() {
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-white/80 text-sm font-medium">Failed</p>
-                                <p className="text-3xl font-bold mt-1">{stats?.failedOrders}</p>
+                                <p className="text-2xl lg:text-3xl font-bold mt-1">{stats?.failedOrders}</p>
                             </div>
                             <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
                                 <XCircle className="w-6 h-6" />
@@ -213,7 +213,7 @@ export default function DashboardPage() {
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-purple-100 text-sm font-medium">Success Rate</p>
-                                <p className="text-3xl font-bold mt-1">{stats?.successRate}%</p>
+                                <p className="text-2xl lg:text-3xl font-bold mt-1">{stats?.successRate}%</p>
                             </div>
                             <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
                                 <TrendingUp className="w-6 h-6" />
@@ -227,7 +227,7 @@ export default function DashboardPage() {
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-gray-600 text-sm font-medium">Total Spent</p>
-                                <p className="text-3xl font-bold mt-1">{formatCurrency(stats?.totalSpent || 0)}</p>
+                                <p className="text-2xl lg:text-3xl font-bold mt-1">{formatCurrency(stats?.totalSpent || 0)}</p>
                             </div>
                             <div className="w-12 h-12 rounded-xl bg-gray-900/10 flex items-center justify-center">
                                 <Banknote className="w-6 h-6" />
