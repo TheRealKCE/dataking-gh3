@@ -80,13 +80,15 @@ function WalletContent() {
                     .eq('user_id', dbUser?.id as any)
                     .single(),
 
-                // Fetch recent transactions
+                // Fetch today's top-up transactions only
                 supabase
                     .from('wallet_transactions')
                     .select('*')
                     .eq('user_id', dbUser?.id as any)
-                    .order('created_at', { ascending: false })
-                    .limit(10),
+                    .eq('type', 'credit')
+                    .eq('source', 'payment')
+                    .gte('created_at', new Date(new Date().setHours(0, 0, 0, 0)).toISOString())
+                    .order('created_at', { ascending: false }),
 
                 // Fetch settings
                 supabase
@@ -333,7 +335,7 @@ function WalletContent() {
             {/* Recent Transactions */}
             <Card>
                 <CardHeader>
-                    <CardTitle>Recent Transactions</CardTitle>
+                    <CardTitle>Today</CardTitle>
                 </CardHeader>
                 <CardContent>
                     {transactions.length === 0 ? (
