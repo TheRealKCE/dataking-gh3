@@ -48,7 +48,7 @@ export default function MyOrdersPage() {
     const [searchQuery, setSearchQuery] = useState('')
     const [networkFilter, setNetworkFilter] = useState('All')
     const [statusFilter, setStatusFilter] = useState('All')
-    const [timePeriod, setTimePeriod] = useState('This Week')
+    const [timePeriod, setTimePeriod] = useState('Today')
 
     // Complaint dialog
     const [complaintOrder, setComplaintOrder] = useState<Order | null>(null)
@@ -102,11 +102,19 @@ export default function MyOrdersPage() {
                 pkg.price === order.price
         )
 
-        // Return description if found, otherwise fallback to size or network bundle
+        // Return description if found, otherwise fallback to network-based name
         if (matchingPackage?.description) {
             return matchingPackage.description
         }
-        return order.size || `${order.network} Bundle`
+
+        // Fallback to network-based bundle names for old orders
+        const networkNames: Record<string, string> = {
+            'MTN': 'MTN Data Bundle',
+            'Telecel': 'Telecel Data Bundle',
+            'AT-iShare': 'AT Premium Bundle',
+            'AT-BigTime': 'AT BigTime Bundle',
+        }
+        return networkNames[order.network] || `${order.network} Bundle`
     }
 
     // Filter orders based on all criteria
