@@ -82,7 +82,9 @@ export default function SignupPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     email: formData.email,
-                    firstName: formData.firstName
+                    firstName: formData.firstName,
+                    lastName: formData.lastName,
+                    phoneNumber: phoneValidation.normalizedNumber
                 })
             }).catch(err => console.error('Welcome email error:', err))
 

@@ -3,7 +3,7 @@ import { createServerClient } from '@/lib/supabase'
 import { generateReferenceCode } from '@/lib/utils'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
-import { sendOrderConfirmationEmail } from '@/lib/email-service'
+import { sendOrderSuccessEmail, sendAdminNewOrderAlert } from '@/lib/email-service'
 
 export async function POST(request: NextRequest) {
     try {
@@ -136,19 +136,24 @@ export async function POST(request: NextRequest) {
             action_url: `/dashboard/my-orders`,
         })
 
-        // Send order confirmation email (async, non-blocking)
+        // Send order confirmation email to user and admin alert (async, non-blocking)
         try {
             // Get user details for email
             const { data: userData } = await supabase
                 .from('users')
-                .select('email, first_name')
+                .select('email, first_name, last_name')
                 .eq('id', userId)
                 .single()
 
             if (userData) {
-                sendOrderConfirmationEmail(
-                    (userData as any).email,
-                    (userData as any).first_name || 'Customer',
+                const userEmail = (userData as any).email
+                const firstName = (userData as any).first_name || 'Customer'
+                const lastName = (userData as any).last_name || ''
+
+                // Send order success email to user
+                sendOrderSuccessEmail(
+                    userEmail,
+                    firstName,
                     {
                         referenceCode,
                         phoneNumber,
@@ -156,7 +161,18 @@ export async function POST(request: NextRequest) {
                         size: (pkg as any).size,
                         price: (pkg as any).price
                     }
-                ).catch(err => console.error('[Order] Email notification error:', err))
+                ).catch((err: Error) => console.error('[Order] User email error:', err))
+
+                // Send new order alert to admin
+                sendAdminNewOrderAlert({
+                    referenceCode,
+                    phoneNumber,
+                    network: (pkg as any).network,
+                    size: (pkg as any).size,
+                    price: (pkg as any).price,
+                    customerName: `${firstName} ${lastName}`.trim(),
+                    customerEmail: userEmail
+                }).catch((err: Error) => console.error('[Order] Admin email error:', err))
             }
         } catch (emailError) {
             console.error('[Order] Failed to send email notification:', emailError)

@@ -2,7 +2,7 @@
  * Brevo Email Service
  * 
  * This service handles all transactional emails using Brevo (formerly Sendinblue).
- * It provides reusable functions for sending various types of emails.
+ * Premium high-end email templates for KING FLEXY DATA LTD.
  */
 
 // @ts-ignore - Brevo SDK doesn't have complete type definitions
@@ -21,27 +21,11 @@ const DEFAULT_SENDER = {
     email: process.env.BREVO_SENDER_EMAIL || 'noreply@kingflexydata.com'
 }
 
-// Email types for tracking
-export type EmailType =
-    | 'welcome'
-    | 'order_confirmation'
-    | 'order_completed'
-    | 'order_failed'
-    | 'wallet_credited'
-    | 'wallet_debited'
-    | 'payment_success'
-    | 'password_reset'
-    | 'complaint_resolved'
-    | 'admin_alert'
-
 interface SendEmailOptions {
     to: string
     toName?: string
     subject: string
     htmlContent: string
-    textContent?: string
-    templateId?: number
-    params?: Record<string, string | number>
 }
 
 interface EmailResult {
@@ -65,17 +49,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<EmailResult>
         sendSmtpEmail.sender = DEFAULT_SENDER
         sendSmtpEmail.to = [{ email: options.to, name: options.toName || options.to }]
         sendSmtpEmail.subject = options.subject
-
-        // Use template if provided, otherwise use HTML content
-        if (options.templateId) {
-            sendSmtpEmail.templateId = options.templateId
-            sendSmtpEmail.params = options.params || {}
-        } else {
-            sendSmtpEmail.htmlContent = options.htmlContent
-            if (options.textContent) {
-                sendSmtpEmail.textContent = options.textContent
-            }
-        }
+        sendSmtpEmail.htmlContent = options.htmlContent
 
         const data = await apiInstance.sendTransacEmail(sendSmtpEmail)
         const rawMessageId = data.body?.messageId || data.response?.headers?.['x-message-id']
@@ -93,114 +67,389 @@ export async function sendEmail(options: SendEmailOptions): Promise<EmailResult>
 }
 
 /**
- * Generate base HTML email template with consistent branding
+ * Premium high-end HTML email template
  */
-function generateEmailTemplate(title: string, content: string): string {
+function generatePremiumTemplate(title: string, content: string, accentColor: string = '#D4AF37'): string {
     return `
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <title>${title}</title>
+    <!--[if mso]>
+    <noscript>
+        <xml>
+            <o:OfficeDocumentSettings>
+                <o:PixelsPerInch>96</o:PixelsPerInch>
+            </o:OfficeDocumentSettings>
+        </xml>
+    </noscript>
+    <![endif]-->
     <style>
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            line-height: 1.6;
-            color: #333;
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        
+        * {
             margin: 0;
             padding: 0;
-            background-color: #f4f4f4;
+            box-sizing: border-box;
         }
-        .container {
+        
+        body {
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            line-height: 1.7;
+            color: #1a1a2e;
+            background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
+            padding: 40px 20px;
+            min-height: 100vh;
+        }
+        
+        .email-wrapper {
             max-width: 600px;
             margin: 0 auto;
-            background-color: #ffffff;
-            border-radius: 8px;
+        }
+        
+        .email-container {
+            background: #ffffff;
+            border-radius: 24px;
             overflow: hidden;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            box-shadow: 
+                0 25px 50px -12px rgba(0, 0, 0, 0.4),
+                0 0 0 1px rgba(212, 175, 55, 0.1);
         }
+        
         .header {
-            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
-            color: #facc15;
-            padding: 30px;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f0f23 100%);
+            padding: 50px 40px;
             text-align: center;
+            position: relative;
+            overflow: hidden;
         }
-        .header h1 {
-            margin: 0;
-            font-size: 24px;
-            font-weight: bold;
+        
+        .header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, ${accentColor}, #f5e6a3, ${accentColor});
         }
-        .header .tagline {
-            color: #fff;
-            font-size: 14px;
-            margin-top: 5px;
-            opacity: 0.8;
+        
+        .header::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 100%;
+            height: 200%;
+            background: radial-gradient(circle, rgba(212, 175, 55, 0.1) 0%, transparent 70%);
+            pointer-events: none;
         }
-        .content {
-            padding: 30px;
+        
+        .logo-container {
+            position: relative;
+            z-index: 1;
         }
-        .content h2 {
+        
+        .logo-icon {
+            width: 70px;
+            height: 70px;
+            background: linear-gradient(135deg, ${accentColor} 0%, #f5e6a3 50%, ${accentColor} 100%);
+            border-radius: 16px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 20px;
+            box-shadow: 0 10px 30px rgba(212, 175, 55, 0.3);
+        }
+        
+        .logo-text {
+            font-size: 36px;
             color: #1a1a2e;
-            margin-top: 0;
+            font-weight: 700;
         }
-        .button {
-            display: inline-block;
-            background: linear-gradient(135deg, #facc15 0%, #eab308 100%);
-            color: #1a1a2e !important;
-            padding: 12px 30px;
-            text-decoration: none;
-            border-radius: 6px;
-            font-weight: bold;
-            margin: 15px 0;
+        
+        .brand-name {
+            font-size: 26px;
+            font-weight: 700;
+            color: #ffffff;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            margin-bottom: 8px;
         }
-        .info-box {
-            background-color: #f8f9fa;
-            border-left: 4px solid #facc15;
-            padding: 15px;
-            margin: 20px 0;
-            border-radius: 0 4px 4px 0;
+        
+        .brand-tagline {
+            font-size: 13px;
+            color: ${accentColor};
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            font-weight: 500;
         }
-        .footer {
-            background-color: #1a1a2e;
-            color: #fff;
-            padding: 20px;
-            text-align: center;
-            font-size: 12px;
+        
+        .content {
+            padding: 50px 40px;
         }
-        .footer a {
-            color: #facc15;
-            text-decoration: none;
-        }
-        .highlight {
-            color: #facc15;
-            font-weight: bold;
-        }
-        .amount {
+        
+        .greeting {
             font-size: 28px;
-            font-weight: bold;
-            color: #16a34a;
+            font-weight: 700;
+            color: #1a1a2e;
+            margin-bottom: 10px;
         }
-        .status-success { color: #16a34a; }
-        .status-failed { color: #dc2626; }
-        .status-pending { color: #ca8a04; }
+        
+        .subtitle {
+            font-size: 16px;
+            color: #64748b;
+            margin-bottom: 35px;
+            padding-bottom: 25px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .message-text {
+            font-size: 15px;
+            color: #475569;
+            margin-bottom: 30px;
+            line-height: 1.8;
+        }
+        
+        .info-card {
+            background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+            border-radius: 16px;
+            padding: 30px;
+            margin: 30px 0;
+            border: 1px solid #e2e8f0;
+        }
+        
+        .info-card-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 20px;
+            padding-bottom: 15px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .info-card-icon {
+            width: 44px;
+            height: 44px;
+            background: linear-gradient(135deg, ${accentColor} 0%, #f5e6a3 100%);
+            border-radius: 12px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 15px;
+            font-size: 20px;
+        }
+        
+        .info-card-title {
+            font-size: 18px;
+            font-weight: 600;
+            color: #1a1a2e;
+        }
+        
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .info-row:last-child {
+            border-bottom: none;
+            padding-bottom: 0;
+        }
+        
+        .info-label {
+            font-size: 14px;
+            color: #64748b;
+            font-weight: 500;
+        }
+        
+        .info-value {
+            font-size: 14px;
+            color: #1a1a2e;
+            font-weight: 600;
+            text-align: right;
+        }
+        
+        .amount-display {
+            text-align: center;
+            padding: 35px;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            border-radius: 20px;
+            margin: 30px 0;
+        }
+        
+        .amount-label {
+            font-size: 13px;
+            color: rgba(255,255,255,0.7);
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-bottom: 10px;
+        }
+        
+        .amount-value {
+            font-size: 42px;
+            font-weight: 700;
+            color: #ffffff;
+        }
+        
+        .amount-currency {
+            color: ${accentColor};
+        }
+        
+        .status-badge {
+            display: inline-block;
+            padding: 8px 20px;
+            border-radius: 50px;
+            font-size: 13px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+        
+        .status-success {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            color: #ffffff;
+        }
+        
+        .status-failed {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            color: #ffffff;
+        }
+        
+        .status-pending {
+            background: linear-gradient(135deg, ${accentColor} 0%, #f5e6a3 100%);
+            color: #1a1a2e;
+        }
+        
+        .cta-button {
+            display: inline-block;
+            background: linear-gradient(135deg, ${accentColor} 0%, #f5e6a3 50%, ${accentColor} 100%);
+            background-size: 200% 200%;
+            color: #1a1a2e !important;
+            text-decoration: none;
+            padding: 16px 40px;
+            border-radius: 12px;
+            font-size: 15px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            box-shadow: 0 10px 30px rgba(212, 175, 55, 0.3);
+            transition: all 0.3s ease;
+        }
+        
+        .cta-container {
+            text-align: center;
+            margin: 40px 0;
+        }
+        
+        .divider {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, #e2e8f0, transparent);
+            margin: 40px 0;
+        }
+        
+        .footer {
+            background: #f8fafc;
+            padding: 35px 40px;
+            text-align: center;
+            border-top: 1px solid #e2e8f0;
+        }
+        
+        .footer-text {
+            font-size: 13px;
+            color: #64748b;
+            margin-bottom: 15px;
+        }
+        
+        .footer-links {
+            margin-bottom: 20px;
+        }
+        
+        .footer-link {
+            color: #1a1a2e;
+            text-decoration: none;
+            font-size: 13px;
+            font-weight: 500;
+            margin: 0 15px;
+        }
+        
+        .footer-copyright {
+            font-size: 12px;
+            color: #94a3b8;
+        }
+        
+        .highlight-box {
+            background: linear-gradient(135deg, rgba(212, 175, 55, 0.1) 0%, rgba(245, 230, 163, 0.1) 100%);
+            border-left: 4px solid ${accentColor};
+            padding: 20px 25px;
+            border-radius: 0 12px 12px 0;
+            margin: 25px 0;
+        }
+        
+        .highlight-text {
+            font-size: 14px;
+            color: #1a1a2e;
+            font-weight: 500;
+        }
+        
+        @media only screen and (max-width: 600px) {
+            body {
+                padding: 20px 15px;
+            }
+            .header {
+                padding: 35px 25px;
+            }
+            .content {
+                padding: 35px 25px;
+            }
+            .footer {
+                padding: 25px 20px;
+            }
+            .greeting {
+                font-size: 24px;
+            }
+            .brand-name {
+                font-size: 22px;
+            }
+            .amount-value {
+                font-size: 34px;
+            }
+        }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>KING FLEXY DATA LTD</h1>
-            <div class="tagline">Your Trusted Data Provider</div>
-        </div>
-        <div class="content">
-            ${content}
-        </div>
-        <div class="footer">
-            <p>&copy; ${new Date().getFullYear()} KING FLEXY DATA LTD. All rights reserved.</p>
-            <p>
-                Need help? <a href="mailto:support@kingflexydata.com">Contact Support</a> | 
-                <a href="https://kingflexydata.com">Visit Website</a>
-            </p>
+    <div class="email-wrapper">
+        <div class="email-container">
+            <div class="header">
+                <div class="logo-container">
+                    <div class="logo-icon">
+                        <span class="logo-text">K</span>
+                    </div>
+                    <div class="brand-name">KING FLEXY DATA</div>
+                    <div class="brand-tagline">Premium Data Solutions</div>
+                </div>
+            </div>
+            <div class="content">
+                ${content}
+            </div>
+            <div class="footer">
+                <div class="footer-links">
+                    <a href="${process.env.NEXT_PUBLIC_APP_URL}" class="footer-link">Website</a>
+                    <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard" class="footer-link">Dashboard</a>
+                    <a href="mailto:kingflexydatalimited@gmail.com" class="footer-link">Support</a>
+                </div>
+                <p class="footer-text">
+                    Questions? Reply to this email or contact us at<br>
+                    <strong>kingflexydatalimited@gmail.com</strong>
+                </p>
+                <p class="footer-copyright">
+                    © ${new Date().getFullYear()} KING FLEXY DATA LTD. All rights reserved.<br>
+                    Ghana's Premium Data Reseller Platform
+                </p>
+            </div>
         </div>
     </div>
 </body>
@@ -208,7 +457,7 @@ function generateEmailTemplate(title: string, content: string): string {
 }
 
 // ==========================================
-// TRANSACTIONAL EMAIL FUNCTIONS
+// USER EMAIL FUNCTIONS
 // ==========================================
 
 /**
@@ -219,41 +468,64 @@ export async function sendWelcomeEmail(
     firstName: string
 ): Promise<EmailResult> {
     const content = `
-        <h2>Welcome to KING FLEXY DATA LTD, ${firstName}! 🎉</h2>
-        <p>Thank you for creating an account with us. You're now part of Ghana's most trusted data reseller platform.</p>
+        <h1 class="greeting">Welcome, ${firstName}! 🎉</h1>
+        <p class="subtitle">Your premium data journey begins now</p>
         
-        <div class="info-box">
-            <strong>What you can do now:</strong>
-            <ul>
-                <li>💰 Fund your wallet via Paystack</li>
-                <li>📱 Buy affordable MTN, Telecel, and AirtelTigo data bundles</li>
-                <li>👥 Manage your customer numbers</li>
-                <li>📊 Track all your orders in real-time</li>
-            </ul>
-        </div>
-        
-        <p style="text-align: center;">
-            <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard" class="button">
-                Go to Dashboard
-            </a>
+        <p class="message-text">
+            Thank you for joining <strong>KING FLEXY DATA LTD</strong> – Ghana's most trusted 
+            premium data reseller platform. Your account has been successfully created and 
+            you're now part of an exclusive community.
         </p>
         
-        <p>If you have any questions, our support team is always here to help.</p>
-        <p>Happy data buying! 📶</p>
+        <div class="info-card">
+            <div class="info-card-header">
+                <div class="info-card-icon">✨</div>
+                <span class="info-card-title">What You Can Do</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">💰 Fund Wallet</span>
+                <span class="info-value">Instant Paystack top-up</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">📱 Buy Data</span>
+                <span class="info-value">MTN, Telecel, AirtelTigo</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">👥 Manage Customers</span>
+                <span class="info-value">Track all your recipients</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">📊 Real-time Tracking</span>
+                <span class="info-value">Monitor every order</span>
+            </div>
+        </div>
+        
+        <div class="cta-container">
+            <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard" class="cta-button">
+                Access Your Dashboard
+            </a>
+        </div>
+        
+        <div class="highlight-box">
+            <p class="highlight-text">
+                💡 <strong>Pro Tip:</strong> Fund your wallet now and start enjoying the best 
+                data prices in Ghana. Our rates are unbeatable!
+            </p>
+        </div>
     `
 
     return sendEmail({
         to: email,
         toName: firstName,
         subject: `Welcome to KING FLEXY DATA LTD, ${firstName}! 🎉`,
-        htmlContent: generateEmailTemplate('Welcome', content)
+        htmlContent: generatePremiumTemplate('Welcome', content)
     })
 }
 
 /**
- * Send order confirmation email
+ * Send order placed success email to user
  */
-export async function sendOrderConfirmationEmail(
+export async function sendOrderSuccessEmail(
     email: string,
     firstName: string,
     orderDetails: {
@@ -265,82 +537,62 @@ export async function sendOrderConfirmationEmail(
     }
 ): Promise<EmailResult> {
     const content = `
-        <h2>Order Confirmed! 📱</h2>
-        <p>Hi ${firstName},</p>
-        <p>Your data order has been received and is being processed.</p>
+        <h1 class="greeting">Order Placed Successfully! ✅</h1>
+        <p class="subtitle">Your data order is being processed</p>
         
-        <div class="info-box">
-            <h3 style="margin-top: 0;">Order Details</h3>
-            <p><strong>Reference:</strong> ${orderDetails.referenceCode}</p>
-            <p><strong>Recipient:</strong> ${orderDetails.phoneNumber}</p>
-            <p><strong>Network:</strong> ${orderDetails.network}</p>
-            <p><strong>Package:</strong> ${orderDetails.size}</p>
-            <p><strong>Amount:</strong> <span class="highlight">GHS ${orderDetails.price.toFixed(2)}</span></p>
+        <p class="message-text">
+            Hi ${firstName}, your order has been received and is now being processed. 
+            The data bundle will be delivered to the recipient shortly.
+        </p>
+        
+        <div class="info-card">
+            <div class="info-card-header">
+                <div class="info-card-icon">📦</div>
+                <span class="info-card-title">Order Details</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Reference</span>
+                <span class="info-value">${orderDetails.referenceCode}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Recipient</span>
+                <span class="info-value">${orderDetails.phoneNumber}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Network</span>
+                <span class="info-value">${orderDetails.network}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Package</span>
+                <span class="info-value">${orderDetails.size}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Amount Paid</span>
+                <span class="info-value" style="color: #10b981; font-size: 16px;">GHS ${orderDetails.price.toFixed(2)}</span>
+            </div>
         </div>
         
-        <p>You will receive a notification once the data has been delivered to the recipient's number.</p>
+        <div style="text-align: center; margin: 25px 0;">
+            <span class="status-badge status-pending">Processing</span>
+        </div>
         
-        <p style="text-align: center;">
-            <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/my-orders" class="button">
-                Track Order
+        <div class="cta-container">
+            <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/my-orders" class="cta-button">
+                Track Your Order
             </a>
-        </p>
+        </div>
     `
 
     return sendEmail({
         to: email,
         toName: firstName,
         subject: `Order Confirmed - ${orderDetails.referenceCode}`,
-        htmlContent: generateEmailTemplate('Order Confirmation', content)
+        htmlContent: generatePremiumTemplate('Order Confirmed', content)
     })
 }
 
 /**
- * Send order completion email
- */
-export async function sendOrderCompletedEmail(
-    email: string,
-    firstName: string,
-    orderDetails: {
-        referenceCode: string
-        phoneNumber: string
-        network: string
-        size: string
-    }
-): Promise<EmailResult> {
-    const content = `
-        <h2 class="status-success">Order Completed! ✅</h2>
-        <p>Hi ${firstName},</p>
-        <p>Great news! Your data order has been successfully delivered.</p>
-        
-        <div class="info-box">
-            <h3 style="margin-top: 0;">Delivery Details</h3>
-            <p><strong>Reference:</strong> ${orderDetails.referenceCode}</p>
-            <p><strong>Recipient:</strong> ${orderDetails.phoneNumber}</p>
-            <p><strong>Network:</strong> ${orderDetails.network}</p>
-            <p><strong>Package:</strong> ${orderDetails.size}</p>
-            <p><strong>Status:</strong> <span class="status-success">DELIVERED</span></p>
-        </div>
-        
-        <p>The recipient can now use the data immediately. Thank you for choosing KING FLEXY DATA LTD!</p>
-        
-        <p style="text-align: center;">
-            <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/data-packages" class="button">
-                Buy More Data
-            </a>
-        </p>
-    `
-
-    return sendEmail({
-        to: email,
-        toName: firstName,
-        subject: `Order Delivered - ${orderDetails.referenceCode} ✅`,
-        htmlContent: generateEmailTemplate('Order Completed', content)
-    })
-}
-
-/**
- * Send order failed email
+ * Send order failed email to user
  */
 export async function sendOrderFailedEmail(
     email: string,
@@ -354,243 +606,348 @@ export async function sendOrderFailedEmail(
     }
 ): Promise<EmailResult> {
     const content = `
-        <h2 class="status-failed">Order Failed ❌</h2>
-        <p>Hi ${firstName},</p>
-        <p>Unfortunately, we were unable to process your data order.</p>
+        <h1 class="greeting">Order Failed ❌</h1>
+        <p class="subtitle">We couldn't process your order</p>
         
-        <div class="info-box">
-            <h3 style="margin-top: 0;">Order Details</h3>
-            <p><strong>Reference:</strong> ${orderDetails.referenceCode}</p>
-            <p><strong>Recipient:</strong> ${orderDetails.phoneNumber}</p>
-            <p><strong>Network:</strong> ${orderDetails.network}</p>
-            <p><strong>Package:</strong> ${orderDetails.size}</p>
-            <p><strong>Status:</strong> <span class="status-failed">FAILED</span></p>
-            ${orderDetails.reason ? `<p><strong>Reason:</strong> ${orderDetails.reason}</p>` : ''}
+        <p class="message-text">
+            Hi ${firstName}, we're sorry but we were unable to complete your data order. 
+            Please don't worry – you can file a complaint to request a refund.
+        </p>
+        
+        <div class="info-card">
+            <div class="info-card-header">
+                <div class="info-card-icon">📦</div>
+                <span class="info-card-title">Order Details</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Reference</span>
+                <span class="info-value">${orderDetails.referenceCode}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Recipient</span>
+                <span class="info-value">${orderDetails.phoneNumber}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Network</span>
+                <span class="info-value">${orderDetails.network}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Package</span>
+                <span class="info-value">${orderDetails.size}</span>
+            </div>
+            ${orderDetails.reason ? `
+            <div class="info-row">
+                <span class="info-label">Reason</span>
+                <span class="info-value" style="color: #ef4444;">${orderDetails.reason}</span>
+            </div>
+            ` : ''}
         </div>
         
-        <p>Please file a complaint to request a refund. Our team will review and process it promptly.</p>
+        <div style="text-align: center; margin: 25px 0;">
+            <span class="status-badge status-failed">Failed</span>
+        </div>
         
-        <p style="text-align: center;">
-            <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/my-orders" class="button">
-                File Complaint
+        <div class="highlight-box">
+            <p class="highlight-text">
+                ⚠️ <strong>Next Steps:</strong> Visit your orders page and file a complaint 
+                to request a refund. Our team will process it within 24 hours.
+            </p>
+        </div>
+        
+        <div class="cta-container">
+            <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/my-orders" class="cta-button">
+                File a Complaint
             </a>
-        </p>
+        </div>
     `
 
     return sendEmail({
         to: email,
         toName: firstName,
         subject: `Order Failed - ${orderDetails.referenceCode}`,
-        htmlContent: generateEmailTemplate('Order Failed', content)
+        htmlContent: generatePremiumTemplate('Order Failed', content, '#ef4444')
     })
 }
 
 /**
- * Send wallet credit confirmation email
+ * Send wallet top-up success email to user
  */
-export async function sendWalletCreditEmail(
+export async function sendWalletTopupSuccessEmail(
     email: string,
     firstName: string,
     amount: number,
-    newBalance: number,
-    source: string
+    reference: string,
+    newBalance: number
 ): Promise<EmailResult> {
     const content = `
-        <h2>Wallet Credited! 💰</h2>
-        <p>Hi ${firstName},</p>
-        <p>Your wallet has been successfully credited.</p>
+        <h1 class="greeting">Wallet Top-up Successful! 💰</h1>
+        <p class="subtitle">Your funds have been added</p>
         
-        <div style="text-align: center; padding: 20px;">
-            <p style="margin-bottom: 5px;">Amount Credited</p>
-            <p class="amount">+ GHS ${amount.toFixed(2)}</p>
+        <div class="amount-display">
+            <p class="amount-label">Amount Credited</p>
+            <p class="amount-value"><span class="amount-currency">GHS</span> ${amount.toFixed(2)}</p>
         </div>
         
-        <div class="info-box">
-            <p><strong>Source:</strong> ${source}</p>
-            <p><strong>New Balance:</strong> <span class="highlight">GHS ${newBalance.toFixed(2)}</span></p>
-            <p><strong>Time:</strong> ${new Date().toLocaleString()}</p>
+        <p class="message-text">
+            Hi ${firstName}, your wallet has been successfully credited. You can now 
+            use your balance to purchase data bundles for any network.
+        </p>
+        
+        <div class="info-card">
+            <div class="info-card-header">
+                <div class="info-card-icon">🧾</div>
+                <span class="info-card-title">Transaction Details</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Reference</span>
+                <span class="info-value">${reference}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Payment Method</span>
+                <span class="info-value">Paystack</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">New Balance</span>
+                <span class="info-value" style="color: #10b981; font-size: 16px;">GHS ${newBalance.toFixed(2)}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Date</span>
+                <span class="info-value">${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+            </div>
         </div>
         
-        <p style="text-align: center;">
-            <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/data-packages" class="button">
+        <div style="text-align: center; margin: 25px 0;">
+            <span class="status-badge status-success">Completed</span>
+        </div>
+        
+        <div class="cta-container">
+            <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/data-packages" class="cta-button">
                 Buy Data Now
             </a>
-        </p>
+        </div>
     `
 
     return sendEmail({
         to: email,
         toName: firstName,
-        subject: `Wallet Credited - GHS ${amount.toFixed(2)}`,
-        htmlContent: generateEmailTemplate('Wallet Credited', content)
+        subject: `Wallet Credited - GHS ${amount.toFixed(2)} ✅`,
+        htmlContent: generatePremiumTemplate('Wallet Credited', content, '#10b981')
     })
 }
 
 /**
- * Send payment successful email (Paystack)
+ * Send wallet top-up failed email to user
  */
-export async function sendPaymentSuccessEmail(
+export async function sendWalletTopupFailedEmail(
     email: string,
     firstName: string,
     amount: number,
-    reference: string
+    reference: string,
+    reason?: string
 ): Promise<EmailResult> {
     const content = `
-        <h2 class="status-success">Payment Successful! ✅</h2>
-        <p>Hi ${firstName},</p>
-        <p>Your payment has been processed successfully and your wallet has been credited.</p>
+        <h1 class="greeting">Payment Failed ❌</h1>
+        <p class="subtitle">Your wallet top-up was not completed</p>
         
-        <div style="text-align: center; padding: 20px;">
-            <p style="margin-bottom: 5px;">Amount Paid</p>
-            <p class="amount">GHS ${amount.toFixed(2)}</p>
+        <div class="amount-display" style="background: linear-gradient(135deg, #7f1d1d 0%, #991b1b 100%);">
+            <p class="amount-label">Attempted Amount</p>
+            <p class="amount-value"><span class="amount-currency" style="color: #fca5a5;">GHS</span> ${amount.toFixed(2)}</p>
         </div>
         
-        <div class="info-box">
-            <p><strong>Reference:</strong> ${reference}</p>
-            <p><strong>Payment Method:</strong> Paystack</p>
-            <p><strong>Time:</strong> ${new Date().toLocaleString()}</p>
-        </div>
-        
-        <p>You can now use your wallet balance to purchase data bundles.</p>
-        
-        <p style="text-align: center;">
-            <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/wallet" class="button">
-                View Wallet
-            </a>
+        <p class="message-text">
+            Hi ${firstName}, unfortunately your wallet top-up could not be completed. 
+            If any amount was deducted from your account, it will be automatically 
+            reversed within 24-48 hours.
         </p>
+        
+        <div class="info-card">
+            <div class="info-card-header">
+                <div class="info-card-icon">🧾</div>
+                <span class="info-card-title">Transaction Details</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Reference</span>
+                <span class="info-value">${reference}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Payment Method</span>
+                <span class="info-value">Paystack</span>
+            </div>
+            ${reason ? `
+            <div class="info-row">
+                <span class="info-label">Reason</span>
+                <span class="info-value" style="color: #ef4444;">${reason}</span>
+            </div>
+            ` : ''}
+            <div class="info-row">
+                <span class="info-label">Date</span>
+                <span class="info-value">${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+            </div>
+        </div>
+        
+        <div style="text-align: center; margin: 25px 0;">
+            <span class="status-badge status-failed">Failed</span>
+        </div>
+        
+        <div class="highlight-box">
+            <p class="highlight-text">
+                💡 <strong>What to do:</strong> Please try again with a different payment 
+                method or contact your bank if the issue persists.
+            </p>
+        </div>
+        
+        <div class="cta-container">
+            <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/wallet" class="cta-button">
+                Try Again
+            </a>
+        </div>
     `
 
     return sendEmail({
         to: email,
         toName: firstName,
-        subject: `Payment Successful - GHS ${amount.toFixed(2)}`,
-        htmlContent: generateEmailTemplate('Payment Success', content)
+        subject: `Payment Failed - GHS ${amount.toFixed(2)}`,
+        htmlContent: generatePremiumTemplate('Payment Failed', content, '#ef4444')
     })
 }
 
+// ==========================================
+// ADMIN EMAIL FUNCTIONS
+// ==========================================
+
 /**
- * Send complaint resolved email
+ * Send new order alert to admin
  */
-export async function sendComplaintResolvedEmail(
-    email: string,
-    firstName: string,
-    complaintDetails: {
-        complaintId: string
-        title: string
-        resolution: string
-        refundAmount?: number
+export async function sendAdminNewOrderAlert(
+    orderDetails: {
+        referenceCode: string
+        phoneNumber: string
+        network: string
+        size: string
+        price: number
+        customerName: string
+        customerEmail: string
     }
 ): Promise<EmailResult> {
-    const content = `
-        <h2 class="status-success">Complaint Resolved ✅</h2>
-        <p>Hi ${firstName},</p>
-        <p>Your complaint has been reviewed and resolved by our team.</p>
-        
-        <div class="info-box">
-            <h3 style="margin-top: 0;">Complaint Details</h3>
-            <p><strong>Title:</strong> ${complaintDetails.title}</p>
-            <p><strong>Resolution:</strong> ${complaintDetails.resolution}</p>
-            ${complaintDetails.refundAmount ? `<p><strong>Refund Amount:</strong> <span class="status-success">GHS ${complaintDetails.refundAmount.toFixed(2)}</span></p>` : ''}
-        </div>
-        
-        <p>Thank you for your patience. We value your business and are committed to providing you with the best service.</p>
-        
-        <p style="text-align: center;">
-            <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/complaints" class="button">
-                View Complaints
-            </a>
-        </p>
-    `
-
-    return sendEmail({
-        to: email,
-        toName: firstName,
-        subject: `Complaint Resolved - ${complaintDetails.title}`,
-        htmlContent: generateEmailTemplate('Complaint Resolved', content)
-    })
-}
-
-/**
- * Send password reset email
- */
-export async function sendPasswordResetEmail(
-    email: string,
-    firstName: string,
-    resetLink: string
-): Promise<EmailResult> {
-    const content = `
-        <h2>Reset Your Password 🔐</h2>
-        <p>Hi ${firstName},</p>
-        <p>We received a request to reset your password. Click the button below to create a new password:</p>
-        
-        <p style="text-align: center;">
-            <a href="${resetLink}" class="button">
-                Reset Password
-            </a>
-        </p>
-        
-        <div class="info-box">
-            <p><strong>⚠️ Important:</strong></p>
-            <ul>
-                <li>This link expires in 1 hour</li>
-                <li>If you didn't request this, please ignore this email</li>
-                <li>Never share this link with anyone</li>
-            </ul>
-        </div>
-        
-        <p>If the button doesn't work, copy and paste this link into your browser:</p>
-        <p style="word-break: break-all; font-size: 12px; color: #666;">${resetLink}</p>
-    `
-
-    return sendEmail({
-        to: email,
-        toName: firstName,
-        subject: 'Reset Your Password - KING FLEXY DATA LTD',
-        htmlContent: generateEmailTemplate('Password Reset', content)
-    })
-}
-
-/**
- * Send admin alert email (for critical system events)
- */
-export async function sendAdminAlertEmail(
-    alertTitle: string,
-    alertMessage: string,
-    details?: Record<string, string>
-): Promise<EmailResult> {
-    const adminEmail = process.env.ADMIN_EMAIL || 'admin@kingflexydata.com'
-
-    let detailsHtml = ''
-    if (details) {
-        detailsHtml = '<div class="info-box"><h4>Details:</h4>'
-        for (const [key, value] of Object.entries(details)) {
-            detailsHtml += `<p><strong>${key}:</strong> ${value}</p>`
-        }
-        detailsHtml += '</div>'
-    }
+    const adminEmail = process.env.ADMIN_EMAIL || 'kingflexydatalimited@gmail.com'
 
     const content = `
-        <h2>⚠️ Admin Alert</h2>
-        <h3>${alertTitle}</h3>
-        <p>${alertMessage}</p>
+        <h1 class="greeting">New Order Received! 🔔</h1>
+        <p class="subtitle">A new data order has been placed</p>
         
-        ${detailsHtml}
-        
-        <div class="info-box">
-            <p><strong>Time:</strong> ${new Date().toISOString()}</p>
-            <p><strong>Environment:</strong> ${process.env.NODE_ENV || 'development'}</p>
+        <div class="amount-display">
+            <p class="amount-label">Order Value</p>
+            <p class="amount-value"><span class="amount-currency">GHS</span> ${orderDetails.price.toFixed(2)}</p>
         </div>
         
-        <p style="text-align: center;">
-            <a href="${process.env.NEXT_PUBLIC_APP_URL}/admin" class="button">
-                Go to Admin Panel
+        <div class="info-card">
+            <div class="info-card-header">
+                <div class="info-card-icon">📦</div>
+                <span class="info-card-title">Order Information</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Reference</span>
+                <span class="info-value">${orderDetails.referenceCode}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Beneficiary Number</span>
+                <span class="info-value" style="font-size: 16px; color: #D4AF37;">${orderDetails.phoneNumber}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Network</span>
+                <span class="info-value">${orderDetails.network}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Product</span>
+                <span class="info-value" style="font-size: 16px; color: #10b981;">${orderDetails.size}</span>
+            </div>
+        </div>
+        
+        <div class="info-card">
+            <div class="info-card-header">
+                <div class="info-card-icon">👤</div>
+                <span class="info-card-title">Customer Information</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Customer Name</span>
+                <span class="info-value">${orderDetails.customerName}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Customer Email</span>
+                <span class="info-value">${orderDetails.customerEmail}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Order Time</span>
+                <span class="info-value">${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+            </div>
+        </div>
+        
+        <div class="cta-container">
+            <a href="${process.env.NEXT_PUBLIC_APP_URL}/admin/orders" class="cta-button">
+                View in Admin Panel
             </a>
-        </p>
+        </div>
     `
 
     return sendEmail({
         to: adminEmail,
-        subject: `[ALERT] ${alertTitle}`,
-        htmlContent: generateEmailTemplate('Admin Alert', content)
+        toName: 'Admin',
+        subject: `🔔 New Order: ${orderDetails.size} for ${orderDetails.phoneNumber}`,
+        htmlContent: generatePremiumTemplate('New Order Alert', content)
+    })
+}
+
+/**
+ * Send welcome notification to admin when new user signs up
+ */
+export async function sendAdminNewUserAlert(
+    userDetails: {
+        firstName: string
+        lastName: string
+        email: string
+        phoneNumber: string
+    }
+): Promise<EmailResult> {
+    const adminEmail = process.env.ADMIN_EMAIL || 'kingflexydatalimited@gmail.com'
+
+    const content = `
+        <h1 class="greeting">New User Registration! 👤</h1>
+        <p class="subtitle">A new user has joined the platform</p>
+        
+        <div class="info-card">
+            <div class="info-card-header">
+                <div class="info-card-icon">✨</div>
+                <span class="info-card-title">New User Details</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Full Name</span>
+                <span class="info-value">${userDetails.firstName} ${userDetails.lastName}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Email</span>
+                <span class="info-value">${userDetails.email}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Phone Number</span>
+                <span class="info-value">${userDetails.phoneNumber}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Joined At</span>
+                <span class="info-value">${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+            </div>
+        </div>
+        
+        <div class="cta-container">
+            <a href="${process.env.NEXT_PUBLIC_APP_URL}/admin/users" class="cta-button">
+                View in Admin Panel
+            </a>
+        </div>
+    `
+
+    return sendEmail({
+        to: adminEmail,
+        toName: 'Admin',
+        subject: `👤 New User: ${userDetails.firstName} ${userDetails.lastName}`,
+        htmlContent: generatePremiumTemplate('New User Alert', content)
     })
 }
