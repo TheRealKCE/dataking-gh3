@@ -87,10 +87,10 @@ export default function DashboardPage() {
     if (isLoading) {
         return (
             <div className="space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-3 sm:gap-4">
                     {[...Array(4)].map((_, i) => (
                         <Card key={i}>
-                            <CardContent className="p-6">
+                            <CardContent className="p-4 sm:p-6">
                                 <Skeleton className="h-4 w-24 mb-2" />
                                 <Skeleton className="h-8 w-16" />
                             </CardContent>
@@ -104,58 +104,58 @@ export default function DashboardPage() {
     return (
         <div className="space-y-6">
             {/* Stats Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4">
+            <div className="grid grid-cols-2 gap-3 sm:gap-4">
                 <Card className="bg-[#0056B3] text-white border-0">
-                    <CardContent className="p-6">
+                    <CardContent className="p-4 sm:p-6">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-white/80 text-sm font-medium">Total Orders</p>
-                                <p className="text-2xl lg:text-3xl font-bold mt-1">{stats?.totalOrders}</p>
+                                <p className="text-white/80 text-xs sm:text-sm font-medium">Total Orders</p>
+                                <p className="text-xl md:text-2xl lg:text-3xl font-bold mt-1">{stats?.totalOrders}</p>
                             </div>
-                            <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
-                                <ShoppingCart className="w-6 h-6" />
+                            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-white/20 flex items-center justify-center">
+                                <ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6" />
                             </div>
                         </div>
                     </CardContent>
                 </Card>
 
                 <Card className="bg-[#25D366] text-black border-0">
-                    <CardContent className="p-6">
+                    <CardContent className="p-4 sm:p-6">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-black/70 text-sm font-medium">Completed</p>
-                                <p className="text-2xl lg:text-3xl font-bold mt-1">{stats?.completedOrders}</p>
+                                <p className="text-black/70 text-xs sm:text-sm font-medium">Completed</p>
+                                <p className="text-xl md:text-2xl lg:text-3xl font-bold mt-1">{stats?.completedOrders}</p>
                             </div>
-                            <div className="w-12 h-12 rounded-xl bg-black/10 flex items-center justify-center">
-                                <CheckCircle2 className="w-6 h-6" />
+                            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-black/10 flex items-center justify-center">
+                                <CheckCircle2 className="w-5 h-5 sm:w-6 sm:h-6" />
                             </div>
                         </div>
                     </CardContent>
                 </Card>
 
                 <Card className="bg-[#FFCE00] text-black border-0">
-                    <CardContent className="p-6">
+                    <CardContent className="p-4 sm:p-6">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-black/70 text-sm font-medium">Processing</p>
-                                <p className="text-2xl lg:text-3xl font-bold mt-1">{stats?.processingOrders}</p>
+                                <p className="text-black/70 text-xs sm:text-sm font-medium">Processing</p>
+                                <p className="text-xl md:text-2xl lg:text-3xl font-bold mt-1">{stats?.processingOrders}</p>
                             </div>
-                            <div className="w-12 h-12 rounded-xl bg-black/10 flex items-center justify-center">
-                                <Clock className="w-6 h-6" />
+                            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-black/10 flex items-center justify-center">
+                                <Clock className="w-5 h-5 sm:w-6 sm:h-6" />
                             </div>
                         </div>
                     </CardContent>
                 </Card>
 
                 <Card className="bg-[#E60000] text-white border-0">
-                    <CardContent className="p-6">
+                    <CardContent className="p-4 sm:p-6">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-white/80 text-sm font-medium">Failed</p>
-                                <p className="text-2xl lg:text-3xl font-bold mt-1">{stats?.failedOrders}</p>
+                                <p className="text-white/80 text-xs sm:text-sm font-medium">Failed</p>
+                                <p className="text-xl md:text-2xl lg:text-3xl font-bold mt-1">{stats?.failedOrders}</p>
                             </div>
-                            <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
-                                <XCircle className="w-6 h-6" />
+                            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-white/20 flex items-center justify-center">
+                                <XCircle className="w-5 h-5 sm:w-6 sm:h-6" />
                             </div>
                         </div>
                     </CardContent>
