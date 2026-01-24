@@ -7,7 +7,6 @@ import { formatCurrency } from '@/lib/utils'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
@@ -35,11 +34,11 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Order } from '@/types/supabase'
-import { format } from 'date-fns'
+import { format, differenceInHours } from 'date-fns'
 
 const NETWORKS = ['All', 'MTN', 'Telecel', 'AT-iShare', 'AT-BigTime']
 const STATUSES = ['All', 'pending', 'processing', 'completed', 'failed']
-const TIME_PERIODS = ['All Time', 'Today', 'Yesterday', 'This Week', 'This Month']
+const TIME_PERIODS = ['Today', 'Yesterday', 'This Week', 'This Month']
 
 export default function MyOrdersPage() {
     const { dbUser } = useAuth()
@@ -48,7 +47,7 @@ export default function MyOrdersPage() {
     const [searchQuery, setSearchQuery] = useState('')
     const [networkFilter, setNetworkFilter] = useState('All')
     const [statusFilter, setStatusFilter] = useState('All')
-    const [timePeriod, setTimePeriod] = useState('All Time')
+    const [timePeriod, setTimePeriod] = useState('This Week')
 
     // Complaint dialog
     const [complaintOrder, setComplaintOrder] = useState<Order | null>(null)
@@ -79,36 +78,41 @@ export default function MyOrdersPage() {
         }
     }
 
+    // Check if order is within 24 hours for complaint eligibility
+    const isWithin24Hours = (createdAt: string) => {
+        const orderDate = new Date(createdAt)
+        const now = new Date()
+        return differenceInHours(now, orderDate) < 24
+    }
+
     // Filter orders based on all criteria
     const filteredOrders = useMemo(() => {
         let filtered = orders
 
-        // Time period filter
-        if (timePeriod !== 'All Time') {
-            const now = new Date()
-            const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-            const yesterday = new Date(today)
-            yesterday.setDate(yesterday.getDate() - 1)
-            const weekStart = new Date(today)
-            weekStart.setDate(weekStart.getDate() - weekStart.getDay())
-            const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
+        // Time period filter (always applied now since "All Time" is removed)
+        const now = new Date()
+        const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+        const yesterday = new Date(today)
+        yesterday.setDate(yesterday.getDate() - 1)
+        const weekStart = new Date(today)
+        weekStart.setDate(weekStart.getDate() - weekStart.getDay())
+        const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
 
-            filtered = filtered.filter(order => {
-                const orderDate = new Date(order.created_at)
-                switch (timePeriod) {
-                    case 'Today':
-                        return orderDate >= today
-                    case 'Yesterday':
-                        return orderDate >= yesterday && orderDate < today
-                    case 'This Week':
-                        return orderDate >= weekStart
-                    case 'This Month':
-                        return orderDate >= monthStart
-                    default:
-                        return true
-                }
-            })
-        }
+        filtered = filtered.filter(order => {
+            const orderDate = new Date(order.created_at)
+            switch (timePeriod) {
+                case 'Today':
+                    return orderDate >= today
+                case 'Yesterday':
+                    return orderDate >= yesterday && orderDate < today
+                case 'This Week':
+                    return orderDate >= weekStart
+                case 'This Month':
+                    return orderDate >= monthStart
+                default:
+                    return true
+            }
+        })
 
         // Network filter
         if (networkFilter !== 'All') {
@@ -212,14 +216,10 @@ export default function MyOrdersPage() {
         return colors[network] || 'bg-gray-400'
     }
 
+    // Get product name from the order's size/description
     const getProductName = (order: Order) => {
-        const networkNames: Record<string, string> = {
-            'MTN': 'MTN Data Bundle',
-            'Telecel': 'Telecel Data Bundle',
-            'AT-iShare': 'AT Premium Bundles',
-            'AT-BigTime': 'AT BigTime Bundle',
-        }
-        return networkNames[order.network] || `${order.network} Bundle`
+        // Use the size as the product name since it describes the bundle
+        return order.size || `${order.network} Bundle`
     }
 
     const formatOrderDate = (dateStr: string) => {
@@ -255,31 +255,31 @@ export default function MyOrdersPage() {
                 <p className="text-sm text-muted-foreground">View and manage your order transactions</p>
             </div>
 
-            {/* Summary Stats */}
-            <div className="grid grid-cols-3 gap-3">
-                <div className="bg-gray-900 dark:bg-gray-800 rounded-xl p-4 text-center text-white">
-                    <p className="text-2xl font-bold">{stats.totalOrders}</p>
-                    <p className="text-xs text-gray-300">Total Orders</p>
+            {/* Summary Stats - Yellow/Gold Theme matching screenshot */}
+            <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                <div className="bg-[#1a1a1a] rounded-xl p-3 sm:p-4 text-center text-white">
+                    <p className="text-lg sm:text-xl font-bold truncate">{stats.totalOrders}</p>
+                    <p className="text-[10px] sm:text-xs text-gray-400">Total Orders</p>
                 </div>
-                <div className="bg-gray-900 dark:bg-gray-800 rounded-xl p-4 text-center text-white">
-                    <p className="text-2xl font-bold">{formatCurrency(stats.totalAmount)}</p>
-                    <p className="text-xs text-gray-300">Total Amount</p>
+                <div className="bg-[#FACC15] rounded-xl p-3 sm:p-4 text-center text-black">
+                    <p className="text-lg sm:text-xl font-bold truncate">{formatCurrency(stats.totalAmount)}</p>
+                    <p className="text-[10px] sm:text-xs text-black/70">Total Amount</p>
                 </div>
-                <div className="bg-gray-900 dark:bg-gray-800 rounded-xl p-4 text-center text-white">
-                    <p className="text-2xl font-bold">{stats.totalData} GB</p>
-                    <p className="text-xs text-gray-300">Total Data</p>
+                <div className="bg-[#1a1a1a] rounded-xl p-3 sm:p-4 text-center text-white">
+                    <p className="text-lg sm:text-xl font-bold truncate">{stats.totalData} GB</p>
+                    <p className="text-[10px] sm:text-xs text-gray-400">Total Data</p>
                 </div>
             </div>
 
-            {/* Time Period Filters */}
+            {/* Time Period Filters - Removed "All Time" */}
             <div className="flex flex-wrap gap-2 justify-center">
                 {TIME_PERIODS.map((period) => (
                     <button
                         key={period}
                         onClick={() => setTimePeriod(period)}
                         className={`px-4 py-2 text-sm rounded-full border transition-all ${timePeriod === period
-                                ? 'bg-gray-900 text-white border-gray-900 dark:bg-white dark:text-gray-900 dark:border-white'
-                                : 'bg-transparent border-gray-300 dark:border-gray-600 hover:border-gray-500'
+                            ? 'bg-[#1a1a1a] text-white border-[#1a1a1a] dark:bg-[#FACC15] dark:text-black dark:border-[#FACC15]'
+                            : 'bg-transparent border-gray-300 dark:border-gray-600 hover:border-gray-500'
                             }`}
                     >
                         {period}
@@ -349,16 +349,16 @@ export default function MyOrdersPage() {
                     </Card>
                 ) : (
                     filteredOrders.map((order) => (
-                        <Card key={order.id} className="overflow-hidden">
+                        <Card key={order.id} className="overflow-hidden border-0 shadow-md">
                             <CardContent className="p-4 space-y-4">
                                 {/* Header Row */}
                                 <div className="flex items-start justify-between">
                                     <div className="flex items-center gap-3">
-                                        <div className={`w-12 h-12 rounded-full ${getNetworkIcon(order.network)} flex items-center justify-center`}>
+                                        <div className={`w-12 h-12 rounded-full ${getNetworkIcon(order.network)} flex items-center justify-center shadow-md`}>
                                             <Wifi className="w-6 h-6 text-white" />
                                         </div>
                                         <div>
-                                            <p className="font-semibold">{getProductName(order)}</p>
+                                            <p className="font-semibold text-base">{getProductName(order)}</p>
                                             <p className="text-sm text-muted-foreground">{order.phone_number}</p>
                                         </div>
                                     </div>
@@ -368,7 +368,7 @@ export default function MyOrdersPage() {
                                 </div>
 
                                 {/* Details */}
-                                <div className="space-y-2 text-sm">
+                                <div className="space-y-2 text-sm border-t border-b py-3">
                                     <div className="flex justify-between">
                                         <span className="text-muted-foreground">Order Date:</span>
                                         <span className="font-medium">{formatOrderDate(order.created_at)}</span>
@@ -383,15 +383,15 @@ export default function MyOrdersPage() {
                                     </div>
                                 </div>
 
-                                {/* Footer */}
-                                <div className="flex items-center justify-between pt-2 border-t">
+                                {/* Footer - Show complain button for orders within 24 hours */}
+                                <div className="flex items-center justify-between">
                                     <span className="text-sm text-muted-foreground">{order.status}</span>
-                                    {order.status === 'failed' && (
+                                    {isWithin24Hours(order.created_at) && (
                                         <Button
                                             size="sm"
                                             variant="outline"
                                             onClick={() => handleComplaint(order)}
-                                            className="text-red-600 border-red-200 hover:bg-red-50"
+                                            className="text-orange-600 border-orange-200 hover:bg-orange-50 dark:text-orange-400 dark:border-orange-800 dark:hover:bg-orange-900/20"
                                         >
                                             <MessageSquare className="w-4 h-4 mr-1" />
                                             Complain
