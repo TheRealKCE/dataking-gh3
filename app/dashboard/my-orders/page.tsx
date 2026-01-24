@@ -43,7 +43,6 @@ const TIME_PERIODS = ['Today', 'Yesterday', 'This Week', 'This Month']
 export default function MyOrdersPage() {
     const { dbUser } = useAuth()
     const [orders, setOrders] = useState<Order[]>([])
-    const [dataPackages, setDataPackages] = useState<DataPackage[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [searchQuery, setSearchQuery] = useState('')
     const [networkFilter, setNetworkFilter] = useState('All')
@@ -63,21 +62,19 @@ export default function MyOrdersPage() {
 
     const fetchData = async () => {
         try {
-            // Fetch orders and data packages in parallel
-            const [ordersRes, packagesRes] = await Promise.all([
-                supabase
-                    .from('orders')
-                    .select('*')
-                    .eq('user_id', dbUser?.id as any)
-                    .order('created_at', { ascending: false }),
-                supabase
-                    .from('data_packages')
-                    .select('*')
-            ])
+            // Only fetch orders from the last 14 days for performance
+            const fourteenDaysAgo = new Date()
+            fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14)
 
-            if (ordersRes.error) throw ordersRes.error
-            setOrders(ordersRes.data || [])
-            setDataPackages(packagesRes.data || [])
+            const { data, error } = await supabase
+                .from('orders')
+                .select('*')
+                .eq('user_id', dbUser?.id as any)
+                .gte('created_at', fourteenDaysAgo.toISOString())
+                .order('created_at', { ascending: false })
+
+            if (error) throw error
+            setOrders(data || [])
         } catch (error) {
             console.error('Error fetching data:', error)
             toast.error('Failed to load orders')
@@ -93,21 +90,8 @@ export default function MyOrdersPage() {
         return differenceInHours(now, orderDate) < 24
     }
 
-    // Get product description from data packages
-    const getProductDescription = (order: Order) => {
-        // Find matching package by network, size, and price
-        const matchingPackage = dataPackages.find(
-            pkg => pkg.network === order.network &&
-                pkg.size === order.size &&
-                pkg.price === order.price
-        )
-
-        // Return description if found, otherwise fallback to network-based name
-        if (matchingPackage?.description) {
-            return matchingPackage.description
-        }
-
-        // Fallback to network-based bundle names for old orders
+    // Get product name based on network for consistent display
+    const getProductName = (order: Order) => {
         const networkNames: Record<string, string> = {
             'MTN': 'MTN Data Bundle',
             'Telecel': 'Telecel Data Bundle',
@@ -389,7 +373,7 @@ export default function MyOrdersPage() {
                                             <Wifi className="w-6 h-6 text-white" />
                                         </div>
                                         <div>
-                                            <p className="font-semibold text-base">{getProductDescription(order)}</p>
+                                            <p className="font-semibold text-base">{getProductName(order)}</p>
                                             <p className="text-sm text-muted-foreground">{order.phone_number}</p>
                                         </div>
                                     </div>
