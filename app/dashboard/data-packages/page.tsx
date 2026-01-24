@@ -244,13 +244,26 @@ export default function DataPackagesPage() {
 
             {/* Network Tabs */}
             <Tabs value={selectedNetwork} onValueChange={setSelectedNetwork}>
-                <TabsList className="flex-wrap">
-                    {NETWORKS.map((network) => (
-                        <TabsTrigger key={network} value={network} className="flex items-center gap-2">
-                            <span>{getNetworkIcon(network)}</span>
-                            {network}
-                        </TabsTrigger>
-                    ))}
+                <TabsList className="grid grid-cols-4 gap-1 sm:gap-2 w-full">
+                    {NETWORKS.map((network) => {
+                        const getNetworkColor = () => {
+                            if (network === 'MTN') return 'data-[state=active]:bg-[#FACC15] data-[state=active]:text-black'
+                            if (network === 'Telecel') return 'data-[state=active]:bg-[#E60000] data-[state=active]:text-white'
+                            return 'data-[state=active]:bg-[#0056B3] data-[state=active]:text-white'
+                        }
+
+                        return (
+                            <TabsTrigger
+                                key={network}
+                                value={network}
+                                className={`flex items-center justify-center gap-1 text-xs sm:text-sm px-2 py-2 ${getNetworkColor()}`}
+                            >
+                                <span className="text-base sm:text-lg">{getNetworkIcon(network)}</span>
+                                <span className="hidden sm:inline">{network}</span>
+                                <span className="sm:hidden">{network === 'AT-iShare' ? 'AT-iS' : network === 'AT-BigTime' ? 'AT-BT' : network}</span>
+                            </TabsTrigger>
+                        )
+                    })}
                 </TabsList>
 
                 <TabsContent value={selectedNetwork} className="mt-6">
@@ -265,8 +278,8 @@ export default function DataPackagesPage() {
                                 <Card
                                     key={pkg.id}
                                     className={`group overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer border-0 ${pkg.network === 'MTN' ? 'bg-[#FACC15] text-black' :
-                                            pkg.network === 'Telecel' ? 'bg-[#E60000] text-white' :
-                                                'bg-[#0056B3] text-white'
+                                        pkg.network === 'Telecel' ? 'bg-[#E60000] text-white' :
+                                            'bg-[#0056B3] text-white'
                                         }`}
                                     onClick={() => handlePurchaseClick(pkg)}
                                 >
@@ -300,8 +313,8 @@ export default function DataPackagesPage() {
                                 <Card
                                     key={pkg.id}
                                     className={`group hover:shadow-lg transition-all cursor-pointer border-0 ${pkg.network === 'MTN' ? 'bg-[#FACC15] text-black' :
-                                            pkg.network === 'Telecel' ? 'bg-[#E60000] text-white' :
-                                                'bg-[#0056B3] text-white'
+                                        pkg.network === 'Telecel' ? 'bg-[#E60000] text-white' :
+                                            'bg-[#0056B3] text-white'
                                         }`}
                                     onClick={() => handlePurchaseClick(pkg)}
                                 >
