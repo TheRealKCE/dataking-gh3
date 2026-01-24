@@ -5,13 +5,17 @@ export const viewport: Viewport = {
     initialScale: 1,
     themeColor: '#0f172a',
 }
-import { Inter } from 'next/font/google'
+import { Fira_Sans } from 'next/font/google'
 import './globals.css'
 import { ThemeProvider } from '@/components/providers/theme-provider'
 import { AuthProvider } from '@/contexts/auth-context'
 import { Toaster } from '@/components/ui/sonner'
 
-const inter = Inter({ subsets: ['latin'] })
+const firaSans = Fira_Sans({
+    weight: ['300', '400', '500', '600', '700'],
+    subsets: ['latin'],
+    display: 'swap'
+})
 
 export const metadata: Metadata = {
     title: 'KING FLEXY DATA LTD - Mobile Data & Airtime Platform',
@@ -32,7 +36,7 @@ export default function RootLayout({
 }) {
     return (
         <html lang="en" suppressHydrationWarning>
-            <body className={inter.className}>
+            <body className={firaSans.className}>
                 <ThemeProvider
                     attribute="class"
                     defaultTheme="system"
