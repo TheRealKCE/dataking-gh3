@@ -1,6 +1,8 @@
 import type { NextConfig } from 'next'
 
 const nextConfig: NextConfig = {
+    reactStrictMode: true,
+    poweredByHeader: false,
     images: {
         domains: ['localhost'],
         remotePatterns: [
@@ -14,6 +16,19 @@ const nextConfig: NextConfig = {
         serverActions: {
             bodySizeLimit: '2mb',
         },
+    },
+    async headers() {
+        return [
+            {
+                source: '/:path*',
+                headers: [
+                    {
+                        key: 'Cache-Control',
+                        value: 'no-store, must-revalidate',
+                    },
+                ],
+            },
+        ]
     },
 }
 

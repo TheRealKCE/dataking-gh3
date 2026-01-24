@@ -13,7 +13,7 @@ import {
 
 export default function HomePage() {
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 overflow-x-hidden">
             {/* Navigation */}
             <nav className="fixed top-0 w-full z-50 bg-black/20 backdrop-blur-xl border-b border-white/10">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -48,18 +48,18 @@ export default function HomePage() {
                             <Zap className="w-4 h-4 text-yellow-400 mr-2" />
                             <span className="text-sm text-white/90">Instant Data Delivery</span>
                         </div>
-                        <h1 className="text-5xl md:text-7xl font-bold text-white mb-6 leading-tight">
+                        <h1 className="text-4xl md:text-7xl font-bold text-white mb-6 leading-tight">
                             Buy Data & Airtime
                             <br />
                             <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
                                 Instantly
                             </span>
                         </h1>
-                        <p className="text-xl text-white/70 max-w-2xl mx-auto mb-10">
+                        <p className="text-lg md:text-xl text-white/70 max-w-2xl mx-auto mb-10 px-4">
                             Purchase data packages for MTN, Telecel, AT-iShare, and AT-BigTime networks.
                             Fast, reliable, and affordable with automatic delivery.
                         </p>
-                        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                        <div className="flex flex-col sm:flex-row gap-4 justify-center px-4">
                             <Link href="/auth/signup">
                                 <Button size="xl" className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-lg px-8">
                                     Start Buying Now
@@ -75,7 +75,7 @@ export default function HomePage() {
                     </div>
 
                     {/* Network Logos */}
-                    <div className="mt-20 grid grid-cols-2 md:grid-cols-4 gap-6 max-w-3xl mx-auto">
+                    <div className="mt-20 grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 max-w-3xl mx-auto px-2">
                         {[
                             { name: 'MTN', color: 'from-yellow-400 to-yellow-600', icon: '📱' },
                             { name: 'Telecel', color: 'from-red-500 to-red-700', icon: '📶' },
@@ -109,7 +109,7 @@ export default function HomePage() {
                         </p>
                     </div>
 
-                    <div className="grid md:grid-cols-3 gap-8">
+                    <div className="grid md:grid-cols-3 gap-6 md:gap-8">
                         {[
                             {
                                 icon: Zap,
@@ -157,7 +157,7 @@ export default function HomePage() {
                         </p>
                     </div>
 
-                    <div className="grid md:grid-cols-3 gap-8">
+                    <div className="grid md:grid-cols-3 gap-12 md:gap-8">
                         {[
                             {
                                 step: '01',
