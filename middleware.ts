@@ -19,11 +19,22 @@ export async function middleware(request: NextRequest) {
     let session = null
 
     try {
-        // Get session - if this hangs, the whole middleware hangs, but we add headers to response
-        const { data } = await supabase.auth.getSession()
-        session = data.session
-    } catch {
-        // On error, treat as no session
+        // Add 3 second timeout to prevent hanging
+        const timeout = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Session timeout')), 3000)
+        )
+
+        const sessionPromise = supabase.auth.getSession()
+
+        const { data } = await Promise.race([
+            sessionPromise,
+            timeout
+        ]) as any
+
+        session = data?.session || null
+    } catch (error) {
+        console.error('Middleware session error:', error)
+        // On error or timeout, treat as no session
         session = null
     }
 
@@ -41,21 +52,29 @@ export async function middleware(request: NextRequest) {
         }
 
         try {
-            // Check if user is admin
-            const { data: user } = await supabase
+            // Add 2 second timeout to role check
+            const timeout = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Role check timeout')), 2000)
+            )
+
+            const roleQuery = supabase
                 .from('users')
                 .select('role')
                 .eq('id', session.user.id)
                 .single()
 
+            const { data: user } = await Promise.race([
+                roleQuery,
+                timeout
+            ]) as any
+
             if (!user || user.role !== 'admin') {
-                const errorResponse = NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
-                return addNoCacheHeaders(errorResponse)
+                return addNoCacheHeaders(NextResponse.redirect(new URL('/dashboard', request.url)))
             }
-        } catch {
-            // On error, deny access
-            const errorResponse = NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
-            return addNoCacheHeaders(errorResponse)
+        } catch (error) {
+            console.error('Middleware role check error:', error)
+            // On error or timeout, redirect to dashboard (deny admin access)
+            return addNoCacheHeaders(NextResponse.redirect(new URL('/dashboard', request.url)))
         }
     }
 

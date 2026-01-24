@@ -41,14 +41,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const isAdmin = dbUser?.role === 'admin'
 
     const fetchDbUser = useCallback(async (userId: string) => {
-        const { data, error } = await supabase
-            .from('users')
-            .select('*')
-            .eq('id', userId)
-            .single()
+        try {
+            // Add 5 second timeout to prevent hanging
+            const timeout = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Database timeout')), 5000)
+            )
 
-        if (!error && data) {
-            setDbUser(data)
+            const query = supabase
+                .from('users')
+                .select('*')
+                .eq('id', userId)
+                .single()
+
+            const { data, error } = await Promise.race([
+                query,
+                timeout
+            ]) as any
+
+            if (!error && data) {
+                setDbUser(data)
+            }
+        } catch (error) {
+            console.error('Error fetching user data:', error)
+            // Don't block UI on error - continue with auth user only
         }
     }, [])
 
@@ -124,15 +139,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Initialize auth state
     useEffect(() => {
         const initAuth = async () => {
-            const { data: { session } } = await supabase.auth.getSession()
+            try {
+                // Add 8 second total timeout for initialization
+                const timeout = new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('Auth initialization timeout')), 8000)
+                )
 
-            if (session) {
-                setSession(session)
-                setUser(session.user)
-                await fetchDbUser(session.user.id)
+                const init = async () => {
+                    const { data: { session } } = await supabase.auth.getSession()
+
+                    if (session) {
+                        setSession(session)
+                        setUser(session.user)
+                        await fetchDbUser(session.user.id)
+                    }
+                }
+
+                await Promise.race([init(), timeout])
+            } catch (error) {
+                console.error('Auth initialization error:', error)
+                // Continue anyway - allow user to proceed without full auth
+            } finally {
+                // ALWAYS set loading to false, even on error
+                setIsLoading(false)
             }
-
-            setIsLoading(false)
         }
 
         initAuth()
