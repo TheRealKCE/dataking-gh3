@@ -33,7 +33,7 @@ import {
     Wifi
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { Order } from '@/types/supabase'
+import { Order, DataPackage } from '@/types/supabase'
 import { format, differenceInHours } from 'date-fns'
 
 const NETWORKS = ['All', 'MTN', 'Telecel', 'AT-iShare', 'AT-BigTime']
@@ -43,6 +43,7 @@ const TIME_PERIODS = ['Today', 'Yesterday', 'This Week', 'This Month']
 export default function MyOrdersPage() {
     const { dbUser } = useAuth()
     const [orders, setOrders] = useState<Order[]>([])
+    const [dataPackages, setDataPackages] = useState<DataPackage[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [searchQuery, setSearchQuery] = useState('')
     const [networkFilter, setNetworkFilter] = useState('All')
@@ -56,22 +57,29 @@ export default function MyOrdersPage() {
 
     useEffect(() => {
         if (dbUser) {
-            fetchOrders()
+            fetchData()
         }
     }, [dbUser])
 
-    const fetchOrders = async () => {
+    const fetchData = async () => {
         try {
-            const { data, error } = await supabase
-                .from('orders')
-                .select('*')
-                .eq('user_id', dbUser?.id as any)
-                .order('created_at', { ascending: false })
+            // Fetch orders and data packages in parallel
+            const [ordersRes, packagesRes] = await Promise.all([
+                supabase
+                    .from('orders')
+                    .select('*')
+                    .eq('user_id', dbUser?.id as any)
+                    .order('created_at', { ascending: false }),
+                supabase
+                    .from('data_packages')
+                    .select('*')
+            ])
 
-            if (error) throw error
-            setOrders(data || [])
+            if (ordersRes.error) throw ordersRes.error
+            setOrders(ordersRes.data || [])
+            setDataPackages(packagesRes.data || [])
         } catch (error) {
-            console.error('Error fetching orders:', error)
+            console.error('Error fetching data:', error)
             toast.error('Failed to load orders')
         } finally {
             setIsLoading(false)
@@ -85,11 +93,27 @@ export default function MyOrdersPage() {
         return differenceInHours(now, orderDate) < 24
     }
 
+    // Get product description from data packages
+    const getProductDescription = (order: Order) => {
+        // Find matching package by network, size, and price
+        const matchingPackage = dataPackages.find(
+            pkg => pkg.network === order.network &&
+                pkg.size === order.size &&
+                pkg.price === order.price
+        )
+
+        // Return description if found, otherwise fallback to size or network bundle
+        if (matchingPackage?.description) {
+            return matchingPackage.description
+        }
+        return order.size || `${order.network} Bundle`
+    }
+
     // Filter orders based on all criteria
     const filteredOrders = useMemo(() => {
         let filtered = orders
 
-        // Time period filter (always applied now since "All Time" is removed)
+        // Time period filter
         const now = new Date()
         const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
         const yesterday = new Date(today)
@@ -216,14 +240,13 @@ export default function MyOrdersPage() {
         return colors[network] || 'bg-gray-400'
     }
 
-    // Get product name from the order's size/description
-    const getProductName = (order: Order) => {
-        // Use the size as the product name since it describes the bundle
-        return order.size || `${order.network} Bundle`
-    }
-
     const formatOrderDate = (dateStr: string) => {
         return format(new Date(dateStr), 'MMM dd, yyyy HH:mm')
+    }
+
+    // Format amount for display (no truncation)
+    const formatAmount = (amount: number) => {
+        return `₵${amount.toFixed(2)}`
     }
 
     if (isLoading) {
@@ -255,29 +278,29 @@ export default function MyOrdersPage() {
                 <p className="text-sm text-muted-foreground">View and manage your order transactions</p>
             </div>
 
-            {/* Summary Stats - Yellow/Gold Theme matching screenshot */}
+            {/* Summary Stats - Yellow/Gold Theme */}
             <div className="grid grid-cols-3 gap-2 sm:gap-3">
                 <div className="bg-[#1a1a1a] rounded-xl p-3 sm:p-4 text-center text-white">
-                    <p className="text-lg sm:text-xl font-bold truncate">{stats.totalOrders}</p>
+                    <p className="text-base sm:text-lg font-bold">{stats.totalOrders}</p>
                     <p className="text-[10px] sm:text-xs text-gray-400">Total Orders</p>
                 </div>
                 <div className="bg-[#FACC15] rounded-xl p-3 sm:p-4 text-center text-black">
-                    <p className="text-lg sm:text-xl font-bold truncate">{formatCurrency(stats.totalAmount)}</p>
+                    <p className="text-base sm:text-lg font-bold">{formatAmount(stats.totalAmount)}</p>
                     <p className="text-[10px] sm:text-xs text-black/70">Total Amount</p>
                 </div>
                 <div className="bg-[#1a1a1a] rounded-xl p-3 sm:p-4 text-center text-white">
-                    <p className="text-lg sm:text-xl font-bold truncate">{stats.totalData} GB</p>
+                    <p className="text-base sm:text-lg font-bold">{stats.totalData} GB</p>
                     <p className="text-[10px] sm:text-xs text-gray-400">Total Data</p>
                 </div>
             </div>
 
-            {/* Time Period Filters - Removed "All Time" */}
-            <div className="flex flex-wrap gap-2 justify-center">
+            {/* Time Period Filters - All in one row, compact sizing */}
+            <div className="grid grid-cols-4 gap-2">
                 {TIME_PERIODS.map((period) => (
                     <button
                         key={period}
                         onClick={() => setTimePeriod(period)}
-                        className={`px-4 py-2 text-sm rounded-full border transition-all ${timePeriod === period
+                        className={`px-2 py-2 text-xs sm:text-sm rounded-full border transition-all whitespace-nowrap ${timePeriod === period
                             ? 'bg-[#1a1a1a] text-white border-[#1a1a1a] dark:bg-[#FACC15] dark:text-black dark:border-[#FACC15]'
                             : 'bg-transparent border-gray-300 dark:border-gray-600 hover:border-gray-500'
                             }`}
@@ -341,7 +364,7 @@ export default function MyOrdersPage() {
             {/* Order Cards */}
             <div className="space-y-4">
                 {filteredOrders.length === 0 ? (
-                    <Card>
+                    <Card className="shadow-md dark:shadow-gray-900/50">
                         <CardContent className="py-12 text-center">
                             <ShoppingCart className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />
                             <p className="text-muted-foreground">No orders found</p>
@@ -349,7 +372,7 @@ export default function MyOrdersPage() {
                     </Card>
                 ) : (
                     filteredOrders.map((order) => (
-                        <Card key={order.id} className="overflow-hidden border-0 shadow-md">
+                        <Card key={order.id} className="overflow-hidden border shadow-md hover:shadow-lg transition-shadow dark:shadow-gray-900/50 dark:hover:shadow-gray-900/70">
                             <CardContent className="p-4 space-y-4">
                                 {/* Header Row */}
                                 <div className="flex items-start justify-between">
@@ -358,7 +381,7 @@ export default function MyOrdersPage() {
                                             <Wifi className="w-6 h-6 text-white" />
                                         </div>
                                         <div>
-                                            <p className="font-semibold text-base">{getProductName(order)}</p>
+                                            <p className="font-semibold text-base">{getProductDescription(order)}</p>
                                             <p className="text-sm text-muted-foreground">{order.phone_number}</p>
                                         </div>
                                     </div>
