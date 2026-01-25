@@ -139,6 +139,76 @@ export default function AdminOrdersPage() {
         }
     }
 
+    const generateExcelFile = async (ordersToExport: any[], filename: string) => {
+        // Perform export - CUSTOM FORMAT (Beneficiary Msisdn / GIGGS)
+        const rows: any[][] = []
+
+        // Header Row
+        rows.push(['Beneficiary Msisdn', 'GIGGS'])
+
+        // Data Rows
+        ordersToExport.forEach((order: any) => {
+            const phone = order.phone_number
+            const size = order.size
+
+            rows.push([phone, size])
+        })
+
+        // @ts-ignore
+        const { utils, writeFile } = await import('xlsx-js-style')
+
+        const worksheet = utils.aoa_to_sheet(rows)
+
+        // Styling
+        const range = utils.decode_range(worksheet['!ref'] || 'A1:B1')
+
+        // Set widths
+        worksheet['!cols'] = [
+            { wch: 25 }, // Beneficiary Msisdn
+            { wch: 15 }  // GIGGS
+        ]
+
+        const PINK_COLOR = 'FF00FF'
+        const BORDER_COLOR = 'CCCCCC'
+
+        for (let R = range.s.r; R <= range.e.r; ++R) {
+            for (let C = range.s.c; C <= range.e.c; ++C) {
+                const cell_address = utils.encode_cell({ r: R, c: C })
+                if (!worksheet[cell_address]) continue
+
+                const isHeader = R === 0
+
+                if (isHeader) {
+                    worksheet[cell_address].s = {
+                        font: { sz: 12, bold: true, color: { rgb: PINK_COLOR } },
+                        alignment: { horizontal: "center", vertical: "center" },
+                        border: {
+                            bottom: { style: 'thin', color: { rgb: BORDER_COLOR } },
+                            right: { style: 'thin', color: { rgb: BORDER_COLOR } },
+                            left: { style: 'thin', color: { rgb: BORDER_COLOR } },
+                            top: { style: 'thin', color: { rgb: BORDER_COLOR } }
+                        }
+                    }
+                } else {
+                    worksheet[cell_address].s = {
+                        font: { sz: 11, bold: false, color: { rgb: '000000' } },
+                        alignment: { horizontal: "center", vertical: "center" },
+                        border: {
+                            bottom: { style: 'thin', color: { rgb: BORDER_COLOR } },
+                            right: { style: 'thin', color: { rgb: BORDER_COLOR } },
+                            left: { style: 'thin', color: { rgb: BORDER_COLOR } }
+                        }
+                    }
+                }
+            }
+        }
+
+        const workbook = utils.book_new()
+        utils.book_append_sheet(workbook, worksheet, "Orders")
+
+        writeFile(workbook, filename)
+    }
+
     const handleRefund = async (order: any) => {
         if (!confirm('Are you sure you want to refund this order? This will credit the user\'s wallet.')) return
 
@@ -378,6 +448,37 @@ export default function AdminOrdersPage() {
             toast.success('Batch re-downloaded')
         } catch (error) {
             toast.error('Failed to re-download batch')
+        }
+    }
+
+    const handleDownloadAllFiltered = async () => {
+        if (filteredBatches.length === 0) {
+            toast.error('No batches to download')
+            return
+        }
+
+        const toastId = toast.loading(`Preparing download for ${filteredBatches.length} batches...`)
+
+        try {
+            const batchIds = filteredBatches.map(b => b.id).join(',')
+            const response = await fetch(`/api/admin/orders?batchIds=${batchIds}`)
+
+            if (!response.ok) throw new Error('Failed to fetch orders')
+            const allOrders = await response.json()
+
+            if (!allOrders || allOrders.length === 0) {
+                toast.error('No orders found in selected batches', { id: toastId })
+                return
+            }
+
+            const filename = `ghdata_merged_${historyFilter}_${new Date().toISOString().substring(0, 10)}.xlsx`
+
+            await generateExcelFile(allOrders, filename)
+
+            toast.success('Downloaded all filtered orders', { id: toastId })
+        } catch (error) {
+            console.error('Bulk download error:', error)
+            toast.error('Failed to download filtered batches', { id: toastId })
         }
     }
 
@@ -700,7 +801,17 @@ export default function AdminOrdersPage() {
                 </TabsContent>
 
                 <TabsContent value="downloaded" className="space-y-4">
-                    <div className="flex justify-end gap-2">
+                    <div className="flex flex-col sm:flex-row justify-between gap-4 items-center">
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="bg-background border-dashed"
+                            onClick={handleDownloadAllFiltered}
+                            disabled={filteredBatches.length === 0}
+                        >
+                            <Download className="w-4 h-4 mr-2" />
+                            Download Filtered ({filteredBatches.length})
+                        </Button>
                         <div className="flex items-center space-x-2 bg-muted/50 p-1 rounded-lg">
                             {['today', 'yesterday', 'all'].map((filter) => (
                                 <button

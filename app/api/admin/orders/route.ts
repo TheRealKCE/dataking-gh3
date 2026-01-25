@@ -26,6 +26,7 @@ export async function GET(request: NextRequest) {
         const { searchParams } = new URL(request.url)
         const available = searchParams.get('available') === 'true'
         const batchId = searchParams.get('batchId')
+        const batchIds = searchParams.get('batchIds')
 
         // Service role client to bypass RLS
         const supabase = createServerClient()
@@ -41,7 +42,9 @@ export async function GET(request: NextRequest) {
                 )
             `)
 
-        if (batchId) {
+        if (batchIds) {
+            query = query.in('download_batch_id', batchIds.split(','))
+        } else if (batchId) {
             query = query.eq('download_batch_id', batchId)
         } else if (available) {
             query = query.is('download_batch_id', null).eq('status', 'pending')
