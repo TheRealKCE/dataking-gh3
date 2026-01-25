@@ -51,6 +51,34 @@ export default function ComplaintsPage() {
         }
     }
 
+    // Set up real-time subscription for status updates
+    useEffect(() => {
+        if (!dbUser) return
+
+        // Subscribe to changes for this user's complaints
+        const subscription = supabase
+            .channel('user-complaints')
+            .on(
+                'postgres_changes',
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'complaints',
+                    filter: `user_id=eq.${dbUser.id}`
+                },
+                (payload) => {
+                    console.log('Complaint updated:', payload)
+                    // Refetch complaints when any change occurs
+                    fetchComplaints()
+                }
+            )
+            .subscribe()
+
+        return () => {
+            subscription.unsubscribe()
+        }
+    }, [dbUser])
+
     const getStatusBadge = (status: string) => {
         const variants: Record<string, 'pending' | 'processing' | 'completed' | 'failed'> = {
             pending: 'pending',
