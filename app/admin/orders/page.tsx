@@ -348,15 +348,6 @@ export default function AdminOrdersPage() {
                 // Determine Row Type
                 const isUserRow = R % 2 === 0
 
-                const orderIndex = Math.floor(R / 2)
-                const order = (orderIndex >= 0 && orderIndex < batchOrders.length) ? batchOrders[orderIndex] : null
-                const network = order?.network || 'Other'
-
-                let netColor = '000000'
-                if (network.includes('MTN')) netColor = COLORS.MTN
-                else if (network.includes('Telecel')) netColor = COLORS.Telecel
-                else if (network.includes('AT') || network.includes('BigTime')) netColor = COLORS.AT
-
                 if (isUserRow) {
                     merges.push({ s: { r: R, c: 0 }, e: { r: R, c: 1 } })
                 }
@@ -368,7 +359,7 @@ export default function AdminOrdersPage() {
                     if (isUserRow) {
                         worksheet[cell_address].s = {
                             font: { sz: 12, bold: true, color: { rgb: COLORS.White } },
-                            fill: { fgColor: { rgb: netColor } },
+                            fill: { fgColor: { rgb: COLORS.Header } },
                             alignment: { horizontal: "center", vertical: "center" },
                             border: { top: { style: 'thin', color: { rgb: COLORS.Border } } }
                         }
