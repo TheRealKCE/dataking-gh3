@@ -470,7 +470,8 @@ export default function AdminOrdersPage() {
                             batchOrders.map(order => (
                                 <div key={order.id} className="text-xs p-2 bg-background rounded border flex items-center justify-between">
                                     <div className="flex flex-col">
-                                        <span className="font-mono font-medium">{order.phone_number}</span>
+                                        <span className="font-bold text-[10px]">{order.users?.first_name} {order.users?.last_name}</span>
+                                        <span className="font-mono text-xs">{order.phone_number}</span>
                                         <span className="text-[10px] text-muted-foreground">{order.network} {order.size}</span>
                                     </div>
                                     {getStatusBadge(order.status)}
