@@ -40,16 +40,9 @@ export default function AdminComplaintsPage() {
 
     const fetchComplaints = async () => {
         try {
-            const { data, error } = await supabase
-                .from('complaints')
-                .select(`
-          *,
-          users (first_name, last_name, email),
-          orders (reference_code)
-        `)
-                .order('created_at', { ascending: false })
-
-            if (error) throw error
+            const response = await fetch('/api/admin/complaints')
+            if (!response.ok) throw new Error('Failed to fetch complaints')
+            const data = await response.json()
             setComplaints(data || [])
         } catch (error) {
             console.error('Error fetching complaints:', error)
@@ -64,18 +57,21 @@ export default function AdminComplaintsPage() {
 
         setIsResolving(true)
         try {
-            const { error } = await (supabase
-                .from('complaints') as any)
-                .update({
+            const response = await fetch('/api/admin/complaints/resolve', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    id: selectedComplaint.id,
                     status,
                     resolution_notes: resolutionNotes,
-                    updated_at: new Date().toISOString()
+                    user_id: selectedComplaint.user_id,
+                    order_ref: selectedComplaint.orders?.reference_code
                 })
-                .eq('id', selectedComplaint.id)
+            })
 
-            if (error) {
-                console.error('Database update error:', error)
-                throw error
+            if (!response.ok) {
+                const error = await response.json()
+                throw new Error(error.error || 'Failed to update complaint')
             }
 
             setComplaints(complaints.map(c =>
@@ -83,15 +79,6 @@ export default function AdminComplaintsPage() {
                     ? { ...c, status, resolution_notes: resolutionNotes, updated_at: new Date().toISOString() }
                     : c
             ))
-
-            // Notify user
-            await (supabase.from('notifications') as any).insert({
-                user_id: selectedComplaint.user_id,
-                title: `Complaint ${status === 'resolved' ? 'Resolved' : 'Rejected'}`,
-                message: `Your complaint regarding order ${selectedComplaint.orders?.reference_code} has been ${status}.`,
-                type: 'complaint_resolved',
-                action_url: '/dashboard/complaints'
-            })
 
             toast.success(`Complaint marked as ${status}`)
             setSelectedComplaint(null)
