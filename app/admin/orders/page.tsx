@@ -15,14 +15,6 @@ import {
     SelectValue,
 } from '@/components/ui/select'
 import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table'
-import {
     Tabs,
     TabsContent,
     TabsList,
@@ -41,7 +33,6 @@ import {
     DialogDescription,
     DialogHeader,
     DialogTitle,
-    DialogTrigger,
 } from '@/components/ui/dialog'
 import {
     Search,
@@ -49,17 +40,14 @@ import {
     CheckCircle2,
     XCircle,
     Clock,
-    AlertCircle,
     RefreshCw,
-    Eye,
-    Filter,
     Download,
     ChevronDown,
-    ChevronUp,
     User,
     Package,
     Phone,
-    FileText
+    FileText,
+    Loader2
 } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -70,11 +58,6 @@ export default function AdminOrdersPage() {
     const [networkFilter, setNetworkFilter] = useState('all')
     const [batches, setBatches] = useState<any[]>([])
     const [activeTab, setActiveTab] = useState('available')
-    // expandedBatch replaced by selectedBatch for Dialog
-    const [selectedBatch, setSelectedBatch] = useState<any | null>(null)
-    const [batchOrders, setBatchOrders] = useState<Record<string, any[]>>({})
-    const [page, setPage] = useState(1)
-    const PAGE_SIZE = 20
 
     useEffect(() => {
         const loadData = async () => {
@@ -114,27 +97,6 @@ export default function AdminOrdersPage() {
         }
     }
 
-    const handleViewBatchOrders = async (batch: any) => {
-        setSelectedBatch(batch)
-
-        // Fetch orders if not already in state
-        if (!batchOrders[batch.id]) {
-            try {
-                // setLoading(true) // Don't block whole UI, maybe local loading state
-                const response = await fetch(`/api/admin/orders?batchId=${batch.id}`)
-                if (!response.ok) {
-                    const result = await response.json()
-                    throw new Error(result.error || 'Failed to fetch batch orders')
-                }
-                const data = await response.json()
-                setBatchOrders(prev => ({ ...prev, [batch.id]: data || [] }))
-            } catch (error: any) {
-                console.error('Error fetching batch orders:', error)
-                toast.error(error.message || 'Failed to load batch details')
-            }
-        }
-    }
-
     const handleUpdateStatus = async (orderId: string, newStatus: string) => {
         try {
             const response = await fetch('/api/admin/orders/status', {
@@ -146,7 +108,7 @@ export default function AdminOrdersPage() {
             const result = await response.json()
             if (!response.ok) throw new Error(result.error || 'Failed to update status')
 
-            setOrders(orders.map(o => o.id === orderId ? { ...o, status: newStatus } : o))
+            setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o))
             toast.success(`Order marked as ${newStatus}`)
         } catch (error: any) {
             console.error('Update status error:', error)
@@ -192,7 +154,7 @@ export default function AdminOrdersPage() {
                 .update({ payment_status: 'refunded', status: 'failed' } as any)
                 .eq('id', order.id)
 
-            setOrders(orders.map(o => o.id === order.id ? { ...o, payment_status: 'refunded', status: 'failed' } : o))
+            setOrders(prev => prev.map(o => o.id === order.id ? { ...o, payment_status: 'refunded', status: 'failed' } : o))
             toast.success('Order refunded successfully')
 
             // Notify user
@@ -224,10 +186,8 @@ export default function AdminOrdersPage() {
 
         try {
             const fileName = `ghdata_orders_${new Date().toISOString().replace(/[:.]/g, '-')}.xlsx`
-
             const idempotencyKey = `batch_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
 
-            // 1. Create batch and link orders via API (Secure)
             const response = await fetch('/api/admin/orders/batch', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -242,26 +202,22 @@ export default function AdminOrdersPage() {
             const result = await response.json()
             if (!response.ok) throw new Error(result.error || 'Failed to create batch')
 
-            // 3. Perform export
             const dataToExport = (pendingOrders as any[]).map(order => ({
                 'Number': order.phone_number,
                 'Data Size': order.size.replace(/GB/i, '')
             }))
 
-            // Dynamic import
             // @ts-ignore
             const { utils, writeFile } = await import('xlsx-js-style')
 
             const worksheet = utils.json_to_sheet(dataToExport)
 
-            // Reduce text size
             const range = utils.decode_range(worksheet['!ref'] || 'A1:A1')
             for (let R = range.s.r; R <= range.e.r; ++R) {
                 for (let C = range.s.c; C <= range.e.c; ++C) {
                     const cell_address = utils.encode_cell({ r: R, c: C })
                     if (!worksheet[cell_address]) continue
 
-                    // Keep existing style if any, but enforce font size
                     worksheet[cell_address].s = {
                         font: { sz: 10, name: 'Arial' },
                         alignment: { horizontal: "center", vertical: "center" }
@@ -269,11 +225,7 @@ export default function AdminOrdersPage() {
                 }
             }
 
-            // Set column widths
-            worksheet['!cols'] = [
-                { wch: 15 }, // Number
-                { wch: 10 }  // Data Size
-            ]
+            worksheet['!cols'] = [{ wch: 15 }, { wch: 10 }]
 
             const workbook = utils.book_new()
             utils.book_append_sheet(workbook, worksheet, "Orders")
@@ -281,7 +233,6 @@ export default function AdminOrdersPage() {
             writeFile(workbook, fileName)
             toast.success('Orders exported and moved to batches')
 
-            // 4. Refresh data
             fetchOrders()
             fetchBatches()
         } catch (error) {
@@ -294,10 +245,7 @@ export default function AdminOrdersPage() {
         try {
             const { data: batchOrders, error } = await supabase
                 .from('orders')
-                .select(`
-                    *,
-                    users (first_name, last_name, email)
-                `)
+                .select(`*, users (first_name, last_name, email)`)
                 .eq('download_batch_id', batch.id)
 
             if (error) throw error
@@ -307,32 +255,23 @@ export default function AdminOrdersPage() {
                 'Data Size': order.size.replace(/GB/i, '')
             }))
 
-            // Dynamic import
             // @ts-ignore
             const { utils, writeFile } = await import('xlsx-js-style')
-
             const worksheet = utils.json_to_sheet(dataToExport)
 
-            // Reduce text size
+            // Apply styles logic (simplified for brevity, assume same as before)
             const range = utils.decode_range(worksheet['!ref'] || 'A1:A1')
             for (let R = range.s.r; R <= range.e.r; ++R) {
                 for (let C = range.s.c; C <= range.e.c; ++C) {
                     const cell_address = utils.encode_cell({ r: R, c: C })
                     if (!worksheet[cell_address]) continue
-
-                    // Keep existing style if any, but enforce font size
                     worksheet[cell_address].s = {
                         font: { sz: 10, name: 'Arial' },
                         alignment: { horizontal: "center", vertical: "center" }
                     }
                 }
             }
-
-            // Set column widths
-            worksheet['!cols'] = [
-                { wch: 15 }, // Number
-                { wch: 10 }  // Data Size
-            ]
+            worksheet['!cols'] = [{ wch: 15 }, { wch: 10 }]
 
             const workbook = utils.book_new()
             utils.book_append_sheet(workbook, worksheet, "Orders")
@@ -343,46 +282,124 @@ export default function AdminOrdersPage() {
         }
     }
 
-    const handleUpdateBatchStatus = async (batchId: string, newStatus: string) => {
-        const batch = batches.find(b => b.id === batchId)
-        if (!confirm(`Are you sure you want to mark all ${batch?.order_count || ''} orders in this batch as ${newStatus}?`)) return
+    // Batch Card Component defined locally to access props/state needs
+    const BatchCard = ({ batch }: { batch: any }) => {
+        const [batchOrders, setBatchOrders] = useState<any[]>([])
+        const [isLoadingOrders, setIsLoadingOrders] = useState(true)
+        const [isUpdating, setIsUpdating] = useState(false)
 
-        try {
-            setLoading(true)
-
-            const response = await fetch('/api/admin/orders/status', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ batchId, status: newStatus })
-            })
-
-            const result = await response.json()
-            if (!response.ok) throw new Error(result.error || 'Failed to update batch status')
-
-            toast.success(`Success! All ${result.updatedCount || ''} orders marked as ${newStatus}`)
-
-            // Refresh batch orders if this batch is currently expanded
-            if (selectedBatch?.id === batchId || batchOrders[batchId]) {
-                const { data: updatedBatchOrders, error: fetchError } = await supabase
-                    .from('orders')
-                    .select('*, users(first_name, last_name, email)')
-                    .eq('download_batch_id', batchId)
-                    .order('created_at', { ascending: false })
-
-                if (!fetchError && updatedBatchOrders) {
-                    setBatchOrders(prev => ({ ...prev, [batchId]: updatedBatchOrders }))
+        useEffect(() => {
+            const loadBatchOrders = async () => {
+                try {
+                    const response = await fetch(`/api/admin/orders?batchId=${batch.id}`)
+                    if (response.ok) {
+                        const data = await response.json()
+                        setBatchOrders(data || [])
+                    }
+                } catch (error) {
+                    console.error('Failed to load batch orders', error)
+                } finally {
+                    setIsLoadingOrders(false)
                 }
             }
+            loadBatchOrders()
+        }, [batch.id])
 
-            // Refresh both lists
-            await fetchOrders()
-            await fetchBatches()
-        } catch (error: any) {
-            console.error('Error updating batch status:', error)
-            toast.error(`Error: ${error.message || 'Failed to update batch orders status'}`)
-        } finally {
-            setLoading(false)
+        const onUpdateBatchStatus = async (status: string) => {
+            if (!confirm(`Mark all ${batchOrders.length} orders as ${status}?`)) return
+            setIsUpdating(true)
+            try {
+                const response = await fetch('/api/admin/orders/status', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ batchId: batch.id, status })
+                })
+
+                if (!response.ok) throw new Error('Failed to update')
+
+                toast.success('Batch updated successfully')
+                // Refresh local orders
+                const updatedOrders = batchOrders.map(o => ({ ...o, status }))
+                setBatchOrders(updatedOrders)
+                fetchBatches() // Update global counts if needed
+            } catch (error) {
+                toast.error('Failed to update batch status')
+            } finally {
+                setIsUpdating(false)
+            }
         }
+
+        return (
+            <Card className="shadow-md hover:shadow-lg transition-shadow duration-200 flex flex-col h-[500px]">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 flex-shrink-0">
+                    <div className="flex flex-col overflow-hidden">
+                        <CardTitle className="text-sm font-medium truncate" title={batch.filename}>
+                            {batch.filename}
+                        </CardTitle>
+                        <Badge variant="outline" className="w-fit mt-1">{batch.network}</Badge>
+                    </div>
+                    <FileText className="w-8 h-8 text-blue-100 dark:text-blue-900 flex-shrink-0" />
+                </CardHeader>
+
+                <CardContent className="flex-1 overflow-hidden flex flex-col py-2">
+                    <div className="flex items-center justify-between mb-2 flex-shrink-0">
+                        <span className="text-xs text-muted-foreground">{formatDate(batch.created_at)}</span>
+                        <span className="text-sm font-bold text-blue-600">{batch.order_count} orders</span>
+                    </div>
+
+                    <div className="flex-1 overflow-y-auto border rounded-md bg-muted/5 p-2 space-y-2">
+                        {isLoadingOrders ? (
+                            <div className="h-full flex items-center justify-center">
+                                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                            </div>
+                        ) : batchOrders.length === 0 ? (
+                            <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
+                                No orders found
+                            </div>
+                        ) : (
+                            batchOrders.map(order => (
+                                <div key={order.id} className="text-xs p-2 bg-background rounded border flex items-center justify-between">
+                                    <div className="flex flex-col">
+                                        <span className="font-mono font-medium">{order.phone_number}</span>
+                                        <span className="text-[10px] text-muted-foreground">{order.network} {order.size}</span>
+                                    </div>
+                                    {getStatusBadge(order.status)}
+                                </div>
+                            ))
+                        )}
+                    </div>
+                </CardContent>
+
+                <CardFooter className="p-4 pt-2 border-t flex-shrink-0 gap-2">
+                    <Button
+                        className="flex-1 bg-green-600 hover:bg-green-700 text-white"
+                        size="sm"
+                        onClick={() => onUpdateBatchStatus('completed')}
+                        disabled={isUpdating}
+                    >
+                        {isUpdating ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
+                        Mark All Completed
+                    </Button>
+                    <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="icon" className="h-9 w-9">
+                                <MoreVertical className="w-4 h-4" />
+                            </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => onUpdateBatchStatus('failed')}>
+                                <XCircle className="w-4 h-4 mr-2 text-red-500" />
+                                Mark All Failed
+                            </DropdownMenuItem>
+                            <DropdownMenuItem onClick={() => reDownloadBatch(batch)}>
+                                <Download className="w-4 h-4 mr-2" />
+                                Re-download
+                            </DropdownMenuItem>
+                        </DropdownMenuContent>
+                    </DropdownMenu>
+                </CardFooter>
+            </Card>
+        )
     }
 
     const filteredOrders = orders.filter(order => {
@@ -403,9 +420,10 @@ export default function AdminOrdersPage() {
             completed: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
             failed: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
         }
+        // Simplified badge for the small list view
         return (
-            <span className={`px-2 py-1 rounded-full text-xs font-medium ${styles[status] || styles.pending}`}>
-                {status.toUpperCase()}
+            <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium uppercase ${styles[status] || styles.pending}`}>
+                {status === 'in_review' ? 'Review' : status}
             </span>
         )
     }
@@ -486,7 +504,6 @@ export default function AdminOrdersPage() {
                                         {getStatusBadge(order.status)}
                                     </CardHeader>
                                     <CardContent className="space-y-4 pt-4">
-                                        {/* User Details */}
                                         <div className="flex items-start gap-3">
                                             <div className="w-8 h-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center flex-shrink-0">
                                                 <User className="w-4 h-4 text-slate-500" />
@@ -497,7 +514,6 @@ export default function AdminOrdersPage() {
                                             </div>
                                         </div>
 
-                                        {/* Package Details */}
                                         <div className="grid grid-cols-2 gap-2 text-sm">
                                             <div className="flex items-center gap-2 p-2 bg-muted/50 rounded-md">
                                                 <Phone className="w-3 h-3 text-muted-foreground" />
@@ -528,7 +544,7 @@ export default function AdminOrdersPage() {
                                                         Actions <ChevronDown className="w-4 h-4 ml-2" />
                                                     </Button>
                                                 </DropdownMenuTrigger>
-                                                <DropdownMenuContent align="end" className="w-[200px]">
+                                                <DropdownMenuContent align="end">
                                                     <DropdownMenuLabel>Manage Order</DropdownMenuLabel>
                                                     {order.status !== 'completed' && (
                                                         <DropdownMenuItem onClick={() => handleUpdateStatus(order.id, 'completed')}>
@@ -573,117 +589,12 @@ export default function AdminOrdersPage() {
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                             {batches.map((batch) => (
-                                <Card key={batch.id} className="shadow-md hover:shadow-lg transition-shadow duration-200">
-                                    <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-2">
-                                        <div>
-                                            <CardTitle className="text-sm font-medium text-muted-foreground truncate max-w-[150px]" title={batch.filename}>
-                                                {batch.filename}
-                                            </CardTitle>
-                                            <div className="mt-1">
-                                                <Badge variant="outline">{batch.network}</Badge>
-                                            </div>
-                                        </div>
-                                        <FileText className="w-8 h-8 text-blue-100 dark:text-blue-900" />
-                                    </CardHeader>
-                                    <CardContent className="space-y-4 pt-4">
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-sm text-muted-foreground">Orders Count</span>
-                                            <span className="text-xl font-bold text-blue-600">{batch.order_count}</span>
-                                        </div>
-                                        <div className="text-xs text-muted-foreground flex items-center gap-1">
-                                            <Clock className="w-3 h-3" />
-                                            {formatDate(batch.created_at)}
-                                        </div>
-                                    </CardContent>
-                                    <CardFooter className="bg-muted/10 p-4 border-t border-muted/20 gap-2">
-                                        <Button variant="default" size="sm" className="flex-1" onClick={() => handleViewBatchOrders(batch)}>
-                                            <Eye className="w-4 h-4 mr-2" /> View
-                                        </Button>
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <Button variant="outline" size="icon" className="h-9 w-9">
-                                                    <MoreVertical className="w-4 h-4" />
-                                                </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end">
-                                                <DropdownMenuItem onClick={() => handleUpdateBatchStatus(batch.id, 'completed')}>
-                                                    <CheckCircle2 className="w-4 h-4 mr-2 text-green-500" />
-                                                    Mark All Completed
-                                                </DropdownMenuItem>
-                                                <DropdownMenuItem onClick={() => handleUpdateBatchStatus(batch.id, 'failed')}>
-                                                    <XCircle className="w-4 h-4 mr-2 text-red-500" />
-                                                    Mark All Failed
-                                                </DropdownMenuItem>
-                                                <DropdownMenuItem onClick={() => reDownloadBatch(batch)}>
-                                                    <Download className="w-4 h-4 mr-2" />
-                                                    Re-download
-                                                </DropdownMenuItem>
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
-                                    </CardFooter>
-                                </Card>
+                                <BatchCard key={batch.id} batch={batch} />
                             ))}
                         </div>
                     )}
                 </TabsContent>
             </Tabs>
-
-            {/* Batch Details Dialog */}
-            <Dialog open={!!selectedBatch} onOpenChange={(open) => !open && setSelectedBatch(null)}>
-                <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden flex flex-col">
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
-                            <Package className="w-5 h-5 text-blue-600" />
-                            Batch Details
-                        </DialogTitle>
-                        <DialogDescription>
-                            Viewing orders for {selectedBatch?.filename} ({selectedBatch?.order_count} items)
-                        </DialogDescription>
-                    </DialogHeader>
-
-                    <div className="flex-1 overflow-auto rounded-md border min-h-[300px]">
-                        {!batchOrders[selectedBatch?.id] ? (
-                            <div className="h-full flex items-center justify-center flex-col gap-2">
-                                <RefreshCw className="w-8 h-8 animate-spin text-muted-foreground/50" />
-                                <p className="text-sm text-muted-foreground">Loading orders...</p>
-                            </div>
-                        ) : (
-                            <Table>
-                                <TableHeader className="sticky top-0 bg-background z-10">
-                                    <TableRow>
-                                        <TableHead>Reference</TableHead>
-                                        <TableHead>Customer</TableHead>
-                                        <TableHead>Phone</TableHead>
-                                        <TableHead>Package</TableHead>
-                                        <TableHead>Status</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {batchOrders[selectedBatch?.id]?.map((order, i) => (
-                                        <TableRow key={order.id || i}>
-                                            <TableCell className="font-mono text-xs">{order.reference_code}</TableCell>
-                                            <TableCell className="text-sm justify-center">
-                                                <div className="flex flex-col">
-                                                    <span className="font-medium">{order.users?.first_name} {order.users?.last_name}</span>
-                                                    <span className="text-[10px] text-muted-foreground">{order.users?.email}</span>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell className="font-mono text-sm">{order.phone_number}</TableCell>
-                                            <TableCell className="text-xs"> {order.network} {order.size}</TableCell>
-                                            <TableCell>{getStatusBadge(order.status)}</TableCell>
-                                        </TableRow>
-                                    ))}
-                                    {batchOrders[selectedBatch?.id]?.length === 0 && (
-                                        <TableRow>
-                                            <TableCell colSpan={5} className="text-center py-8 text-muted-foreground">No orders found in this batch.</TableCell>
-                                        </TableRow>
-                                    )}
-                                </TableBody>
-                            </Table>
-                        )}
-                    </div>
-                </DialogContent>
-            </Dialog>
         </div>
     )
 }
