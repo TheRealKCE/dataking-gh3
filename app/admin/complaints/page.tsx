@@ -110,66 +110,115 @@ export default function AdminComplaintsPage() {
                 </div>
             </div>
 
-            <Card>
-                <CardContent className="p-0">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>User</TableHead>
-                                <TableHead>Order Ref</TableHead>
-                                <TableHead>Beneficiary</TableHead>
-                                <TableHead>Package</TableHead>
-                                <TableHead>Issue</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead>Date</TableHead>
-                                <TableHead className="text-right">Actions</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {complaints.length === 0 ? (
+            <div className="hidden md:block">
+                <Card>
+                    <CardContent className="p-0">
+                        <Table>
+                            <TableHeader>
                                 <TableRow>
-                                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
-                                        No complaints found
-                                    </TableCell>
+                                    <TableHead>User</TableHead>
+                                    <TableHead>Order Ref</TableHead>
+                                    <TableHead>Beneficiary</TableHead>
+                                    <TableHead>Package</TableHead>
+                                    <TableHead>Issue</TableHead>
+                                    <TableHead>Status</TableHead>
+                                    <TableHead>Date</TableHead>
+                                    <TableHead className="text-right">Actions</TableHead>
                                 </TableRow>
-                            ) : (
-                                complaints.map((complaint) => (
-                                    <TableRow key={complaint.id}>
-                                        <TableCell>
-                                            <div className="flex flex-col">
-                                                <span className="font-medium">{complaint.users?.first_name} {complaint.users?.last_name}</span>
-                                                <span className="text-xs text-muted-foreground">{complaint.users?.email}</span>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className="font-mono text-sm">
-                                            {complaint.orders?.reference_code}
-                                        </TableCell>
-                                        <TableCell>
-                                            <span className="font-mono text-sm">{complaint.orders?.phone_number}</span>
-                                        </TableCell>
-                                        <TableCell>
-                                            <div className="flex flex-col">
-                                                <span className="font-medium capitalize">{complaint.orders?.network}</span>
-                                                <span className="text-xs text-muted-foreground">{complaint.orders?.size}</span>
-                                            </div>
-                                        </TableCell>
-                                        <TableCell className="max-w-xs truncate">{complaint.title}</TableCell>
-                                        <TableCell>{getStatusBadge(complaint.status)}</TableCell>
-                                        <TableCell className="text-sm text-muted-foreground">
-                                            {formatDate(complaint.created_at)}
-                                        </TableCell>
-                                        <TableCell className="text-right">
-                                            <Button variant="outline" size="sm" onClick={() => setSelectedComplaint(complaint)}>
-                                                View Details
-                                            </Button>
+                            </TableHeader>
+                            <TableBody>
+                                {complaints.length === 0 ? (
+                                    <TableRow>
+                                        <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                                            No complaints found
                                         </TableCell>
                                     </TableRow>
-                                ))
-                            )}
-                        </TableBody>
-                    </Table>
-                </CardContent>
-            </Card>
+                                ) : (
+                                    complaints.map((complaint) => (
+                                        <TableRow key={complaint.id}>
+                                            <TableCell>
+                                                <div className="flex flex-col">
+                                                    <span className="font-medium">{complaint.users?.first_name} {complaint.users?.last_name}</span>
+                                                    <span className="text-xs text-muted-foreground">{complaint.users?.email}</span>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="font-mono text-sm">
+                                                {complaint.orders?.reference_code}
+                                            </TableCell>
+                                            <TableCell>
+                                                <span className="font-mono text-sm">{complaint.orders?.phone_number}</span>
+                                            </TableCell>
+                                            <TableCell>
+                                                <div className="flex flex-col">
+                                                    <span className="font-medium capitalize">{complaint.orders?.network}</span>
+                                                    <span className="text-xs text-muted-foreground">{complaint.orders?.size}</span>
+                                                </div>
+                                            </TableCell>
+                                            <TableCell className="max-w-xs truncate">{complaint.title}</TableCell>
+                                            <TableCell>{getStatusBadge(complaint.status)}</TableCell>
+                                            <TableCell className="text-sm text-muted-foreground">
+                                                {formatDate(complaint.created_at)}
+                                            </TableCell>
+                                            <TableCell className="text-right">
+                                                <Button variant="outline" size="sm" onClick={() => setSelectedComplaint(complaint)}>
+                                                    View Details
+                                                </Button>
+                                            </TableCell>
+                                        </TableRow>
+                                    ))
+                                )}
+                            </TableBody>
+                        </Table>
+                    </CardContent>
+                </Card>
+            </div>
+
+            {/* Mobile View */}
+            <div className="grid grid-cols-1 gap-4 md:hidden">
+                {complaints.length === 0 ? (
+                    <Card className="p-8 text-center text-muted-foreground">
+                        No complaints found
+                    </Card>
+                ) : (
+                    complaints.map((complaint) => (
+                        <Card key={complaint.id}>
+                            <CardContent className="p-4 space-y-4">
+                                <div className="flex items-start justify-between">
+                                    <div className="flex flex-col">
+                                        <span className="font-medium">{complaint.users?.first_name} {complaint.users?.last_name}</span>
+                                        <span className="text-xs text-muted-foreground">{complaint.users?.email}</span>
+                                    </div>
+                                    {getStatusBadge(complaint.status)}
+                                </div>
+                                <div className="grid grid-cols-2 gap-2 text-sm bg-muted/50 p-3 rounded-lg">
+                                    <div className="col-span-2">
+                                        <span className="text-muted-foreground text-xs block">Order ID</span>
+                                        <span className="font-mono">{complaint.orders?.reference_code}</span>
+                                    </div>
+                                    <div>
+                                        <span className="text-muted-foreground text-xs block">Beneficiary</span>
+                                        <span className="font-mono">{complaint.orders?.phone_number}</span>
+                                    </div>
+                                    <div>
+                                        <span className="text-muted-foreground text-xs block">Package</span>
+                                        <span className="capitalize">{complaint.orders?.network} {complaint.orders?.size}</span>
+                                    </div>
+                                </div>
+                                <div>
+                                    <span className="font-medium block mb-1">{complaint.title}</span>
+                                    <p className="text-sm text-muted-foreground truncate">{complaint.description}</p>
+                                </div>
+                                <div className="flex items-center justify-between pt-2 border-t text-sm">
+                                    <span className="text-muted-foreground">{formatDate(complaint.created_at)}</span>
+                                    <Button size="sm" variant="outline" onClick={() => setSelectedComplaint(complaint)}>
+                                        View Details
+                                    </Button>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    ))
+                )}
+            </div>
 
             {/* Detail/Resolution Dialog */}
             <Dialog open={!!selectedComplaint} onOpenChange={() => setSelectedComplaint(null)}>
