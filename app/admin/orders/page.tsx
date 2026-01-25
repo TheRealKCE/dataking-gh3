@@ -202,19 +202,10 @@ export default function AdminOrdersPage() {
             const result = await response.json()
             if (!response.ok) throw new Error(result.error || 'Failed to create batch')
 
-            // 3. Perform export
-            const dataToExport = (pendingOrders as any[]).map(order => ({
-                'Customer Name': `${order.users?.first_name || ''} ${order.users?.last_name || ''}`.trim(),
-                'Number': order.phone_number,
-                'Data Size': order.size.replace(/GB/i, '')
-            }))
+            // 3. Perform export - STACKED LAYOUT
+            const rows: any[][] = []
 
-            // @ts-ignore
-            const { utils, writeFile } = await import('xlsx-js-style')
-
-            const worksheet = utils.json_to_sheet(dataToExport)
-
-            // Styling colors
+            // Header Colors
             const COLORS = {
                 MTN: 'FACC15',
                 Telecel: 'E60000',
@@ -224,60 +215,78 @@ export default function AdminOrdersPage() {
                 White: 'FFFFFF'
             } as const
 
+            // Build Data Rows
+            pendingOrders.forEach((order: any) => {
+                const userName = `${order.users?.first_name || ''} ${order.users?.last_name || ''}`.trim()
+                const phone = order.phone_number
+                const size = order.size.replace(/GB/i, '')
+
+                rows.push([userName, ''])
+                rows.push([phone, size])
+            })
+
+            // @ts-ignore
+            const { utils, writeFile } = await import('xlsx-js-style')
+
+            const worksheet = utils.aoa_to_sheet(rows)
+
             const range = utils.decode_range(worksheet['!ref'] || 'A1:A1')
 
-            // Apply styles
+            // Set widths
+            worksheet['!cols'] = [
+                { wch: 30 }, // Phone/User column
+                { wch: 15 }  // Size column
+            ]
+
+            // Merges
+            const merges = []
+
             for (let R = range.s.r; R <= range.e.r; ++R) {
-                // Determine Row Type
-                const isHeader = R === 0
-                // Order index for data rows (R-1)
-                const order = !isHeader ? pendingOrders[R - 1] : null
+                // Calculate if this is a User Row or Data Row
+                // Even rows (0, 2, 4...) are User Headers
+                // Odd rows (1, 3, 5...) are Data
+
+                const isUserRow = R % 2 === 0
+
+                const orderIndex = Math.floor(R / 2)
+                const order = (orderIndex >= 0 && orderIndex < pendingOrders.length) ? pendingOrders[orderIndex] : null
                 const network = order?.network || 'Other'
 
-                // Get Color based on network
-                let rowColor = '000000'
-                if (network.includes('MTN')) rowColor = COLORS.MTN
-                else if (network.includes('Telecel')) rowColor = COLORS.Telecel
-                else if (network.includes('AT') || network.includes('BigTime')) rowColor = COLORS.AT
+                let netColor = '000000'
+                if (network.includes('MTN')) netColor = COLORS.MTN
+                else if (network.includes('Telecel')) netColor = COLORS.Telecel
+                else if (network.includes('AT') || network.includes('BigTime')) netColor = COLORS.AT
+
+                if (isUserRow) {
+                    merges.push({ s: { r: R, c: 0 }, e: { r: R, c: 1 } })
+                }
 
                 for (let C = range.s.c; C <= range.e.c; ++C) {
                     const cell_address = utils.encode_cell({ r: R, c: C })
                     if (!worksheet[cell_address]) continue
 
-                    if (isHeader) {
-                        // PRO HEADER STYLE
+                    if (isUserRow) {
                         worksheet[cell_address].s = {
-                            font: { sz: 11, name: 'Arial', bold: true, color: { rgb: COLORS.White } },
-                            fill: { fgColor: { rgb: COLORS.Header } },
+                            font: { sz: 12, bold: true, color: { rgb: COLORS.White } },
+                            fill: { fgColor: { rgb: netColor } },
                             alignment: { horizontal: "center", vertical: "center" },
-                            border: {
-                                bottom: { style: 'medium', color: { rgb: COLORS.White } }
-                            }
+                            border: { top: { style: 'thin', color: { rgb: COLORS.Border } } }
                         }
                     } else {
-                        // PRO BODY STYLE with Network Color accents
                         worksheet[cell_address].s = {
-                            font: {
-                                sz: 10,
-                                name: 'Arial',
-                                color: { rgb: rowColor } // Text color matches network
-                            },
+                            font: { sz: 11, bold: false, color: { rgb: '000000' } },
                             alignment: { horizontal: "center", vertical: "center" },
                             border: {
                                 bottom: { style: 'thin', color: { rgb: COLORS.Border } },
-                                right: { style: 'thin', color: { rgb: COLORS.Border } }
+                                right: { style: 'thin', color: { rgb: COLORS.Border } },
+                                left: { style: 'thin', color: { rgb: COLORS.Border } }
                             }
                         }
                     }
                 }
             }
 
-            // Set column widths
-            worksheet['!cols'] = [
-                { wch: 25 }, // Customer Name
-                { wch: 15 }, // Number
-                { wch: 10 }  // Data Size
-            ]
+            worksheet['!merges'] = merges
 
             const workbook = utils.book_new()
             utils.book_append_sheet(workbook, worksheet, "Orders")
@@ -302,17 +311,10 @@ export default function AdminOrdersPage() {
 
             if (error) throw error
 
-            const dataToExport = (batchOrders as any[]).map(order => ({
-                'Customer Name': `${order.users?.first_name || ''} ${order.users?.last_name || ''}`.trim(),
-                'Number': order.phone_number,
-                'Data Size': order.size.replace(/GB/i, '')
-            }))
+            // Perform export - STACKED LAYOUT
+            const rows: any[][] = []
 
-            // @ts-ignore
-            const { utils, writeFile } = await import('xlsx-js-style')
-            const worksheet = utils.json_to_sheet(dataToExport)
-
-            // Styling colors
+            // Header Colors
             const COLORS = {
                 MTN: 'FACC15',
                 Telecel: 'E60000',
@@ -322,60 +324,68 @@ export default function AdminOrdersPage() {
                 White: 'FFFFFF'
             } as const
 
-            const range = utils.decode_range(worksheet['!ref'] || 'A1:A1')
+            // Build Data Rows
+            (batchOrders as any[]).forEach((order: any) => {
+                const userName = `${order.users?.first_name || ''} ${order.users?.last_name || ''}`.trim()
+                const phone = order.phone_number
+                const size = order.size.replace(/GB/i, '')
 
-            // Apply styles
+                rows.push([userName, ''])
+                rows.push([phone, size])
+            })
+
+            // @ts-ignore
+            const { utils, writeFile } = await import('xlsx-js-style')
+            const worksheet = utils.aoa_to_sheet(rows)
+
+            const range = utils.decode_range(worksheet['!ref'] || 'A1:A1')
+            // Set widths
+            worksheet['!cols'] = [{ wch: 30 }, { wch: 15 }]
+            // Merges
+            const merges = []
+
             for (let R = range.s.r; R <= range.e.r; ++R) {
                 // Determine Row Type
-                const isHeader = R === 0
-                // Order index for data rows (R-1)
-                const order = !isHeader ? batchOrders[R - 1] : null
+                const isUserRow = R % 2 === 0
+
+                const orderIndex = Math.floor(R / 2)
+                const order = (orderIndex >= 0 && orderIndex < batchOrders.length) ? batchOrders[orderIndex] : null
                 const network = order?.network || 'Other'
 
-                // Get Color based on network
-                let rowColor = '000000'
-                if (network.includes('MTN')) rowColor = COLORS.MTN
-                else if (network.includes('Telecel')) rowColor = COLORS.Telecel
-                else if (network.includes('AT') || network.includes('BigTime')) rowColor = COLORS.AT
+                let netColor = '000000'
+                if (network.includes('MTN')) netColor = COLORS.MTN
+                else if (network.includes('Telecel')) netColor = COLORS.Telecel
+                else if (network.includes('AT') || network.includes('BigTime')) netColor = COLORS.AT
+
+                if (isUserRow) {
+                    merges.push({ s: { r: R, c: 0 }, e: { r: R, c: 1 } })
+                }
 
                 for (let C = range.s.c; C <= range.e.c; ++C) {
                     const cell_address = utils.encode_cell({ r: R, c: C })
                     if (!worksheet[cell_address]) continue
 
-                    if (isHeader) {
-                        // PRO HEADER STYLE
+                    if (isUserRow) {
                         worksheet[cell_address].s = {
-                            font: { sz: 11, name: 'Arial', bold: true, color: { rgb: COLORS.White } },
-                            fill: { fgColor: { rgb: COLORS.Header } },
+                            font: { sz: 12, bold: true, color: { rgb: COLORS.White } },
+                            fill: { fgColor: { rgb: netColor } },
                             alignment: { horizontal: "center", vertical: "center" },
-                            border: {
-                                bottom: { style: 'medium', color: { rgb: COLORS.White } }
-                            }
+                            border: { top: { style: 'thin', color: { rgb: COLORS.Border } } }
                         }
                     } else {
-                        // PRO BODY STYLE with Network Color accents
                         worksheet[cell_address].s = {
-                            font: {
-                                sz: 10,
-                                name: 'Arial',
-                                color: { rgb: rowColor } // Text color matches network
-                            },
+                            font: { sz: 11, bold: false, color: { rgb: '000000' } },
                             alignment: { horizontal: "center", vertical: "center" },
                             border: {
                                 bottom: { style: 'thin', color: { rgb: COLORS.Border } },
-                                right: { style: 'thin', color: { rgb: COLORS.Border } }
+                                right: { style: 'thin', color: { rgb: COLORS.Border } },
+                                left: { style: 'thin', color: { rgb: COLORS.Border } }
                             }
                         }
                     }
                 }
             }
-
-            // Set column widths
-            worksheet['!cols'] = [
-                { wch: 25 }, // Customer Name
-                { wch: 15 }, // Number
-                { wch: 10 }  // Data Size
-            ]
+            worksheet['!merges'] = merges
 
             const workbook = utils.book_new()
             utils.book_append_sheet(workbook, worksheet, "Orders")
