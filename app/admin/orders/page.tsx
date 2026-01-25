@@ -149,7 +149,7 @@ export default function AdminOrdersPage() {
         // Data Rows
         ordersToExport.forEach((order: any) => {
             const phone = order.phone_number
-            const size = order.size
+            const size = order.size.replace(/GB/i, '').trim()
 
             rows.push([phone, size])
         })
