@@ -54,6 +54,7 @@ export default function ComplaintsPage() {
                     )
                 `)
                 .eq('user_id', dbUser?.id as any)
+                .gte('created_at', new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString())
                 .order('created_at', { ascending: false })
 
             if (error) throw error

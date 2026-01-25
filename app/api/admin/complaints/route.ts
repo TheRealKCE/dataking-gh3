@@ -14,6 +14,7 @@ export async function GET() {
                 users (first_name, last_name, email),
                 orders (reference_code, phone_number, network, size)
             `)
+            .gte('created_at', new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString())
             .order('created_at', { ascending: false })
 
         if (error) throw error
