@@ -440,7 +440,8 @@ export default function AdminOrdersPage() {
         }
 
         return (
-            <Card className="shadow-md hover:shadow-lg transition-shadow duration-200 flex flex-col h-[500px]">
+            <Card className="group relative overflow-hidden border-muted/40 shadow-lg hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 flex flex-col h-[500px] bg-gradient-to-br from-white to-slate-50 dark:from-slate-950 dark:to-slate-900/50 dark:border-blue-900/20">
+                <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-200%] group-hover:animate-shine pointer-events-none" />
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 flex-shrink-0">
                     <div className="flex flex-col overflow-hidden">
                         <CardTitle className="text-sm font-medium truncate" title={batch.filename}>
