@@ -318,15 +318,15 @@ export default function AdminOrdersPage() {
             const rows: any[][] = []
 
             // Header Row
-            rows.push(['Beneficiary Msisdn', 'GIGGS'])
+            rows.push(['Beneficiary Msisdn', 'GIGGS']);
 
-                // Build Data Rows
-                (batchOrders as any[]).forEach((order: any) => {
-                    const phone = order.phone_number
-                    const size = order.size
+            // Build Data Rows
+            (batchOrders as any[]).forEach((order: any) => {
+                const phone = order.phone_number
+                const size = order.size
 
-                    rows.push([phone, size])
-                })
+                rows.push([phone, size])
+            })
 
             // @ts-ignore
             const { utils, writeFile } = await import('xlsx-js-style')
