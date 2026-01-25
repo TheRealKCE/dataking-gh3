@@ -326,12 +326,9 @@ export default function AdminOrdersPage() {
 
     const reDownloadBatch = async (batch: any) => {
         try {
-            const { data: batchOrders, error } = await supabase
-                .from('orders')
-                .select(`*, users (first_name, last_name, email)`)
-                .eq('download_batch_id', batch.id)
-
-            if (error) throw error
+            const response = await fetch(`/api/admin/orders?batchId=${batch.id}`)
+            if (!response.ok) throw new Error('Failed to fetch batch orders')
+            const batchOrders = await response.json()
 
             if (!batchOrders || batchOrders.length === 0) {
                 toast.error('No orders found in this batch')
