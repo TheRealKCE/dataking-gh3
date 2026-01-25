@@ -58,6 +58,7 @@ export default function AdminOrdersPage() {
     const [networkFilter, setNetworkFilter] = useState('all')
     const [batches, setBatches] = useState<any[]>([])
     const [activeTab, setActiveTab] = useState('available')
+    const [historyFilter, setHistoryFilter] = useState('today')
 
     useEffect(() => {
         const loadData = async () => {
@@ -224,26 +225,18 @@ export default function AdminOrdersPage() {
             const result = await response.json()
             if (!response.ok) throw new Error(result.error || 'Failed to create batch')
 
-            // 3. Perform export - STACKED LAYOUT
+            // 3. Perform export - CUSTOM FORMAT (Beneficiary Msisdn / GIGGS)
             const rows: any[][] = []
 
-            // Header Colors
-            const COLORS = {
-                MTN: 'FACC15',
-                Telecel: 'E60000',
-                AT: '0056B3',
-                Header: '0056B3',
-                Border: 'E5E7EB',
-                White: 'FFFFFF'
-            } as const
+            // Header Row
+            rows.push(['Beneficiary Msisdn', 'GIGGS'])
 
-            // Build Data Rows
+            // Data Rows
             pendingOrders.forEach((order: any) => {
-                const userName = `${order.users?.first_name || ''} ${order.users?.last_name || ''}`.trim()
                 const phone = order.phone_number
-                const size = order.size.replace(/GB/i, '')
+                const size = order.size // Keep full text like "10GB" or just number if requested.
+                // Request says "Show Data Size Here" under GIGGS. "Beneficiary Msisdn" under phone.
 
-                rows.push([userName, ''])
                 rows.push([phone, size])
             })
 
@@ -252,63 +245,49 @@ export default function AdminOrdersPage() {
 
             const worksheet = utils.aoa_to_sheet(rows)
 
-            const range = utils.decode_range(worksheet['!ref'] || 'A1:A1')
+            // Styling
+            const range = utils.decode_range(worksheet['!ref'] || 'A1:B1')
 
             // Set widths
             worksheet['!cols'] = [
-                { wch: 30 }, // Phone/User column
-                { wch: 15 }  // Size column
+                { wch: 25 }, // Beneficiary Msisdn
+                { wch: 15 }  // GIGGS
             ]
 
-            // Merges
-            const merges = []
+            const PINK_COLOR = 'FF00FF'
+            const BORDER_COLOR = 'CCCCCC'
 
             for (let R = range.s.r; R <= range.e.r; ++R) {
-                // Calculate if this is a User Row or Data Row
-                // Even rows (0, 2, 4...) are User Headers
-                // Odd rows (1, 3, 5...) are Data
-
-                const isUserRow = R % 2 === 0
-
-                const orderIndex = Math.floor(R / 2)
-                const order = (orderIndex >= 0 && orderIndex < pendingOrders.length) ? pendingOrders[orderIndex] : null
-                const network = order?.network || 'Other'
-
-                let netColor = '000000'
-                if (network.includes('MTN')) netColor = COLORS.MTN
-                else if (network.includes('Telecel')) netColor = COLORS.Telecel
-                else if (network.includes('AT') || network.includes('BigTime')) netColor = COLORS.AT
-
-                if (isUserRow) {
-                    merges.push({ s: { r: R, c: 0 }, e: { r: R, c: 1 } })
-                }
-
                 for (let C = range.s.c; C <= range.e.c; ++C) {
                     const cell_address = utils.encode_cell({ r: R, c: C })
                     if (!worksheet[cell_address]) continue
 
-                    if (isUserRow) {
+                    const isHeader = R === 0
+
+                    if (isHeader) {
                         worksheet[cell_address].s = {
-                            font: { sz: 12, bold: true, color: { rgb: COLORS.White } },
-                            fill: { fgColor: { rgb: netColor } },
+                            font: { sz: 12, bold: true, color: { rgb: PINK_COLOR } },
                             alignment: { horizontal: "center", vertical: "center" },
-                            border: { top: { style: 'thin', color: { rgb: COLORS.Border } } }
+                            border: {
+                                bottom: { style: 'thin', color: { rgb: BORDER_COLOR } },
+                                right: { style: 'thin', color: { rgb: BORDER_COLOR } },
+                                left: { style: 'thin', color: { rgb: BORDER_COLOR } },
+                                top: { style: 'thin', color: { rgb: BORDER_COLOR } }
+                            }
                         }
                     } else {
                         worksheet[cell_address].s = {
                             font: { sz: 11, bold: false, color: { rgb: '000000' } },
                             alignment: { horizontal: "center", vertical: "center" },
                             border: {
-                                bottom: { style: 'thin', color: { rgb: COLORS.Border } },
-                                right: { style: 'thin', color: { rgb: COLORS.Border } },
-                                left: { style: 'thin', color: { rgb: COLORS.Border } }
+                                bottom: { style: 'thin', color: { rgb: BORDER_COLOR } },
+                                right: { style: 'thin', color: { rgb: BORDER_COLOR } },
+                                left: { style: 'thin', color: { rgb: BORDER_COLOR } }
                             }
                         }
                     }
                 }
             }
-
-            worksheet['!merges'] = merges
 
             const workbook = utils.book_new()
             utils.book_append_sheet(workbook, worksheet, "Orders")
@@ -335,72 +314,63 @@ export default function AdminOrdersPage() {
                 return
             }
 
-            // Perform export - STACKED LAYOUT
+            // Perform export - CUSTOM FORMAT (Beneficiary Msisdn / GIGGS)
             const rows: any[][] = []
 
-            // Header Colors
-            const COLORS = {
-                MTN: 'FACC15',
-                Telecel: 'E60000',
-                AT: '0056B3',
-                Header: '0056B3',
-                Border: 'E5E7EB',
-                White: 'FFFFFF'
-            } as const
+            // Header Row
+            rows.push(['Beneficiary Msisdn', 'GIGGS'])
 
-            // Build Data Rows
-            (batchOrders as any[]).forEach((order: any) => {
-                const userName = `${order.users?.first_name || ''} ${order.users?.last_name || ''}`.trim()
-                const phone = order.phone_number
-                const size = order.size.replace(/GB/i, '')
+                // Build Data Rows
+                (batchOrders as any[]).forEach((order: any) => {
+                    const phone = order.phone_number
+                    const size = order.size
 
-                rows.push([userName, ''])
-                rows.push([phone, size])
-            })
+                    rows.push([phone, size])
+                })
 
             // @ts-ignore
             const { utils, writeFile } = await import('xlsx-js-style')
             const worksheet = utils.aoa_to_sheet(rows)
 
-            const range = utils.decode_range(worksheet['!ref'] || 'A1:A1')
+            const range = utils.decode_range(worksheet['!ref'] || 'A1:B1')
             // Set widths
-            worksheet['!cols'] = [{ wch: 30 }, { wch: 15 }]
-            // Merges
-            const merges = []
+            worksheet['!cols'] = [{ wch: 25 }, { wch: 15 }]
+
+            // Styling
+            const PINK_COLOR = 'FF00FF'
+            const BORDER_COLOR = 'CCCCCC'
 
             for (let R = range.s.r; R <= range.e.r; ++R) {
-                // Determine Row Type
-                const isUserRow = R % 2 === 0
-
-                if (isUserRow) {
-                    merges.push({ s: { r: R, c: 0 }, e: { r: R, c: 1 } })
-                }
-
                 for (let C = range.s.c; C <= range.e.c; ++C) {
                     const cell_address = utils.encode_cell({ r: R, c: C })
                     if (!worksheet[cell_address]) continue
 
-                    if (isUserRow) {
+                    const isHeader = R === 0
+
+                    if (isHeader) {
                         worksheet[cell_address].s = {
-                            font: { sz: 12, bold: true, color: { rgb: COLORS.White } },
-                            fill: { fgColor: { rgb: COLORS.Header } },
+                            font: { sz: 12, bold: true, color: { rgb: PINK_COLOR } },
                             alignment: { horizontal: "center", vertical: "center" },
-                            border: { top: { style: 'thin', color: { rgb: COLORS.Border } } }
+                            border: {
+                                bottom: { style: 'thin', color: { rgb: BORDER_COLOR } },
+                                right: { style: 'thin', color: { rgb: BORDER_COLOR } },
+                                left: { style: 'thin', color: { rgb: BORDER_COLOR } },
+                                top: { style: 'thin', color: { rgb: BORDER_COLOR } }
+                            }
                         }
                     } else {
                         worksheet[cell_address].s = {
                             font: { sz: 11, bold: false, color: { rgb: '000000' } },
                             alignment: { horizontal: "center", vertical: "center" },
                             border: {
-                                bottom: { style: 'thin', color: { rgb: COLORS.Border } },
-                                right: { style: 'thin', color: { rgb: COLORS.Border } },
-                                left: { style: 'thin', color: { rgb: COLORS.Border } }
+                                bottom: { style: 'thin', color: { rgb: BORDER_COLOR } },
+                                right: { style: 'thin', color: { rgb: BORDER_COLOR } },
+                                left: { style: 'thin', color: { rgb: BORDER_COLOR } }
                             }
                         }
                     }
                 }
             }
-            worksheet['!merges'] = merges
 
             const workbook = utils.book_new()
             utils.book_append_sheet(workbook, worksheet, "Orders")
@@ -542,6 +512,24 @@ export default function AdminOrdersPage() {
         const matchesNetwork = networkFilter === 'all' || order.network === networkFilter
 
         return matchesSearch && matchesNetwork
+    })
+
+    const filteredBatches = batches.filter(batch => {
+        const batchDate = new Date(batch.created_at)
+        const today = new Date()
+        const isToday = batchDate.getDate() === today.getDate() &&
+            batchDate.getMonth() === today.getMonth() &&
+            batchDate.getFullYear() === today.getFullYear()
+
+        const yesterday = new Date(today)
+        yesterday.setDate(yesterday.getDate() - 1)
+        const isYesterday = batchDate.getDate() === yesterday.getDate() &&
+            batchDate.getMonth() === yesterday.getMonth() &&
+            batchDate.getFullYear() === yesterday.getFullYear()
+
+        if (historyFilter === 'today') return isToday
+        if (historyFilter === 'yesterday') return isYesterday
+        return true
     })
 
     const getStatusBadge = (status: string) => {
@@ -711,15 +699,31 @@ export default function AdminOrdersPage() {
                     )}
                 </TabsContent>
 
-                <TabsContent value="downloaded">
-                    {batches.length === 0 ? (
+                <TabsContent value="downloaded" className="space-y-4">
+                    <div className="flex justify-end gap-2">
+                        <div className="flex items-center space-x-2 bg-muted/50 p-1 rounded-lg">
+                            {['today', 'yesterday', 'all'].map((filter) => (
+                                <button
+                                    key={filter}
+                                    onClick={() => setHistoryFilter(filter)}
+                                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${historyFilter === filter
+                                        ? 'bg-background shadow text-foreground'
+                                        : 'text-muted-foreground hover:text-foreground'
+                                        }`}
+                                >
+                                    {filter.charAt(0).toUpperCase() + filter.slice(1)}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
+                    {filteredBatches.length === 0 ? (
                         <div className="flex flex-col items-center justify-center p-12 bg-muted/20 rounded-lg border border-dashed">
                             <Download className="w-12 h-12 text-muted-foreground/50 mb-4" />
                             <p className="text-muted-foreground text-center">No download history found.</p>
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {batches.map((batch) => (
+                            {filteredBatches.map((batch) => (
                                 <BatchCard key={batch.id} batch={batch} />
                             ))}
                         </div>
