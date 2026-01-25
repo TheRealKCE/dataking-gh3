@@ -12,7 +12,7 @@ export async function GET() {
             .select(`
                 *,
                 users (first_name, last_name, email),
-                orders (reference_code)
+                orders (reference_code, phone_number, network, size)
             `)
             .order('created_at', { ascending: false })
 

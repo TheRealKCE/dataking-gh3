@@ -117,6 +117,8 @@ export default function AdminComplaintsPage() {
                             <TableRow>
                                 <TableHead>User</TableHead>
                                 <TableHead>Order Ref</TableHead>
+                                <TableHead>Beneficiary</TableHead>
+                                <TableHead>Package</TableHead>
                                 <TableHead>Issue</TableHead>
                                 <TableHead>Status</TableHead>
                                 <TableHead>Date</TableHead>
@@ -126,7 +128,7 @@ export default function AdminComplaintsPage() {
                         <TableBody>
                             {complaints.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={6} className="text-center py-8 text-muted-foreground">
+                                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
                                         No complaints found
                                     </TableCell>
                                 </TableRow>
@@ -141,6 +143,15 @@ export default function AdminComplaintsPage() {
                                         </TableCell>
                                         <TableCell className="font-mono text-sm">
                                             {complaint.orders?.reference_code}
+                                        </TableCell>
+                                        <TableCell>
+                                            <span className="font-mono text-sm">{complaint.orders?.phone_number}</span>
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="flex flex-col">
+                                                <span className="font-medium capitalize">{complaint.orders?.network}</span>
+                                                <span className="text-xs text-muted-foreground">{complaint.orders?.size}</span>
+                                            </div>
                                         </TableCell>
                                         <TableCell className="max-w-xs truncate">{complaint.title}</TableCell>
                                         <TableCell>{getStatusBadge(complaint.status)}</TableCell>
