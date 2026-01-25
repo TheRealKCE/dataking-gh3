@@ -10,9 +10,20 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { MessageSquare, Clock, CheckCircle2, XCircle, AlertCircle } from 'lucide-react'
 import { Complaint } from '@/types/supabase'
 
+interface ComplaintWithOrder extends Complaint {
+    orders?: {
+        reference_code: string
+        phone_number: string
+        network: string
+        size: string
+        price: number
+        status: string
+    } | null
+}
+
 export default function ComplaintsPage() {
     const { dbUser } = useAuth()
-    const [complaints, setComplaints] = useState<Complaint[]>([])
+    const [complaints, setComplaints] = useState<ComplaintWithOrder[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [stats, setStats] = useState({
         total: 0,
