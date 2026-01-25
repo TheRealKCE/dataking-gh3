@@ -202,7 +202,9 @@ export default function AdminOrdersPage() {
             const result = await response.json()
             if (!response.ok) throw new Error(result.error || 'Failed to create batch')
 
+            // 3. Perform export
             const dataToExport = (pendingOrders as any[]).map(order => ({
+                'Customer Name': `${order.users?.first_name || ''} ${order.users?.last_name || ''}`.trim(),
                 'Number': order.phone_number,
                 'Data Size': order.size.replace(/GB/i, '')
             }))
@@ -212,20 +214,70 @@ export default function AdminOrdersPage() {
 
             const worksheet = utils.json_to_sheet(dataToExport)
 
+            // Styling colors
+            const COLORS = {
+                MTN: 'FACC15',
+                Telecel: 'E60000',
+                AT: '0056B3',
+                Header: '0056B3',
+                Border: 'E5E7EB',
+                White: 'FFFFFF'
+            } as const
+
             const range = utils.decode_range(worksheet['!ref'] || 'A1:A1')
+
+            // Apply styles
             for (let R = range.s.r; R <= range.e.r; ++R) {
+                // Determine Row Type
+                const isHeader = R === 0
+                // Order index for data rows (R-1)
+                const order = !isHeader ? pendingOrders[R - 1] : null
+                const network = order?.network || 'Other'
+
+                // Get Color based on network
+                let rowColor = '000000'
+                if (network.includes('MTN')) rowColor = COLORS.MTN
+                else if (network.includes('Telecel')) rowColor = COLORS.Telecel
+                else if (network.includes('AT') || network.includes('BigTime')) rowColor = COLORS.AT
+
                 for (let C = range.s.c; C <= range.e.c; ++C) {
                     const cell_address = utils.encode_cell({ r: R, c: C })
                     if (!worksheet[cell_address]) continue
 
-                    worksheet[cell_address].s = {
-                        font: { sz: 10, name: 'Arial' },
-                        alignment: { horizontal: "center", vertical: "center" }
+                    if (isHeader) {
+                        // PRO HEADER STYLE
+                        worksheet[cell_address].s = {
+                            font: { sz: 11, name: 'Arial', bold: true, color: { rgb: COLORS.White } },
+                            fill: { fgColor: { rgb: COLORS.Header } },
+                            alignment: { horizontal: "center", vertical: "center" },
+                            border: {
+                                bottom: { style: 'medium', color: { rgb: COLORS.White } }
+                            }
+                        }
+                    } else {
+                        // PRO BODY STYLE with Network Color accents
+                        worksheet[cell_address].s = {
+                            font: {
+                                sz: 10,
+                                name: 'Arial',
+                                color: { rgb: rowColor } // Text color matches network
+                            },
+                            alignment: { horizontal: "center", vertical: "center" },
+                            border: {
+                                bottom: { style: 'thin', color: { rgb: COLORS.Border } },
+                                right: { style: 'thin', color: { rgb: COLORS.Border } }
+                            }
+                        }
                     }
                 }
             }
 
-            worksheet['!cols'] = [{ wch: 15 }, { wch: 10 }]
+            // Set column widths
+            worksheet['!cols'] = [
+                { wch: 25 }, // Customer Name
+                { wch: 15 }, // Number
+                { wch: 10 }  // Data Size
+            ]
 
             const workbook = utils.book_new()
             utils.book_append_sheet(workbook, worksheet, "Orders")
@@ -251,6 +303,7 @@ export default function AdminOrdersPage() {
             if (error) throw error
 
             const dataToExport = (batchOrders as any[]).map(order => ({
+                'Customer Name': `${order.users?.first_name || ''} ${order.users?.last_name || ''}`.trim(),
                 'Number': order.phone_number,
                 'Data Size': order.size.replace(/GB/i, '')
             }))
@@ -259,19 +312,70 @@ export default function AdminOrdersPage() {
             const { utils, writeFile } = await import('xlsx-js-style')
             const worksheet = utils.json_to_sheet(dataToExport)
 
-            // Apply styles logic (simplified for brevity, assume same as before)
+            // Styling colors
+            const COLORS = {
+                MTN: 'FACC15',
+                Telecel: 'E60000',
+                AT: '0056B3',
+                Header: '0056B3',
+                Border: 'E5E7EB',
+                White: 'FFFFFF'
+            } as const
+
             const range = utils.decode_range(worksheet['!ref'] || 'A1:A1')
+
+            // Apply styles
             for (let R = range.s.r; R <= range.e.r; ++R) {
+                // Determine Row Type
+                const isHeader = R === 0
+                // Order index for data rows (R-1)
+                const order = !isHeader ? batchOrders[R - 1] : null
+                const network = order?.network || 'Other'
+
+                // Get Color based on network
+                let rowColor = '000000'
+                if (network.includes('MTN')) rowColor = COLORS.MTN
+                else if (network.includes('Telecel')) rowColor = COLORS.Telecel
+                else if (network.includes('AT') || network.includes('BigTime')) rowColor = COLORS.AT
+
                 for (let C = range.s.c; C <= range.e.c; ++C) {
                     const cell_address = utils.encode_cell({ r: R, c: C })
                     if (!worksheet[cell_address]) continue
-                    worksheet[cell_address].s = {
-                        font: { sz: 10, name: 'Arial' },
-                        alignment: { horizontal: "center", vertical: "center" }
+
+                    if (isHeader) {
+                        // PRO HEADER STYLE
+                        worksheet[cell_address].s = {
+                            font: { sz: 11, name: 'Arial', bold: true, color: { rgb: COLORS.White } },
+                            fill: { fgColor: { rgb: COLORS.Header } },
+                            alignment: { horizontal: "center", vertical: "center" },
+                            border: {
+                                bottom: { style: 'medium', color: { rgb: COLORS.White } }
+                            }
+                        }
+                    } else {
+                        // PRO BODY STYLE with Network Color accents
+                        worksheet[cell_address].s = {
+                            font: {
+                                sz: 10,
+                                name: 'Arial',
+                                color: { rgb: rowColor } // Text color matches network
+                            },
+                            alignment: { horizontal: "center", vertical: "center" },
+                            border: {
+                                bottom: { style: 'thin', color: { rgb: COLORS.Border } },
+                                right: { style: 'thin', color: { rgb: COLORS.Border } }
+                            }
+                        }
                     }
                 }
             }
-            worksheet['!cols'] = [{ wch: 15 }, { wch: 10 }]
+
+            // Set column widths
+            worksheet['!cols'] = [
+                { wch: 25 }, // Customer Name
+                { wch: 15 }, // Number
+                { wch: 10 }  // Data Size
+            ]
 
             const workbook = utils.book_new()
             utils.book_append_sheet(workbook, worksheet, "Orders")
