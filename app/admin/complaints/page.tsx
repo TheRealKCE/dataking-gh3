@@ -69,12 +69,14 @@ export default function AdminComplaintsPage() {
                 .update({
                     status,
                     resolution_notes: resolutionNotes,
-                    resolved_at: new Date().toISOString(),
                     updated_at: new Date().toISOString()
                 })
                 .eq('id', selectedComplaint.id)
 
-            if (error) throw error
+            if (error) {
+                console.error('Database update error:', error)
+                throw error
+            }
 
             setComplaints(complaints.map(c =>
                 c.id === selectedComplaint.id
@@ -94,8 +96,9 @@ export default function AdminComplaintsPage() {
             toast.success(`Complaint marked as ${status}`)
             setSelectedComplaint(null)
             setResolutionNotes('')
-        } catch (error) {
-            toast.error('Failed to update complaint')
+        } catch (error: any) {
+            console.error('Failed to update complaint:', error)
+            toast.error(error?.message || 'Failed to update complaint')
         } finally {
             setIsResolving(false)
         }
