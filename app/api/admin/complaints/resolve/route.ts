@@ -40,7 +40,32 @@ export async function POST(request: Request) {
 
         if (notifyError) {
             console.error('Error creating notification:', notifyError)
-            // Don't fail the request if notification fails, but log it
+        }
+
+        // Send email notification
+        try {
+            // Fetch user email first
+            const { data: userData } = await (supabase
+                .from('users') as any)
+                .select('email, first_name')
+                .eq('id', user_id)
+                .single()
+
+            if (userData?.email) {
+                const { sendComplaintResolvedEmail } = await import('@/lib/email-service')
+                await sendComplaintResolvedEmail(
+                    userData.email,
+                    userData.first_name || 'User',
+                    {
+                        orderRef: order_ref,
+                        status,
+                        resolutionNotes: resolution_notes || ''
+                    }
+                )
+            }
+        } catch (emailError) {
+            console.error('Failed to send resolution email:', emailError)
+            // Don't fail the request
         }
 
         return NextResponse.json({ success: true })

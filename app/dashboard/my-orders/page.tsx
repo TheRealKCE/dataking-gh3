@@ -193,16 +193,23 @@ export default function MyOrdersPage() {
 
         setIsSubmitting(true)
         try {
-            const { error } = await (supabase.from('complaints') as any).insert({
-                user_id: dbUser?.id as any,
-                order_id: complaintOrder.id,
-                title: `Issue with order ${complaintOrder.reference_code}`,
-                description: complaintDescription,
-                status: 'pending',
-                priority: 'medium',
+            const response = await fetch('/api/complaints/submit', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    order_id: complaintOrder.id,
+                    title: `Issue with order ${complaintOrder.reference_code}`,
+                    description: complaintDescription,
+                    priority: 'medium',
+                })
             })
 
-            if (error) throw error
+            if (!response.ok) {
+                const errorData = await response.json()
+                throw new Error(errorData.error || 'Failed to submit complaint')
+            }
+
+            const { complaint: newComplaintFromServer } = await response.json() // Get actual data from server if needed
 
             toast.success('Complaint submitted successfully')
             // Refresh logic - optimistically add complaint to state

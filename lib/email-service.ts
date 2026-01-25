@@ -811,6 +811,145 @@ export async function sendWalletTopupFailedEmail(
     })
 }
 
+/**
+ * Send complaint resolved email to user
+ */
+export async function sendComplaintResolvedEmail(
+    email: string,
+    firstName: string,
+    complaintDetails: {
+        orderRef: string
+        status: string
+        resolutionNotes: string
+    }
+): Promise<EmailResult> {
+    const isResolved = complaintDetails.status === 'resolved'
+    const statusColor = isResolved ? '#10b981' : '#ef4444' // Green or Red
+    const statusText = isResolved ? 'Resolved' : 'Rejected'
+    const statusBadgeClass = isResolved ? 'status-success' : 'status-failed'
+
+    const content = `
+        <h1 class="greeting">Complaint Update 🔔</h1>
+        <p class="subtitle">There is an update on your complaint</p>
+        
+        <p class="message-text">
+            Hi ${firstName}, your complaint regarding order <strong>${complaintDetails.orderRef}</strong> has been updated.
+        </p>
+        
+        <div class="info-card">
+            <div class="info-card-header">
+                <div class="info-card-icon">📝</div>
+                <span class="info-card-title">Complaint Details</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Order Reference</span>
+                <span class="info-value">${complaintDetails.orderRef}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Status</span>
+                <span class="info-value">
+                    <span class="status-badge ${statusBadgeClass}" style="padding: 4px 12px; font-size: 11px;">${statusText}</span>
+                </span>
+            </div>
+            <div class="info-row" style="flex-direction: column; align-items: flex-start; gap: 8px;">
+                <span class="info-label">Resolution Notes</span>
+                <span class="info-value" style="text-align: left; background: rgba(0,0,0,0.03); padding: 10px; border-radius: 8px; width: 100%; font-weight: 400;">
+                    ${complaintDetails.resolutionNotes || 'No additional notes provided.'}
+                </span>
+            </div>
+        </div>
+        
+        <div class="cta-container">
+            <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard/complaints" class="cta-button">
+                View Complaint
+            </a>
+        </div>
+    `
+
+    return sendEmail({
+        to: email,
+        toName: firstName,
+        subject: `Complaint Update - ${complaintDetails.orderRef} [${statusText}]`,
+        htmlContent: generatePremiumTemplate(`Complaint ${statusText}`, content, statusColor)
+    })
+}
+
+/**
+ * Send new complaint alert to admin
+ */
+export async function sendAdminNewComplaintAlert(
+    complaintDetails: {
+        userEmail: string
+        userName: string
+        orderRef: string
+        title: string
+        description: string
+        priority: string
+    }
+): Promise<EmailResult> {
+    const adminEmail = process.env.ADMIN_EMAIL || 'kingflexydatalimited@gmail.com'
+
+    const content = `
+        <h1 class="greeting">New Complaint Alert 🚨</h1>
+        <p class="subtitle">A user has filed a new complaint</p>
+        
+        <div class="info-card">
+            <div class="info-card-header">
+                <div class="info-card-icon">👤</div>
+                <span class="info-card-title">User Details</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Name</span>
+                <span class="info-value">${complaintDetails.userName}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Email</span>
+                <span class="info-value">${complaintDetails.userEmail}</span>
+            </div>
+        </div>
+
+        <div class="info-card">
+            <div class="info-card-header">
+                <div class="info-card-icon">⚠️</div>
+                <span class="info-card-title">Complaint Details</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Order Ref</span>
+                <span class="info-value">${complaintDetails.orderRef}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Priority</span>
+                <span class="info-value" style="color: ${complaintDetails.priority === 'high' ? '#ef4444' : '#f59e0b'}">
+                    ${complaintDetails.priority.toUpperCase()}
+                </span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Title</span>
+                <span class="info-value">${complaintDetails.title}</span>
+            </div>
+            <div class="info-row" style="flex-direction: column; align-items: flex-start; gap: 8px;">
+                <span class="info-label">Description</span>
+                <span class="info-value" style="text-align: left; background: rgba(0,0,0,0.03); padding: 10px; border-radius: 8px; width: 100%; font-weight: 400;">
+                    ${complaintDetails.description}
+                </span>
+            </div>
+        </div>
+        
+        <div class="cta-container">
+            <a href="${process.env.NEXT_PUBLIC_APP_URL}/admin/complaints" class="cta-button">
+                Process Complaint
+            </a>
+        </div>
+    `
+
+    return sendEmail({
+        to: adminEmail,
+        toName: 'Admin',
+        subject: `[New Complaint] ${complaintDetails.title} - ${complaintDetails.orderRef}`,
+        htmlContent: generatePremiumTemplate('New Complaint', content, '#ef4444')
+    })
+}
+
 // ==========================================
 // ADMIN EMAIL FUNCTIONS
 // ==========================================
