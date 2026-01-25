@@ -33,6 +33,7 @@ export async function GET(request: NextRequest) {
             .from('download_batches')
             .select('*')
             .gte('created_at', fortyEightHoursAgo)
+            .gt('order_count', 0)
             .order('created_at', { ascending: false })
 
         if (fetchError) {
