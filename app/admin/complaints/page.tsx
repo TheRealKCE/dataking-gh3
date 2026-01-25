@@ -69,6 +69,7 @@ export default function AdminComplaintsPage() {
                 .update({
                     status,
                     resolution_notes: resolutionNotes,
+                    resolved_at: new Date().toISOString(),
                     updated_at: new Date().toISOString()
                 })
                 .eq('id', selectedComplaint.id)

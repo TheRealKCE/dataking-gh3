@@ -31,7 +31,17 @@ export default function ComplaintsPage() {
         try {
             const { data, error } = await supabase
                 .from('complaints')
-                .select('*')
+                .select(`
+                    *,
+                    orders (
+                        reference_code,
+                        phone_number,
+                        network,
+                        size,
+                        price,
+                        status
+                    )
+                `)
                 .eq('user_id', dbUser?.id as any)
                 .order('created_at', { ascending: false })
 
@@ -61,15 +71,27 @@ export default function ComplaintsPage() {
             .on(
                 'postgres_changes',
                 {
-                    event: '*',
+                    event: 'UPDATE',
                     schema: 'public',
                     table: 'complaints',
                     filter: `user_id=eq.${dbUser.id}`
                 },
                 (payload) => {
                     console.log('Complaint updated:', payload)
-                    // Refetch complaints when any change occurs
-                    fetchComplaints()
+                    // Update the specific complaint in state
+                    setComplaints(prev => prev.map(c =>
+                        c.id === payload.new.id ? { ...c, ...payload.new } : c
+                    ))
+                    // Also update stats
+                    setComplaints(prev => {
+                        setStats({
+                            total: prev.length,
+                            pending: prev.filter(c => c.status === 'pending' || c.status === 'in_review').length,
+                            resolved: prev.filter(c => c.status === 'resolved').length,
+                            rejected: prev.filter(c => c.status === 'rejected').length,
+                        })
+                        return prev
+                    })
                 }
             )
             .subscribe()
@@ -181,6 +203,30 @@ export default function ComplaintsPage() {
                     {complaints.map((complaint) => (
                         <Card key={complaint.id}>
                             <CardContent className="p-6">
+                                {/* Order Details Box */}
+                                {complaint.orders && (
+                                    <div className="mb-4 p-4 rounded-xl bg-muted/50 border">
+                                        <div className="grid grid-cols-2 gap-3 text-sm">
+                                            <div>
+                                                <p className="text-muted-foreground text-xs">Network</p>
+                                                <p className="font-semibold">{complaint.orders.network}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-muted-foreground text-xs">Data Size</p>
+                                                <p className="font-semibold">{complaint.orders.size}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-muted-foreground text-xs">Phone Number</p>
+                                                <p className="font-semibold">{complaint.orders.phone_number}</p>
+                                            </div>
+                                            <div>
+                                                <p className="text-muted-foreground text-xs">Order Ref</p>
+                                                <p className="font-mono text-xs">{complaint.orders.reference_code}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
                                 <div className="flex items-start gap-4">
                                     <div className={`w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0 ${complaint.status === 'resolved' ? 'bg-green-100 dark:bg-green-900/30' :
                                         complaint.status === 'rejected' ? 'bg-red-100 dark:bg-red-900/30' :
