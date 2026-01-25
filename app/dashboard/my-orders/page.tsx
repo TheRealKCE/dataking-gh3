@@ -33,8 +33,12 @@ import {
     Wifi
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { Order, DataPackage } from '@/types/supabase'
+import { Order, DataPackage, Complaint } from '@/types/supabase'
 import { format, differenceInHours } from 'date-fns'
+
+interface OrderWithComplaints extends Order {
+    complaints?: Complaint[]
+}
 
 const NETWORKS = ['All', 'MTN', 'Telecel', 'AT-iShare', 'AT-BigTime']
 const STATUSES = ['All', 'pending', 'processing', 'completed', 'failed']
@@ -42,7 +46,7 @@ const TIME_PERIODS = ['Today', 'Yesterday', 'This Week', 'This Month']
 
 export default function MyOrdersPage() {
     const { dbUser } = useAuth()
-    const [orders, setOrders] = useState<Order[]>([])
+    const [orders, setOrders] = useState<OrderWithComplaints[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [searchQuery, setSearchQuery] = useState('')
     const [networkFilter, setNetworkFilter] = useState('All')
@@ -68,7 +72,7 @@ export default function MyOrdersPage() {
 
             const { data, error } = await supabase
                 .from('orders')
-                .select('*')
+                .select('*, complaints(*)')
                 .eq('user_id', dbUser?.id as any)
                 .gte('created_at', fourteenDaysAgo.toISOString())
                 .order('created_at', { ascending: false })
@@ -201,6 +205,18 @@ export default function MyOrdersPage() {
             if (error) throw error
 
             toast.success('Complaint submitted successfully')
+            // Refresh logic - optimistically add complaint to state
+            const newComplaint = {
+                id: 'temp-' + Date.now(),
+                order_id: complaintOrder.id,
+                status: 'pending' as const,
+                title: `Issue with order ${complaintOrder.reference_code}`,
+                description: complaintDescription,
+                created_at: new Date().toISOString(),
+                user_id: dbUser?.id,
+                updated_at: new Date().toISOString()
+            }
+            setOrders(orders.map(o => o.id === complaintOrder.id ? { ...o, complaints: [newComplaint as any] } : o))
             setComplaintOrder(null)
         } catch (error) {
             toast.error('Failed to submit complaint')
@@ -401,16 +417,26 @@ export default function MyOrdersPage() {
                                 {/* Footer - Show complain button for orders within 24 hours */}
                                 <div className="flex items-center justify-between">
                                     <span className="text-sm text-muted-foreground">{order.status}</span>
-                                    {isWithin24Hours(order.created_at) && (
-                                        <Button
-                                            size="sm"
-                                            variant="outline"
-                                            onClick={() => handleComplaint(order)}
-                                            className="text-orange-600 border-orange-200 hover:bg-orange-50 dark:text-orange-400 dark:border-orange-800 dark:hover:bg-orange-900/20"
-                                        >
-                                            <MessageSquare className="w-4 h-4 mr-1" />
-                                            Complain
-                                        </Button>
+                                    {/* Action Area */}
+                                    {order.complaints && order.complaints.length > 0 ? (
+                                        <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 border border-blue-100 dark:border-blue-800">
+                                            <MessageSquare className="w-3.5 h-3.5" />
+                                            <span className="text-xs font-medium capitalize">
+                                                Complaint: {order.complaints[0].status.replace('_', ' ')}
+                                            </span>
+                                        </div>
+                                    ) : (
+                                        order.status === 'completed' && isWithin24Hours(order.created_at) && (
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => handleComplaint(order)}
+                                                className="text-orange-600 border-orange-200 hover:bg-orange-50 dark:text-orange-400 dark:border-orange-800 dark:hover:bg-orange-900/20"
+                                            >
+                                                <MessageSquare className="w-4 h-4 mr-1" />
+                                                Complain
+                                            </Button>
+                                        )
                                     )}
                                 </div>
                             </CardContent>
