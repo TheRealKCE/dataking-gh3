@@ -311,6 +311,11 @@ export default function AdminOrdersPage() {
 
             if (error) throw error
 
+            if (!batchOrders || batchOrders.length === 0) {
+                toast.error('No orders found in this batch')
+                return
+            }
+
             // Perform export - STACKED LAYOUT
             const rows: any[][] = []
 

@@ -26,9 +26,13 @@ export async function GET(request: NextRequest) {
         // Service role client to bypass RLS
         const supabase = createServerClient()
 
+        // Default to last 48 hours to optimize load time
+        const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()
+
         const { data: batches, error: fetchError } = await supabase
             .from('download_batches')
             .select('*')
+            .gte('created_at', fortyEightHoursAgo)
             .order('created_at', { ascending: false })
 
         if (fetchError) {
