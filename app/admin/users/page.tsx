@@ -3,18 +3,10 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency, formatDate } from '@/lib/utils'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
-import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table'
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -38,9 +30,12 @@ import {
     Wallet,
     UserCog,
     Shield,
-    ShieldAlert,
     Loader2,
-    Trash2
+    Trash2,
+    Store,
+    Phone,
+    Calendar,
+    Mail
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Label } from '@/components/ui/label'
@@ -194,143 +189,169 @@ export default function AdminUsersPage() {
     )
 
     return (
-        <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="space-y-6 pb-20">
+            {/* Header Area */}
+            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 sticky top-0 bg-background/95 backdrop-blur z-30 py-4 border-b">
                 <div>
-                    <h1 className="text-2xl font-bold">Users Management</h1>
-                    <p className="text-muted-foreground">Manage user accounts and wallets</p>
+                    <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                        Users Management
+                    </h1>
+                    <p className="text-sm text-muted-foreground">Manage accounts and wallets</p>
                 </div>
-                <div className="relative w-full sm:w-64">
+                <div className="relative w-full md:w-72">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                     <Input
                         placeholder="Search users..."
                         value={searchTerm}
                         onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-9"
+                        className="pl-9 bg-secondary/50 border-0 focus-visible:ring-1 focus-visible:ring-purple-500 transition-all rounded-xl"
                     />
                 </div>
             </div>
 
-            <Card>
-                <CardContent className="p-0">
-                    <div className="overflow-x-auto">
-                        <Table>
-                            <TableHeader>
-                                <TableRow>
-                                    <TableHead>User</TableHead>
-                                    <TableHead>Phone</TableHead>
-                                    <TableHead>Role</TableHead>
-                                    <TableHead>Status</TableHead>
-                                    <TableHead>Wallet Balance</TableHead>
-                                    <TableHead>Joined</TableHead>
-                                    <TableHead className="text-right">Actions</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {filteredUsers.length === 0 ? (
-                                    <TableRow>
-                                        <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                                            No users found
-                                        </TableCell>
-                                    </TableRow>
-                                ) : (
-                                    filteredUsers.map((user) => (
-                                        <TableRow key={user.id}>
-                                            <TableCell>
-                                                <div className="flex flex-col">
-                                                    <span className="font-medium">{user.first_name} {user.last_name}</span>
-                                                    <span className="text-xs text-muted-foreground">{user.email}</span>
-                                                </div>
-                                            </TableCell>
-                                            <TableCell>{user.phone_number}</TableCell>
-                                            <TableCell>
-                                                <Badge variant={user.role === 'admin' ? 'destructive' : 'secondary'}>
-                                                    {user.role}
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell>
-                                                <Badge variant={user.status === 'active' ? 'completed' : 'failed'}>
-                                                    {user.status}
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell className="font-semibold text-green-600">
-                                                {formatCurrency(
-                                                    (Array.isArray(user.wallets) ? user.wallets[0]?.balance : user.wallets?.balance) || 0
+            {/* Content Area */}
+            {loading ? (
+                <div className="flex justify-center py-20">
+                    <Loader2 className="w-8 h-8 animate-spin text-purple-600" />
+                </div>
+            ) : filteredUsers.length === 0 ? (
+                <div className="text-center py-20 text-muted-foreground">
+                    <p>No users found matching your search.</p>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    {filteredUsers.map((user) => (
+                        <Card
+                            key={user.id}
+                            className="group relative overflow-hidden border-border/50 hover:border-purple-500/50 transition-all duration-300 hover:shadow-lg hover:-translate-y-1 bg-gradient-to-br from-card to-secondary/10"
+                        >
+                            <CardContent className="p-5 space-y-4">
+                                {/* Header / ID Card Style */}
+                                <div className="flex justify-between items-start">
+                                    <div className="flex gap-3 items-center">
+                                        <div className="h-10 w-10 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-lg shadow-md">
+                                            {user.first_name?.[0]}{user.last_name?.[0]}
+                                        </div>
+                                        <div>
+                                            <h3 className="font-semibold text-sm line-clamp-1">{user.first_name} {user.last_name}</h3>
+                                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                                {user.role === 'admin' ? (
+                                                    <Badge variant="outline" className="h-5 px-1 bg-purple-500/10 text-purple-600 border-purple-200">Admin</Badge>
+                                                ) : (
+                                                    <span className="flex items-center gap-1"><UserCog className="w-3 h-3" /> User</span>
                                                 )}
-                                            </TableCell>
-                                            <TableCell className="text-sm text-muted-foreground">
-                                                {formatDate(user.created_at)}
-                                            </TableCell>
-                                            <TableCell className="text-right">
-                                                <DropdownMenu>
-                                                    <DropdownMenuTrigger asChild>
-                                                        <Button variant="ghost" size="icon">
-                                                            <MoreVertical className="w-4 h-4" />
-                                                        </Button>
-                                                    </DropdownMenuTrigger>
-                                                    <DropdownMenuContent align="end">
-                                                        <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                                <span>•</span>
+                                                <span className={user.status === 'active' ? 'text-green-600' : 'text-red-500'}>
+                                                    {user.status}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                            <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2 text-muted-foreground hover:text-foreground">
+                                                <MoreVertical className="w-4 h-4" />
+                                            </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end" className="w-48">
+                                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                            <DropdownMenuItem onClick={() => {
+                                                setAdjustmentDialogUser(user)
+                                                setAdjustmentType('credit')
+                                                setAdjustmentDescription('Admin manual credit')
+                                            }}>
+                                                <Wallet className="w-4 h-4 mr-2" />
+                                                Credit Wallet
+                                            </DropdownMenuItem>
+                                            <DropdownMenuItem onClick={() => {
+                                                setAdjustmentDialogUser(user)
+                                                setAdjustmentType('debit')
+                                                setAdjustmentDescription('Admin manual debit')
+                                            }}>
+                                                <Wallet className="w-4 h-4 mr-2 text-red-500" />
+                                                Debit Wallet
+                                            </DropdownMenuItem>
 
-                                                        <DropdownMenuItem onClick={() => {
-                                                            setAdjustmentDialogUser(user)
-                                                            setAdjustmentType('credit')
-                                                            setAdjustmentDescription('Admin manual credit')
-                                                        }}>
-                                                            <Wallet className="w-4 h-4 mr-2" />
-                                                            Credit Wallet
-                                                        </DropdownMenuItem>
+                                            {user.status !== 'suspended' ? (
+                                                <DropdownMenuItem onClick={() => handleStatusChange(user.id, 'suspended')}>
+                                                    <Ban className="w-4 h-4 mr-2 text-red-500" />
+                                                    Suspend Account
+                                                </DropdownMenuItem>
+                                            ) : (
+                                                <DropdownMenuItem onClick={() => handleStatusChange(user.id, 'active')}>
+                                                    <CheckCircle className="w-4 h-4 mr-2 text-green-500" />
+                                                    Activate Account
+                                                </DropdownMenuItem>
+                                            )}
 
-                                                        <DropdownMenuItem onClick={() => {
-                                                            setAdjustmentDialogUser(user)
-                                                            setAdjustmentType('debit')
-                                                            setAdjustmentDescription('Admin manual debit')
-                                                        }}>
-                                                            <Wallet className="w-4 h-4 mr-2 text-red-500" />
-                                                            Debit Wallet
-                                                        </DropdownMenuItem>
+                                            {user.role === 'user' ? (
+                                                <DropdownMenuItem onClick={() => handleRoleChange(user.id, 'admin')}>
+                                                    <Shield className="w-4 h-4 mr-2 text-purple-500" />
+                                                    Make Admin
+                                                </DropdownMenuItem>
+                                            ) : (
+                                                <DropdownMenuItem onClick={() => handleRoleChange(user.id, 'user')}>
+                                                    <UserCog className="w-4 h-4 mr-2" />
+                                                    Remove Admin
+                                                </DropdownMenuItem>
+                                            )}
 
-                                                        {user.status !== 'suspended' ? (
-                                                            <DropdownMenuItem onClick={() => handleStatusChange(user.id, 'suspended')}>
-                                                                <Ban className="w-4 h-4 mr-2 text-red-500" />
-                                                                Suspend Account
-                                                            </DropdownMenuItem>
-                                                        ) : (
-                                                            <DropdownMenuItem onClick={() => handleStatusChange(user.id, 'active')}>
-                                                                <CheckCircle className="w-4 h-4 mr-2 text-green-500" />
-                                                                Activate Account
-                                                            </DropdownMenuItem>
-                                                        )}
+                                            <div className="h-px bg-border my-1" />
 
-                                                        {user.role === 'user' ? (
-                                                            <DropdownMenuItem onClick={() => handleRoleChange(user.id, 'admin')}>
-                                                                <Shield className="w-4 h-4 mr-2 text-purple-500" />
-                                                                Make Admin
-                                                            </DropdownMenuItem>
-                                                        ) : (
-                                                            <DropdownMenuItem onClick={() => handleRoleChange(user.id, 'user')}>
-                                                                <UserCog className="w-4 h-4 mr-2" />
-                                                                Remove Admin
-                                                            </DropdownMenuItem>
-                                                        )}
+                                            <DropdownMenuItem
+                                                onClick={() => handleDeleteUser(user.id)}
+                                                className="text-red-600 focus:text-red-700 focus:bg-red-50"
+                                            >
+                                                <Trash2 className="w-4 h-4 mr-2" />
+                                                Delete User
+                                            </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                    </DropdownMenu>
+                                </div>
 
-                                                        <DropdownMenuItem
-                                                            onClick={() => handleDeleteUser(user.id)}
-                                                            className="text-red-600 focus:text-red-700 focus:bg-red-50"
-                                                        >
-                                                            <Trash2 className="w-4 h-4 mr-2" />
-                                                            Delete User
-                                                        </DropdownMenuItem>
-                                                    </DropdownMenuContent>
-                                                </DropdownMenu>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))
-                                )}
-                            </TableBody>
-                        </Table>
-                    </div>
-                </CardContent>
-            </Card>
+                                {/* Details Grid */}
+                                <div className="grid gap-2 text-sm mt-2">
+                                    <div className="flex items-center gap-2 text-muted-foreground p-2 rounded-lg bg-secondary/30">
+                                        <Mail className="w-4 h-4 shrink-0" />
+                                        <span className="truncate text-xs">{user.email}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-muted-foreground p-2 rounded-lg bg-secondary/30">
+                                        <Phone className="w-4 h-4 shrink-0" />
+                                        <span className="text-xs">{user.phone_number || 'No phone'}</span>
+                                    </div>
+                                    <div className="flex items-center gap-2 text-muted-foreground p-2 rounded-lg bg-secondary/30">
+                                        <Calendar className="w-4 h-4 shrink-0" />
+                                        <span className="text-xs">Joined {formatDate(user.created_at)}</span>
+                                    </div>
+                                </div>
+
+                                {/* Wallet Section */}
+                                <div className="mt-4 pt-4 border-t border-dashed flex justify-between items-center bg-card/50 -mx-5 -mb-5 px-5 py-3">
+                                    <div className="flex flex-col">
+                                        <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Wallet Balance</span>
+                                        <span className="font-bold text-lg text-green-600 font-mono">
+                                            {formatCurrency((Array.isArray(user.wallets) ? user.wallets[0]?.balance : user.wallets?.balance) || 0)}
+                                        </span>
+                                    </div>
+                                    <Button
+                                        size="sm"
+                                        variant="secondary"
+                                        className="h-8 rounded-full text-xs shadow-sm"
+                                        onClick={() => {
+                                            setAdjustmentDialogUser(user)
+                                            setAdjustmentType('credit')
+                                            setAdjustmentDescription('Admin manual credit')
+                                        }}
+                                    >
+                                        <Wallet className="w-3 h-3 mr-1.5" />
+                                        Top up
+                                    </Button>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    ))}
+                </div>
+            )}
 
             {/* Wallet Adjustment Dialog */}
             <Dialog open={!!adjustmentDialogUser} onOpenChange={() => setAdjustmentDialogUser(null)}>
