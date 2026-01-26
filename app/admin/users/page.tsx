@@ -39,7 +39,8 @@ import {
     UserCog,
     Shield,
     ShieldAlert,
-    Loader2
+    Loader2,
+    Trash2
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Label } from '@/components/ui/label'
@@ -158,6 +159,30 @@ export default function AdminUsersPage() {
             toast.error(error.message || `Failed to ${adjustmentType} wallet`)
         } finally {
             setIsAdjusting(false)
+        }
+    }
+
+    const handleDeleteUser = async (userId: string) => {
+        if (!confirm('EXTREMELY IMPORTANT:\n\nThis will PERMANENTLY delete the user and their login access.\nThis action CANNOT be undone.\n\nAre you sure you want to proceed?')) return
+
+        try {
+            setLoading(true)
+            const response = await fetch('/api/admin/users/delete', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId })
+            })
+
+            const result = await response.json()
+            if (!response.ok) throw new Error(result.error || 'Failed to delete user')
+
+            setUsers(users.filter(u => u.id !== userId))
+            toast.success('User permanently deleted')
+        } catch (error: any) {
+            console.error('Deletion error:', error)
+            toast.error(error.message || 'Failed to delete user')
+        } finally {
+            setLoading(false)
         }
     }
 
@@ -287,6 +312,14 @@ export default function AdminUsersPage() {
                                                                 Remove Admin
                                                             </DropdownMenuItem>
                                                         )}
+
+                                                        <DropdownMenuItem
+                                                            onClick={() => handleDeleteUser(user.id)}
+                                                            className="text-red-600 focus:text-red-700 focus:bg-red-50"
+                                                        >
+                                                            <Trash2 className="w-4 h-4 mr-2" />
+                                                            Delete User
+                                                        </DropdownMenuItem>
                                                     </DropdownMenuContent>
                                                 </DropdownMenu>
                                             </TableCell>
