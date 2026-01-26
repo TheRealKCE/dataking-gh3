@@ -8,6 +8,10 @@ import { DashboardSidebar } from '@/components/dashboard/sidebar'
 import { DashboardHeader } from '@/components/dashboard/header'
 import { Skeleton } from '@/components/ui/skeleton'
 
+import { WhatsAppButton } from '@/components/whatsapp-button'
+
+// ... imports remain the same, just adding new one
+
 export default function DashboardLayout({
     children,
 }: {
@@ -40,7 +44,7 @@ export default function DashboardLayout({
 
     return (
         <UIProvider>
-            <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+            <div className="min-h-screen bg-gray-50 dark:bg-gray-950 relative">
                 <DashboardSidebar />
                 <div className="lg:pl-72">
                     <DashboardHeader />
@@ -48,6 +52,7 @@ export default function DashboardLayout({
                         {children}
                     </main>
                 </div>
+                <WhatsAppButton />
             </div>
         </UIProvider>
     )
