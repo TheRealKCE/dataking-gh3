@@ -11,6 +11,7 @@ export function WhatsAppButton() {
     const [isVisible, setIsVisible] = useState(true)
     const [showNote, setShowNote] = useState(false)
     const [isHovered, setIsHovered] = useState(false)
+    const [noteDismissed, setNoteDismissed] = useState(false)
 
     // WhatsApp Logo SVG
     const WhatsAppIcon = () => (
@@ -20,27 +21,21 @@ export function WhatsAppButton() {
     )
 
     useEffect(() => {
-        // Hide button after 40 seconds of inactivity/load
-        const hideTimer = setTimeout(() => {
-            if (!isHovered) {
-                setIsVisible(false)
-            }
-        }, 40000)
+        if (noteDismissed) return
 
-        // Show professional note every 30 seconds
+        // Show professional note every 5 seconds (if not dismissed)
         const noteInterval = setInterval(() => {
-            if (isVisible) {
+            if (isVisible && !isHovered) {
                 setShowNote(true)
-                // Hide note after 8 seconds
-                setTimeout(() => setShowNote(false), 8000)
+                // Hide note after 4 seconds so it pulses in and out
+                setTimeout(() => setShowNote(false), 4000)
             }
-        }, 30000)
+        }, 5000)
 
         return () => {
-            clearTimeout(hideTimer)
             clearInterval(noteInterval)
         }
-    }, [isHovered, isVisible])
+    }, [isHovered, isVisible, noteDismissed])
 
     if (!isVisible) return null
 
@@ -50,11 +45,28 @@ export function WhatsAppButton() {
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
         >
+            {/* Close Button for the entire widget */}
+            <button
+                onClick={(e) => {
+                    e.preventDefault()
+                    setIsVisible(false)
+                }}
+                className="absolute -top-2 -right-2 z-50 bg-slate-500 hover:bg-slate-600 text-white rounded-full p-1 shadow-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200"
+                aria-label="Close chat"
+            >
+                <X className="w-3 h-3" />
+            </button>
+
             {/* Professional Note Popover */}
             {showNote && (
                 <div className="bg-white dark:bg-slate-800 p-4 rounded-lg shadow-xl mb-2 max-w-[250px] animate-in slide-in-from-right-10 fade-in duration-300 border border-slate-100 dark:border-slate-700 relative">
                     <button
-                        onClick={() => setShowNote(false)}
+                        onClick={(e) => {
+                            e.preventDefault()
+                            e.stopPropagation()
+                            setShowNote(false)
+                            setNoteDismissed(true)
+                        }}
                         className="absolute top-2 right-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
                     >
                         <X className="w-3 h-3" />
