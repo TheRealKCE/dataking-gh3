@@ -304,8 +304,7 @@ export default function AdminOrdersPage() {
             // Data Rows
             pendingOrders.forEach((order: any) => {
                 const phone = order.phone_number
-                const size = order.size // Keep full text like "10GB" or just number if requested.
-                // Request says "Show Data Size Here" under GIGGS. "Beneficiary Msisdn" under phone.
+                const size = (order.size || '').replace(/GB/i, '').trim()
 
                 rows.push([phone, size])
             })
@@ -393,7 +392,7 @@ export default function AdminOrdersPage() {
             // Build Data Rows
             (batchOrders as any[]).forEach((order: any) => {
                 const phone = order.phone_number
-                const size = order.size
+                const size = (order.size || '').replace(/GB/i, '').trim()
 
                 rows.push([phone, size])
             })
