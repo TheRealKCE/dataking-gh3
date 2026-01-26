@@ -13,6 +13,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Wifi, Eye, EyeOff, Loader2, CheckCircle2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { validateGhanaianPhone } from '@/lib/phone-validation'
+import { WhatsAppCommunityButtons } from '@/components/whatsapp-community-buttons'
 
 export default function SignupPage() {
     const [formData, setFormData] = useState({
@@ -278,6 +279,10 @@ export default function SignupPage() {
                                     Sign in
                                 </Link>
                             </p>
+                        </div>
+
+                        <div className="mt-8 border-t border-white/10 pt-6">
+                            <WhatsAppCommunityButtons />
                         </div>
                     </CardContent>
                 </Card>

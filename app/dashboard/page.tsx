@@ -29,6 +29,7 @@ interface DashboardStats {
 }
 
 
+import { WhatsAppCommunityButtons } from '@/components/whatsapp-community-buttons'
 
 export default function DashboardPage() {
     const { dbUser } = useAuth()
@@ -229,6 +230,12 @@ export default function DashboardPage() {
                 </Card>
             </div>
 
-        </div >
+            {/* Community Section */}
+            <div>
+                <h3 className="text-lg font-medium mb-4">Join Our Community</h3>
+                <WhatsAppCommunityButtons />
+            </div>
+
+        </div>
     )
 }

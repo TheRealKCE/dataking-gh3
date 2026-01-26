@@ -12,6 +12,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Wifi, Eye, EyeOff, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { WhatsAppCommunityButtons } from '@/components/whatsapp-community-buttons'
 
 export default function LoginPage() {
     const [email, setEmail] = useState('')
@@ -146,6 +147,10 @@ export default function LoginPage() {
                                     Sign up
                                 </Link>
                             </p>
+                        </div>
+
+                        <div className="mt-8 border-t border-white/10 pt-6">
+                            <WhatsAppCommunityButtons />
                         </div>
                     </CardContent>
                 </Card>

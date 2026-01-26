@@ -10,6 +10,7 @@ import {
     CreditCard,
     CheckCircle2
 } from 'lucide-react'
+import { WhatsAppCommunityButtons } from '@/components/whatsapp-community-buttons'
 
 export default function HomePage() {
     return (
@@ -215,6 +216,19 @@ export default function HomePage() {
                             </Link>
                         </div>
                     </div>
+                </div>
+            </section>
+
+            {/* Community Section */}
+            <section className="py-12 px-4 sm:px-6 lg:px-8">
+                <div className="max-w-4xl mx-auto">
+                    <div className="text-center mb-8">
+                        <h2 className="text-2xl font-bold text-white mb-4">Join Our Community</h2>
+                        <p className="text-white/60">
+                            Stay updated with exclusive offers and news on our WhatsApp platforms.
+                        </p>
+                    </div>
+                    <WhatsAppCommunityButtons />
                 </div>
             </section>
 
