@@ -1,5 +1,6 @@
 import { createServerClient } from './supabase'
 import { sendWalletTopupSuccessEmail } from './email-service'
+import { sendWalletTopupSuccessSMS } from './sms-service'
 
 /**
  * Processes a completed payment by updating the status, 
@@ -117,7 +118,7 @@ export async function processCompletedWalletPayment(reference: string, providerM
         // Get user details for email
         const { data: userData } = await supabase
             .from('users')
-            .select('email, first_name')
+            .select('email, first_name, phone_number')
             .eq('id', payment.user_id)
             .single()
 
@@ -130,6 +131,18 @@ export async function processCompletedWalletPayment(reference: string, providerM
                 reference,
                 newBalance
             )
+
+            // Send SMS notification
+            if ((userData as any).phone_number) {
+                await sendWalletTopupSuccessSMS(
+                    (userData as any).phone_number,
+                    {
+                        amount: payment.amount,
+                        newBalance
+                    }
+                ).catch(err => console.error('[PaymentProcess] SMS error:', err))
+            }
+
         }
     } catch (emailError) {
         // Don't fail the payment process if email fails

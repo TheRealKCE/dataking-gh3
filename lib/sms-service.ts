@@ -31,9 +31,20 @@ export async function sendSMS(options: SMSOptions): Promise<SMSResult> {
     }
 
     try {
+        // Normalize phone number to strict international format (233...)
+        let normalizedPhone = options.recipient
+            .replace(/\s+/g, '') // Remove spaces
+            .replace(/-/g, '')   // Remove dashes
+
+        if (normalizedPhone.startsWith('0') && normalizedPhone.length === 10) {
+            normalizedPhone = '233' + normalizedPhone.slice(1)
+        }
+        // mNotify usually works without '+', but if it fails we can try adding it.
+        // Based on typical Ghana SMS gateways, '233XXXXXXXXX' is the safest format.
+
         const payload = {
             key: apiKey,
-            recipient: [options.recipient],
+            recipient: [normalizedPhone],
             sender: options.sender || defaultSender,
             message: options.message,
             is_schedule: false,
