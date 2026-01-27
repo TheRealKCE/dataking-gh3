@@ -128,13 +128,17 @@ export async function POST(request: NextRequest) {
                 )
 
                 if ((user as any).phone_number) {
+                    console.log('[AdminWalletAdjustment] Found user phone:', (user as any).phone_number)
                     await sendWalletTopupSuccessSMS(
                         (user as any).phone_number,
                         {
                             amount: adjustmentAmount,
                             newBalance
                         }
-                    ).catch(err => console.error('[WalletAdjustment] SMS error:', err))
+                    ).then(res => console.log('[AdminWalletAdjustment] SMS Result:', res))
+                        .catch(err => console.error('[WalletAdjustment] SMS error:', err))
+                } else {
+                    console.warn('[AdminWalletAdjustment] No phone number found for user:', userId)
                 }
             }
         }
