@@ -68,7 +68,7 @@ export async function middleware(request: NextRequest) {
                 timeout
             ]) as any
 
-            if (!user || user.role !== 'admin') {
+            if (!user || (user.role !== 'admin' && user.role !== 'sub-admin')) {
                 return addNoCacheHeaders(NextResponse.redirect(new URL('/dashboard', request.url)))
             }
         } catch (error) {
