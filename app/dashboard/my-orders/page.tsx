@@ -54,6 +54,7 @@ export default function MyOrdersPage() {
     const [timePeriod, setTimePeriod] = useState('Today')
     const [customStart, setCustomStart] = useState('')
     const [customEnd, setCustomEnd] = useState('')
+    const [isCustomDialogOpen, setIsCustomDialogOpen] = useState(false)
 
     // Complaint dialog
     const [complaintOrder, setComplaintOrder] = useState<Order | null>(null)
@@ -318,12 +319,12 @@ export default function MyOrdersPage() {
             </div>
 
             {/* Time Period Filters - All in one row, compact sizing */}
-            <div className="grid grid-cols-4 gap-2">
-                {TIME_PERIODS.map((period) => (
+            <div className="grid grid-cols-5 gap-2">
+                {['Today', 'Yesterday', 'This Week', 'This Month'].map((period) => (
                     <button
                         key={period}
                         onClick={() => setTimePeriod(period)}
-                        className={`px-2 py-2 text-xs sm:text-sm rounded-full border transition-all whitespace-nowrap ${timePeriod === period
+                        className={`px-2 py-2 text-[10px] sm:text-xs rounded-lg border transition-all whitespace-nowrap overflow-hidden text-ellipsis ${timePeriod === period
                             ? 'bg-[#1a1a1a] text-white border-[#1a1a1a] dark:bg-[#FACC15] dark:text-black dark:border-[#FACC15]'
                             : 'bg-transparent border-gray-300 dark:border-gray-600 hover:border-gray-500'
                             }`}
@@ -331,31 +332,20 @@ export default function MyOrdersPage() {
                         {period}
                     </button>
                 ))}
+                 <button
+                    onClick={() => setIsCustomDialogOpen(true)}
+                    className={`px-2 py-2 text-[10px] sm:text-xs rounded-lg border transition-all whitespace-nowrap overflow-hidden text-ellipsis ${timePeriod === 'Custom'
+                        ? 'bg-[#1a1a1a] text-white border-[#1a1a1a] dark:bg-[#FACC15] dark:text-black dark:border-[#FACC15]'
+                        : 'bg-transparent border-gray-300 dark:border-gray-600 hover:border-gray-500'
+                        }`}
+                >
+                    {timePeriod === 'Custom' && customStart && customEnd
+                        ? `${new Date(customStart).toLocaleDateString(undefined, {month:'numeric', day:'numeric'})}-${new Date(customEnd).toLocaleDateString(undefined, {month:'numeric', day:'numeric'})}`
+                        : 'Custom'}
+                </button>
             </div>
-
-            {/* Custom Range Inputs */}
-            {timePeriod === 'Custom' && (
-                <div className="flex items-center gap-2 animate-in slide-in-from-top-2">
-                    <div className="space-y-1">
-                        <Label className="text-xs">Start Date</Label>
-                        <Input
-                            type="date"
-                            value={customStart}
-                            onChange={(e) => setCustomStart(e.target.value)}
-                            className="h-9"
-                        />
-                    </div>
-                    <div className="space-y-1">
-                        <Label className="text-xs">End Date</Label>
-                        <Input
-                            type="date"
-                            value={customEnd}
-                            onChange={(e) => setCustomEnd(e.target.value)}
-                            className="h-9"
-                        />
-                    </div>
-                </div>
-            )}
+            
+             {/* Custom Range Inputs REMOVED - using Dialog now */}
 
 
             {/* Filters */}
@@ -503,7 +493,59 @@ export default function MyOrdersPage() {
                             <div className="flex justify-between mt-1">
                                 <span>Package:</span>
                                 <span>{complaintOrder?.size}</span>
-                            </div>
+                                    </DialogContent>
+            </Dialog>
+
+             {/* Custom Date Filter Dialog */}
+             <Dialog open={isCustomDialogOpen} onOpenChange={setIsCustomDialogOpen}>
+                <DialogContent className="sm:max-w-sm rounded-[24px]">
+                    <DialogHeader>
+                        <DialogTitle>Select Date Range</DialogTitle>
+                        <DialogDescription>
+                            Filter your order history by date.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="grid gap-2">
+                            <Label htmlFor="u-start">Start Date</Label>
+                            <Input
+                                id="u-start"
+                                type="date"
+                                value={customStart}
+                                onChange={(e) => setCustomStart(e.target.value)}
+                                className="rounded-xl"
+                            />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="u-end">End Date</Label>
+                            <Input
+                                id="u-end"
+                                type="date"
+                                value={customEnd}
+                                onChange={(e) => setCustomEnd(e.target.value)}
+                                className="rounded-xl"
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsCustomDialogOpen(false)} className="rounded-xl">Cancel</Button>
+                        <Button 
+                            onClick={() => {
+                                if (customStart && customEnd) {
+                                    setTimePeriod('Custom')
+                                    setIsCustomDialogOpen(false)
+                                } else {
+                                    toast.error('Please select both dates')
+                                }
+                            }}
+                            className="rounded-xl bg-[#1a1a1a] text-white hover:bg-black dark:bg-[#FACC15] dark:text-black dark:hover:bg-yellow-500"
+                        >
+                            Apply Filter
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+        </div>
                             <div className="flex justify-between mt-1">
                                 <span>Amount:</span>
                                 <span>{formatCurrency(complaintOrder?.price || 0)}</span>
@@ -534,8 +576,8 @@ export default function MyOrdersPage() {
                             )}
                         </Button>
                     </DialogFooter>
-                </DialogContent>
-            </Dialog>
-        </div>
+                </DialogContent >
+            </Dialog >
+        </div >
     )
 }

@@ -33,6 +33,7 @@ import {
     DialogDescription,
     DialogHeader,
     DialogTitle,
+    DialogFooter,
 } from '@/components/ui/dialog'
 import {
     Search,
@@ -47,9 +48,11 @@ import {
     Package,
     Phone,
     FileText,
-    Loader2
+    Loader2,
+    Calendar as CalendarIcon
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { Label } from '@/components/ui/label'
 
 export default function AdminOrdersPage() {
     const [orders, setOrders] = useState<any[]>([])
@@ -61,6 +64,7 @@ export default function AdminOrdersPage() {
     const [historyFilter, setHistoryFilter] = useState('today')
     const [customStart, setCustomStart] = useState('')
     const [customEnd, setCustomEnd] = useState('')
+    const [isCustomDialogOpen, setIsCustomDialogOpen] = useState(false)
 
     useEffect(() => {
         const loadData = async () => {
@@ -820,38 +824,30 @@ export default function AdminOrdersPage() {
                             <Download className="w-4 h-4 mr-2" />
                             Download Filtered ({filteredBatches.length})
                         </Button>
-                        <div className="flex items-center gap-2">
-                            {historyFilter === 'custom' && (
-                                <div className="flex items-center gap-2 animate-in slide-in-from-right-5">
-                                    <Input
-                                        type="date"
-                                        value={customStart}
-                                        onChange={(e) => setCustomStart(e.target.value)}
-                                        className="h-8 w-[130px]"
-                                    />
-                                    <span className="text-muted-foreground">-</span>
-                                    <Input
-                                        type="date"
-                                        value={customEnd}
-                                        onChange={(e) => setCustomEnd(e.target.value)}
-                                        className="h-8 w-[130px]"
-                                    />
-                                </div>
-                            )}
-                            <div className="flex items-center space-x-1 bg-muted/50 p-1 rounded-lg">
-                                {['today', 'yesterday', 'custom', 'all'].map((filter) => (
-                                    <button
-                                        key={filter}
-                                        onClick={() => setHistoryFilter(filter)}
-                                        className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${historyFilter === filter
-                                            ? 'bg-background shadow text-foreground'
-                                            : 'text-muted-foreground hover:text-foreground'
-                                            }`}
-                                    >
-                                        {filter.charAt(0).toUpperCase() + filter.slice(1)}
-                                    </button>
-                                ))}
-                            </div>
+                        <div className="flex items-center space-x-1 bg-muted/50 p-1 rounded-lg">
+                            {['today', 'yesterday', 'all'].map((filter) => (
+                                <button
+                                    key={filter}
+                                    onClick={() => setHistoryFilter(filter)}
+                                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${historyFilter === filter
+                                        ? 'bg-background shadow text-foreground'
+                                        : 'text-muted-foreground hover:text-foreground'
+                                        }`}
+                                >
+                                    {filter.charAt(0).toUpperCase() + filter.slice(1)}
+                                </button>
+                            ))}
+                            <button
+                                onClick={() => setIsCustomDialogOpen(true)}
+                                className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${historyFilter === 'custom'
+                                    ? 'bg-background shadow text-foreground'
+                                    : 'text-muted-foreground hover:text-foreground'
+                                    }`}
+                            >
+                                {historyFilter === 'custom' && customStart && customEnd
+                                    ? `${new Date(customStart).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} - ${new Date(customEnd).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}`
+                                    : 'Custom'}
+                            </button>
                         </div>
                     </div>
                     {filteredBatches.length === 0 ? (
@@ -868,6 +864,48 @@ export default function AdminOrdersPage() {
                     )}
                 </TabsContent>
             </Tabs>
+
+            <Dialog open={isCustomDialogOpen} onOpenChange={setIsCustomDialogOpen}>
+                <DialogContent className="sm:max-w-sm">
+                    <DialogHeader>
+                        <DialogTitle>Select Date Range</DialogTitle>
+                        <DialogDescription>
+                            Choose a start and end date to filter history.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="grid gap-2">
+                            <Label htmlFor="start">Start Date</Label>
+                            <Input
+                                id="start"
+                                type="date"
+                                value={customStart}
+                                onChange={(e) => setCustomStart(e.target.value)}
+                            />
+                        </div>
+                        <div className="grid gap-2">
+                            <Label htmlFor="end">End Date</Label>
+                            <Input
+                                id="end"
+                                type="date"
+                                value={customEnd}
+                                onChange={(e) => setCustomEnd(e.target.value)}
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsCustomDialogOpen(false)}>Cancel</Button>
+                        <Button onClick={() => {
+                            if (customStart && customEnd) {
+                                setHistoryFilter('custom')
+                                setIsCustomDialogOpen(false)
+                            } else {
+                                toast.error('Please select both dates')
+                            }
+                        }}>Apply Filter</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }
