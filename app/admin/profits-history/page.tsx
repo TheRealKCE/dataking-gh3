@@ -13,22 +13,27 @@ import {
     TableRow,
 } from '@/components/ui/table'
 import {
+    CircleDollarSign,
     TrendingUp,
     TrendingDown,
-    DollarSign,
     Activity,
     Calendar,
+    DollarSign,
     ArrowUpRight,
     ArrowDownRight
 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 
-type TimeRange = 'today' | 'week' | 'all'
+
 
 export default function AdminProfitsPage() {
     const [loading, setLoading] = useState(true)
-    const [range, setRange] = useState<TimeRange>('today')
+    const [range, setRange] = useState<string>('today')
+    const [customStart, setCustomStart] = useState('')
+    const [customEnd, setCustomEnd] = useState('')
     const [stats, setStats] = useState({
         revenue: 0,
         cost: 0,
@@ -43,62 +48,133 @@ export default function AdminProfitsPage() {
 
     useEffect(() => {
         calculateProfits()
-    }, [range])
+    }, [range, customStart, customEnd])
 
     const calculateProfits = async () => {
         setLoading(true)
         try {
             const now = new Date()
-            let startDate = new Date(0) // Default all time
-            let comparisonStartDate = new Date(0)
+            let startDate = new Date()
+            let endDate = new Date()
+            let previousStartDate = new Date()
+            let previousEndDate = new Date()
 
             // Define date ranges
             if (range === 'today') {
                 startDate = new Date(now.setHours(0, 0, 0, 0))
+                endDate = new Date(now.setHours(23, 59, 59, 999))
+
                 // Compare with yesterday
-                comparisonStartDate = new Date(now)
-                comparisonStartDate.setDate(comparisonStartDate.getDate() - 1)
+                previousStartDate = new Date(startDate)
+                previousStartDate.setDate(startDate.getDate() - 1)
+                previousEndDate = new Date(endDate)
+                previousEndDate.setDate(endDate.getDate() - 1)
+            } else if (range === 'yesterday') {
+                const yest = new Date()
+                yest.setDate(yest.getDate() - 1)
+                startDate = new Date(yest.setHours(0, 0, 0, 0))
+                endDate = new Date(yest.setHours(23, 59, 59, 999))
+
+                // Compare with day before yesterday
+                previousStartDate = new Date(startDate)
+                previousStartDate.setDate(startDate.getDate() - 1)
+                previousEndDate = new Date(endDate)
+                previousEndDate.setDate(endDate.getDate() - 1)
             } else if (range === 'week') {
-                const day = now.getDay() || 7 // Get current day number, converting Sun (0) to 7
-                if (day !== 1) now.setHours(-24 * (day - 1)); // Set to Monday past
-                else now.setHours(0, 0, 0, 0) // Today is Monday
+                const day = now.getDay() || 7
+                if (day !== 1) now.setHours(-24 * (day - 1))
+                else now.setHours(0, 0, 0, 0)
+
                 startDate = new Date(now)
+                endDate = new Date() // Up to now
 
                 // Compare with previous week
-                comparisonStartDate = new Date(startDate)
-                comparisonStartDate.setDate(comparisonStartDate.getDate() - 7)
+                previousStartDate = new Date(startDate)
+                previousStartDate.setDate(startDate.getDate() - 7)
+                previousEndDate = new Date(endDate)
+                previousEndDate.setDate(endDate.getDate() - 7)
+            } else if (range === 'custom') {
+                if (!customStart || !customEnd) {
+                    setLoading(false)
+                    return
+                }
+                startDate = new Date(customStart)
+                startDate.setHours(0, 0, 0, 0)
+                endDate = new Date(customEnd)
+                endDate.setHours(23, 59, 59, 999)
+
+                // Calculate duration
+                const duration = endDate.getTime() - startDate.getTime()
+                previousEndDate = new Date(startDate.getTime() - 1) // Just before start
+                previousStartDate = new Date(previousEndDate.getTime() - duration)
+            } else {
+                // All time
+                startDate = new Date(0)
+                endDate = new Date()
+                // No comparison for all time effectively
+                previousStartDate = new Date(0)
+                previousEndDate = new Date(0)
             }
 
             // Fetch current period orders
             const { data: orders, error } = await supabase
                 .from('orders')
-                .select('created_at, price, cost_price, network')
+                .select('created_at, price, cost_price, network, size')
                 .eq('status', 'completed')
                 .gte('created_at', startDate.toISOString())
+                .lte('created_at', endDate.toISOString())
                 .order('created_at', { ascending: true })
 
             if (error) throw error
 
-            // Fetch previous period orders for comparison (if not all time)
+            // Fetch previous period orders for comparison
             let previousOrders: any[] = []
-            if (range !== 'all') {
+            if (range !== 'all' && !(range === 'custom' && (!customStart || !customEnd))) {
                 const { data: prevData } = await supabase
                     .from('orders')
-                    .select('price, cost_price')
+                    .select('price, cost_price, network, size')
                     .eq('status', 'completed')
-                    .gte('created_at', comparisonStartDate.toISOString())
-                    .lt('created_at', startDate.toISOString())
+                    .gte('created_at', previousStartDate.toISOString())
+                    .lte('created_at', previousEndDate.toISOString())
                 previousOrders = prevData || []
             }
 
-            // Metrics Calculation helper
+            // Fetch packages for cost lookup
+            const { data: packages } = await supabase
+                .from('data_packages')
+                .select('network, size, price, cost_price')
+
+            const packageMap = new Map<string, { cost: number, price: number }>()
+            if (packages) {
+                packages.forEach(pkg => {
+                    const key = `${pkg.network}-${pkg.size}`
+                    packageMap.set(key, {
+                        cost: Number(pkg.cost_price) || 0,
+                        price: Number(pkg.price) || 0
+                    })
+                })
+            }
+
+            // Metrics Calculation
             const calculateMetrics = (orderList: any[]) => {
                 let rev = 0
                 let cst = 0
                 orderList.forEach(order => {
-                    const price = order.price || 0
-                    // Fallback to 80% cost if missing, to avoid inflated profits
-                    const cost = order.cost_price ?? (price * 0.8)
+                    // Try to match with current package settings
+                    const key = `${order.network}-${order.size}`
+                    const pkg = packageMap.get(key)
+
+                    // Revenue: Use order price (actual sale), fallback to package selling price
+                    const price = Number(order.price) || (pkg ? pkg.price : 0)
+
+                    // Cost: Use package cost price (as requested), fallback to order cost, then 80% estimate
+                    let cost = pkg?.cost || Number(order.cost_price) || 0
+
+                    // If no valid cost found, use 80% rule
+                    if (cost === 0 && price > 0) {
+                        cost = price * 0.8
+                    }
+
                     rev += price
                     cst += cost
                 })
@@ -108,27 +184,35 @@ export default function AdminProfitsPage() {
             const current = calculateMetrics(orders || [])
             const previous = calculateMetrics(previousOrders)
 
-            // Growth %
             const calculateGrowth = (curr: number, prev: number) => {
                 if (prev === 0) return curr > 0 ? 100 : 0
                 return ((curr - prev) / prev) * 100
             }
 
-            // Daily/Group aggregation for chart/table
+            // Daily Map
             const dailyMap = new Map<string, { revenue: number, profit: number }>()
             if (orders) {
                 orders.forEach((order: any) => {
-                    const date = new Date(order.created_at).toLocaleDateString(undefined, {
+                    const d = new Date(order.created_at)
+                    const dateStr = d.toLocaleDateString(undefined, {
                         month: 'short', day: 'numeric',
-                        ...(range === 'today' && { hour: 'numeric', minute: '2-digit' })
+                        ...(range === 'today' || range === 'yesterday' ? { hour: 'numeric', minute: '2-digit' } : {})
                     })
 
-                    const price = order.price || 0
-                    const cost = order.cost_price ?? (price * 0.8)
+                    const key = `${order.network}-${order.size}`
+                    const pkg = packageMap.get(key)
+
+                    const price = Number(order.price) || (pkg ? pkg.price : 0)
+                    let cost = pkg?.cost || Number(order.cost_price) || 0
+
+                    if (cost === 0 && price > 0) {
+                        cost = price * 0.8
+                    }
+
                     const profit = price - cost
 
-                    const existing = dailyMap.get(date) || { revenue: 0, profit: 0 }
-                    dailyMap.set(date, {
+                    const existing = dailyMap.get(dateStr) || { revenue: 0, profit: 0 }
+                    dailyMap.set(dateStr, {
                         revenue: existing.revenue + price,
                         profit: existing.profit + profit
                     })
@@ -168,7 +252,7 @@ export default function AdminProfitsPage() {
                         {growth !== null && range !== 'all' && (
                             <div className={`flex items-center text-xs font-medium ${growth >= 0 ? 'text-green-600' : 'text-red-500'}`}>
                                 {growth >= 0 ? <ArrowUpRight className="w-3 h-3 mr-1" /> : <ArrowDownRight className="w-3 h-3 mr-1" />}
-                                {Math.abs(growth).toFixed(1)}% vs last {range === 'today' ? 'day' : 'week'}
+                                {Math.abs(growth).toFixed(1)}% vs previous
                             </div>
                         )}
                     </div>
@@ -190,13 +274,44 @@ export default function AdminProfitsPage() {
                     </h1>
                     <p className="text-muted-foreground mt-1">Track your revenue, costs, and effective profit.</p>
                 </div>
-                <Tabs value={range} onValueChange={(v) => setRange(v as TimeRange)} className="w-full md:w-auto">
-                    <TabsList className="grid w-full grid-cols-3 md:w-[300px]">
-                        <TabsTrigger value="today">Today</TabsTrigger>
-                        <TabsTrigger value="week">This Week</TabsTrigger>
-                        <TabsTrigger value="all">All Time</TabsTrigger>
-                    </TabsList>
-                </Tabs>
+                <div className="flex flex-col sm:flex-row gap-2 items-end sm:items-center">
+                    {range === 'custom' && (
+                        <div className="flex items-center gap-2 bg-white dark:bg-gray-900 p-1 rounded-lg border">
+                            <Input
+                                type="date"
+                                value={customStart}
+                                onChange={(e) => setCustomStart(e.target.value)}
+                                className="h-8 w-32 border-0 focus-visible:ring-0"
+                            />
+                            <span className="text-muted-foreground">-</span>
+                            <Input
+                                type="date"
+                                value={customEnd}
+                                onChange={(e) => setCustomEnd(e.target.value)}
+                                className="h-8 w-32 border-0 focus-visible:ring-0"
+                            />
+                        </div>
+                    )}
+                    <Tabs value={range} onValueChange={setRange} className="w-full md:w-auto">
+                        <TabsList className="grid w-full grid-cols-4 md:w-auto">
+                            <TabsTrigger value="today">Today</TabsTrigger>
+                            <TabsTrigger value="yesterday">Yesterday</TabsTrigger>
+                            <TabsTrigger value="week">Week</TabsTrigger>
+                            <TabsTrigger value="all">All</TabsTrigger>
+                        </TabsList>
+                        <TabsList className="mt-1 w-full md:hidden">
+                            <TabsTrigger value="custom" className="w-full">Custom Range</TabsTrigger>
+                        </TabsList>
+                    </Tabs>
+                    <Button
+                        variant={range === 'custom' ? "secondary" : "ghost"}
+                        size="sm"
+                        onClick={() => setRange('custom')}
+                        className="hidden md:flex ml-2"
+                    >
+                        Custom Range
+                    </Button>
+                </div>
             </div>
 
             {/* Stats Grid */}
@@ -229,8 +344,7 @@ export default function AdminProfitsPage() {
                     colorClass="text-purple-600"
                 />
             </div>
-
-            {/* Detailed Table */}
+            {/* Table remains same... */}
             <Card className="border-border/50 shadow-sm">
                 <CardHeader>
                     <CardTitle className="flex items-center gap-2">
