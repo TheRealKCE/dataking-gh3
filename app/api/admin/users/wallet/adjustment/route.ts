@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
+import { sendWalletTopupSuccessEmail } from '@/lib/email-service'
+import { sendWalletTopupSuccessSMS } from '@/lib/sms-service'
 
 export async function POST(request: NextRequest) {
     try {
@@ -106,10 +108,42 @@ export async function POST(request: NextRequest) {
             is_read: false
         })
 
+        // Fetch user data for notification
+        const { data: user } = await supabase
+            .from('users')
+            .select('email, first_name, phone_number')
+            .eq('id', userId)
+            .single()
+
+        if (user) {
+            const reference = `MNL-${Date.now()}`
+
+            if (type === 'credit') {
+                await sendWalletTopupSuccessEmail(
+                    (user as any).email,
+                    (user as any).first_name || 'Customer',
+                    adjustmentAmount,
+                    reference,
+                    newBalance
+                )
+
+                if ((user as any).phone_number) {
+                    await sendWalletTopupSuccessSMS(
+                        (user as any).phone_number,
+                        {
+                            amount: adjustmentAmount,
+                            newBalance
+                        }
+                    ).catch(err => console.error('[WalletAdjustment] SMS error:', err))
+                }
+            }
+        }
+
         return NextResponse.json({
             success: true,
             newBalance
         })
+
     } catch (error: any) {
         console.error('Admin Wallet Adjustment Error:', error)
         return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 })

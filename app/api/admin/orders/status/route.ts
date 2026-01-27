@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
             // Update single order
             const { data: order, error: fetchError } = await supabase
                 .from('orders')
-                .select('id, user_id, reference_code, phone_number')
+                .select('id, user_id, reference_code, phone_number, users!inner(phone_number)')
                 .eq('id', orderId)
                 .single()
 
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
             // Update batch of orders
             const { data: orders, error: fetchError } = await supabase
                 .from('orders')
-                .select('id, user_id, reference_code, phone_number')
+                .select('id, user_id, reference_code, phone_number, users!inner(phone_number)')
                 .eq('download_batch_id', batchId)
 
             if (fetchError) {
@@ -114,14 +114,18 @@ export async function POST(request: NextRequest) {
 
             // Send SMS to each user
             for (const order of affectedOrders) {
-                if ((order as any).phone_number) {
+                const userPhone = (order as any).users?.phone_number
+
+                if (userPhone) {
                     sendStatusUpdateSMS(
-                        (order as any).phone_number,
+                        userPhone,
                         {
                             referenceCode: (order as any).reference_code,
                             status
                         }
                     ).catch(err => console.error(`[AdminStatusUpdate] SMS error for ${(order as any).reference_code}:`, err))
+                } else {
+                    console.warn(`[AdminStatusUpdate] No registered phone for user ${(order as any).user_id} (Order ${(order as any).reference_code})`)
                 }
             }
 
