@@ -60,13 +60,13 @@ export default function AdminAnnouncementsPage() {
             // But for now, let's allow multiple (though UI might visually prioritize latest)
             // Or typically, creating a new one makes it the active one.
 
-            const { data, error } = await supabase
-                .from('system_announcements')
+            const { data, error } = await (supabase
+                .from('system_announcements') as any)
                 .insert({
                     title,
                     message,
                     is_active: true
-                } as any)
+                })
                 .select()
                 .single()
 
@@ -86,9 +86,9 @@ export default function AdminAnnouncementsPage() {
 
     const handleToggleStatus = async (id: string, currentStatus: boolean) => {
         try {
-            const { error } = await supabase
-                .from('system_announcements')
-                .update({ is_active: !currentStatus } as any)
+            const { error } = await (supabase
+                .from('system_announcements') as any)
+                .update({ is_active: !currentStatus })
                 .eq('id', id)
 
             if (error) throw error
