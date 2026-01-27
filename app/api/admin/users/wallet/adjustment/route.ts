@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
         const body = await request.json()
         const { userId, amount, type, description } = body
 
-        console.log('STEP 1: Request Received', { userId, amount, type }) // Step 1 as requested
+        console.log('[Debug] Request:', { userId, amount, type })
 
         if (!userId || amount === undefined || !type) {
             return NextResponse.json({ error: 'userId, amount, and type are required' }, { status: 400 })
@@ -41,6 +41,11 @@ export async function POST(request: NextRequest) {
 
         // Service role client to bypass RLS
         const supabase = createServerClient()
+
+        // CHECK ENV VAR
+        if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+            console.error('[CRITICAL] SUPABASE_SERVICE_ROLE_KEY is MISSING in environment variables!')
+        }
 
         // 1. Get wallet
         const { data: wallet, error: walletFetchError } = await supabase
@@ -98,7 +103,6 @@ export async function POST(request: NextRequest) {
 
         if (transError) {
             console.error('[AdminWalletAdjustment] Transaction log error:', transError)
-            // We don't fail if transaction log fails, but it's bad.
         }
 
         // 4. Send notification
@@ -110,19 +114,20 @@ export async function POST(request: NextRequest) {
             is_read: false
         })
 
-        // Fetch user data for notification
-        const { data: user } = await supabase
-            .from('users')
-            .select('email, first_name, phone_number')
-            .eq('id', userId)
-            .single()
+        if (type === 'credit') {
+            // 5. Fetch user data for notification (WITH DB DEBUG LOGS)
+            const { data: user, error: userFetchError } = await supabase
+                .from('users')
+                .select('email, first_name, phone_number')
+                .eq('id', userId)
+                .single()
 
-        if (user) {
-            const reference = `MNL-${Date.now()}`
+            console.log('[Debug] User Fetch Result:', { user, error: userFetchError })
 
-            if (type === 'credit') {
-                console.log('STEP 3: Triggering SMS') // Step 3 as requested
+            if (user) {
+                const reference = `MNL-${Date.now()}`
 
+                // Email
                 await sendWalletTopupSuccessEmail(
                     (user as any).email,
                     (user as any).first_name || 'Customer',
@@ -131,8 +136,9 @@ export async function POST(request: NextRequest) {
                     newBalance
                 )
 
+                // SMS
                 if ((user as any).phone_number) {
-                    console.log('[AdminWalletAdjustment] Found user phone:', (user as any).phone_number)
+                    console.log('[Debug] Sending SMS to:', (user as any).phone_number)
                     try {
                         const smsResult = await sendWalletTopupSuccessSMS(
                             (user as any).phone_number,
@@ -141,22 +147,17 @@ export async function POST(request: NextRequest) {
                                 newBalance
                             }
                         )
-                        console.log('[AdminWalletAdjustment] SMS Service Response:', smsResult)
+                        console.log('[Debug] SMS Result:', smsResult)
                     } catch (smsError) {
-                        console.error('[AdminWalletAdjustment] SMS Failed:', smsError)
+                        console.error('[Debug] SMS Failed:', smsError)
                     }
                 } else {
-                    console.warn('[AdminWalletAdjustment] No phone number found for user:', userId)
+                    console.warn('[Debug] Phone number missing for user. User Object:', user)
                 }
+            } else {
+                console.error('[Debug] User data could not be fetched for ID:', userId)
             }
-        } else {
-            console.error('[AdminWalletAdjustment] User not found for notifications:', userId)
         }
-
-        return NextResponse.json({
-            success: true,
-            newBalance
-        })
 
         return NextResponse.json({
             success: true,
