@@ -12,6 +12,7 @@ import {
 } from 'lucide-react'
 import { WhatsAppCommunityButtons } from '@/components/whatsapp-community-buttons'
 import { NetworkIcon } from '@/components/network-icon'
+import Image from 'next/image'
 
 export default function HomePage() {
     return (
@@ -44,10 +45,16 @@ export default function HomePage() {
                         {/* Branding & Contact Header */}
                         <div className="flex flex-col items-center justify-center mb-8 space-y-4">
                             <div className="flex flex-col items-center space-y-2">
-                                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg shadow-purple-500/30">
-                                    <Wifi className="w-8 h-8 text-white" />
+                                <div className="relative w-24 h-24 mb-2 drop-shadow-2xl">
+                                    <Image
+                                        src="/logo.png"
+                                        alt="King Flexy Data Ltd Logo"
+                                        fill
+                                        className="object-contain"
+                                        priority
+                                    />
                                 </div>
-                                <h1 className="text-2xl font-bold text-white tracking-tight">KING FLEXY DATA LTD</h1>
+                                <h1 className="text-3xl font-black text-white tracking-tight drop-shadow-lg">KING FLEXY DATA LTD</h1>
                             </div>
 
                             <div className="flex flex-col items-center space-y-2">
