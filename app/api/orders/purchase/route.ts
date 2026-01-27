@@ -9,7 +9,7 @@ import { sendOrderSuccessSMS } from '@/lib/sms-service'
 export async function POST(request: NextRequest) {
     try {
         const cookieStore = await cookies()
-        const supabaseUserClient = createRouteHandlerClient({ cookies: () => cookieStore })
+        const supabaseUserClient = createRouteHandlerClient({ cookies: () => Promise.resolve(cookieStore) })
         const { data: { session }, error: sessionError } = await supabaseUserClient.auth.getSession()
 
         if (sessionError || !session?.user) {
