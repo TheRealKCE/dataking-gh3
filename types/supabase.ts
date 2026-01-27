@@ -16,7 +16,7 @@ export interface Database {
                     first_name: string
                     last_name: string
                     phone_number: string
-                    role: 'user' | 'admin'
+                    role: 'user' | 'admin' | 'sub-admin'
                     status: 'active' | 'suspended' | 'inactive'
                     created_at: string
                     updated_at: string
@@ -27,7 +27,7 @@ export interface Database {
                     first_name: string
                     last_name: string
                     phone_number: string
-                    role?: 'user' | 'admin'
+                    role?: 'user' | 'admin' | 'sub-admin'
                     status?: 'active' | 'suspended' | 'inactive'
                     created_at?: string
                     updated_at?: string
@@ -38,7 +38,7 @@ export interface Database {
                     first_name?: string
                     last_name?: string
                     phone_number?: string
-                    role?: 'user' | 'admin'
+                    role?: 'user' | 'admin' | 'sub-admin'
                     status?: 'active' | 'suspended' | 'inactive'
                     updated_at?: string
                 }

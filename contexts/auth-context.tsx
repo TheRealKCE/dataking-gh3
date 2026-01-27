@@ -12,6 +12,7 @@ interface AuthContextType {
     session: Session | null
     isLoading: boolean
     isAdmin: boolean
+    isSubAdmin: boolean
     signIn: (email: string, password: string) => Promise<{ error: Error | null }>
     signUp: (data: SignUpData) => Promise<{ error: Error | null, data: { user: User | null, session: Session | null } | null }>
     signOut: () => Promise<void>
@@ -39,6 +40,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const router = useRouter()
 
     const isAdmin = dbUser?.role === 'admin'
+    const isSubAdmin = dbUser?.role === 'sub-admin'
 
     const fetchDbUser = useCallback(async (userId: string) => {
         try {
@@ -191,6 +193,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 session,
                 isLoading,
                 isAdmin,
+                isSubAdmin,
                 signIn,
                 signUp,
                 signOut,

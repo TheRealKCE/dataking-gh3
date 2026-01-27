@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, usePathname } from 'next/navigation'
 import { useAuth } from '@/contexts/auth-context'
 import { UIProvider } from '@/contexts/ui-context'
 import { DashboardSidebar } from '@/components/dashboard/sidebar'
@@ -15,18 +15,22 @@ export default function AdminLayout({
 }: {
     children: React.ReactNode
 }) {
-    const { user, dbUser, isLoading, isAdmin } = useAuth()
+    const { user, dbUser, isLoading, isAdmin, isSubAdmin } = useAuth()
     const router = useRouter()
+    const pathname = usePathname()
 
     useEffect(() => {
         if (!isLoading) {
             if (!user) {
                 router.push('/auth/login')
-            } else if (!isAdmin) {
+            } else if (!isAdmin && !isSubAdmin) {
                 router.push('/dashboard')
+            } else if (isSubAdmin && pathname && !pathname.startsWith('/admin/orders')) {
+                // Redirect sub-admin to orders if they try to access other admin pages
+                router.push('/admin/orders')
             }
         }
-    }, [user, isAdmin, isLoading, router])
+    }, [user, isAdmin, isSubAdmin, isLoading, router, pathname])
 
     if (isLoading) {
         return (
@@ -44,7 +48,7 @@ export default function AdminLayout({
         return null
     }
 
-    if (!isAdmin) {
+    if (!isAdmin && !isSubAdmin) {
         return (
             <div className="min-h-screen bg-background flex items-center justify-center p-4">
                 <Alert variant="destructive" className="max-w-md">

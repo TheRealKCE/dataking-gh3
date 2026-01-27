@@ -56,7 +56,7 @@ const adminNavItems = [
 
 export function DashboardSidebar() {
     const pathname = usePathname()
-    const { dbUser, isAdmin, signOut } = useAuth()
+    const { dbUser, isAdmin, isSubAdmin, signOut } = useAuth()
     const { isInternalSidebarOpen, closeSidebar } = useUI()
     const [isCollapsed, setIsCollapsed] = useState(false)
 
@@ -157,14 +157,18 @@ export function DashboardSidebar() {
                         )
                     })}
 
-                    {isAdmin && (
+                    {(isAdmin || isSubAdmin) && (
                         <>
                             {!isCollapsed && (
                                 <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mt-6 mb-2 px-3">
                                     Admin Menu
                                 </p>
                             )}
-                            {adminNavItems.map((item) => {
+                            {adminNavItems.filter(item => {
+                                if (isAdmin) return true
+                                if (isSubAdmin) return item.href === '/admin/orders'
+                                return false
+                            }).map((item) => {
                                 const isActive = isLinkActive(item.href)
                                 return (
                                     <Link key={item.href} href={item.href} onClick={() => {
