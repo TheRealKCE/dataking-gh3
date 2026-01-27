@@ -146,6 +146,16 @@ export default function AdminUsersPage() {
             if (!response.ok) throw new Error(result.error || 'Failed to adjust wallet')
 
             toast.success(`Wallet ${adjustmentType === 'credit' ? 'credited' : 'debited'} successfully`)
+
+            if (result.debug && adjustmentType === 'credit') {
+                const { userFound, phoneFound, smsAttempted, smsResult } = result.debug
+                if (!userFound) toast.error('DEBUG: User not found in DB')
+                else if (!phoneFound) toast.error('DEBUG: No phone number on user record')
+                else if (!smsAttempted) toast.error('DEBUG: SMS logic skipped (unknown reason)')
+                else if (smsResult?.success) toast.success(`DEBUG: SMS Sent to ${phoneFound}`)
+                else toast.error(`DEBUG: SMS Failed: ${smsResult?.error || 'Unknown error'}`)
+            }
+
             fetchUsers() // Refresh list to show new balance
             setAdjustmentDialogUser(null)
             setAdjustmentAmount('')

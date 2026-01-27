@@ -114,6 +114,13 @@ export async function POST(request: NextRequest) {
             is_read: false
         })
 
+        let debugInfo = {
+            userFound: false,
+            phoneFound: null as string | null,
+            smsAttempted: false,
+            smsResult: null as any
+        }
+
         if (type === 'credit') {
             // 5. Fetch user data for notification (WITH DB DEBUG LOGS)
             const { data: user, error: userFetchError } = await supabase
@@ -125,6 +132,7 @@ export async function POST(request: NextRequest) {
             console.log('[Debug] User Fetch Result:', { user, error: userFetchError })
 
             if (user) {
+                debugInfo.userFound = true
                 const reference = `MNL-${Date.now()}`
 
                 // Email
@@ -138,6 +146,8 @@ export async function POST(request: NextRequest) {
 
                 // SMS
                 if ((user as any).phone_number) {
+                    debugInfo.phoneFound = (user as any).phone_number
+                    debugInfo.smsAttempted = true
                     console.log('[Debug] Sending SMS to:', (user as any).phone_number)
                     try {
                         const smsResult = await sendWalletTopupSuccessSMS(
@@ -148,8 +158,10 @@ export async function POST(request: NextRequest) {
                             }
                         )
                         console.log('[Debug] SMS Result:', smsResult)
-                    } catch (smsError) {
+                        debugInfo.smsResult = smsResult
+                    } catch (smsError: any) {
                         console.error('[Debug] SMS Failed:', smsError)
+                        debugInfo.smsResult = { error: smsError.message }
                     }
                 } else {
                     console.warn('[Debug] Phone number missing for user. User Object:', user)
@@ -161,7 +173,8 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({
             success: true,
-            newBalance
+            newBalance,
+            debug: debugInfo
         })
 
     } catch (error: any) {
