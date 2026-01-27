@@ -29,7 +29,7 @@ interface SignUpData {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-const INACTIVITY_TIMEOUT = 20 * 60 * 1000 // 20 minutes
+const INACTIVITY_TIMEOUT = 45 * 60 * 1000 // 45 minutes
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<User | null>(null)
