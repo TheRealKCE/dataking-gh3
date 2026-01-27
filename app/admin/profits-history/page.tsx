@@ -80,7 +80,7 @@ export default function AdminProfitsPage() {
             if (error) throw error
 
             // Fetch previous period orders for comparison (if not all time)
-            let previousOrders = []
+            let previousOrders: any[] = []
             if (range !== 'all') {
                 const { data: prevData } = await supabase
                     .from('orders')
