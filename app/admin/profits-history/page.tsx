@@ -142,7 +142,7 @@ export default function AdminProfitsPage() {
             // Fetch packages for cost lookup
             const { data: packages } = await supabase
                 .from('data_packages')
-                .select('network, size, price, cost_price')
+                .select('network, size, price, cost_price') as any
 
             const packageMap = new Map<string, { cost: number, price: number }>()
             if (packages) {
