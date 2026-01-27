@@ -9,8 +9,8 @@ export function WhatsAppCommunityButtons({ className }: { className?: string }) 
     const CHANNEL_LINK = "https://whatsapp.com/channel/0029Vb7HTfx47XeIZz7ht232"
 
     return (
-        <div className={`flex flex-col gap-3 w-full max-w-sm mx-auto ${className}`}>
-            <div className="text-center mb-2">
+        <div className={`grid grid-cols-1 sm:grid-cols-2 gap-3 w-full  mx-auto ${className}`}>
+            <div className="text-center mb-2 col-span-full">
                 <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Join Our Community</h3>
             </div>
 
