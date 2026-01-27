@@ -85,8 +85,6 @@ export async function POST(request: NextRequest) {
             throw walletUpdateError
         }
 
-        console.log('STEP 2: DB Updated') // Step 2 as requested
-
         // 3. Log transaction
         const { error: transError } = await (supabase.from('wallet_transactions') as any).insert({
             wallet_id: (wallet as any).id,
