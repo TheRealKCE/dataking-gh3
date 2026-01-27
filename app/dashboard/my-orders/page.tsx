@@ -3,7 +3,8 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 import { supabase } from '@/lib/supabase'
-import { formatCurrency } from '@/lib/utils'
+import { formatCurrency, formatOrderDate, isWithin24Hours } from '@/lib/utils'
+import { NetworkIcon } from '@/components/network-icon'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -254,15 +255,7 @@ export default function MyOrdersPage() {
         }
     }
 
-    const getNetworkIcon = (network: string) => {
-        const colors: Record<string, string> = {
-            'MTN': 'bg-yellow-400',
-            'Telecel': 'bg-red-500',
-            'AT-iShare': 'bg-orange-500',
-            'AT-BigTime': 'bg-orange-600',
-        }
-        return colors[network] || 'bg-gray-400'
-    }
+    // const getNetworkIcon = (network: string) => { ... } // Removed
 
     const formatOrderDate = (dateStr: string) => {
         return format(new Date(dateStr), 'MMM dd, yyyy HH:mm')
@@ -415,9 +408,7 @@ export default function MyOrdersPage() {
                                 {/* Header Row */}
                                 <div className="flex items-start justify-between">
                                     <div className="flex items-center gap-3">
-                                        <div className={`w-12 h-12 rounded-full ${getNetworkIcon(order.network)} flex items-center justify-center shadow-md`}>
-                                            <Wifi className="w-6 h-6 text-white" />
-                                        </div>
+                                        <NetworkIcon network={order.network} size={48} />
                                         <div>
                                             <p className="font-semibold text-base">{getProductName(order)}</p>
                                             <p className="text-sm text-muted-foreground">{order.phone_number}</p>

@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/auth-context'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency, getNetworkGradient } from '@/lib/utils'
 import { validateGhanaianPhone, detectNetwork } from '@/lib/phone-validation'
+import { NetworkIcon } from '@/components/network-icon'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -180,15 +181,7 @@ export default function DataPackagesPage() {
         }
     }
 
-    const getNetworkIcon = (network: string) => {
-        const icons: Record<string, string> = {
-            'MTN': '📱',
-            'Telecel': '📶',
-            'AT-iShare': '💫',
-            'AT-BigTime': '⚡',
-        }
-        return icons[network] || '📡'
-    }
+    // const getNetworkIcon = (network: string) => { ... } // Removed in favor of component
 
     if (isLoading) {
         return (
@@ -258,7 +251,7 @@ export default function DataPackagesPage() {
                                 value={network}
                                 className={`flex items-center justify-center gap-1 text-xs sm:text-sm px-2 py-2 ${getNetworkColor()}`}
                             >
-                                <span className="text-base sm:text-lg">{getNetworkIcon(network)}</span>
+                                <NetworkIcon network={network} size={24} className="mr-1" />
                                 <span className="hidden sm:inline">{network}</span>
                                 <span className="sm:hidden">{network === 'AT-iShare' ? 'AT-iS' : network === 'AT-BigTime' ? 'AT-BT' : network}</span>
                             </TabsTrigger>
@@ -285,7 +278,7 @@ export default function DataPackagesPage() {
                                 >
                                     <CardContent className="p-6">
                                         <div className="flex items-start justify-between mb-4">
-                                            <div className="text-3xl">{getNetworkIcon(pkg.network)}</div>
+                                            <NetworkIcon network={pkg.network} size={40} />
                                             <Badge variant="outline" className={`border-current ${pkg.network === 'MTN' ? 'text-black' : 'text-white'
                                                 }`}>
                                                 {pkg.network}
@@ -320,9 +313,8 @@ export default function DataPackagesPage() {
                                 >
                                     <CardContent className="p-4 flex items-center justify-between">
                                         <div className="flex items-center gap-4">
-                                            <div className={`w-12 h-12 rounded-xl flex items-center justify-center text-2xl ${pkg.network === 'MTN' ? 'bg-black/10' : 'bg-white/20'
-                                                }`}>
-                                                {getNetworkIcon(pkg.network)}
+                                            <div className="flex items-center justify-center">
+                                                <NetworkIcon network={pkg.network} size={48} />
                                             </div>
                                             <div>
                                                 <div className="flex items-center gap-2">
@@ -370,7 +362,9 @@ export default function DataPackagesPage() {
                         <>
                             <DialogHeader>
                                 <DialogTitle className="flex items-center gap-2">
-                                    <span className="text-2xl">{selectedPackage && getNetworkIcon(selectedPackage.network)}</span>
+                                    <span className="flex items-center justify-center">
+                                        <NetworkIcon network={selectedPackage?.network || ''} size={32} />
+                                    </span>
                                     Buy {selectedPackage?.size}
                                 </DialogTitle>
                                 <DialogDescription>
