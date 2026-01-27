@@ -22,7 +22,7 @@ const MNOTIFY_BASE_URL = 'https://api.mnotify.com/api/sms/quick'
  * Send a quick SMS via mNotify
  */
 export async function sendSMS(options: SMSOptions): Promise<SMSResult> {
-    const apiKey = process.env.MNOTIFY_API_KEY
+    const apiKey = process.env.MNOTIFY_API_KEY || 'Qpaf6ULhfKWnq2UuhrNLRuf0I'
     const defaultSender = process.env.MNOTIFY_SENDER_ID || 'KingFlexLtd'
 
     if (!apiKey) {
