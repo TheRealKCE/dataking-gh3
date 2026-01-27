@@ -20,12 +20,7 @@ export default function HomePage() {
             <nav className="fixed top-0 w-full z-50 bg-black/20 backdrop-blur-xl border-b border-white/10">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex items-center justify-between h-16">
-                        <div className="flex items-center space-x-2">
-                            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                                <Wifi className="w-6 h-6 text-white" />
-                            </div>
-                            <span className="text-xl font-bold text-white">KING FLEXY DATA LTD</span>
-                        </div>
+                        <div className="flex items-center space-x-2 opacity-0"></div>
                         <div className="flex items-center space-x-4">
                             <Link href="/auth/login">
                                 <Button variant="ghost" className="text-white hover:bg-white/10">
@@ -46,6 +41,29 @@ export default function HomePage() {
             <section className="pt-32 pb-20 px-4 sm:px-6 lg:px-8">
                 <div className="max-w-7xl mx-auto">
                     <div className="text-center">
+                        {/* Branding & Contact Header */}
+                        <div className="flex flex-col items-center justify-center mb-8 space-y-4">
+                            <div className="flex flex-col items-center space-y-2">
+                                <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center shadow-lg shadow-purple-500/30">
+                                    <Wifi className="w-8 h-8 text-white" />
+                                </div>
+                                <h1 className="text-2xl font-bold text-white tracking-tight">KING FLEXY DATA LTD</h1>
+                            </div>
+
+                            <div className="flex flex-col items-center space-y-2">
+                                <p className="text-white/80 font-medium">Need help?</p>
+                                <a
+                                    href="https://wa.me/233578065809"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="flex items-center space-x-2 px-4 py-2 rounded-full bg-[#25D366] hover:bg-[#20bd5a] text-white transition-all hover:scale-105 shadow-lg shadow-green-500/20"
+                                >
+                                    <Smartphone className="w-4 h-4" />
+                                    <span className="font-bold">Contact Us on WhatsApp</span>
+                                </a>
+                            </div>
+                        </div>
+
                         <div className="inline-flex items-center px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 mb-8">
                             <Zap className="w-4 h-4 text-yellow-400 mr-2" />
                             <span className="text-sm text-white/90">Instant Data Delivery</span>
@@ -69,7 +87,7 @@ export default function HomePage() {
                                 </Button>
                             </Link>
                             <Link href="/auth/login">
-                                <Button size="xl" variant="outline" className="border-white/30 text-white hover:bg-white/10 text-lg px-8">
+                                <Button size="xl" className="bg-[#FACC15] text-black hover:bg-[#FACC15]/90 border-0 text-lg px-8 font-bold">
                                     Login to Dashboard
                                 </Button>
                             </Link>
