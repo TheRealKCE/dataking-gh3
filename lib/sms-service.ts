@@ -39,21 +39,21 @@ export async function sendSMS(options: SMSOptions): Promise<SMSResult> {
         if (normalizedPhone.startsWith('0') && normalizedPhone.length === 10) {
             normalizedPhone = '233' + normalizedPhone.slice(1)
         }
-        // mNotify usually works without '+', but if it fails we can try adding it.
-        // Based on typical Ghana SMS gateways, '233XXXXXXXXX' is the safest format.
+
+        // mNotify v2.0 endpoint with key in URL
+        const url = `${MNOTIFY_BASE_URL}?key=${apiKey}`
 
         const payload = {
-            key: apiKey,
-            recipient: [normalizedPhone],
+            recipient: [normalizedPhone], // v2 REQUIREMENT: Must be an Array []
             sender: options.sender || defaultSender,
             message: options.message,
             is_schedule: false,
             schedule_date: ''
         }
 
-        console.log(`Sending SMS to ${options.recipient}:`, options.message)
+        console.log(`Sending SMS to ${normalizedPhone} via ${url}`)
 
-        const response = await fetch(MNOTIFY_BASE_URL, {
+        const response = await fetch(url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -64,12 +64,12 @@ export async function sendSMS(options: SMSOptions): Promise<SMSResult> {
 
         const data = await response.json()
 
-        if (data.code === '2000' || data.status === 'success') {
+        if (data.code === '2000') {
             console.log('SMS sent successfully:', data)
             return { success: true, messageId: data.summary?._id || 'sent' }
         } else {
             console.error('mNotify API Error:', data)
-            return { success: false, error: data.message || 'Failed to send SMS' }
+            return { success: false, error: data.message || 'mNotify Rejected' }
         }
     } catch (error: any) {
         console.error('Failed to send SMS:', error.message)
