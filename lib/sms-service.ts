@@ -128,7 +128,7 @@ export async function sendWalletTopupSuccessSMS(
         newBalance: number
     }
 ) {
-    const message = `Wallet Credited! Your wallet has been credited with GHS ${details.amount.toFixed(2)}. New Balance: GHS ${details.newBalance.toFixed(2)}.`
+    const message = `Your wallet has been credited with GHS${details.amount.toFixed(2)} successfully. Your new balance is GHS${details.newBalance.toFixed(2)}\n\nKING FLEXY DATA LIMITED`
 
     return sendSMS({
         recipient: phoneNumber,
