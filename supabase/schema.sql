@@ -312,3 +312,30 @@ INSERT INTO public.data_packages (network, size, price, cost_price, description,
   ('AT-BigTime', '5GB', 25.00, 20.00, '5GB BigTime data', 1),
   ('AT-BigTime', '10GB', 45.00, 36.00, '10GB BigTime data', 2)
 ON CONFLICT DO NOTHING;
+
+create table public.system_announcements (
+  id uuid default gen_random_uuid() primary key,
+  title text not null,
+  message text not null,
+  is_active boolean default true,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
+-- Enable RLS
+alter table public.system_announcements enable row level security;
+
+-- Policies
+create policy "Public read access"
+  on public.system_announcements for select
+  using (true);
+
+create policy "Admin full access"
+  on public.system_announcements for all
+  using (
+    exists (
+      select 1 from public.users
+      where users.id = auth.uid() and users.role = 'admin'
+    )
+  );
+

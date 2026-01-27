@@ -440,6 +440,30 @@ export interface Database {
                     order_count?: number
                 }
             }
+            system_announcements: {
+                Row: {
+                    id: string
+                    title: string
+                    message: string
+                    is_active: boolean
+                    created_at: string
+                    updated_at: string
+                }
+                Insert: {
+                    id?: string
+                    title: string
+                    message: string
+                    is_active?: boolean
+                    created_at?: string
+                    updated_at?: string
+                }
+                Update: {
+                    title?: string
+                    message?: string
+                    is_active?: boolean
+                    updated_at?: string
+                }
+            }
         }
     }
 }
@@ -456,3 +480,4 @@ export type AdminSetting = Database['public']['Tables']['admin_settings']['Row']
 export type AFAOrder = Database['public']['Tables']['afa_orders']['Row']
 export type CustomerPurchase = Database['public']['Tables']['customer_purchases']['Row']
 export type DownloadBatch = Database['public']['Tables']['download_batches']['Row']
+export type SystemAnnouncement = Database['public']['Tables']['system_announcements']['Row']

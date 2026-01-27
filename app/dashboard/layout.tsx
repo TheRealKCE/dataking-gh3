@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import { SystemAnnouncementModal } from '@/components/system-announcement-modal'
 import { useAuth } from '@/contexts/auth-context'
 import { UIProvider } from '@/contexts/ui-context'
 import { DashboardSidebar } from '@/components/dashboard/sidebar'
@@ -45,6 +46,7 @@ export default function DashboardLayout({
     return (
         <UIProvider>
             <div className="min-h-screen bg-gray-50 dark:bg-gray-950 relative">
+                <SystemAnnouncementModal />
                 <DashboardSidebar />
                 <div className="lg:pl-72">
                     <DashboardHeader />
