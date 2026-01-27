@@ -121,6 +121,7 @@ export default function AdminUsersPage() {
     }
 
     const handleManualAdjustment = async () => {
+        console.log('Frontend: handleManualAdjustment called', { adjustmentDialogUser, adjustmentAmount }) // Debug Log
         if (!adjustmentDialogUser || !adjustmentAmount) return
 
         const amount = parseFloat(adjustmentAmount)

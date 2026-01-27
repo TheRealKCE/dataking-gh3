@@ -23,7 +23,7 @@ const MNOTIFY_BASE_URL = 'https://api.mnotify.com/api/sms/quick'
  */
 export async function sendSMS(options: SMSOptions): Promise<SMSResult> {
     const apiKey = process.env.MNOTIFY_API_KEY
-    const defaultSender = process.env.MNOTIFY_SENDER_ID || 'KingFlexy'
+    const defaultSender = process.env.MNOTIFY_SENDER_ID || 'KingFlexLtd'
 
     if (!apiKey) {
         console.warn('MNOTIFY_API_KEY not set. SMS not sent.')
@@ -43,15 +43,14 @@ export async function sendSMS(options: SMSOptions): Promise<SMSResult> {
         // mNotify v2.0 endpoint with key in URL
         const url = `${MNOTIFY_BASE_URL}?key=${apiKey}`
 
-        const payload = {
-            recipient: [normalizedPhone], // v2 REQUIREMENT: Must be an Array []
+        const payload: any = {
+            recipient: [normalizedPhone],
             sender: options.sender || defaultSender,
             message: options.message,
-            is_schedule: false,
-            schedule_date: ''
+            is_schedule: false
         }
 
-        console.log(`Sending SMS to ${normalizedPhone} via ${url}`)
+        console.log(`[SMS Service] Sending payload:`, JSON.stringify(payload))
 
         const response = await fetch(url, {
             method: 'POST',
@@ -65,7 +64,7 @@ export async function sendSMS(options: SMSOptions): Promise<SMSResult> {
         const data = await response.json()
 
         if (data.code === '2000') {
-            console.log('SMS sent successfully:', data)
+            console.log('[SMS Service] Success:', data)
             return { success: true, messageId: data.summary?._id || 'sent' }
         } else {
             console.error('mNotify API Error:', data)
