@@ -59,6 +59,8 @@ export default function AdminOrdersPage() {
     const [batches, setBatches] = useState<any[]>([])
     const [activeTab, setActiveTab] = useState('available')
     const [historyFilter, setHistoryFilter] = useState('today')
+    const [customStart, setCustomStart] = useState('')
+    const [customEnd, setCustomEnd] = useState('')
 
     useEffect(() => {
         const loadData = async () => {
@@ -629,6 +631,13 @@ export default function AdminOrdersPage() {
 
         if (historyFilter === 'today') return isToday
         if (historyFilter === 'yesterday') return isYesterday
+        if (historyFilter === 'custom') {
+            if (!customStart || !customEnd) return true
+            const start = new Date(customStart)
+            const end = new Date(customEnd)
+            end.setHours(23, 59, 59, 999)
+            return batchDate >= start && batchDate <= end
+        }
         return true
     })
 
@@ -811,19 +820,38 @@ export default function AdminOrdersPage() {
                             <Download className="w-4 h-4 mr-2" />
                             Download Filtered ({filteredBatches.length})
                         </Button>
-                        <div className="flex items-center space-x-2 bg-muted/50 p-1 rounded-lg">
-                            {['today', 'yesterday', 'all'].map((filter) => (
-                                <button
-                                    key={filter}
-                                    onClick={() => setHistoryFilter(filter)}
-                                    className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${historyFilter === filter
-                                        ? 'bg-background shadow text-foreground'
-                                        : 'text-muted-foreground hover:text-foreground'
-                                        }`}
-                                >
-                                    {filter.charAt(0).toUpperCase() + filter.slice(1)}
-                                </button>
-                            ))}
+                        <div className="flex items-center gap-2">
+                            {historyFilter === 'custom' && (
+                                <div className="flex items-center gap-2 animate-in slide-in-from-right-5">
+                                    <Input
+                                        type="date"
+                                        value={customStart}
+                                        onChange={(e) => setCustomStart(e.target.value)}
+                                        className="h-8 w-[130px]"
+                                    />
+                                    <span className="text-muted-foreground">-</span>
+                                    <Input
+                                        type="date"
+                                        value={customEnd}
+                                        onChange={(e) => setCustomEnd(e.target.value)}
+                                        className="h-8 w-[130px]"
+                                    />
+                                </div>
+                            )}
+                            <div className="flex items-center space-x-1 bg-muted/50 p-1 rounded-lg">
+                                {['today', 'yesterday', 'custom', 'all'].map((filter) => (
+                                    <button
+                                        key={filter}
+                                        onClick={() => setHistoryFilter(filter)}
+                                        className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${historyFilter === filter
+                                            ? 'bg-background shadow text-foreground'
+                                            : 'text-muted-foreground hover:text-foreground'
+                                            }`}
+                                    >
+                                        {filter.charAt(0).toUpperCase() + filter.slice(1)}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
                     </div>
                     {filteredBatches.length === 0 ? (

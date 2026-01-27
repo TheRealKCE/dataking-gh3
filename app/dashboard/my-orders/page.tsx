@@ -42,7 +42,7 @@ interface OrderWithComplaints extends Order {
 
 const NETWORKS = ['All', 'MTN', 'Telecel', 'AT-iShare', 'AT-BigTime']
 const STATUSES = ['All', 'pending', 'processing', 'completed', 'failed']
-const TIME_PERIODS = ['Today', 'Yesterday', 'This Week', 'This Month']
+const TIME_PERIODS = ['Today', 'Yesterday', 'This Week', 'This Month', 'Custom']
 
 export default function MyOrdersPage() {
     const { dbUser } = useAuth()
@@ -52,6 +52,8 @@ export default function MyOrdersPage() {
     const [networkFilter, setNetworkFilter] = useState('All')
     const [statusFilter, setStatusFilter] = useState('All')
     const [timePeriod, setTimePeriod] = useState('Today')
+    const [customStart, setCustomStart] = useState('')
+    const [customEnd, setCustomEnd] = useState('')
 
     // Complaint dialog
     const [complaintOrder, setComplaintOrder] = useState<Order | null>(null)
@@ -129,6 +131,12 @@ export default function MyOrdersPage() {
                     return orderDate >= weekStart
                 case 'This Month':
                     return orderDate >= monthStart
+                case 'Custom':
+                    if (!customStart || !customEnd) return true
+                    const start = new Date(customStart)
+                    const end = new Date(customEnd)
+                    end.setHours(23, 59, 59, 999)
+                    return orderDate >= start && orderDate <= end
                 default:
                     return true
             }
@@ -324,6 +332,31 @@ export default function MyOrdersPage() {
                     </button>
                 ))}
             </div>
+
+            {/* Custom Range Inputs */}
+            {timePeriod === 'Custom' && (
+                <div className="flex items-center gap-2 animate-in slide-in-from-top-2">
+                    <div className="space-y-1">
+                        <Label className="text-xs">Start Date</Label>
+                        <Input
+                            type="date"
+                            value={customStart}
+                            onChange={(e) => setCustomStart(e.target.value)}
+                            className="h-9"
+                        />
+                    </div>
+                    <div className="space-y-1">
+                        <Label className="text-xs">End Date</Label>
+                        <Input
+                            type="date"
+                            value={customEnd}
+                            onChange={(e) => setCustomEnd(e.target.value)}
+                            className="h-9"
+                        />
+                    </div>
+                </div>
+            )}
+
 
             {/* Filters */}
             <div className="space-y-4">
