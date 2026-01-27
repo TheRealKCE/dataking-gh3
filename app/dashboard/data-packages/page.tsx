@@ -286,7 +286,13 @@ export default function DataPackagesPage() {
                                         </p>
                                         <div className="flex items-center justify-between">
                                             <span className="text-2xl font-bold">{formatCurrency(pkg.price)}</span>
-                                            <Button size="sm" className="transition-colors">
+                                            <Button
+                                                size="sm"
+                                                className={`transition-colors ${pkg.network === 'MTN' ? 'bg-[#FACC15] text-black hover:bg-[#FACC15]/90' :
+                                                        pkg.network === 'Telecel' ? 'bg-[#E60000] text-white hover:bg-[#E60000]/90' :
+                                                            'bg-[#0056B3] text-white hover:bg-[#0056B3]/90'
+                                                    }`}
+                                            >
                                                 Buy Now
                                             </Button>
                                         </div>
@@ -319,7 +325,15 @@ export default function DataPackagesPage() {
                                         </div>
                                         <div className="flex items-center gap-4">
                                             <span className="text-xl font-bold">{formatCurrency(pkg.price)}</span>
-                                            <Button size="sm">Buy</Button>
+                                            <Button
+                                                size="sm"
+                                                className={`transition-colors ${pkg.network === 'MTN' ? 'bg-[#FACC15] text-black hover:bg-[#FACC15]/90' :
+                                                        pkg.network === 'Telecel' ? 'bg-[#E60000] text-white hover:bg-[#E60000]/90' :
+                                                            'bg-[#0056B3] text-white hover:bg-[#0056B3]/90'
+                                                    }`}
+                                            >
+                                                Buy
+                                            </Button>
                                         </div>
                                     </CardContent>
                                 </Card>
