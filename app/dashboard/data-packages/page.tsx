@@ -270,28 +270,38 @@ export default function DataPackagesPage() {
                             {filteredPackages.map((pkg) => (
                                 <Card
                                     key={pkg.id}
-                                    className="group overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer border hover:border-primary/50"
+                                    className={`group overflow-hidden relative transition-all duration-300 hover:-translate-y-1.5 hover:shadow-2xl cursor-pointer border-0 ${pkg.network === 'MTN' ? 'bg-[#FACC15] text-black' :
+                                            pkg.network === 'Telecel' ? 'bg-[#E60000] text-white' :
+                                                'bg-[#0056B3] text-white'
+                                        }`}
                                     onClick={() => handlePurchaseClick(pkg)}
                                 >
-                                    <CardContent className="p-6">
-                                        <div className="flex items-start justify-between mb-4">
-                                            <NetworkIcon network={pkg.network} size={40} />
-                                            <Badge variant="outline" className="border-current">
-                                                {pkg.network}
-                                            </Badge>
+                                    <CardContent className="p-6 flex flex-col h-full justify-between">
+                                        <div>
+                                            <div className="flex items-start justify-between mb-6 pb-4 border-b border-black/10 dark:border-white/10">
+                                                <div className="p-2 bg-white/20 rounded-2xl backdrop-blur-sm">
+                                                    <NetworkIcon network={pkg.network} size={48} variant="card" />
+                                                </div>
+                                                <Badge variant="outline" className={`text-xs font-bold px-3 py-1 border-current uppercase tracking-wider ${pkg.network === 'MTN' ? 'text-black border-black/20' : 'text-white border-white/20'
+                                                    }`}>
+                                                    {pkg.network}
+                                                </Badge>
+                                            </div>
+
+                                            <div className="mb-6 space-y-2">
+                                                <h3 className="text-3xl font-black tracking-tight">{pkg.size}</h3>
+                                                <p className={`text-sm font-medium line-clamp-2 ${pkg.network === 'MTN' ? 'text-black/70' : 'text-white/80'
+                                                    }`}>
+                                                    {pkg.description || `${pkg.size} data bundle for ${pkg.network}`}
+                                                </p>
+                                            </div>
                                         </div>
-                                        <h3 className="text-2xl font-bold mb-2">{pkg.size}</h3>
-                                        <p className="text-sm mb-4 line-clamp-2 text-muted-foreground">
-                                            {pkg.description || `${pkg.size} data bundle for ${pkg.network}`}
-                                        </p>
-                                        <div className="flex items-center justify-between">
-                                            <span className="text-2xl font-bold">{formatCurrency(pkg.price)}</span>
+
+                                        <div className="flex items-center justify-between pt-4 border-t border-black/5 dark:border-white/10">
+                                            <span className="text-2xl font-black tracking-tight">{formatCurrency(pkg.price)}</span>
                                             <Button
                                                 size="sm"
-                                                className={`transition-colors ${pkg.network === 'MTN' ? 'bg-[#FACC15] text-black hover:bg-[#FACC15]/90' :
-                                                        pkg.network === 'Telecel' ? 'bg-[#E60000] text-white hover:bg-[#E60000]/90' :
-                                                            'bg-[#0056B3] text-white hover:bg-[#0056B3]/90'
-                                                    }`}
+                                                className="bg-[#1a1a1a] text-white hover:bg-black border-0 shadow-lg hover:shadow-xl transition-all hover:scale-105 font-bold px-6"
                                             >
                                                 Buy Now
                                             </Button>
@@ -305,32 +315,36 @@ export default function DataPackagesPage() {
                             {filteredPackages.map((pkg) => (
                                 <Card
                                     key={pkg.id}
-                                    className="group hover:shadow-lg transition-all cursor-pointer border hover:border-primary/50"
+                                    className={`group hover:shadow-lg transition-all cursor-pointer border-0 mb-3 overflow-hidden ${pkg.network === 'MTN' ? 'bg-[#FACC15] text-black' :
+                                            pkg.network === 'Telecel' ? 'bg-[#E60000] text-white' :
+                                                'bg-[#0056B3] text-white'
+                                        }`}
                                     onClick={() => handlePurchaseClick(pkg)}
                                 >
                                     <CardContent className="p-4 flex items-center justify-between">
-                                        <div className="flex items-center gap-4">
-                                            <div className="flex items-center justify-center">
-                                                <NetworkIcon network={pkg.network} size={48} />
+                                        <div className="flex items-center gap-5">
+                                            <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm shadow-sm">
+                                                <NetworkIcon network={pkg.network} size={40} />
                                             </div>
                                             <div>
-                                                <div className="flex items-center gap-2">
-                                                    <h3 className="font-semibold">{pkg.size}</h3>
-                                                    <Badge variant="outline" className="text-xs border-current">
+                                                <div className="flex items-center gap-3 mb-1">
+                                                    <h3 className="font-bold text-lg leading-none">{pkg.size}</h3>
+                                                    <Badge variant="outline" className={`text-[10px] font-bold px-2 py-0.5 border-current ${pkg.network === 'MTN' ? 'text-black border-black/20' : 'text-white border-white/20'
+                                                        }`}>
                                                         {pkg.network}
                                                     </Badge>
                                                 </div>
-                                                <p className="text-sm text-muted-foreground">{pkg.description}</p>
+                                                <p className={`text-xs font-medium ${pkg.network === 'MTN' ? 'text-black/70' : 'text-white/80'
+                                                    }`}>
+                                                    {pkg.description || 'Data Bundle'}
+                                                </p>
                                             </div>
                                         </div>
-                                        <div className="flex items-center gap-4">
-                                            <span className="text-xl font-bold">{formatCurrency(pkg.price)}</span>
+                                        <div className="flex items-center gap-6">
+                                            <span className="text-xl font-black">{formatCurrency(pkg.price)}</span>
                                             <Button
                                                 size="sm"
-                                                className={`transition-colors ${pkg.network === 'MTN' ? 'bg-[#FACC15] text-black hover:bg-[#FACC15]/90' :
-                                                        pkg.network === 'Telecel' ? 'bg-[#E60000] text-white hover:bg-[#E60000]/90' :
-                                                            'bg-[#0056B3] text-white hover:bg-[#0056B3]/90'
-                                                    }`}
+                                                className="bg-[#1a1a1a] text-white hover:bg-black border-0 shadow-md hover:shadow-lg transition-all hover:scale-105 font-bold px-6"
                                             >
                                                 Buy
                                             </Button>
