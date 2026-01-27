@@ -19,9 +19,9 @@ export async function middleware(request: NextRequest) {
     let session = null
 
     try {
-        // Add 3 second timeout to prevent hanging
+        // Add 10 second timeout to prevent hanging (increased for slow connections)
         const timeout = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Session timeout')), 3000)
+            setTimeout(() => reject(new Error('Session timeout')), 10000)
         )
 
         const sessionPromise = supabase.auth.getSession()
@@ -52,9 +52,9 @@ export async function middleware(request: NextRequest) {
         }
 
         try {
-            // Add 2 second timeout to role check
+            // Add 8 second timeout to role check (increased for slow connections)
             const timeout = new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('Role check timeout')), 2000)
+                setTimeout(() => reject(new Error('Role check timeout')), 8000)
             )
 
             const roleQuery = supabase
