@@ -134,13 +134,17 @@ export async function processCompletedWalletPayment(reference: string, providerM
 
             // Send SMS notification
             if ((userData as any).phone_number) {
+                console.log('[PaymentProcess] Found user phone:', (userData as any).phone_number)
                 await sendWalletTopupSuccessSMS(
                     (userData as any).phone_number,
                     {
                         amount: payment.amount,
                         newBalance
                     }
-                ).catch(err => console.error('[PaymentProcess] SMS error:', err))
+                ).then(res => console.log('[PaymentProcess] SMS Result:', res))
+                    .catch(err => console.error('[PaymentProcess] SMS error:', err))
+            } else {
+                console.warn('[PaymentProcess] No phone number found for user:', payment.user_id)
             }
 
         }
