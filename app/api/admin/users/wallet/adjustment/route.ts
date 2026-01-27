@@ -28,6 +28,8 @@ export async function POST(request: NextRequest) {
         const body = await request.json()
         const { userId, amount, type, description } = body
 
+        console.log('STEP 1: Request Received', { userId, amount, type }) // Step 1 as requested
+
         if (!userId || amount === undefined || !type) {
             return NextResponse.json({ error: 'userId, amount, and type are required' }, { status: 400 })
         }
@@ -83,6 +85,8 @@ export async function POST(request: NextRequest) {
             throw walletUpdateError
         }
 
+        console.log('STEP 2: DB Updated') // Step 2 as requested
+
         // 3. Log transaction
         const { error: transError } = await (supabase.from('wallet_transactions') as any).insert({
             wallet_id: (wallet as any).id,
@@ -119,6 +123,8 @@ export async function POST(request: NextRequest) {
             const reference = `MNL-${Date.now()}`
 
             if (type === 'credit') {
+                console.log('STEP 3: Triggering SMS') // Step 3 as requested
+
                 await sendWalletTopupSuccessEmail(
                     (user as any).email,
                     (user as any).first_name || 'Customer',
@@ -129,19 +135,30 @@ export async function POST(request: NextRequest) {
 
                 if ((user as any).phone_number) {
                     console.log('[AdminWalletAdjustment] Found user phone:', (user as any).phone_number)
-                    await sendWalletTopupSuccessSMS(
-                        (user as any).phone_number,
-                        {
-                            amount: adjustmentAmount,
-                            newBalance
-                        }
-                    ).then(res => console.log('[AdminWalletAdjustment] SMS Result:', res))
-                        .catch(err => console.error('[WalletAdjustment] SMS error:', err))
+                    try {
+                        const smsResult = await sendWalletTopupSuccessSMS(
+                            (user as any).phone_number,
+                            {
+                                amount: adjustmentAmount,
+                                newBalance
+                            }
+                        )
+                        console.log('[AdminWalletAdjustment] SMS Service Response:', smsResult)
+                    } catch (smsError) {
+                        console.error('[AdminWalletAdjustment] SMS Failed:', smsError)
+                    }
                 } else {
                     console.warn('[AdminWalletAdjustment] No phone number found for user:', userId)
                 }
             }
+        } else {
+            console.error('[AdminWalletAdjustment] User not found for notifications:', userId)
         }
+
+        return NextResponse.json({
+            success: true,
+            newBalance
+        })
 
         return NextResponse.json({
             success: true,
