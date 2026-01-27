@@ -6,7 +6,10 @@ import { cookies } from 'next/headers'
 export async function GET(request: NextRequest) {
     try {
         const cookieStore = await cookies()
-        const supabaseUserClient = createRouteHandlerClient({ cookies: () => Promise.resolve(cookieStore) })
+        const supabaseUserClient = createRouteHandlerClient({
+            // @ts-expect-error - auth-helpers types expect Promise but runtime needs synchronous object
+            cookies: () => cookieStore
+        })
         const { data: { session }, error: sessionError } = await supabaseUserClient.auth.getSession()
 
         if (sessionError || !session?.user) {

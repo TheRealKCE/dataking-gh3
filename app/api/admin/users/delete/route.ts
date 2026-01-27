@@ -16,7 +16,10 @@ export async function POST(request: Request) {
 
         // 1. Verify verify requester is admin
         const cookieStore = await cookies()
-        const supabase = createRouteHandlerClient({ cookies: () => Promise.resolve(cookieStore) })
+        const supabase = createRouteHandlerClient({
+            // @ts-expect-error - auth-helpers types expect Promise but runtime needs synchronous object
+            cookies: () => cookieStore
+        })
         const { data: { session } } = await supabase.auth.getSession()
 
         if (!session) {
