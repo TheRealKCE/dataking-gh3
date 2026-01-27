@@ -4,6 +4,7 @@ import { generateReferenceCode } from '@/lib/utils'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import { sendOrderSuccessEmail, sendAdminNewOrderAlert } from '@/lib/email-service'
+import { sendOrderSuccessSMS } from '@/lib/sms-service'
 
 export async function POST(request: NextRequest) {
     try {
@@ -162,6 +163,16 @@ export async function POST(request: NextRequest) {
                         price: (pkg as any).price
                     }
                 ).catch((err: Error) => console.error('[Order] User email error:', err))
+
+                // Send order success SMS
+                sendOrderSuccessSMS(
+                    phoneNumber,
+                    {
+                        referenceCode,
+                        size: (pkg as any).size,
+                        network: (pkg as any).network
+                    }
+                ).catch((err: Error) => console.error('[Order] SMS error:', err))
 
                 // Send new order alert to admin
                 sendAdminNewOrderAlert({

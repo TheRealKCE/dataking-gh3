@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
+import { sendStatusUpdateSMS } from '@/lib/sms-service'
 
 export async function POST(request: NextRequest) {
     try {
@@ -44,7 +45,7 @@ export async function POST(request: NextRequest) {
             // Update single order
             const { data: order, error: fetchError } = await supabase
                 .from('orders')
-                .select('id, user_id, reference_code')
+                .select('id, user_id, reference_code, phone_number')
                 .eq('id', orderId)
                 .single()
 
@@ -71,7 +72,7 @@ export async function POST(request: NextRequest) {
             // Update batch of orders
             const { data: orders, error: fetchError } = await supabase
                 .from('orders')
-                .select('id, user_id, reference_code')
+                .select('id, user_id, reference_code, phone_number')
                 .eq('download_batch_id', batchId)
 
             if (fetchError) {
@@ -109,6 +110,21 @@ export async function POST(request: NextRequest) {
                 action_url: `/dashboard/my-orders`,
                 is_read: false
             }))
+
+
+            // Send SMS to each user
+            for (const order of affectedOrders) {
+                if ((order as any).phone_number) {
+                    sendStatusUpdateSMS(
+                        (order as any).phone_number,
+                        {
+                            referenceCode: (order as any).reference_code,
+                            status
+                        }
+                    ).catch(err => console.error(`[AdminStatusUpdate] SMS error for ${(order as any).reference_code}:`, err))
+                }
+            }
+
 
             const { error: notifyError } = await (supabase.from('notifications') as any).insert(notifications)
             if (notifyError) {

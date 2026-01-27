@@ -1,108 +1,126 @@
-// Moolre SMS Service
+/**
+ * mNotify SMS Service
+ * 
+ * Handles sending SMS notifications via mNotify API.
+ */
 
-const MOOLRE_API_KEY = process.env.MOOLRE_API_KEY || ''
-const MOOLRE_SENDER_ID = process.env.MOOLRE_SENDER_ID || 'KingFlexy'
-const SMS_ENABLED = process.env.SMS_ENABLED === 'true'
+interface SMSOptions {
+    recipient: string
+    message: string
+    sender?: string
+}
 
-interface SMSResponse {
+interface SMSResult {
     success: boolean
-    message?: string
+    messageId?: string
     error?: string
 }
 
-export async function sendSMS(
-    phoneNumber: string,
-    message: string
-): Promise<SMSResponse> {
-    if (!SMS_ENABLED) {
-        console.log('SMS disabled, would send to', phoneNumber, ':', message)
-        return { success: true, message: 'SMS disabled' }
+const MNOTIFY_BASE_URL = 'https://api.mnotify.com/api/sms/quick'
+
+/**
+ * Send a quick SMS via mNotify
+ */
+export async function sendSMS(options: SMSOptions): Promise<SMSResult> {
+    const apiKey = process.env.MNOTIFY_API_KEY
+    const defaultSender = process.env.MNOTIFY_SENDER_ID || 'KingFlexy'
+
+    if (!apiKey) {
+        console.warn('MNOTIFY_API_KEY not set. SMS not sent.')
+        return { success: false, error: 'SMS service not configured' }
     }
 
     try {
-        // Normalize phone number to international format
-        let normalizedPhone = phoneNumber
-        if (normalizedPhone.startsWith('0')) {
-            normalizedPhone = '233' + normalizedPhone.slice(1)
-        }
-        if (!normalizedPhone.startsWith('+')) {
-            normalizedPhone = '+' + normalizedPhone
+        const payload = {
+            key: apiKey,
+            recipient: [options.recipient],
+            sender: options.sender || defaultSender,
+            message: options.message,
+            is_schedule: false,
+            schedule_date: ''
         }
 
-        const response = await fetch('https://api.moolre.com/v1/sms/send', {
+        console.log(`Sending SMS to ${options.recipient}:`, options.message)
+
+        const response = await fetch(MNOTIFY_BASE_URL, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${MOOLRE_API_KEY}`,
+                'Accept': 'application/json'
             },
-            body: JSON.stringify({
-                to: normalizedPhone,
-                from: MOOLRE_SENDER_ID,
-                message: message,
-            }),
+            body: JSON.stringify(payload)
         })
 
         const data = await response.json()
 
-        if (response.ok && data.success) {
-            return { success: true, message: 'SMS sent successfully' }
+        if (data.code === '2000' || data.status === 'success') {
+            console.log('SMS sent successfully:', data)
+            return { success: true, messageId: data.summary?._id || 'sent' }
+        } else {
+            console.error('mNotify API Error:', data)
+            return { success: false, error: data.message || 'Failed to send SMS' }
         }
-
-        return {
-            success: false,
-            error: data.message || data.error || 'Failed to send SMS',
-        }
-    } catch (error) {
-        console.error('SMS sending error:', error)
-        return {
-            success: false,
-            error: 'Failed to connect to SMS provider',
-        }
+    } catch (error: any) {
+        console.error('Failed to send SMS:', error.message)
+        return { success: false, error: error.message || 'Network error' }
     }
 }
 
-// SMS Templates
-export function getWalletTopUpSMS(amount: number, newBalance: number): string {
-    return `KING FLEXY DATA LTD: Your wallet has been credited with GHS ${amount.toFixed(2)}. New balance: GHS ${newBalance.toFixed(2)}`
-}
+// ==========================================
+// SPECIFIC SMS FUNCTIONS
+// ==========================================
 
-export function getOrderSuccessSMS(phoneNumber: string, dataSize: string): string {
-    return `KING FLEXY DATA LTD: ${dataSize} data has been sent to ${phoneNumber}. Thank you for using KING FLEXY DATA LTD!`
-}
-
-export function getOrderFailedSMS(phoneNumber: string, dataSize: string): string {
-    return `KING FLEXY DATA LTD: Failed to send ${dataSize} to ${phoneNumber}. Please contact support or file a complaint.`
-}
-
-export function getOrderProcessingSMS(phoneNumber: string, dataSize: string): string {
-    return `KING FLEXY DATA LTD: Your order for ${dataSize} to ${phoneNumber} is being processed. You will be notified when complete.`
-}
-
-export async function notifyAdmin(message: string): Promise<void> {
-    // Get admin phone numbers from settings and send SMS
-    // This is a placeholder - implement based on your admin notification needs
-    console.log('Admin notification:', message)
-}
-
-export async function sendOrderNotification(
-    userPhone: string,
-    type: 'success' | 'failed' | 'processing',
-    recipientPhone: string,
-    dataSize: string
-): Promise<SMSResponse> {
-    let message: string
-
-    switch (type) {
-        case 'success':
-            message = getOrderSuccessSMS(recipientPhone, dataSize)
-            break
-        case 'failed':
-            message = getOrderFailedSMS(recipientPhone, dataSize)
-            break
-        case 'processing':
-            message = getOrderProcessingSMS(recipientPhone, dataSize)
-            break
+/**
+ * Send order success SMS
+ */
+export async function sendOrderSuccessSMS(
+    phoneNumber: string,
+    details: {
+        referenceCode: string
+        size: string
+        network: string
     }
+) {
+    const message = `Order Confirmed! Your purchase of ${details.size} data for ${details.network} has been received. Reference: ${details.referenceCode}. Thanks for choosing King Flexy Data.`
 
-    return sendSMS(userPhone, message)
+    return sendSMS({
+        recipient: phoneNumber,
+        message
+    })
+}
+
+/**
+ * Send status update SMS
+ */
+export async function sendStatusUpdateSMS(
+    phoneNumber: string,
+    details: {
+        referenceCode: string
+        status: string
+    }
+) {
+    const message = `Order Update: Your order ${details.referenceCode} is now ${details.status.toUpperCase()}. Check your dashboard for details.`
+
+    return sendSMS({
+        recipient: phoneNumber,
+        message
+    })
+}
+
+/**
+ * Send wallet top-up success SMS
+ */
+export async function sendWalletTopupSuccessSMS(
+    phoneNumber: string,
+    details: {
+        amount: number
+        newBalance: number
+    }
+) {
+    const message = `Wallet Credited! Your wallet has been credited with GHS ${details.amount.toFixed(2)}. New Balance: GHS ${details.newBalance.toFixed(2)}.`
+
+    return sendSMS({
+        recipient: phoneNumber,
+        message
+    })
 }
