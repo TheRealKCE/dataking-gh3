@@ -11,6 +11,7 @@ import {
     CheckCircle2
 } from 'lucide-react'
 import { WhatsAppCommunityButtons } from '@/components/whatsapp-community-buttons'
+import { NetworkIcon } from '@/components/network-icon'
 
 export default function HomePage() {
     return (
@@ -78,17 +79,17 @@ export default function HomePage() {
                     {/* Network Logos */}
                     <div className="mt-20 grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 max-w-3xl mx-auto px-2">
                         {[
-                            { name: 'MTN', color: 'from-yellow-400 to-yellow-600', icon: '📱' },
-                            { name: 'Telecel', color: 'from-red-500 to-red-700', icon: '📶' },
-                            { name: 'AT-iShare', color: 'from-orange-400 to-red-500', icon: '💫' },
-                            { name: 'AT-BigTime', color: 'from-orange-500 to-red-600', icon: '⚡' },
+                            { name: 'MTN', color: 'from-yellow-400 to-yellow-600' },
+                            { name: 'Telecel', color: 'from-red-500 to-red-700' },
+                            { name: 'AT-iShare', color: 'from-orange-400 to-red-500' },
+                            { name: 'AT-BigTime', color: 'from-orange-500 to-red-600' },
                         ].map((network) => (
                             <div
                                 key={network.name}
                                 className="group relative p-6 rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 hover:bg-white/10 transition-all duration-300 hover:scale-105"
                             >
-                                <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${network.color} flex items-center justify-center mb-4 text-2xl`}>
-                                    {network.icon}
+                                <div className="flex items-center justify-center mb-4">
+                                    <NetworkIcon network={network.name} size={64} />
                                 </div>
                                 <h3 className="text-lg font-semibold text-white">{network.name}</h3>
                                 <p className="text-sm text-white/60">Data & Airtime</p>
