@@ -142,6 +142,7 @@ export interface Database {
                     network: 'MTN' | 'Telecel' | 'AT-iShare' | 'AT-BigTime'
                     size: string
                     price: number
+                    cost_price?: number
                     description: string | null
                     is_available: boolean
                     sort_order: number
@@ -177,6 +178,7 @@ export interface Database {
                     network: string
                     size: string
                     price: number
+                    cost_price?: number
                     status: 'pending' | 'processing' | 'completed' | 'failed'
                     payment_status: 'paid' | 'refunded'
                     reference_code: string
