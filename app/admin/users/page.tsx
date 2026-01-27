@@ -223,39 +223,40 @@ export default function AdminUsersPage() {
                     {filteredUsers.map((user) => (
                         <Card
                             key={user.id}
-                            className="group relative overflow-hidden border-border/50 hover:border-purple-500/50 transition-all duration-300 hover:shadow-lg hover:-translate-y-1 bg-gradient-to-br from-card to-secondary/10"
+                            className="group relative overflow-hidden border border-purple-100 dark:border-purple-900/30 hover:border-purple-500/50 transition-all duration-300 shadow-xl hover:shadow-2xl hover:-translate-y-1 bg-white dark:bg-slate-900/50"
                         >
-                            <CardContent className="p-5 space-y-4">
+                            <div className="absolute top-0 right-0 p-4 opacity-50 font-black text-6xl text-slate-100 dark:text-slate-800/50 -z-10 select-none pointer-events-none">
+                                {user.first_name?.[0]}
+                            </div>
+
+                            <CardContent className="p-6 space-y-6">
                                 {/* Header / ID Card Style */}
                                 <div className="flex justify-between items-start">
-                                    <div className="flex gap-3 items-center">
-                                        <div className="h-10 w-10 rounded-full bg-gradient-to-tr from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-lg shadow-md">
+                                    <div className="flex gap-4 items-center">
+                                        <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-blue-600 to-purple-600 rotate-3 group-hover:rotate-6 transition-transform flex items-center justify-center text-white font-black text-2xl shadow-lg shadow-purple-500/30">
                                             {user.first_name?.[0]}{user.last_name?.[0]}
                                         </div>
                                         <div>
-                                            <h3 className="font-semibold text-sm line-clamp-1">{user.first_name} {user.last_name}</h3>
-                                            <div className="flex items-center gap-1 text-xs text-muted-foreground">
+                                            <h3 className="font-bold text-xl text-slate-900 dark:text-white line-clamp-1">{user.first_name} {user.last_name}</h3>
+                                            <div className="flex items-center gap-2 mt-1">
                                                 {user.role === 'admin' ? (
-                                                    <Badge variant="outline" className="h-5 px-1 bg-purple-500/10 text-purple-600 border-purple-200">Admin</Badge>
+                                                    <Badge variant="secondary" className="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 hover:bg-purple-200">Admin</Badge>
                                                 ) : user.role === 'sub-admin' ? (
-                                                    <Badge variant="outline" className="h-5 px-1 bg-blue-500/10 text-blue-600 border-blue-200">Sub-Admin</Badge>
+                                                    <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 hover:bg-blue-200">Sub-Admin</Badge>
                                                 ) : (
-                                                    <span className="flex items-center gap-1"><UserCog className="w-3 h-3" /> User</span>
+                                                    <span className="text-sm text-muted-foreground flex items-center gap-1"><UserCog className="w-4 h-4" /> User</span>
                                                 )}
-                                                <span>•</span>
-                                                <span className={user.status === 'active' ? 'text-green-600' : 'text-red-500'}>
-                                                    {user.status}
-                                                </span>
+                                                <div className={`h-2 w-2 rounded-full ${user.status === 'active' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-red-500'}`} />
                                             </div>
                                         </div>
                                     </div>
                                     <DropdownMenu>
                                         <DropdownMenuTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2 text-muted-foreground hover:text-foreground">
-                                                <MoreVertical className="w-4 h-4" />
+                                            <Button variant="ghost" size="icon" className="h-10 w-10 text-muted-foreground hover:text-foreground hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full">
+                                                <MoreVertical className="w-5 h-5" />
                                             </Button>
                                         </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end" className="w-48">
+                                        <DropdownMenuContent align="end" className="w-52">
                                             <DropdownMenuLabel>Actions</DropdownMenuLabel>
                                             <DropdownMenuItem onClick={() => {
                                                 setAdjustmentDialogUser(user)
@@ -329,40 +330,47 @@ export default function AdminUsersPage() {
                                 </div>
 
                                 {/* Details Grid */}
-                                <div className="grid gap-2 text-sm mt-2">
-                                    <div className="flex items-center gap-2 text-muted-foreground p-2 rounded-lg bg-secondary/30">
-                                        <Mail className="w-4 h-4 shrink-0" />
-                                        <span className="truncate text-xs">{user.email}</span>
+                                <div className="space-y-3">
+                                    <div className="flex items-center gap-3 text-slate-600 dark:text-slate-300 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                                        <div className="p-2 bg-white dark:bg-slate-800 rounded-lg shadow-sm">
+                                            <Mail className="w-4 h-4 text-blue-500" />
+                                        </div>
+                                        <span className="truncate text-sm font-medium">{user.email}</span>
                                     </div>
-                                    <div className="flex items-center gap-2 text-muted-foreground p-2 rounded-lg bg-secondary/30">
-                                        <Phone className="w-4 h-4 shrink-0" />
-                                        <span className="text-xs">{user.phone_number || 'No phone'}</span>
-                                    </div>
-                                    <div className="flex items-center gap-2 text-muted-foreground p-2 rounded-lg bg-secondary/30">
-                                        <Calendar className="w-4 h-4 shrink-0" />
-                                        <span className="text-xs">Joined {formatDate(user.created_at)}</span>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <div className="flex items-center gap-3 text-slate-600 dark:text-slate-300 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                                            <div className="p-2 bg-white dark:bg-slate-800 rounded-lg shadow-sm">
+                                                <Phone className="w-4 h-4 text-emerald-500" />
+                                            </div>
+                                            <span className="text-sm font-medium">{user.phone_number || 'N/A'}</span>
+                                        </div>
+                                        <div className="flex items-center gap-3 text-slate-600 dark:text-slate-300 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                                            <div className="p-2 bg-white dark:bg-slate-800 rounded-lg shadow-sm">
+                                                <Calendar className="w-4 h-4 text-orange-500" />
+                                            </div>
+                                            <span className="text-sm font-medium">{formatDate(user.created_at).split(',')[0]}</span>
+                                        </div>
                                     </div>
                                 </div>
 
                                 {/* Wallet Section */}
-                                <div className="mt-4 pt-4 border-t border-dashed flex justify-between items-center bg-card/50 -mx-5 -mb-5 px-5 py-3">
+                                <div className="pt-4 flex justify-between items-center">
                                     <div className="flex flex-col">
-                                        <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider">Wallet Balance</span>
-                                        <span className="font-bold text-lg text-green-600 font-mono">
+                                        <span className="text-xs uppercase font-extrabold text-muted-foreground tracking-widest mb-1">Wallet Balance</span>
+                                        <span className="font-black text-2xl text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-green-500">
                                             {formatCurrency((Array.isArray(user.wallets) ? user.wallets[0]?.balance : user.wallets?.balance) || 0)}
                                         </span>
                                     </div>
                                     <Button
                                         size="sm"
-                                        variant="secondary"
-                                        className="h-8 rounded-full text-xs shadow-sm"
+                                        className="h-10 px-4 rounded-xl bg-slate-900 text-white hover:bg-slate-800 shadow-md hover:shadow-lg transition-all"
                                         onClick={() => {
                                             setAdjustmentDialogUser(user)
                                             setAdjustmentType('credit')
                                             setAdjustmentDescription('Admin manual credit')
                                         }}
                                     >
-                                        <Wallet className="w-3 h-3 mr-1.5" />
+                                        <Wallet className="w-4 h-4 mr-2" />
                                         Top up
                                     </Button>
                                 </div>
