@@ -146,7 +146,7 @@ export default function AdminProfitsPage() {
 
             const packageMap = new Map<string, { cost: number, price: number }>()
             if (packages) {
-                packages.forEach(pkg => {
+                packages.forEach((pkg: any) => {
                     const key = `${pkg.network}-${pkg.size}`
                     packageMap.set(key, {
                         cost: Number(pkg.cost_price) || 0,
