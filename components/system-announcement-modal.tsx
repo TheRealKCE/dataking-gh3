@@ -41,9 +41,10 @@ export function SystemAnnouncementModal() {
             const announcementData = data as any
 
             if (announcementData) {
-                // Check if this specific announcement has been seen using localStorage
+                // Check if this specific announcement has been seen in this session
                 const seenKey = `announcement_seen_${announcementData.id}`
-                const hasSeen = localStorage.getItem(seenKey)
+                // Use sessionStorage so it survives refresh but clears on tab close (or manual clear)
+                const hasSeen = sessionStorage.getItem(seenKey)
 
                 if (!hasSeen) {
                     setAnnouncement(announcementData)
@@ -57,8 +58,8 @@ export function SystemAnnouncementModal() {
 
     const handleDismiss = () => {
         if (announcement) {
-            // Mark as seen so it doesn't show again for this browser session
-            localStorage.setItem(`announcement_seen_${announcement.id}`, 'true')
+            // Mark as seen for this session
+            sessionStorage.setItem(`announcement_seen_${announcement.id}`, 'true')
             setIsOpen(false)
         }
     }

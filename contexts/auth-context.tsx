@@ -103,6 +103,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const signOut = async () => {
         await supabase.auth.signOut()
+
+        // Clear announcement seen flags so it shows again on next login
+        if (typeof window !== 'undefined') {
+            Object.keys(sessionStorage).forEach(key => {
+                if (key.startsWith('announcement_seen_')) {
+                    sessionStorage.removeItem(key)
+                }
+            })
+        }
+
         setUser(null)
         setDbUser(null)
         setSession(null)
