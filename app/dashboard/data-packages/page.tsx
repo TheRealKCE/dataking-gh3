@@ -270,29 +270,23 @@ export default function DataPackagesPage() {
                             {filteredPackages.map((pkg) => (
                                 <Card
                                     key={pkg.id}
-                                    className={`group overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer border-0 ${pkg.network === 'MTN' ? 'bg-[#FACC15] text-black' :
-                                        pkg.network === 'Telecel' ? 'bg-[#E60000] text-white' :
-                                            'bg-[#0056B3] text-white'
-                                        }`}
+                                    className="group overflow-hidden hover:shadow-xl transition-all duration-300 hover:-translate-y-1 cursor-pointer border hover:border-primary/50"
                                     onClick={() => handlePurchaseClick(pkg)}
                                 >
                                     <CardContent className="p-6">
                                         <div className="flex items-start justify-between mb-4">
                                             <NetworkIcon network={pkg.network} size={40} />
-                                            <Badge variant="outline" className={`border-current ${pkg.network === 'MTN' ? 'text-black' : 'text-white'
-                                                }`}>
+                                            <Badge variant="outline" className="border-current">
                                                 {pkg.network}
                                             </Badge>
                                         </div>
                                         <h3 className="text-2xl font-bold mb-2">{pkg.size}</h3>
-                                        <p className={`text-sm mb-4 line-clamp-2 ${pkg.network === 'MTN' ? 'text-black/80' : 'text-white/80'
-                                            }`}>
+                                        <p className="text-sm mb-4 line-clamp-2 text-muted-foreground">
                                             {pkg.description || `${pkg.size} data bundle for ${pkg.network}`}
                                         </p>
                                         <div className="flex items-center justify-between">
                                             <span className="text-2xl font-bold">{formatCurrency(pkg.price)}</span>
-                                            <Button size="sm" className={`transition-colors ${pkg.network === 'MTN' ? 'bg-black text-white hover:bg-black/80' : 'bg-white text-black hover:bg-white/90'
-                                                }`}>
+                                            <Button size="sm" className="transition-colors">
                                                 Buy Now
                                             </Button>
                                         </div>
@@ -305,10 +299,7 @@ export default function DataPackagesPage() {
                             {filteredPackages.map((pkg) => (
                                 <Card
                                     key={pkg.id}
-                                    className={`group hover:shadow-lg transition-all cursor-pointer border-0 ${pkg.network === 'MTN' ? 'bg-[#FACC15] text-black' :
-                                        pkg.network === 'Telecel' ? 'bg-[#E60000] text-white' :
-                                            'bg-[#0056B3] text-white'
-                                        }`}
+                                    className="group hover:shadow-lg transition-all cursor-pointer border hover:border-primary/50"
                                     onClick={() => handlePurchaseClick(pkg)}
                                 >
                                     <CardContent className="p-4 flex items-center justify-between">
@@ -319,19 +310,16 @@ export default function DataPackagesPage() {
                                             <div>
                                                 <div className="flex items-center gap-2">
                                                     <h3 className="font-semibold">{pkg.size}</h3>
-                                                    <Badge variant="outline" className={`text-xs border-current ${pkg.network === 'MTN' ? 'text-black' : 'text-white'
-                                                        }`}>
+                                                    <Badge variant="outline" className="text-xs border-current">
                                                         {pkg.network}
                                                     </Badge>
                                                 </div>
-                                                <p className={`text-sm ${pkg.network === 'MTN' ? 'text-black/70' : 'text-white/70'
-                                                    }`}>{pkg.description}</p>
+                                                <p className="text-sm text-muted-foreground">{pkg.description}</p>
                                             </div>
                                         </div>
                                         <div className="flex items-center gap-4">
                                             <span className="text-xl font-bold">{formatCurrency(pkg.price)}</span>
-                                            <Button size="sm" className={`${pkg.network === 'MTN' ? 'bg-black text-white hover:bg-black/80' : 'bg-white text-black hover:bg-white/90'
-                                                }`}>Buy</Button>
+                                            <Button size="sm">Buy</Button>
                                         </div>
                                     </CardContent>
                                 </Card>

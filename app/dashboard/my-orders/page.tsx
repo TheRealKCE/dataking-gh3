@@ -3,7 +3,7 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 import { supabase } from '@/lib/supabase'
-import { formatCurrency, formatOrderDate, isWithin24Hours } from '@/lib/utils'
+import { formatCurrency } from '@/lib/utils'
 import { NetworkIcon } from '@/components/network-icon'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
