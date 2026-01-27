@@ -7,7 +7,8 @@ import { sendWalletTopupSuccessSMS } from '@/lib/sms-service'
 
 export async function POST(request: NextRequest) {
     try {
-        const supabaseUserClient = createRouteHandlerClient({ cookies })
+        const cookieStore = await cookies()
+        const supabaseUserClient = createRouteHandlerClient({ cookies: () => cookieStore })
         const { data: { session }, error: sessionError } = await supabaseUserClient.auth.getSession()
 
         if (sessionError || !session?.user) {
