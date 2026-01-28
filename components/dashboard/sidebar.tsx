@@ -101,11 +101,11 @@ export function DashboardSidebar() {
     useEffect(() => {
         const fetchBalance = async () => {
             if (!dbUser?.id) return
-            const { data } = await supabase
+            const { data } = await (supabase
                 .from('wallets')
                 .select('balance')
                 .eq('user_id', dbUser.id)
-                .single()
+                .single() as any)
             if (data) setWalletBalance(data.balance || 0)
         }
         fetchBalance()
