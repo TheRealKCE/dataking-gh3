@@ -20,7 +20,7 @@ import {
     Users
 } from 'lucide-react'
 
-type TimeRange = 'today' | 'yesterday' | 'week' | 'month' | 'custom'
+type TimeRange = 'today' | 'yesterday' | 'week' | 'month' | 'all' | 'custom'
 
 export default function AdminProfitsPage() {
     const [loading, setLoading] = useState(true)
@@ -68,76 +68,98 @@ export default function AdminProfitsPage() {
     const calculateProfits = async () => {
         setLoading(true)
         try {
+            // Get current date at midnight in local time
             const now = new Date()
-            let startDate = new Date()
-            let endDate = new Date()
-            let previousStartDate = new Date()
-            let previousEndDate = new Date()
+            const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0)
+            const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
 
-            // Define date ranges
+            let startDate: Date
+            let endDate: Date
+            let previousStartDate: Date
+            let previousEndDate: Date
+
             if (range === 'today') {
-                startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0)
-                endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
-                previousStartDate = new Date(startDate)
-                previousStartDate.setDate(startDate.getDate() - 1)
-                previousEndDate = new Date(endDate)
-                previousEndDate.setDate(endDate.getDate() - 1)
+                startDate = todayStart
+                endDate = todayEnd
+                // Previous = yesterday
+                previousStartDate = new Date(todayStart)
+                previousStartDate.setDate(previousStartDate.getDate() - 1)
+                previousEndDate = new Date(todayEnd)
+                previousEndDate.setDate(previousEndDate.getDate() - 1)
             } else if (range === 'yesterday') {
-                const yest = new Date(now)
-                yest.setDate(yest.getDate() - 1)
-                startDate = new Date(yest.getFullYear(), yest.getMonth(), yest.getDate(), 0, 0, 0)
-                endDate = new Date(yest.getFullYear(), yest.getMonth(), yest.getDate(), 23, 59, 59)
+                startDate = new Date(todayStart)
+                startDate.setDate(startDate.getDate() - 1)
+                endDate = new Date(todayEnd)
+                endDate.setDate(endDate.getDate() - 1)
+                // Previous = day before yesterday
                 previousStartDate = new Date(startDate)
-                previousStartDate.setDate(startDate.getDate() - 1)
+                previousStartDate.setDate(previousStartDate.getDate() - 1)
                 previousEndDate = new Date(endDate)
-                previousEndDate.setDate(endDate.getDate() - 1)
+                previousEndDate.setDate(previousEndDate.getDate() - 1)
             } else if (range === 'week') {
-                const day = now.getDay() || 7
-                startDate = new Date(now)
-                startDate.setDate(now.getDate() - day + 1)
-                startDate.setHours(0, 0, 0, 0)
-                endDate = new Date()
+                // Start of this week (Monday)
+                const dayOfWeek = now.getDay() || 7  // Sunday = 7
+                startDate = new Date(todayStart)
+                startDate.setDate(startDate.getDate() - dayOfWeek + 1)
+                endDate = new Date()  // Now
+                // Previous week
                 previousStartDate = new Date(startDate)
-                previousStartDate.setDate(startDate.getDate() - 7)
-                previousEndDate = new Date(endDate)
-                previousEndDate.setDate(endDate.getDate() - 7)
+                previousStartDate.setDate(previousStartDate.getDate() - 7)
+                previousEndDate = new Date(startDate)
+                previousEndDate.setTime(previousEndDate.getTime() - 1)
             } else if (range === 'month') {
-                startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0)
+                // Start of this month
+                startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0)
+                endDate = new Date()  // Now
+                // Previous month
+                previousStartDate = new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0, 0)
+                previousEndDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999)
+            } else if (range === 'all') {
+                // All time - start from year 2020
+                startDate = new Date(2020, 0, 1, 0, 0, 0, 0)
                 endDate = new Date()
-                previousStartDate = new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0)
-                previousEndDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59)
+                // No comparison for all time
+                previousStartDate = new Date(2020, 0, 1)
+                previousEndDate = new Date(2020, 0, 1)
             } else if (range === 'custom') {
                 if (!customStart || !customEnd) {
                     setLoading(false)
                     return
                 }
-                startDate = new Date(customStart)
-                startDate.setHours(0, 0, 0, 0)
-                endDate = new Date(customEnd)
-                endDate.setHours(23, 59, 59, 999)
+                startDate = new Date(customStart + 'T00:00:00')
+                endDate = new Date(customEnd + 'T23:59:59.999')
                 const duration = endDate.getTime() - startDate.getTime()
                 previousEndDate = new Date(startDate.getTime() - 1)
                 previousStartDate = new Date(previousEndDate.getTime() - duration)
+            } else {
+                startDate = todayStart
+                endDate = todayEnd
+                previousStartDate = new Date(todayStart)
+                previousEndDate = new Date(todayEnd)
             }
 
-            // Fetch ALL completed orders (from all users)
+            // Fetch ALL completed orders (from all users) - completed only for revenue
             const { data: orders, error } = await supabase
                 .from('orders')
                 .select('created_at, price, cost_price, network, size')
                 .eq('status', 'completed')
                 .gte('created_at', startDate.toISOString())
                 .lte('created_at', endDate.toISOString())
-                .order('created_at', { ascending: true })
+                .order('created_at', { ascending: true }) as any
 
             if (error) throw error
 
             // Fetch previous period for comparison
-            const { data: prevOrders } = await supabase
-                .from('orders')
-                .select('price, cost_price, network, size')
-                .eq('status', 'completed')
-                .gte('created_at', previousStartDate.toISOString())
-                .lte('created_at', previousEndDate.toISOString())
+            let prevOrders: any[] = []
+            if (range !== 'all') {
+                const { data: prevData } = await supabase
+                    .from('orders')
+                    .select('price, cost_price, network, size')
+                    .eq('status', 'completed')
+                    .gte('created_at', previousStartDate.toISOString())
+                    .lte('created_at', previousEndDate.toISOString()) as any
+                prevOrders = prevData || []
+            }
 
             // Fetch packages for cost lookup
             const { data: packages } = await supabase
@@ -171,13 +193,15 @@ export default function AdminProfitsPage() {
             }
 
             const current = calculateMetrics(orders || [])
-            const previous = calculateMetrics(prevOrders || [])
+            const previous = calculateMetrics(prevOrders)
 
-            const profitGrowth = previous.profit === 0
-                ? (current.profit > 0 ? 100 : 0)
-                : ((current.profit - previous.profit) / previous.profit) * 100
+            const profitGrowth = range === 'all' ? 0 : (
+                previous.profit === 0
+                    ? (current.profit > 0 ? 100 : 0)
+                    : ((current.profit - previous.profit) / previous.profit) * 100
+            )
 
-            // Group by day
+            // Group by day/time
             const dailyMap = new Map<string, { revenue: number; profit: number; orders: number }>()
             if (orders) {
                 orders.forEach((order: any) => {
@@ -225,6 +249,7 @@ export default function AdminProfitsPage() {
         yesterday: 'Yesterday',
         week: 'This Week',
         month: 'This Month',
+        all: 'All Time',
         custom: 'Custom'
     }
 
@@ -251,12 +276,12 @@ export default function AdminProfitsPage() {
             {/* Header */}
             <div>
                 <h1 className="text-xl font-bold">Profit Dashboard</h1>
-                <p className="text-sm text-muted-foreground">All orders from all users</p>
+                <p className="text-sm text-muted-foreground">All completed orders from all users</p>
             </div>
 
             {/* Filter Buttons */}
             <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
-                {(['today', 'yesterday', 'week', 'month', 'custom'] as TimeRange[]).map((r) => (
+                {(['today', 'yesterday', 'week', 'month', 'all', 'custom'] as TimeRange[]).map((r) => (
                     <Button
                         key={r}
                         size="sm"
@@ -309,11 +334,11 @@ export default function AdminProfitsPage() {
                 <CardContent className="p-5">
                     <div className="flex items-start justify-between">
                         <div>
-                            <p className="text-green-100 text-sm font-medium">Net Profit</p>
+                            <p className="text-green-100 text-sm font-medium">Net Profit ({rangeLabels[range]})</p>
                             <p className="text-3xl font-bold mt-1">{formatCurrency(stats.profit)}</p>
                             <div className="flex items-center gap-3 mt-1">
-                                <span className="text-green-100 text-xs">{stats.totalOrders} orders</span>
-                                {stats.profitGrowth !== 0 && (
+                                <span className="text-green-100 text-xs">{stats.totalOrders} completed orders</span>
+                                {range !== 'all' && stats.profitGrowth !== 0 && (
                                     <div className={`flex items-center text-xs ${stats.profitGrowth >= 0 ? 'text-green-100' : 'text-red-200'}`}>
                                         {stats.profitGrowth >= 0 ? (
                                             <ArrowUpRight className="w-3 h-3 mr-1" />
@@ -386,13 +411,13 @@ export default function AdminProfitsPage() {
             <div className="space-y-2">
                 <h2 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
                     <Calendar className="w-4 h-4" />
-                    Breakdown
+                    Breakdown ({stats.dailyData.length} periods)
                 </h2>
 
                 {stats.dailyData.length === 0 ? (
                     <Card className="p-6 text-center">
                         <TrendingUp className="w-8 h-8 mx-auto text-muted-foreground/40 mb-2" />
-                        <p className="text-sm text-muted-foreground">No transactions for this period</p>
+                        <p className="text-sm text-muted-foreground">No completed orders for this period</p>
                     </Card>
                 ) : (
                     <div className="space-y-2">
