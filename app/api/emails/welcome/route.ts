@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sendWelcomeEmail, sendAdminNewUserAlert } from '@/lib/email-service'
+import { sendWelcomeSMS } from '@/lib/sms-service'
 
 /**
  * API route to send welcome email after user signup.
@@ -23,6 +24,12 @@ export async function POST(request: NextRequest) {
 
         if (!welcomeResult.success) {
             console.error('[WelcomeEmail] Failed to send:', welcomeResult.error)
+        }
+
+        // Send welcome SMS to user (non-blocking)
+        if (phoneNumber) {
+            sendWelcomeSMS(phoneNumber, firstName)
+                .catch((err: Error) => console.error('[WelcomeEmail] Welcome SMS failed:', err))
         }
 
         // Send admin notification about new user (non-blocking)

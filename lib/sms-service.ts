@@ -239,7 +239,24 @@ export async function sendWalletTopupSuccessSMS(
 ) {
     const message = `Your wallet has been credited with GHS${details.amount.toFixed(2)} successfully. Your new balance is GHS${details.newBalance.toFixed(2)}
 
-KING FLEXY DATA LTD`
+KingFlexyGh®️`
+
+    return sendSMS({
+        recipient: phoneNumber,
+        message
+    })
+}
+
+/**
+ * Send welcome SMS to new users
+ */
+export async function sendWelcomeSMS(
+    phoneNumber: string,
+    firstName: string
+) {
+    const message = `Yello ${firstName}! Welcome to K-FLEXY DATA LTD, buy cheap data and enjoy 1-5mins Delivery Service. Load your wallet and start purchasing Now! Join any of our community for more updates and support (You can find it at the bottom of your Dashboard page).
+
+Thank you for choosing KingFlexyGh!`
 
     return sendSMS({
         recipient: phoneNumber,
