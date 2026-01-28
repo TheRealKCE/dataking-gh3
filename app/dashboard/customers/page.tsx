@@ -51,6 +51,16 @@ export default function CustomersPage() {
         totalOrders: customers.reduce((sum, c) => sum + (c.total_purchases || 0), 0)
     }), [customers])
 
+    // Rotating color themes for cards
+    const colorThemes = [
+        { bg: 'from-rose-500 to-pink-600', light: 'bg-rose-100 dark:bg-rose-900/30', text: 'text-rose-600 dark:text-rose-400', border: 'border-rose-200 dark:border-rose-800' },
+        { bg: 'from-violet-500 to-purple-600', light: 'bg-violet-100 dark:bg-violet-900/30', text: 'text-violet-600 dark:text-violet-400', border: 'border-violet-200 dark:border-violet-800' },
+        { bg: 'from-blue-500 to-cyan-600', light: 'bg-blue-100 dark:bg-blue-900/30', text: 'text-blue-600 dark:text-blue-400', border: 'border-blue-200 dark:border-blue-800' },
+        { bg: 'from-emerald-500 to-teal-600', light: 'bg-emerald-100 dark:bg-emerald-900/30', text: 'text-emerald-600 dark:text-emerald-400', border: 'border-emerald-200 dark:border-emerald-800' },
+        { bg: 'from-amber-500 to-orange-600', light: 'bg-amber-100 dark:bg-amber-900/30', text: 'text-amber-600 dark:text-amber-400', border: 'border-amber-200 dark:border-amber-800' },
+        { bg: 'from-fuchsia-500 to-pink-600', light: 'bg-fuchsia-100 dark:bg-fuchsia-900/30', text: 'text-fuchsia-600 dark:text-fuchsia-400', border: 'border-fuchsia-200 dark:border-fuchsia-800' },
+    ]
+
     if (loading) {
         return (
             <div className="space-y-4">
@@ -123,54 +133,60 @@ export default function CustomersPage() {
                 </Card>
             ) : (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                    {filteredCustomers.map((customer) => (
-                        <Card
-                            key={customer.id}
-                            className="hover:shadow-md transition-shadow overflow-hidden"
-                        >
-                            <CardContent className="p-0">
-                                {/* Phone Header */}
-                                <div className="px-4 py-3 bg-gradient-to-r from-primary/5 to-primary/10 border-b">
-                                    <div className="flex items-center gap-2">
-                                        <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
-                                            <Phone className="w-4 h-4 text-primary" />
-                                        </div>
-                                        <span className="font-semibold text-sm truncate">
-                                            {customer.customer_phone}
-                                        </span>
-                                    </div>
-                                </div>
+                    {filteredCustomers.map((customer, index) => {
+                        const theme = colorThemes[index % colorThemes.length]
 
-                                {/* Stats */}
-                                <div className="p-4 space-y-2">
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-xs text-muted-foreground">Orders</span>
-                                        <Badge variant="secondary" className="text-xs">
-                                            {customer.total_purchases}
-                                        </Badge>
+                        return (
+                            <Card
+                                key={customer.id}
+                                className={`hover:shadow-lg hover:scale-[1.02] transition-all overflow-hidden ${theme.border}`}
+                            >
+                                <CardContent className="p-0">
+                                    {/* Colorful Header */}
+                                    <div className={`px-4 py-3 bg-gradient-to-r ${theme.bg} text-white`}>
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-9 h-9 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center flex-shrink-0">
+                                                <Phone className="w-4 h-4 text-white" />
+                                            </div>
+                                            <span className="font-bold text-sm truncate drop-shadow-sm">
+                                                {customer.customer_phone}
+                                            </span>
+                                        </div>
                                     </div>
-                                    <div className="flex justify-between items-center">
-                                        <span className="text-xs text-muted-foreground">Total Spent</span>
-                                        <span className="font-semibold text-sm text-green-600 dark:text-green-400">
-                                            {formatCurrency(customer.total_spent)}
-                                        </span>
+
+                                    {/* Stats */}
+                                    <div className="p-4 space-y-3">
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                                <ShoppingBag className="w-3 h-3" /> Orders
+                                            </span>
+                                            <Badge className={`${theme.light} ${theme.text} border-0`}>
+                                                {customer.total_purchases}
+                                            </Badge>
+                                        </div>
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                                <TrendingUp className="w-3 h-3" /> Total Spent
+                                            </span>
+                                            <span className={`font-bold text-sm ${theme.text}`}>
+                                                {formatCurrency(customer.total_spent)}
+                                            </span>
+                                        </div>
+                                        <div className="pt-2 border-t space-y-1">
+                                            <div className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                                <Calendar className="w-3 h-3" />
+                                                First: {formatDate(customer.first_purchase_at)}
+                                            </div>
+                                            <div className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                                <Calendar className="w-3 h-3" />
+                                                Last: {formatDate(customer.last_purchase_at)}
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div className="pt-2 border-t text-[10px] text-muted-foreground flex justify-between">
-                                        <span className="flex items-center gap-1">
-                                            <Calendar className="w-3 h-3" />
-                                            First: {formatDate(customer.first_purchase_at)}
-                                        </span>
-                                    </div>
-                                    <div className="text-[10px] text-muted-foreground">
-                                        <span className="flex items-center gap-1">
-                                            <Calendar className="w-3 h-3" />
-                                            Last: {formatDate(customer.last_purchase_at)}
-                                        </span>
-                                    </div>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    ))}
+                                </CardContent>
+                            </Card>
+                        )
+                    })}
                 </div>
             )}
 
