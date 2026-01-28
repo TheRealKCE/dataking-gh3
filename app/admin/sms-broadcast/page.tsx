@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -48,17 +47,18 @@ export default function AdminSMSBroadcastPage() {
 
     const fetchUsers = async () => {
         try {
-            const { data, error } = await supabase
-                .from('users')
-                .select('id, first_name, last_name, phone_number, role, email')
-                .not('phone_number', 'is', null)
-                .order('first_name', { ascending: true })
+            const response = await fetch('/api/admin/sms-broadcast/users')
+            const result = await response.json()
 
-            if (error) throw error
-            setUsers(data || [])
+            if (!response.ok) {
+                throw new Error(result.error || 'Failed to fetch users')
+            }
+
+            console.log('[SMSBroadcast] Loaded users:', result.users.length)
+            setUsers(result.users || [])
         } catch (error: any) {
             console.error('Error fetching users:', error)
-            toast.error('Failed to load users')
+            toast.error('Failed to load users: ' + error.message)
         } finally {
             setLoading(false)
         }

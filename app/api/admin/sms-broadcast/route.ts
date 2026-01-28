@@ -87,8 +87,11 @@ export async function POST(request: NextRequest) {
             if (!recipient.phone_number) {
                 results.failed++
                 results.errors.push(`${recipient.first_name || 'Unknown'}: No phone number`)
+                console.warn(`[SMSBroadcast] Skipping user ${recipient.first_name} - no phone number`)
                 continue
             }
+
+            console.log(`[SMSBroadcast] Sending to ${recipient.first_name} (${recipient.phone_number})`)
 
             try {
                 const result = await sendSMS({
@@ -98,13 +101,16 @@ export async function POST(request: NextRequest) {
 
                 if (result.success) {
                     results.success++
+                    console.log(`[SMSBroadcast] ✅ Success for ${recipient.first_name}`)
                 } else {
                     results.failed++
                     results.errors.push(`${recipient.first_name || 'Unknown'}: ${result.error}`)
+                    console.error(`[SMSBroadcast] ❌ Failed for ${recipient.first_name}: ${result.error}`)
                 }
             } catch (err: any) {
                 results.failed++
                 results.errors.push(`${recipient.first_name || 'Unknown'}: ${err.message}`)
+                console.error(`[SMSBroadcast] ❌ Exception for ${recipient.first_name}:`, err)
             }
         }
 
