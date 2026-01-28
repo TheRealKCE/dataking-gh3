@@ -250,11 +250,13 @@ export default function AdminUsersPage() {
                                             <h3 className="font-bold text-xl text-slate-900 dark:text-white line-clamp-1">{user.first_name} {user.last_name}</h3>
                                             <div className="flex items-center gap-2 mt-1">
                                                 {user.role === 'admin' ? (
-                                                    <Badge variant="secondary" className="bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300 hover:bg-purple-200">Admin</Badge>
+                                                    <Badge className="text-white" style={{ backgroundColor: '#E60000' }}>Admin</Badge>
                                                 ) : user.role === 'sub-admin' ? (
-                                                    <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300 hover:bg-blue-200">Sub-Admin</Badge>
+                                                    <Badge className="text-black" style={{ backgroundColor: '#FACC15' }}>Sub-Admin</Badge>
+                                                ) : user.role === 'agent' ? (
+                                                    <Badge className="text-white" style={{ backgroundColor: '#25D366' }}>Agent</Badge>
                                                 ) : (
-                                                    <span className="text-sm text-muted-foreground flex items-center gap-1"><UserCog className="w-4 h-4" /> User</span>
+                                                    <Badge className="text-white" style={{ backgroundColor: '#0056B3' }}>Customer</Badge>
                                                 )}
                                                 <div className={`h-2 w-2 rounded-full ${user.status === 'active' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-red-500'}`} />
                                             </div>
@@ -297,32 +299,30 @@ export default function AdminUsersPage() {
                                                 </DropdownMenuItem>
                                             )}
 
-                                            {user.role === 'user' ? (
-                                                <>
-                                                    <DropdownMenuItem onClick={() => handleRoleChange(user.id, 'admin')}>
-                                                        <Shield className="w-4 h-4 mr-2 text-purple-500" />
-                                                        Make Admin
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuItem onClick={() => handleRoleChange(user.id, 'sub-admin')}>
-                                                        <Shield className="w-4 h-4 mr-2 text-blue-500" />
-                                                        Make Sub-Admin
-                                                    </DropdownMenuItem>
-                                                </>
-                                            ) : user.role === 'sub-admin' ? (
-                                                <>
-                                                    <DropdownMenuItem onClick={() => handleRoleChange(user.id, 'admin')}>
-                                                        <Shield className="w-4 h-4 mr-2 text-purple-500" />
-                                                        Promote to Admin
-                                                    </DropdownMenuItem>
-                                                    <DropdownMenuItem onClick={() => handleRoleChange(user.id, 'user')}>
-                                                        <UserCog className="w-4 h-4 mr-2" />
-                                                        Remove Admin Access
-                                                    </DropdownMenuItem>
-                                                </>
-                                            ) : (
-                                                <DropdownMenuItem onClick={() => handleRoleChange(user.id, 'user')}>
-                                                    <UserCog className="w-4 h-4 mr-2" />
-                                                    Remove Admin
+                                            {/* Role Change Menu */}
+                                            <DropdownMenuLabel className="text-xs text-muted-foreground pt-2">Change Role</DropdownMenuLabel>
+                                            {user.role !== 'customer' && (
+                                                <DropdownMenuItem onClick={() => handleRoleChange(user.id, 'customer')}>
+                                                    <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: '#0056B3' }} />
+                                                    Make Customer
+                                                </DropdownMenuItem>
+                                            )}
+                                            {user.role !== 'agent' && (
+                                                <DropdownMenuItem onClick={() => handleRoleChange(user.id, 'agent')}>
+                                                    <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: '#25D366' }} />
+                                                    Make Agent
+                                                </DropdownMenuItem>
+                                            )}
+                                            {user.role !== 'sub-admin' && (
+                                                <DropdownMenuItem onClick={() => handleRoleChange(user.id, 'sub-admin')}>
+                                                    <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: '#FACC15' }} />
+                                                    Make Sub-Admin
+                                                </DropdownMenuItem>
+                                            )}
+                                            {user.role !== 'admin' && (
+                                                <DropdownMenuItem onClick={() => handleRoleChange(user.id, 'admin')}>
+                                                    <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: '#E60000' }} />
+                                                    Make Admin
                                                 </DropdownMenuItem>
                                             )}
 

@@ -68,14 +68,11 @@ export function DashboardHeader() {
                 <div className="flex items-center gap-2">
                     {/* Role Badge */}
                     <Badge
-                        className={`hidden sm:flex text-xs ${isAdmin
-                            ? 'bg-red-500 hover:bg-red-600 text-white'
-                            : isSubAdmin
-                                ? 'bg-purple-500 hover:bg-purple-600 text-white'
-                                : dbUser?.role === 'agent'
-                                    ? 'bg-green-500 hover:bg-green-600 text-white'
-                                    : 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
-                            }`}
+                        className="hidden sm:flex text-xs"
+                        style={{
+                            backgroundColor: isAdmin ? '#E60000' : isSubAdmin ? '#FACC15' : dbUser?.role === 'agent' ? '#25D366' : '#0056B3',
+                            color: isSubAdmin ? 'black' : 'white'
+                        }}
                     >
                         {isAdmin ? 'Admin' : isSubAdmin ? 'Sub-Admin' : dbUser?.role === 'agent' ? 'Agent' : 'Customer'}
                     </Badge>
@@ -123,14 +120,11 @@ export function DashboardHeader() {
                                         {dbUser?.email}
                                     </p>
                                     <Badge
-                                        className={`w-fit mt-1 text-[10px] px-1.5 py-0 ${isAdmin
-                                            ? 'bg-red-500 text-white'
-                                            : isSubAdmin
-                                                ? 'bg-purple-500 text-white'
-                                                : dbUser?.role === 'agent'
-                                                    ? 'bg-green-500 text-white'
-                                                    : 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
-                                            }`}
+                                        className="w-fit mt-1 text-[10px] px-1.5 py-0"
+                                        style={{
+                                            backgroundColor: isAdmin ? '#E60000' : isSubAdmin ? '#FACC15' : dbUser?.role === 'agent' ? '#25D366' : '#0056B3',
+                                            color: isSubAdmin ? 'black' : 'white'
+                                        }}
                                     >
                                         {isAdmin ? 'Admin' : isSubAdmin ? 'Sub-Admin' : dbUser?.role === 'agent' ? 'Agent' : 'Customer'}
                                     </Badge>
