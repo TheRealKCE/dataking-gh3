@@ -184,26 +184,26 @@ export function DashboardSidebar() {
                     <div className="mx-3 mt-3 p-3 rounded-xl bg-gradient-to-br from-gray-800/80 to-gray-900 border border-gray-700/50">
                         {/* User Info Row */}
                         <div className="flex items-center gap-2.5 mb-3">
-                            {/* Avatar with Role Icon */}
+                            {/* Avatar with Initials */}
                             <div
-                                className="relative w-10 h-10 rounded-full flex items-center justify-center"
-                                style={{ backgroundColor: currentRole.bgColor }}
+                                className="relative w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm"
+                                style={{ backgroundColor: currentRole.color }}
                             >
-                                <RoleIcon className="w-5 h-5" style={{ color: currentRole.color }} />
+                                {dbUser.first_name?.charAt(0)}{dbUser.last_name?.charAt(0)}
                                 <div
-                                    className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center text-[8px] font-black border-2 border-gray-900"
-                                    style={{ backgroundColor: currentRole.color, color: 'white' }}
+                                    className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center border-2 border-gray-900"
+                                    style={{ backgroundColor: currentRole.bgColor }}
                                 >
-                                    {currentRole.rank.replace('#', '')}
+                                    <RoleIcon className="w-2.5 h-2.5" style={{ color: currentRole.color }} />
                                 </div>
                             </div>
                             <div className="flex-1 min-w-0">
-                                <p className="text-xs font-semibold text-white truncate">
+                                <p className="text-xs font-medium text-white truncate">
                                     {dbUser.first_name} {dbUser.last_name}
                                 </p>
                                 <div className="flex items-center gap-1">
                                     <span
-                                        className="text-[10px] font-medium"
+                                        className="text-[10px] font-normal"
                                         style={{ color: currentRole.textColor }}
                                     >
                                         {currentRole.rank} {currentRole.label}
