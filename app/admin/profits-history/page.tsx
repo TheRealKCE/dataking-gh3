@@ -37,7 +37,7 @@ export default function AdminProfitsPage() {
         previousProfit: 0,
         profitGrowth: 0,
         totalOrders: 0,
-        dailyData: [] as { date: string; revenue: number; profit: number; orders: number }[]
+        dailyData: [] as { date: string; revenue: number; profit: number; orders: number; cost: number }[]
     })
 
     useEffect(() => {
@@ -47,19 +47,47 @@ export default function AdminProfitsPage() {
 
     const fetchUserWallets = async () => {
         try {
-            // Fetch all users who are NOT admin or sub-admin
-            const { data: users, error } = await supabase
+            // Fetch ALL wallets - sum of all user balances
+            const { data: wallets, error } = await supabase
+                .from('wallets')
+                .select('balance, user_id') as any
+
+            if (error) {
+                console.error('Wallets fetch error:', error)
+                // Try users table instead
+                const { data: users, error: usersError } = await supabase
+                    .from('users')
+                    .select('wallet_balance, role, id') as any
+
+                if (usersError) throw usersError
+
+                // Filter out admins
+                const regularUsers = (users || []).filter((u: any) =>
+                    u.role !== 'admin' && u.role !== 'sub-admin'
+                )
+                const total = regularUsers.reduce((sum: number, user: any) =>
+                    sum + (Number(user.wallet_balance) || 0), 0
+                )
+                setUserWalletTotal(total)
+                setUserCount(regularUsers.length)
+                return
+            }
+
+            // Get user roles to exclude admins
+            const { data: users } = await supabase
                 .from('users')
-                .select('wallet_balance, role')
-                .not('role', 'in', '("admin","sub-admin")') as any
+                .select('id, role') as any
 
-            if (error) throw error
+            const adminIds = new Set((users || [])
+                .filter((u: any) => u.role === 'admin' || u.role === 'sub-admin')
+                .map((u: any) => u.id))
 
-            const totalBalance = (users || []).reduce((sum: number, user: any) =>
-                sum + (Number(user.wallet_balance) || 0), 0
+            const regularWallets = (wallets || []).filter((w: any) => !adminIds.has(w.user_id))
+            const total = regularWallets.reduce((sum: number, w: any) =>
+                sum + (Number(w.balance) || 0), 0
             )
-            setUserWalletTotal(totalBalance)
-            setUserCount(users?.length || 0)
+            setUserWalletTotal(total)
+            setUserCount(regularWallets.length)
         } catch (error) {
             console.error('Error fetching user wallets:', error)
         }
@@ -81,7 +109,6 @@ export default function AdminProfitsPage() {
             if (range === 'today') {
                 startDate = todayStart
                 endDate = todayEnd
-                // Previous = yesterday
                 previousStartDate = new Date(todayStart)
                 previousStartDate.setDate(previousStartDate.getDate() - 1)
                 previousEndDate = new Date(todayEnd)
@@ -91,34 +118,27 @@ export default function AdminProfitsPage() {
                 startDate.setDate(startDate.getDate() - 1)
                 endDate = new Date(todayEnd)
                 endDate.setDate(endDate.getDate() - 1)
-                // Previous = day before yesterday
                 previousStartDate = new Date(startDate)
                 previousStartDate.setDate(previousStartDate.getDate() - 1)
                 previousEndDate = new Date(endDate)
                 previousEndDate.setDate(previousEndDate.getDate() - 1)
             } else if (range === 'week') {
-                // Start of this week (Monday)
-                const dayOfWeek = now.getDay() || 7  // Sunday = 7
+                const dayOfWeek = now.getDay() || 7
                 startDate = new Date(todayStart)
                 startDate.setDate(startDate.getDate() - dayOfWeek + 1)
-                endDate = new Date()  // Now
-                // Previous week
+                endDate = new Date()
                 previousStartDate = new Date(startDate)
                 previousStartDate.setDate(previousStartDate.getDate() - 7)
                 previousEndDate = new Date(startDate)
                 previousEndDate.setTime(previousEndDate.getTime() - 1)
             } else if (range === 'month') {
-                // Start of this month
                 startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0)
-                endDate = new Date()  // Now
-                // Previous month
+                endDate = new Date()
                 previousStartDate = new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0, 0)
                 previousEndDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999)
             } else if (range === 'all') {
-                // All time - start from year 2020
                 startDate = new Date(2020, 0, 1, 0, 0, 0, 0)
                 endDate = new Date()
-                // No comparison for all time
                 previousStartDate = new Date(2020, 0, 1)
                 previousEndDate = new Date(2020, 0, 1)
             } else if (range === 'custom') {
@@ -138,11 +158,11 @@ export default function AdminProfitsPage() {
                 previousEndDate = new Date(todayEnd)
             }
 
-            // Fetch ALL completed orders (from all users) - completed only for revenue
+            // Fetch ALL orders EXCEPT failed (include pending, processing, completed)
             const { data: orders, error } = await supabase
                 .from('orders')
-                .select('created_at, price, cost_price, network, size')
-                .eq('status', 'completed')
+                .select('created_at, price, cost_price, network, size, status')
+                .neq('status', 'failed')
                 .gte('created_at', startDate.toISOString())
                 .lte('created_at', endDate.toISOString())
                 .order('created_at', { ascending: true }) as any
@@ -155,13 +175,13 @@ export default function AdminProfitsPage() {
                 const { data: prevData } = await supabase
                     .from('orders')
                     .select('price, cost_price, network, size')
-                    .eq('status', 'completed')
+                    .neq('status', 'failed')
                     .gte('created_at', previousStartDate.toISOString())
                     .lte('created_at', previousEndDate.toISOString()) as any
                 prevOrders = prevData || []
             }
 
-            // Fetch packages for cost lookup
+            // Fetch packages for cost lookup (fallback only)
             const { data: packages } = await supabase
                 .from('data_packages')
                 .select('network, size, price, cost_price') as any
@@ -177,15 +197,28 @@ export default function AdminProfitsPage() {
                 })
             }
 
-            // Calculate metrics
+            // Calculate metrics - PRIORITIZE order's own cost_price
             const calculateMetrics = (orderList: any[]) => {
                 let rev = 0, cst = 0
                 orderList.forEach(order => {
-                    const key = `${order.network}-${order.size}`
-                    const pkg = packageMap.get(key)
-                    const price = Number(order.price) || (pkg ? pkg.price : 0)
-                    let cost = pkg?.cost || Number(order.cost_price) || 0
-                    if (cost === 0 && price > 0) cost = price * 0.8
+                    // Revenue: Use order's actual selling price
+                    const price = Number(order.price) || 0
+
+                    // Cost: FIRST use order's stored cost_price, THEN fallback to package cost
+                    let cost = Number(order.cost_price) || 0
+
+                    // Only fallback to package map if order has no cost_price
+                    if (cost === 0) {
+                        const key = `${order.network}-${order.size}`
+                        const pkg = packageMap.get(key)
+                        cost = pkg?.cost || 0
+                    }
+
+                    // Last resort: estimate at 80% of price
+                    if (cost === 0 && price > 0) {
+                        cost = price * 0.8
+                    }
+
                     rev += price
                     cst += cost
                 })
@@ -202,7 +235,7 @@ export default function AdminProfitsPage() {
             )
 
             // Group by day/time
-            const dailyMap = new Map<string, { revenue: number; profit: number; orders: number }>()
+            const dailyMap = new Map<string, { revenue: number; profit: number; orders: number; cost: number }>()
             if (orders) {
                 orders.forEach((order: any) => {
                     const d = new Date(order.created_at)
@@ -210,15 +243,19 @@ export default function AdminProfitsPage() {
                         ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
                         : d.toLocaleDateString([], { month: 'short', day: 'numeric' })
 
-                    const key = `${order.network}-${order.size}`
-                    const pkg = packageMap.get(key)
-                    const price = Number(order.price) || (pkg ? pkg.price : 0)
-                    let cost = pkg?.cost || Number(order.cost_price) || 0
+                    const price = Number(order.price) || 0
+                    let cost = Number(order.cost_price) || 0
+                    if (cost === 0) {
+                        const key = `${order.network}-${order.size}`
+                        const pkg = packageMap.get(key)
+                        cost = pkg?.cost || 0
+                    }
                     if (cost === 0 && price > 0) cost = price * 0.8
 
-                    const existing = dailyMap.get(dateStr) || { revenue: 0, profit: 0, orders: 0 }
+                    const existing = dailyMap.get(dateStr) || { revenue: 0, profit: 0, orders: 0, cost: 0 }
                     dailyMap.set(dateStr, {
                         revenue: existing.revenue + price,
+                        cost: existing.cost + cost,
                         profit: existing.profit + (price - cost),
                         orders: existing.orders + 1
                     })
@@ -276,7 +313,7 @@ export default function AdminProfitsPage() {
             {/* Header */}
             <div>
                 <h1 className="text-xl font-bold">Profit Dashboard</h1>
-                <p className="text-sm text-muted-foreground">All completed orders from all users</p>
+                <p className="text-sm text-muted-foreground">All orders (excl. failed) from all users</p>
             </div>
 
             {/* Filter Buttons */}
@@ -337,7 +374,7 @@ export default function AdminProfitsPage() {
                             <p className="text-green-100 text-sm font-medium">Net Profit ({rangeLabels[range]})</p>
                             <p className="text-3xl font-bold mt-1">{formatCurrency(stats.profit)}</p>
                             <div className="flex items-center gap-3 mt-1">
-                                <span className="text-green-100 text-xs">{stats.totalOrders} completed orders</span>
+                                <span className="text-green-100 text-xs">{stats.totalOrders} orders</span>
                                 {range !== 'all' && stats.profitGrowth !== 0 && (
                                     <div className={`flex items-center text-xs ${stats.profitGrowth >= 0 ? 'text-green-100' : 'text-red-200'}`}>
                                         {stats.profitGrowth >= 0 ? (
@@ -366,7 +403,7 @@ export default function AdminProfitsPage() {
                                 <DollarSign className="w-5 h-5 text-blue-600" />
                             </div>
                             <div>
-                                <p className="text-xs text-muted-foreground">Revenue</p>
+                                <p className="text-xs text-muted-foreground">Total Sales</p>
                                 <p className="font-bold text-lg">{formatCurrency(stats.revenue)}</p>
                             </div>
                         </div>
@@ -379,7 +416,7 @@ export default function AdminProfitsPage() {
                                 <TrendingDown className="w-5 h-5 text-red-600" />
                             </div>
                             <div>
-                                <p className="text-xs text-muted-foreground">Cost</p>
+                                <p className="text-xs text-muted-foreground">Total Cost</p>
                                 <p className="font-bold text-lg text-red-600">-{formatCurrency(stats.cost)}</p>
                             </div>
                         </div>
@@ -417,7 +454,7 @@ export default function AdminProfitsPage() {
                 {stats.dailyData.length === 0 ? (
                     <Card className="p-6 text-center">
                         <TrendingUp className="w-8 h-8 mx-auto text-muted-foreground/40 mb-2" />
-                        <p className="text-sm text-muted-foreground">No completed orders for this period</p>
+                        <p className="text-sm text-muted-foreground">No orders for this period</p>
                     </Card>
                 ) : (
                     <div className="space-y-2">
@@ -433,14 +470,14 @@ export default function AdminProfitsPage() {
                                                 </div>
                                                 <div>
                                                     <p className="font-medium text-sm">{day.date}</p>
-                                                    <p className="text-xs text-muted-foreground">
-                                                        {day.orders} order{day.orders !== 1 ? 's' : ''}
-                                                    </p>
+                                                    <div className="text-xs text-muted-foreground">
+                                                        Sales: {formatCurrency(day.revenue)} | Cost: {formatCurrency(day.cost)}
+                                                    </div>
                                                 </div>
                                             </div>
                                             <div className="text-right">
                                                 <p className="font-bold text-green-600">{formatCurrency(day.profit)}</p>
-                                                <p className="text-xs text-muted-foreground">{margin.toFixed(0)}% margin</p>
+                                                <p className="text-xs text-muted-foreground">{margin.toFixed(0)}%</p>
                                             </div>
                                         </div>
                                     </CardContent>
