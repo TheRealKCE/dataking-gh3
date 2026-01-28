@@ -63,12 +63,12 @@ export async function GET(request: NextRequest) {
         // Fetch all user wallet balances (excluding admins)
         const { data: users } = await supabase
             .from('users')
-            .select('id, wallet_balance, role')
+            .select('id, wallet_balance, role') as any
 
-        const regularUsers = (users || []).filter(u =>
+        const regularUsers = (users || []).filter((u: any) =>
             u.role !== 'admin' && u.role !== 'sub-admin'
         )
-        const userWalletTotal = regularUsers.reduce((sum, user) =>
+        const userWalletTotal = regularUsers.reduce((sum: number, user: any) =>
             sum + (Number(user.wallet_balance) || 0), 0
         )
 
