@@ -116,22 +116,22 @@ export async function POST(request: NextRequest) {
             }))
 
 
-            // Send SMS to each user
-            for (const order of affectedOrders) {
-                const userPhone = (order as any).users?.phone_number
+            // Send SMS to each user - DISABLED
+            // for (const order of affectedOrders) {
+            //     const userPhone = (order as any).users?.phone_number
 
-                if (userPhone) {
-                    sendStatusUpdateSMS(
-                        userPhone,
-                        {
-                            referenceCode: (order as any).reference_code,
-                            status
-                        }
-                    ).catch(err => console.error(`[AdminStatusUpdate] SMS error for ${(order as any).reference_code}:`, err))
-                } else {
-                    console.warn(`[AdminStatusUpdate] No registered phone for user ${(order as any).user_id} (Order ${(order as any).reference_code})`)
-                }
-            }
+            //     if (userPhone) {
+            //         sendStatusUpdateSMS(
+            //             userPhone,
+            //             {
+            //                 referenceCode: (order as any).reference_code,
+            //                 status
+            //             }
+            //         ).catch(err => console.error(`[AdminStatusUpdate] SMS error for ${(order as any).reference_code}:`, err))
+            //     } else {
+            //         console.warn(`[AdminStatusUpdate] No registered phone for user ${(order as any).user_id} (Order ${(order as any).reference_code})`)
+            //     }
+            // }
 
 
             const { error: notifyError } = await (supabase.from('notifications') as any).insert(notifications)

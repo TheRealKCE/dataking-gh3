@@ -168,15 +168,15 @@ export async function POST(request: NextRequest) {
                     }
                 ).catch((err: Error) => console.error('[Order] User email error:', err))
 
-                // Send order success SMS
-                sendOrderSuccessSMS(
-                    phoneNumber,
-                    {
-                        referenceCode,
-                        size: (pkg as any).size,
-                        network: (pkg as any).network
-                    }
-                ).catch((err: Error) => console.error('[Order] SMS error:', err))
+                // Send order success SMS - DISABLED
+                // sendOrderSuccessSMS(
+                //     phoneNumber,
+                //     {
+                //         referenceCode,
+                //         size: (pkg as any).size,
+                //         network: (pkg as any).network
+                //     }
+                // ).catch((err: Error) => console.error('[Order] SMS error:', err))
 
                 // Send new order alert to admin
                 sendAdminNewOrderAlert({
