@@ -20,7 +20,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 
 export function DashboardHeader() {
-    const { dbUser, signOut, isAdmin } = useAuth()
+    const { dbUser, signOut, isAdmin, isSubAdmin } = useAuth()
     const { toggleSidebar } = useUI()
     const { theme, setTheme } = useTheme()
     const [unreadCount, setUnreadCount] = useState(0)
@@ -66,12 +66,17 @@ export function DashboardHeader() {
 
                 {/* Right Side Actions */}
                 <div className="flex items-center gap-2">
-                    {/* Admin Badge */}
-                    {isAdmin && (
-                        <Badge variant="destructive" className="hidden sm:flex">
-                            Admin
-                        </Badge>
-                    )}
+                    {/* Role Badge */}
+                    <Badge
+                        className={`hidden sm:flex text-xs ${isAdmin
+                            ? 'bg-red-500 hover:bg-red-600 text-white'
+                            : isSubAdmin
+                                ? 'bg-purple-500 hover:bg-purple-600 text-white'
+                                : 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
+                            }`}
+                    >
+                        {isAdmin ? 'Admin' : isSubAdmin ? 'Sub-Admin' : 'Customer'}
+                    </Badge>
 
                     {/* Theme Toggle */}
                     <Button
@@ -115,6 +120,16 @@ export function DashboardHeader() {
                                     <p className="text-xs leading-none text-muted-foreground">
                                         {dbUser?.email}
                                     </p>
+                                    <Badge
+                                        className={`w-fit mt-1 text-[10px] px-1.5 py-0 ${isAdmin
+                                                ? 'bg-red-500 text-white'
+                                                : isSubAdmin
+                                                    ? 'bg-purple-500 text-white'
+                                                    : 'bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300'
+                                            }`}
+                                    >
+                                        {isAdmin ? 'Admin' : isSubAdmin ? 'Sub-Admin' : 'Customer'}
+                                    </Badge>
                                 </div>
                             </DropdownMenuLabel>
                             <DropdownMenuSeparator />

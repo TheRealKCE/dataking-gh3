@@ -7,6 +7,7 @@ import { useAuth } from '@/contexts/auth-context'
 import { useUI } from '@/contexts/ui-context'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import {
     LayoutDashboard,
     Package,
@@ -128,8 +129,35 @@ export function DashboardSidebar() {
                     </Button>
                 </div>
 
+                {/* Profile Widget */}
+                {!isCollapsed && dbUser && (
+                    <div className="px-4 py-3 border-b border-gray-200 dark:border-gray-800">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                                {dbUser.first_name?.charAt(0)}{dbUser.last_name?.charAt(0)}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <p className="text-sm font-semibold text-gray-900 dark:text-white truncate">
+                                    {dbUser.first_name} {dbUser.last_name}
+                                </p>
+                                <Badge
+                                    variant={isAdmin ? 'default' : isSubAdmin ? 'secondary' : 'outline'}
+                                    className={cn(
+                                        "text-[10px] px-1.5 py-0",
+                                        isAdmin && "bg-red-500 hover:bg-red-600",
+                                        isSubAdmin && "bg-purple-500 hover:bg-purple-600 text-white",
+                                        !isAdmin && !isSubAdmin && "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
+                                    )}
+                                >
+                                    {isAdmin ? 'Admin' : isSubAdmin ? 'Sub-Admin' : 'Customer'}
+                                </Badge>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
                 {/* Navigation */}
-                <nav className="p-4 space-y-1 overflow-y-auto h-[calc(100vh-8rem)]">
+                <nav className="p-4 space-y-1 overflow-y-auto h-[calc(100vh-12rem)]">
                     {isAdmin && !isCollapsed && (
                         <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider mb-2 px-3">
                             User Menu
