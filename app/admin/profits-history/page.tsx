@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency } from '@/lib/utils'
 import { Card, CardContent } from '@/components/ui/card'
@@ -16,7 +16,8 @@ import {
     ArrowUpRight,
     ArrowDownRight,
     Wallet,
-    BarChart3
+    BarChart3,
+    Users
 } from 'lucide-react'
 
 type TimeRange = 'today' | 'yesterday' | 'week' | 'month' | 'custom'
@@ -26,6 +27,8 @@ export default function AdminProfitsPage() {
     const [range, setRange] = useState<TimeRange>('today')
     const [customStart, setCustomStart] = useState('')
     const [customEnd, setCustomEnd] = useState('')
+    const [userWalletTotal, setUserWalletTotal] = useState(0)
+    const [userCount, setUserCount] = useState(0)
     const [stats, setStats] = useState({
         revenue: 0,
         cost: 0,
@@ -33,12 +36,34 @@ export default function AdminProfitsPage() {
         margin: 0,
         previousProfit: 0,
         profitGrowth: 0,
+        totalOrders: 0,
         dailyData: [] as { date: string; revenue: number; profit: number; orders: number }[]
     })
 
     useEffect(() => {
         calculateProfits()
+        fetchUserWallets()
     }, [range, customStart, customEnd])
+
+    const fetchUserWallets = async () => {
+        try {
+            // Fetch all users who are NOT admin or sub-admin
+            const { data: users, error } = await supabase
+                .from('users')
+                .select('wallet_balance, role')
+                .not('role', 'in', '("admin","sub-admin")')
+
+            if (error) throw error
+
+            const totalBalance = (users || []).reduce((sum, user) =>
+                sum + (Number(user.wallet_balance) || 0), 0
+            )
+            setUserWalletTotal(totalBalance)
+            setUserCount(users?.length || 0)
+        } catch (error) {
+            console.error('Error fetching user wallets:', error)
+        }
+    }
 
     const calculateProfits = async () => {
         setLoading(true)
@@ -95,7 +120,7 @@ export default function AdminProfitsPage() {
                 previousStartDate = new Date(previousEndDate.getTime() - duration)
             }
 
-            // Fetch current period orders
+            // Fetch ALL completed orders (from all users)
             const { data: orders, error } = await supabase
                 .from('orders')
                 .select('created_at, price, cost_price, network, size')
@@ -183,6 +208,7 @@ export default function AdminProfitsPage() {
                 margin: current.revenue > 0 ? (current.profit / current.revenue) * 100 : 0,
                 previousProfit: previous.profit,
                 profitGrowth,
+                totalOrders: orders?.length || 0,
                 dailyData: Array.from(dailyMap.entries())
                     .map(([date, vals]) => ({ date, ...vals }))
                     .reverse()
@@ -225,10 +251,10 @@ export default function AdminProfitsPage() {
             {/* Header */}
             <div>
                 <h1 className="text-xl font-bold">Profit Dashboard</h1>
-                <p className="text-sm text-muted-foreground">Track your earnings</p>
+                <p className="text-sm text-muted-foreground">All orders from all users</p>
             </div>
 
-            {/* Filter Buttons - Scrollable on mobile */}
+            {/* Filter Buttons */}
             <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
                 {(['today', 'yesterday', 'week', 'month', 'custom'] as TimeRange[]).map((r) => (
                     <Button
@@ -262,6 +288,22 @@ export default function AdminProfitsPage() {
                 </div>
             )}
 
+            {/* User Wallet Balance Card */}
+            <Card className="bg-gradient-to-br from-amber-500 to-orange-600 text-white overflow-hidden">
+                <CardContent className="p-5">
+                    <div className="flex items-start justify-between">
+                        <div>
+                            <p className="text-amber-100 text-sm font-medium">User Wallet Balances</p>
+                            <p className="text-3xl font-bold mt-1">{formatCurrency(userWalletTotal)}</p>
+                            <p className="text-amber-100 text-xs mt-1">{userCount} users (excl. admins)</p>
+                        </div>
+                        <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
+                            <Users className="w-6 h-6 text-white" />
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
+
             {/* Main Profit Card */}
             <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-white overflow-hidden">
                 <CardContent className="p-5">
@@ -269,16 +311,19 @@ export default function AdminProfitsPage() {
                         <div>
                             <p className="text-green-100 text-sm font-medium">Net Profit</p>
                             <p className="text-3xl font-bold mt-1">{formatCurrency(stats.profit)}</p>
-                            {stats.profitGrowth !== 0 && (
-                                <div className={`flex items-center text-sm mt-2 ${stats.profitGrowth >= 0 ? 'text-green-100' : 'text-red-200'}`}>
-                                    {stats.profitGrowth >= 0 ? (
-                                        <ArrowUpRight className="w-4 h-4 mr-1" />
-                                    ) : (
-                                        <ArrowDownRight className="w-4 h-4 mr-1" />
-                                    )}
-                                    {Math.abs(stats.profitGrowth).toFixed(1)}% vs previous
-                                </div>
-                            )}
+                            <div className="flex items-center gap-3 mt-1">
+                                <span className="text-green-100 text-xs">{stats.totalOrders} orders</span>
+                                {stats.profitGrowth !== 0 && (
+                                    <div className={`flex items-center text-xs ${stats.profitGrowth >= 0 ? 'text-green-100' : 'text-red-200'}`}>
+                                        {stats.profitGrowth >= 0 ? (
+                                            <ArrowUpRight className="w-3 h-3 mr-1" />
+                                        ) : (
+                                            <ArrowDownRight className="w-3 h-3 mr-1" />
+                                        )}
+                                        {Math.abs(stats.profitGrowth).toFixed(1)}%
+                                    </div>
+                                )}
+                            </div>
                         </div>
                         <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
                             <Wallet className="w-6 h-6 text-white" />
