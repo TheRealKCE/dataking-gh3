@@ -34,12 +34,7 @@ function validateSMSConfig() {
         console.warn('[SMS Config] WARNING: MOOLRE_SENDER_ID is not set, will use default')
     }
 
-    console.log('[SMS Config] Moolre SMS Service Initialized:', {
-        hasApiKey: !!apiKey,
-        apiKeyPrefix: apiKey ? apiKey.substring(0, 8) + '...' : 'NOT SET',
-        senderId: senderId || 'NOT SET',
-        endpoint: MOOLRE_BASE_URL + MOOLRE_SMS_ENDPOINT
-    })
+    // SMS service initialized
 }
 
 // Run validation when module loads
@@ -96,14 +91,7 @@ export async function sendSMS(options: SMSOptions): Promise<SMSResult> {
             ]
         }
 
-        console.log('[SMS Service] Sending SMS via Moolre:', {
-            to: normalizedPhone,
-            sender: payload.senderid,
-            messageLength: options.message.length,
-            endpoint: url,
-            reference: reference
-        })
-        console.log('[SMS Service] Full payload:', JSON.stringify(payload, null, 2))
+        // Sending SMS to Moolre API
 
         // Moolre uses X-API-KEY and X-API-VASKEY headers for authentication
         const response = await fetch(url, {
@@ -118,9 +106,6 @@ export async function sendSMS(options: SMSOptions): Promise<SMSResult> {
         })
 
         const responseText = await response.text()
-        console.log('[SMS Service] Raw response:', responseText)
-        console.log('[SMS Service] Response status:', response.status)
-        console.log('[SMS Service] Response headers:', JSON.stringify(Object.fromEntries(response.headers.entries()), null, 2))
 
         let data: any
         try {
@@ -142,7 +127,7 @@ export async function sendSMS(options: SMSOptions): Promise<SMSResult> {
             }
         }
 
-        console.log('[SMS Service] Parsed response:', JSON.stringify(data, null, 2))
+        // Response parsed successfully
 
         // Success response check - Common patterns for SMS APIs
         // Moolre might return: success: true, status: 'success', code: 200, etc.
@@ -153,7 +138,6 @@ export async function sendSMS(options: SMSOptions): Promise<SMSResult> {
             (response.status >= 200 && response.status < 300 && !data.error)
 
         if (isSuccess) {
-            console.log('[SMS Service] ✅ SUCCESS - SMS sent successfully via Moolre')
             const messageId = data.message_id || data.id || data.reference || 'sent'
             return { success: true, messageId }
         } else {

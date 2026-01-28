@@ -54,7 +54,6 @@ export default function AdminSMSBroadcastPage() {
                 throw new Error(result.error || 'Failed to fetch users')
             }
 
-            console.log('[SMSBroadcast] Loaded users:', result.users.length)
             setUsers(result.users || [])
         } catch (error: any) {
             console.error('Error fetching users:', error)

@@ -73,7 +73,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'No recipients found with valid phone numbers' }, { status: 400 })
         }
 
-        console.log(`[SMSBroadcast] Sending SMS to ${recipients.length} recipients`)
+        // Send SMS to recipients
 
         // Send SMS to each recipient
         const results = {
@@ -91,8 +91,6 @@ export async function POST(request: NextRequest) {
                 continue
             }
 
-            console.log(`[SMSBroadcast] Sending to ${recipient.first_name} (${recipient.phone_number})`)
-
             try {
                 const result = await sendSMS({
                     recipient: recipient.phone_number,
@@ -101,7 +99,6 @@ export async function POST(request: NextRequest) {
 
                 if (result.success) {
                     results.success++
-                    console.log(`[SMSBroadcast] ✅ Success for ${recipient.first_name}`)
                 } else {
                     results.failed++
                     results.errors.push(`${recipient.first_name || 'Unknown'}: ${result.error}`)
@@ -114,7 +111,7 @@ export async function POST(request: NextRequest) {
             }
         }
 
-        console.log(`[SMSBroadcast] Results: ${results.success} success, ${results.failed} failed`)
+        // SMS broadcast complete
 
         return NextResponse.json({
             success: true,

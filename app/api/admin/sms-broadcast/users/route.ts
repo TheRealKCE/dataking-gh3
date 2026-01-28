@@ -46,8 +46,6 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 })
         }
 
-        console.log(`[SMSBroadcast] Fetched ${users?.length || 0} users with phone numbers`)
-
         return NextResponse.json({
             success: true,
             users: users || []
