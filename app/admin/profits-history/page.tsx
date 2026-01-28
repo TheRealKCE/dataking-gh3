@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
 import { formatCurrency } from '@/lib/utils'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -22,6 +21,22 @@ import {
 
 type TimeRange = 'today' | 'yesterday' | 'week' | 'month' | 'all' | 'custom'
 
+interface OrderData {
+    created_at: string
+    price: number
+    cost_price: number
+    network: string
+    size: string
+    status: string
+}
+
+interface PackageData {
+    network: string
+    size: string
+    price: number
+    cost_price: number
+}
+
 export default function AdminProfitsPage() {
     const [loading, setLoading] = useState(true)
     const [range, setRange] = useState<TimeRange>('today')
@@ -41,62 +56,13 @@ export default function AdminProfitsPage() {
     })
 
     useEffect(() => {
-        calculateProfits()
-        fetchUserWallets()
+        fetchProfitData()
     }, [range, customStart, customEnd])
 
-    const fetchUserWallets = async () => {
-        try {
-            // Fetch ALL wallets - sum of all user balances
-            const { data: wallets, error } = await supabase
-                .from('wallets')
-                .select('balance, user_id') as any
-
-            if (error) {
-                console.error('Wallets fetch error:', error)
-                // Try users table instead
-                const { data: users, error: usersError } = await supabase
-                    .from('users')
-                    .select('wallet_balance, role, id') as any
-
-                if (usersError) throw usersError
-
-                // Filter out admins
-                const regularUsers = (users || []).filter((u: any) =>
-                    u.role !== 'admin' && u.role !== 'sub-admin'
-                )
-                const total = regularUsers.reduce((sum: number, user: any) =>
-                    sum + (Number(user.wallet_balance) || 0), 0
-                )
-                setUserWalletTotal(total)
-                setUserCount(regularUsers.length)
-                return
-            }
-
-            // Get user roles to exclude admins
-            const { data: users } = await supabase
-                .from('users')
-                .select('id, role') as any
-
-            const adminIds = new Set((users || [])
-                .filter((u: any) => u.role === 'admin' || u.role === 'sub-admin')
-                .map((u: any) => u.id))
-
-            const regularWallets = (wallets || []).filter((w: any) => !adminIds.has(w.user_id))
-            const total = regularWallets.reduce((sum: number, w: any) =>
-                sum + (Number(w.balance) || 0), 0
-            )
-            setUserWalletTotal(total)
-            setUserCount(regularWallets.length)
-        } catch (error) {
-            console.error('Error fetching user wallets:', error)
-        }
-    }
-
-    const calculateProfits = async () => {
+    const fetchProfitData = async () => {
         setLoading(true)
         try {
-            // Get current date at midnight in local time
+            // Calculate date ranges
             const now = new Date()
             const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0)
             const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999)
@@ -158,63 +124,43 @@ export default function AdminProfitsPage() {
                 previousEndDate = new Date(todayEnd)
             }
 
-            // Fetch ALL orders EXCEPT failed (include pending, processing, completed)
-            const { data: orders, error } = await supabase
-                .from('orders')
-                .select('created_at, price, cost_price, network, size, status')
-                .neq('status', 'failed')
-                .gte('created_at', startDate.toISOString())
-                .lte('created_at', endDate.toISOString())
-                .order('created_at', { ascending: true }) as any
-
-            if (error) throw error
-
-            // Fetch previous period for comparison
-            let prevOrders: any[] = []
-            if (range !== 'all') {
-                const { data: prevData } = await supabase
-                    .from('orders')
-                    .select('price, cost_price, network, size')
-                    .neq('status', 'failed')
-                    .gte('created_at', previousStartDate.toISOString())
-                    .lte('created_at', previousEndDate.toISOString()) as any
-                prevOrders = prevData || []
+            // Fetch from API (bypasses RLS)
+            const response = await fetch(`/api/admin/profit-stats?startDate=${startDate.toISOString()}&endDate=${endDate.toISOString()}`)
+            if (!response.ok) {
+                throw new Error('Failed to fetch profit data')
             }
+            const data = await response.json()
 
-            // Fetch packages for cost lookup (fallback only)
-            const { data: packages } = await supabase
-                .from('data_packages')
-                .select('network, size, price, cost_price') as any
+            // Set wallet data
+            setUserWalletTotal(data.userWalletTotal || 0)
+            setUserCount(data.userCount || 0)
 
+            const orders: OrderData[] = data.orders || []
+            const packages: PackageData[] = data.packages || []
+
+            // Build package map for cost lookup
             const packageMap = new Map<string, { cost: number; price: number }>()
-            if (packages) {
-                packages.forEach((pkg: any) => {
-                    const key = `${pkg.network}-${pkg.size}`
-                    packageMap.set(key, {
-                        cost: Number(pkg.cost_price) || 0,
-                        price: Number(pkg.price) || 0
-                    })
+            packages.forEach((pkg) => {
+                const key = `${pkg.network}-${pkg.size}`
+                packageMap.set(key, {
+                    cost: Number(pkg.cost_price) || 0,
+                    price: Number(pkg.price) || 0
                 })
-            }
+            })
 
             // Calculate metrics - PRIORITIZE order's own cost_price
-            const calculateMetrics = (orderList: any[]) => {
+            const calculateMetrics = (orderList: OrderData[]) => {
                 let rev = 0, cst = 0
                 orderList.forEach(order => {
-                    // Revenue: Use order's actual selling price
                     const price = Number(order.price) || 0
-
-                    // Cost: FIRST use order's stored cost_price, THEN fallback to package cost
                     let cost = Number(order.cost_price) || 0
 
-                    // Only fallback to package map if order has no cost_price
                     if (cost === 0) {
                         const key = `${order.network}-${order.size}`
                         const pkg = packageMap.get(key)
                         cost = pkg?.cost || 0
                     }
 
-                    // Last resort: estimate at 80% of price
                     if (cost === 0 && price > 0) {
                         cost = price * 0.8
                     }
@@ -225,8 +171,24 @@ export default function AdminProfitsPage() {
                 return { revenue: rev, cost: cst, profit: rev - cst }
             }
 
-            const current = calculateMetrics(orders || [])
-            const previous = calculateMetrics(prevOrders)
+            // Filter orders for current period
+            const currentOrders = orders.filter(o => {
+                const d = new Date(o.created_at)
+                return d >= startDate && d <= endDate
+            })
+
+            // Fetch previous period data for comparison
+            let previousOrders: OrderData[] = []
+            if (range !== 'all') {
+                const prevResponse = await fetch(`/api/admin/profit-stats?startDate=${previousStartDate.toISOString()}&endDate=${previousEndDate.toISOString()}`)
+                if (prevResponse.ok) {
+                    const prevData = await prevResponse.json()
+                    previousOrders = prevData.orders || []
+                }
+            }
+
+            const current = calculateMetrics(currentOrders)
+            const previous = calculateMetrics(previousOrders)
 
             const profitGrowth = range === 'all' ? 0 : (
                 previous.profit === 0
@@ -236,31 +198,29 @@ export default function AdminProfitsPage() {
 
             // Group by day/time
             const dailyMap = new Map<string, { revenue: number; profit: number; orders: number; cost: number }>()
-            if (orders) {
-                orders.forEach((order: any) => {
-                    const d = new Date(order.created_at)
-                    const dateStr = range === 'today' || range === 'yesterday'
-                        ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-                        : d.toLocaleDateString([], { month: 'short', day: 'numeric' })
+            currentOrders.forEach((order) => {
+                const d = new Date(order.created_at)
+                const dateStr = range === 'today' || range === 'yesterday'
+                    ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                    : d.toLocaleDateString([], { month: 'short', day: 'numeric' })
 
-                    const price = Number(order.price) || 0
-                    let cost = Number(order.cost_price) || 0
-                    if (cost === 0) {
-                        const key = `${order.network}-${order.size}`
-                        const pkg = packageMap.get(key)
-                        cost = pkg?.cost || 0
-                    }
-                    if (cost === 0 && price > 0) cost = price * 0.8
+                const price = Number(order.price) || 0
+                let cost = Number(order.cost_price) || 0
+                if (cost === 0) {
+                    const key = `${order.network}-${order.size}`
+                    const pkg = packageMap.get(key)
+                    cost = pkg?.cost || 0
+                }
+                if (cost === 0 && price > 0) cost = price * 0.8
 
-                    const existing = dailyMap.get(dateStr) || { revenue: 0, profit: 0, orders: 0, cost: 0 }
-                    dailyMap.set(dateStr, {
-                        revenue: existing.revenue + price,
-                        cost: existing.cost + cost,
-                        profit: existing.profit + (price - cost),
-                        orders: existing.orders + 1
-                    })
+                const existing = dailyMap.get(dateStr) || { revenue: 0, profit: 0, orders: 0, cost: 0 }
+                dailyMap.set(dateStr, {
+                    revenue: existing.revenue + price,
+                    cost: existing.cost + cost,
+                    profit: existing.profit + (price - cost),
+                    orders: existing.orders + 1
                 })
-            }
+            })
 
             setStats({
                 revenue: current.revenue,
@@ -269,13 +229,13 @@ export default function AdminProfitsPage() {
                 margin: current.revenue > 0 ? (current.profit / current.revenue) * 100 : 0,
                 previousProfit: previous.profit,
                 profitGrowth,
-                totalOrders: orders?.length || 0,
+                totalOrders: currentOrders.length,
                 dailyData: Array.from(dailyMap.entries())
                     .map(([date, vals]) => ({ date, ...vals }))
                     .reverse()
             })
         } catch (error) {
-            console.error('Error calculating profits:', error)
+            console.error('Error fetching profit data:', error)
         } finally {
             setLoading(false)
         }
@@ -313,7 +273,7 @@ export default function AdminProfitsPage() {
             {/* Header */}
             <div>
                 <h1 className="text-xl font-bold">Profit Dashboard</h1>
-                <p className="text-sm text-muted-foreground">All orders (excl. failed) from all users</p>
+                <p className="text-sm text-muted-foreground">All orders from all users (excl. failed)</p>
             </div>
 
             {/* Filter Buttons */}
