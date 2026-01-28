@@ -47,6 +47,7 @@ const adminNavItems = [
     { href: '/admin/packages', label: 'Packages', icon: Package },
     { href: '/admin/complaints', label: 'Complaints', icon: MessageSquare },
     { href: '/admin/announcements', label: 'Post Message', icon: Bell },
+    { href: '/admin/sms-broadcast', label: 'SMS Broadcast', icon: MessageSquare },
     { href: '/admin/transactions', label: 'Transactions', icon: Receipt },
     { href: '/admin/afa-management', label: 'AFA Management', icon: FileText },
     { href: '/admin/mtn-logs', label: 'MTN Logs', icon: Wifi },
