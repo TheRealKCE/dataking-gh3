@@ -18,7 +18,8 @@ import {
     Trash2,
     Check,
     AlertCircle,
-    Loader2
+    Loader2,
+    Trash
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Notification } from '@/types/supabase'
@@ -29,6 +30,7 @@ export default function NotificationsPage() {
     const [isLoading, setIsLoading] = useState(true)
     const [filter, setFilter] = useState<'all' | 'unread'>('all')
     const [markingAllRead, setMarkingAllRead] = useState(false)
+    const [deletingAll, setDeletingAll] = useState(false)
 
     useEffect(() => {
         if (dbUser) {
@@ -101,6 +103,23 @@ export default function NotificationsPage() {
         }
     }
 
+    const deleteAllNotifications = async () => {
+        setDeletingAll(true)
+        try {
+            await (supabase
+                .from('notifications') as any)
+                .delete()
+                .eq('user_id', dbUser?.id as any)
+
+            setNotifications([])
+            toast.success('All notifications deleted')
+        } catch (error) {
+            toast.error('Failed to delete all notifications')
+        } finally {
+            setDeletingAll(false)
+        }
+    }
+
     const getIcon = (type: string) => {
         switch (type) {
             case 'order_update':
@@ -141,12 +160,25 @@ export default function NotificationsPage() {
                         {unreadCount > 0 ? `${unreadCount} unread notification${unreadCount > 1 ? 's' : ''}` : 'All caught up!'}
                     </p>
                 </div>
-                {unreadCount > 0 && (
-                    <Button variant="outline" onClick={markAllAsRead} disabled={markingAllRead}>
-                        {markingAllRead ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
-                        Mark all as read
-                    </Button>
-                )}
+                <div className="flex gap-2">
+                    {unreadCount > 0 && (
+                        <Button variant="outline" onClick={markAllAsRead} disabled={markingAllRead}>
+                            {markingAllRead ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Check className="w-4 h-4 mr-2" />}
+                            Mark all as read
+                        </Button>
+                    )}
+                    {notifications.length > 0 && (
+                        <Button
+                            variant="outline"
+                            onClick={deleteAllNotifications}
+                            disabled={deletingAll}
+                            className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20"
+                        >
+                            {deletingAll ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Trash className="w-4 h-4 mr-2" />}
+                            Delete All
+                        </Button>
+                    )}
+                </div>
             </div>
 
             {/* Filter */}
