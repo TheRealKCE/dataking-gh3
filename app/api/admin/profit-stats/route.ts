@@ -60,23 +60,31 @@ export async function GET(request: NextRequest) {
             .from('data_packages')
             .select('network, size, price, cost_price')
 
-        // Fetch all user wallet balances (excluding admins)
+        // Fetch all users to know who are admins
         const { data: users } = await supabase
             .from('users')
-            .select('id, wallet_balance, role') as any
+            .select('id, role') as any
 
-        const regularUsers = (users || []).filter((u: any) =>
-            u.role !== 'admin' && u.role !== 'sub-admin'
-        )
-        const userWalletTotal = regularUsers.reduce((sum: number, user: any) =>
-            sum + (Number(user.wallet_balance) || 0), 0
+        const adminIds = new Set((users || [])
+            .filter((u: any) => u.role === 'admin' || u.role === 'sub-admin')
+            .map((u: any) => u.id))
+
+        // Fetch all wallet balances from wallets table
+        const { data: wallets } = await supabase
+            .from('wallets')
+            .select('user_id, balance') as any
+
+        // Filter out admin wallets and sum balances
+        const regularWallets = (wallets || []).filter((w: any) => !adminIds.has(w.user_id))
+        const userWalletTotal = regularWallets.reduce((sum: number, wallet: any) =>
+            sum + (Number(wallet.balance) || 0), 0
         )
 
         return NextResponse.json({
             orders: orders || [],
             packages: packages || [],
             userWalletTotal,
-            userCount: regularUsers.length,
+            userCount: regularWallets.length,
             totalOrdersCount: orders?.length || 0
         })
     } catch (error: any) {
