@@ -51,11 +51,11 @@ export default function AdminProfitsPage() {
             const { data: users, error } = await supabase
                 .from('users')
                 .select('wallet_balance, role')
-                .not('role', 'in', '("admin","sub-admin")')
+                .not('role', 'in', '("admin","sub-admin")') as any
 
             if (error) throw error
 
-            const totalBalance = (users || []).reduce((sum, user) =>
+            const totalBalance = (users || []).reduce((sum: number, user: any) =>
                 sum + (Number(user.wallet_balance) || 0), 0
             )
             setUserWalletTotal(totalBalance)
