@@ -32,10 +32,10 @@ const userNavItems = [
     { href: '/dashboard/data-packages', label: 'Data Packages', icon: Package },
     { href: '/dashboard/my-orders', label: 'My Orders', icon: ShoppingCart },
     { href: '/dashboard/wallet', label: 'Wallet', icon: Wallet },
-    { href: '/dashboard/transactions', label: 'Transactions', icon: Receipt },
+    // { href: '/dashboard/transactions', label: 'Transactions', icon: Receipt }, // Disabled for optimization
     { href: '/dashboard/complaints', label: 'Complaints', icon: MessageSquare },
     { href: '/dashboard/notifications', label: 'Notifications', icon: Bell },
-    { href: '/dashboard/afa-orders', label: 'AFA Orders', icon: FileText },
+    // { href: '/dashboard/afa-orders', label: 'AFA Orders', icon: FileText }, // Disabled for optimization
     { href: '/dashboard/customers', label: 'Customers', icon: Users },
     { href: '/dashboard/profile', label: 'Profile', icon: User },
 ]
@@ -48,9 +48,9 @@ const adminNavItems = [
     { href: '/admin/complaints', label: 'Complaints', icon: MessageSquare },
     { href: '/admin/announcements', label: 'Post Message', icon: Bell },
     { href: '/admin/sms-broadcast', label: 'SMS Broadcast', icon: MessageSquare },
-    { href: '/admin/transactions', label: 'Transactions', icon: Receipt },
-    { href: '/admin/afa-management', label: 'AFA Management', icon: FileText },
-    { href: '/admin/mtn-logs', label: 'MTN Logs', icon: Wifi },
+    // { href: '/admin/transactions', label: 'Transactions', icon: Receipt }, // Disabled for optimization
+    // { href: '/admin/afa-management', label: 'AFA Management', icon: FileText }, // Disabled for optimization
+    // { href: '/admin/mtn-logs', label: 'MTN Logs', icon: Wifi }, // Disabled for optimization
     { href: '/admin/profits-history', label: 'Profits', icon: Wallet },
     { href: '/admin/settings', label: 'Settings', icon: Settings },
 ]
