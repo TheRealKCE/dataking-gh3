@@ -146,10 +146,11 @@ export function DashboardSidebar() {
                                         "text-[10px] px-1.5 py-0",
                                         isAdmin && "bg-red-500 hover:bg-red-600",
                                         isSubAdmin && "bg-purple-500 hover:bg-purple-600 text-white",
-                                        !isAdmin && !isSubAdmin && "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
+                                        dbUser.role === 'agent' && "bg-green-500 hover:bg-green-600 text-white",
+                                        !isAdmin && !isSubAdmin && dbUser.role !== 'agent' && "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300"
                                     )}
                                 >
-                                    {isAdmin ? 'Admin' : isSubAdmin ? 'Sub-Admin' : 'Customer'}
+                                    {isAdmin ? 'Admin' : isSubAdmin ? 'Sub-Admin' : dbUser.role === 'agent' ? 'Agent' : 'Customer'}
                                 </Badge>
                             </div>
                         </div>
