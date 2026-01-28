@@ -1,37 +1,29 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency } from '@/lib/utils'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Skeleton } from '@/components/ui/skeleton'
 import {
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow,
-} from '@/components/ui/table'
-import {
-    CircleDollarSign,
     TrendingUp,
     TrendingDown,
-    Activity,
     Calendar,
     DollarSign,
     ArrowUpRight,
-    ArrowDownRight
+    ArrowDownRight,
+    Wallet,
+    BarChart3
 } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
-import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Input } from '@/components/ui/input'
-import { Button } from '@/components/ui/button'
 
-
+type TimeRange = 'today' | 'yesterday' | 'week' | 'month' | 'custom'
 
 export default function AdminProfitsPage() {
     const [loading, setLoading] = useState(true)
-    const [range, setRange] = useState<string>('today')
+    const [range, setRange] = useState<TimeRange>('today')
     const [customStart, setCustomStart] = useState('')
     const [customEnd, setCustomEnd] = useState('')
     const [stats, setStats] = useState({
@@ -39,11 +31,9 @@ export default function AdminProfitsPage() {
         cost: 0,
         profit: 0,
         margin: 0,
-        previousRevenue: 0,
         previousProfit: 0,
-        revenueGrowth: 0,
         profitGrowth: 0,
-        dailyData: [] as any[]
+        dailyData: [] as { date: string; revenue: number; profit: number; orders: number }[]
     })
 
     useEffect(() => {
@@ -61,38 +51,36 @@ export default function AdminProfitsPage() {
 
             // Define date ranges
             if (range === 'today') {
-                startDate = new Date(now.setHours(0, 0, 0, 0))
-                endDate = new Date(now.setHours(23, 59, 59, 999))
-
-                // Compare with yesterday
+                startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0)
+                endDate = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59)
                 previousStartDate = new Date(startDate)
                 previousStartDate.setDate(startDate.getDate() - 1)
                 previousEndDate = new Date(endDate)
                 previousEndDate.setDate(endDate.getDate() - 1)
             } else if (range === 'yesterday') {
-                const yest = new Date()
+                const yest = new Date(now)
                 yest.setDate(yest.getDate() - 1)
-                startDate = new Date(yest.setHours(0, 0, 0, 0))
-                endDate = new Date(yest.setHours(23, 59, 59, 999))
-
-                // Compare with day before yesterday
+                startDate = new Date(yest.getFullYear(), yest.getMonth(), yest.getDate(), 0, 0, 0)
+                endDate = new Date(yest.getFullYear(), yest.getMonth(), yest.getDate(), 23, 59, 59)
                 previousStartDate = new Date(startDate)
                 previousStartDate.setDate(startDate.getDate() - 1)
                 previousEndDate = new Date(endDate)
                 previousEndDate.setDate(endDate.getDate() - 1)
             } else if (range === 'week') {
                 const day = now.getDay() || 7
-                if (day !== 1) now.setHours(-24 * (day - 1))
-                else now.setHours(0, 0, 0, 0)
-
                 startDate = new Date(now)
-                endDate = new Date() // Up to now
-
-                // Compare with previous week
+                startDate.setDate(now.getDate() - day + 1)
+                startDate.setHours(0, 0, 0, 0)
+                endDate = new Date()
                 previousStartDate = new Date(startDate)
                 previousStartDate.setDate(startDate.getDate() - 7)
                 previousEndDate = new Date(endDate)
                 previousEndDate.setDate(endDate.getDate() - 7)
+            } else if (range === 'month') {
+                startDate = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0)
+                endDate = new Date()
+                previousStartDate = new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0)
+                previousEndDate = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59)
             } else if (range === 'custom') {
                 if (!customStart || !customEnd) {
                     setLoading(false)
@@ -102,18 +90,9 @@ export default function AdminProfitsPage() {
                 startDate.setHours(0, 0, 0, 0)
                 endDate = new Date(customEnd)
                 endDate.setHours(23, 59, 59, 999)
-
-                // Calculate duration
                 const duration = endDate.getTime() - startDate.getTime()
-                previousEndDate = new Date(startDate.getTime() - 1) // Just before start
+                previousEndDate = new Date(startDate.getTime() - 1)
                 previousStartDate = new Date(previousEndDate.getTime() - duration)
-            } else {
-                // All time
-                startDate = new Date(0)
-                endDate = new Date()
-                // No comparison for all time effectively
-                previousStartDate = new Date(0)
-                previousEndDate = new Date(0)
             }
 
             // Fetch current period orders
@@ -127,24 +106,20 @@ export default function AdminProfitsPage() {
 
             if (error) throw error
 
-            // Fetch previous period orders for comparison
-            let previousOrders: any[] = []
-            if (range !== 'all' && !(range === 'custom' && (!customStart || !customEnd))) {
-                const { data: prevData } = await supabase
-                    .from('orders')
-                    .select('price, cost_price, network, size')
-                    .eq('status', 'completed')
-                    .gte('created_at', previousStartDate.toISOString())
-                    .lte('created_at', previousEndDate.toISOString())
-                previousOrders = prevData || []
-            }
+            // Fetch previous period for comparison
+            const { data: prevOrders } = await supabase
+                .from('orders')
+                .select('price, cost_price, network, size')
+                .eq('status', 'completed')
+                .gte('created_at', previousStartDate.toISOString())
+                .lte('created_at', previousEndDate.toISOString())
 
             // Fetch packages for cost lookup
             const { data: packages } = await supabase
                 .from('data_packages')
                 .select('network, size, price, cost_price') as any
 
-            const packageMap = new Map<string, { cost: number, price: number }>()
+            const packageMap = new Map<string, { cost: number; price: number }>()
             if (packages) {
                 packages.forEach((pkg: any) => {
                     const key = `${pkg.network}-${pkg.size}`
@@ -155,26 +130,15 @@ export default function AdminProfitsPage() {
                 })
             }
 
-            // Metrics Calculation
+            // Calculate metrics
             const calculateMetrics = (orderList: any[]) => {
-                let rev = 0
-                let cst = 0
+                let rev = 0, cst = 0
                 orderList.forEach(order => {
-                    // Try to match with current package settings
                     const key = `${order.network}-${order.size}`
                     const pkg = packageMap.get(key)
-
-                    // Revenue: Use order price (actual sale), fallback to package selling price
                     const price = Number(order.price) || (pkg ? pkg.price : 0)
-
-                    // Cost: Use package cost price (as requested), fallback to order cost, then 80% estimate
                     let cost = pkg?.cost || Number(order.cost_price) || 0
-
-                    // If no valid cost found, use 80% rule
-                    if (cost === 0 && price > 0) {
-                        cost = price * 0.8
-                    }
-
+                    if (cost === 0 && price > 0) cost = price * 0.8
                     rev += price
                     cst += cost
                 })
@@ -182,39 +146,32 @@ export default function AdminProfitsPage() {
             }
 
             const current = calculateMetrics(orders || [])
-            const previous = calculateMetrics(previousOrders)
+            const previous = calculateMetrics(prevOrders || [])
 
-            const calculateGrowth = (curr: number, prev: number) => {
-                if (prev === 0) return curr > 0 ? 100 : 0
-                return ((curr - prev) / prev) * 100
-            }
+            const profitGrowth = previous.profit === 0
+                ? (current.profit > 0 ? 100 : 0)
+                : ((current.profit - previous.profit) / previous.profit) * 100
 
-            // Daily Map
-            const dailyMap = new Map<string, { revenue: number, profit: number }>()
+            // Group by day
+            const dailyMap = new Map<string, { revenue: number; profit: number; orders: number }>()
             if (orders) {
                 orders.forEach((order: any) => {
                     const d = new Date(order.created_at)
-                    const dateStr = d.toLocaleDateString(undefined, {
-                        month: 'short', day: 'numeric',
-                        ...(range === 'today' || range === 'yesterday' ? { hour: 'numeric', minute: '2-digit' } : {})
-                    })
+                    const dateStr = range === 'today' || range === 'yesterday'
+                        ? d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+                        : d.toLocaleDateString([], { month: 'short', day: 'numeric' })
 
                     const key = `${order.network}-${order.size}`
                     const pkg = packageMap.get(key)
-
                     const price = Number(order.price) || (pkg ? pkg.price : 0)
                     let cost = pkg?.cost || Number(order.cost_price) || 0
+                    if (cost === 0 && price > 0) cost = price * 0.8
 
-                    if (cost === 0 && price > 0) {
-                        cost = price * 0.8
-                    }
-
-                    const profit = price - cost
-
-                    const existing = dailyMap.get(dateStr) || { revenue: 0, profit: 0 }
+                    const existing = dailyMap.get(dateStr) || { revenue: 0, profit: 0, orders: 0 }
                     dailyMap.set(dateStr, {
                         revenue: existing.revenue + price,
-                        profit: existing.profit + profit
+                        profit: existing.profit + (price - cost),
+                        orders: existing.orders + 1
                     })
                 })
             }
@@ -224,13 +181,12 @@ export default function AdminProfitsPage() {
                 cost: current.cost,
                 profit: current.profit,
                 margin: current.revenue > 0 ? (current.profit / current.revenue) * 100 : 0,
-                previousRevenue: previous.revenue,
                 previousProfit: previous.profit,
-                revenueGrowth: range === 'all' ? 0 : calculateGrowth(current.revenue, previous.revenue),
-                profitGrowth: range === 'all' ? 0 : calculateGrowth(current.profit, previous.profit),
-                dailyData: Array.from(dailyMap.entries()).map(([date, vals]) => ({ date, ...vals })).reverse()
+                profitGrowth,
+                dailyData: Array.from(dailyMap.entries())
+                    .map(([date, vals]) => ({ date, ...vals }))
+                    .reverse()
             })
-
         } catch (error) {
             console.error('Error calculating profits:', error)
         } finally {
@@ -238,167 +194,192 @@ export default function AdminProfitsPage() {
         }
     }
 
-    const StatCard = ({ title, value, icon: Icon, colorClass, growth = null, prefix = '' }: any) => (
-        <Card className="hover:shadow-lg transition-shadow duration-300 overflow-hidden relative">
-            <CardContent className="p-6">
-                <div className="flex justify-between items-start">
-                    <div className="space-y-2">
-                        <p className="text-sm font-medium text-muted-foreground">{title}</p>
-                        <div className="flex items-baseline gap-2">
-                            <h2 className={`text-2xl font-bold ${colorClass}`}>
-                                {prefix}{value}
-                            </h2>
-                        </div>
-                        {growth !== null && range !== 'all' && (
-                            <div className={`flex items-center text-xs font-medium ${growth >= 0 ? 'text-green-600' : 'text-red-500'}`}>
-                                {growth >= 0 ? <ArrowUpRight className="w-3 h-3 mr-1" /> : <ArrowDownRight className="w-3 h-3 mr-1" />}
-                                {Math.abs(growth).toFixed(1)}% vs previous
-                            </div>
-                        )}
-                    </div>
-                    <div className={`p-3 rounded-xl ${colorClass.replace('text-', 'bg-').replace('600', '100')} ${colorClass.replace('text-', 'text-')}`}>
-                        <Icon className="w-5 h-5" />
-                    </div>
+    const rangeLabels: Record<TimeRange, string> = {
+        today: 'Today',
+        yesterday: 'Yesterday',
+        week: 'This Week',
+        month: 'This Month',
+        custom: 'Custom'
+    }
+
+    if (loading) {
+        return (
+            <div className="space-y-4 p-4">
+                <Skeleton className="h-8 w-48" />
+                <div className="grid grid-cols-2 gap-3">
+                    <Skeleton className="h-24 rounded-xl" />
+                    <Skeleton className="h-24 rounded-xl" />
                 </div>
-            </CardContent>
-        </Card>
-    )
+                <Skeleton className="h-32 rounded-xl" />
+                <div className="space-y-2">
+                    {[...Array(5)].map((_, i) => (
+                        <Skeleton key={i} className="h-16 rounded-lg" />
+                    ))}
+                </div>
+            </div>
+        )
+    }
 
     return (
-        <div className="space-y-8 pb-20">
-            {/* Header with Filter */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    <h1 className="text-3xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
-                        Financial Overview
-                    </h1>
-                    <p className="text-muted-foreground mt-1">Track your revenue, costs, and effective profit.</p>
-                </div>
-                <div className="flex flex-col sm:flex-row gap-2 items-end sm:items-center">
-                    {range === 'custom' && (
-                        <div className="flex items-center gap-2 bg-white dark:bg-gray-900 p-1 rounded-lg border">
-                            <Input
-                                type="date"
-                                value={customStart}
-                                onChange={(e) => setCustomStart(e.target.value)}
-                                className="h-8 w-32 border-0 focus-visible:ring-0"
-                            />
-                            <span className="text-muted-foreground">-</span>
-                            <Input
-                                type="date"
-                                value={customEnd}
-                                onChange={(e) => setCustomEnd(e.target.value)}
-                                className="h-8 w-32 border-0 focus-visible:ring-0"
-                            />
-                        </div>
-                    )}
-                    <Tabs value={range} onValueChange={setRange} className="w-full md:w-auto">
-                        <TabsList className="grid w-full grid-cols-4 md:w-auto">
-                            <TabsTrigger value="today">Today</TabsTrigger>
-                            <TabsTrigger value="yesterday">Yesterday</TabsTrigger>
-                            <TabsTrigger value="week">Week</TabsTrigger>
-                            <TabsTrigger value="all">All</TabsTrigger>
-                        </TabsList>
-                        <TabsList className="mt-1 w-full md:hidden">
-                            <TabsTrigger value="custom" className="w-full">Custom Range</TabsTrigger>
-                        </TabsList>
-                    </Tabs>
-                    <Button
-                        variant={range === 'custom' ? "secondary" : "ghost"}
-                        size="sm"
-                        onClick={() => setRange('custom')}
-                        className="hidden md:flex ml-2"
-                    >
-                        Custom Range
-                    </Button>
-                </div>
+        <div className="space-y-4">
+            {/* Header */}
+            <div>
+                <h1 className="text-xl font-bold">Profit Dashboard</h1>
+                <p className="text-sm text-muted-foreground">Track your earnings</p>
             </div>
 
-            {/* Stats Grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-                <StatCard
-                    title="Total Revenue"
-                    value={formatCurrency(stats.revenue)}
-                    icon={DollarSign}
-                    colorClass="text-blue-600"
-                    growth={stats.revenueGrowth}
-                />
-                <StatCard
-                    title="Total Cost"
-                    value={formatCurrency(stats.cost)}
-                    icon={TrendingDown}
-                    colorClass="text-red-600"
-                    prefix="-"
-                />
-                <StatCard
-                    title="Net Profit"
-                    value={formatCurrency(stats.profit)}
-                    icon={TrendingUp}
-                    colorClass="text-green-600"
-                    growth={stats.profitGrowth}
-                />
-                <StatCard
-                    title="Profit Margin"
-                    value={stats.margin.toFixed(1) + "%"}
-                    icon={Activity}
-                    colorClass="text-purple-600"
-                />
+            {/* Filter Buttons - Scrollable on mobile */}
+            <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1">
+                {(['today', 'yesterday', 'week', 'month', 'custom'] as TimeRange[]).map((r) => (
+                    <Button
+                        key={r}
+                        size="sm"
+                        variant={range === r ? 'default' : 'outline'}
+                        onClick={() => setRange(r)}
+                        className="flex-shrink-0"
+                    >
+                        {rangeLabels[r]}
+                    </Button>
+                ))}
             </div>
-            {/* Table remains same... */}
-            <Card className="border-border/50 shadow-sm">
-                <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <Calendar className="w-5 h-5 text-muted-foreground" />
-                        Performance Breakdown
-                    </CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
-                    <div className="h-[400px] overflow-auto">
-                        <Table>
-                            <TableHeader className="bg-muted/50 sticky top-0">
-                                <TableRow>
-                                    <TableHead>Time Period</TableHead>
-                                    <TableHead>Revenue</TableHead>
-                                    <TableHead>Cost (Est.)</TableHead>
-                                    <TableHead>Real Profit</TableHead>
-                                    <TableHead>Margin</TableHead>
-                                </TableRow>
-                            </TableHeader>
-                            <TableBody>
-                                {loading ? (
-                                    <TableRow>
-                                        <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                                            Calculating financials...
-                                        </TableCell>
-                                    </TableRow>
-                                ) : stats.dailyData.length === 0 ? (
-                                    <TableRow>
-                                        <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
-                                            No data found for this period.
-                                        </TableCell>
-                                    </TableRow>
-                                ) : (
-                                    stats.dailyData.map((day) => (
-                                        <TableRow key={day.date} className="hover:bg-muted/50 transition-colors">
-                                            <TableCell className="font-medium">{day.date}</TableCell>
-                                            <TableCell>{formatCurrency(day.revenue)}</TableCell>
-                                            <TableCell className="text-red-500 text-xs">-{formatCurrency(day.revenue - day.profit)}</TableCell>
-                                            <TableCell className="text-green-600 font-bold">{formatCurrency(day.profit)}</TableCell>
-                                            <TableCell>
-                                                <Badge variant="outline" className={`
-                                                    ${(day.profit / day.revenue) * 100 > 15 ? 'bg-green-50 text-green-700 border-green-200' : 'bg-yellow-50 text-yellow-700 border-yellow-200'}
-                                                `}>
-                                                    {((day.profit / day.revenue) * 100).toFixed(1)}%
-                                                </Badge>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))
-                                )}
-                            </TableBody>
-                        </Table>
+
+            {/* Custom Date Range */}
+            {range === 'custom' && (
+                <div className="flex gap-2 items-center p-3 bg-muted/50 rounded-lg">
+                    <Input
+                        type="date"
+                        value={customStart}
+                        onChange={(e) => setCustomStart(e.target.value)}
+                        className="flex-1"
+                    />
+                    <span className="text-muted-foreground">to</span>
+                    <Input
+                        type="date"
+                        value={customEnd}
+                        onChange={(e) => setCustomEnd(e.target.value)}
+                        className="flex-1"
+                    />
+                </div>
+            )}
+
+            {/* Main Profit Card */}
+            <Card className="bg-gradient-to-br from-green-500 to-emerald-600 text-white overflow-hidden">
+                <CardContent className="p-5">
+                    <div className="flex items-start justify-between">
+                        <div>
+                            <p className="text-green-100 text-sm font-medium">Net Profit</p>
+                            <p className="text-3xl font-bold mt-1">{formatCurrency(stats.profit)}</p>
+                            {stats.profitGrowth !== 0 && (
+                                <div className={`flex items-center text-sm mt-2 ${stats.profitGrowth >= 0 ? 'text-green-100' : 'text-red-200'}`}>
+                                    {stats.profitGrowth >= 0 ? (
+                                        <ArrowUpRight className="w-4 h-4 mr-1" />
+                                    ) : (
+                                        <ArrowDownRight className="w-4 h-4 mr-1" />
+                                    )}
+                                    {Math.abs(stats.profitGrowth).toFixed(1)}% vs previous
+                                </div>
+                            )}
+                        </div>
+                        <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center">
+                            <Wallet className="w-6 h-6 text-white" />
+                        </div>
                     </div>
                 </CardContent>
             </Card>
+
+            {/* Stats Grid - 2 columns */}
+            <div className="grid grid-cols-2 gap-3">
+                <Card>
+                    <CardContent className="p-4">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center flex-shrink-0">
+                                <DollarSign className="w-5 h-5 text-blue-600" />
+                            </div>
+                            <div>
+                                <p className="text-xs text-muted-foreground">Revenue</p>
+                                <p className="font-bold text-lg">{formatCurrency(stats.revenue)}</p>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+                <Card>
+                    <CardContent className="p-4">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center flex-shrink-0">
+                                <TrendingDown className="w-5 h-5 text-red-600" />
+                            </div>
+                            <div>
+                                <p className="text-xs text-muted-foreground">Cost</p>
+                                <p className="font-bold text-lg text-red-600">-{formatCurrency(stats.cost)}</p>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
+
+            {/* Profit Margin */}
+            <Card>
+                <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+                                <BarChart3 className="w-5 h-5 text-purple-600" />
+                            </div>
+                            <div>
+                                <p className="text-xs text-muted-foreground">Profit Margin</p>
+                                <p className="font-bold text-lg">{stats.margin.toFixed(1)}%</p>
+                            </div>
+                        </div>
+                        <Badge variant={stats.margin > 15 ? 'default' : 'secondary'} className={stats.margin > 15 ? 'bg-green-500' : ''}>
+                            {stats.margin > 15 ? 'Good' : 'Low'}
+                        </Badge>
+                    </div>
+                </CardContent>
+            </Card>
+
+            {/* Daily Breakdown */}
+            <div className="space-y-2">
+                <h2 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
+                    <Calendar className="w-4 h-4" />
+                    Breakdown
+                </h2>
+
+                {stats.dailyData.length === 0 ? (
+                    <Card className="p-6 text-center">
+                        <TrendingUp className="w-8 h-8 mx-auto text-muted-foreground/40 mb-2" />
+                        <p className="text-sm text-muted-foreground">No transactions for this period</p>
+                    </Card>
+                ) : (
+                    <div className="space-y-2">
+                        {stats.dailyData.map((day, index) => {
+                            const margin = day.revenue > 0 ? (day.profit / day.revenue) * 100 : 0
+                            return (
+                                <Card key={index} className="hover:shadow-sm transition-shadow">
+                                    <CardContent className="p-3">
+                                        <div className="flex items-center justify-between">
+                                            <div className="flex items-center gap-3">
+                                                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center text-white font-bold text-xs">
+                                                    {day.orders}
+                                                </div>
+                                                <div>
+                                                    <p className="font-medium text-sm">{day.date}</p>
+                                                    <p className="text-xs text-muted-foreground">
+                                                        {day.orders} order{day.orders !== 1 ? 's' : ''}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="font-bold text-green-600">{formatCurrency(day.profit)}</p>
+                                                <p className="text-xs text-muted-foreground">{margin.toFixed(0)}% margin</p>
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+                            )
+                        })}
+                    </div>
+                )}
+            </div>
         </div>
     )
 }
