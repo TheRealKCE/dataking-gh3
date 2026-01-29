@@ -135,7 +135,7 @@ export function DashboardSidebar() {
             {/* Sidebar */}
             <aside
                 className={cn(
-                    "fixed left-0 top-0 z-50 h-full bg-[#E5E7EB] dark:bg-[#1A1A1A] transition-all duration-300 ease-in-out",
+                    "fixed left-0 top-0 z-50 h-full bg-[#E5E7EB] dark:bg-[#000000] transition-all duration-300 ease-in-out",
                     isCollapsed ? "w-20" : "w-72",
                     "transform lg:transform-none",
                     isInternalSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
@@ -299,7 +299,7 @@ export function DashboardSidebar() {
                 </nav>
 
                 {/* Logout Button */}
-                <div className="absolute bottom-0 left-0 right-0 p-3 border-t border-gray-300 dark:border-gray-800 bg-[#E5E7EB] dark:bg-[#1A1A1A]">
+                <div className="absolute bottom-0 left-0 right-0 p-3 border-t border-gray-300 dark:border-gray-800 bg-[#E5E7EB] dark:bg-[#000000]">
                     <Button
                         variant="ghost"
                         onClick={signOut}

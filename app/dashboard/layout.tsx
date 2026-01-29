@@ -45,7 +45,7 @@ export default function DashboardLayout({
 
     return (
         <UIProvider>
-            <div className="min-h-screen bg-[#E5E7EB] dark:bg-[#1A1A1A] relative">
+            <div className="min-h-screen bg-[#E5E7EB] dark:bg-[#000000] relative">
                 <SystemAnnouncementModal />
                 <DashboardSidebar />
                 <div className="lg:pl-72">

@@ -186,10 +186,10 @@ export default function AdminAnnouncementsPage() {
 
             <div className="grid gap-4 sm:gap-6 grid-cols-1 lg:grid-cols-2">
                 {/* Create Form */}
-                <Card className="h-fit border-2 border-[#FACC15] rounded-xl shadow-md">
+                <Card className="h-fit">
                     <CardHeader className="pb-3 sm:pb-6">
                         <CardTitle className="flex items-center gap-2 text-base sm:text-lg text-gray-800 dark:text-white">
-                            <Plus className="w-4 h-4 sm:w-5 sm:h-5 text-[#FACC15]" />
+                            <Plus className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
                             Create New Alert
                         </CardTitle>
                         <CardDescription className="text-xs sm:text-sm">
@@ -233,10 +233,10 @@ export default function AdminAnnouncementsPage() {
                 </Card>
 
                 {/* History List */}
-                <Card className="h-fit border-2 border-[#FACC15] rounded-xl shadow-md">
+                <Card className="h-fit">
                     <CardHeader className="pb-3 sm:pb-6">
                         <CardTitle className="flex items-center gap-2 text-base sm:text-lg text-gray-800 dark:text-white">
-                            <Bell className="w-4 h-4 sm:w-5 sm:h-5 text-[#FACC15]" />
+                            <Bell className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
                             History
                         </CardTitle>
                         <CardDescription className="text-xs sm:text-sm">
