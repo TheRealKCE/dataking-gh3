@@ -17,7 +17,7 @@ import {
     TableRow,
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
-import { Loader2, Plus, Trash2, Bell, Megaphone } from 'lucide-react'
+import { Loader2, Plus, Trash2, Bell, Megaphone, Pencil, X, Check, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatDate } from '@/lib/utils'
 import { SystemAnnouncement } from '@/types/supabase'
@@ -28,6 +28,12 @@ export default function AdminAnnouncementsPage() {
     const [title, setTitle] = useState('')
     const [message, setMessage] = useState('')
     const [isSubmitting, setIsSubmitting] = useState(false)
+
+    // Edit state
+    const [editingId, setEditingId] = useState<string | null>(null)
+    const [editTitle, setEditTitle] = useState('')
+    const [editMessage, setEditMessage] = useState('')
+    const [isUpdating, setIsUpdating] = useState(false)
 
     useEffect(() => {
         fetchAnnouncements()
@@ -120,6 +126,57 @@ export default function AdminAnnouncementsPage() {
         }
     }
 
+    // Start editing an announcement
+    const handleStartEdit = (announcement: SystemAnnouncement) => {
+        setEditingId(announcement.id)
+        setEditTitle(announcement.title)
+        setEditMessage(announcement.message)
+    }
+
+    // Cancel editing
+    const handleCancelEdit = () => {
+        setEditingId(null)
+        setEditTitle('')
+        setEditMessage('')
+    }
+
+    // Save edited announcement and repost
+    const handleSaveAndRepost = async () => {
+        if (!editingId || !editTitle.trim() || !editMessage.trim()) return
+
+        setIsUpdating(true)
+        try {
+            const { error } = await (supabase
+                .from('system_announcements') as any)
+                .update({
+                    title: editTitle.trim(),
+                    message: editMessage.trim(),
+                    is_active: true,
+                    created_at: new Date().toISOString() // Update timestamp for repost
+                })
+                .eq('id', editingId)
+
+            if (error) throw error
+
+            // Update local state
+            setAnnouncements(announcements.map(a =>
+                a.id === editingId
+                    ? { ...a, title: editTitle.trim(), message: editMessage.trim(), is_active: true, created_at: new Date().toISOString() }
+                    : a
+            ).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()))
+
+            setEditingId(null)
+            setEditTitle('')
+            setEditMessage('')
+            toast.success('Announcement updated and reposted!')
+        } catch (error) {
+            console.error('Error updating announcement:', error)
+            toast.error('Failed to update announcement')
+        } finally {
+            setIsUpdating(false)
+        }
+    }
+
     return (
         <div className="space-y-6">
             <div>
@@ -181,6 +238,9 @@ export default function AdminAnnouncementsPage() {
                             <Bell className="w-5 h-5 text-primary" />
                             History
                         </CardTitle>
+                        <CardDescription>
+                            Click edit to modify and repost an announcement
+                        </CardDescription>
                     </CardHeader>
                     <CardContent className="p-0">
                         <div className="max-h-[500px] overflow-y-auto">
@@ -189,7 +249,7 @@ export default function AdminAnnouncementsPage() {
                                     <TableRow>
                                         <TableHead>Announcement</TableHead>
                                         <TableHead>Status</TableHead>
-                                        <TableHead className="text-right">Action</TableHead>
+                                        <TableHead className="text-right">Actions</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -209,21 +269,39 @@ export default function AdminAnnouncementsPage() {
                                         announcements.map((announcement) => (
                                             <TableRow key={announcement.id}>
                                                 <TableCell>
-                                                    <div className="flex flex-col gap-1">
-                                                        <span className="font-medium">{announcement.title}</span>
-                                                        <span className="text-xs text-muted-foreground line-clamp-1">
-                                                            {announcement.message}
-                                                        </span>
-                                                        <span className="text-[10px] text-muted-foreground">
-                                                            {formatDate(announcement.created_at)}
-                                                        </span>
-                                                    </div>
+                                                    {editingId === announcement.id ? (
+                                                        <div className="space-y-2">
+                                                            <Input
+                                                                value={editTitle}
+                                                                onChange={(e) => setEditTitle(e.target.value)}
+                                                                placeholder="Title"
+                                                                className="text-sm"
+                                                            />
+                                                            <Textarea
+                                                                value={editMessage}
+                                                                onChange={(e) => setEditMessage(e.target.value)}
+                                                                placeholder="Message"
+                                                                className="text-sm min-h-[60px]"
+                                                            />
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex flex-col gap-1">
+                                                            <span className="font-medium">{announcement.title}</span>
+                                                            <span className="text-xs text-muted-foreground line-clamp-2">
+                                                                {announcement.message}
+                                                            </span>
+                                                            <span className="text-[10px] text-muted-foreground">
+                                                                {formatDate(announcement.created_at)}
+                                                            </span>
+                                                        </div>
+                                                    )}
                                                 </TableCell>
                                                 <TableCell>
                                                     <div className="flex items-center gap-2">
                                                         <Switch
                                                             checked={announcement.is_active}
                                                             onCheckedChange={() => handleToggleStatus(announcement.id, announcement.is_active)}
+                                                            disabled={editingId === announcement.id}
                                                         />
                                                         <Badge variant={announcement.is_active ? 'default' : 'secondary'}>
                                                             {announcement.is_active ? 'Active' : 'Inactive'}
@@ -231,14 +309,55 @@ export default function AdminAnnouncementsPage() {
                                                     </div>
                                                 </TableCell>
                                                 <TableCell className="text-right">
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        onClick={() => handleDelete(announcement.id)}
-                                                        className="text-red-500 hover:text-red-600 hover:bg-red-50"
-                                                    >
-                                                        <Trash2 className="w-4 h-4" />
-                                                    </Button>
+                                                    {editingId === announcement.id ? (
+                                                        <div className="flex items-center justify-end gap-1">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                onClick={handleSaveAndRepost}
+                                                                disabled={isUpdating || !editTitle.trim() || !editMessage.trim()}
+                                                                className="text-green-600 hover:text-green-700 hover:bg-green-50"
+                                                                title="Save & Repost"
+                                                            >
+                                                                {isUpdating ? (
+                                                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                                                ) : (
+                                                                    <RefreshCw className="w-4 h-4" />
+                                                                )}
+                                                            </Button>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                onClick={handleCancelEdit}
+                                                                disabled={isUpdating}
+                                                                className="text-gray-500 hover:text-gray-600 hover:bg-gray-100"
+                                                                title="Cancel"
+                                                            >
+                                                                <X className="w-4 h-4" />
+                                                            </Button>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="flex items-center justify-end gap-1">
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                onClick={() => handleStartEdit(announcement)}
+                                                                className="text-blue-500 hover:text-blue-600 hover:bg-blue-50"
+                                                                title="Edit & Repost"
+                                                            >
+                                                                <Pencil className="w-4 h-4" />
+                                                            </Button>
+                                                            <Button
+                                                                variant="ghost"
+                                                                size="icon"
+                                                                onClick={() => handleDelete(announcement.id)}
+                                                                className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                                                                title="Delete"
+                                                            >
+                                                                <Trash2 className="w-4 h-4" />
+                                                            </Button>
+                                                        </div>
+                                                    )}
                                                 </TableCell>
                                             </TableRow>
                                         ))
@@ -252,3 +371,4 @@ export default function AdminAnnouncementsPage() {
         </div>
     )
 }
+
