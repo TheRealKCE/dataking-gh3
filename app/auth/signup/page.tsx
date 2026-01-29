@@ -8,9 +8,9 @@ import { useAuth } from '@/contexts/auth-context'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Wifi, Eye, EyeOff, Loader2, CheckCircle2 } from 'lucide-react'
+import { Eye, EyeOff, Loader2, UserPlus, Mail, Lock, User, Phone } from 'lucide-react'
 import { toast } from 'sonner'
 import { validateGhanaianPhone } from '@/lib/phone-validation'
 import { BackgroundBubbles } from '@/components/background-bubbles'
@@ -109,21 +109,21 @@ export default function SignupPage() {
 
     if (success) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4 relative overflow-hidden">
+            <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
                 <BackgroundBubbles />
                 <FloatingWhatsApp />
-                <Card className="w-full max-w-md border-white/10 bg-white/5 backdrop-blur-xl relative z-10 shadow-2xl">
-                    <CardContent className="pt-8 text-center">
-                        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center mx-auto mb-6 animate-[bounce_1s_ease-in-out_2]">
-                            <CheckCircle2 className="w-8 h-8 text-white" />
+                <Card className="w-full max-w-md border-0 bg-white/95 backdrop-blur-xl relative z-10 shadow-2xl rounded-3xl">
+                    <CardContent className="pt-8 text-center p-8">
+                        <div className="w-20 h-20 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center mx-auto mb-6 animate-[bounce_1s_ease-in-out_2]">
+                            <Mail className="w-10 h-10 text-white" />
                         </div>
-                        <h2 className="text-2xl font-bold text-white mb-2">Check Your Email</h2>
-                        <p className="text-white/60 mb-6">
-                            We've sent a verification link to <strong className="text-white">{formData.email}</strong>.
+                        <h2 className="text-2xl font-bold text-slate-900 mb-2">Check Your Email</h2>
+                        <p className="text-slate-600 mb-6">
+                            We've sent a verification link to <strong className="text-slate-900">{formData.email}</strong>.
                             Please check your inbox and click the link to verify your account.
                         </p>
                         <Link href="/auth/login">
-                            <Button className="w-full h-11 text-base font-semibold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg shadow-purple-900/20 transition-all duration-300 hover:scale-[1.02]">
+                            <Button className="w-full h-14 text-lg font-bold bg-[#FFD60A] hover:bg-[#E6C108] text-slate-900 shadow-lg shadow-yellow-500/30 transition-all duration-300 hover:scale-[1.02] rounded-xl border-2 border-[#E6C108]">
                                 Go to Login
                             </Button>
                         </Link>
@@ -134,164 +134,163 @@ export default function SignupPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4 py-12 relative overflow-hidden">
+        <div className="min-h-screen flex items-center justify-center p-4 py-8 relative overflow-hidden">
             <BackgroundBubbles />
             <FloatingWhatsApp />
             <div className="w-full max-w-md relative z-10">
                 {/* Logo */}
-                <div className="text-center mb-8">
-                    <Link href="/" className="inline-flex items-center space-x-2 group">
-                        <div className="relative w-12 h-12 transition-transform duration-500 group-hover:rotate-12 group-hover:scale-110 animate-[bounce_3s_infinite]">
-                            <Image
-                                src="/logo.png"
-                                alt="KING FLEXY DATA LTD"
-                                fill
-                                className="object-contain"
-                                priority
-                            />
+                <div className="text-center mb-6">
+                    <Link href="/" className="inline-flex flex-col items-center group">
+                        <div className="relative w-16 h-16 mb-2 transition-transform duration-500 group-hover:scale-110 animate-[bounce_3s_infinite]">
+                            <div className="w-16 h-16 rounded-2xl bg-slate-900 flex items-center justify-center shadow-xl">
+                                <Image
+                                    src="/logo.png"
+                                    alt="KING FLEXY DATA LTD"
+                                    fill
+                                    className="object-contain p-1"
+                                    priority
+                                />
+                            </div>
                         </div>
-                        <span className="text-2xl font-bold text-white tracking-tight drop-shadow-md group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-blue-400 group-hover:to-purple-400 transition-all">
-                            KING FLEXY DATA LTD
+                        <span className="text-2xl font-bold text-slate-900 tracking-tight drop-shadow-sm">
+                            Create Your Account
+                        </span>
+                        <span className="text-sm text-slate-700/80 mt-1">
+                            Join KING FLEXY DATA LTD
                         </span>
                     </Link>
                 </div>
 
-                <Card className="border-white/10 bg-white/5 backdrop-blur-xl shadow-2xl">
-                    <CardHeader className="text-center">
-                        <CardTitle className="text-2xl text-white font-bold tracking-wide">Create Account</CardTitle>
-                        <CardDescription className="text-white/60 text-base">
-                            Sign up to start buying data packages
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
+                <Card className="border-0 bg-white/95 backdrop-blur-xl shadow-2xl rounded-3xl overflow-hidden">
+                    <CardContent className="p-6 pt-8">
                         <form onSubmit={handleSubmit} className="space-y-4">
                             {error && (
                                 <Alert variant="destructive" className="bg-red-500/10 border-red-500/50">
-                                    <AlertDescription className="text-red-400">{error}</AlertDescription>
+                                    <AlertDescription className="text-red-600">{error}</AlertDescription>
                                 </Alert>
                             )}
 
-                            <div className="grid grid-cols-2 gap-4">
-                                <div className="space-y-2">
-                                    <Label htmlFor="firstName" className="text-white/80">First Name</Label>
+                            <div className="space-y-2">
+                                <Label htmlFor="fullName" className="text-slate-700 font-semibold">Full Name</Label>
+                                <div className="relative">
+                                    <User className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                                     <Input
                                         id="firstName"
                                         name="firstName"
-                                        placeholder="John"
+                                        placeholder="Enter your full name"
                                         value={formData.firstName}
                                         onChange={handleChange}
                                         required
-                                        className="h-11 bg-white/10 border-white/20 text-white placeholder:text-white/40 focus:border-purple-400 focus:ring-purple-400/20 transition-all"
+                                        className="h-14 pl-12 bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-[#0077B6] focus:ring-[#0077B6]/20 transition-all rounded-xl text-base"
                                     />
                                 </div>
-                                <div className="space-y-2">
-                                    <Label htmlFor="lastName" className="text-white/80">Last Name</Label>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="email" className="text-slate-700 font-semibold">Email Address</Label>
+                                <div className="relative">
+                                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                                     <Input
-                                        id="lastName"
-                                        name="lastName"
-                                        placeholder="Doe"
-                                        value={formData.lastName}
+                                        id="email"
+                                        name="email"
+                                        type="email"
+                                        placeholder="your@email.com"
+                                        value={formData.email}
                                         onChange={handleChange}
                                         required
-                                        className="h-11 bg-white/10 border-white/20 text-white placeholder:text-white/40 focus:border-purple-400 focus:ring-purple-400/20 transition-all"
+                                        className="h-14 pl-12 bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-[#0077B6] focus:ring-[#0077B6]/20 transition-all rounded-xl text-base"
                                     />
                                 </div>
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="email" className="text-white/80">Email</Label>
-                                <Input
-                                    id="email"
-                                    name="email"
-                                    type="email"
-                                    placeholder="john@example.com"
-                                    value={formData.email}
-                                    onChange={handleChange}
-                                    required
-                                    className="h-11 bg-white/10 border-white/20 text-white placeholder:text-white/40 focus:border-purple-400 focus:ring-purple-400/20 transition-all"
-                                />
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label htmlFor="phoneNumber" className="text-white/80">Phone Number</Label>
-                                <Input
-                                    id="phoneNumber"
-                                    name="phoneNumber"
-                                    type="tel"
-                                    placeholder="0241234567"
-                                    value={formData.phoneNumber}
-                                    onChange={handleChange}
-                                    required
-                                    className="h-11 bg-white/10 border-white/20 text-white placeholder:text-white/40 focus:border-purple-400 focus:ring-purple-400/20 transition-all"
-                                />
-                                <p className="text-xs text-white/40">Enter a valid Ghanaian phone number</p>
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label htmlFor="password" className="text-white/80">Password</Label>
+                                <Label htmlFor="phoneNumber" className="text-slate-700 font-semibold">Mobile Number</Label>
                                 <div className="relative">
+                                    <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                                    <Input
+                                        id="phoneNumber"
+                                        name="phoneNumber"
+                                        type="tel"
+                                        placeholder="024*********"
+                                        value={formData.phoneNumber}
+                                        onChange={handleChange}
+                                        required
+                                        className="h-14 pl-12 bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-[#0077B6] focus:ring-[#0077B6]/20 transition-all rounded-xl text-base"
+                                    />
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="password" className="text-slate-700 font-semibold">Password</Label>
+                                <div className="relative">
+                                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                                     <Input
                                         id="password"
                                         name="password"
                                         type={showPassword ? 'text' : 'password'}
-                                        placeholder="Min. 8 characters"
+                                        placeholder="Create a strong password"
                                         value={formData.password}
                                         onChange={handleChange}
                                         required
-                                        className="h-11 bg-white/10 border-white/20 text-white placeholder:text-white/40 pr-10 focus:border-purple-400 focus:ring-purple-400/20 transition-all"
+                                        className="h-14 pl-12 pr-12 bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-[#0077B6] focus:ring-[#0077B6]/20 transition-all rounded-xl text-base"
                                     />
                                     <button
                                         type="button"
                                         onClick={() => setShowPassword(!showPassword)}
-                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/60 transition-colors"
+                                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
                                     >
                                         {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                                     </button>
                                 </div>
                             </div>
 
-                            <div className="space-y-2">
-                                <Label htmlFor="confirmPassword" className="text-white/80">Confirm Password</Label>
-                                <Input
-                                    id="confirmPassword"
-                                    name="confirmPassword"
-                                    type="password"
-                                    placeholder="Confirm your password"
-                                    value={formData.confirmPassword}
-                                    onChange={handleChange}
-                                    required
-                                    className="h-11 bg-white/10 border-white/20 text-white placeholder:text-white/40 focus:border-purple-400 focus:ring-purple-400/20 transition-all"
-                                />
-                            </div>
+                            <input
+                                type="hidden"
+                                name="lastName"
+                                value={formData.lastName}
+                            />
 
                             <Button
                                 type="submit"
                                 disabled={isLoading}
-                                className="w-full h-11 text-base font-semibold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg shadow-purple-900/20 transition-all duration-300 hover:scale-[1.02]"
+                                className="w-full h-14 text-lg font-bold bg-[#FFD60A] hover:bg-[#E6C108] text-slate-900 shadow-lg shadow-yellow-500/30 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl rounded-xl border-2 border-[#E6C108]"
                             >
                                 {isLoading ? (
                                     <>
-                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                                         Creating account...
                                     </>
                                 ) : (
-                                    'Create Account'
+                                    <>
+                                        <UserPlus className="w-5 h-5 mr-2" />
+                                        Create Account
+                                    </>
                                 )}
                             </Button>
                         </form>
 
-                        <div className="mt-6 text-center">
-                            <p className="text-white/60 text-sm">
+                        <div className="flex items-center my-6">
+                            <div className="flex-1 h-px bg-slate-200"></div>
+                            <span className="px-4 text-sm text-slate-400">OR</span>
+                            <div className="flex-1 h-px bg-slate-200"></div>
+                        </div>
+
+                        <div className="text-center">
+                            <p className="text-slate-600 text-sm">
                                 Already have an account?{' '}
-                                <Link href="/auth/login" className="text-blue-400 hover:text-blue-300 font-semibold transition-colors">
-                                    Sign in
+                                <Link href="/auth/login" className="text-[#0077B6] hover:text-[#005F8A] font-bold transition-colors">
+                                    Sign In
                                 </Link>
                             </p>
                         </div>
 
-                        <div className="mt-8 border-t border-white/10 pt-6">
+                        <div className="mt-6 border-t border-slate-100 pt-6">
                             <WhatsAppCommunityButtons />
                         </div>
+
+                        <p className="text-xs text-center text-slate-400 mt-6">
+                            By signing up, you agree to our <Link href="/terms" className="font-semibold text-slate-600 hover:text-[#0077B6]">Terms</Link> and <Link href="/privacy" className="font-semibold text-slate-600 hover:text-[#0077B6]">Privacy Policy</Link>
+                        </p>
                     </CardContent>
                 </Card>
             </div>

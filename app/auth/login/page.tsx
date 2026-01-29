@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Wifi, Eye, EyeOff, Loader2 } from 'lucide-react'
+import { Eye, EyeOff, Loader2, LogIn, Mail, Lock } from 'lucide-react'
 import { toast } from 'sonner'
 import { BackgroundBubbles } from '@/components/background-bubbles'
 import { FloatingWhatsApp } from '@/components/floating-whatsapp'
@@ -49,7 +49,7 @@ export default function LoginPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4 relative overflow-hidden">
+        <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
             <BackgroundBubbles />
 
             <FloatingWhatsApp />
@@ -57,53 +57,56 @@ export default function LoginPage() {
             <div className="w-full max-w-md relative z-10">
                 {/* Logo */}
                 <div className="text-center mb-8">
-                    <Link href="/" className="inline-flex items-center space-x-2 group">
-                        <div className="relative w-12 h-12 transition-transform duration-500 group-hover:rotate-12 group-hover:scale-110 animate-[bounce_3s_infinite]">
-                            <Image
-                                src="/logo.png"
-                                alt="KING FLEXY DATA LTD"
-                                fill
-                                className="object-contain"
-                                priority
-                            />
+                    <Link href="/" className="inline-flex flex-col items-center group">
+                        <div className="relative w-20 h-20 mb-3 transition-transform duration-500 group-hover:scale-110 animate-[bounce_3s_infinite]">
+                            <div className="w-20 h-20 rounded-2xl bg-slate-900 flex items-center justify-center shadow-xl">
+                                <Image
+                                    src="/logo.png"
+                                    alt="KING FLEXY DATA LTD"
+                                    fill
+                                    className="object-contain p-2"
+                                    priority
+                                />
+                            </div>
                         </div>
-                        <span className="text-2xl font-bold text-white tracking-tight drop-shadow-md group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-blue-400 group-hover:to-purple-400 transition-all">
+                        <span className="text-xl font-bold text-slate-900 tracking-tight drop-shadow-sm">
                             KING FLEXY DATA LTD
+                        </span>
+                        <span className="text-sm text-slate-700/80 mt-1">
+                            Sign in to continue
                         </span>
                     </Link>
                 </div>
 
-                <Card className="border-white/10 bg-white/5 backdrop-blur-xl shadow-2xl">
-                    <CardHeader className="text-center">
-                        <CardTitle className="text-2xl text-white font-bold tracking-wide">Welcome Back</CardTitle>
-                        <CardDescription className="text-white/60 text-base">
-                            Sign in to your account to continue
-                        </CardDescription>
-                    </CardHeader>
-                    <CardContent>
-                        <form onSubmit={handleSubmit} className="space-y-4">
+                <Card className="border-0 bg-white/95 backdrop-blur-xl shadow-2xl rounded-3xl overflow-hidden">
+                    <CardContent className="p-6 pt-8">
+                        <form onSubmit={handleSubmit} className="space-y-5">
                             {error && (
                                 <Alert variant="destructive" className="bg-red-500/10 border-red-500/50">
-                                    <AlertDescription className="text-red-400">{error}</AlertDescription>
+                                    <AlertDescription className="text-red-600">{error}</AlertDescription>
                                 </Alert>
                             )}
 
                             <div className="space-y-2">
-                                <Label htmlFor="email" className="text-white/80">Email</Label>
-                                <Input
-                                    id="email"
-                                    type="email"
-                                    placeholder="Enter your email"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    required
-                                    className="h-11 bg-white/10 border-white/20 text-white placeholder:text-white/40 focus:border-purple-400 focus:ring-purple-400/20 transition-all"
-                                />
+                                <Label htmlFor="email" className="text-slate-700 font-semibold">Email Address</Label>
+                                <div className="relative">
+                                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                                    <Input
+                                        id="email"
+                                        type="email"
+                                        placeholder="your@email.com"
+                                        value={email}
+                                        onChange={(e) => setEmail(e.target.value)}
+                                        required
+                                        className="h-14 pl-12 bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-[#0077B6] focus:ring-[#0077B6]/20 transition-all rounded-xl text-base"
+                                    />
+                                </div>
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="password" className="text-white/80">Password</Label>
+                                <Label htmlFor="password" className="text-slate-700 font-semibold">Password</Label>
                                 <div className="relative">
+                                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                                     <Input
                                         id="password"
                                         type={showPassword ? 'text' : 'password'}
@@ -111,55 +114,68 @@ export default function LoginPage() {
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
                                         required
-                                        className="h-11 bg-white/10 border-white/20 text-white placeholder:text-white/40 pr-10 focus:border-purple-400 focus:ring-purple-400/20 transition-all"
+                                        className="h-14 pl-12 pr-12 bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-[#0077B6] focus:ring-[#0077B6]/20 transition-all rounded-xl text-base"
                                     />
                                     <button
                                         type="button"
                                         onClick={() => setShowPassword(!showPassword)}
-                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/60 transition-colors"
+                                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
                                     >
                                         {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                                     </button>
                                 </div>
                             </div>
 
-                            <div className="flex items-center justify-end">
-                                <Link
-                                    href="/auth/reset-password"
-                                    className="text-sm text-blue-400 hover:text-blue-300 transition-colors"
-                                >
-                                    Forgot password?
-                                </Link>
-                            </div>
-
                             <Button
                                 type="submit"
                                 disabled={isLoading}
-                                className="w-full h-11 text-base font-semibold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg shadow-purple-900/20 transition-all duration-300 hover:scale-[1.02]"
+                                className="w-full h-14 text-lg font-bold bg-[#FFD60A] hover:bg-[#E6C108] text-slate-900 shadow-lg shadow-yellow-500/30 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl rounded-xl border-2 border-[#E6C108]"
                             >
                                 {isLoading ? (
                                     <>
-                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                                         Signing in...
                                     </>
                                 ) : (
-                                    'Sign In'
+                                    <>
+                                        <LogIn className="w-5 h-5 mr-2" />
+                                        Sign In
+                                    </>
                                 )}
                             </Button>
                         </form>
 
-                        <div className="mt-6 text-center">
-                            <p className="text-white/60 text-sm">
+                        <div className="flex items-center my-6">
+                            <div className="flex-1 h-px bg-slate-200"></div>
+                            <span className="px-4 text-sm text-slate-400">OR</span>
+                            <div className="flex-1 h-px bg-slate-200"></div>
+                        </div>
+
+                        <div className="text-center">
+                            <p className="text-slate-600 text-sm">
                                 Don't have an account?{' '}
-                                <Link href="/auth/signup" className="text-blue-400 hover:text-blue-300 font-semibold transition-colors">
-                                    Sign up
+                                <Link href="/auth/signup" className="text-[#0077B6] hover:text-[#005F8A] font-bold transition-colors">
+                                    Create Account
                                 </Link>
                             </p>
                         </div>
 
-                        <div className="mt-8 border-t border-white/10 pt-6">
+                        <div className="mt-4 text-center">
+                            <Link
+                                href="/auth/reset-password"
+                                className="text-sm text-slate-500 hover:text-[#0077B6] transition-colors"
+                            >
+                                Forgot password?
+                            </Link>
+                        </div>
+
+                        <div className="mt-8 border-t border-slate-100 pt-6">
                             <WhatsAppCommunityButtons />
                         </div>
+
+                        <p className="text-xs text-center text-slate-400 mt-6">
+                            By signing in, you agree to our <Link href="/terms" className="font-semibold text-slate-600 hover:text-[#0077B6]">Terms</Link> and <Link href="/privacy" className="font-semibold text-slate-600 hover:text-[#0077B6]">Privacy Policy</Link>
+                        </p>
                     </CardContent>
                 </Card>
             </div>
