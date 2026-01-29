@@ -7,6 +7,7 @@
 
 // @ts-ignore - Brevo SDK doesn't have complete type definitions
 import * as SibApiV3Sdk from '@getbrevo/brevo'
+import { createClient } from '@supabase/supabase-js'
 
 // Initialize API instance with API key
 const apiInstance = new SibApiV3Sdk.TransactionalEmailsApi()
@@ -955,7 +956,7 @@ export async function sendAdminNewComplaintAlert(
 // ==========================================
 
 /**
- * Send new order alert to admin
+ * Send new order alert to admin and all sub-admins
  */
 export async function sendAdminNewOrderAlert(
     orderDetails: {
@@ -1028,12 +1029,48 @@ export async function sendAdminNewOrderAlert(
         </div>
     `
 
-    return sendEmail({
+    // Send to main admin
+    const adminResult = await sendEmail({
         to: adminEmail,
         toName: 'Admin',
         subject: `🔔 New Order: ${orderDetails.size} for ${orderDetails.phoneNumber}`,
         htmlContent: generatePremiumTemplate('New Order Alert', content)
     })
+
+    // Fetch and send to all sub-admins
+    try {
+        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+        const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+        if (supabaseUrl && supabaseServiceKey) {
+            const supabase = createClient(supabaseUrl, supabaseServiceKey)
+
+            const { data: subAdmins, error } = await supabase
+                .from('users')
+                .select('email, first_name')
+                .eq('role', 'sub-admin')
+
+            if (!error && subAdmins && subAdmins.length > 0) {
+                // Send email to each sub-admin in parallel
+                const subAdminPromises = subAdmins.map(subAdmin =>
+                    sendEmail({
+                        to: subAdmin.email,
+                        toName: subAdmin.first_name || 'Sub-Admin',
+                        subject: `🔔 New Order: ${orderDetails.size} for ${orderDetails.phoneNumber}`,
+                        htmlContent: generatePremiumTemplate('New Order Alert', content)
+                    })
+                )
+
+                await Promise.allSettled(subAdminPromises)
+                console.log(`Order notification sent to ${subAdmins.length} sub-admin(s)`)
+            }
+        }
+    } catch (error) {
+        console.error('Error sending to sub-admins:', error)
+        // Don't fail the main function if sub-admin emails fail
+    }
+
+    return adminResult
 }
 
 /**
