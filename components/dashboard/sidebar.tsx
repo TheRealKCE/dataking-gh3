@@ -135,14 +135,14 @@ export function DashboardSidebar() {
             {/* Sidebar */}
             <aside
                 className={cn(
-                    "fixed left-0 top-0 z-50 h-full bg-gray-950 transition-all duration-300 ease-in-out",
+                    "fixed left-0 top-0 z-50 h-full bg-[#E5E7EB] dark:bg-[#1A1A1A] transition-all duration-300 ease-in-out",
                     isCollapsed ? "w-20" : "w-72",
                     "transform lg:transform-none",
                     isInternalSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
                 )}
             >
                 {/* Logo Header */}
-                <div className="h-14 flex items-center justify-between px-4 border-b border-gray-800">
+                <div className="h-14 flex items-center justify-between px-4 border-b border-gray-300 dark:border-gray-800">
                     <Link href="/dashboard" className="flex items-center gap-2">
                         <div className="relative w-8 h-8 flex-shrink-0">
                             <Image
@@ -155,8 +155,8 @@ export function DashboardSidebar() {
                         </div>
                         {!isCollapsed && (
                             <div className="flex flex-col">
-                                <span className="text-sm font-bold text-yellow-400">KING FLEXY</span>
-                                <span className="text-[10px] text-gray-400 -mt-0.5">DATA LIMITED</span>
+                                <span className="text-sm font-bold text-yellow-500 dark:text-yellow-400">KING FLEXY</span>
+                                <span className="text-[10px] text-gray-600 dark:text-gray-400 -mt-0.5">DATA LIMITED</span>
                             </div>
                         )}
                     </Link>
@@ -164,7 +164,7 @@ export function DashboardSidebar() {
                         variant="ghost"
                         size="icon"
                         onClick={() => setIsCollapsed(!isCollapsed)}
-                        className="hidden lg:flex text-gray-400 hover:text-white hover:bg-gray-800 w-7 h-7"
+                        className="hidden lg:flex text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-300 dark:hover:bg-gray-800 w-7 h-7"
                     >
                         {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
                     </Button>
@@ -172,7 +172,7 @@ export function DashboardSidebar() {
                         variant="ghost"
                         size="icon"
                         onClick={closeSidebar}
-                        className="lg:hidden text-gray-400 hover:text-white w-7 h-7"
+                        className="lg:hidden text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white w-7 h-7"
                     >
                         <ChevronLeft className="w-4 h-4" />
                     </Button>
@@ -180,7 +180,7 @@ export function DashboardSidebar() {
 
                 {/* Profile Widget - Premium Card Style */}
                 {!isCollapsed && dbUser && (
-                    <div className="mx-3 mt-3 p-3 rounded-xl bg-gradient-to-br from-gray-800/80 to-gray-900 border border-gray-700/50">
+                    <div className="mx-3 mt-3 p-3 rounded-xl bg-gradient-to-br from-gray-200/80 to-gray-300 dark:from-gray-800/80 dark:to-gray-900 border border-gray-400/50 dark:border-gray-700/50">
                         {/* User Info Row */}
                         <div className="flex items-center gap-2.5 mb-3">
                             {/* Avatar with Initials */}
@@ -190,14 +190,14 @@ export function DashboardSidebar() {
                             >
                                 {dbUser.first_name?.charAt(0)}{dbUser.last_name?.charAt(0)}
                                 <div
-                                    className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center border-2 border-gray-900"
+                                    className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center border-2 border-gray-200 dark:border-gray-900"
                                     style={{ backgroundColor: currentRole.bgColor }}
                                 >
                                     <RoleIcon className="w-2.5 h-2.5" style={{ color: currentRole.color }} />
                                 </div>
                             </div>
                             <div className="flex-1 min-w-0">
-                                <p className="text-xs font-medium text-white truncate">
+                                <p className="text-xs font-medium text-gray-800 dark:text-white truncate">
                                     {dbUser.first_name} {dbUser.last_name}
                                 </p>
                                 <div className="flex items-center gap-1">
@@ -212,10 +212,10 @@ export function DashboardSidebar() {
                         </div>
 
                         {/* Wallet Section */}
-                        <div className="flex items-center justify-between p-2 rounded-lg bg-gray-900/60 border border-gray-700/30">
+                        <div className="flex items-center justify-between p-2 rounded-lg bg-gray-300/60 dark:bg-gray-900/60 border border-gray-400/30 dark:border-gray-700/30">
                             <div>
-                                <p className="text-[9px] text-gray-500 uppercase tracking-wider font-medium">Balance</p>
-                                <p className="text-sm font-bold text-emerald-400">{formatCurrency(walletBalance)}</p>
+                                <p className="text-[9px] text-gray-600 dark:text-gray-500 uppercase tracking-wider font-medium">Balance</p>
+                                <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(walletBalance)}</p>
                             </div>
                             <Link href="/dashboard/wallet">
                                 <Button
@@ -232,11 +232,11 @@ export function DashboardSidebar() {
 
                 {/* Navigation */}
                 <nav className={cn(
-                    "px-2 py-3 space-y-0.5 overflow-y-auto scrollbar-thin scrollbar-track-gray-900 scrollbar-thumb-gray-700 hover:scrollbar-thumb-gray-600",
+                    "px-2 py-3 space-y-0.5 overflow-y-auto scrollbar-thin scrollbar-track-gray-200 dark:scrollbar-track-gray-900 scrollbar-thumb-gray-400 dark:scrollbar-thumb-gray-700 hover:scrollbar-thumb-gray-500 dark:hover:scrollbar-thumb-gray-600",
                     !isCollapsed ? "h-[calc(100vh-14rem)]" : "h-[calc(100vh-8rem)]"
                 )}>
                     {!isCollapsed && (
-                        <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mb-1.5 px-2">
+                        <p className="text-[10px] font-semibold text-gray-600 dark:text-gray-500 uppercase tracking-wider mb-1.5 px-2">
                             Menu
                         </p>
                     )}
@@ -250,12 +250,12 @@ export function DashboardSidebar() {
                                     className={cn(
                                         "flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-all duration-200",
                                         isActive
-                                            ? "bg-yellow-500/10 text-yellow-400"
-                                            : "text-gray-400 hover:bg-gray-800/60 hover:text-gray-200",
+                                            ? "bg-yellow-500/20 dark:bg-yellow-500/10 text-yellow-600 dark:text-yellow-400"
+                                            : "text-gray-600 dark:text-gray-400 hover:bg-gray-300/60 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-gray-200",
                                         isCollapsed && "justify-center px-2"
                                     )}
                                 >
-                                    <item.icon className={cn("w-4 h-4 flex-shrink-0", isActive && "text-yellow-400")} />
+                                    <item.icon className={cn("w-4 h-4 flex-shrink-0", isActive && "text-yellow-600 dark:text-yellow-400")} />
                                     {!isCollapsed && <span className="text-sm font-medium">{item.label}</span>}
                                 </div>
                             </Link>
@@ -265,7 +265,7 @@ export function DashboardSidebar() {
                     {(isAdmin || isSubAdmin) && (
                         <>
                             {!isCollapsed && (
-                                <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wider mt-4 mb-1.5 px-2">
+                                <p className="text-[10px] font-semibold text-gray-600 dark:text-gray-500 uppercase tracking-wider mt-4 mb-1.5 px-2">
                                     Admin
                                 </p>
                             )}
@@ -283,12 +283,12 @@ export function DashboardSidebar() {
                                             className={cn(
                                                 "flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-all duration-200",
                                                 isActive
-                                                    ? "bg-red-500/10 text-red-400"
-                                                    : "text-gray-400 hover:bg-gray-800/60 hover:text-gray-200",
+                                                    ? "bg-red-500/20 dark:bg-red-500/10 text-red-600 dark:text-red-400"
+                                                    : "text-gray-600 dark:text-gray-400 hover:bg-gray-300/60 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-gray-200",
                                                 isCollapsed && "justify-center px-2"
                                             )}
                                         >
-                                            <item.icon className={cn("w-4 h-4 flex-shrink-0", isActive && "text-red-400")} />
+                                            <item.icon className={cn("w-4 h-4 flex-shrink-0", isActive && "text-red-600 dark:text-red-400")} />
                                             {!isCollapsed && <span className="text-sm font-medium">{item.label}</span>}
                                         </div>
                                     </Link>
@@ -299,12 +299,12 @@ export function DashboardSidebar() {
                 </nav>
 
                 {/* Logout Button */}
-                <div className="absolute bottom-0 left-0 right-0 p-3 border-t border-gray-800 bg-gray-950">
+                <div className="absolute bottom-0 left-0 right-0 p-3 border-t border-gray-300 dark:border-gray-800 bg-[#E5E7EB] dark:bg-[#1A1A1A]">
                     <Button
                         variant="ghost"
                         onClick={signOut}
                         className={cn(
-                            "w-full justify-start text-gray-400 hover:text-red-400 hover:bg-red-500/10 h-9",
+                            "w-full justify-start text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-500/20 dark:hover:bg-red-500/10 h-9",
                             isCollapsed && "justify-center"
                         )}
                     >
@@ -312,7 +312,7 @@ export function DashboardSidebar() {
                         {!isCollapsed && <span className="ml-2 text-sm font-medium">Logout</span>}
                     </Button>
                 </div>
-            </aside>
+            </aside >
         </>
     )
 }
