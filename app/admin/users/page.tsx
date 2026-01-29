@@ -46,6 +46,7 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select'
+import { roleConfig, UserRole } from '@/lib/roles'
 
 export default function AdminUsersPage() {
     const [users, setUsers] = useState<any[]>([])
@@ -243,9 +244,19 @@ export default function AdminUsersPage() {
                                 {/* Header / ID Card Style */}
                                 <div className="flex justify-between items-start">
                                     <div className="flex gap-4 items-center">
-                                        <div className="h-16 w-16 rounded-2xl bg-gradient-to-br from-blue-600 to-purple-600 rotate-3 group-hover:rotate-6 transition-transform flex items-center justify-center text-white font-black text-2xl shadow-lg shadow-purple-500/30">
-                                            {user.first_name?.[0]}{user.last_name?.[0]}
-                                        </div>
+                                        {(() => {
+                                            const userRole = (user.role || 'customer') as UserRole
+                                            const config = roleConfig[userRole] || roleConfig['customer']
+                                            const RoleIcon = config.icon
+                                            return (
+                                                <div
+                                                    className="h-16 w-16 rounded-2xl rotate-3 group-hover:rotate-6 transition-transform flex items-center justify-center text-white shadow-lg"
+                                                    style={{ backgroundColor: config.color, boxShadow: `0 10px 25px -5px ${config.color}50` }}
+                                                >
+                                                    <RoleIcon className="w-8 h-8" />
+                                                </div>
+                                            )
+                                        })()}
                                         <div>
                                             <h3 className="font-bold text-xl text-slate-900 dark:text-white line-clamp-1">{user.first_name} {user.last_name}</h3>
                                             <div className="flex items-center gap-2 mt-1">
