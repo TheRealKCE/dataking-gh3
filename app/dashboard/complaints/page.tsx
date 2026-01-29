@@ -151,7 +151,7 @@ export default function ComplaintsPage() {
 
     return (
         <div className="space-y-6">
-            <h1 className="text-2xl font-bold">My Complaints</h1>
+            <h1 className="text-2xl font-bold">Complaints Management</h1>
 
             {/* Stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">

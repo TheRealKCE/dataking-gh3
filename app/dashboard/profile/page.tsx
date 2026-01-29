@@ -23,6 +23,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatDate } from '@/lib/utils'
+import { roleConfig, UserRole } from '@/lib/roles'
 
 export default function ProfilePage() {
     const { dbUser, signOut, refreshUser } = useAuth()
@@ -132,17 +133,25 @@ export default function ProfilePage() {
 
     return (
         <div className="space-y-6 max-w-3xl">
-            <h1 className="text-2xl font-bold">Profile</h1>
+            <h1 className="text-2xl font-bold">My Profile</h1>
 
             {/* Profile Card */}
             <Card>
                 <CardHeader>
                     <div className="flex items-center gap-4">
-                        <Avatar className="w-20 h-20">
-                            <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white text-2xl font-bold">
-                                {getInitials()}
-                            </AvatarFallback>
-                        </Avatar>
+                        {(() => {
+                            const userRole = (dbUser?.role || 'customer') as UserRole
+                            const config = roleConfig[userRole] || roleConfig['customer']
+                            const RoleIcon = config.icon
+                            return (
+                                <div
+                                    className="w-20 h-20 rounded-full flex items-center justify-center text-white shadow-lg ring-4 ring-white dark:ring-gray-800"
+                                    style={{ backgroundColor: config.color }}
+                                >
+                                    <RoleIcon className="w-10 h-10" />
+                                </div>
+                            )
+                        })()}
                         <div>
                             <CardTitle className="text-xl">
                                 {dbUser?.first_name} {dbUser?.last_name}

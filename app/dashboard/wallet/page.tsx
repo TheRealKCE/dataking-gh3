@@ -183,7 +183,10 @@ function WalletContent() {
 
     return (
         <div className="space-y-6">
-            <h1 className="text-2xl font-bold">Wallet</h1>
+            <div>
+                <h1 className="text-2xl font-bold">Load Wallet</h1>
+                <p className="text-muted-foreground">Top up your wallet to continue shopping</p>
+            </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Balance Card */}
