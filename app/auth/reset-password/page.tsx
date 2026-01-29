@@ -10,6 +10,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Wifi, Loader2, Mail, MessageCircle, Phone } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
+import { BackgroundBubbles } from '@/components/background-bubbles'
+import { FloatingWhatsApp } from '@/components/floating-whatsapp'
 
 export default function ResetPasswordPage() {
     const [email, setEmail] = useState('')
@@ -42,22 +44,26 @@ export default function ResetPasswordPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
-            <div className="w-full max-w-md">
+        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4 relative overflow-hidden">
+            <BackgroundBubbles />
+            <FloatingWhatsApp />
+            <div className="w-full max-w-md relative z-10">
                 {/* Logo */}
                 <div className="text-center mb-8">
-                    <Link href="/" className="inline-flex items-center space-x-2">
-                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+                    <Link href="/" className="inline-flex items-center space-x-2 group">
+                        <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center transition-transform duration-500 group-hover:rotate-12 group-hover:scale-110 animate-[bounce_3s_infinite]">
                             <Wifi className="w-7 h-7 text-white" />
                         </div>
-                        <span className="text-2xl font-bold text-white">KING FLEXY DATA LTD</span>
+                        <span className="text-2xl font-bold text-white tracking-tight drop-shadow-md group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-blue-400 group-hover:to-purple-400 transition-all">
+                            KING FLEXY DATA LTD
+                        </span>
                     </Link>
                 </div>
 
-                <Card className="border-white/10 bg-white/5 backdrop-blur-xl">
+                <Card className="border-white/10 bg-white/5 backdrop-blur-xl shadow-2xl">
                     <CardHeader className="text-center">
-                        <CardTitle className="text-2xl text-white">Reset Password</CardTitle>
-                        <CardDescription className="text-white/60">
+                        <CardTitle className="text-2xl text-white font-bold tracking-wide">Reset Password</CardTitle>
+                        <CardDescription className="text-white/60 text-base">
                             {success ? 'Check your email for reset instructions' : 'Enter your email to receive a reset link'}
                         </CardDescription>
                     </CardHeader>
@@ -79,14 +85,14 @@ export default function ResetPasswordPage() {
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}
                                         required
-                                        className="bg-white/10 border-white/20 text-white placeholder:text-white/40"
+                                        className="h-11 bg-white/10 border-white/20 text-white placeholder:text-white/40 focus:border-purple-400 focus:ring-purple-400/20 transition-all"
                                     />
                                 </div>
 
                                 <Button
                                     type="submit"
                                     disabled={isLoading}
-                                    className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+                                    className="w-full h-11 text-base font-semibold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg shadow-purple-900/20 transition-all duration-300 hover:scale-[1.02]"
                                 >
                                     {isLoading ? (
                                         <>
@@ -103,7 +109,7 @@ export default function ResetPasswordPage() {
                             </form>
                         ) : (
                             <div className="text-center py-4">
-                                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center mx-auto mb-4">
+                                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center mx-auto mb-4 animate-[bounce_1s_ease-in-out_2]">
                                     <Mail className="w-8 h-8 text-white" />
                                 </div>
                                 <p className="text-white/60 mb-4">
@@ -146,7 +152,7 @@ export default function ResetPasswordPage() {
                         </div>
 
                         <div className="mt-6 text-center">
-                            <Link href="/auth/login" className="text-sm text-blue-400 hover:text-blue-300">
+                            <Link href="/auth/login" className="text-sm text-blue-400 hover:text-blue-300 font-medium transition-colors">
                                 ← Back to Login
                             </Link>
                         </div>

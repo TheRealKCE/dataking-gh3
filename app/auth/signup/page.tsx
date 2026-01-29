@@ -13,6 +13,8 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Wifi, Eye, EyeOff, Loader2, CheckCircle2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { validateGhanaianPhone } from '@/lib/phone-validation'
+import { BackgroundBubbles } from '@/components/background-bubbles'
+import { FloatingWhatsApp } from '@/components/floating-whatsapp'
 import { WhatsAppCommunityButtons } from '@/components/whatsapp-community-buttons'
 
 export default function SignupPage() {
@@ -107,10 +109,12 @@ export default function SignupPage() {
 
     if (success) {
         return (
-            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
-                <Card className="w-full max-w-md border-white/10 bg-white/5 backdrop-blur-xl">
+            <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4 relative overflow-hidden">
+                <BackgroundBubbles />
+                <FloatingWhatsApp />
+                <Card className="w-full max-w-md border-white/10 bg-white/5 backdrop-blur-xl relative z-10 shadow-2xl">
                     <CardContent className="pt-8 text-center">
-                        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center mx-auto mb-6">
+                        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center mx-auto mb-6 animate-[bounce_1s_ease-in-out_2]">
                             <CheckCircle2 className="w-8 h-8 text-white" />
                         </div>
                         <h2 className="text-2xl font-bold text-white mb-2">Check Your Email</h2>
@@ -119,7 +123,7 @@ export default function SignupPage() {
                             Please check your inbox and click the link to verify your account.
                         </p>
                         <Link href="/auth/login">
-                            <Button className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700">
+                            <Button className="w-full h-11 text-base font-semibold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg shadow-purple-900/20 transition-all duration-300 hover:scale-[1.02]">
                                 Go to Login
                             </Button>
                         </Link>
@@ -130,12 +134,14 @@ export default function SignupPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4 py-12">
-            <div className="w-full max-w-md">
+        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4 py-12 relative overflow-hidden">
+            <BackgroundBubbles />
+            <FloatingWhatsApp />
+            <div className="w-full max-w-md relative z-10">
                 {/* Logo */}
                 <div className="text-center mb-8">
-                    <Link href="/" className="inline-flex items-center space-x-2">
-                        <div className="relative w-12 h-12">
+                    <Link href="/" className="inline-flex items-center space-x-2 group">
+                        <div className="relative w-12 h-12 transition-transform duration-500 group-hover:rotate-12 group-hover:scale-110 animate-[bounce_3s_infinite]">
                             <Image
                                 src="/logo.png"
                                 alt="KING FLEXY DATA LTD"
@@ -144,14 +150,16 @@ export default function SignupPage() {
                                 priority
                             />
                         </div>
-                        <span className="text-2xl font-bold text-white">KING FLEXY DATA LTD</span>
+                        <span className="text-2xl font-bold text-white tracking-tight drop-shadow-md group-hover:text-transparent group-hover:bg-clip-text group-hover:bg-gradient-to-r group-hover:from-blue-400 group-hover:to-purple-400 transition-all">
+                            KING FLEXY DATA LTD
+                        </span>
                     </Link>
                 </div>
 
-                <Card className="border-white/10 bg-white/5 backdrop-blur-xl">
+                <Card className="border-white/10 bg-white/5 backdrop-blur-xl shadow-2xl">
                     <CardHeader className="text-center">
-                        <CardTitle className="text-2xl text-white">Create Account</CardTitle>
-                        <CardDescription className="text-white/60">
+                        <CardTitle className="text-2xl text-white font-bold tracking-wide">Create Account</CardTitle>
+                        <CardDescription className="text-white/60 text-base">
                             Sign up to start buying data packages
                         </CardDescription>
                     </CardHeader>
@@ -173,7 +181,7 @@ export default function SignupPage() {
                                         value={formData.firstName}
                                         onChange={handleChange}
                                         required
-                                        className="bg-white/10 border-white/20 text-white placeholder:text-white/40"
+                                        className="h-11 bg-white/10 border-white/20 text-white placeholder:text-white/40 focus:border-purple-400 focus:ring-purple-400/20 transition-all"
                                     />
                                 </div>
                                 <div className="space-y-2">
@@ -185,7 +193,7 @@ export default function SignupPage() {
                                         value={formData.lastName}
                                         onChange={handleChange}
                                         required
-                                        className="bg-white/10 border-white/20 text-white placeholder:text-white/40"
+                                        className="h-11 bg-white/10 border-white/20 text-white placeholder:text-white/40 focus:border-purple-400 focus:ring-purple-400/20 transition-all"
                                     />
                                 </div>
                             </div>
@@ -200,7 +208,7 @@ export default function SignupPage() {
                                     value={formData.email}
                                     onChange={handleChange}
                                     required
-                                    className="bg-white/10 border-white/20 text-white placeholder:text-white/40"
+                                    className="h-11 bg-white/10 border-white/20 text-white placeholder:text-white/40 focus:border-purple-400 focus:ring-purple-400/20 transition-all"
                                 />
                             </div>
 
@@ -214,7 +222,7 @@ export default function SignupPage() {
                                     value={formData.phoneNumber}
                                     onChange={handleChange}
                                     required
-                                    className="bg-white/10 border-white/20 text-white placeholder:text-white/40"
+                                    className="h-11 bg-white/10 border-white/20 text-white placeholder:text-white/40 focus:border-purple-400 focus:ring-purple-400/20 transition-all"
                                 />
                                 <p className="text-xs text-white/40">Enter a valid Ghanaian phone number</p>
                             </div>
@@ -230,14 +238,14 @@ export default function SignupPage() {
                                         value={formData.password}
                                         onChange={handleChange}
                                         required
-                                        className="bg-white/10 border-white/20 text-white placeholder:text-white/40 pr-10"
+                                        className="h-11 bg-white/10 border-white/20 text-white placeholder:text-white/40 pr-10 focus:border-purple-400 focus:ring-purple-400/20 transition-all"
                                     />
                                     <button
                                         type="button"
                                         onClick={() => setShowPassword(!showPassword)}
-                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/60"
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-white/40 hover:text-white/60 transition-colors"
                                     >
-                                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                        {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                                     </button>
                                 </div>
                             </div>
@@ -252,14 +260,14 @@ export default function SignupPage() {
                                     value={formData.confirmPassword}
                                     onChange={handleChange}
                                     required
-                                    className="bg-white/10 border-white/20 text-white placeholder:text-white/40"
+                                    className="h-11 bg-white/10 border-white/20 text-white placeholder:text-white/40 focus:border-purple-400 focus:ring-purple-400/20 transition-all"
                                 />
                             </div>
 
                             <Button
                                 type="submit"
                                 disabled={isLoading}
-                                className="w-full bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700"
+                                className="w-full h-11 text-base font-semibold bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg shadow-purple-900/20 transition-all duration-300 hover:scale-[1.02]"
                             >
                                 {isLoading ? (
                                     <>
@@ -275,7 +283,7 @@ export default function SignupPage() {
                         <div className="mt-6 text-center">
                             <p className="text-white/60 text-sm">
                                 Already have an account?{' '}
-                                <Link href="/auth/login" className="text-blue-400 hover:text-blue-300 font-medium">
+                                <Link href="/auth/login" className="text-blue-400 hover:text-blue-300 font-semibold transition-colors">
                                     Sign in
                                 </Link>
                             </p>
