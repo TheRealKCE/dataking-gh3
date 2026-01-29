@@ -45,12 +45,12 @@ export default function DashboardLayout({
 
     return (
         <UIProvider>
-            <div className="min-h-screen bg-gray-50 dark:bg-gray-950 relative">
+            <div className="min-h-screen bg-[#E5E7EB] dark:bg-[#1A1A1A] relative">
                 <SystemAnnouncementModal />
                 <DashboardSidebar />
                 <div className="lg:pl-72">
                     <DashboardHeader />
-                    <main className="p-4 lg:p-8">
+                    <main className="p-4 lg:p-6">
                         {children}
                     </main>
                 </div>

@@ -178,7 +178,7 @@ export default function AdminAnnouncementsPage() {
     }
 
     return (
-        <div className="min-h-screen bg-[#E5E7EB] dark:bg-[#1A1A1A] -m-6 p-4 sm:p-6 space-y-4 sm:space-y-6">
+        <div className="space-y-4 sm:space-y-6">
             <div>
                 <h1 className="text-xl sm:text-2xl font-bold text-gray-800 dark:text-white">Post Message</h1>
                 <p className="text-sm text-gray-600 dark:text-gray-400">Create alerts for users when they sign in</p>
