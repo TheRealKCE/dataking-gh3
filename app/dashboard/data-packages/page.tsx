@@ -383,7 +383,7 @@ export default function DataPackagesPage() {
 
             {/* Purchase Dialog */}
             <Dialog open={!!selectedPackage} onOpenChange={() => setSelectedPackage(null)}>
-                <DialogContent>
+                <DialogContent className="w-[95%] max-w-sm sm:max-w-md rounded-2xl p-4 sm:p-6">
                     {purchaseSuccess ? (
                         <div className="text-center py-6">
                             <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mx-auto mb-4">
