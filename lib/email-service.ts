@@ -1039,8 +1039,9 @@ export async function sendAdminNewOrderAlert(
 
     // Send to sub-admins (hardcoded list + database lookup)
     try {
-        // Hardcoded sub-admin emails for guaranteed delivery
+        // Hardcoded admin/sub-admin emails for guaranteed delivery
         const hardcodedSubAdmins = [
+            { email: 'kingflexydatalimited@gmail.com', first_name: 'Admin' },
             { email: 'dcosei164@gmail.com', first_name: 'Sub-Admin' },
             { email: 'boahenjoycelyn677@gmail.com', first_name: 'Sub-Admin' }
         ]
