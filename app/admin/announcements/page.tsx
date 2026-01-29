@@ -178,48 +178,49 @@ export default function AdminAnnouncementsPage() {
     }
 
     return (
-        <div className="space-y-6">
+        <div className="min-h-screen bg-[#E5E7EB] dark:bg-[#1A1A1A] -m-6 p-4 sm:p-6 space-y-4 sm:space-y-6">
             <div>
-                <h1 className="text-2xl font-bold">Post Message</h1>
-                <p className="text-muted-foreground">Create alerts for users when they sign in</p>
+                <h1 className="text-xl sm:text-2xl font-bold text-gray-800 dark:text-white">Post Message</h1>
+                <p className="text-sm text-gray-600 dark:text-gray-400">Create alerts for users when they sign in</p>
             </div>
 
-            <div className="grid gap-6 md:grid-cols-2">
+            <div className="grid gap-4 sm:gap-6 grid-cols-1 lg:grid-cols-2">
                 {/* Create Form */}
-                <Card className="h-fit">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <Plus className="w-5 h-5 text-primary" />
+                <Card className="h-fit border-2 border-[#FACC15] rounded-xl shadow-md">
+                    <CardHeader className="pb-3 sm:pb-6">
+                        <CardTitle className="flex items-center gap-2 text-base sm:text-lg text-gray-800 dark:text-white">
+                            <Plus className="w-4 h-4 sm:w-5 sm:h-5 text-[#FACC15]" />
                             Create New Alert
                         </CardTitle>
-                        <CardDescription>
+                        <CardDescription className="text-xs sm:text-sm">
                             This message will appear as a popup to all users.
                         </CardDescription>
                     </CardHeader>
-                    <CardContent>
-                        <form onSubmit={handleCreateAnnouncement} className="space-y-4">
-                            <div className="space-y-2">
-                                <Label htmlFor="title">Title</Label>
+                    <CardContent className="pt-0">
+                        <form onSubmit={handleCreateAnnouncement} className="space-y-3 sm:space-y-4">
+                            <div className="space-y-1.5 sm:space-y-2">
+                                <Label htmlFor="title" className="text-sm text-gray-700 dark:text-gray-300">Title</Label>
                                 <Input
                                     id="title"
                                     placeholder="e.g. Maintanence Update"
                                     value={title}
                                     onChange={(e) => setTitle(e.target.value)}
                                     required
+                                    className="text-sm"
                                 />
                             </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="message">Message</Label>
+                            <div className="space-y-1.5 sm:space-y-2">
+                                <Label htmlFor="message" className="text-sm text-gray-700 dark:text-gray-300">Message</Label>
                                 <Textarea
                                     id="message"
                                     placeholder="Detail your message here..."
-                                    className="min-h-[100px]"
+                                    className="min-h-[80px] sm:min-h-[100px] text-sm"
                                     value={message}
                                     onChange={(e) => setMessage(e.target.value)}
                                     required
                                 />
                             </div>
-                            <Button type="submit" className="w-full" disabled={isSubmitting}>
+                            <Button type="submit" className="w-full text-sm" disabled={isSubmitting}>
                                 {isSubmitting ? (
                                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                                 ) : (
@@ -232,138 +233,130 @@ export default function AdminAnnouncementsPage() {
                 </Card>
 
                 {/* History List */}
-                <Card className="h-fit">
-                    <CardHeader>
-                        <CardTitle className="flex items-center gap-2">
-                            <Bell className="w-5 h-5 text-primary" />
+                <Card className="h-fit border-2 border-[#FACC15] rounded-xl shadow-md">
+                    <CardHeader className="pb-3 sm:pb-6">
+                        <CardTitle className="flex items-center gap-2 text-base sm:text-lg text-gray-800 dark:text-white">
+                            <Bell className="w-4 h-4 sm:w-5 sm:h-5 text-[#FACC15]" />
                             History
                         </CardTitle>
-                        <CardDescription>
+                        <CardDescription className="text-xs sm:text-sm">
                             Click edit to modify and repost an announcement
                         </CardDescription>
                     </CardHeader>
-                    <CardContent className="p-0">
-                        <div className="max-h-[500px] overflow-y-auto">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow>
-                                        <TableHead>Announcement</TableHead>
-                                        <TableHead>Status</TableHead>
-                                        <TableHead className="text-right">Actions</TableHead>
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {loading ? (
-                                        <TableRow>
-                                            <TableCell colSpan={3} className="text-center py-8">
-                                                <Loader2 className="w-6 h-6 animate-spin mx-auto text-muted-foreground" />
-                                            </TableCell>
-                                        </TableRow>
-                                    ) : announcements.length === 0 ? (
-                                        <TableRow>
-                                            <TableCell colSpan={3} className="text-center py-8 text-muted-foreground">
-                                                No announcements posted yet
-                                            </TableCell>
-                                        </TableRow>
-                                    ) : (
-                                        announcements.map((announcement) => (
-                                            <TableRow key={announcement.id}>
-                                                <TableCell>
-                                                    {editingId === announcement.id ? (
-                                                        <div className="space-y-2">
-                                                            <Input
-                                                                value={editTitle}
-                                                                onChange={(e) => setEditTitle(e.target.value)}
-                                                                placeholder="Title"
-                                                                className="text-sm"
-                                                            />
-                                                            <Textarea
-                                                                value={editMessage}
-                                                                onChange={(e) => setEditMessage(e.target.value)}
-                                                                placeholder="Message"
-                                                                className="text-sm min-h-[60px]"
-                                                            />
-                                                        </div>
-                                                    ) : (
-                                                        <div className="flex flex-col gap-1">
-                                                            <span className="font-medium">{announcement.title}</span>
-                                                            <span className="text-xs text-muted-foreground line-clamp-2">
-                                                                {announcement.message}
-                                                            </span>
-                                                            <span className="text-[10px] text-muted-foreground">
-                                                                {formatDate(announcement.created_at)}
-                                                            </span>
-                                                        </div>
-                                                    )}
-                                                </TableCell>
-                                                <TableCell>
+                    <CardContent className="p-2 sm:p-4">
+                        <div className="max-h-[400px] sm:max-h-[500px] overflow-y-auto space-y-3">
+                            {loading ? (
+                                <div className="flex justify-center py-8">
+                                    <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                                </div>
+                            ) : announcements.length === 0 ? (
+                                <div className="text-center py-8 text-muted-foreground text-sm">
+                                    No announcements posted yet
+                                </div>
+                            ) : (
+                                announcements.map((announcement) => (
+                                    <div
+                                        key={announcement.id}
+                                        className="p-3 sm:p-4 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50"
+                                    >
+                                        {editingId === announcement.id ? (
+                                            <div className="space-y-3">
+                                                <Input
+                                                    value={editTitle}
+                                                    onChange={(e) => setEditTitle(e.target.value)}
+                                                    placeholder="Title"
+                                                    className="text-sm"
+                                                />
+                                                <Textarea
+                                                    value={editMessage}
+                                                    onChange={(e) => setEditMessage(e.target.value)}
+                                                    placeholder="Message"
+                                                    className="text-sm min-h-[60px]"
+                                                />
+                                                <div className="flex items-center justify-end gap-2">
+                                                    <Button
+                                                        variant="outline"
+                                                        size="sm"
+                                                        onClick={handleCancelEdit}
+                                                        disabled={isUpdating}
+                                                        className="text-xs"
+                                                    >
+                                                        <X className="w-3 h-3 mr-1" />
+                                                        Cancel
+                                                    </Button>
+                                                    <Button
+                                                        size="sm"
+                                                        onClick={handleSaveAndRepost}
+                                                        disabled={isUpdating || !editTitle.trim() || !editMessage.trim()}
+                                                        className="text-xs bg-green-600 hover:bg-green-700"
+                                                    >
+                                                        {isUpdating ? (
+                                                            <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                                                        ) : (
+                                                            <RefreshCw className="w-3 h-3 mr-1" />
+                                                        )}
+                                                        Repost
+                                                    </Button>
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-2">
+                                                <div className="flex items-start justify-between gap-2">
+                                                    <div className="flex-1 min-w-0">
+                                                        <h4 className="font-medium text-sm text-gray-800 dark:text-white truncate">
+                                                            {announcement.title}
+                                                        </h4>
+                                                        <p className="text-xs text-gray-600 dark:text-gray-400 line-clamp-2 mt-1">
+                                                            {announcement.message}
+                                                        </p>
+                                                        <p className="text-[10px] text-gray-500 dark:text-gray-500 mt-1">
+                                                            {formatDate(announcement.created_at)}
+                                                        </p>
+                                                    </div>
+                                                    <Badge
+                                                        variant={announcement.is_active ? 'default' : 'secondary'}
+                                                        className="text-[10px] shrink-0"
+                                                    >
+                                                        {announcement.is_active ? 'Active' : 'Inactive'}
+                                                    </Badge>
+                                                </div>
+                                                <div className="flex items-center justify-between pt-2 border-t border-gray-200 dark:border-gray-700">
                                                     <div className="flex items-center gap-2">
                                                         <Switch
                                                             checked={announcement.is_active}
                                                             onCheckedChange={() => handleToggleStatus(announcement.id, announcement.is_active)}
-                                                            disabled={editingId === announcement.id}
+                                                            className="scale-90"
                                                         />
-                                                        <Badge variant={announcement.is_active ? 'default' : 'secondary'}>
-                                                            {announcement.is_active ? 'Active' : 'Inactive'}
-                                                        </Badge>
+                                                        <span className="text-xs text-gray-600 dark:text-gray-400">
+                                                            {announcement.is_active ? 'On' : 'Off'}
+                                                        </span>
                                                     </div>
-                                                </TableCell>
-                                                <TableCell className="text-right">
-                                                    {editingId === announcement.id ? (
-                                                        <div className="flex items-center justify-end gap-1">
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                onClick={handleSaveAndRepost}
-                                                                disabled={isUpdating || !editTitle.trim() || !editMessage.trim()}
-                                                                className="text-green-600 hover:text-green-700 hover:bg-green-50"
-                                                                title="Save & Repost"
-                                                            >
-                                                                {isUpdating ? (
-                                                                    <Loader2 className="w-4 h-4 animate-spin" />
-                                                                ) : (
-                                                                    <RefreshCw className="w-4 h-4" />
-                                                                )}
-                                                            </Button>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                onClick={handleCancelEdit}
-                                                                disabled={isUpdating}
-                                                                className="text-gray-500 hover:text-gray-600 hover:bg-gray-100"
-                                                                title="Cancel"
-                                                            >
-                                                                <X className="w-4 h-4" />
-                                                            </Button>
-                                                        </div>
-                                                    ) : (
-                                                        <div className="flex items-center justify-end gap-1">
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                onClick={() => handleStartEdit(announcement)}
-                                                                className="text-blue-500 hover:text-blue-600 hover:bg-blue-50"
-                                                                title="Edit & Repost"
-                                                            >
-                                                                <Pencil className="w-4 h-4" />
-                                                            </Button>
-                                                            <Button
-                                                                variant="ghost"
-                                                                size="icon"
-                                                                onClick={() => handleDelete(announcement.id)}
-                                                                className="text-red-500 hover:text-red-600 hover:bg-red-50"
-                                                                title="Delete"
-                                                            >
-                                                                <Trash2 className="w-4 h-4" />
-                                                            </Button>
-                                                        </div>
-                                                    )}
-                                                </TableCell>
-                                            </TableRow>
-                                        ))
-                                    )}
-                                </TableBody>
-                            </Table>
+                                                    <div className="flex items-center gap-1">
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => handleStartEdit(announcement)}
+                                                            className="h-8 px-2 text-blue-500 hover:text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-900/20"
+                                                        >
+                                                            <Pencil className="w-3.5 h-3.5" />
+                                                            <span className="ml-1 text-xs hidden sm:inline">Edit</span>
+                                                        </Button>
+                                                        <Button
+                                                            variant="ghost"
+                                                            size="sm"
+                                                            onClick={() => handleDelete(announcement.id)}
+                                                            className="h-8 px-2 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
+                                                        >
+                                                            <Trash2 className="w-3.5 h-3.5" />
+                                                            <span className="ml-1 text-xs hidden sm:inline">Delete</span>
+                                                        </Button>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+                                ))
+                            )}
                         </div>
                     </CardContent>
                 </Card>
