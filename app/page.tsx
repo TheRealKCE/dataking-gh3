@@ -16,20 +16,20 @@ import Image from 'next/image'
 
 export default function HomePage() {
     return (
-        <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 overflow-x-hidden">
+        <div className="min-h-screen bg-[#E5E7EB] overflow-x-hidden">
             {/* Navigation */}
-            <nav className="fixed top-0 w-full z-50 bg-black/20 backdrop-blur-xl border-b border-white/10">
+            <nav className="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-xl border-b border-slate-200 shadow-sm">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex items-center justify-between h-16">
                         <div className="flex items-center space-x-2 opacity-0"></div>
                         <div className="flex items-center space-x-4">
                             <Link href="/auth/login">
-                                <Button variant="ghost" className="text-white hover:bg-white/10">
+                                <Button variant="ghost" className="text-slate-700 hover:bg-slate-100 font-semibold">
                                     Login
                                 </Button>
                             </Link>
                             <Link href="/auth/signup">
-                                <Button className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700">
+                                <Button className="bg-[#0056B3] hover:bg-[#004494] text-white font-bold">
                                     Get Started
                                 </Button>
                             </Link>
@@ -54,11 +54,11 @@ export default function HomePage() {
                                         priority
                                     />
                                 </div>
-                                <h1 className="text-3xl font-black text-white tracking-tight drop-shadow-lg">KING FLEXY DATA LTD</h1>
+                                <h1 className="text-3xl font-black text-slate-900 tracking-tight drop-shadow-sm">KING FLEXY DATA LTD</h1>
                             </div>
 
                             <div className="flex flex-col items-center space-y-2">
-                                <p className="text-white/80 font-medium">Need help?</p>
+                                <p className="text-slate-600 font-medium">Need help?</p>
                                 <a
                                     href="https://wa.me/233578065809"
                                     target="_blank"
@@ -71,30 +71,30 @@ export default function HomePage() {
                             </div>
                         </div>
 
-                        <div className="inline-flex items-center px-4 py-2 rounded-full bg-white/10 backdrop-blur-sm border border-white/20 mb-8">
-                            <Zap className="w-4 h-4 text-yellow-400 mr-2" />
-                            <span className="text-sm text-white/90">Instant Data Delivery</span>
+                        <div className="inline-flex items-center px-4 py-2 rounded-full bg-white/80 backdrop-blur-sm border border-slate-200 shadow-sm mb-8">
+                            <Zap className="w-4 h-4 text-yellow-500 mr-2" />
+                            <span className="text-sm text-slate-700 font-medium">Ultra Fast Instant Delivery</span>
                         </div>
-                        <h1 className="text-4xl md:text-7xl font-bold text-white mb-6 leading-tight">
-                            Buy Data & Airtime
+                        <h1 className="text-4xl md:text-7xl font-bold text-slate-900 mb-6 leading-tight">
+                            Buy Data Bundles
                             <br />
-                            <span className="bg-gradient-to-r from-blue-400 via-purple-400 to-pink-400 bg-clip-text text-transparent">
+                            <span className="bg-gradient-to-r from-[#0056B3] via-[#0077B6] to-[#00B4D8] bg-clip-text text-transparent">
                                 Instantly
                             </span>
                         </h1>
-                        <p className="text-lg md:text-xl text-white/70 max-w-2xl mx-auto mb-10 px-4">
-                            Purchase data packages for MTN, Telecel, AT-iShare, and AT-BigTime networks.
-                            Fast, reliable, and affordable with automatic delivery.
+                        <p className="text-lg md:text-xl text-slate-600 max-w-2xl mx-auto mb-10 px-4">
+                            Purchase data bundles for MTN, Telecel, AT-iShare, and AT-BigTime networks.
+                            Ultra fast, reliable, and affordable with instant automatic delivery.
                         </p>
                         <div className="flex flex-col sm:flex-row gap-4 justify-center px-4">
                             <Link href="/auth/signup">
-                                <Button size="xl" className="bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-lg px-8">
+                                <Button size="xl" className="bg-[#0056B3] hover:bg-[#004494] text-white text-lg px-8 font-bold shadow-lg">
                                     Start Buying Now
                                     <ArrowRight className="ml-2 w-5 h-5" />
                                 </Button>
                             </Link>
                             <Link href="/auth/login">
-                                <Button size="xl" className="bg-[#FACC15] text-black hover:bg-[#FACC15]/90 border-0 text-lg px-8 font-bold">
+                                <Button size="xl" className="bg-[#FACC15] text-slate-900 hover:bg-[#FACC15]/90 border-0 text-lg px-8 font-bold shadow-lg">
                                     Login to Dashboard
                                 </Button>
                             </Link>
@@ -111,13 +111,13 @@ export default function HomePage() {
                         ].map((network) => (
                             <div
                                 key={network.name}
-                                className="group relative p-6 rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 hover:bg-white/10 transition-all duration-300 hover:scale-105"
+                                className="group relative p-6 rounded-2xl bg-white/80 backdrop-blur-sm border border-slate-200 shadow-md hover:shadow-xl transition-all duration-300 hover:scale-105"
                             >
                                 <div className="flex items-center justify-center mb-4">
                                     <NetworkIcon network={network.name} size={64} />
                                 </div>
-                                <h3 className="text-lg font-semibold text-white">{network.name}</h3>
-                                <p className="text-sm text-white/60">Data & Airtime</p>
+                                <h3 className="text-lg font-semibold text-slate-900">{network.name}</h3>
+                                <p className="text-sm text-slate-500">Data Bundles</p>
                             </div>
                         ))}
                     </div>
@@ -125,14 +125,14 @@ export default function HomePage() {
             </section>
 
             {/* Features Section */}
-            <section className="py-20 px-4 sm:px-6 lg:px-8 bg-black/20">
+            <section className="py-20 px-4 sm:px-6 lg:px-8 bg-white/50">
                 <div className="max-w-7xl mx-auto">
                     <div className="text-center mb-16">
-                        <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
+                        <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
                             Why Choose KING FLEXY DATA LTD?
                         </h2>
-                        <p className="text-white/60 max-w-xl mx-auto">
-                            Experience the fastest and most reliable way to purchase mobile data in Ghana
+                        <p className="text-slate-600 max-w-xl mx-auto">
+                            Experience the fastest and most reliable way to purchase mobile data bundles in Ghana
                         </p>
                     </div>
 
@@ -140,8 +140,8 @@ export default function HomePage() {
                         {[
                             {
                                 icon: Zap,
-                                title: 'Instant Delivery',
-                                description: 'Your data is delivered within seconds after purchase. No waiting, no delays.',
+                                title: 'Ultra Fast Delivery',
+                                description: 'Your data bundle is delivered within seconds after purchase. No waiting, no delays.',
                                 gradient: 'from-yellow-500 to-orange-500',
                             },
                             {
@@ -153,19 +153,19 @@ export default function HomePage() {
                             {
                                 icon: Clock,
                                 title: '24/7 Available',
-                                description: 'Buy data anytime, anywhere. Our platform is always available for you.',
-                                gradient: 'from-blue-500 to-purple-500',
+                                description: 'Buy data bundles anytime, anywhere. Our platform is always available for you.',
+                                gradient: 'from-blue-500 to-cyan-500',
                             },
                         ].map((feature, index) => (
                             <div
                                 key={index}
-                                className="group p-8 rounded-2xl bg-white/5 backdrop-blur-sm border border-white/10 hover:bg-white/10 transition-all duration-300"
+                                className="group p-8 rounded-2xl bg-white/80 backdrop-blur-sm border border-slate-200 shadow-md hover:shadow-xl transition-all duration-300"
                             >
                                 <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${feature.gradient} flex items-center justify-center mb-6 group-hover:scale-110 transition-transform`}>
                                     <feature.icon className="w-7 h-7 text-white" />
                                 </div>
-                                <h3 className="text-xl font-semibold text-white mb-3">{feature.title}</h3>
-                                <p className="text-white/60">{feature.description}</p>
+                                <h3 className="text-xl font-semibold text-slate-900 mb-3">{feature.title}</h3>
+                                <p className="text-slate-600">{feature.description}</p>
                             </div>
                         ))}
                     </div>
@@ -176,10 +176,10 @@ export default function HomePage() {
             <section className="py-20 px-4 sm:px-6 lg:px-8">
                 <div className="max-w-7xl mx-auto">
                     <div className="text-center mb-16">
-                        <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
+                        <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
                             How It Works
                         </h2>
-                        <p className="text-white/60 max-w-xl mx-auto">
+                        <p className="text-slate-600 max-w-xl mx-auto">
                             Get started in three simple steps
                         </p>
                     </div>
@@ -200,21 +200,21 @@ export default function HomePage() {
                             },
                             {
                                 step: '03',
-                                title: 'Buy Data',
+                                title: 'Buy Data Bundle',
                                 description: 'Select a package, enter the phone number, and receive data instantly.',
                                 icon: CheckCircle2,
                             },
                         ].map((item, index) => (
                             <div key={index} className="relative">
-                                <div className="text-6xl font-bold text-white/5 absolute -top-4 left-0">
+                                <div className="text-6xl font-bold text-slate-200 absolute -top-4 left-0">
                                     {item.step}
                                 </div>
                                 <div className="relative z-10 pt-8">
-                                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center mb-4">
+                                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#0056B3] to-[#00B4D8] flex items-center justify-center mb-4">
                                         <item.icon className="w-6 h-6 text-white" />
                                     </div>
-                                    <h3 className="text-xl font-semibold text-white mb-3">{item.title}</h3>
-                                    <p className="text-white/60">{item.description}</p>
+                                    <h3 className="text-xl font-semibold text-slate-900 mb-3">{item.title}</h3>
+                                    <p className="text-slate-600">{item.description}</p>
                                 </div>
                             </div>
                         ))}
@@ -225,17 +225,17 @@ export default function HomePage() {
             {/* CTA Section */}
             <section className="py-20 px-4 sm:px-6 lg:px-8">
                 <div className="max-w-4xl mx-auto">
-                    <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-blue-600 to-purple-600 p-12 text-center">
+                    <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#0056B3] to-[#00B4D8] p-12 text-center shadow-2xl">
                         <div className="absolute inset-0 bg-grid-white/10 [mask-image:linear-gradient(0deg,transparent,rgba(255,255,255,0.5))]" />
                         <div className="relative z-10">
                             <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
                                 Ready to Get Started?
                             </h2>
-                            <p className="text-white/80 max-w-xl mx-auto mb-8">
-                                Join thousands of Ghanaians who trust KING FLEXY DATA LTD for their mobile data needs.
+                            <p className="text-white/90 max-w-xl mx-auto mb-8">
+                                Join thousands of Ghanaians who trust KING FLEXY DATA LTD for their mobile data bundle needs.
                             </p>
                             <Link href="/auth/signup">
-                                <Button size="xl" className="bg-white text-purple-600 hover:bg-white/90 text-lg px-8">
+                                <Button size="xl" className="bg-white text-[#0056B3] hover:bg-white/90 text-lg px-8 font-bold shadow-lg">
                                     Create Free Account
                                     <ArrowRight className="ml-2 w-5 h-5" />
                                 </Button>
@@ -249,8 +249,8 @@ export default function HomePage() {
             <section className="py-12 px-4 sm:px-6 lg:px-8">
                 <div className="max-w-4xl mx-auto">
                     <div className="text-center mb-8">
-                        <h2 className="text-2xl font-bold text-white mb-4">Join Our Community</h2>
-                        <p className="text-white/60">
+                        <h2 className="text-2xl font-bold text-slate-900 mb-4">Join Our Community</h2>
+                        <p className="text-slate-600">
                             Stay updated with exclusive offers and news on our WhatsApp platforms.
                         </p>
                     </div>
@@ -259,16 +259,16 @@ export default function HomePage() {
             </section>
 
             {/* Footer */}
-            <footer className="py-12 px-4 sm:px-6 lg:px-8 border-t border-white/10">
+            <footer className="py-12 px-4 sm:px-6 lg:px-8 border-t border-slate-300 bg-white/50">
                 <div className="max-w-7xl mx-auto">
                     <div className="flex flex-col md:flex-row items-center justify-between">
                         <div className="flex items-center space-x-2 mb-4 md:mb-0">
-                            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+                            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#0056B3] to-[#00B4D8] flex items-center justify-center">
                                 <Wifi className="w-4 h-4 text-white" />
                             </div>
-                            <span className="text-lg font-semibold text-white">KING FLEXY DATA LTD</span>
+                            <span className="text-lg font-semibold text-slate-900">KING FLEXY DATA LTD</span>
                         </div>
-                        <p className="text-white/40 text-sm">
+                        <p className="text-slate-500 text-sm">
                             © 2026 KING FLEXY DATA LTD. All rights reserved.
                         </p>
                     </div>
