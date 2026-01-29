@@ -41,6 +41,8 @@ export function NetworkIcon({ network, size = 40, className = '', variant = 'def
                     src={`/images/networks/${getFileName(network)}`}
                     alt={network}
                     fill
+                    sizes={`${size}px`}
+                    priority
                     className="object-cover"
                     onError={() => setImageError(true)}
                 />

@@ -273,7 +273,7 @@ export default function DataPackagesPage() {
                                         return 'bg-[#FFFFFF] text-[#E60000] hover:bg-gray-100 border-0 shadow-lg hover:shadow-xl transition-all hover:scale-105 font-bold px-6'
                                     }
                                     if (pkg.network.startsWith('AT')) {
-                                        return 'bg-[#E60000] text-[#FFFFFF] hover:bg-[#cc0000] border-0 shadow-lg hover:shadow-xl transition-all hover:scale-105 font-bold px-6'
+                                        return 'bg-[#FFFFFF] text-[#0056B3] hover:bg-gray-100 border-0 shadow-lg hover:shadow-xl transition-all hover:scale-105 font-bold px-6'
                                     }
                                     return 'bg-[#1a1a1a] text-white hover:bg-black border-0 shadow-lg hover:shadow-xl transition-all hover:scale-105 font-bold px-6'
                                 }
@@ -330,7 +330,7 @@ export default function DataPackagesPage() {
                                         return 'bg-[#FFFFFF] text-[#E60000] hover:bg-gray-100 border-0 shadow-md hover:shadow-lg transition-all hover:scale-105 font-bold px-6'
                                     }
                                     if (pkg.network.startsWith('AT')) {
-                                        return 'bg-[#E60000] text-[#FFFFFF] hover:bg-[#cc0000] border-0 shadow-md hover:shadow-lg transition-all hover:scale-105 font-bold px-6'
+                                        return 'bg-[#FFFFFF] text-[#0056B3] hover:bg-gray-100 border-0 shadow-md hover:shadow-lg transition-all hover:scale-105 font-bold px-6'
                                     }
                                     return 'bg-[#1a1a1a] text-white hover:bg-black border-0 shadow-md hover:shadow-lg transition-all hover:scale-105 font-bold px-6'
                                 }

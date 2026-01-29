@@ -53,9 +53,7 @@
   * {
     @apply border-border;
   }
-  html {
-    scroll-behavior: smooth;
-  }
+
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
@@ -134,12 +132,10 @@
   .shimmer::after {
     content: '';
     @apply absolute inset-0 -translate-x-full;
-    background: linear-gradient(
-      90deg,
-      transparent,
-      rgba(255, 255, 255, 0.2),
-      transparent
-    );
+    background: linear-gradient(90deg,
+        transparent,
+        rgba(255, 255, 255, 0.2),
+        transparent);
     animation: shimmer 2s infinite;
   }
 }
