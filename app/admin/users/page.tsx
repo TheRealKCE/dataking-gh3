@@ -201,7 +201,7 @@ export default function AdminUsersPage() {
     return (
         <div className="space-y-6 pb-20">
             {/* Header Area */}
-            <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 sticky top-0 bg-background/95 backdrop-blur z-30 py-4 border-b">
+            <div className="flex flex-col items-center gap-4 sticky top-0 bg-background/95 backdrop-blur z-30 py-4 border-b text-center">
                 <div>
                     <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                         Users Management

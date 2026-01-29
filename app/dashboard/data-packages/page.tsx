@@ -199,7 +199,7 @@ export default function DataPackagesPage() {
     return (
         <div className="space-y-6">
             {/* Header */}
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="flex flex-col items-center gap-4 text-center">
                 <div>
                     <h1 className="text-2xl font-bold">Data Packages</h1>
                     <p className="text-muted-foreground">
@@ -225,7 +225,7 @@ export default function DataPackagesPage() {
             </div>
 
             {/* Search */}
-            <div className="relative max-w-md">
+            <div className="relative max-w-md mx-auto w-full">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                     placeholder="Search packages..."

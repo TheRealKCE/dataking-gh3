@@ -153,21 +153,21 @@ export default function NotificationsPage() {
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <div className="flex flex-col items-center gap-4 text-center">
                 <div>
                     <h1 className="text-xl sm:text-2xl font-bold">Notifications</h1>
                     <p className="text-sm text-muted-foreground">
                         {unreadCount > 0 ? `${unreadCount} unread notification${unreadCount > 1 ? 's' : ''}` : 'All caught up!'}
                     </p>
                 </div>
-                <div className="flex gap-2 flex-wrap">
+                <div className="flex gap-2 flex-wrap justify-center">
                     {unreadCount > 0 && (
                         <Button
                             variant="outline"
                             size="sm"
                             onClick={markAllAsRead}
                             disabled={markingAllRead}
-                            className="flex-1 sm:flex-none"
+                            className="sm:flex-none"
                         >
                             {markingAllRead ? <Loader2 className="w-4 h-4 sm:mr-2 animate-spin" /> : <Check className="w-4 h-4 sm:mr-2" />}
                             <span className="hidden sm:inline">Mark all as read</span>
@@ -180,7 +180,7 @@ export default function NotificationsPage() {
                             size="sm"
                             onClick={deleteAllNotifications}
                             disabled={deletingAll}
-                            className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 flex-1 sm:flex-none"
+                            className="text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/20 sm:flex-none"
                         >
                             {deletingAll ? <Loader2 className="w-4 h-4 sm:mr-2 animate-spin" /> : <Trash className="w-4 h-4 sm:mr-2" />}
                             <span className="hidden sm:inline">Delete All</span>

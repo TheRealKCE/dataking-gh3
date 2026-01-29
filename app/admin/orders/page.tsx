@@ -662,12 +662,12 @@ export default function AdminOrdersPage() {
 
     return (
         <div className="space-y-6">
-            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div className="flex flex-col items-center gap-4 text-center">
                 <div>
                     <h1 className="text-2xl font-bold">Orders Management</h1>
                     <p className="text-muted-foreground">View and manage all customer orders</p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap justify-center gap-2">
                     <Button
                         onClick={handleExportExcel}
                         variant="default"

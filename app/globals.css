@@ -54,9 +54,42 @@
     @apply border-border;
   }
 
+  html {
+    scroll-behavior: smooth;
+  }
+
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6,
+  .CardTitle {
+    @apply text-center !important;
+    color: #1A1A1A !important;
+  }
+
+  .dark h1,
+  .dark h2,
+  .dark h3,
+  .dark h4,
+  .dark h5,
+  .dark h6,
+  .dark .CardTitle {
+    color: #E5E7EB !important;
+  }
+
+  /* Subheaders/paragraphs often used under titles */
+  .text-muted-foreground.text-center,
+  .text-muted-foreground+h1,
+  h1+p,
+  h2+p {
+    @apply text-center !important;
   }
 }
 

@@ -66,7 +66,7 @@ export default function AdminDashboardPage() {
 
     return (
         <div className="space-y-6">
-            <div>
+            <div className="text-center">
                 <h1 className="text-2xl font-bold">Admin Dashboard</h1>
                 <p className="text-muted-foreground">Overview of your platform statistics</p>
             </div>
