@@ -18,7 +18,31 @@ import { roleConfig } from '@/lib/roles'
 // ... (keep other imports)
 
 export function DashboardHeader() {
-    // ... (keep other hooks)
+    const { dbUser, signOut, isAdmin, isSubAdmin } = useAuth()
+    const { toggleSidebar } = useUI()
+    const { theme, setTheme } = useTheme()
+    const [unreadCount, setUnreadCount] = useState(0)
+
+    useEffect(() => {
+        if (dbUser) {
+            fetchUnreadNotifications()
+        }
+    }, [dbUser])
+
+    const fetchUnreadNotifications = async () => {
+        const { count } = await supabase
+            .from('notifications')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', dbUser?.id as any)
+            .eq('is_read', false)
+
+        setUnreadCount(count || 0)
+    }
+
+    const getInitials = () => {
+        if (!dbUser) return 'U'
+        return `${dbUser.first_name?.[0] || ''}${dbUser.last_name?.[0] || ''}`.toUpperCase()
+    }
 
     // Get role config
     const userRole = isAdmin ? 'admin' : isSubAdmin ? 'sub-admin' : (dbUser?.role || 'customer') as keyof typeof roleConfig

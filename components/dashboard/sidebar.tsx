@@ -58,7 +58,32 @@ import { roleConfig } from '@/lib/roles'
 // ... (existing imports remain, ensure roleConfig is imported and local definition removed)
 
 export function DashboardSidebar() {
-    // ... (existing hooks)
+    const pathname = usePathname()
+    const { dbUser, isAdmin, isSubAdmin, signOut } = useAuth()
+    const { isInternalSidebarOpen, closeSidebar } = useUI()
+    const [isCollapsed, setIsCollapsed] = useState(false)
+    const [walletBalance, setWalletBalance] = useState(0)
+
+    // Fetch wallet balance
+    useEffect(() => {
+        const fetchBalance = async () => {
+            if (!dbUser?.id) return
+            const { data } = await (supabase
+                .from('wallets')
+                .select('balance')
+                .eq('user_id', dbUser.id)
+                .single() as any)
+            if (data) setWalletBalance(data.balance || 0)
+        }
+        fetchBalance()
+    }, [dbUser?.id])
+
+    const isLinkActive = (href: string) => {
+        if (href === '/dashboard' || href === '/admin') {
+            return pathname === href
+        }
+        return pathname?.startsWith(href)
+    }
 
     // Get role config
     const userRole = isAdmin ? 'admin' : isSubAdmin ? 'sub-admin' : (dbUser?.role || 'customer') as keyof typeof roleConfig
