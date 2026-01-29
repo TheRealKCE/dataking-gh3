@@ -48,47 +48,47 @@ export default function LoginPage() {
     }
 
     return (
-        <div className="min-h-screen flex flex-col items-center justify-start p-3 pt-8 relative overflow-hidden">
+        <div className="fixed inset-0 flex flex-col items-center justify-center p-4 overflow-hidden">
             <BackgroundBubbles />
             <FloatingWhatsApp />
 
-            <div className="w-full max-w-sm relative z-10">
-                {/* Logo - static, no animation */}
-                <div className="text-center mb-4">
+            <div className="w-full max-w-sm relative z-10 flex flex-col items-center">
+                {/* Logo - larger and prominent */}
+                <div className="text-center mb-5">
                     <Link href="/" className="inline-flex flex-col items-center">
-                        <div className="relative w-14 h-14 mb-2">
-                            <div className="w-14 h-14 rounded-xl bg-slate-900 flex items-center justify-center shadow-lg">
+                        <div className="relative w-20 h-20 mb-3">
+                            <div className="w-20 h-20 rounded-2xl bg-slate-900 flex items-center justify-center shadow-xl">
                                 <Image
                                     src="/logo.png"
                                     alt="KING FLEXY DATA LTD"
                                     fill
-                                    className="object-contain p-1"
+                                    className="object-contain p-2"
                                     priority
                                 />
                             </div>
                         </div>
-                        <span className="text-lg font-bold text-slate-900 tracking-tight">
+                        <h1 className="text-2xl font-bold text-slate-900 tracking-tight drop-shadow-sm">
                             KING FLEXY DATA LTD
-                        </span>
-                        <span className="text-xs text-slate-700/80">
+                        </h1>
+                        <p className="text-base text-slate-700 mt-1">
                             Sign in to continue
-                        </span>
+                        </p>
                     </Link>
                 </div>
 
-                <Card className="border-0 bg-[#E5E7EB]/80 backdrop-blur-sm shadow-xl rounded-2xl overflow-hidden">
-                    <CardContent className="p-4">
-                        <form onSubmit={handleSubmit} className="space-y-3">
+                <Card className="w-full border-0 bg-[#E5E7EB]/60 backdrop-blur-md shadow-xl rounded-2xl overflow-hidden">
+                    <CardContent className="p-5">
+                        <form onSubmit={handleSubmit} className="space-y-4">
                             {error && (
                                 <Alert variant="destructive" className="bg-red-500/10 border-red-500/50 py-2">
-                                    <AlertDescription className="text-red-600 text-xs">{error}</AlertDescription>
+                                    <AlertDescription className="text-red-600 text-sm">{error}</AlertDescription>
                                 </Alert>
                             )}
 
-                            <div className="space-y-1">
+                            <div className="space-y-1.5">
                                 <Label htmlFor="email" className="text-slate-700 font-semibold text-sm">Email Address</Label>
                                 <div className="relative">
-                                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                                     <Input
                                         id="email"
                                         type="email"
@@ -96,15 +96,15 @@ export default function LoginPage() {
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}
                                         required
-                                        className="h-11 pl-10 bg-white border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-[#0056B3] focus:ring-[#0056B3]/20 rounded-lg text-sm"
+                                        className="h-12 pl-11 bg-white/90 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-[#0056B3] focus:ring-[#0056B3]/20 rounded-xl text-base"
                                     />
                                 </div>
                             </div>
 
-                            <div className="space-y-1">
+                            <div className="space-y-1.5">
                                 <Label htmlFor="password" className="text-slate-700 font-semibold text-sm">Password</Label>
                                 <div className="relative">
-                                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                                     <Input
                                         id="password"
                                         type={showPassword ? 'text' : 'password'}
@@ -112,14 +112,14 @@ export default function LoginPage() {
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
                                         required
-                                        className="h-11 pl-10 pr-10 bg-white border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-[#0056B3] focus:ring-[#0056B3]/20 rounded-lg text-sm"
+                                        className="h-12 pl-11 pr-11 bg-white/90 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-[#0056B3] focus:ring-[#0056B3]/20 rounded-xl text-base"
                                     />
                                     <button
                                         type="button"
                                         onClick={() => setShowPassword(!showPassword)}
                                         className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                                     >
-                                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                        {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                                     </button>
                                 </div>
                             </div>
@@ -127,16 +127,16 @@ export default function LoginPage() {
                             <Button
                                 type="submit"
                                 disabled={isLoading}
-                                className="w-full h-11 text-base font-bold bg-[#0056B3] hover:bg-[#004494] text-white shadow-md rounded-lg"
+                                className="w-full h-12 text-base font-bold bg-[#0056B3] hover:bg-[#004494] text-white shadow-lg rounded-xl"
                             >
                                 {isLoading ? (
                                     <>
-                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                                         Signing in...
                                     </>
                                 ) : (
                                     <>
-                                        <LogIn className="w-4 h-4 mr-2" />
+                                        <LogIn className="w-5 h-5 mr-2" />
                                         Sign In
                                     </>
                                 )}
@@ -144,13 +144,13 @@ export default function LoginPage() {
                         </form>
 
                         <div className="flex items-center my-4">
-                            <div className="flex-1 h-px bg-slate-300"></div>
-                            <span className="px-3 text-xs text-slate-500">OR</span>
-                            <div className="flex-1 h-px bg-slate-300"></div>
+                            <div className="flex-1 h-px bg-slate-300/60"></div>
+                            <span className="px-3 text-sm text-slate-500">OR</span>
+                            <div className="flex-1 h-px bg-slate-300/60"></div>
                         </div>
 
                         <div className="text-center">
-                            <p className="text-slate-600 text-xs">
+                            <p className="text-slate-600 text-sm">
                                 Don't have an account?{' '}
                                 <Link href="/auth/signup" className="text-[#0056B3] font-bold">
                                     Create Account
@@ -158,17 +158,17 @@ export default function LoginPage() {
                             </p>
                         </div>
 
-                        <div className="mt-2 text-center">
-                            <Link href="/auth/reset-password" className="text-xs text-slate-500 hover:text-[#0056B3]">
+                        <div className="mt-3 text-center">
+                            <Link href="/auth/reset-password" className="text-sm text-slate-500 hover:text-[#0056B3]">
                                 Forgot password?
                             </Link>
                         </div>
 
-                        <div className="mt-4 border-t border-slate-300 pt-4">
+                        <div className="mt-5 border-t border-slate-300/50 pt-4">
                             <WhatsAppCommunityButtons />
                         </div>
 
-                        <p className="text-[10px] text-center text-slate-500 mt-3">
+                        <p className="text-xs text-center text-slate-500 mt-4">
                             By signing in, you agree to our <Link href="/terms" className="font-semibold text-slate-700">Terms</Link> and <Link href="/privacy" className="font-semibold text-slate-700">Privacy Policy</Link>
                         </p>
                     </CardContent>

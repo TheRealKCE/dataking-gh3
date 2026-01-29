@@ -49,11 +49,6 @@ export default function SignupPage() {
             return
         }
 
-        if (formData.password !== formData.confirmPassword) {
-            setError('Passwords do not match')
-            return
-        }
-
         if (formData.password.length < 8) {
             setError('Password must be at least 8 characters')
             return
@@ -103,20 +98,20 @@ export default function SignupPage() {
 
     if (success) {
         return (
-            <div className="min-h-screen flex flex-col items-center justify-start p-3 pt-8 relative overflow-hidden">
+            <div className="fixed inset-0 flex flex-col items-center justify-center p-4 overflow-hidden">
                 <BackgroundBubbles />
                 <FloatingWhatsApp />
-                <Card className="w-full max-w-sm border-0 bg-[#E5E7EB]/80 backdrop-blur-sm relative z-10 shadow-xl rounded-2xl">
-                    <CardContent className="pt-6 text-center p-4">
-                        <div className="w-14 h-14 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center mx-auto mb-4">
-                            <Mail className="w-7 h-7 text-white" />
+                <Card className="w-full max-w-sm border-0 bg-[#E5E7EB]/60 backdrop-blur-md relative z-10 shadow-xl rounded-2xl">
+                    <CardContent className="pt-8 text-center p-6">
+                        <div className="w-16 h-16 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center mx-auto mb-4">
+                            <Mail className="w-8 h-8 text-white" />
                         </div>
-                        <h2 className="text-lg font-bold text-slate-900 mb-2">Check Your Email</h2>
-                        <p className="text-slate-600 text-sm mb-4">
+                        <h2 className="text-xl font-bold text-slate-900 mb-2">Check Your Email</h2>
+                        <p className="text-slate-600 text-sm mb-5">
                             We've sent a verification link to <strong className="text-slate-900">{formData.email}</strong>.
                         </p>
                         <Link href="/auth/login">
-                            <Button className="w-full h-11 text-base font-bold bg-[#0056B3] hover:bg-[#004494] text-white shadow-md rounded-lg">
+                            <Button className="w-full h-12 text-base font-bold bg-[#0056B3] hover:bg-[#004494] text-white shadow-lg rounded-xl">
                                 Go to Login
                             </Button>
                         </Link>
@@ -127,15 +122,15 @@ export default function SignupPage() {
     }
 
     return (
-        <div className="min-h-screen flex flex-col items-center justify-start p-3 pt-6 relative overflow-hidden">
+        <div className="fixed inset-0 flex flex-col items-center justify-center p-4 overflow-hidden">
             <BackgroundBubbles />
             <FloatingWhatsApp />
-            <div className="w-full max-w-sm relative z-10">
-                {/* Logo - static, no animation */}
-                <div className="text-center mb-3">
+            <div className="w-full max-w-sm relative z-10 flex flex-col items-center">
+                {/* Logo - larger and prominent */}
+                <div className="text-center mb-4">
                     <Link href="/" className="inline-flex flex-col items-center">
-                        <div className="relative w-12 h-12 mb-1">
-                            <div className="w-12 h-12 rounded-xl bg-slate-900 flex items-center justify-center shadow-lg">
+                        <div className="relative w-16 h-16 mb-2">
+                            <div className="w-16 h-16 rounded-xl bg-slate-900 flex items-center justify-center shadow-xl">
                                 <Image
                                     src="/logo.png"
                                     alt="KING FLEXY DATA LTD"
@@ -145,28 +140,28 @@ export default function SignupPage() {
                                 />
                             </div>
                         </div>
-                        <span className="text-base font-bold text-slate-900 tracking-tight">
+                        <h1 className="text-xl font-bold text-slate-900 tracking-tight drop-shadow-sm">
                             Create Your Account
-                        </span>
-                        <span className="text-xs text-slate-700/80">
+                        </h1>
+                        <p className="text-sm text-slate-700 mt-1">
                             Join KING FLEXY DATA LTD
-                        </span>
+                        </p>
                     </Link>
                 </div>
 
-                <Card className="border-0 bg-[#E5E7EB]/80 backdrop-blur-sm shadow-xl rounded-2xl overflow-hidden">
-                    <CardContent className="p-4">
-                        <form onSubmit={handleSubmit} className="space-y-2.5">
+                <Card className="w-full border-0 bg-[#E5E7EB]/60 backdrop-blur-md shadow-xl rounded-2xl overflow-hidden">
+                    <CardContent className="p-5">
+                        <form onSubmit={handleSubmit} className="space-y-3">
                             {error && (
                                 <Alert variant="destructive" className="bg-red-500/10 border-red-500/50 py-2">
-                                    <AlertDescription className="text-red-600 text-xs">{error}</AlertDescription>
+                                    <AlertDescription className="text-red-600 text-sm">{error}</AlertDescription>
                                 </Alert>
                             )}
 
                             <div className="space-y-1">
                                 <Label htmlFor="fullName" className="text-slate-700 font-semibold text-sm">Full Name</Label>
                                 <div className="relative">
-                                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                                     <Input
                                         id="firstName"
                                         name="firstName"
@@ -174,7 +169,7 @@ export default function SignupPage() {
                                         value={formData.firstName}
                                         onChange={handleChange}
                                         required
-                                        className="h-10 pl-10 bg-white border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-[#0056B3] focus:ring-[#0056B3]/20 rounded-lg text-sm"
+                                        className="h-11 pl-11 bg-white/90 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-[#0056B3] focus:ring-[#0056B3]/20 rounded-xl text-base"
                                     />
                                 </div>
                             </div>
@@ -182,7 +177,7 @@ export default function SignupPage() {
                             <div className="space-y-1">
                                 <Label htmlFor="email" className="text-slate-700 font-semibold text-sm">Email Address</Label>
                                 <div className="relative">
-                                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                                     <Input
                                         id="email"
                                         name="email"
@@ -191,7 +186,7 @@ export default function SignupPage() {
                                         value={formData.email}
                                         onChange={handleChange}
                                         required
-                                        className="h-10 pl-10 bg-white border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-[#0056B3] focus:ring-[#0056B3]/20 rounded-lg text-sm"
+                                        className="h-11 pl-11 bg-white/90 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-[#0056B3] focus:ring-[#0056B3]/20 rounded-xl text-base"
                                     />
                                 </div>
                             </div>
@@ -199,7 +194,7 @@ export default function SignupPage() {
                             <div className="space-y-1">
                                 <Label htmlFor="phoneNumber" className="text-slate-700 font-semibold text-sm">Mobile Number</Label>
                                 <div className="relative">
-                                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                                     <Input
                                         id="phoneNumber"
                                         name="phoneNumber"
@@ -208,7 +203,7 @@ export default function SignupPage() {
                                         value={formData.phoneNumber}
                                         onChange={handleChange}
                                         required
-                                        className="h-10 pl-10 bg-white border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-[#0056B3] focus:ring-[#0056B3]/20 rounded-lg text-sm"
+                                        className="h-11 pl-11 bg-white/90 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-[#0056B3] focus:ring-[#0056B3]/20 rounded-xl text-base"
                                     />
                                 </div>
                             </div>
@@ -216,7 +211,7 @@ export default function SignupPage() {
                             <div className="space-y-1">
                                 <Label htmlFor="password" className="text-slate-700 font-semibold text-sm">Password</Label>
                                 <div className="relative">
-                                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
+                                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
                                     <Input
                                         id="password"
                                         name="password"
@@ -225,48 +220,47 @@ export default function SignupPage() {
                                         value={formData.password}
                                         onChange={handleChange}
                                         required
-                                        className="h-10 pl-10 pr-10 bg-white border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-[#0056B3] focus:ring-[#0056B3]/20 rounded-lg text-sm"
+                                        className="h-11 pl-11 pr-11 bg-white/90 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-[#0056B3] focus:ring-[#0056B3]/20 rounded-xl text-base"
                                     />
                                     <button
                                         type="button"
                                         onClick={() => setShowPassword(!showPassword)}
                                         className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                                     >
-                                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                                        {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                                     </button>
                                 </div>
                             </div>
 
                             <input type="hidden" name="lastName" value={formData.lastName} />
-                            <input type="hidden" name="confirmPassword" value={formData.password} onChange={(e) => setFormData(prev => ({ ...prev, confirmPassword: e.target.value }))} />
 
                             <Button
                                 type="submit"
                                 disabled={isLoading}
-                                className="w-full h-11 text-base font-bold bg-[#0056B3] hover:bg-[#004494] text-white shadow-md rounded-lg mt-1"
+                                className="w-full h-12 text-base font-bold bg-[#0056B3] hover:bg-[#004494] text-white shadow-lg rounded-xl mt-2"
                             >
                                 {isLoading ? (
                                     <>
-                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                                         Creating...
                                     </>
                                 ) : (
                                     <>
-                                        <UserPlus className="w-4 h-4 mr-2" />
+                                        <UserPlus className="w-5 h-5 mr-2" />
                                         Create Account
                                     </>
                                 )}
                             </Button>
                         </form>
 
-                        <div className="flex items-center my-3">
-                            <div className="flex-1 h-px bg-slate-300"></div>
-                            <span className="px-3 text-xs text-slate-500">OR</span>
-                            <div className="flex-1 h-px bg-slate-300"></div>
+                        <div className="flex items-center my-4">
+                            <div className="flex-1 h-px bg-slate-300/60"></div>
+                            <span className="px-3 text-sm text-slate-500">OR</span>
+                            <div className="flex-1 h-px bg-slate-300/60"></div>
                         </div>
 
                         <div className="text-center">
-                            <p className="text-slate-600 text-xs">
+                            <p className="text-slate-600 text-sm">
                                 Already have an account?{' '}
                                 <Link href="/auth/login" className="text-[#0056B3] font-bold">
                                     Sign In
@@ -274,7 +268,7 @@ export default function SignupPage() {
                             </p>
                         </div>
 
-                        <p className="text-[10px] text-center text-slate-500 mt-3">
+                        <p className="text-xs text-center text-slate-500 mt-4">
                             By signing up, you agree to our <Link href="/terms" className="font-semibold text-slate-700">Terms</Link> and <Link href="/privacy" className="font-semibold text-slate-700">Privacy Policy</Link>
                         </p>
                     </CardContent>
