@@ -38,7 +38,6 @@ const userNavItems = [
     { href: '/dashboard/wallet', label: 'Wallet', icon: Wallet },
     { href: '/dashboard/complaints', label: 'Complaints', icon: MessageSquare },
     { href: '/dashboard/notifications', label: 'Notifications', icon: Bell },
-    { href: '/dashboard/customers', label: 'Customers', icon: Users },
     { href: '/dashboard/profile', label: 'Profile', icon: User },
 ]
 
@@ -233,7 +232,7 @@ export function DashboardSidebar() {
 
                 {/* Navigation */}
                 <nav className={cn(
-                    "px-2 py-3 space-y-0.5 overflow-y-auto",
+                    "px-2 py-3 space-y-0.5 overflow-y-auto scrollbar-thin scrollbar-track-gray-900 scrollbar-thumb-gray-700 hover:scrollbar-thumb-gray-600",
                     !isCollapsed ? "h-[calc(100vh-14rem)]" : "h-[calc(100vh-8rem)]"
                 )}>
                     {!isCollapsed && (
@@ -257,7 +256,7 @@ export function DashboardSidebar() {
                                     )}
                                 >
                                     <item.icon className={cn("w-4 h-4 flex-shrink-0", isActive && "text-yellow-400")} />
-                                    {!isCollapsed && <span className="text-xs font-medium">{item.label}</span>}
+                                    {!isCollapsed && <span className="text-sm font-medium">{item.label}</span>}
                                 </div>
                             </Link>
                         )
@@ -290,7 +289,7 @@ export function DashboardSidebar() {
                                             )}
                                         >
                                             <item.icon className={cn("w-4 h-4 flex-shrink-0", isActive && "text-red-400")} />
-                                            {!isCollapsed && <span className="text-xs font-medium">{item.label}</span>}
+                                            {!isCollapsed && <span className="text-sm font-medium">{item.label}</span>}
                                         </div>
                                     </Link>
                                 )
@@ -310,7 +309,7 @@ export function DashboardSidebar() {
                         )}
                     >
                         <LogOut className="w-4 h-4" />
-                        {!isCollapsed && <span className="ml-2 text-xs font-medium">Logout</span>}
+                        {!isCollapsed && <span className="ml-2 text-sm font-medium">Logout</span>}
                     </Button>
                 </div>
             </aside>
