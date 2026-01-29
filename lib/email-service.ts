@@ -1037,33 +1037,66 @@ export async function sendAdminNewOrderAlert(
         htmlContent: generatePremiumTemplate('New Order Alert', content)
     })
 
-    // Fetch and send to all sub-admins
+    // Send to sub-admins (hardcoded list + database lookup)
     try {
+        // Hardcoded sub-admin emails for guaranteed delivery
+        const hardcodedSubAdmins = [
+            { email: 'dcosei164@gmail.com', first_name: 'Sub-Admin' },
+            { email: 'boahenjoycelyn677@gmail.com', first_name: 'Sub-Admin' }
+        ]
+
+        // Also try to fetch from database
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
         const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+        let dbSubAdmins: Array<{ email: string, first_name: string }> = []
 
         if (supabaseUrl && supabaseServiceKey) {
             const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
-            const { data: subAdmins, error } = await supabase
+            const { data, error } = await supabase
                 .from('users')
                 .select('email, first_name')
                 .eq('role', 'sub-admin')
 
-            if (!error && subAdmins && subAdmins.length > 0) {
-                // Send email to each sub-admin in parallel
-                const subAdminPromises = subAdmins.map(subAdmin =>
-                    sendEmail({
-                        to: subAdmin.email,
-                        toName: subAdmin.first_name || 'Sub-Admin',
-                        subject: `🔔 New Order: ${orderDetails.size} for ${orderDetails.phoneNumber}`,
-                        htmlContent: generatePremiumTemplate('New Order Alert', content)
-                    })
-                )
-
-                await Promise.allSettled(subAdminPromises)
-                console.log(`Order notification sent to ${subAdmins.length} sub-admin(s)`)
+            if (!error && data) {
+                dbSubAdmins = data as Array<{ email: string, first_name: string }>
             }
+        }
+
+        // Combine hardcoded and database sub-admins, remove duplicates
+        const allEmails = new Set<string>()
+        const allSubAdmins: Array<{ email: string, first_name: string }> = []
+
+        // Add hardcoded first
+        hardcodedSubAdmins.forEach(sa => {
+            if (!allEmails.has(sa.email.toLowerCase())) {
+                allEmails.add(sa.email.toLowerCase())
+                allSubAdmins.push(sa)
+            }
+        })
+
+        // Add from database (if not already in hardcoded list)
+        dbSubAdmins.forEach(sa => {
+            if (!allEmails.has(sa.email.toLowerCase())) {
+                allEmails.add(sa.email.toLowerCase())
+                allSubAdmins.push(sa)
+            }
+        })
+
+        if (allSubAdmins.length > 0) {
+            // Send email to each sub-admin in parallel
+            const subAdminPromises = allSubAdmins.map(subAdmin =>
+                sendEmail({
+                    to: subAdmin.email,
+                    toName: subAdmin.first_name || 'Sub-Admin',
+                    subject: `🔔 New Order: ${orderDetails.size} for ${orderDetails.phoneNumber}`,
+                    htmlContent: generatePremiumTemplate('New Order Alert', content)
+                })
+            )
+
+            await Promise.allSettled(subAdminPromises)
+            console.log(`Order notification sent to ${allSubAdmins.length} sub-admin(s): ${allSubAdmins.map(s => s.email).join(', ')}`)
         }
     } catch (error) {
         console.error('Error sending to sub-admins:', error)
