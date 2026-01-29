@@ -135,7 +135,7 @@ export function DashboardSidebar() {
             {/* Sidebar */}
             <aside
                 className={cn(
-                    "fixed left-0 top-0 z-50 h-full bg-[#E5E7EB] dark:bg-[#000000] transition-all duration-300 ease-in-out",
+                    "fixed left-0 top-0 z-50 h-full flex flex-col bg-[#E5E7EB] dark:bg-[#000000] transition-all duration-300 ease-in-out",
                     isCollapsed ? "w-20" : "w-72",
                     "transform lg:transform-none",
                     isInternalSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
@@ -232,8 +232,7 @@ export function DashboardSidebar() {
 
                 {/* Navigation */}
                 <nav className={cn(
-                    "px-2 py-3 space-y-0.5 overflow-y-auto scrollbar-thin scrollbar-track-gray-200 dark:scrollbar-track-gray-900 scrollbar-thumb-gray-400 dark:scrollbar-thumb-gray-700 hover:scrollbar-thumb-gray-500 dark:hover:scrollbar-thumb-gray-600",
-                    !isCollapsed ? "h-[calc(100vh-14rem)]" : "h-[calc(100vh-8rem)]"
+                    "px-2 py-3 space-y-0.5 overflow-y-auto flex-1 scrollbar-thin scrollbar-track-gray-200 dark:scrollbar-track-gray-900 scrollbar-thumb-gray-400 dark:scrollbar-thumb-gray-700 hover:scrollbar-thumb-gray-500 dark:hover:scrollbar-thumb-gray-600"
                 )}>
                     {!isCollapsed && (
                         <p className="text-[10px] font-semibold text-gray-600 dark:text-gray-500 uppercase tracking-wider mb-1.5 px-2">
@@ -255,8 +254,8 @@ export function DashboardSidebar() {
                                         isCollapsed && "justify-center px-2"
                                     )}
                                 >
-                                    <item.icon className={cn("w-4 h-4 flex-shrink-0", isActive && "text-yellow-600 dark:text-yellow-400")} />
-                                    {!isCollapsed && <span className="text-sm font-medium">{item.label}</span>}
+                                    <item.icon className={cn("w-5 h-5 flex-shrink-0", isActive && "text-yellow-600 dark:text-yellow-400")} />
+                                    {!isCollapsed && <span className="text-base font-medium">{item.label}</span>}
                                 </div>
                             </Link>
                         )
@@ -288,30 +287,29 @@ export function DashboardSidebar() {
                                                 isCollapsed && "justify-center px-2"
                                             )}
                                         >
-                                            <item.icon className={cn("w-4 h-4 flex-shrink-0", isActive && "text-red-600 dark:text-red-400")} />
-                                            {!isCollapsed && <span className="text-sm font-medium">{item.label}</span>}
+                                            <item.icon className={cn("w-5 h-5 flex-shrink-0", isActive && "text-red-600 dark:text-red-400")} />
+                                            {!isCollapsed && <span className="text-base font-medium">{item.label}</span>}
                                         </div>
                                     </Link>
                                 )
                             })}
                         </>
                     )}
+                    {/* Logout Button - Inside scrollable area */}
+                    <div className="mt-4 pt-3 border-t border-gray-300 dark:border-gray-800">
+                        <Button
+                            variant="ghost"
+                            onClick={signOut}
+                            className={cn(
+                                "w-full justify-start text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-500/20 dark:hover:bg-red-500/10 h-10",
+                                isCollapsed && "justify-center"
+                            )}
+                        >
+                            <LogOut className="w-5 h-5" />
+                            {!isCollapsed && <span className="ml-2 text-base font-medium">Logout</span>}
+                        </Button>
+                    </div>
                 </nav>
-
-                {/* Logout Button */}
-                <div className="absolute bottom-0 left-0 right-0 p-3 border-t border-gray-300 dark:border-gray-800 bg-[#E5E7EB] dark:bg-[#000000]">
-                    <Button
-                        variant="ghost"
-                        onClick={signOut}
-                        className={cn(
-                            "w-full justify-start text-gray-600 dark:text-gray-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-500/20 dark:hover:bg-red-500/10 h-9",
-                            isCollapsed && "justify-center"
-                        )}
-                    >
-                        <LogOut className="w-4 h-4" />
-                        {!isCollapsed && <span className="ml-2 text-sm font-medium">Logout</span>}
-                    </Button>
-                </div>
             </aside >
         </>
     )
