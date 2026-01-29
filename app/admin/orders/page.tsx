@@ -676,9 +676,14 @@ export default function AdminOrdersPage() {
                         <Download className="w-4 h-4 mr-2" />
                         Export to Excel
                     </Button>
-                    <Button onClick={() => { fetchOrders(); fetchBatches(); }} variant="outline" disabled={loading}>
-                        <RefreshCw className={`w-4 h-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
-                        Refresh
+                    <Button
+                        onClick={() => { fetchOrders(); fetchBatches(); }}
+                        variant="outline"
+                        disabled={loading}
+                        className="transition-all duration-150 active:scale-95 hover:bg-primary/10 active:bg-primary/20 disabled:opacity-70"
+                    >
+                        <RefreshCw className={`w-4 h-4 mr-2 transition-transform ${loading ? 'animate-spin' : 'group-active:rotate-180'}`} />
+                        {loading ? 'Refreshing...' : 'Refresh'}
                     </Button>
                 </div>
             </div>
@@ -702,18 +707,27 @@ export default function AdminOrdersPage() {
                                         className="pl-9 bg-background"
                                     />
                                 </div>
-                                <div className="flex gap-2">
-                                    <Select value={networkFilter} onValueChange={setNetworkFilter}>
-                                        <SelectTrigger className="w-[140px] bg-background">
-                                            <SelectValue placeholder="Network" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="MTN">MTN</SelectItem>
-                                            <SelectItem value="Telecel">Telecel</SelectItem>
-                                            <SelectItem value="AT-iShare">AT-iShare</SelectItem>
-                                            <SelectItem value="AT-BigTime">BigTime</SelectItem>
-                                        </SelectContent>
-                                    </Select>
+                                <div className="flex flex-wrap gap-1.5">
+                                    {['All', 'MTN', 'Telecel', 'AT-iShare', 'AT-BigTime'].map((network) => (
+                                        <Button
+                                            key={network}
+                                            variant={networkFilter === (network === 'All' ? 'all' : network) ? 'default' : 'outline'}
+                                            size="sm"
+                                            onClick={() => setNetworkFilter(network === 'All' ? 'all' : network)}
+                                            className={`transition-all duration-150 active:scale-95 ${networkFilter === (network === 'All' ? 'all' : network)
+                                                    ? network === 'MTN'
+                                                        ? 'bg-yellow-500 hover:bg-yellow-600 text-black'
+                                                        : network === 'Telecel'
+                                                            ? 'bg-red-600 hover:bg-red-700 text-white'
+                                                            : network === 'AT-iShare' || network === 'AT-BigTime'
+                                                                ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                                                                : 'bg-primary text-primary-foreground'
+                                                    : 'hover:bg-muted'
+                                                }`}
+                                        >
+                                            {network === 'AT-BigTime' ? 'BigTime' : network}
+                                        </Button>
+                                    ))}
                                 </div>
                             </div>
                         </CardHeader>
