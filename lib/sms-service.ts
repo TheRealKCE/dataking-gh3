@@ -187,9 +187,9 @@ export async function sendOrderSuccessSMS(
         currentBalance: number
     }
 ) {
-    const message = `#Order Placed! Your order for ${details.size} to ${details.recipientNumber} has been placed successfully! at GHS${details.price.toFixed(2)} Your new balance is GHS${details.currentBalance.toFixed(2)}
+    const message = `Congrats! You've successfully purchased ${details.size} of GHS${details.price.toFixed(2)} for ${details.recipientNumber}. Your remaining wallet balance is GHS${details.currentBalance.toFixed(2)}
 
-Thank you for choosing KingFlexyGh.`
+Thank you for trusting KING FLEXY LTD.`
 
     return sendSMS({
         recipient: accountHolderPhone,
