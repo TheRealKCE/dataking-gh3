@@ -29,7 +29,7 @@ interface SignUpData {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-const INACTIVITY_TIMEOUT = 45 * 60 * 1000 // 45 minutes
+const INACTIVITY_TIMEOUT = 20 * 60 * 1000 // 20 minutes
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<User | null>(null)
@@ -41,6 +41,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const isAdmin = dbUser?.role === 'admin'
     const isSubAdmin = dbUser?.role === 'sub-admin'
+
+    // Browser close / Background detection
+    useEffect(() => {
+        // Mark session as active in sessionStorage (cleared when browser closes)
+        if (typeof window !== 'undefined') {
+            const isSessionActive = sessionStorage.getItem('is_session_active')
+
+            // If we have a user in localStorage (Supabase default) but no flag in sessionStorage,
+            // it means the browser was closed and reopened -> Force Logout
+            if (!isSessionActive) {
+                const clearAuth = async () => {
+                    await supabase.auth.signOut()
+                    setUser(null)
+                    setDbUser(null)
+                    setSession(null)
+                    router.push('/')
+                }
+                clearAuth()
+            }
+
+            // Set the flag for this current session
+            sessionStorage.setItem('is_session_active', 'true')
+        }
+    }, [router])
 
     const fetchDbUser = useCallback(async (userId: string) => {
         try {
@@ -80,6 +104,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             email,
             password,
         })
+
+        // Set session active flag on login
+        if (!error && typeof window !== 'undefined') {
+            sessionStorage.setItem('is_session_active', 'true')
+        }
+
         return { error }
     }
 
@@ -104,8 +134,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const signOut = async () => {
         await supabase.auth.signOut()
 
-        // Clear announcement seen flags so it shows again on next login
+        // Clear session flags
         if (typeof window !== 'undefined') {
+            sessionStorage.removeItem('is_session_active')
+
             Object.keys(sessionStorage).forEach(key => {
                 if (key.startsWith('announcement_seen_')) {
                     sessionStorage.removeItem(key)
@@ -121,9 +153,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     // Track user activity
     useEffect(() => {
-        const updateActivity = () => setLastActivity(Date.now())
+        // Only track if user is logged in
+        if (!user) return
 
-        const events = ['mousedown', 'keydown', 'scroll', 'touchstart']
+        const updateActivity = () => {
+            setLastActivity(Date.now())
+            // Also keep session alive in storage
+            if (typeof window !== 'undefined') {
+                sessionStorage.setItem('is_session_active', 'true')
+            }
+        }
+
+        const events = ['mousedown', 'keydown', 'scroll', 'touchstart', 'click']
         events.forEach(event => {
             window.addEventListener(event, updateActivity)
         })
@@ -133,7 +174,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 window.removeEventListener(event, updateActivity)
             })
         }
-    }, [])
+    }, [user])
 
     // Auto logout on inactivity
     useEffect(() => {
@@ -141,6 +182,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         const checkInactivity = setInterval(() => {
             if (Date.now() - lastActivity > INACTIVITY_TIMEOUT) {
+                console.log('User inactive for 20 mins, signing out...')
                 signOut()
             }
         }, 60000) // Check every minute
