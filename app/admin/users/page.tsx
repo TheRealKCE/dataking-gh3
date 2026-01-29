@@ -250,8 +250,8 @@ export default function AdminUsersPage() {
                                             const RoleIcon = config.icon
                                             return (
                                                 <div
-                                                    className="h-16 w-16 rounded-2xl rotate-3 group-hover:rotate-6 transition-transform flex items-center justify-center text-white shadow-lg"
-                                                    style={{ backgroundColor: config.color, boxShadow: `0 10px 25px -5px ${config.color}50` }}
+                                                    className="h-16 w-16 rounded-full flex items-center justify-center text-white shadow-lg ring-4 ring-white dark:ring-gray-800 transition-transform hover:scale-105"
+                                                    style={{ backgroundColor: config.color }}
                                                 >
                                                     <RoleIcon className="w-8 h-8" />
                                                 </div>
