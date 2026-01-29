@@ -175,20 +175,24 @@ export async function sendSMS(options: SMSOptions): Promise<SMSResult> {
 // ==========================================
 
 /**
- * Send order success SMS
+ * Send order success SMS to account holder
  */
 export async function sendOrderSuccessSMS(
-    phoneNumber: string,
+    accountHolderPhone: string,
     details: {
-        referenceCode: string
-        size: string
         network: string
+        size: string
+        price: number
+        recipientNumber: string
+        currentBalance: number
     }
 ) {
-    const message = `Order Confirmed! Your purchase of ${details.size} data for ${details.network} has been received. Reference: ${details.referenceCode}. Thanks for choosing King Flexy Data.`
+    const message = `Order Confirmed! Your purchase of ${details.network} ${details.size} at GH¢${details.price.toFixed(2)} for ${details.recipientNumber} was successful. Current balance GH¢${details.currentBalance.toFixed(2)}.
+
+Thank you for trusting kingflexygh.com`
 
     return sendSMS({
-        recipient: phoneNumber,
+        recipient: accountHolderPhone,
         message
     })
 }

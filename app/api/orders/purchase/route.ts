@@ -143,10 +143,10 @@ export async function POST(request: NextRequest) {
 
         // Send order confirmation email to user and admin alert (async, non-blocking)
         try {
-            // Get user details for email
+            // Get user details for email and SMS
             const { data: userData } = await supabase
                 .from('users')
-                .select('email, first_name, last_name')
+                .select('email, first_name, last_name, phone_number')
                 .eq('id', userId)
                 .single()
 
@@ -168,15 +168,20 @@ export async function POST(request: NextRequest) {
                     }
                 ).catch((err: Error) => console.error('[Order] User email error:', err))
 
-                // Send order success SMS - DISABLED
-                // sendOrderSuccessSMS(
-                //     phoneNumber,
-                //     {
-                //         referenceCode,
-                //         size: (pkg as any).size,
-                //         network: (pkg as any).network
-                //     }
-                // ).catch((err: Error) => console.error('[Order] SMS error:', err))
+                // Send order success SMS to account holder
+                const accountHolderPhone = (userData as any).phone_number
+                if (accountHolderPhone) {
+                    sendOrderSuccessSMS(
+                        accountHolderPhone,
+                        {
+                            network: (pkg as any).network,
+                            size: (pkg as any).size,
+                            price: (pkg as any).price,
+                            recipientNumber: phoneNumber,
+                            currentBalance: newBalance
+                        }
+                    ).catch((err: Error) => console.error('[Order] SMS error:', err))
+                }
 
                 // Send new order alert to admin
                 sendAdminNewOrderAlert({
