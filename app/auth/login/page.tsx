@@ -8,7 +8,7 @@ import { useAuth } from '@/contexts/auth-context'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Eye, EyeOff, Loader2, LogIn, Mail, Lock } from 'lucide-react'
 import { toast } from 'sonner'
@@ -39,7 +39,6 @@ export default function LoginPage() {
             }
 
             toast.success('Welcome back!')
-            // Force hard reload to update middleware session
             window.location.href = '/dashboard'
         } catch (err) {
             setError('An unexpected error occurred')
@@ -49,16 +48,15 @@ export default function LoginPage() {
     }
 
     return (
-        <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
+        <div className="min-h-screen flex items-center justify-center p-4 pt-24 relative overflow-hidden">
             <BackgroundBubbles />
-
             <FloatingWhatsApp />
 
             <div className="w-full max-w-md relative z-10">
-                {/* Logo */}
-                <div className="text-center mb-8">
+                {/* Logo - slower animation */}
+                <div className="text-center mb-8 mt-8">
                     <Link href="/" className="inline-flex flex-col items-center group">
-                        <div className="relative w-20 h-20 mb-3 transition-transform duration-500 group-hover:scale-110 animate-[bounce_3s_infinite]">
+                        <div className="relative w-20 h-20 mb-3 transition-transform duration-700 group-hover:scale-110 animate-[pulse_4s_ease-in-out_infinite]">
                             <div className="w-20 h-20 rounded-2xl bg-slate-900 flex items-center justify-center shadow-xl">
                                 <Image
                                     src="/logo.png"
@@ -78,7 +76,7 @@ export default function LoginPage() {
                     </Link>
                 </div>
 
-                <Card className="border-0 bg-white/95 backdrop-blur-xl shadow-2xl rounded-3xl overflow-hidden">
+                <Card className="border-0 bg-[#E5E7EB]/80 backdrop-blur-sm shadow-2xl rounded-3xl overflow-hidden">
                     <CardContent className="p-6 pt-8">
                         <form onSubmit={handleSubmit} className="space-y-5">
                             {error && (
@@ -98,7 +96,7 @@ export default function LoginPage() {
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}
                                         required
-                                        className="h-14 pl-12 bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-[#0077B6] focus:ring-[#0077B6]/20 transition-all rounded-xl text-base"
+                                        className="h-14 pl-12 bg-white border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-[#0056B3] focus:ring-[#0056B3]/20 transition-all rounded-xl text-base"
                                     />
                                 </div>
                             </div>
@@ -114,7 +112,7 @@ export default function LoginPage() {
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
                                         required
-                                        className="h-14 pl-12 pr-12 bg-slate-50 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-[#0077B6] focus:ring-[#0077B6]/20 transition-all rounded-xl text-base"
+                                        className="h-14 pl-12 pr-12 bg-white border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-[#0056B3] focus:ring-[#0056B3]/20 transition-all rounded-xl text-base"
                                     />
                                     <button
                                         type="button"
@@ -129,7 +127,7 @@ export default function LoginPage() {
                             <Button
                                 type="submit"
                                 disabled={isLoading}
-                                className="w-full h-14 text-lg font-bold bg-[#FFD60A] hover:bg-[#E6C108] text-slate-900 shadow-lg shadow-yellow-500/30 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl rounded-xl border-2 border-[#E6C108]"
+                                className="w-full h-14 text-lg font-bold bg-[#0056B3] hover:bg-[#004494] text-white shadow-lg shadow-blue-500/30 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl rounded-xl border-2 border-[#004494]"
                             >
                                 {isLoading ? (
                                     <>
@@ -146,15 +144,15 @@ export default function LoginPage() {
                         </form>
 
                         <div className="flex items-center my-6">
-                            <div className="flex-1 h-px bg-slate-200"></div>
-                            <span className="px-4 text-sm text-slate-400">OR</span>
-                            <div className="flex-1 h-px bg-slate-200"></div>
+                            <div className="flex-1 h-px bg-slate-300"></div>
+                            <span className="px-4 text-sm text-slate-500">OR</span>
+                            <div className="flex-1 h-px bg-slate-300"></div>
                         </div>
 
                         <div className="text-center">
                             <p className="text-slate-600 text-sm">
                                 Don't have an account?{' '}
-                                <Link href="/auth/signup" className="text-[#0077B6] hover:text-[#005F8A] font-bold transition-colors">
+                                <Link href="/auth/signup" className="text-[#0056B3] hover:text-[#004494] font-bold transition-colors">
                                     Create Account
                                 </Link>
                             </p>
@@ -163,18 +161,18 @@ export default function LoginPage() {
                         <div className="mt-4 text-center">
                             <Link
                                 href="/auth/reset-password"
-                                className="text-sm text-slate-500 hover:text-[#0077B6] transition-colors"
+                                className="text-sm text-slate-500 hover:text-[#0056B3] transition-colors"
                             >
                                 Forgot password?
                             </Link>
                         </div>
 
-                        <div className="mt-8 border-t border-slate-100 pt-6">
+                        <div className="mt-8 border-t border-slate-300 pt-6">
                             <WhatsAppCommunityButtons />
                         </div>
 
-                        <p className="text-xs text-center text-slate-400 mt-6">
-                            By signing in, you agree to our <Link href="/terms" className="font-semibold text-slate-600 hover:text-[#0077B6]">Terms</Link> and <Link href="/privacy" className="font-semibold text-slate-600 hover:text-[#0077B6]">Privacy Policy</Link>
+                        <p className="text-xs text-center text-slate-500 mt-6">
+                            By signing in, you agree to our <Link href="/terms" className="font-semibold text-slate-700 hover:text-[#0056B3]">Terms</Link> and <Link href="/privacy" className="font-semibold text-slate-700 hover:text-[#0056B3]">Privacy Policy</Link>
                         </p>
                     </CardContent>
                 </Card>
