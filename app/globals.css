@@ -70,7 +70,7 @@
   h5,
   h6,
   .CardTitle {
-    @apply text-center !important;
+    text-align: center !important;
     color: #1A1A1A !important;
   }
 
@@ -89,7 +89,7 @@
   .text-muted-foreground+h1,
   h1+p,
   h2+p {
-    @apply text-center !important;
+    text-align: center !important;
   }
 }
 
