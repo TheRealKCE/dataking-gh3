@@ -53,69 +53,12 @@ const adminNavItems = [
     { href: '/admin/settings', label: 'Settings', icon: Settings },
 ]
 
-// Role configuration with rank icons and colors
-const roleConfig = {
-    'admin': {
-        icon: Crown,
-        label: 'Admin',
-        rank: '#1',
-        color: '#E60000',
-        bgColor: 'rgba(230, 0, 0, 0.1)',
-        textColor: '#E60000'
-    },
-    'sub-admin': {
-        icon: Star,
-        label: 'Sub-Admin',
-        rank: '#2',
-        color: '#FACC15',
-        bgColor: 'rgba(250, 204, 21, 0.15)',
-        textColor: '#B59410'
-    },
-    'agent': {
-        icon: BadgeCheck,
-        label: 'Agent',
-        rank: '#3',
-        color: '#25D366',
-        bgColor: 'rgba(37, 211, 102, 0.1)',
-        textColor: '#25D366'
-    },
-    'customer': {
-        icon: UserCircle,
-        label: 'Customer',
-        rank: '#4',
-        color: '#0056B3',
-        bgColor: 'rgba(0, 86, 179, 0.1)',
-        textColor: '#0056B3'
-    }
-}
+import { roleConfig } from '@/lib/roles'
+
+// ... (existing imports remain, ensure roleConfig is imported and local definition removed)
 
 export function DashboardSidebar() {
-    const pathname = usePathname()
-    const { dbUser, isAdmin, isSubAdmin, signOut } = useAuth()
-    const { isInternalSidebarOpen, closeSidebar } = useUI()
-    const [isCollapsed, setIsCollapsed] = useState(false)
-    const [walletBalance, setWalletBalance] = useState(0)
-
-    // Fetch wallet balance
-    useEffect(() => {
-        const fetchBalance = async () => {
-            if (!dbUser?.id) return
-            const { data } = await (supabase
-                .from('wallets')
-                .select('balance')
-                .eq('user_id', dbUser.id)
-                .single() as any)
-            if (data) setWalletBalance(data.balance || 0)
-        }
-        fetchBalance()
-    }, [dbUser?.id])
-
-    const isLinkActive = (href: string) => {
-        if (href === '/dashboard' || href === '/admin') {
-            return pathname === href
-        }
-        return pathname?.startsWith(href)
-    }
+    // ... (existing hooks)
 
     // Get role config
     const userRole = isAdmin ? 'admin' : isSubAdmin ? 'sub-admin' : (dbUser?.role || 'customer') as keyof typeof roleConfig
@@ -142,9 +85,9 @@ export function DashboardSidebar() {
                 )}
             >
                 {/* Logo Header */}
-                <div className="h-14 flex items-center justify-between px-4 border-b border-gray-300 dark:border-gray-800">
-                    <Link href="/dashboard" className="flex items-center gap-2">
-                        <div className="relative w-8 h-8 flex-shrink-0">
+                <div className="h-20 flex items-center justify-between px-6 border-b border-gray-300 dark:border-gray-800">
+                    <Link href="/dashboard" className="flex items-center gap-3 group">
+                        <div className="relative w-10 h-10 flex-shrink-0 transition-transform group-hover:scale-110">
                             <Image
                                 src="/logo.png"
                                 alt="KING FLEXY"
@@ -154,9 +97,9 @@ export function DashboardSidebar() {
                             />
                         </div>
                         {!isCollapsed && (
-                            <div className="flex flex-col">
-                                <span className="text-sm font-bold text-yellow-500 dark:text-yellow-400">KING FLEXY</span>
-                                <span className="text-[10px] text-gray-600 dark:text-gray-400 -mt-0.5">DATA LIMITED</span>
+                            <div className="flex flex-col transition-transform group-hover:scale-105">
+                                <span className="text-xl font-extrabold tracking-tight text-yellow-500 dark:text-yellow-400 font-display">KING FLEXY</span>
+                                <span className="text-[11px] font-bold text-gray-600 dark:text-gray-400 -mt-1 tracking-widest">DATA LIMITED</span>
                             </div>
                         )}
                     </Link>
@@ -164,65 +107,64 @@ export function DashboardSidebar() {
                         variant="ghost"
                         size="icon"
                         onClick={() => setIsCollapsed(!isCollapsed)}
-                        className="hidden lg:flex text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-300 dark:hover:bg-gray-800 w-7 h-7"
+                        className="hidden lg:flex text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-300 dark:hover:bg-gray-800 w-8 h-8 rounded-full"
                     >
-                        {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
+                        {isCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
                     </Button>
                     <Button
                         variant="ghost"
                         size="icon"
                         onClick={closeSidebar}
-                        className="lg:hidden text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white w-7 h-7"
+                        className="lg:hidden text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white w-8 h-8"
                     >
-                        <ChevronLeft className="w-4 h-4" />
+                        <ChevronLeft className="w-5 h-5" />
                     </Button>
                 </div>
 
                 {/* Profile Widget - Premium Card Style */}
                 {!isCollapsed && dbUser && (
-                    <div className="mx-3 mt-3 p-3 rounded-xl bg-gradient-to-br from-gray-200/80 to-gray-300 dark:from-gray-800/80 dark:to-gray-900 border border-gray-400/50 dark:border-gray-700/50">
+                    <div className="mx-4 mt-6 p-4 rounded-2xl bg-gradient-to-br from-gray-200/90 to-gray-300 dark:from-gray-800/90 dark:to-gray-900 border border-gray-400/50 dark:border-gray-700/50 shadow-lg">
                         {/* User Info Row */}
-                        <div className="flex items-center gap-2.5 mb-3">
-                            {/* Avatar with Initials */}
+                        <div className="flex items-center gap-3.5 mb-4">
+                            {/* Avatar with Role Icon */}
                             <div
-                                className="relative w-10 h-10 rounded-full flex items-center justify-center text-white font-semibold text-sm"
+                                className="relative w-12 h-12 rounded-full flex items-center justify-center text-white shadow-md ring-2 ring-white/20"
                                 style={{ backgroundColor: currentRole.color }}
                             >
-                                {dbUser.first_name?.charAt(0)}{dbUser.last_name?.charAt(0)}
+                                <RoleIcon className="w-6 h-6" />
                                 <div
-                                    className="absolute -bottom-0.5 -right-0.5 w-4 h-4 rounded-full flex items-center justify-center border-2 border-gray-200 dark:border-gray-900"
-                                    style={{ backgroundColor: currentRole.bgColor }}
+                                    className="absolute -bottom-1 -right-1 w-5 h-5 rounded-full flex items-center justify-center border-2 border-gray-200 dark:border-gray-900 bg-white dark:bg-gray-800"
                                 >
-                                    <RoleIcon className="w-2.5 h-2.5" style={{ color: currentRole.color }} />
+                                    <div className="w-2.5 h-2.5 rounded-full bg-green-500 animate-pulse" />
                                 </div>
                             </div>
                             <div className="flex-1 min-w-0">
-                                <p className="text-xs font-medium text-gray-800 dark:text-white truncate">
+                                <p className="text-sm font-bold text-gray-900 dark:text-white truncate">
                                     {dbUser.first_name} {dbUser.last_name}
                                 </p>
-                                <div className="flex items-center gap-1">
+                                <div className="flex items-center gap-1.5 mt-0.5">
                                     <span
-                                        className="text-[10px] font-normal"
+                                        className="text-xs font-bold px-2 py-0.5 rounded-full bg-white/50 dark:bg-black/20 backdrop-blur-sm"
                                         style={{ color: currentRole.textColor }}
                                     >
-                                        {currentRole.rank} {currentRole.label}
+                                        {currentRole.label}
                                     </span>
                                 </div>
                             </div>
                         </div>
 
                         {/* Wallet Section */}
-                        <div className="flex items-center justify-between p-2 rounded-lg bg-gray-300/60 dark:bg-gray-900/60 border border-gray-400/30 dark:border-gray-700/30">
+                        <div className="flex items-center justify-between p-3 rounded-xl bg-gray-300/60 dark:bg-black/40 border border-gray-400/30 dark:border-gray-800/50 backdrop-blur-md">
                             <div>
-                                <p className="text-[9px] text-gray-600 dark:text-gray-500 uppercase tracking-wider font-medium">Balance</p>
-                                <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400">{formatCurrency(walletBalance)}</p>
+                                <p className="text-[10px] text-gray-600 dark:text-gray-400 uppercase tracking-wider font-bold mb-0.5">Balance</p>
+                                <p className="text-base font-black text-emerald-600 dark:text-emerald-400 tracking-tight">{formatCurrency(walletBalance)}</p>
                             </div>
                             <Link href="/dashboard/wallet">
                                 <Button
                                     size="sm"
-                                    className="h-7 px-2.5 text-[10px] font-semibold bg-yellow-500 hover:bg-yellow-400 text-black rounded-lg"
+                                    className="h-8 px-3 text-xs font-bold bg-yellow-500 hover:bg-yellow-400 text-black rounded-lg shadow-sm hover:shadow-md transition-all active:scale-95"
                                 >
-                                    <Plus className="w-3 h-3 mr-1" />
+                                    <Plus className="w-3.5 h-3.5 mr-1.5" />
                                     Top Up
                                 </Button>
                             </Link>

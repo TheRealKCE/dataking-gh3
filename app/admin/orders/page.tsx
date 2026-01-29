@@ -58,7 +58,7 @@ export default function AdminOrdersPage() {
     const [orders, setOrders] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
     const [searchTerm, setSearchTerm] = useState('')
-    const [networkFilter, setNetworkFilter] = useState('all')
+    const [networkFilter, setNetworkFilter] = useState('MTN')
     const [batches, setBatches] = useState<any[]>([])
     const [activeTab, setActiveTab] = useState('available')
     const [historyFilter, setHistoryFilter] = useState('today')
@@ -708,7 +708,6 @@ export default function AdminOrdersPage() {
                                             <SelectValue placeholder="Network" />
                                         </SelectTrigger>
                                         <SelectContent>
-                                            <SelectItem value="all">All Networks</SelectItem>
                                             <SelectItem value="MTN">MTN</SelectItem>
                                             <SelectItem value="Telecel">Telecel</SelectItem>
                                             <SelectItem value="AT-iShare">AT-iShare</SelectItem>

@@ -14,37 +14,16 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
-import { Bell, Moon, Sun, Menu, User, LogOut, Settings } from 'lucide-react'
-import Link from 'next/link'
-import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { roleConfig } from '@/lib/roles'
+// ... (keep other imports)
 
 export function DashboardHeader() {
-    const { dbUser, signOut, isAdmin, isSubAdmin } = useAuth()
-    const { toggleSidebar } = useUI()
-    const { theme, setTheme } = useTheme()
-    const [unreadCount, setUnreadCount] = useState(0)
+    // ... (keep other hooks)
 
-    useEffect(() => {
-        if (dbUser) {
-            fetchUnreadNotifications()
-        }
-    }, [dbUser])
-
-    const fetchUnreadNotifications = async () => {
-        const { count } = await supabase
-            .from('notifications')
-            .select('*', { count: 'exact', head: true })
-            .eq('user_id', dbUser?.id as any)
-            .eq('is_read', false)
-
-        setUnreadCount(count || 0)
-    }
-
-    const getInitials = () => {
-        if (!dbUser) return 'U'
-        return `${dbUser.first_name?.[0] || ''}${dbUser.last_name?.[0] || ''}`.toUpperCase()
-    }
+    // Get role config
+    const userRole = isAdmin ? 'admin' : isSubAdmin ? 'sub-admin' : (dbUser?.role || 'customer') as keyof typeof roleConfig
+    const currentRole = roleConfig[userRole] || roleConfig['customer']
+    const RoleIcon = currentRole.icon
 
     return (
         <header className="sticky top-0 z-40 h-16 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border-b border-gray-200 dark:border-gray-800">
@@ -70,11 +49,11 @@ export function DashboardHeader() {
                     <Badge
                         className="hidden sm:flex text-xs"
                         style={{
-                            backgroundColor: isAdmin ? '#E60000' : isSubAdmin ? '#FACC15' : dbUser?.role === 'agent' ? '#25D366' : '#0056B3',
+                            backgroundColor: currentRole.color,
                             color: isSubAdmin ? 'black' : 'white'
                         }}
                     >
-                        {isAdmin ? 'Admin' : isSubAdmin ? 'Sub-Admin' : dbUser?.role === 'agent' ? 'Agent' : 'Customer'}
+                        {currentRole.label}
                     </Badge>
 
                     {/* Theme Toggle */}
@@ -103,9 +82,9 @@ export function DashboardHeader() {
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                             <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                                <Avatar className="h-10 w-10 ring-2 ring-primary/20">
-                                    <AvatarFallback className="bg-gradient-to-br from-blue-500 to-purple-600 text-white font-semibold">
-                                        {getInitials()}
+                                <Avatar className="h-10 w-10 ring-2 ring-primary/20 transition-transform hover:scale-105 active:scale-95">
+                                    <AvatarFallback className="text-white font-semibold flex items-center justify-center delay-0 duration-0" style={{ backgroundColor: currentRole.color }}>
+                                        <RoleIcon className="w-5 h-5" />
                                     </AvatarFallback>
                                 </Avatar>
                             </Button>
