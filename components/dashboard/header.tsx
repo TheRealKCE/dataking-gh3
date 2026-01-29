@@ -1,5 +1,7 @@
 'use client'
 
+import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import { useAuth } from '@/contexts/auth-context'
 import { useUI } from '@/contexts/ui-context'
 import { useTheme } from 'next-themes'
@@ -15,7 +17,8 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { roleConfig } from '@/lib/roles'
-// ... (keep other imports)
+import { supabase } from '@/lib/supabase'
+import { Menu, Sun, Moon, Bell, User, Settings, LogOut } from 'lucide-react'
 
 export function DashboardHeader() {
     const { dbUser, signOut, isAdmin, isSubAdmin } = useAuth()
