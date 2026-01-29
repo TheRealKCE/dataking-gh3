@@ -48,47 +48,47 @@ export default function LoginPage() {
     }
 
     return (
-        <div className="min-h-screen flex items-center justify-center p-4 pt-24 relative overflow-hidden">
+        <div className="min-h-screen flex flex-col items-center justify-start p-3 pt-8 relative overflow-hidden">
             <BackgroundBubbles />
             <FloatingWhatsApp />
 
-            <div className="w-full max-w-md relative z-10">
-                {/* Logo - slower animation */}
-                <div className="text-center mb-8 mt-8">
-                    <Link href="/" className="inline-flex flex-col items-center group">
-                        <div className="relative w-20 h-20 mb-3 transition-transform duration-700 group-hover:scale-110 animate-[pulse_4s_ease-in-out_infinite]">
-                            <div className="w-20 h-20 rounded-2xl bg-slate-900 flex items-center justify-center shadow-xl">
+            <div className="w-full max-w-sm relative z-10">
+                {/* Logo - static, no animation */}
+                <div className="text-center mb-4">
+                    <Link href="/" className="inline-flex flex-col items-center">
+                        <div className="relative w-14 h-14 mb-2">
+                            <div className="w-14 h-14 rounded-xl bg-slate-900 flex items-center justify-center shadow-lg">
                                 <Image
                                     src="/logo.png"
                                     alt="KING FLEXY DATA LTD"
                                     fill
-                                    className="object-contain p-2"
+                                    className="object-contain p-1"
                                     priority
                                 />
                             </div>
                         </div>
-                        <span className="text-xl font-bold text-slate-900 tracking-tight drop-shadow-sm">
+                        <span className="text-lg font-bold text-slate-900 tracking-tight">
                             KING FLEXY DATA LTD
                         </span>
-                        <span className="text-sm text-slate-700/80 mt-1">
+                        <span className="text-xs text-slate-700/80">
                             Sign in to continue
                         </span>
                     </Link>
                 </div>
 
-                <Card className="border-0 bg-[#E5E7EB]/80 backdrop-blur-sm shadow-2xl rounded-3xl overflow-hidden">
-                    <CardContent className="p-6 pt-8">
-                        <form onSubmit={handleSubmit} className="space-y-5">
+                <Card className="border-0 bg-[#E5E7EB]/80 backdrop-blur-sm shadow-xl rounded-2xl overflow-hidden">
+                    <CardContent className="p-4">
+                        <form onSubmit={handleSubmit} className="space-y-3">
                             {error && (
-                                <Alert variant="destructive" className="bg-red-500/10 border-red-500/50">
-                                    <AlertDescription className="text-red-600">{error}</AlertDescription>
+                                <Alert variant="destructive" className="bg-red-500/10 border-red-500/50 py-2">
+                                    <AlertDescription className="text-red-600 text-xs">{error}</AlertDescription>
                                 </Alert>
                             )}
 
-                            <div className="space-y-2">
-                                <Label htmlFor="email" className="text-slate-700 font-semibold">Email Address</Label>
+                            <div className="space-y-1">
+                                <Label htmlFor="email" className="text-slate-700 font-semibold text-sm">Email Address</Label>
                                 <div className="relative">
-                                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                                     <Input
                                         id="email"
                                         type="email"
@@ -96,15 +96,15 @@ export default function LoginPage() {
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}
                                         required
-                                        className="h-14 pl-12 bg-white border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-[#0056B3] focus:ring-[#0056B3]/20 transition-all rounded-xl text-base"
+                                        className="h-11 pl-10 bg-white border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-[#0056B3] focus:ring-[#0056B3]/20 rounded-lg text-sm"
                                     />
                                 </div>
                             </div>
 
-                            <div className="space-y-2">
-                                <Label htmlFor="password" className="text-slate-700 font-semibold">Password</Label>
+                            <div className="space-y-1">
+                                <Label htmlFor="password" className="text-slate-700 font-semibold text-sm">Password</Label>
                                 <div className="relative">
-                                    <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" />
                                     <Input
                                         id="password"
                                         type={showPassword ? 'text' : 'password'}
@@ -112,14 +112,14 @@ export default function LoginPage() {
                                         value={password}
                                         onChange={(e) => setPassword(e.target.value)}
                                         required
-                                        className="h-14 pl-12 pr-12 bg-white border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-[#0056B3] focus:ring-[#0056B3]/20 transition-all rounded-xl text-base"
+                                        className="h-11 pl-10 pr-10 bg-white border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-[#0056B3] focus:ring-[#0056B3]/20 rounded-lg text-sm"
                                     />
                                     <button
                                         type="button"
                                         onClick={() => setShowPassword(!showPassword)}
-                                        className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 transition-colors"
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
                                     >
-                                        {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                                     </button>
                                 </div>
                             </div>
@@ -127,52 +127,49 @@ export default function LoginPage() {
                             <Button
                                 type="submit"
                                 disabled={isLoading}
-                                className="w-full h-14 text-lg font-bold bg-[#0056B3] hover:bg-[#004494] text-white shadow-lg shadow-blue-500/30 transition-all duration-300 hover:scale-[1.02] hover:shadow-xl rounded-xl border-2 border-[#004494]"
+                                className="w-full h-11 text-base font-bold bg-[#0056B3] hover:bg-[#004494] text-white shadow-md rounded-lg"
                             >
                                 {isLoading ? (
                                     <>
-                                        <Loader2 className="w-5 h-5 mr-2 animate-spin" />
+                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                                         Signing in...
                                     </>
                                 ) : (
                                     <>
-                                        <LogIn className="w-5 h-5 mr-2" />
+                                        <LogIn className="w-4 h-4 mr-2" />
                                         Sign In
                                     </>
                                 )}
                             </Button>
                         </form>
 
-                        <div className="flex items-center my-6">
+                        <div className="flex items-center my-4">
                             <div className="flex-1 h-px bg-slate-300"></div>
-                            <span className="px-4 text-sm text-slate-500">OR</span>
+                            <span className="px-3 text-xs text-slate-500">OR</span>
                             <div className="flex-1 h-px bg-slate-300"></div>
                         </div>
 
                         <div className="text-center">
-                            <p className="text-slate-600 text-sm">
+                            <p className="text-slate-600 text-xs">
                                 Don't have an account?{' '}
-                                <Link href="/auth/signup" className="text-[#0056B3] hover:text-[#004494] font-bold transition-colors">
+                                <Link href="/auth/signup" className="text-[#0056B3] font-bold">
                                     Create Account
                                 </Link>
                             </p>
                         </div>
 
-                        <div className="mt-4 text-center">
-                            <Link
-                                href="/auth/reset-password"
-                                className="text-sm text-slate-500 hover:text-[#0056B3] transition-colors"
-                            >
+                        <div className="mt-2 text-center">
+                            <Link href="/auth/reset-password" className="text-xs text-slate-500 hover:text-[#0056B3]">
                                 Forgot password?
                             </Link>
                         </div>
 
-                        <div className="mt-8 border-t border-slate-300 pt-6">
+                        <div className="mt-4 border-t border-slate-300 pt-4">
                             <WhatsAppCommunityButtons />
                         </div>
 
-                        <p className="text-xs text-center text-slate-500 mt-6">
-                            By signing in, you agree to our <Link href="/terms" className="font-semibold text-slate-700 hover:text-[#0056B3]">Terms</Link> and <Link href="/privacy" className="font-semibold text-slate-700 hover:text-[#0056B3]">Privacy Policy</Link>
+                        <p className="text-[10px] text-center text-slate-500 mt-3">
+                            By signing in, you agree to our <Link href="/terms" className="font-semibold text-slate-700">Terms</Link> and <Link href="/privacy" className="font-semibold text-slate-700">Privacy Policy</Link>
                         </p>
                     </CardContent>
                 </Card>
