@@ -30,6 +30,7 @@ import {
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
+import { usePageAccess } from '@/hooks/use-page-access'
 
 const userNavItems = [
     { href: '/dashboard', label: 'Home', icon: LayoutDashboard },
@@ -61,6 +62,7 @@ export function DashboardSidebar() {
     const pathname = usePathname()
     const { dbUser, isAdmin, isSubAdmin, signOut } = useAuth()
     const { isInternalSidebarOpen, closeSidebar } = useUI()
+    const { isPageAccessible, loading: pageAccessLoading } = usePageAccess()
     const [isCollapsed, setIsCollapsed] = useState(false)
     const [walletBalance, setWalletBalance] = useState(0)
 
@@ -184,7 +186,7 @@ export function DashboardSidebar() {
                                 <p className="text-[10px] text-gray-600 dark:text-gray-400 uppercase tracking-wider font-bold mb-0.5">Balance</p>
                                 <p className="text-base font-black text-emerald-600 dark:text-emerald-400 tracking-tight">{formatCurrency(walletBalance)}</p>
                             </div>
-                            {!(process.env.NEXT_PUBLIC_PAYMENT_MAINTENANCE_MODE === 'true' && !isAdmin) && (
+                            {!(process.env.NEXT_PUBLIC_PAYMENT_MAINTENANCE_MODE === 'true' && !isAdmin) && isPageAccessible('/dashboard/wallet') && (
                                 <Link href="/dashboard/wallet">
                                     <Button
                                         size="sm"
@@ -210,12 +212,11 @@ export function DashboardSidebar() {
                     )}
                     {userNavItems
                         .filter(item => {
-                            // Hide wallet during maintenance for non-admin users
-                            const isMaintenanceMode = process.env.NEXT_PUBLIC_PAYMENT_MAINTENANCE_MODE === 'true'
-                            if (isMaintenanceMode && item.href === '/dashboard/wallet' && !isAdmin) {
-                                return false
-                            }
-                            return true
+                            // Admins see everything
+                            if (isAdmin) return true
+
+                            // For non-admin users, check page access settings
+                            return isPageAccessible(item.href)
                         })
                         .map((item) => {
                             const isActive = isLinkActive(item.href)

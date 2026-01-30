@@ -27,14 +27,15 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { WalletTransaction } from '@/types/supabase'
+import { usePageAccess } from '@/hooks/use-page-access'
 
 const QUICK_AMOUNTS = [50, 100, 200, 500]
 const MIN_AMOUNT = 5
-const IS_MAINTENANCE_MODE = process.env.NEXT_PUBLIC_PAYMENT_MAINTENANCE_MODE === 'true'
 
 function WalletContent() {
     const { dbUser, isAdmin } = useAuth()
     const router = useRouter()
+    const { isPageAccessible } = usePageAccess()
     const [walletBalance, setWalletBalance] = useState(0)
     const [totalCredited, setTotalCredited] = useState(0)
     const [totalDebited, setTotalDebited] = useState(0)
@@ -45,13 +46,16 @@ function WalletContent() {
     const [paystackFeePercent, setPaystackFeePercent] = useState(1.95)
     const searchParams = useSearchParams()
 
-    // Block access during maintenance mode for non-admin users
+    // Check if wallet page is accessible
+    const isWalletAccessible = isAdmin || isPageAccessible('/dashboard/wallet')
+
+    // Block access if page is disabled for non-admin users
     useEffect(() => {
-        if (IS_MAINTENANCE_MODE && !isAdmin) {
-            toast.error('Wallet is temporarily unavailable for maintenance')
+        if (!isWalletAccessible) {
+            toast.error('Wallet is temporarily unavailable')
             router.push('/dashboard')
         }
-    }, [isAdmin, router])
+    }, [isWalletAccessible, router])
 
     useEffect(() => {
         if (dbUser) {
@@ -198,18 +202,18 @@ function WalletContent() {
                 <p className="text-muted-foreground">Top up your wallet to continue shopping</p>
             </div>
 
-            {/* Maintenance Mode Banner */}
-            {IS_MAINTENANCE_MODE && (
+            {/* Maintenance Banner - Only show to non-admin users when wallet is disabled */}
+            {!isAdmin && !isPageAccessible('/dashboard/wallet') && (
                 <div className="bg-yellow-50 dark:bg-yellow-900/20 border-2 border-yellow-400 dark:border-yellow-600 rounded-xl p-4">
                     <div className="flex items-start gap-3">
                         <AlertTriangle className="w-6 h-6 text-yellow-600 dark:text-yellow-500 flex-shrink-0 mt-0.5" />
                         <div className="flex-1">
                             <h3 className="font-semibold text-yellow-900 dark:text-yellow-100 mb-1">
-                                Payment System Under Maintenance
+                                Wallet Temporarily Unavailable
                             </h3>
                             <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                                We're currently updating our payment system to serve you better.
-                                Wallet top-ups are temporarily unavailable. Please check back shortly.
+                                The wallet feature is temporarily unavailable.
+                                Please contact support if you need assistance.
                             </p>
                             <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-2">
                                 💡 You can still browse packages and check your orders.
@@ -346,9 +350,9 @@ function WalletContent() {
                                 <Button
                                     type="submit"
                                     className="w-full h-12 text-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-                                    disabled={IS_MAINTENANCE_MODE || isProcessing || !topUpAmount || parseFloat(topUpAmount) < MIN_AMOUNT}
+                                    disabled={!isWalletAccessible || isProcessing || !topUpAmount || parseFloat(topUpAmount) < MIN_AMOUNT}
                                 >
-                                    {IS_MAINTENANCE_MODE ? (
+                                    {!isWalletAccessible ? (
                                         <>
                                             <AlertTriangle className="w-5 h-5 mr-2" />
                                             Temporarily Unavailable

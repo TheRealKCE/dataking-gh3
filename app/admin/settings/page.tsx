@@ -22,6 +22,15 @@ export default function AdminSettingsPage() {
     const [supportEmail, setSupportEmail] = useState('')
     const [autoFulfillment, setAutoFulfillment] = useState(true)
 
+    // Page access states
+    const [pageAccessDashboard, setPageAccessDashboard] = useState(true)
+    const [pageAccessDataPackages, setPageAccessDataPackages] = useState(true)
+    const [pageAccessOrders, setPageAccessOrders] = useState(true)
+    const [pageAccessWallet, setPageAccessWallet] = useState(true)
+    const [pageAccessComplaints, setPageAccessComplaints] = useState(true)
+    const [pageAccessNotifications, setPageAccessNotifications] = useState(true)
+    const [pageAccessProfile, setPageAccessProfile] = useState(true)
+
     useEffect(() => {
         fetchSettings()
     }, [])
@@ -47,6 +56,15 @@ export default function AdminSettingsPage() {
             setSupportEmail(settingsMap.support_email || '')
             setAutoFulfillment(settingsMap.auto_fulfillment_enabled === 'true')
 
+            // Initialize page access values
+            setPageAccessDashboard(settingsMap.page_access_dashboard !== 'false')
+            setPageAccessDataPackages(settingsMap.page_access_data_packages !== 'false')
+            setPageAccessOrders(settingsMap.page_access_orders !== 'false')
+            setPageAccessWallet(settingsMap.page_access_wallet !== 'false')
+            setPageAccessComplaints(settingsMap.page_access_complaints !== 'false')
+            setPageAccessNotifications(settingsMap.page_access_notifications !== 'false')
+            setPageAccessProfile(settingsMap.page_access_profile !== 'false')
+
         } catch (error) {
             console.error('Error fetching settings:', error)
             toast.error('Failed to load settings')
@@ -62,7 +80,15 @@ export default function AdminSettingsPage() {
                 { key: 'paystack_fee_percent', value: paystackFee },
                 { key: 'mtn_price_adjustment', value: mtnAdjustment },
                 { key: 'support_email', value: supportEmail },
-                { key: 'auto_fulfillment_enabled', value: String(autoFulfillment) }
+                { key: 'auto_fulfillment_enabled', value: String(autoFulfillment) },
+                // Page access settings
+                { key: 'page_access_dashboard', value: String(pageAccessDashboard) },
+                { key: 'page_access_data_packages', value: String(pageAccessDataPackages) },
+                { key: 'page_access_orders', value: String(pageAccessOrders) },
+                { key: 'page_access_wallet', value: String(pageAccessWallet) },
+                { key: 'page_access_complaints', value: String(pageAccessComplaints) },
+                { key: 'page_access_notifications', value: String(pageAccessNotifications) },
+                { key: 'page_access_profile', value: String(pageAccessProfile) }
             ]
 
             const { error } = await (supabase
@@ -102,6 +128,7 @@ export default function AdminSettingsPage() {
                     <TabsTrigger value="general">General</TabsTrigger>
                     <TabsTrigger value="fees">Fees & Pricing</TabsTrigger>
                     <TabsTrigger value="fulfillment">Fulfillment</TabsTrigger>
+                    <TabsTrigger value="access">Page Access</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="general" className="space-y-4 mt-4">
@@ -171,6 +198,110 @@ export default function AdminSettingsPage() {
                                 <Switch
                                     checked={autoFulfillment}
                                     onCheckedChange={setAutoFulfillment}
+                                />
+                            </div>
+                        </CardContent>
+                    </Card>
+                </TabsContent>
+
+                <TabsContent value="access" className="space-y-4 mt-4">
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Page Access Control</CardTitle>
+                            <CardDescription>
+                                Control which pages are accessible to non-admin users (customers, agents, sub-admins).
+                                Admins always have full access. Disabled pages will be hidden from navigation and blocked if accessed directly.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="flex items-center justify-between p-4 border rounded-lg">
+                                <div className="space-y-0.5">
+                                    <Label className="text-base">Dashboard/Home</Label>
+                                    <p className="text-sm text-muted-foreground">
+                                        Main dashboard page
+                                    </p>
+                                </div>
+                                <Switch
+                                    checked={pageAccessDashboard}
+                                    onCheckedChange={setPageAccessDashboard}
+                                />
+                            </div>
+
+                            <div className="flex items-center justify-between p-4 border rounded-lg">
+                                <div className="space-y-0.5">
+                                    <Label className="text-base">Data Packages</Label>
+                                    <p className="text-sm text-muted-foreground">
+                                        Browse and purchase data packages
+                                    </p>
+                                </div>
+                                <Switch
+                                    checked={pageAccessDataPackages}
+                                    onCheckedChange={setPageAccessDataPackages}
+                                />
+                            </div>
+
+                            <div className="flex items-center justify-between p-4 border rounded-lg">
+                                <div className="space-y-0.5">
+                                    <Label className="text-base">Orders</Label>
+                                    <p className="text-sm text-muted-foreground">
+                                        View order history and status
+                                    </p>
+                                </div>
+                                <Switch
+                                    checked={pageAccessOrders}
+                                    onCheckedChange={setPageAccessOrders}
+                                />
+                            </div>
+
+                            <div className="flex items-center justify-between p-4 border rounded-lg">
+                                <div className="space-y-0.5">
+                                    <Label className="text-base">Wallet</Label>
+                                    <p className="text-sm text-muted-foreground">
+                                        Wallet balance and top-up functionality
+                                    </p>
+                                </div>
+                                <Switch
+                                    checked={pageAccessWallet}
+                                    onCheckedChange={setPageAccessWallet}
+                                />
+                            </div>
+
+                            <div className="flex items-center justify-between p-4 border rounded-lg">
+                                <div className="space-y-0.5">
+                                    <Label className="text-base">Complaints</Label>
+                                    <p className="text-sm text-muted-foreground">
+                                        Submit and view complaints
+                                    </p>
+                                </div>
+                                <Switch
+                                    checked={pageAccessComplaints}
+                                    onCheckedChange={setPageAccessComplaints}
+                                />
+                            </div>
+
+                            <div className="flex items-center justify-between p-4 border rounded-lg">
+                                <div className="space-y-0.5">
+                                    <Label className="text-base">Notifications</Label>
+                                    <p className="text-sm text-muted-foreground">
+                                        View system notifications
+                                    </p>
+                                </div>
+                                <Switch
+                                    checked={pageAccessNotifications}
+                                    onCheckedChange={setPageAccessNotifications}
+                                />
+                            </div>
+
+                            <div className="flex items-center justify-between p-4 border rounded-lg">
+                                <div className="space-y-0.5">
+                                    <Label className="text-base">Profile</Label>
+                                    <p className="text-sm text-muted-foreground">
+                                        User profile and settings
+                                    </p>
+                                </div>
+                                <Switch
+                                    checked={pageAccessProfile}
+                                    onCheckedChange={setPageAccessProfile}
                                 />
                             </div>
                         </CardContent>
