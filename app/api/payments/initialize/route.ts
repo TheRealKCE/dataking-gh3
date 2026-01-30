@@ -8,6 +8,14 @@ const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY!
 
 export async function POST(request: NextRequest) {
     try {
+        // Check if payment system is under maintenance
+        if (process.env.NEXT_PUBLIC_PAYMENT_MAINTENANCE_MODE === 'true') {
+            return NextResponse.json(
+                { error: 'Payment system is currently under maintenance. Please try again later.' },
+                { status: 503 }
+            )
+        }
+
         const supabase = createRouteClient()
         const supabaseAdmin = createServerClient() // For database operations
         const { amount } = await request.json()
