@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { processCompletedWalletPayment } from '@/lib/payments'
+import { createServerClient } from '@/lib/supabase'
 
 export async function POST(request: NextRequest) {
     try {
@@ -29,7 +30,31 @@ export async function POST(request: NextRequest) {
 
         // Handle charge.success
         if (event.event === 'charge.success') {
-            const { reference } = event.data
+            const { reference, amount: paidAmountKobo } = event.data
+
+            // Verify payment amount with database to prevent manipulation
+            const supabase = createServerClient()
+
+            const { data: payment } = await supabase
+                .from('wallet_payments')
+                .select('total_amount')
+                .eq('reference', reference)
+                .single()
+
+            if (!payment) {
+                console.error('Webhook: Payment reference not found:', reference)
+                // Return 200 to acknowledge receipt but log error (prevent loop)
+                return NextResponse.json({ received: true }, { status: 200 })
+            }
+
+            // Paystack sends amount in kobo/pesewas. Database stores in GHS.
+            const expectedAmountKobo = Math.round((payment as any).total_amount * 100)
+
+            if (paidAmountKobo !== expectedAmountKobo) {
+                console.error(`Webhook: AMOUNT MISMATCH for ref ${reference}. Expected: ${expectedAmountKobo}, Paid: ${paidAmountKobo}`)
+                // Do NOT process payment. 
+                return NextResponse.json({ received: true }, { status: 200 })
+            }
 
             // Process the payment safely (idempotency is handled inside this function)
             const result = await processCompletedWalletPayment(reference, event.data)
