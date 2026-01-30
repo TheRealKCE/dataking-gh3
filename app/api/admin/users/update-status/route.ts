@@ -1,0 +1,81 @@
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { cookies } from 'next/headers'
+import { NextResponse } from 'next/server'
+
+export async function POST(request: Request) {
+    try {
+        const { userId, status } = await request.json()
+
+        if (!userId || !status) {
+            return NextResponse.json(
+                { error: 'User ID and status are required' },
+                { status: 400 }
+            )
+        }
+
+        if (!['active', 'suspended', 'inactive'].includes(status)) {
+            return NextResponse.json(
+                { error: 'Invalid status. Must be active, suspended, or inactive' },
+                { status: 400 }
+            )
+        }
+
+        // Verify requester is admin
+        const cookieStore = await cookies()
+        // @ts-expect-error - auth-helpers types conflict with Next.js 15
+        const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
+        const { data: { session } } = await supabase.auth.getSession()
+
+        if (!session) {
+            return NextResponse.json(
+                { error: 'Unauthorized' },
+                { status: 401 }
+            )
+        }
+
+        // Check if requester is admin or sub-admin
+        const { data: requesterData, error: requesterError } = await supabase
+            .from('users')
+            .select('role')
+            .eq('id', session.user.id)
+            .single()
+
+        if (requesterError || (requesterData?.role !== 'admin' && requesterData?.role !== 'sub-admin')) {
+            return NextResponse.json(
+                { error: 'Unauthorized - Admin access required' },
+                { status: 403 }
+            )
+        }
+
+        // Prevent changing own status
+        if (userId === session.user.id) {
+            return NextResponse.json(
+                { error: 'Cannot change your own account status' },
+                { status: 400 }
+            )
+        }
+
+        // Update user status
+        const { error: updateError } = await supabase
+            .from('users')
+            .update({ status, updated_at: new Date().toISOString() })
+            .eq('id', userId)
+
+        if (updateError) {
+            console.error('Error updating user status:', updateError)
+            return NextResponse.json(
+                { error: 'Failed to update user status' },
+                { status: 500 }
+            )
+        }
+
+        return NextResponse.json({ success: true })
+
+    } catch (error: any) {
+        console.error('Update status error:', error)
+        return NextResponse.json(
+            { error: error.message || 'Internal server error' },
+            { status: 500 }
+        )
+    }
+}

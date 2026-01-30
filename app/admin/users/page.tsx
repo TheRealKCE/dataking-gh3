@@ -84,17 +84,23 @@ export default function AdminUsersPage() {
 
     const handleStatusChange = async (userId: string, newStatus: string) => {
         try {
-            const { error } = await (supabase
-                .from('users') as any)
-                .update({ status: newStatus })
-                .eq('id', userId)
+            setLoading(true)
+            const response = await fetch('/api/admin/users/update-status', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId, status: newStatus })
+            })
 
-            if (error) throw error
+            const result = await response.json()
+            if (!response.ok) throw new Error(result.error || 'Failed to update user status')
 
             setUsers(users.map(u => u.id === userId ? { ...u, status: newStatus } : u))
             toast.success(`User marked as ${newStatus}`)
-        } catch (error) {
-            toast.error('Failed to update user status')
+        } catch (error: any) {
+            console.error('Status change error:', error)
+            toast.error(error.message || 'Failed to update user status')
+        } finally {
+            setLoading(false)
         }
     }
 
@@ -348,19 +354,21 @@ export default function AdminUsersPage() {
                                                 <Wallet className="w-4 h-4 mr-2 text-red-500" />
                                                 Debit Wallet
                                             </DropdownMenuItem>
-
-                                            {user.status !== 'suspended' ? (
-                                                <DropdownMenuItem onClick={() => handleStatusChange(user.id, 'suspended')}>
-                                                    <Ban className="w-4 h-4 mr-2 text-red-500" />
-                                                    Suspend Account
-                                                </DropdownMenuItem>
-                                            ) : (
-                                                <DropdownMenuItem onClick={() => handleStatusChange(user.id, 'active')}>
-                                                    <CheckCircle className="w-4 h-4 mr-2 text-green-500" />
-                                                    Activate Account
-                                                </DropdownMenuItem>
-                                            )}
-
+                                            <DropdownMenuItem
+                                                onClick={() => handleStatusChange(user.id, user.status === 'suspended' ? 'active' : 'suspended')}
+                                            >
+                                                {user.status === 'suspended' ? (
+                                                    <>
+                                                        <CheckCircle className="w-4 h-4 mr-2 text-green-500" />
+                                                        Activate Account
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <Ban className="w-4 h-4 mr-2 text-orange-500" />
+                                                        Suspend Account
+                                                    </>
+                                                )}
+                                            </DropdownMenuItem>
                                             {/* Role Change Menu */}
                                             <DropdownMenuLabel className="text-xs text-muted-foreground pt-2">Change Role</DropdownMenuLabel>
                                             {user.role !== 'customer' && (
