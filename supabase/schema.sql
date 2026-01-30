@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS public.users (
   first_name TEXT NOT NULL,
   last_name TEXT NOT NULL,
   phone_number TEXT NOT NULL UNIQUE,
-  role TEXT DEFAULT 'user' CHECK (role IN ('user', 'admin')),
+  role TEXT DEFAULT 'customer' CHECK (role IN ('customer', 'agent', 'sub-admin', 'admin')),
   status TEXT DEFAULT 'active' CHECK (status IN ('active', 'suspended', 'inactive')),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()

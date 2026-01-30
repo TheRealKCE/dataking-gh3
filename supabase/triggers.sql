@@ -13,7 +13,7 @@ BEGIN
     COALESCE(NEW.raw_user_meta_data->>'first_name', ''),
     COALESCE(NEW.raw_user_meta_data->>'last_name', ''),
     COALESCE(NEW.raw_user_meta_data->>'phone_number', ''),
-    'user',
+    'customer',
     'active'
   )
   ON CONFLICT (id) DO NOTHING;
