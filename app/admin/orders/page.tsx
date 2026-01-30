@@ -708,6 +708,12 @@ export default function AdminOrdersPage() {
             batchDate.getMonth() === yesterday.getMonth() &&
             batchDate.getFullYear() === yesterday.getFullYear()
 
+        // Calculate 30 days ago
+        const thirtyDaysAgo = new Date(today)
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+        thirtyDaysAgo.setHours(0, 0, 0, 0)
+        const isWithin30Days = batchDate >= thirtyDaysAgo
+
         if (historyFilter === 'today') return isToday
         if (historyFilter === 'yesterday') return isYesterday
         if (historyFilter === 'custom') {
@@ -717,7 +723,8 @@ export default function AdminOrdersPage() {
             end.setHours(23, 59, 59, 999)
             return batchDate >= start && batchDate <= end
         }
-        return true
+        // 'all' filter shows only past 30 days
+        return isWithin30Days
     })
 
     const getStatusBadge = (status: string) => {
