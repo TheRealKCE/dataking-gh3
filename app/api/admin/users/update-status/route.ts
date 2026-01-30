@@ -1,6 +1,7 @@
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
+import { createServerClient } from '@/lib/supabase'
 
 export async function POST(request: Request) {
     try {
@@ -55,8 +56,11 @@ export async function POST(request: Request) {
             )
         }
 
+        // Use service role client for the update (bypasses RLS)
+        const supabaseAdmin = createServerClient()
+
         // Update user status
-        const { error: updateError } = await supabase
+        const { error: updateError } = await supabaseAdmin
             .from('users')
             .update({ status, updated_at: new Date().toISOString() })
             .eq('id', userId)
@@ -64,10 +68,12 @@ export async function POST(request: Request) {
         if (updateError) {
             console.error('Error updating user status:', updateError)
             return NextResponse.json(
-                { error: 'Failed to update user status' },
+                { error: `Failed to update user status: ${updateError.message}` },
                 { status: 500 }
             )
         }
+
+        console.log(`[Admin] User ${userId} status updated to ${status} by ${session.user.id}`)
 
         return NextResponse.json({ success: true })
 
