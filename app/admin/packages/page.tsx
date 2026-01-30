@@ -49,6 +49,7 @@ interface PackageFormData {
     network: typeof NETWORKS[number]
     size: string
     price: number
+    agent_price: number
     cost_price: number
     description: string
     is_available: boolean
@@ -59,6 +60,7 @@ const defaultFormData: PackageFormData = {
     network: 'MTN',
     size: '',
     price: 0,
+    agent_price: 0,
     cost_price: 0,
     description: '',
     is_available: true,
@@ -108,6 +110,7 @@ export default function AdminPackagesPage() {
             network: pkg.network,
             size: pkg.size,
             price: pkg.price,
+            agent_price: (pkg as any).agent_price || 0,
             cost_price: (pkg as any).cost_price || 0,
             description: pkg.description || '',
             is_available: pkg.is_available,
@@ -278,7 +281,14 @@ export default function AdminPackagesPage() {
                                         <div className="flex items-start justify-between">
                                             <div className="space-y-1">
                                                 <CardTitle className="text-2xl font-bold">{pkg.size}</CardTitle>
-                                                <p className="text-2xl font-bold text-primary">{formatCurrency(pkg.price)}</p>
+                                                <div className="flex flex-col">
+                                                    <p className="text-2xl font-bold text-primary">{formatCurrency(pkg.price)}</p>
+                                                    {(pkg as any).agent_price > 0 && (
+                                                        <p className="text-sm font-medium text-green-600">
+                                                            Agent: {formatCurrency((pkg as any).agent_price)}
+                                                        </p>
+                                                    )}
+                                                </div>
                                             </div>
                                             <Switch
                                                 checked={pkg.is_available}
@@ -372,6 +382,16 @@ export default function AdminPackagesPage() {
                                     onChange={(e) => setFormData(prev => ({ ...prev, price: parseFloat(e.target.value) || 0 }))}
                                     placeholder="0.00"
                                 />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Agent Price (GHS)</Label>
+                                <Input
+                                    type="number"
+                                    value={formData.agent_price}
+                                    onChange={(e) => setFormData(prev => ({ ...prev, agent_price: parseFloat(e.target.value) || 0 }))}
+                                    placeholder="0.00"
+                                />
+                                <p className="text-[10px] text-muted-foreground">Optional: Set specifically for agents</p>
                             </div>
                             <div className="space-y-2">
                                 <Label>Cost Price (GHS)</Label>

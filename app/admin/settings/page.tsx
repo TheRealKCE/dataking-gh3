@@ -18,6 +18,7 @@ export default function AdminSettingsPage() {
 
     // Form states
     const [paystackFee, setPaystackFee] = useState('1.95')
+    const [agentPaystackFee, setAgentPaystackFee] = useState('1.95')
     const [mtnAdjustment, setMtnAdjustment] = useState('0')
     const [supportEmail, setSupportEmail] = useState('')
     const [autoFulfillment, setAutoFulfillment] = useState(true)
@@ -52,6 +53,7 @@ export default function AdminSettingsPage() {
 
             // Initialize form values
             setPaystackFee(settingsMap.paystack_fee_percent || '1.95')
+            setAgentPaystackFee(settingsMap.agent_paystack_fee_percent || '1.95')
             setMtnAdjustment(settingsMap.mtn_price_adjustment || '0')
             setSupportEmail(settingsMap.support_email || '')
             setAutoFulfillment(settingsMap.auto_fulfillment_enabled === 'true')
@@ -78,6 +80,7 @@ export default function AdminSettingsPage() {
         try {
             const updates = [
                 { key: 'paystack_fee_percent', value: paystackFee },
+                { key: 'agent_paystack_fee_percent', value: agentPaystackFee },
                 { key: 'mtn_price_adjustment', value: mtnAdjustment },
                 { key: 'support_email', value: supportEmail },
                 { key: 'auto_fulfillment_enabled', value: String(autoFulfillment) },
@@ -165,7 +168,17 @@ export default function AdminSettingsPage() {
                                     onChange={(e) => setPaystackFee(e.target.value)}
                                     step="0.01"
                                 />
-                                <p className="text-xs text-muted-foreground">Fee passed on to users during wallet top-up</p>
+                                <p className="text-xs text-muted-foreground">Fee passed on to regular users during wallet top-up</p>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Agent Paystack Fee Percentage (%)</Label>
+                                <Input
+                                    type="number"
+                                    value={agentPaystackFee}
+                                    onChange={(e) => setAgentPaystackFee(e.target.value)}
+                                    step="0.01"
+                                />
+                                <p className="text-xs text-muted-foreground">Fee passed on to AGENTS during wallet top-up</p>
                             </div>
                             <div className="space-y-2">
                                 <Label>MTN Price Adjustment (GHS)</Label>

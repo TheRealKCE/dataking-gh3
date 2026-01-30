@@ -56,11 +56,27 @@ export async function POST(request: NextRequest) {
         }
 
         // Get Paystack fee setting
-        const { data: feeSetting } = await supabaseAdmin
+        const { data: feeData } = await supabaseAdmin
             .from('admin_settings')
-            .select('value')
-            .eq('key', 'paystack_fee_percent')
+            .select('key, value')
+            .in('key', ['paystack_fee_percent', 'agent_paystack_fee_percent'])
+
+        // Determine which fee to use
+        let feeKey = 'paystack_fee_percent'
+
+        // Check if user is agent
+        const { data: userRoleData } = await supabaseAdmin
+            .from('users')
+            .select('role')
+            .eq('id', userId)
             .single()
+
+        if ((userRoleData as any)?.role === 'agent') {
+            feeKey = 'agent_paystack_fee_percent'
+        }
+
+        const feeSetting = feeData?.find((s: any) => s.key === feeKey) ||
+            feeData?.find((s: any) => s.key === 'paystack_fee_percent')
 
         // Parse fee percent (handle string/number difference in JSONB)
         let feePercent = 1.95 // Default fallback

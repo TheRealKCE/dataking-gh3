@@ -59,6 +59,22 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'This phone number is not allowed' }, { status: 400 })
         }
 
+        // Get user role for price calculation
+        const { data: userRoleData } = await supabase
+            .from('users')
+            .select('role')
+            .eq('id', userId)
+            .single()
+
+        const isAgent = (userRoleData as any)?.role === 'agent'
+
+        // Determine price to charge
+        // If agent and agent_price is set (greater than 0), use agent_price.
+        // Otherwise use standard price.
+        const priceToCharge = (isAgent && (pkg as any).agent_price > 0)
+            ? (pkg as any).agent_price
+            : (pkg as any).price
+
         // Get user's wallet
         const { data: wallet, error: walletError } = await supabase
             .from('wallets')
@@ -71,7 +87,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Check balance
-        if ((wallet as any).balance < (pkg as any).price) {
+        if ((wallet as any).balance < priceToCharge) {
             return NextResponse.json({ error: 'Insufficient balance' }, { status: 400 })
         }
 
@@ -85,7 +101,7 @@ export async function POST(request: NextRequest) {
                 phone_number: phoneNumber,
                 network: (pkg as any).network,
                 size: (pkg as any).size,
-                price: (pkg as any).price,
+                price: priceToCharge,
                 status: 'pending',
                 payment_status: 'paid',
                 reference_code: referenceCode,
@@ -100,12 +116,12 @@ export async function POST(request: NextRequest) {
         }
 
         // Debit wallet
-        const newBalance = (wallet as any).balance - (pkg as any).price
+        const newBalance = (wallet as any).balance - priceToCharge
         const { error: debitError } = await (supabase
             .from('wallets') as any)
             .update({
                 balance: newBalance,
-                total_spent: ((wallet as any).total_spent || 0) + (pkg as any).price,
+                total_spent: ((wallet as any).total_spent || 0) + priceToCharge,
                 updated_at: new Date().toISOString(),
             })
             .eq('id', (wallet as any).id)
@@ -122,7 +138,7 @@ export async function POST(request: NextRequest) {
             wallet_id: (wallet as any).id,
             user_id: userId,
             type: 'debit',
-            amount: (pkg as any).price,
+            amount: priceToCharge,
             description: `Data purchase: ${(pkg as any).size} for ${phoneNumber}`,
             reference: referenceCode,
             source: 'purchase',
@@ -130,7 +146,7 @@ export async function POST(request: NextRequest) {
         })
 
         // Update customer purchases
-        await updateCustomerPurchases(supabase, userId!, phoneNumber, (pkg as any).price)
+        await updateCustomerPurchases(supabase, userId!, phoneNumber, priceToCharge)
 
         // Create notification
         await (supabase.from('notifications') as any).insert({
@@ -164,7 +180,7 @@ export async function POST(request: NextRequest) {
                         phoneNumber,
                         network: (pkg as any).network,
                         size: (pkg as any).size,
-                        price: (pkg as any).price
+                        price: priceToCharge
                     }
                 ).catch((err: Error) => console.error('[Order] User email error:', err))
 
@@ -176,7 +192,7 @@ export async function POST(request: NextRequest) {
                         {
                             network: (pkg as any).network,
                             size: (pkg as any).size,
-                            price: (pkg as any).price,
+                            price: priceToCharge,
                             recipientNumber: phoneNumber,
                             currentBalance: newBalance
                         }
@@ -189,7 +205,7 @@ export async function POST(request: NextRequest) {
                     phoneNumber,
                     network: (pkg as any).network,
                     size: (pkg as any).size,
-                    price: (pkg as any).price,
+                    price: priceToCharge,
                     customerName: `${firstName} ${lastName}`.trim(),
                     customerEmail: userEmail
                 }).catch((err: Error) => console.error('[Order] Admin email error:', err))
