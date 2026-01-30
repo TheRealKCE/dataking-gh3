@@ -73,7 +73,7 @@ export default function PendingUsersPage() {
         }
     }
 
-    const handleReject = async (userId: string) {
+    const handleReject = async (userId: string) => {
         setActionLoading(userId)
         try {
             const response = await fetch('/api/admin/users/reject', {
