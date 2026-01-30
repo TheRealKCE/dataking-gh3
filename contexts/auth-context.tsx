@@ -29,7 +29,7 @@ interface SignUpData {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-const INACTIVITY_TIMEOUT = 20 * 60 * 1000 // 20 minutes
+const INACTIVITY_TIMEOUT = 40 * 60 * 1000 // 40 minutes
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<User | null>(null)
@@ -182,7 +182,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         const checkInactivity = setInterval(() => {
             if (Date.now() - lastActivity > INACTIVITY_TIMEOUT) {
-                console.log('User inactive for 20 mins, signing out...')
+                console.log('User inactive for 40 mins, signing out...')
                 signOut()
             }
         }, 60000) // Check every minute
