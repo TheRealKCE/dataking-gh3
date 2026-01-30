@@ -67,10 +67,10 @@ export default function LoginPage() {
                                 />
                             </div>
                         </div>
-                        <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight drop-shadow-lg">
+                        <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight">
                             KING FLEXY DATA LTD
                         </h1>
-                        <p className="text-base text-white/80 mt-1 drop-shadow">
+                        <p className="text-base text-slate-600 mt-1">
                             Sign in to continue
                         </p>
                     </Link>

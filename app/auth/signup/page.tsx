@@ -55,6 +55,11 @@ export default function SignupPage() {
             return
         }
 
+        if (formData.password !== formData.confirmPassword) {
+            setError('Passwords do not match')
+            return
+        }
+
         setIsLoading(true)
 
         try {
@@ -141,10 +146,10 @@ export default function SignupPage() {
                                 />
                             </div>
                         </div>
-                        <h1 className="text-lg sm:text-xl font-bold text-white tracking-tight drop-shadow-lg">
+                        <h1 className="text-lg sm:text-xl font-bold text-slate-900 tracking-tight">
                             Create Your Account
                         </h1>
-                        <p className="text-sm text-white/80 mt-0.5 drop-shadow">
+                        <p className="text-sm text-slate-600 mt-0.5">
                             Join KING FLEXY DATA LTD
                         </p>
                     </Link>
@@ -159,19 +164,36 @@ export default function SignupPage() {
                                 </Alert>
                             )}
 
-                            <div className="space-y-1.5">
-                                <Label htmlFor="fullName" className="text-slate-700 font-semibold text-sm">Full Name</Label>
-                                <div className="relative">
-                                    <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                                    <Input
-                                        id="firstName"
-                                        name="firstName"
-                                        placeholder="Enter your full name"
-                                        value={formData.firstName}
-                                        onChange={handleChange}
-                                        required
-                                        className="h-11 pl-11 bg-white/95 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-[#0056B3] focus:ring-[#0056B3]/20 rounded-xl text-base"
-                                    />
+                            <div className="grid grid-cols-2 gap-2 sm:gap-3.5">
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="firstName" className="text-slate-700 font-semibold text-sm">First Name</Label>
+                                    <div className="relative">
+                                        <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                                        <Input
+                                            id="firstName"
+                                            name="firstName"
+                                            placeholder="First name"
+                                            value={formData.firstName}
+                                            onChange={handleChange}
+                                            required
+                                            className="h-11 pl-11 bg-white/95 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-[#0056B3] focus:ring-[#0056B3]/20 rounded-xl text-base"
+                                        />
+                                    </div>
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label htmlFor="lastName" className="text-slate-700 font-semibold text-sm">Last Name</Label>
+                                    <div className="relative">
+                                        <User className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                                        <Input
+                                            id="lastName"
+                                            name="lastName"
+                                            placeholder="Last name"
+                                            value={formData.lastName}
+                                            onChange={handleChange}
+                                            required
+                                            className="h-11 pl-11 bg-white/95 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-[#0056B3] focus:ring-[#0056B3]/20 rounded-xl text-base"
+                                        />
+                                    </div>
                                 </div>
                             </div>
 
@@ -233,7 +255,29 @@ export default function SignupPage() {
                                 </div>
                             </div>
 
-                            <input type="hidden" name="lastName" value={formData.lastName} />
+                            <div className="space-y-1.5">
+                                <Label htmlFor="confirmPassword" className="text-slate-700 font-semibold text-sm">Confirm Password</Label>
+                                <div className="relative">
+                                    <Lock className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
+                                    <Input
+                                        id="confirmPassword"
+                                        name="confirmPassword"
+                                        type={showPassword ? 'text' : 'password'}
+                                        placeholder="Confirm your password"
+                                        value={formData.confirmPassword}
+                                        onChange={handleChange}
+                                        required
+                                        className="h-11 pl-11 pr-11 bg-white/95 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-[#0056B3] focus:ring-[#0056B3]/20 rounded-xl text-base"
+                                    />
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPassword(!showPassword)}
+                                        className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600"
+                                    >
+                                        {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+                                    </button>
+                                </div>
+                            </div>
 
                             <Button
                                 type="submit"
