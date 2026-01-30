@@ -184,15 +184,17 @@ export function DashboardSidebar() {
                                 <p className="text-[10px] text-gray-600 dark:text-gray-400 uppercase tracking-wider font-bold mb-0.5">Balance</p>
                                 <p className="text-base font-black text-emerald-600 dark:text-emerald-400 tracking-tight">{formatCurrency(walletBalance)}</p>
                             </div>
-                            <Link href="/dashboard/wallet">
-                                <Button
-                                    size="sm"
-                                    className="h-8 px-3 text-xs font-bold bg-yellow-500 hover:bg-yellow-400 text-black rounded-lg shadow-sm hover:shadow-md transition-all active:scale-95"
-                                >
-                                    <Plus className="w-3.5 h-3.5 mr-1.5" />
-                                    Top Up
-                                </Button>
-                            </Link>
+                            {!(process.env.NEXT_PUBLIC_PAYMENT_MAINTENANCE_MODE === 'true' && !isAdmin) && (
+                                <Link href="/dashboard/wallet">
+                                    <Button
+                                        size="sm"
+                                        className="h-8 px-3 text-xs font-bold bg-yellow-500 hover:bg-yellow-400 text-black rounded-lg shadow-sm hover:shadow-md transition-all active:scale-95"
+                                    >
+                                        <Plus className="w-3.5 h-3.5 mr-1.5" />
+                                        Top Up
+                                    </Button>
+                                </Link>
+                            )}
                         </div>
                     </div>
                 )}
@@ -206,27 +208,36 @@ export function DashboardSidebar() {
                             Menu
                         </p>
                     )}
-                    {userNavItems.map((item) => {
-                        const isActive = isLinkActive(item.href)
-                        return (
-                            <Link key={item.href} href={item.href} onClick={() => {
-                                if (window.innerWidth < 1024) closeSidebar()
-                            }}>
-                                <div
-                                    className={cn(
-                                        "flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-all duration-200",
-                                        isActive
-                                            ? "bg-yellow-500/20 dark:bg-yellow-500/10 text-yellow-600 dark:text-yellow-400"
-                                            : "text-gray-600 dark:text-gray-400 hover:bg-gray-300/60 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-gray-200",
-                                        isCollapsed && "justify-center px-2"
-                                    )}
-                                >
-                                    <item.icon className={cn("w-5 h-5 flex-shrink-0", isActive && "text-yellow-600 dark:text-yellow-400")} />
-                                    {!isCollapsed && <span className="text-base font-medium">{item.label}</span>}
-                                </div>
-                            </Link>
-                        )
-                    })}
+                    {userNavItems
+                        .filter(item => {
+                            // Hide wallet during maintenance for non-admin users
+                            const isMaintenanceMode = process.env.NEXT_PUBLIC_PAYMENT_MAINTENANCE_MODE === 'true'
+                            if (isMaintenanceMode && item.href === '/dashboard/wallet' && !isAdmin) {
+                                return false
+                            }
+                            return true
+                        })
+                        .map((item) => {
+                            const isActive = isLinkActive(item.href)
+                            return (
+                                <Link key={item.href} href={item.href} onClick={() => {
+                                    if (window.innerWidth < 1024) closeSidebar()
+                                }}>
+                                    <div
+                                        className={cn(
+                                            "flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-all duration-200",
+                                            isActive
+                                                ? "bg-yellow-500/20 dark:bg-yellow-500/10 text-yellow-600 dark:text-yellow-400"
+                                                : "text-gray-600 dark:text-gray-400 hover:bg-gray-300/60 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-gray-200",
+                                            isCollapsed && "justify-center px-2"
+                                        )}
+                                    >
+                                        <item.icon className={cn("w-5 h-5 flex-shrink-0", isActive && "text-yellow-600 dark:text-yellow-400")} />
+                                        {!isCollapsed && <span className="text-base font-medium">{item.label}</span>}
+                                    </div>
+                                </Link>
+                            )
+                        })}
 
                     {(isAdmin || isSubAdmin) && (
                         <>
