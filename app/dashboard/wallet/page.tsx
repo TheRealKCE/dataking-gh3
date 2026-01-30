@@ -22,13 +22,15 @@ import {
     Building,
     Loader2,
     TrendingUp,
-    TrendingDown
+    TrendingDown,
+    AlertTriangle
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { WalletTransaction } from '@/types/supabase'
 
 const QUICK_AMOUNTS = [50, 100, 200, 500]
 const MIN_AMOUNT = 5
+const IS_MAINTENANCE_MODE = process.env.NEXT_PUBLIC_PAYMENT_MAINTENANCE_MODE === 'true'
 
 function WalletContent() {
     const { dbUser } = useAuth()
@@ -188,6 +190,27 @@ function WalletContent() {
                 <p className="text-muted-foreground">Top up your wallet to continue shopping</p>
             </div>
 
+            {/* Maintenance Mode Banner */}
+            {IS_MAINTENANCE_MODE && (
+                <div className="bg-yellow-50 dark:bg-yellow-900/20 border-2 border-yellow-400 dark:border-yellow-600 rounded-xl p-4">
+                    <div className="flex items-start gap-3">
+                        <AlertTriangle className="w-6 h-6 text-yellow-600 dark:text-yellow-500 flex-shrink-0 mt-0.5" />
+                        <div className="flex-1">
+                            <h3 className="font-semibold text-yellow-900 dark:text-yellow-100 mb-1">
+                                Payment System Under Maintenance
+                            </h3>
+                            <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                                We're currently updating our payment system to serve you better.
+                                Wallet top-ups are temporarily unavailable. Please check back shortly.
+                            </p>
+                            <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-2">
+                                💡 You can still browse packages and check your orders.
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Balance Card */}
                 <div className="lg:col-span-1">
@@ -315,9 +338,14 @@ function WalletContent() {
                                 <Button
                                     type="submit"
                                     className="w-full h-12 text-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-                                    disabled={isProcessing || !topUpAmount || parseFloat(topUpAmount) < MIN_AMOUNT}
+                                    disabled={IS_MAINTENANCE_MODE || isProcessing || !topUpAmount || parseFloat(topUpAmount) < MIN_AMOUNT}
                                 >
-                                    {isProcessing ? (
+                                    {IS_MAINTENANCE_MODE ? (
+                                        <>
+                                            <AlertTriangle className="w-5 h-5 mr-2" />
+                                            Temporarily Unavailable
+                                        </>
+                                    ) : isProcessing ? (
                                         <>
                                             <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                                             Processing...
