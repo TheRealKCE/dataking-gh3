@@ -66,6 +66,11 @@ export default function AdminOrdersPage() {
     const [customEnd, setCustomEnd] = useState('')
     const [isCustomDialogOpen, setIsCustomDialogOpen] = useState(false)
 
+    // Download protection states
+    const [isDownloading, setIsDownloading] = useState(false)
+    const [lastDownloadTime, setLastDownloadTime] = useState(0)
+    const DOWNLOAD_COOLDOWN = 3000 // 3 seconds cooldown
+
     useEffect(() => {
         const loadData = async () => {
             setLoading(true)
@@ -272,6 +277,21 @@ export default function AdminOrdersPage() {
     }
 
     const handleExportExcel = async () => {
+        // Check if download is in progress
+        if (isDownloading) {
+            toast.error('Download already in progress. Please wait...')
+            return
+        }
+
+        // Check cooldown period
+        const now = Date.now()
+        const timeSinceLastDownload = now - lastDownloadTime
+        if (timeSinceLastDownload < DOWNLOAD_COOLDOWN) {
+            const remainingSeconds = Math.ceil((DOWNLOAD_COOLDOWN - timeSinceLastDownload) / 1000)
+            toast.error(`Please wait ${remainingSeconds} second(s) before downloading again`)
+            return
+        }
+
         const pendingOrders = (filteredOrders as any[]).filter(o => o.status === 'pending')
 
         if (pendingOrders.length === 0) {
@@ -283,6 +303,7 @@ export default function AdminOrdersPage() {
             return
         }
 
+        setIsDownloading(true)
         try {
             const fileName = `ghdata_orders_${new Date().toISOString().replace(/[:.]/g, '-')}.xlsx`
             const idempotencyKey = `batch_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
@@ -299,7 +320,15 @@ export default function AdminOrdersPage() {
             })
 
             const result = await response.json()
-            if (!response.ok) throw new Error(result.error || 'Failed to create batch')
+            if (!response.ok) {
+                // Handle concurrent download error (409)
+                if (response.status === 409) {
+                    toast.error(result.error || 'Some orders are already being downloaded by another admin')
+                    setIsDownloading(false)
+                    return
+                }
+                throw new Error(result.error || 'Failed to create batch')
+            }
 
             // 3. Perform export - CUSTOM FORMAT (Beneficiary Msisdn / GIGGS)
             const rows: any[][] = []
@@ -370,11 +399,17 @@ export default function AdminOrdersPage() {
             writeFile(workbook, fileName)
             toast.success('Orders exported and moved to batches')
 
+            setLastDownloadTime(Date.now())
             fetchOrders()
             fetchBatches()
-        } catch (error) {
+        } catch (error: any) {
             console.error('Export error:', error)
-            toast.error('Failed to export orders')
+            // Only show error if download actually failed (not after successful download)
+            if (error.message && !error.message.includes('preview') && !error.message.includes('failed')) {
+                toast.error(error.message || 'Failed to export orders')
+            }
+        } finally {
+            setIsDownloading(false)
         }
     }
 
@@ -672,9 +707,19 @@ export default function AdminOrdersPage() {
                         onClick={handleExportExcel}
                         variant="default"
                         className="bg-emerald-600 hover:bg-emerald-700 text-white border-none"
+                        disabled={isDownloading}
                     >
-                        <Download className="w-4 h-4 mr-2" />
-                        Export to Excel
+                        {isDownloading ? (
+                            <>
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                Exporting...
+                            </>
+                        ) : (
+                            <>
+                                <Download className="w-4 h-4 mr-2" />
+                                Export to Excel
+                            </>
+                        )}
                     </Button>
                     <Button
                         onClick={() => { fetchOrders(); fetchBatches(); }}
@@ -715,14 +760,14 @@ export default function AdminOrdersPage() {
                                             size="sm"
                                             onClick={() => setNetworkFilter(network === 'All' ? 'all' : network)}
                                             className={`transition-all duration-150 active:scale-95 ${networkFilter === (network === 'All' ? 'all' : network)
-                                                    ? network === 'MTN'
-                                                        ? 'bg-yellow-500 hover:bg-yellow-600 text-black'
-                                                        : network === 'Telecel'
-                                                            ? 'bg-red-600 hover:bg-red-700 text-white'
-                                                            : network === 'AT-iShare' || network === 'AT-BigTime'
-                                                                ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                                                                : 'bg-primary text-primary-foreground'
-                                                    : 'hover:bg-muted'
+                                                ? network === 'MTN'
+                                                    ? 'bg-yellow-500 hover:bg-yellow-600 text-black'
+                                                    : network === 'Telecel'
+                                                        ? 'bg-red-600 hover:bg-red-700 text-white'
+                                                        : network === 'AT-iShare' || network === 'AT-BigTime'
+                                                            ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                                                            : 'bg-primary text-primary-foreground'
+                                                : 'hover:bg-muted'
                                                 }`}
                                         >
                                             {network === 'AT-BigTime' ? 'BigTime' : network}

@@ -53,7 +53,22 @@ export async function POST(request: NextRequest) {
             }
         }
 
-        // 1. Create batch record
+        // 1. Check if any orders are already being downloaded (concurrent protection)
+        const { data: existingOrders } = await supabase
+            .from('orders')
+            .select('id, status, download_batch_id')
+            .in('id', orderIds)
+            .neq('status', 'pending')
+
+        if (existingOrders && existingOrders.length > 0) {
+            console.log(`[AdminBatchCreate] ${existingOrders.length} orders already processing/downloaded`)
+            return NextResponse.json({
+                error: `${existingOrders.length} orders are already being processed by another admin`,
+                alreadyProcessed: existingOrders.length
+            }, { status: 409 })
+        }
+
+        // 2. Create batch record
         const { data: batch, error: batchError } = await (supabase
             .from('download_batches') as any)
             .insert({
@@ -67,7 +82,7 @@ export async function POST(request: NextRequest) {
 
         if (batchError) throw batchError
 
-        // 2. Link orders to batch and mark as processing
+        // 3. Link orders to batch and mark as processing
         const { error: updateError } = await (supabase
             .from('orders') as any)
             .update({

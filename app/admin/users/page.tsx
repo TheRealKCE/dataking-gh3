@@ -35,7 +35,8 @@ import {
     Store,
     Phone,
     Calendar,
-    Mail
+    Mail,
+    Download
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Label } from '@/components/ui/label'
@@ -199,6 +200,46 @@ export default function AdminUsersPage() {
         user.phone_number?.includes(searchTerm)
     )
 
+    const exportToCSV = () => {
+        try {
+            // Filter users with phone numbers
+            const usersWithPhones = filteredUsers.filter(user => user.phone_number)
+
+            if (usersWithPhones.length === 0) {
+                toast.error('No users with phone numbers to export')
+                return
+            }
+
+            // Create CSV content with name and phone columns for Moolre
+            const csvHeaders = 'Name,Phone'
+            const csvRows = usersWithPhones.map(user => {
+                const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'N/A'
+                const phone = user.phone_number
+                return `"${fullName}",${phone}`
+            })
+
+            const csvContent = [csvHeaders, ...csvRows].join('\n')
+
+            // Create and download file
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
+            const link = document.createElement('a')
+            const url = URL.createObjectURL(blob)
+
+            const timestamp = new Date().toISOString().split('T')[0]
+            link.setAttribute('href', url)
+            link.setAttribute('download', `moolre_contacts_${timestamp}.csv`)
+            link.style.visibility = 'hidden'
+            document.body.appendChild(link)
+            link.click()
+            document.body.removeChild(link)
+
+            toast.success(`Exported ${usersWithPhones.length} contacts for Moolre`)
+        } catch (error) {
+            console.error('Export error:', error)
+            toast.error('Failed to export contacts')
+        }
+    }
+
     return (
         <div className="space-y-6 pb-20">
             {/* Header Area */}
@@ -209,14 +250,24 @@ export default function AdminUsersPage() {
                     </h1>
                     <p className="text-sm text-muted-foreground">Manage accounts and wallets</p>
                 </div>
-                <div className="relative w-full md:w-72">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <Input
-                        placeholder="Search users..."
-                        value={searchTerm}
-                        onChange={(e) => setSearchTerm(e.target.value)}
-                        className="pl-9 bg-secondary/50 border-0 focus-visible:ring-1 focus-visible:ring-purple-500 transition-all rounded-xl"
-                    />
+                <div className="flex flex-col sm:flex-row items-center gap-3 w-full max-w-2xl">
+                    <div className="relative flex-1 w-full">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <Input
+                            placeholder="Search users..."
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                            className="pl-9 bg-secondary/50 border-0 focus-visible:ring-1 focus-visible:ring-purple-500 transition-all rounded-xl"
+                        />
+                    </div>
+                    <Button
+                        onClick={exportToCSV}
+                        variant="outline"
+                        className="w-full sm:w-auto gap-2 bg-green-50 hover:bg-green-100 text-green-700 border-green-300 hover:border-green-400 rounded-xl"
+                    >
+                        <Download className="w-4 h-4" />
+                        Export for Moolre
+                    </Button>
                 </div>
             </div>
 
