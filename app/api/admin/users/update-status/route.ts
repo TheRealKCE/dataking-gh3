@@ -60,8 +60,8 @@ export async function POST(request: Request) {
         const supabaseAdmin = createServerClient()
 
         // Update user status
-        const { error: updateError } = await supabaseAdmin
-            .from('users')
+        const { error: updateError } = await (supabaseAdmin
+            .from('users') as any)
             .update({ status, updated_at: new Date().toISOString() })
             .eq('id', userId)
 
