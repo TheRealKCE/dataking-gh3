@@ -33,7 +33,7 @@ const MIN_AMOUNT = 5
 const IS_MAINTENANCE_MODE = process.env.NEXT_PUBLIC_PAYMENT_MAINTENANCE_MODE === 'true'
 
 function WalletContent() {
-    const { dbUser } = useAuth()
+    const { dbUser, isAdmin } = useAuth()
     const router = useRouter()
     const [walletBalance, setWalletBalance] = useState(0)
     const [totalCredited, setTotalCredited] = useState(0)
@@ -47,11 +47,11 @@ function WalletContent() {
 
     // Block access during maintenance mode for non-admin users
     useEffect(() => {
-        if (IS_MAINTENANCE_MODE && dbUser && dbUser.role !== 'admin') {
+        if (IS_MAINTENANCE_MODE && !isAdmin) {
             toast.error('Wallet is temporarily unavailable for maintenance')
             router.push('/dashboard')
         }
-    }, [dbUser, router])
+    }, [isAdmin, router])
 
     useEffect(() => {
         if (dbUser) {
