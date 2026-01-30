@@ -37,7 +37,8 @@ import {
     Pencil,
     Trash2,
     Loader2,
-    Package
+    Package,
+    FileEdit
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { DataPackage } from '@/types/supabase'
@@ -72,6 +73,10 @@ export default function AdminPackagesPage() {
     const [formData, setFormData] = useState<PackageFormData>(defaultFormData)
     const [isSaving, setIsSaving] = useState(false)
     const [deletingId, setDeletingId] = useState<string | null>(null)
+    const [isNetworkDescDialogOpen, setIsNetworkDescDialogOpen] = useState(false)
+    const [editingNetwork, setEditingNetwork] = useState<typeof NETWORKS[number] | null>(null)
+    const [networkDescription, setNetworkDescription] = useState('')
+    const [isSavingNetworkDesc, setIsSavingNetworkDesc] = useState(false)
 
     useEffect(() => {
         fetchPackages()
@@ -183,6 +188,48 @@ export default function AdminPackagesPage() {
         }
     }
 
+    const openNetworkDescDialog = (network: typeof NETWORKS[number]) => {
+        setEditingNetwork(network)
+        // Get description from first package of this network
+        const networkPackage = packages.find(p => p.network === network)
+        setNetworkDescription(networkPackage?.description || '')
+        setIsNetworkDescDialogOpen(true)
+    }
+
+    const handleSaveNetworkDescription = async () => {
+        if (!editingNetwork) return
+
+        setIsSavingNetworkDesc(true)
+        try {
+            const res = await fetch('/api/admin/packages/network-description', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    network: editingNetwork,
+                    description: networkDescription
+                })
+            })
+
+            const data = await res.json()
+            if (!res.ok) throw new Error(data.error || 'Failed to update description')
+
+            toast.success(`Description updated for all ${editingNetwork} packages`)
+            setIsNetworkDescDialogOpen(false)
+            fetchPackages()
+        } catch (error: any) {
+            console.error('Error updating network description:', error)
+            toast.error(error.message || 'Failed to update description')
+        } finally {
+            setIsSavingNetworkDesc(false)
+        }
+    }
+
+    // Group packages by network for display
+    const packagesByNetwork = NETWORKS.reduce((acc, network) => {
+        acc[network] = packages.filter(p => p.network === network)
+        return acc
+    }, {} as Record<typeof NETWORKS[number], DataPackage[]>)
+
     return (
         <div className="space-y-6">
             <div className="flex items-center justify-between">
@@ -196,52 +243,83 @@ export default function AdminPackagesPage() {
                 </Button>
             </div>
 
-            <Card>
-                <CardContent className="p-0">
-                    <Table>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>Network</TableHead>
-                                <TableHead>Size</TableHead>
-                                <TableHead>Price</TableHead>
-                                <TableHead>Description</TableHead>
-                                <TableHead>Status</TableHead>
-                                <TableHead>Actions</TableHead>
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {packages.map((pkg) => (
-                                <TableRow key={pkg.id}>
-                                    <TableCell>
-                                        <Badge variant={pkg.network === 'MTN' ? 'mtn' : pkg.network === 'Telecel' ? 'telecel' : 'airteltigo'}>
-                                            {pkg.network}
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell className="font-medium">{pkg.size}</TableCell>
-                                    <TableCell>{formatCurrency(pkg.price)}</TableCell>
-                                    <TableCell className="max-w-xs truncate">{pkg.description}</TableCell>
-                                    <TableCell>
-                                        <Switch
-                                            checked={pkg.is_available}
-                                            onCheckedChange={() => toggleAvailability(pkg)}
-                                        />
-                                    </TableCell>
-                                    <TableCell>
+            {/* Network-based Card Grid */}
+            {NETWORKS.map(network => {
+                const networkPackages = packagesByNetwork[network]
+                if (networkPackages.length === 0) return null
+
+                return (
+                    <div key={network} className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <h2 className="text-xl font-bold flex items-center gap-2">
+                                <span className={`px-3 py-1 rounded-full text-white text-sm ${network === 'MTN' ? 'bg-yellow-500' :
+                                    network === 'Telecel' ? 'bg-red-600' :
+                                        'bg-blue-600'
+                                    }`}>
+                                    {network}
+                                </span>
+                                <span className="text-muted-foreground text-sm">({networkPackages.length} packages)</span>
+                            </h2>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => openNetworkDescDialog(network)}
+                                className="gap-2"
+                            >
+                                <FileEdit className="w-4 h-4" />
+                                Edit Description
+                            </Button>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                            {networkPackages.map((pkg) => (
+                                <Card key={pkg.id} className="hover:shadow-lg transition-shadow">
+                                    <CardHeader className="pb-3">
+                                        <div className="flex items-start justify-between">
+                                            <div className="space-y-1">
+                                                <CardTitle className="text-2xl font-bold">{pkg.size}</CardTitle>
+                                                <p className="text-2xl font-bold text-primary">{formatCurrency(pkg.price)}</p>
+                                            </div>
+                                            <Switch
+                                                checked={pkg.is_available}
+                                                onCheckedChange={() => toggleAvailability(pkg)}
+                                            />
+                                        </div>
+                                    </CardHeader>
+                                    <CardContent className="space-y-3">
+                                        <p className="text-sm text-muted-foreground line-clamp-2">
+                                            {pkg.description || 'No description'}
+                                        </p>
                                         <div className="flex gap-2">
-                                            <Button size="sm" variant="outline" onClick={() => openEditDialog(pkg)}>
-                                                <Pencil className="w-4 h-4" />
+                                            <Button
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => openEditDialog(pkg)}
+                                                className="flex-1"
+                                            >
+                                                <Pencil className="w-4 h-4 mr-2" />
+                                                Edit
                                             </Button>
-                                            <Button size="sm" variant="destructive" onClick={() => handleDelete(pkg.id)} disabled={deletingId === pkg.id}>
-                                                {deletingId === pkg.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Trash2 className="w-4 h-4" />}
+                                            <Button
+                                                size="sm"
+                                                variant="destructive"
+                                                onClick={() => handleDelete(pkg.id)}
+                                                disabled={deletingId === pkg.id}
+                                            >
+                                                {deletingId === pkg.id ? (
+                                                    <Loader2 className="w-4 h-4 animate-spin" />
+                                                ) : (
+                                                    <Trash2 className="w-4 h-4" />
+                                                )}
                                             </Button>
                                         </div>
-                                    </TableCell>
-                                </TableRow>
+                                    </CardContent>
+                                </Card>
                             ))}
-                        </TableBody>
-                    </Table>
-                </CardContent>
-            </Card>
+                        </div>
+                    </div>
+                )
+            })}
 
             {/* Create/Edit Dialog */}
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
@@ -338,6 +416,41 @@ export default function AdminPackagesPage() {
                         <Button onClick={handleSave} disabled={isSaving}>
                             {isSaving ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                             {editingPackage ? 'Update' : 'Create'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Network Description Dialog */}
+            <Dialog open={isNetworkDescDialogOpen} onOpenChange={setIsNetworkDescDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Edit {editingNetwork} Description</DialogTitle>
+                        <DialogDescription>
+                            This description will be applied to all {editingNetwork} packages
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <Label>Network Description</Label>
+                            <Textarea
+                                value={networkDescription}
+                                onChange={(e) => setNetworkDescription(e.target.value)}
+                                placeholder="Enter description for all packages on this network..."
+                                rows={5}
+                            />
+                            <p className="text-xs text-muted-foreground">
+                                This will update the description for all {editingNetwork} packages
+                            </p>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setIsNetworkDescDialogOpen(false)}>
+                            Cancel
+                        </Button>
+                        <Button onClick={handleSaveNetworkDescription} disabled={isSavingNetworkDesc}>
+                            {isSavingNetworkDesc ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                            Update All {editingNetwork} Packages
                         </Button>
                     </DialogFooter>
                 </DialogContent>
