@@ -49,7 +49,8 @@ import {
     Phone,
     FileText,
     Loader2,
-    Calendar as CalendarIcon
+    Calendar as CalendarIcon,
+    Trash2
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Label } from '@/components/ui/label'
@@ -569,6 +570,37 @@ export default function AdminOrdersPage() {
             }
         }
 
+        const onDeleteFailedOrders = async () => {
+            const failedCount = batchOrders.filter(o => o.status === 'failed').length
+
+            if (failedCount === 0) {
+                toast.error('No failed orders to delete in this batch')
+                return
+            }
+
+            if (!confirm(`Delete ${failedCount} failed order(s)? This will permanently remove them from the system and cannot be undone.`)) return
+
+            setIsUpdating(true)
+            try {
+                const response = await fetch('/api/admin/orders/delete-failed', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ batchId: batch.id })
+                })
+
+                const result = await response.json()
+                if (!response.ok) throw new Error(result.error || 'Failed to delete')
+
+                toast.success(result.message || 'Failed orders deleted')
+                fetchOrders() // Refresh available orders
+                fetchBatches() // Refresh batches list
+            } catch (error: any) {
+                toast.error(error.message || 'Failed to delete failed orders')
+            } finally {
+                setIsUpdating(false)
+            }
+        }
+
         return (
             <Card className="group relative overflow-hidden border-muted/40 shadow-lg hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 flex flex-col h-auto min-h-[300px] max-h-[600px] bg-gradient-to-br from-white to-slate-50 dark:from-slate-950 dark:to-slate-900/50 dark:border-blue-900/20">
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-200%] group-hover:animate-shine pointer-events-none" />
@@ -636,6 +668,14 @@ export default function AdminOrdersPage() {
                             <DropdownMenuItem onClick={() => reDownloadBatch(batch)}>
                                 <Download className="w-4 h-4 mr-2" />
                                 Re-download
+                            </DropdownMenuItem>
+                            <div className="h-px bg-border my-1" />
+                            <DropdownMenuItem
+                                onClick={onDeleteFailedOrders}
+                                className="text-red-600 focus:text-red-700 focus:bg-red-50"
+                            >
+                                <Trash2 className="w-4 h-4 mr-2" />
+                                Delete Failed Orders
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
