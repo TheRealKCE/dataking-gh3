@@ -11,6 +11,14 @@ import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog'
+import {
     User,
     Mail,
     Phone,
@@ -19,7 +27,8 @@ import {
     LogOut,
     Loader2,
     AlertCircle,
-    CheckCircle2
+    CheckCircle2,
+    Trash2
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatDate } from '@/lib/utils'
@@ -43,6 +52,11 @@ export default function ProfilePage() {
         confirmPassword: '',
     })
     const [passwordSaving, setPasswordSaving] = useState(false)
+
+    // Delete account
+    const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+    const [deletePassword, setDeletePassword] = useState('')
+    const [isDeleting, setIsDeleting] = useState(false)
 
     useEffect(() => {
         if (dbUser) {
@@ -124,6 +138,40 @@ export default function ProfilePage() {
             toast.error('Failed to change password')
         } finally {
             setPasswordSaving(false)
+        }
+    }
+
+    const handleDeleteAccount = async () => {
+        if (!deletePassword) {
+            toast.error('Please enter your password to confirm')
+            return
+        }
+
+        setIsDeleting(true)
+        try {
+            const response = await fetch('/api/users/delete-account', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ password: deletePassword })
+            })
+
+            const result = await response.json()
+
+            if (!response.ok) {
+                throw new Error(result.error || 'Failed to delete account')
+            }
+
+            toast.success('Account deleted successfully. Redirecting...')
+
+            // Wait briefly for toast to show, then redirect to login
+            setTimeout(() => {
+                window.location.href = '/auth/login'
+            }, 1500)
+        } catch (error: any) {
+            console.error('Delete account error:', error)
+            toast.error(error.message || 'Failed to delete account')
+        } finally {
+            setIsDeleting(false)
         }
     }
 
@@ -310,14 +358,89 @@ export default function ProfilePage() {
             <Card className="border-red-200 dark:border-red-900">
                 <CardHeader>
                     <CardTitle className="text-red-600">Danger Zone</CardTitle>
+                    <CardDescription>
+                        Irreversible and destructive actions
+                    </CardDescription>
                 </CardHeader>
                 <CardContent>
-                    <Button variant="destructive" onClick={signOut}>
-                        <LogOut className="w-4 h-4 mr-2" />
-                        Sign Out
-                    </Button>
+                    <div className="flex flex-col sm:flex-row gap-3">
+                        <Button
+                            variant="destructive"
+                            onClick={() => setIsDeleteDialogOpen(true)}
+                            className="flex-1"
+                        >
+                            <Trash2 className="w-4 h-4 mr-2" />
+                            Delete Account
+                        </Button>
+                        <Button
+                            variant="outline"
+                            onClick={signOut}
+                            className="flex-1 border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700"
+                        >
+                            <LogOut className="w-4 h-4 mr-2" />
+                            Sign Out
+                        </Button>
+                    </div>
                 </CardContent>
             </Card>
+
+            {/* Delete Account Confirmation Dialog */}
+            <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle className="text-red-600">Delete Account Permanently?</DialogTitle>
+                        <DialogDescription>
+                            This action cannot be undone. This will permanently delete your account and remove all your data including:
+                            <ul className="list-disc list-inside mt-2 space-y-1">
+                                <li>Your profile information</li>
+                                <li>Order history</li>
+                                <li>Transaction records</li>
+                                <li>Wallet balance</li>
+                                <li>All associated data</li>
+                            </ul>
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="deletePassword">Enter your password to confirm</Label>
+                            <Input
+                                id="deletePassword"
+                                type="password"
+                                value={deletePassword}
+                                onChange={(e) => setDeletePassword(e.target.value)}
+                                placeholder="Your password"
+                                disabled={isDeleting}
+                            />
+                        </div>
+                        <div className="bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900 rounded-lg p-3">
+                            <p className="text-sm text-red-800 dark:text-red-200 font-medium">
+                                <AlertCircle className="w-4 h-4 inline mr-2" />
+                                Warning: This action is permanent and cannot be reversed!
+                            </p>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button
+                            variant="outline"
+                            onClick={() => {
+                                setIsDeleteDialogOpen(false)
+                                setDeletePassword('')
+                            }}
+                            disabled={isDeleting}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            variant="destructive"
+                            onClick={handleDeleteAccount}
+                            disabled={isDeleting || !deletePassword}
+                        >
+                            {isDeleting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                            Delete My Account
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }

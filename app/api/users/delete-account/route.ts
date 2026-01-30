@@ -5,16 +5,16 @@ import { createServerClient } from '@/lib/supabase'
 
 export async function POST(request: Request) {
     try {
-        const { userId } = await request.json()
+        const { password } = await request.json()
 
-        if (!userId) {
+        if (!password) {
             return NextResponse.json(
-                { error: 'User ID is required' },
+                { error: 'Password is required' },
                 { status: 400 }
             )
         }
 
-        // 1. Verify verify requester is admin
+        // 1. Get authenticated user
         const cookieStore = await cookies()
         const supabase = createRouteHandlerClient({
             // @ts-expect-error - auth-helpers types expect Promise but runtime needs synchronous object
@@ -29,48 +29,47 @@ export async function POST(request: Request) {
             )
         }
 
-        // Check if requester is admin
-        const { data: requesterData, error: requesterError } = await supabase
-            .from('users')
-            .select('role')
-            .eq('id', session.user.id)
-            .single()
+        const userId = session.user.id
+        const userEmail = session.user.email
 
-        if (requesterError || requesterData?.role !== 'admin') {
+        if (!userEmail) {
             return NextResponse.json(
-                { error: 'Unauthorized - Admin access required' },
-                { status: 403 }
-            )
-        }
-
-        // Prevent self-deletion
-        if (userId === session.user.id) {
-            return NextResponse.json(
-                { error: 'Cannot delete your own account' },
+                { error: 'User email not found' },
                 { status: 400 }
             )
         }
 
-        // 2. Perform deletion using service role client
+        // 2. Verify password by attempting to sign in
+        const { error: signInError } = await supabase.auth.signInWithPassword({
+            email: userEmail,
+            password: password,
+        })
+
+        if (signInError) {
+            return NextResponse.json(
+                { error: 'Current password is incorrect' },
+                { status: 401 }
+            )
+        }
+
+        // 3. Use service role client to delete user permanently
         const supabaseAdmin = createServerClient()
 
-        // Delete from Auth (this is critical to prevent re-login)
-        // shouldSoftDelete = false ensures permanent deletion and prevents re-login
+        // Delete from Auth (this prevents re-login) - use shouldSoftDelete: false for hard delete
         const { error: authDeleteError } = await supabaseAdmin.auth.admin.deleteUser(
             userId,
-            false // shouldSoftDelete = false for hard delete
+            false // shouldSoftDelete = false ensures permanent deletion
         )
 
         if (authDeleteError) {
             console.error('Error deleting user from Auth:', authDeleteError)
             return NextResponse.json(
-                { error: 'Failed to delete user from authentication system' },
+                { error: 'Failed to delete account from authentication system' },
                 { status: 500 }
             )
         }
 
-        // 3. Delete from public.users (if not handled by cascade)
-        // Even if cascade is set up, explicit delete is safer
+        // 4. Delete from public.users (cascade will handle related data)
         const { error: dbDeleteError } = await supabaseAdmin
             .from('users')
             .delete()
@@ -79,13 +78,19 @@ export async function POST(request: Request) {
         if (dbDeleteError) {
             console.error('Error deleting user from database:', dbDeleteError)
             // Note: Auth deletion succeeded, so they can't login, but data might persist
-            // We'll return success but log the error
+            // We'll still return success since the primary goal (prevent login) is achieved
         }
 
-        return NextResponse.json({ success: true })
+        // 5. Sign out the user
+        await supabase.auth.signOut()
+
+        return NextResponse.json({
+            success: true,
+            message: 'Account deleted successfully'
+        })
 
     } catch (error) {
-        console.error('Delete user error:', error)
+        console.error('Delete account error:', error)
         return NextResponse.json(
             { error: 'Internal server error' },
             { status: 500 }
