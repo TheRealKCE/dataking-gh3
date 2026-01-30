@@ -170,7 +170,7 @@ export default function AdminUsersPage() {
     }
 
     const handleDeleteUser = async (userId: string) => {
-        if (!confirm('EXTREMELY IMPORTANT:\n\nThis will PERMANENTLY delete the user and their login access.\nThis action CANNOT be undone.\n\nAre you sure you want to proceed?')) return
+        if (!confirm('EXTREMELY IMPORTANT:\n\nThis will PERMANENTLY delete the user from both Authentication and Database records.\nThis includes their wallet, orders, and history.\nThis action CANNOT be undone.\n\nAre you sure you want to proceed?')) return
 
         try {
             setLoading(true)

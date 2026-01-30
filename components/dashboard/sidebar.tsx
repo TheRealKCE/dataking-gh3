@@ -26,6 +26,7 @@ import {
     Star,
     BadgeCheck,
     UserCircle,
+    UserCheck,
     Plus
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
@@ -46,6 +47,7 @@ const adminNavItems = [
     { href: '/admin', label: 'Dashboard', icon: Shield },
     { href: '/admin/orders', label: 'Orders', icon: ShoppingCart },
     { href: '/admin/users', label: 'Users', icon: Users },
+    { href: '/admin/pending-users', label: 'Pending Users', icon: UserCheck },
     { href: '/admin/packages', label: 'Packages', icon: Package },
     { href: '/admin/complaints', label: 'Complaints', icon: MessageSquare },
     { href: '/admin/announcements', label: 'Announce', icon: Bell },

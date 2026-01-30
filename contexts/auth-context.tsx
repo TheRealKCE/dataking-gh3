@@ -86,6 +86,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
             if (!error && data) {
                 setDbUser(data)
+
+                // Check account status
+                if (data.account_status === 'pending') {
+                    await supabase.auth.signOut()
+                    router.push('/pending-approval')
+                    return
+                } else if (data.account_status === 'rejected') {
+                    await supabase.auth.signOut()
+                    router.push('/account-rejected')
+                    return
+                }
             }
         } catch (error) {
             console.error('Error fetching user data:', error)

@@ -18,6 +18,7 @@ export interface Database {
                     phone_number: string
                     role: 'customer' | 'agent' | 'admin' | 'sub-admin'
                     status: 'active' | 'suspended' | 'inactive'
+                    account_status: 'pending' | 'approved' | 'rejected'
                     created_at: string
                     updated_at: string
                 }
@@ -29,6 +30,7 @@ export interface Database {
                     phone_number: string
                     role?: 'customer' | 'agent' | 'admin' | 'sub-admin'
                     status?: 'active' | 'suspended' | 'inactive'
+                    account_status?: 'pending' | 'approved' | 'rejected'
                     created_at?: string
                     updated_at?: string
                 }
@@ -40,6 +42,7 @@ export interface Database {
                     phone_number?: string
                     role?: 'customer' | 'agent' | 'admin' | 'sub-admin'
                     status?: 'active' | 'suspended' | 'inactive'
+                    account_status?: 'pending' | 'approved' | 'rejected'
                     updated_at?: string
                 }
             }
