@@ -29,7 +29,8 @@ import {
     Wifi,
     Loader2,
     CheckCircle2,
-    AlertCircle
+    AlertCircle,
+    ShoppingCart
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { DataPackage } from '@/types/supabase'
@@ -192,8 +193,6 @@ export default function DataPackagesPage() {
         }
     }
 
-    // const getNetworkIcon = (network: string) => { ... } // Removed in favor of component
-
     if (isLoading) {
         return (
             <div className="space-y-6">
@@ -279,52 +278,62 @@ export default function DataPackagesPage() {
                     ) : viewMode === 'grid' ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 scroll-smooth">
                             {filteredPackages.map((pkg) => {
-                                const getBuyButtonStyle = () => {
-                                    if (pkg.network === 'Telecel') {
-                                        return 'bg-[#FFFFFF] text-[#E60000] hover:bg-gray-100 border-0 shadow-lg hover:shadow-xl transition-all hover:scale-105 font-bold px-6'
-                                    }
-                                    if (pkg.network.startsWith('AT')) {
-                                        return 'bg-[#FFFFFF] text-[#0056B3] hover:bg-gray-100 border-0 shadow-lg hover:shadow-xl transition-all hover:scale-105 font-bold px-6'
-                                    }
-                                    return 'bg-[#1a1a1a] text-white hover:bg-black border-0 shadow-lg hover:shadow-xl transition-all hover:scale-105 font-bold px-6'
-                                }
-
                                 return (
                                     <Card
                                         key={pkg.id}
-                                        className={`group overflow-hidden relative transition-all duration-300 hover:-translate-y-1.5 hover:shadow-2xl cursor-pointer border-0 ${pkg.network === 'MTN' ? 'bg-[#FACC15] text-black' :
+                                        className={`overflow-hidden relative transition-all duration-300 hover:-translate-y-1 hover:shadow-xl border-0 ${pkg.network === 'MTN' ? 'bg-[#FFCC00] text-black' :
                                             pkg.network === 'Telecel' ? 'bg-[#E60000] text-white' :
                                                 'bg-[#0056B3] text-white'
                                             }`}
-                                        onClick={() => handlePurchaseClick(pkg)}
                                     >
-                                        <CardContent className="p-4 flex flex-col h-full justify-between">
-                                            <div>
-                                                <div className="flex items-start justify-between mb-3 pb-2 border-b border-black/10 dark:border-white/10">
-                                                    <div className="p-1.5 bg-white/20 rounded-xl backdrop-blur-sm">
-                                                        <NetworkIcon network={pkg.network} size={36} variant="card" />
-                                                    </div>
-                                                    <Badge variant="outline" className={`text-[10px] font-bold px-2 py-0.5 border-current uppercase tracking-wider ${pkg.network === 'MTN' ? 'text-black border-black/20' : 'text-white border-white/20'
-                                                        }`}>
-                                                        {pkg.network}
-                                                    </Badge>
+                                        <CardContent className="p-0 flex flex-col h-full">
+                                            {/* Top Section: Logo - Size - Badge */}
+                                            <div className="flex items-center justify-between p-4 pb-2 relative">
+                                                <div className="p-1.5 bg-white/20 rounded-full backdrop-blur-sm shadow-sm z-10">
+                                                    <NetworkIcon network={pkg.network} size={28} variant="card" />
                                                 </div>
 
-                                                <div className="mb-3 space-y-1">
-                                                    <h3 className="text-2xl font-black tracking-tight">{pkg.size}</h3>
-                                                    <p className={`text-xs font-medium line-clamp-1 ${pkg.network === 'MTN' ? 'text-black/70' : 'text-white/80'
-                                                        }`}>
-                                                        {pkg.description || `${pkg.size} data bundle for ${pkg.network}`}
-                                                    </p>
+                                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                                    <h3 className="text-3xl font-black tracking-tighter drop-shadow-sm">
+                                                        {pkg.size}
+                                                    </h3>
                                                 </div>
+
+                                                <Badge className={`z-10 text-[10px] font-bold px-2 py-0.5 border-none shadow-sm uppercase tracking-wider ${pkg.network === 'MTN' ? 'bg-black text-white' :
+                                                    'bg-white text-black'
+                                                    }`}>
+                                                    {pkg.network}
+                                                </Badge>
                                             </div>
 
-                                            <div className="flex items-center justify-between pt-3 border-t border-black/5 dark:border-white/10">
-                                                <span className="text-xl font-black tracking-tight">{formatCurrency(getEffectivePrice(pkg))}</span>
+                                            {/* Middle Content: Price & Description */}
+                                            <div className="flex flex-col items-center justify-center flex-1 space-y-1 py-6">
+                                                <div className="text-5xl font-black tracking-tighter drop-shadow-sm">
+                                                    {formatCurrency(getEffectivePrice(pkg))}
+                                                </div>
+
+                                                <div className={`flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide px-3 py-1 rounded-full ${pkg.network === 'MTN' ? 'bg-black/10 text-black/80' : 'bg-white/20 text-white/90'
+                                                    }`}>
+                                                    <span className="animate-pulse">🛵</span>
+                                                    <span>Instant Delivery</span>
+                                                </div>
+                                                {pkg.description && pkg.description !== 'Instant Delivery' && (
+                                                    <p className={`text-[10px] font-medium opacity-80 px-4 text-center line-clamp-1`}>
+                                                        {pkg.description}
+                                                    </p>
+                                                )}
+                                            </div>
+
+                                            {/* Bottom: Full Width Button */}
+                                            <div className="mt-auto pt-2">
                                                 <Button
-                                                    size="sm"
-                                                    className={getBuyButtonStyle()}
+                                                    className={`w-full rounded-t-none rounded-b-xl h-12 text-md font-bold uppercase tracking-widest border-0 rounded-none transition-colors ${pkg.network === 'MTN' ? 'bg-[#1a1a1a] text-white hover:bg-black' :
+                                                            pkg.network === 'Telecel' ? 'bg-white text-[#E60000] hover:bg-gray-100' :
+                                                                'bg-white text-[#0056B3] hover:bg-gray-100'
+                                                        }`}
+                                                    onClick={() => handlePurchaseClick(pkg)}
                                                 >
+                                                    <ShoppingCart className="w-4 h-4 mr-2" />
                                                     Buy Now
                                                 </Button>
                                             </div>
