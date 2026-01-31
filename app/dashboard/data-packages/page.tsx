@@ -315,10 +315,10 @@ export default function DataPackagesPage() {
 
                                                 <div className={`flex items-center gap-2 text-xs font-bold uppercase tracking-wide px-4 py-1.5 rounded-full shadow-lg backdrop-blur-md border border-white/10 ${pkg.network === 'MTN' ? 'bg-black/10 text-black' : 'bg-white/10 text-white'
                                                     }`}>
-                                                    <span className="animate-spin text-base">⏳</span>
+                                                    <span className="animate-spin-pause text-base">⏳</span>
                                                     <span className="flex items-center gap-1">
-                                                        <span className="animate-pulse">⚡</span>
                                                         Instant Delivery
+                                                        <span className="animate-pulse">⚡</span>
                                                     </span>
                                                 </div>
                                                 {pkg.description && pkg.description !== 'Instant Delivery' && (
