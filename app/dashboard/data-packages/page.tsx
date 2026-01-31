@@ -110,6 +110,15 @@ export default function DataPackagesPage() {
         setFilteredPackages(filtered)
     }
 
+    // Helper function to get effective price based on user role
+    const getEffectivePrice = (pkg: DataPackage) => {
+        // If user is agent AND agent_price is set (> 0), use agent_price
+        if (dbUser?.role === 'agent' && (pkg as any).agent_price > 0) {
+            return (pkg as any).agent_price
+        }
+        return pkg.price
+    }
+
     const handlePurchaseClick = (pkg: DataPackage) => {
         setSelectedPackage(pkg)
         setPhoneNumber('')
@@ -145,7 +154,9 @@ export default function DataPackagesPage() {
             return
         }
 
-        if (walletBalance < selectedPackage.price) {
+        const effectivePrice = getEffectivePrice(selectedPackage)
+
+        if (walletBalance < effectivePrice) {
             setPhoneError('Insufficient wallet balance')
             return
         }
@@ -172,7 +183,7 @@ export default function DataPackagesPage() {
             }
 
             setPurchaseSuccess(true)
-            setWalletBalance(prev => prev - selectedPackage.price)
+            setWalletBalance(prev => prev - effectivePrice)
             toast.success('Order placed successfully!')
         } catch (error: any) {
             toast.error(error.message || 'Failed to place order')
@@ -309,7 +320,7 @@ export default function DataPackagesPage() {
                                             </div>
 
                                             <div className="flex items-center justify-between pt-3 border-t border-black/5 dark:border-white/10">
-                                                <span className="text-xl font-black tracking-tight">{formatCurrency(pkg.price)}</span>
+                                                <span className="text-xl font-black tracking-tight">{formatCurrency(getEffectivePrice(pkg))}</span>
                                                 <Button
                                                     size="sm"
                                                     className={getBuyButtonStyle()}
@@ -364,7 +375,7 @@ export default function DataPackagesPage() {
                                                 </div>
                                             </div>
                                             <div className="flex items-center gap-6">
-                                                <span className="text-xl font-black">{formatCurrency(pkg.price)}</span>
+                                                <span className="text-xl font-black">{formatCurrency(getEffectivePrice(pkg))}</span>
                                                 <Button
                                                     size="sm"
                                                     className={getBuyButtonStyle()}
@@ -421,7 +432,7 @@ export default function DataPackagesPage() {
                                     <div className="flex items-center justify-between">
                                         <span className="text-lg font-semibold">{selectedPackage?.size}</span>
                                         <span className="text-lg font-bold text-primary">
-                                            {selectedPackage && formatCurrency(selectedPackage.price)}
+                                            {selectedPackage && formatCurrency(getEffectivePrice(selectedPackage))}
                                         </span>
                                     </div>
                                 </div>
@@ -444,7 +455,7 @@ export default function DataPackagesPage() {
                                     )}
                                 </div>
 
-                                {walletBalance < (selectedPackage?.price || 0) && (
+                                {walletBalance < (selectedPackage ? getEffectivePrice(selectedPackage) : 0) && (
                                     <Alert variant="destructive">
                                         <AlertCircle className="w-4 h-4" />
                                         <AlertDescription>
@@ -464,7 +475,7 @@ export default function DataPackagesPage() {
                                 </Button>
                                 <Button
                                     onClick={handlePurchase}
-                                    disabled={isPurchasing || !phoneNumber || !!phoneError || walletBalance < (selectedPackage?.price || 0)}
+                                    disabled={isPurchasing || !phoneNumber || !!phoneError || walletBalance < (selectedPackage ? getEffectivePrice(selectedPackage) : 0)}
                                 >
                                     {isPurchasing ? (
                                         <>
@@ -472,7 +483,7 @@ export default function DataPackagesPage() {
                                             Processing...
                                         </>
                                     ) : (
-                                        `Pay ${selectedPackage && formatCurrency(selectedPackage.price)}`
+                                        `Pay ${selectedPackage && formatCurrency(getEffectivePrice(selectedPackage))}`
                                     )}
                                 </Button>
                             </DialogFooter>
