@@ -281,44 +281,48 @@ export default function DataPackagesPage() {
                                 return (
                                     <Card
                                         key={pkg.id}
-                                        className={`overflow-hidden relative transition-all duration-300 hover:-translate-y-1 hover:shadow-xl border-0 ${pkg.network === 'MTN' ? 'bg-[#FFCC00] text-black' :
-                                            pkg.network === 'Telecel' ? 'bg-[#E60000] text-white' :
-                                                'bg-[#0056B3] text-white'
+                                        className={`overflow-hidden relative transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl border-0 shadow-lg ${pkg.network === 'MTN' ? 'bg-[#FFCC00] text-black' :
+                                                pkg.network === 'Telecel' ? 'bg-[#E60000] text-white' :
+                                                    'bg-[#0056B3] text-white'
                                             }`}
                                     >
                                         <CardContent className="p-0 flex flex-col h-full">
                                             {/* Top Section: Logo - Size - Badge */}
-                                            <div className="flex items-center justify-between p-4 pb-2 relative">
-                                                <div className="p-1.5 bg-white/20 rounded-full backdrop-blur-sm shadow-sm z-10">
+                                            <div className="flex items-center justify-between p-4 pb-2 relative z-10">
+                                                <div className="p-1.5 bg-white/20 rounded-full backdrop-blur-sm shadow-md transition-transform duration-300 group-hover:scale-110">
                                                     <NetworkIcon network={pkg.network} size={28} variant="card" />
                                                 </div>
 
                                                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                                    <h3 className="text-3xl font-black tracking-tighter drop-shadow-sm">
+                                                    <h3 className={`text-4xl font-black tracking-tighter drop-shadow-sm ${pkg.network === 'MTN' ? 'text-black' : 'text-white'
+                                                        }`}>
                                                         {pkg.size}
                                                     </h3>
                                                 </div>
 
-                                                <Badge className={`z-10 text-[10px] font-bold px-2 py-0.5 border-none shadow-sm uppercase tracking-wider ${pkg.network === 'MTN' ? 'bg-black text-white' :
-                                                    'bg-white text-black'
+                                                <Badge className={`text-[10px] font-bold px-2 py-0.5 border-none shadow-md uppercase tracking-wider ${pkg.network === 'MTN' ? 'bg-[#004F9F] text-white' :
+                                                        'bg-white text-black'
                                                     }`}>
                                                     {pkg.network}
                                                 </Badge>
                                             </div>
 
                                             {/* Middle Content: Price & Description */}
-                                            <div className="flex flex-col items-center justify-center flex-1 space-y-1 py-6">
-                                                <div className="text-5xl font-black tracking-tighter drop-shadow-sm">
+                                            <div className="flex flex-col items-center justify-center flex-1 space-y-3 py-6 relative z-10">
+                                                <div className="text-3xl lg:text-4xl font-black tracking-tighter drop-shadow-md transform transition-transform duration-300 group-hover:scale-110">
                                                     {formatCurrency(getEffectivePrice(pkg))}
                                                 </div>
 
-                                                <div className={`flex items-center gap-1.5 text-xs font-bold uppercase tracking-wide px-3 py-1 rounded-full ${pkg.network === 'MTN' ? 'bg-black/10 text-black/80' : 'bg-white/20 text-white/90'
+                                                <div className={`flex items-center gap-2 text-xs font-bold uppercase tracking-wide px-4 py-1.5 rounded-full shadow-lg backdrop-blur-md border border-white/10 ${pkg.network === 'MTN' ? 'bg-black/10 text-black' : 'bg-white/10 text-white'
                                                     }`}>
-                                                    <span className="animate-pulse">🛵</span>
-                                                    <span>Instant Delivery</span>
+                                                    <span className="animate-bounce text-base">⏳</span>
+                                                    <span className="flex items-center gap-1">
+                                                        <span className="animate-pulse">⚡</span>
+                                                        Instant Delivery
+                                                    </span>
                                                 </div>
                                                 {pkg.description && pkg.description !== 'Instant Delivery' && (
-                                                    <p className={`text-[10px] font-medium opacity-80 px-4 text-center line-clamp-1`}>
+                                                    <p className={`text-[10px] font-bold opacity-90 px-4 text-center line-clamp-1`}>
                                                         {pkg.description}
                                                     </p>
                                                 )}
@@ -327,7 +331,7 @@ export default function DataPackagesPage() {
                                             {/* Bottom: Full Width Button */}
                                             <div className="mt-auto pt-2">
                                                 <Button
-                                                    className={`w-full rounded-t-none rounded-b-xl h-12 text-md font-bold uppercase tracking-widest border-0 rounded-none transition-colors ${pkg.network === 'MTN' ? 'bg-[#1a1a1a] text-white hover:bg-black' :
+                                                    className={`w-full rounded-t-none rounded-b-xl h-12 text-md font-bold uppercase tracking-widest border-0 rounded-none transition-colors shadow-none ${pkg.network === 'MTN' ? 'bg-[#1a1a1a] text-white hover:bg-black' :
                                                             pkg.network === 'Telecel' ? 'bg-white text-[#E60000] hover:bg-gray-100' :
                                                                 'bg-white text-[#0056B3] hover:bg-gray-100'
                                                         }`}
