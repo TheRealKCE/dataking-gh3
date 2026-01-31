@@ -47,6 +47,8 @@ export default function DataPackagesPage() {
     const [isLoading, setIsLoading] = useState(true)
     const [walletBalance, setWalletBalance] = useState(0)
 
+    const [ordersToday, setOrdersToday] = useState(0)
+
     // Purchase dialog state
     const [selectedPackage, setSelectedPackage] = useState<DataPackage | null>(null)
     const [phoneNumber, setPhoneNumber] = useState('')
@@ -57,6 +59,7 @@ export default function DataPackagesPage() {
     useEffect(() => {
         fetchPackages()
         fetchWalletBalance()
+        fetchOrdersToday()
     }, [dbUser])
 
     useEffect(() => {
@@ -91,6 +94,24 @@ export default function DataPackagesPage() {
             .single()
 
         setWalletBalance((data as any)?.balance || 0)
+    }
+
+    const fetchOrdersToday = async () => {
+        if (!dbUser) return
+
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+
+        const { count, error } = await supabase
+            .from('orders')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', dbUser.id)
+            .gte('created_at', today.toISOString())
+            .neq('status', 'failed')
+
+        if (!error) {
+            setOrdersToday(count || 0)
+        }
     }
 
     const filterPackages = () => {
@@ -185,6 +206,7 @@ export default function DataPackagesPage() {
 
             setPurchaseSuccess(true)
             setWalletBalance(prev => prev - effectivePrice)
+            setOrdersToday(prev => prev + 1)
             toast.success('Order placed successfully!')
         } catch (error: any) {
             toast.error(error.message || 'Failed to place order')
@@ -210,12 +232,29 @@ export default function DataPackagesPage() {
         <div className="space-y-6">
             {/* Header */}
             <div className="flex flex-col items-center gap-4 text-center">
-                <div>
-                    <h1 className="text-2xl font-bold">Data Packages</h1>
-                    <p className="text-muted-foreground">
-                        Wallet Balance: <span className="font-semibold text-primary">{formatCurrency(walletBalance)}</span>
-                    </p>
+                <h1 className="text-2xl font-bold">Data Packages</h1>
+
+                {/* Stats Dashboard */}
+                <div className="grid grid-cols-2 gap-4 w-full max-w-md mx-auto mb-2">
+                    <div className="bg-[#1A1A1A] dark:bg-[#E5E7EB] rounded-2xl p-6 text-center shadow-lg transition-colors">
+                        <p className="text-white/70 dark:text-black/70 font-medium text-sm mb-1">
+                            Wallet Balance
+                        </p>
+                        <p className="text-[#FACC15] text-2xl sm:text-3xl font-black tracking-tight">
+                            {formatCurrency(walletBalance)}
+                        </p>
+                    </div>
+
+                    <div className="bg-[#1A1A1A] dark:bg-[#E5E7EB] rounded-2xl p-6 text-center shadow-lg transition-colors">
+                        <p className="text-white/70 dark:text-black/70 font-medium text-sm mb-1">
+                            Orders Today
+                        </p>
+                        <p className="text-[#FACC15] text-2xl sm:text-3xl font-black tracking-tight">
+                            {ordersToday}
+                        </p>
+                    </div>
                 </div>
+
                 <div className="flex items-center gap-2">
                     <Button
                         variant={viewMode === 'grid' ? 'default' : 'outline'}
@@ -282,8 +321,8 @@ export default function DataPackagesPage() {
                                     <Card
                                         key={pkg.id}
                                         className={`overflow-hidden relative transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl border-0 shadow-lg shadow-black/40 dark:shadow-[#E5E7EB]/20 ${pkg.network === 'MTN' ? 'bg-[#FFCC00] text-black' :
-                                                pkg.network === 'Telecel' ? 'bg-[#E60000] text-white' :
-                                                    'bg-[#0056B3] text-white'
+                                            pkg.network === 'Telecel' ? 'bg-[#E60000] text-white' :
+                                                'bg-[#0056B3] text-white'
                                             }`}
                                     >
                                         <CardContent className="p-0 flex flex-col h-full">
@@ -301,7 +340,7 @@ export default function DataPackagesPage() {
                                                 </div>
 
                                                 <Badge className={`text-[10px] font-bold px-2 py-0.5 border-none shadow-md uppercase tracking-wider ${pkg.network === 'MTN' ? 'bg-[#004F9F] text-white' :
-                                                        'bg-white text-black'
+                                                    'bg-white text-black'
                                                     }`}>
                                                     {pkg.network}
                                                 </Badge>
@@ -332,8 +371,8 @@ export default function DataPackagesPage() {
                                             <div className="mt-auto pt-2">
                                                 <Button
                                                     className={`w-full rounded-t-none rounded-b-xl h-12 text-md font-bold uppercase tracking-widest border-0 rounded-none transition-colors shadow-none ${pkg.network === 'MTN' ? 'bg-[#1a1a1a] text-white hover:bg-black' :
-                                                            pkg.network === 'Telecel' ? 'bg-white text-[#E60000] hover:bg-gray-100' :
-                                                                'bg-white text-[#0056B3] hover:bg-gray-100'
+                                                        pkg.network === 'Telecel' ? 'bg-white text-[#E60000] hover:bg-gray-100' :
+                                                            'bg-white text-[#0056B3] hover:bg-gray-100'
                                                         }`}
                                                     onClick={() => handlePurchaseClick(pkg)}
                                                 >
