@@ -281,7 +281,7 @@ export default function DataPackagesPage() {
                                 return (
                                     <Card
                                         key={pkg.id}
-                                        className={`overflow-hidden relative transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl border-0 shadow-lg ${pkg.network === 'MTN' ? 'bg-[#FFCC00] text-black' :
+                                        className={`overflow-hidden relative transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl border-0 shadow-lg shadow-black/40 dark:shadow-[#E5E7EB]/20 ${pkg.network === 'MTN' ? 'bg-[#FFCC00] text-black' :
                                                 pkg.network === 'Telecel' ? 'bg-[#E60000] text-white' :
                                                     'bg-[#0056B3] text-white'
                                             }`}
@@ -294,7 +294,7 @@ export default function DataPackagesPage() {
                                                 </div>
 
                                                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                                    <h3 className={`text-4xl font-black tracking-tighter drop-shadow-sm ${pkg.network === 'MTN' ? 'text-black' : 'text-white'
+                                                    <h3 className={`text-4xl font-black tracking-tighter drop-shadow-sm ${pkg.network === 'MTN' ? '!text-black' : '!text-white'
                                                         }`}>
                                                         {pkg.size}
                                                     </h3>
@@ -315,7 +315,7 @@ export default function DataPackagesPage() {
 
                                                 <div className={`flex items-center gap-2 text-xs font-bold uppercase tracking-wide px-4 py-1.5 rounded-full shadow-lg backdrop-blur-md border border-white/10 ${pkg.network === 'MTN' ? 'bg-black/10 text-black' : 'bg-white/10 text-white'
                                                     }`}>
-                                                    <span className="animate-bounce text-base">⏳</span>
+                                                    <span className="animate-spin text-base">⏳</span>
                                                     <span className="flex items-center gap-1">
                                                         <span className="animate-pulse">⚡</span>
                                                         Instant Delivery
