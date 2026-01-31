@@ -30,8 +30,10 @@ import {
     Loader2,
     CheckCircle2,
     AlertCircle,
-    ShoppingCart
+    ShoppingCart,
+    Plus
 } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { DataPackage } from '@/types/supabase'
 
@@ -39,6 +41,7 @@ const NETWORKS = ['MTN', 'Telecel', 'AT-iShare', 'AT-BigTime'] as const
 
 export default function DataPackagesPage() {
     const { dbUser, session } = useAuth()
+    const router = useRouter()
     const [packages, setPackages] = useState<DataPackage[]>([])
     const [filteredPackages, setFilteredPackages] = useState<DataPackage[]>([])
     const [selectedNetwork, setSelectedNetwork] = useState<string>('MTN')
@@ -236,20 +239,31 @@ export default function DataPackagesPage() {
 
                 {/* Stats Dashboard */}
                 <div className="grid grid-cols-2 gap-4 w-full max-w-md mx-auto mb-2">
-                    <div className="bg-[#1A1A1A] dark:bg-[#E5E7EB] rounded-2xl p-6 text-center shadow-lg transition-colors">
-                        <p className="text-white/70 dark:text-black/70 font-medium text-sm mb-1">
-                            Wallet Balance
-                        </p>
-                        <p className="text-[#FACC15] text-2xl sm:text-3xl font-black tracking-tight">
-                            {formatCurrency(walletBalance)}
-                        </p>
+                    <div className="bg-[#1A1A1A] dark:bg-[#E5E7EB] rounded-2xl p-4 text-center shadow-lg transition-colors flex flex-col items-center justify-between gap-3">
+                        <div>
+                            <p className="text-white/70 dark:text-black/70 font-medium text-xs mb-1">
+                                Wallet Balance
+                            </p>
+                            <p className="text-[#FACC15] text-xl font-black tracking-tight leading-none">
+                                {formatCurrency(walletBalance)}
+                            </p>
+                        </div>
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 text-[10px] uppercase font-bold tracking-wider border-white/20 text-white hover:bg-white/10 dark:border-black/20 dark:text-black dark:hover:bg-black/5 dark:hover:text-black w-full"
+                            onClick={() => router.push('/dashboard/wallet')}
+                        >
+                            <Plus className="w-3 h-3 mr-1" />
+                            Top Up
+                        </Button>
                     </div>
 
-                    <div className="bg-[#1A1A1A] dark:bg-[#E5E7EB] rounded-2xl p-6 text-center shadow-lg transition-colors">
-                        <p className="text-white/70 dark:text-black/70 font-medium text-sm mb-1">
+                    <div className="bg-[#1A1A1A] dark:bg-[#E5E7EB] rounded-2xl p-4 text-center shadow-lg transition-colors flex flex-col items-center justify-center">
+                        <p className="text-white/70 dark:text-black/70 font-medium text-xs mb-1">
                             Orders Today
                         </p>
-                        <p className="text-[#FACC15] text-2xl sm:text-3xl font-black tracking-tight">
+                        <p className="text-[#FACC15] text-xl font-black tracking-tight leading-none">
                             {ordersToday}
                         </p>
                     </div>
