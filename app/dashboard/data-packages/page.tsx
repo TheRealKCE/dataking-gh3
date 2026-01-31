@@ -241,7 +241,7 @@ export default function DataPackagesPage() {
                 <div className="grid grid-cols-2 gap-4 w-full max-w-md mx-auto mb-2">
                     <div className="bg-[#1A1A1A] dark:bg-[#E5E7EB] rounded-2xl p-4 text-center shadow-lg transition-colors flex flex-col items-center justify-between gap-3">
                         <div>
-                            <p className="text-white/70 dark:text-black/70 font-medium text-xs mb-1">
+                            <p className="text-[#FACC15] font-medium text-xs mb-1">
                                 Wallet Balance
                             </p>
                             <p className="text-[#FACC15] text-xl font-black tracking-tight leading-none">
@@ -250,8 +250,7 @@ export default function DataPackagesPage() {
                         </div>
                         <Button
                             size="sm"
-                            variant="outline"
-                            className="h-7 text-[10px] uppercase font-bold tracking-wider border-white/20 text-white hover:bg-white/10 dark:border-black/20 dark:text-black dark:hover:bg-black/5 dark:hover:text-black w-full"
+                            className="h-7 text-[10px] uppercase font-bold tracking-wider bg-[#FACC15] text-black hover:bg-[#FACC15]/90 border-0 w-full"
                             onClick={() => router.push('/dashboard/wallet')}
                         >
                             <Plus className="w-3 h-3 mr-1" />
@@ -260,7 +259,7 @@ export default function DataPackagesPage() {
                     </div>
 
                     <div className="bg-[#1A1A1A] dark:bg-[#E5E7EB] rounded-2xl p-4 text-center shadow-lg transition-colors flex flex-col items-center justify-center">
-                        <p className="text-white/70 dark:text-black/70 font-medium text-xs mb-1">
+                        <p className="text-[#FACC15] font-medium text-xs mb-1">
                             Orders Today
                         </p>
                         <p className="text-[#FACC15] text-xl font-black tracking-tight leading-none">
