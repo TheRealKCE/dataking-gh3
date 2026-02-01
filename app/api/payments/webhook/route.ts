@@ -60,14 +60,14 @@ export async function POST(request: NextRequest) {
                 }
 
                 // Create notification
-                await supabase
+                await (supabase
                     .from('notifications')
                     .insert({
                         user_id: metadata.user_id,
                         title: 'Upgrade Successful! 👑',
                         message: 'Congratulations! You are now an Agent. Enjoy exclusive benefits and premium features.',
                         type: 'system',
-                    })
+                    }) as any)
 
                 console.log(`Successfully upgraded user ${metadata.user_id} to agent`)
                 return NextResponse.json({ received: true }, { status: 200 })
