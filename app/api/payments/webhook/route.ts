@@ -46,8 +46,7 @@ export async function POST(request: NextRequest) {
                 }
 
                 // Update user role to agent
-                // @ts-ignore - Supabase types are too strict for dynamic role updates
-                const { error: updateError } = await supabase
+                const { error: updateError } = await (supabase as any)
                     .from('users')
                     .update({
                         role: 'agent',
@@ -61,8 +60,7 @@ export async function POST(request: NextRequest) {
                 }
 
                 // Create notification
-                // @ts-ignore - Supabase types are too strict for notification insert
-                await supabase
+                await (supabase as any)
                     .from('notifications')
                     .insert({
                         user_id: metadata.user_id,
