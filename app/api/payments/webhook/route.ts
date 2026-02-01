@@ -46,13 +46,13 @@ export async function POST(request: NextRequest) {
                 }
 
                 // Update user role to agent
-                const { error: updateError } = await supabase
+                const { error: updateError } = await (supabase
                     .from('users')
                     .update({
                         role: 'agent',
                         updated_at: new Date().toISOString()
                     })
-                    .eq('id', metadata.user_id)
+                    .eq('id', metadata.user_id) as any)
 
                 if (updateError) {
                     console.error('Failed to upgrade user to agent:', updateError)
