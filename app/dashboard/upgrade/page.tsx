@@ -18,6 +18,7 @@ export default function UpgradePage() {
     const [isProcessing, setIsProcessing] = useState(false)
 
     useEffect(() => {
+        // Only redirect if we ARE sure they aren't a customer anymore
         if (dbUser && dbUser.role !== 'customer') {
             router.push('/dashboard')
             return
@@ -25,26 +26,22 @@ export default function UpgradePage() {
 
         const fetchPrice = async () => {
             try {
-                console.log('Fetching upgrade price from admin settings...')
+                // More robust fetch: select all and filter manually to avoid .single() issues if multiple rows somehow exist or if the key is tricky
                 const { data, error } = await (supabase as any)
                     .from('admin_settings')
-                    .select('value')
-                    .eq('key', 'agent_upgrade_price')
-                    .single()
+                    .select('*')
 
-                console.log('Price fetch result:', { data, error })
+                if (error) throw error
 
-                if (error) {
-                    console.error('Error fetching price:', error)
-                } else if (data?.value) {
-                    const price = Number(data.value)
-                    console.log('Setting upgrade price to:', price)
-                    setUpgradePrice(price)
-                } else {
-                    console.log('No price found, using default: 100')
+                const priceSetting = data?.find((s: any) => s.key === 'agent_upgrade_price')
+                if (priceSetting?.value) {
+                    const price = Number(priceSetting.value)
+                    if (!isNaN(price)) {
+                        setUpgradePrice(price)
+                    }
                 }
             } catch (err) {
-                console.error('Exception fetching price:', err)
+                console.error('Failed to fetch upgrade price:', err)
             } finally {
                 setIsLoading(false)
             }
@@ -95,26 +92,30 @@ export default function UpgradePage() {
     }
 
     return (
-        <div className="fixed inset-0 bg-gradient-to-br from-amber-50 via-yellow-100 to-amber-50 overflow-y-auto z-50">
-            <Link href="/dashboard" className="fixed top-6 right-6 z-50 p-3 rounded-full bg-amber-600/90 backdrop-blur-md hover:bg-amber-700 transition-all duration-300 group shadow-lg">
-                <X className="w-6 h-6 text-white group-hover:rotate-90 transition-transform duration-300" />
+        <div className="min-h-screen bg-gradient-to-br from-amber-50 via-yellow-100 to-amber-50 overflow-x-hidden selection:bg-amber-200" style={{ fontFamily: '"Fira Sans", sans-serif' }}>
+            {/* Close Button */}
+            <Link
+                href="/dashboard"
+                className="fixed top-4 right-4 sm:top-6 sm:right-6 z-50 p-2 sm:p-3 rounded-full bg-amber-600/90 backdrop-blur-md hover:bg-amber-700 transition-all duration-300 group shadow-lg"
+            >
+                <X className="w-5 h-5 sm:w-6 sm:h-6 text-white group-hover:rotate-90 transition-transform duration-300" />
             </Link>
 
-            <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute top-0 left-1/4 w-96 h-96 bg-amber-300/20 rounded-full blur-3xl animate-pulse"></div>
-                <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-yellow-300/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
-                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] bg-amber-200/15 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '2s' }}></div>
+            {/* Decorative Background Elements */}
+            <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
+                <div className="absolute top-0 left-1/4 w-64 h-64 sm:w-96 sm:h-96 bg-amber-300/20 rounded-full blur-3xl animate-pulse"></div>
+                <div className="absolute bottom-0 right-1/4 w-64 h-64 sm:w-96 sm:h-96 bg-yellow-300/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
 
-                {[...Array(30)].map((_, i) => (
+                {[...Array(20)].map((_, i) => (
                     <div
                         key={i}
-                        className="absolute rounded-full animate-float"
+                        className="absolute rounded-full animate-float hidden sm:block"
                         style={{
                             left: `${Math.random() * 100}%`,
                             top: `${Math.random() * 100}%`,
                             width: `${2 + Math.random() * 4}px`,
                             height: `${2 + Math.random() * 4}px`,
-                            backgroundColor: i % 3 === 0 ? 'rgba(251, 191, 36, 0.4)' : i % 3 === 1 ? 'rgba(245, 158, 11, 0.4)' : 'rgba(252, 211, 77, 0.4)',
+                            backgroundColor: 'rgba(251, 191, 36, 0.4)',
                             animationDelay: `${Math.random() * 5}s`,
                             animationDuration: `${5 + Math.random() * 10}s`
                         }}
@@ -122,114 +123,115 @@ export default function UpgradePage() {
                 ))}
             </div>
 
-            <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16">
-                <div className="text-center mb-20 space-y-8">
+            <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-20 lg:py-24">
+                {/* Hero Section */}
+                <div className="text-center mb-12 sm:mb-20 space-y-6 sm:space-y-8">
                     <div className="relative inline-block">
-                        <div className="absolute inset-0 animate-ping rounded-full bg-amber-400/40"></div>
-                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-amber-400/20 to-transparent animate-shimmer"></div>
-                        <div className="relative inline-flex items-center justify-center w-40 h-40 rounded-full bg-gradient-to-br from-amber-400 via-yellow-500 to-amber-600 shadow-2xl shadow-amber-500/60">
-                            <Crown className="w-20 h-20 text-amber-900 animate-bounce drop-shadow-lg" style={{ animationDuration: '2s' }} />
+                        <div className="absolute inset-0 animate-ping rounded-full bg-amber-400/40 opacity-20"></div>
+                        <div className="relative inline-flex items-center justify-center w-24 h-24 sm:w-40 sm:h-40 rounded-full bg-gradient-to-br from-amber-400 via-yellow-500 to-amber-600 shadow-2xl shadow-amber-500/60 ring-4 ring-white/50">
+                            <Crown className="w-12 h-12 sm:w-20 sm:h-20 text-amber-950 animate-bounce drop-shadow-lg" style={{ animationDuration: '2s' }} />
                         </div>
-                        <div className="absolute -top-3 -right-3 w-10 h-10">
-                            <Star className="w-full h-full text-amber-500 animate-spin drop-shadow-lg" style={{ animationDuration: '3s' }} />
-                        </div>
-                        <div className="absolute -bottom-2 -left-2 w-8 h-8">
-                            <Sparkles className="w-full h-full text-yellow-500 animate-pulse" />
-                        </div>
+                        <Star className="absolute -top-1 -right-1 sm:-top-3 sm:-right-3 w-6 h-6 sm:w-10 sm:h-10 text-amber-500 animate-spin drop-shadow-md" style={{ animationDuration: '3s' }} />
                     </div>
 
-                    <div className="space-y-5">
-                        <h1 className="text-7xl sm:text-8xl lg:text-9xl font-black bg-gradient-to-r from-amber-700 via-yellow-600 to-amber-700 bg-clip-text text-transparent drop-shadow-xl animate-title-glow">
+                    <div className="space-y-3 sm:space-y-5">
+                        <h1 className="text-4xl sm:text-7xl lg:text-9xl font-black bg-gradient-to-b from-amber-700 via-amber-800 to-amber-950 bg-clip-text text-transparent drop-shadow-sm leading-tight">
                             Kingdom Palace
                         </h1>
-                        <p className="text-3xl sm:text-4xl text-amber-900 font-bold drop-shadow-md">Ascend to Agent Status</p>
-                        <div className="flex items-center justify-center gap-4 text-amber-700">
-                            <div className="h-1 w-16 bg-gradient-to-r from-transparent via-amber-600 to-amber-600 rounded-full"></div>
-                            <Sparkles className="w-7 h-7 animate-pulse drop-shadow-md" />
-                            <span className="text-xl font-black tracking-wide">EXCLUSIVE BENEFITS AWAIT</span>
-                            <Sparkles className="w-7 h-7 animate-pulse drop-shadow-md" />
-                            <div className="h-1 w-16 bg-gradient-to-l from-transparent via-amber-600 to-amber-600 rounded-full"></div>
+                        <p className="text-lg sm:text-3xl lg:text-4xl text-amber-900 font-bold max-w-3xl mx-auto px-4 italic">
+                            Elevate your business to Agent status and unlock exclusive wholesale benefits.
+                        </p>
+                        <div className="flex items-center justify-center gap-3 sm:gap-4 text-amber-700 mt-6">
+                            <div className="h-[2px] w-8 sm:w-16 bg-gradient-to-r from-transparent to-amber-600 rounded-full"></div>
+                            <Sparkles className="w-5 h-5 sm:w-7 sm:h-7 animate-pulse text-amber-600" />
+                            <span className="text-xs sm:text-xl font-black tracking-[0.2em] uppercase">The Elite Experience</span>
+                            <Sparkles className="w-5 h-5 sm:w-7 sm:h-7 animate-pulse text-amber-600" />
+                            <div className="h-[2px] w-8 sm:w-16 bg-gradient-to-l from-transparent to-amber-600 rounded-full"></div>
                         </div>
                     </div>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-20">
+                {/* Benefits Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-16 sm:mb-24">
                     {benefits.map((benefit, index) => (
-                        <div key={index} className="group relative bg-white/60 backdrop-blur-md rounded-2xl p-6 border-2 border-amber-200 hover:border-amber-400 transition-all duration-500 hover:scale-105 hover:-translate-y-2 shadow-lg hover:shadow-2xl">
-                            <div className={`absolute inset-0 rounded-2xl bg-gradient-to-br ${benefit.color} opacity-0 group-hover:opacity-10 blur-xl transition-opacity duration-500`}></div>
+                        <div key={index} className="group relative bg-white/80 backdrop-blur-xl rounded-2xl p-6 sm:p-8 border border-white hover:border-amber-400/50 transition-all duration-500 shadow-sm hover:shadow-xl hover:-translate-y-1">
                             <div className="relative space-y-4">
-                                <div className={`inline-flex items-center justify-center w-16 h-16 rounded-xl bg-gradient-to-br ${benefit.color} ${benefit.glow} shadow-lg group-hover:shadow-2xl transition-shadow duration-500 group-hover:scale-110 transform-gpu`}>
-                                    <benefit.icon className="w-8 h-8 text-white" />
+                                <div className={`inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 rounded-xl bg-gradient-to-br ${benefit.color} text-white shadow-md group-hover:scale-110 transition-transform duration-500`}>
+                                    <benefit.icon className="w-6 h-6 sm:w-8 sm:h-8" />
                                 </div>
                                 <div className="space-y-2">
-                                    <h3 className="text-xl font-black text-amber-900 group-hover:text-amber-700 transition-colors duration-300">{benefit.title}</h3>
-                                    <p className="text-amber-800/80 text-sm leading-relaxed group-hover:text-amber-900 transition-colors duration-300">{benefit.description}</p>
-                                </div>
-                                <div className="absolute top-6 right-6 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                                    <CheckCircle className="w-6 h-6 text-green-600 drop-shadow-md" />
+                                    <h3 className="text-lg sm:text-xl font-black text-amber-900">{benefit.title}</h3>
+                                    <p className="text-amber-800/70 text-sm leading-relaxed font-medium">
+                                        {benefit.description}
+                                    </p>
                                 </div>
                             </div>
                         </div>
                     ))}
                 </div>
 
-                <div className="max-w-2xl mx-auto">
-                    <div className="relative group">
-                        <div className="absolute -inset-1 bg-gradient-to-r from-amber-500 via-yellow-500 to-amber-500 rounded-3xl blur-xl opacity-75 group-hover:opacity-100 transition duration-1000 group-hover:duration-200 animate-pulse"></div>
-                        <div className="relative bg-gradient-to-br from-amber-500 via-yellow-500 to-amber-600 rounded-3xl p-12 shadow-2xl">
-                            <div className="text-center space-y-8">
-                                <div className="inline-flex items-center justify-center w-24 h-24 rounded-full bg-white/20 backdrop-blur-sm shadow-inner">
-                                    <Crown className="w-12 h-12 text-white drop-shadow-lg" />
+                {/* CTA Section */}
+                <div className="max-w-3xl mx-auto">
+                    <div className="relative overflow-hidden bg-gradient-to-br from-amber-600 to-amber-800 rounded-3xl p-8 sm:p-12 shadow-[0_20px_50px_rgba(180,83,9,0.3)] border-t border-white/20">
+                        {/* Shimmer background */}
+                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent skew-x-12 translate-x-[-100%] animate-[shimmer_3s_infinite] pointer-events-none"></div>
+
+                        <div className="relative text-center space-y-8 z-10">
+                            <div className="inline-flex items-center justify-center p-4 rounded-2xl bg-white/10 backdrop-blur-md shadow-inner">
+                                <Crown className="w-10 h-10 text-white" />
+                            </div>
+
+                            <div className="space-y-2">
+                                <h2 className="text-3xl sm:text-5xl font-black text-white">Join the Elite</h2>
+                                <p className="text-amber-100 text-lg font-medium opacity-90">One-time royalty fee for lifetime benefits</p>
+                            </div>
+
+                            <div className="py-4 sm:py-6">
+                                <div className="text-6xl sm:text-8xl font-black text-white tracking-tighter mb-2">
+                                    {formatCurrency(upgradePrice)}
                                 </div>
-                                <div className="space-y-3">
-                                    <h2 className="text-5xl sm:text-6xl font-black text-amber-900 drop-shadow-md">Join the Elite</h2>
-                                    <p className="text-amber-900/90 text-xl font-bold">Transform your business today</p>
-                                </div>
-                                <div className="py-8">
-                                    <div className="text-8xl font-black text-amber-950 mb-4 drop-shadow-xl">{formatCurrency(upgradePrice)}</div>
-                                    <p className="text-amber-900/80 text-lg font-black uppercase tracking-wider">One-Time Investment</p>
-                                </div>
-                                <Button
-                                    onClick={handleUpgrade}
-                                    disabled={isProcessing}
-                                    size="lg"
-                                    className="w-full h-20 text-2xl font-black bg-amber-900 hover:bg-amber-950 text-amber-50 rounded-2xl shadow-2xl hover:shadow-3xl transition-all duration-300 active:scale-95 disabled:opacity-50 group/btn"
-                                >
-                                    {isProcessing ? (
-                                        <>
-                                            <div className="animate-spin rounded-full h-7 w-7 border-b-2 border-amber-50 mr-3"></div>
-                                            Processing Your Upgrade...
-                                        </>
-                                    ) : (
-                                        <>
-                                            <Sparkles className="w-7 h-7 mr-3 group-hover/btn:animate-spin" />
-                                            Become an Agent Now
-                                            <ArrowRight className="w-7 h-7 ml-3 group-hover/btn:translate-x-2 transition-transform duration-300" />
-                                        </>
-                                    )}
-                                </Button>
-                                <div className="flex items-center justify-center gap-2 text-amber-900/90">
-                                    <Shield className="w-6 h-6" />
-                                    <span className="text-base font-bold">Secured by Paystack Payment Gateway</span>
-                                </div>
+                                <p className="text-amber-200/80 text-xs sm:text-sm font-black uppercase tracking-widest">Investment in Success</p>
+                            </div>
+
+                            <Button
+                                onClick={handleUpgrade}
+                                disabled={isProcessing}
+                                className="w-full h-16 sm:h-20 text-xl font-black bg-white hover:bg-amber-50 text-amber-900 rounded-2xl shadow-xl transition-all duration-300 active:scale-95 disabled:opacity-70 flex items-center justify-center gap-3"
+                            >
+                                {isProcessing ? (
+                                    <>
+                                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-amber-900"></div>
+                                        Processing...
+                                    </>
+                                ) : (
+                                    <>
+                                        <Sparkles className="w-6 h-6 text-amber-600" />
+                                        Ascend Now
+                                        <ArrowRight className="w-6 h-6 ml-1 transition-transform group-hover:translate-x-1" />
+                                    </>
+                                )}
+                            </Button>
+
+                            <div className="flex items-center justify-center gap-2 text-amber-100/80 text-sm font-bold pt-4">
+                                <Shield className="w-4 h-4" />
+                                <span>Secured by Paystack Payment Gateway</span>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <div className="mt-20 text-center">
-                    <div className="flex items-center justify-center gap-10 flex-wrap">
-                        {[
-                            { icon: CheckCircle, text: 'Instant Activation' },
-                            { icon: Shield, text: 'Secure Payment' },
-                            { icon: Star, text: '100+ Active Agents' }
-                        ].map((item, i) => (
-                            <div key={i} className="flex items-center gap-3 text-amber-800 hover:text-amber-600 transition-colors duration-300 group/trust">
-                                <item.icon className="w-7 h-7 text-green-600 group-hover/trust:scale-110 transition-transform duration-300 drop-shadow-md" />
-                                <span className="text-lg font-bold">{item.text}</span>
-                            </div>
-                        ))}
-                    </div>
+                {/* Trust Badges */}
+                <div className="mt-16 sm:mt-24 flex flex-wrap justify-center gap-6 sm:gap-12 opacity-60">
+                    {[
+                        { icon: CheckCircle, text: 'Instant Access' },
+                        { icon: Shield, text: 'Authorized Secure' },
+                        { icon: Star, text: 'Elite Membership' }
+                    ].map((badge, i) => (
+                        <div key={i} className="flex items-center gap-2 text-amber-900/70 grayscale hover:grayscale-0 transition-all">
+                            <badge.icon className="w-5 h-5" />
+                            <span className="text-sm font-bold uppercase tracking-wider">{badge.text}</span>
+                        </div>
+                    ))}
                 </div>
             </div>
 
@@ -237,37 +239,16 @@ export default function UpgradePage() {
                 @keyframes float {
                     0%, 100% {
                         transform: translateY(0px) translateX(0px);
-                        opacity: 0.4;
                     }
                     50% {
-                        transform: translateY(-30px) translateX(15px);
-                        opacity: 0.8;
+                        transform: translateY(-20px) translateX(10px);
                     }
                 }
                 @keyframes shimmer {
-                    0% {
-                        transform: translateX(-100%);
-                    }
-                    100% {
-                        transform: translateX(100%);
-                    }
-                }
-                @keyframes title-glow {
-                    0%, 100% {
-                        filter: drop-shadow(0 0 20px rgba(245, 158, 11, 0.5));
-                    }
-                    50% {
-                        filter: drop-shadow(0 0 40px rgba(245, 158, 11, 0.8));
-                    }
+                    100% { transform: translateX(100%); }
                 }
                 .animate-float {
-                    animation: float linear infinite;
-                }
-                .animate-shimmer {
-                    animation: shimmer 3s linear infinite;
-                }
-                .animate-title-glow {
-                    animation: title-glow 3s ease-in-out infinite;
+                    animation: float ease-in-out infinite;
                 }
             `}</style>
         </div>
