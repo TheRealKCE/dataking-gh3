@@ -26,7 +26,7 @@ export default function UpgradePage() {
 
         // Fetch upgrade price from admin settings
         const fetchPrice = async () => {
-            const { data } = await supabase
+            const { data } = await (supabase as any)
                 .from('admin_settings')
                 .select('value')
                 .eq('key', 'agent_upgrade_price')
