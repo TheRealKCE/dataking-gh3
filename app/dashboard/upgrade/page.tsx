@@ -111,12 +111,12 @@ export default function UpgradePage() {
 
     if (isLoading) {
         return (
-            <div className=\"fixed inset-0 bg-gradient-to-br from-black via-gray-900 to-yellow-900/20 flex items-center justify-center z-50\">
-                < div className =\"relative\">
-                    < div className =\"absolute inset-0 animate-ping rounded-full bg-yellow-500/20\"></div>
-                        < Crown className =\"w-16 h-16 text-yellow-500 animate-pulse relative z-10\" />
-                </div >
-            </div >
+            <div className="fixed inset-0 bg-gradient-to-br from-black via-gray-900 to-yellow-900/20 flex items-center justify-center z-50">
+                <div className="relative">
+                    <div className="absolute inset-0 animate-ping rounded-full bg-yellow-500/20"></div>
+                    <Crown className="w-16 h-16 text-yellow-500 animate-pulse relative z-10" />
+                </div>
+            </div>
         )
     }
 
