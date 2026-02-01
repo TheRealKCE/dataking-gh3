@@ -106,7 +106,7 @@ export function DashboardSidebar() {
             <aside
                 className={cn(
                     "fixed left-0 top-0 z-50 h-full flex flex-col bg-[#E5E7EB] dark:bg-[#000000] transition-all duration-300 ease-in-out",
-                    isCollapsed ? "w-20" : "w-72",
+                    isCollapsed ? "w-20" : "w-80",
                     "transform lg:transform-none",
                     isInternalSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
                 )}
@@ -179,6 +179,19 @@ export function DashboardSidebar() {
                                 </div>
                             </div>
                         </div>
+
+                        {/* Upgrade Button - Customers Only */}
+                        {dbUser?.role === 'customer' && (
+                            <Link href="/dashboard/upgrade" className="block mt-3">
+                                <Button
+                                    size="sm"
+                                    className="w-full h-9 text-xs font-bold bg-gradient-to-r from-yellow-400 to-yellow-600 hover:from-yellow-500 hover:to-yellow-700 text-black rounded-lg shadow-md hover:shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2"
+                                >
+                                    <Crown className="w-4 h-4" />
+                                    Upgrade to Agent
+                                </Button>
+                            </Link>
+                        )}
 
                         {/* Wallet Section */}
                         <div className="flex items-center justify-between p-3 rounded-xl bg-gray-300/60 dark:bg-black/40 border border-gray-400/30 dark:border-gray-800/50 backdrop-blur-md">

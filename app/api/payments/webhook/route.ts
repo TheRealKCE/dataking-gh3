@@ -30,11 +30,50 @@ export async function POST(request: NextRequest) {
 
         // Handle charge.success
         if (event.event === 'charge.success') {
-            const { reference, amount: paidAmountKobo } = event.data
+            const { reference, amount: paidAmountKobo, metadata } = event.data
 
-            // Verify payment amount with database to prevent manipulation
+            // Initialize Supabase client
             const supabase = createServerClient()
 
+            // Check if this is an agent upgrade payment
+            if (metadata?.upgrade_type === 'agent') {
+                // For agent upgrades, verify amount matches metadata
+                const expectedAmountKobo = Math.round((metadata.base_amount + metadata.fee) * 100)
+
+                if (paidAmountKobo !== expectedAmountKobo) {
+                    console.error(`Webhook: AMOUNT MISMATCH for agent upgrade ${reference}. Expected: ${expectedAmountKobo}, Paid: ${paidAmountKobo}`)
+                    return NextResponse.json({ received: true }, { status: 200 })
+                }
+
+                // Update user role to agent
+                const { error: updateError } = await supabase
+                    .from('users')
+                    .update({
+                        role: 'agent',
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', metadata.user_id)
+
+                if (updateError) {
+                    console.error('Failed to upgrade user to agent:', updateError)
+                    return NextResponse.json({ received: true }, { status: 200 })
+                }
+
+                // Create notification
+                await supabase
+                    .from('notifications')
+                    .insert({
+                        user_id: metadata.user_id,
+                        title: 'Upgrade Successful! 👑',
+                        message: 'Congratulations! You are now an Agent. Enjoy exclusive benefits and premium features.',
+                        type: 'system',
+                    })
+
+                console.log(`Successfully upgraded user ${metadata.user_id} to agent`)
+                return NextResponse.json({ received: true }, { status: 200 })
+            }
+
+            // Regular wallet payment processing
             const { data: payment } = await supabase
                 .from('wallet_payments')
                 .select('total_amount')

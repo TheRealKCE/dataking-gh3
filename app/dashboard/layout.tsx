@@ -48,7 +48,7 @@ export default function DashboardLayout({
             <div className="min-h-screen bg-[#E5E7EB] dark:bg-[#000000] relative">
                 <SystemAnnouncementModal />
                 <DashboardSidebar />
-                <div className="lg:pl-72">
+                <div className="lg:pl-80">
                     <DashboardHeader />
                     <main className="p-4 lg:p-6">
                         {children}

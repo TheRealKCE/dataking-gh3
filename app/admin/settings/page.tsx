@@ -20,6 +20,7 @@ export default function AdminSettingsPage() {
     const [paystackFee, setPaystackFee] = useState('1.95')
     const [agentPaystackFee, setAgentPaystackFee] = useState('1.95')
     const [mtnAdjustment, setMtnAdjustment] = useState('0')
+    const [agentUpgradePrice, setAgentUpgradePrice] = useState('100')
     const [supportEmail, setSupportEmail] = useState('')
     const [autoFulfillment, setAutoFulfillment] = useState(true)
 
@@ -55,6 +56,7 @@ export default function AdminSettingsPage() {
             setPaystackFee(settingsMap.paystack_fee_percent || '1.95')
             setAgentPaystackFee(settingsMap.agent_paystack_fee_percent || '1.95')
             setMtnAdjustment(settingsMap.mtn_price_adjustment || '0')
+            setAgentUpgradePrice(settingsMap.agent_upgrade_price || '100')
             setSupportEmail(settingsMap.support_email || '')
             setAutoFulfillment(settingsMap.auto_fulfillment_enabled === 'true')
 
@@ -82,6 +84,7 @@ export default function AdminSettingsPage() {
                 { key: 'paystack_fee_percent', value: paystackFee },
                 { key: 'agent_paystack_fee_percent', value: agentPaystackFee },
                 { key: 'mtn_price_adjustment', value: mtnAdjustment },
+                { key: 'agent_upgrade_price', value: agentUpgradePrice },
                 { key: 'support_email', value: supportEmail },
                 { key: 'auto_fulfillment_enabled', value: String(autoFulfillment) },
                 // Page access settings
@@ -189,6 +192,16 @@ export default function AdminSettingsPage() {
                                     step="0.01"
                                 />
                                 <p className="text-xs text-muted-foreground">Additional markup fee for all MTN packages</p>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Agent Upgrade Price (GHS)</Label>
+                                <Input
+                                    type="number"
+                                    value={agentUpgradePrice}
+                                    onChange={(e) => setAgentUpgradePrice(e.target.value)}
+                                    step="0.01"
+                                />
+                                <p className="text-xs text-muted-foreground">One-time fee for customers to upgrade to agent status</p>
                             </div>
                         </CardContent>
                     </Card>
