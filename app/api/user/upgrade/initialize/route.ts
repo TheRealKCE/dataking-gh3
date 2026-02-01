@@ -18,6 +18,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
+        const { plan = '30d' } = await request.json().catch(() => ({}));
         const user = session.user
 
         // Check if user is already an agent or admin
@@ -34,14 +35,30 @@ export async function POST(request: Request) {
             )
         }
 
-        // Fetch upgrade price from admin settings
-        const { data: settingData } = await supabase
+        // Fetch upgrade prices from admin settings
+        const { data: settings } = await supabase
             .from('admin_settings')
-            .select('value')
-            .eq('key', 'agent_upgrade_price')
-            .single()
+            .select('*')
 
-        const upgradePrice = settingData?.value ? Number(settingData.value) : 100
+        const getPrice = (key: string, def: number) => {
+            const s = settings?.find((s: any) => s.key === key);
+            return s ? Number(s.value) : def;
+        };
+
+        let upgradePrice = 100;
+        let planLabel = 'Agent Status';
+
+        if (plan === '3d') {
+            upgradePrice = getPrice('agent_upgrade_price_3d', 9.99);
+            planLabel = '3 Days Agent Pass';
+        } else if (plan === '14d') {
+            upgradePrice = getPrice('agent_upgrade_price_14d', 49.99);
+            planLabel = '14 Days Agent Pass';
+        } else {
+            upgradePrice = getPrice('agent_upgrade_price_30d', 99.99);
+            planLabel = '30 Days Agent Pass';
+        }
+
         const fee = calculatePaystackFee(upgradePrice)
         const totalAmount = upgradePrice + fee
 
@@ -61,6 +78,8 @@ export async function POST(request: Request) {
                 metadata: {
                     user_id: user.id,
                     upgrade_type: 'agent',
+                    plan_type: plan,
+                    plan_label: planLabel,
                     base_amount: upgradePrice,
                     fee: fee,
                 },

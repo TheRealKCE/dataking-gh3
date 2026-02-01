@@ -32,6 +32,9 @@ export default function AdminSettingsPage() {
     const [pageAccessComplaints, setPageAccessComplaints] = useState(true)
     const [pageAccessNotifications, setPageAccessNotifications] = useState(true)
     const [pageAccessProfile, setPageAccessProfile] = useState(true)
+    const [agentUpgradePrice3d, setAgentUpgradePrice3d] = useState('9.99')
+    const [agentUpgradePrice14d, setAgentUpgradePrice14d] = useState('49.99')
+    const [agentUpgradePrice30d, setAgentUpgradePrice30d] = useState('99.99')
 
     useEffect(() => {
         fetchSettings()
@@ -57,6 +60,9 @@ export default function AdminSettingsPage() {
             setAgentPaystackFee(settingsMap.agent_paystack_fee_percent || '1.95')
             setMtnAdjustment(settingsMap.mtn_price_adjustment || '0')
             setAgentUpgradePrice(settingsMap.agent_upgrade_price || '100')
+            setAgentUpgradePrice3d(settingsMap.agent_upgrade_price_3d || '9.99')
+            setAgentUpgradePrice14d(settingsMap.agent_upgrade_price_14d || '49.99')
+            setAgentUpgradePrice30d(settingsMap.agent_upgrade_price_30d || '99.99')
             setSupportEmail(settingsMap.support_email || '')
             setAutoFulfillment(settingsMap.auto_fulfillment_enabled === 'true')
 
@@ -85,6 +91,9 @@ export default function AdminSettingsPage() {
                 { key: 'agent_paystack_fee_percent', value: agentPaystackFee },
                 { key: 'mtn_price_adjustment', value: mtnAdjustment },
                 { key: 'agent_upgrade_price', value: agentUpgradePrice },
+                { key: 'agent_upgrade_price_3d', value: agentUpgradePrice3d },
+                { key: 'agent_upgrade_price_14d', value: agentUpgradePrice14d },
+                { key: 'agent_upgrade_price_30d', value: agentUpgradePrice30d },
                 { key: 'support_email', value: supportEmail },
                 { key: 'auto_fulfillment_enabled', value: String(autoFulfillment) },
                 // Page access settings
@@ -193,15 +202,38 @@ export default function AdminSettingsPage() {
                                 />
                                 <p className="text-xs text-muted-foreground">Additional markup fee for all MTN packages</p>
                             </div>
-                            <div className="space-y-2">
-                                <Label>Agent Upgrade Price (GHS)</Label>
-                                <Input
-                                    type="number"
-                                    value={agentUpgradePrice}
-                                    onChange={(e) => setAgentUpgradePrice(e.target.value)}
-                                    step="0.01"
-                                />
-                                <p className="text-xs text-muted-foreground">One-time fee for customers to upgrade to agent status</p>
+                            <div className="space-y-4 pt-4 border-t">
+                                <h3 className="text-sm font-bold text-amber-600">Tiered Agent Upgrades</h3>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                    <div className="space-y-2">
+                                        <Label>3 Days Access (GHS)</Label>
+                                        <Input
+                                            type="number"
+                                            value={agentUpgradePrice3d}
+                                            onChange={(e) => setAgentUpgradePrice3d(e.target.value)}
+                                            step="0.01"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>2 Weeks Access (GHS)</Label>
+                                        <Input
+                                            type="number"
+                                            value={agentUpgradePrice14d}
+                                            onChange={(e) => setAgentUpgradePrice14d(e.target.value)}
+                                            step="0.01"
+                                        />
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label>1 Month Access (GHS)</Label>
+                                        <Input
+                                            type="number"
+                                            value={agentUpgradePrice30d}
+                                            onChange={(e) => setAgentUpgradePrice30d(e.target.value)}
+                                            step="0.01"
+                                        />
+                                    </div>
+                                </div>
+                                <p className="text-xs text-muted-foreground">Prices for tiered memberships (as seen in mobile images)</p>
                             </div>
                         </CardContent>
                     </Card>

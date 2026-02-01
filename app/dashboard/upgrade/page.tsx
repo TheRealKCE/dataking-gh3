@@ -5,57 +5,65 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/auth-context'
 import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
-import { Crown, Sparkles, Zap, TrendingUp, Users, Palette, MessageCircle, ArrowRight, Shield, CheckCircle, X, Star } from 'lucide-react'
+import { Crown, Sparkles, Zap, Star, CheckCircle } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import { toast } from 'sonner'
-import Link from 'next/link'
 
 export default function UpgradePage() {
     const { dbUser } = useAuth()
     const router = useRouter()
-    const [upgradePrice, setUpgradePrice] = useState(100)
+
+    // Prices for tiers
+    const [prices, setPrices] = useState({
+        '3d': 9.99,
+        '14d': 49.99,
+        '30d': 99.99
+    })
+
     const [isLoading, setIsLoading] = useState(true)
-    const [isProcessing, setIsProcessing] = useState(false)
+    const [isProcessing, setIsProcessing] = useState<string | null>(null)
 
     useEffect(() => {
-        // Only redirect if we ARE sure they aren't a customer anymore
         if (dbUser && dbUser.role !== 'customer') {
             router.push('/dashboard')
             return
         }
 
-        const fetchPrice = async () => {
+        const fetchPrices = async () => {
             try {
-                // More robust fetch: select all and filter manually to avoid .single() issues if multiple rows somehow exist or if the key is tricky
                 const { data, error } = await (supabase as any)
                     .from('admin_settings')
                     .select('*')
 
                 if (error) throw error
 
-                const priceSetting = data?.find((s: any) => s.key === 'agent_upgrade_price')
-                if (priceSetting?.value) {
-                    const price = Number(priceSetting.value)
-                    if (!isNaN(price)) {
-                        setUpgradePrice(price)
-                    }
+                const getVal = (key: string, def: number) => {
+                    const s = data?.find((s: any) => s.key === key)
+                    return s ? Number(s.value) : def
                 }
+
+                setPrices({
+                    '3d': getVal('agent_upgrade_price_3d', 9.99),
+                    '14d': getVal('agent_upgrade_price_14d', 49.99),
+                    '30d': getVal('agent_upgrade_price_30d', 99.99)
+                })
             } catch (err) {
-                console.error('Failed to fetch upgrade price:', err)
+                console.error('Failed to fetch upgrade prices:', err)
             } finally {
                 setIsLoading(false)
             }
         }
 
-        fetchPrice()
+        fetchPrices()
     }, [dbUser, router])
 
-    const handleUpgrade = async () => {
-        setIsProcessing(true)
+    const handleUpgrade = async (plan: string) => {
+        setIsProcessing(plan)
         try {
             const response = await fetch('/api/user/upgrade/initialize', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ plan })
             })
 
             if (!response.ok) {
@@ -67,188 +75,183 @@ export default function UpgradePage() {
             window.location.href = authorization_url
         } catch (error: any) {
             toast.error(error.message || 'Failed to start upgrade process')
-            setIsProcessing(false)
+            setIsProcessing(null)
         }
     }
 
-    const benefits = [
-        { icon: TrendingUp, title: 'Agent-Exclusive Pricing', description: 'Access discounted rates on all data packages and maximize profit margins', color: 'from-amber-400 to-yellow-500', glow: 'shadow-amber-500/50' },
-        { icon: Zap, title: 'Faster Processing', description: 'Priority order fulfillment with near-instant delivery', color: 'from-yellow-400 to-orange-500', glow: 'shadow-yellow-500/50' },
-        { icon: Sparkles, title: '0% Top-Up Fees', description: 'Zero transaction fees when adding funds to your wallet', color: 'from-amber-500 to-yellow-600', glow: 'shadow-amber-500/50' },
-        { icon: Users, title: 'Customer Management', description: 'Track purchases and manage your client base with analytics', color: 'from-yellow-500 to-amber-600', glow: 'shadow-yellow-500/50' },
-        { icon: Palette, title: 'Golden UI Theme', description: 'Exclusive premium interface with royal golden aesthetics', color: 'from-amber-400 to-yellow-500', glow: 'shadow-amber-500/50' },
-        { icon: MessageCircle, title: 'Live Admin Chat', description: 'Direct messaging with administrators for priority support', color: 'from-yellow-400 to-amber-500', glow: 'shadow-yellow-500/50' }
+    const tiers = [
+        {
+            id: '3d',
+            name: '3 Days',
+            duration: '3 Days Access',
+            price: prices['3d'],
+            popular: false,
+            color: 'border-yellow-100'
+        },
+        {
+            id: '14d',
+            name: '2 weeks',
+            duration: '14 Days Access',
+            price: prices['14d'],
+            popular: true,
+            color: 'border-yellow-400 ring-2 ring-yellow-400/20'
+        },
+        {
+            id: '30d',
+            name: '1 month',
+            duration: '30 Days Access',
+            price: prices['30d'],
+            popular: false,
+            color: 'border-yellow-100'
+        }
+    ]
+
+    const commonFeatures = [
+        'Exclusive Wholesale Pricing',
+        'Crown Badge on Profile',
+        'Priority Customer Support',
+        'Manage Sub-Agents',
+        'Bulk Order Access',
+        'Custom Shop Branding'
     ]
 
     if (isLoading) {
         return (
-            <div className="fixed inset-0 bg-gradient-to-br from-amber-50 via-yellow-100 to-amber-50 flex items-center justify-center z-50">
+            <div className="fixed inset-0 bg-[#fffdf5] flex items-center justify-center z-50">
                 <div className="relative">
-                    <div className="absolute inset-0 animate-ping rounded-full bg-amber-400/30"></div>
-                    <Crown className="w-16 h-16 text-amber-600 animate-bounce relative z-10" />
+                    <div className="absolute inset-0 animate-ping rounded-full bg-yellow-400/20"></div>
+                    <Crown className="w-16 h-16 text-yellow-600 animate-bounce relative z-10" />
                 </div>
             </div>
         )
     }
 
     return (
-        <div className="min-h-screen bg-gradient-to-br from-amber-50 via-yellow-100 to-amber-50 overflow-x-hidden selection:bg-amber-200" style={{ fontFamily: '"Fira Sans", sans-serif' }}>
-            {/* Close Button */}
-            <Link
-                href="/dashboard"
-                className="fixed top-4 right-4 sm:top-6 sm:right-6 z-50 p-2 sm:p-3 rounded-full bg-amber-600/90 backdrop-blur-md hover:bg-amber-700 transition-all duration-300 group shadow-lg"
-            >
-                <X className="w-5 h-5 sm:w-6 sm:h-6 text-white group-hover:rotate-90 transition-transform duration-300" />
-            </Link>
+        <div className="relative -m-4 sm:-m-6 min-h-[calc(100vh+2rem)] lg:min-h-screen bg-[#fffdf5] overflow-x-hidden selection:bg-yellow-200 px-4 sm:px-6 py-10 sm:py-16 flex flex-col items-center" style={{ fontFamily: '"Fira Sans", sans-serif' }}>
 
-            {/* Decorative Background Elements */}
-            <div className="fixed inset-0 overflow-hidden pointer-events-none z-0">
-                <div className="absolute top-0 left-1/4 w-64 h-64 sm:w-96 sm:h-96 bg-amber-300/20 rounded-full blur-3xl animate-pulse"></div>
-                <div className="absolute bottom-0 right-1/4 w-64 h-64 sm:w-96 sm:h-96 bg-yellow-300/20 rounded-full blur-3xl animate-pulse" style={{ animationDelay: '1s' }}></div>
-
-                {[...Array(20)].map((_, i) => (
+            {/* Twinkling Star Background */}
+            <div className="absolute inset-0 pointer-events-none z-0">
+                {[...Array(50)].map((_, i) => (
                     <div
                         key={i}
-                        className="absolute rounded-full animate-float hidden sm:block"
+                        className="absolute bg-yellow-400 rounded-full animate-twinkle opacity-0"
                         style={{
                             left: `${Math.random() * 100}%`,
                             top: `${Math.random() * 100}%`,
-                            width: `${2 + Math.random() * 4}px`,
-                            height: `${2 + Math.random() * 4}px`,
-                            backgroundColor: 'rgba(251, 191, 36, 0.4)',
+                            width: `${Math.random() * 3 + 1}px`,
+                            height: `${Math.random() * 3 + 1}px`,
                             animationDelay: `${Math.random() * 5}s`,
-                            animationDuration: `${5 + Math.random() * 10}s`
+                            animationDuration: `${3 + Math.random() * 4}s`
                         }}
                     ></div>
                 ))}
             </div>
 
-            <div className="relative z-10 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-20 lg:py-24">
-                {/* Hero Section */}
-                <div className="text-center mb-12 sm:mb-20 space-y-6 sm:space-y-8">
-                    <div className="relative inline-block">
-                        <div className="absolute inset-0 animate-ping rounded-full bg-amber-400/40 opacity-20"></div>
-                        <div className="relative inline-flex items-center justify-center w-24 h-24 sm:w-40 sm:h-40 rounded-full bg-gradient-to-br from-amber-400 via-yellow-500 to-amber-600 shadow-2xl shadow-amber-500/60 ring-4 ring-white/50">
-                            <Crown className="w-12 h-12 sm:w-20 sm:h-20 text-amber-950 animate-bounce drop-shadow-lg" style={{ animationDuration: '2s' }} />
-                        </div>
-                        <Star className="absolute -top-1 -right-1 sm:-top-3 sm:-right-3 w-6 h-6 sm:w-10 sm:h-10 text-amber-500 animate-spin drop-shadow-md" style={{ animationDuration: '3s' }} />
+            <div className="relative z-10 w-full max-w-6xl flex flex-col items-center">
+
+                {/* Header Section */}
+                <div className="text-center mb-10 sm:mb-16 space-y-4">
+                    <div className="inline-block px-4 py-1.5 rounded-full bg-yellow-100/90 border border-yellow-200 backdrop-blur-sm shadow-sm group">
+                        <span className="text-[10px] sm:text-xs font-black text-yellow-700 uppercase tracking-[0.2em] flex items-center gap-2">
+                            <Star className="w-3 h-3 fill-yellow-600 text-yellow-600 group-hover:rotate-180 transition-transform duration-700" />
+                            PREMIUM MEMBERSHIP
+                            <Star className="w-3 h-3 fill-yellow-600 text-yellow-600 group-hover:rotate-180 transition-transform duration-700" />
+                        </span>
                     </div>
 
-                    <div className="space-y-3 sm:space-y-5">
-                        <h1 className="text-4xl sm:text-7xl lg:text-9xl font-black bg-gradient-to-b from-amber-700 via-amber-800 to-amber-950 bg-clip-text text-transparent drop-shadow-sm leading-tight">
-                            Kingdom Palace
-                        </h1>
-                        <p className="text-lg sm:text-3xl lg:text-4xl text-amber-900 font-bold max-w-3xl mx-auto px-4 italic">
-                            Elevate your business to Agent status and unlock exclusive wholesale benefits.
-                        </p>
-                        <div className="flex items-center justify-center gap-3 sm:gap-4 text-amber-700 mt-6">
-                            <div className="h-[2px] w-8 sm:w-16 bg-gradient-to-r from-transparent to-amber-600 rounded-full"></div>
-                            <Sparkles className="w-5 h-5 sm:w-7 sm:h-7 animate-pulse text-amber-600" />
-                            <span className="text-xs sm:text-xl font-black tracking-[0.2em] uppercase">The Elite Experience</span>
-                            <Sparkles className="w-5 h-5 sm:w-7 sm:h-7 animate-pulse text-amber-600" />
-                            <div className="h-[2px] w-8 sm:w-16 bg-gradient-to-l from-transparent to-amber-600 rounded-full"></div>
-                        </div>
-                    </div>
+                    <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black text-[#b45309] leading-tight flex items-center justify-center gap-2 sm:gap-4 flex-wrap">
+                        BE A KING FLEXY AGENT
+                        <Crown className="w-10 h-10 sm:w-14 sm:h-14 text-yellow-500 inline-block animate-[bounce_2s_infinite]" />
+                    </h1>
+
+                    <p className="text-base sm:text-lg lg:text-xl text-gray-600 font-semibold max-w-2xl mx-auto opacity-80">
+                        Unlock wholesale rates, sub-agent management, and exclusive features to grow your business.
+                    </p>
                 </div>
 
-                {/* Benefits Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6 mb-16 sm:mb-24">
-                    {benefits.map((benefit, index) => (
-                        <div key={index} className="group relative bg-white/80 backdrop-blur-xl rounded-2xl p-6 sm:p-8 border border-white hover:border-amber-400/50 transition-all duration-500 shadow-sm hover:shadow-xl hover:-translate-y-1">
-                            <div className="relative space-y-4">
-                                <div className={`inline-flex items-center justify-center w-12 h-12 sm:w-16 sm:h-16 rounded-xl bg-gradient-to-br ${benefit.color} text-white shadow-md group-hover:scale-110 transition-transform duration-500`}>
-                                    <benefit.icon className="w-6 h-6 sm:w-8 sm:h-8" />
+                {/* Plans Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 mb-12 w-full max-w-5xl items-stretch">
+                    {tiers.map((tier) => (
+                        <div
+                            key={tier.id}
+                            className={`relative bg-white rounded-3xl p-8 flex flex-col transition-all duration-500 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.1)] hover:shadow-[0_20px_40px_-4px_rgba(234,179,8,0.15)] border ${tier.color} ${tier.popular ? 'md:scale-105 z-10' : 'opacity-95'}`}
+                        >
+                            {tier.popular && (
+                                <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1.5 bg-gradient-to-r from-yellow-500 to-amber-600 rounded-full shadow-lg z-20 flex items-center gap-2">
+                                    <Sparkles className="w-3 h-3 text-white fill-current" />
+                                    <span className="text-[10px] font-black text-white uppercase tracking-widest">
+                                        MOST POPULAR
+                                    </span>
                                 </div>
-                                <div className="space-y-2">
-                                    <h3 className="text-lg sm:text-xl font-black text-amber-900">{benefit.title}</h3>
-                                    <p className="text-amber-800/70 text-sm leading-relaxed font-medium">
-                                        {benefit.description}
-                                    </p>
-                                </div>
-                            </div>
-                        </div>
-                    ))}
-                </div>
+                            )}
 
-                {/* CTA Section */}
-                <div className="max-w-3xl mx-auto">
-                    <div className="relative overflow-hidden bg-gradient-to-br from-amber-600 to-amber-800 rounded-3xl p-8 sm:p-12 shadow-[0_20px_50px_rgba(180,83,9,0.3)] border-t border-white/20">
-                        {/* Shimmer background */}
-                        <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent skew-x-12 translate-x-[-100%] animate-[shimmer_3s_infinite] pointer-events-none"></div>
-
-                        <div className="relative text-center space-y-8 z-10">
-                            <div className="inline-flex items-center justify-center p-4 rounded-2xl bg-white/10 backdrop-blur-md shadow-inner">
-                                <Crown className="w-10 h-10 text-white" />
+                            <div className="text-center mb-6 space-y-1">
+                                <h3 className="text-2xl font-black text-gray-900 border-b-2 border-yellow-50/50 pb-2">{tier.name}</h3>
+                                <p className="text-gray-400 text-sm font-bold pt-1">{tier.duration}</p>
                             </div>
 
-                            <div className="space-y-2">
-                                <h2 className="text-3xl sm:text-5xl font-black text-white">Join the Elite</h2>
-                                <p className="text-amber-100 text-lg font-medium opacity-90">One-time royalty fee for lifetime benefits</p>
+                            <div className="text-center mb-8 flex items-baseline justify-center gap-1.5">
+                                <span className="text-gray-400 font-black text-lg">GHS</span>
+                                <span className="text-5xl lg:text-6xl font-black text-gray-900 tracking-tighter">
+                                    {tier.price.toString().split('.')[0]}
+                                    <span className="text-3xl font-black">{tier.price.toFixed(2).includes('.') ? '.' + tier.price.toFixed(2).split('.')[1] : '.99'}</span>
+                                </span>
                             </div>
 
-                            <div className="py-4 sm:py-6">
-                                <div className="text-6xl sm:text-8xl font-black text-white tracking-tighter mb-2">
-                                    {formatCurrency(upgradePrice)}
-                                </div>
-                                <p className="text-amber-200/80 text-xs sm:text-sm font-black uppercase tracking-widest">Investment in Success</p>
+                            <div className="space-y-4 mb-10 flex-1">
+                                {commonFeatures.map((feature, i) => (
+                                    <div key={i} className="flex items-start gap-3">
+                                        <div className="mt-0.5 flex-shrink-0 w-6 h-6 rounded-full bg-green-50 flex items-center justify-center">
+                                            <CheckCircle className="w-4 h-4 text-green-500" />
+                                        </div>
+                                        <span className="text-sm font-bold text-gray-600">{feature}</span>
+                                    </div>
+                                ))}
                             </div>
 
                             <Button
-                                onClick={handleUpgrade}
-                                disabled={isProcessing}
-                                className="w-full h-16 sm:h-20 text-xl font-black bg-white hover:bg-amber-50 text-amber-900 rounded-2xl shadow-xl transition-all duration-300 active:scale-95 disabled:opacity-70 flex items-center justify-center gap-3"
+                                onClick={() => handleUpgrade(tier.id)}
+                                disabled={isProcessing !== null}
+                                className={`w-full h-14 rounded-2xl text-base font-black transition-all active:scale-95 shadow-lg ${tier.popular
+                                        ? 'bg-gradient-to-r from-yellow-500 to-amber-600 hover:from-yellow-600 hover:to-amber-700 text-white shadow-yellow-500/20'
+                                        : 'bg-[#1a1a2e] hover:bg-[#1a1a2e]/90 text-white'
+                                    }`}
                             >
-                                {isProcessing ? (
-                                    <>
-                                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-amber-900"></div>
-                                        Processing...
-                                    </>
+                                {isProcessing === tier.id ? (
+                                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
                                 ) : (
-                                    <>
-                                        <Sparkles className="w-6 h-6 text-amber-600" />
-                                        Ascend Now
-                                        <ArrowRight className="w-6 h-6 ml-1 transition-transform group-hover:translate-x-1" />
-                                    </>
+                                    'Renew / Extend'
                                 )}
                             </Button>
-
-                            <div className="flex items-center justify-center gap-2 text-amber-100/80 text-sm font-bold pt-4">
-                                <Shield className="w-4 h-4" />
-                                <span>Secured by Paystack Payment Gateway</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Trust Badges */}
-                <div className="mt-16 sm:mt-24 flex flex-wrap justify-center gap-6 sm:gap-12 opacity-60">
-                    {[
-                        { icon: CheckCircle, text: 'Instant Access' },
-                        { icon: Shield, text: 'Authorized Secure' },
-                        { icon: Star, text: 'Elite Membership' }
-                    ].map((badge, i) => (
-                        <div key={i} className="flex items-center gap-2 text-amber-900/70 grayscale hover:grayscale-0 transition-all">
-                            <badge.icon className="w-5 h-5" />
-                            <span className="text-sm font-bold uppercase tracking-wider">{badge.text}</span>
                         </div>
                     ))}
+                </div>
+
+                {/* Secure Badge Section */}
+                <div className="w-full max-w-3xl">
+                    <div className="bg-white/40 backdrop-blur-xl rounded-2xl p-6 sm:p-10 border border-white shadow-sm flex flex-col items-center text-center space-y-6">
+                        <div className="inline-flex items-center gap-2 text-amber-600 bg-yellow-100/50 px-4 py-1.5 rounded-full border border-yellow-200/50">
+                            <Zap className="w-5 h-5 fill-current" />
+                            <span className="text-xs font-black uppercase tracking-[0.2em]">FAST & SECURE</span>
+                        </div>
+                        <p className="text-base text-gray-500 font-bold leading-relaxed max-w-xl">
+                            Upgrade your account in seconds using card, mobile money or bank transfer via Paystack. Your benefits start immediately.
+                        </p>
+                        <div className="flex items-center gap-3 pt-2 grayscale opacity-50">
+                            <div className="w-7 h-7 bg-gray-200 rounded-lg flex items-center justify-center text-[10px] font-black text-gray-500 border border-gray-300">?</div>
+                            <span className="text-[11px] font-black text-gray-400 uppercase tracking-widest">SECURE PAYMENTS BY PAYSTACK</span>
+                        </div>
+                    </div>
                 </div>
             </div>
 
             <style jsx>{`
-                @keyframes float {
-                    0%, 100% {
-                        transform: translateY(0px) translateX(0px);
-                    }
-                    50% {
-                        transform: translateY(-20px) translateX(10px);
-                    }
+                @keyframes twinkle {
+                    0%, 100% { opacity: 0; transform: scale(0.5); }
+                    50% { opacity: 0.8; transform: scale(1.2); }
                 }
-                @keyframes shimmer {
-                    100% { transform: translateX(100%); }
-                }
-                .animate-float {
-                    animation: float ease-in-out infinite;
+                .animate-twinkle {
+                    animation: twinkle ease-in-out infinite;
                 }
             `}</style>
         </div>

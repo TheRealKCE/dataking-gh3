@@ -182,7 +182,7 @@ export function DashboardSidebar() {
 
                         {/* Upgrade Button - Customers Only */}
                         {dbUser?.role === 'customer' && (
-                            <Link href="/dashboard/upgrade" className="block mt-3">
+                            <Link href="/dashboard/upgrade" className="block mt-3" onClick={closeSidebar}>
                                 <Button
                                     size="sm"
                                     className="w-full h-9 text-xs font-bold bg-gradient-to-r from-yellow-400 to-yellow-600 hover:from-yellow-500 hover:to-yellow-700 text-black rounded-lg shadow-md hover:shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2"
