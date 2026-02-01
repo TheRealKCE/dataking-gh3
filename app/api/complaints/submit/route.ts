@@ -1,4 +1,5 @@
-import { createServerClient } from '@/lib/supabase'
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { sendAdminNewComplaintAlert } from '@/lib/email-service'
 
@@ -14,15 +15,21 @@ export async function POST(request: Request) {
             )
         }
 
-        const supabase = createServerClient()
-        const { data: { user }, error: userError } = await supabase.auth.getUser()
+        const cookieStore = await cookies()
+        const supabase = createRouteHandlerClient({
+            // @ts-expect-error - auth-helpers types expect Promise but runtime needs synchronous object
+            cookies: () => cookieStore
+        })
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
 
-        if (userError || !user) {
+        if (sessionError || !session?.user) {
             return NextResponse.json(
                 { error: 'Unauthorized' },
                 { status: 401 }
             )
         }
+
+        const user = session.user
 
         // 1. Insert Complaint
         const { data: complaint, error: insertError } = await (supabase

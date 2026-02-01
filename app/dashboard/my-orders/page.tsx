@@ -91,11 +91,11 @@ export default function MyOrdersPage() {
         }
     }
 
-    // Check if order is within 24 hours for complaint eligibility
-    const isWithin24Hours = (createdAt: string) => {
+    // Check if order is within 48 hours for complaint eligibility
+    const isWithin48Hours = (createdAt: string) => {
         const orderDate = new Date(createdAt)
         const now = new Date()
-        return differenceInHours(now, orderDate) < 24
+        return differenceInHours(now, orderDate) < 48
     }
 
     // Get product name based on network for consistent display
@@ -167,12 +167,12 @@ export default function MyOrdersPage() {
 
     // Calculate stats from filtered orders
     const stats = useMemo(() => {
-        const completedOrders = filteredOrders.filter(o => o.status === 'completed')
-        const totalAmount = completedOrders.reduce((sum, o) => sum + (o.price || 0), 0)
+        const paidOrders = filteredOrders.filter(o => o.payment_status !== 'refunded')
+        const totalAmount = paidOrders.reduce((sum, o) => sum + (o.price || 0), 0)
 
         // Parse data sizes and sum them
         let totalDataGB = 0
-        completedOrders.forEach(order => {
+        paidOrders.forEach(order => {
             const sizeStr = order.size.toLowerCase()
             const match = sizeStr.match(/([\d.]+)\s*(gb|mb)/i)
             if (match) {
@@ -447,7 +447,7 @@ export default function MyOrdersPage() {
                                             </span>
                                         </div>
                                     ) : (
-                                        order.status === 'completed' && isWithin24Hours(order.created_at) && (
+                                        order.status === 'completed' && isWithin48Hours(order.created_at) && (
                                             <Button
                                                 size="sm"
                                                 variant="outline"
