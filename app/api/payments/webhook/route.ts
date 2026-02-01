@@ -46,13 +46,14 @@ export async function POST(request: NextRequest) {
                 }
 
                 // Update user role to agent
-                const { error: updateError } = await (supabase
+                // @ts-ignore - Supabase types are too strict for dynamic role updates
+                const { error: updateError } = await supabase
                     .from('users')
                     .update({
                         role: 'agent',
                         updated_at: new Date().toISOString()
                     })
-                    .eq('id', metadata.user_id) as any)
+                    .eq('id', metadata.user_id)
 
                 if (updateError) {
                     console.error('Failed to upgrade user to agent:', updateError)
@@ -60,14 +61,15 @@ export async function POST(request: NextRequest) {
                 }
 
                 // Create notification
-                await (supabase
+                // @ts-ignore - Supabase types are too strict for notification insert
+                await supabase
                     .from('notifications')
                     .insert({
                         user_id: metadata.user_id,
                         title: 'Upgrade Successful! 👑',
                         message: 'Congratulations! You are now an Agent. Enjoy exclusive benefits and premium features.',
                         type: 'system',
-                    }) as any)
+                    })
 
                 console.log(`Successfully upgraded user ${metadata.user_id} to agent`)
                 return NextResponse.json({ received: true }, { status: 200 })
