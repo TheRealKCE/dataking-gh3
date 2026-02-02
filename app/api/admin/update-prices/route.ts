@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabase } from '@/lib/supabase'
+import { createClient } from '@supabase/supabase-js'
 
 export async function POST(request: NextRequest) {
     try {
@@ -10,8 +10,17 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Prices are required' }, { status: 400 })
         }
 
-        // Update each price setting directly using any-typed client
-        const db = supabase as any
+        // Create admin client with service role key to bypass RLS
+        const supabaseAdmin = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.SUPABASE_SERVICE_ROLE_KEY!,
+            {
+                auth: {
+                    autoRefreshToken: false,
+                    persistSession: false
+                }
+            }
+        )
 
         const updates = [
             { key: 'agent_upgrade_price_3d', value: String(prices['3d']) },
@@ -21,10 +30,10 @@ export async function POST(request: NextRequest) {
 
         for (const { key, value } of updates) {
             // Delete existing record if it exists
-            await db.from('admin_settings').delete().eq('key', key)
+            await supabaseAdmin.from('admin_settings').delete().eq('key', key)
 
             // Insert new record
-            const { error } = await db.from('admin_settings').insert({ key, value })
+            const { error } = await supabaseAdmin.from('admin_settings').insert({ key, value } as any)
 
             if (error) {
                 console.error(`Error updating ${key}:`, error)
@@ -36,7 +45,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Verify the updates
-        const { data: verifyData, error: verifyError } = await db
+        const { data: verifyData, error: verifyError } = await supabaseAdmin
             .from('admin_settings')
             .select('key, value')
             .in('key', ['agent_upgrade_price_3d', 'agent_upgrade_price_14d', 'agent_upgrade_price_30d'])
@@ -46,9 +55,9 @@ export async function POST(request: NextRequest) {
         }
 
         const verified = {
-            '3d': verifyData?.find((s: any) => s.key === 'agent_upgrade_price_3d')?.value || prices['3d'],
-            '14d': verifyData?.find((s: any) => s.key === 'agent_upgrade_price_14d')?.value || prices['14d'],
-            '30d': verifyData?.find((s: any) => s.key === 'agent_upgrade_price_30d')?.value || prices['30d']
+            '3d': (verifyData as any)?.find((s: any) => s.key === 'agent_upgrade_price_3d')?.value || prices['3d'],
+            '14d': (verifyData as any)?.find((s: any) => s.key === 'agent_upgrade_price_14d')?.value || prices['14d'],
+            '30d': (verifyData as any)?.find((s: any) => s.key === 'agent_upgrade_price_30d')?.value || prices['30d']
         }
 
         return NextResponse.json({
