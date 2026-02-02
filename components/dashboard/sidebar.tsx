@@ -140,20 +140,20 @@ export function DashboardSidebar() {
                         </div>
                         {!isCollapsed && (
                             <div className="flex flex-col transition-transform group-hover:scale-105">
-                                <span className="text-xl font-extrabold tracking-tight text-yellow-500 dark:text-yellow-400 font-display">
+                                <span className="text-xl font-extrabold tracking-tight text-yellow-500 dark:text-yellow-400 font-display drop-shadow-md">
                                     {dbUser?.role === 'agent' ? (
                                         <span className="relative">
-                                            KING FLEX
                                             <span className="relative">
-                                                Y
-                                                <Crown className="absolute -top-3.5 -right-2.5 w-4 h-4 text-yellow-500 fill-yellow-500 -rotate-[15deg] drop-shadow-md" />
+                                                KING
+                                                <Crown className="absolute -top-3.5 -left-2 w-4 h-4 text-yellow-500 fill-yellow-500 -rotate-[25deg] drop-shadow-md" />
                                             </span>
+                                            {' '}FLEXY
                                         </span>
                                     ) : (
                                         "KING FLEXY"
                                     )}
                                 </span>
-                                <span className="text-[11px] font-bold text-gray-600 dark:text-gray-400 -mt-1 tracking-widest">DATA LIMITED</span>
+                                <span className="text-[11px] font-bold text-gray-600 dark:text-gray-400 -mt-1 tracking-widest drop-shadow-sm">DATA LIMITED</span>
                             </div>
                         )}
                     </Link>
@@ -177,7 +177,7 @@ export function DashboardSidebar() {
 
                 {/* Profile Widget - Premium Card Style */}
                 {!isCollapsed && dbUser && (
-                    <div className="mx-4 mt-6 p-4 rounded-2xl bg-gradient-to-br from-gray-200/90 to-gray-300 dark:from-gray-800/90 dark:to-gray-900 border border-gray-400/50 dark:border-gray-700/50 shadow-lg">
+                    <div className="mx-4 mt-6 p-4 rounded-2xl bg-[#1a1a1a] border border-gray-400/50 dark:border-gray-700/50 shadow-lg">
                         {/* User Info Row */}
                         <div className="flex items-center gap-3.5 mb-4">
                             {/* Avatar with Role Icon */}
@@ -193,17 +193,18 @@ export function DashboardSidebar() {
                                 </div>
                             </div>
                             <div className="flex-1 min-w-0">
-                                <p className="text-sm font-bold text-gray-900 dark:text-white truncate flex items-center gap-1.5 flex-wrap">
+                                <p className="text-sm font-bold text-yellow-500 truncate flex items-center gap-1.5 flex-wrap">
                                     {dbUser?.role === 'agent' ? (
                                         <>
-                                            {dbUser?.first_name}{' '}
                                             <span className="relative">
-                                                {dbUser?.last_name?.slice(0, -1)}
                                                 <span className="relative">
-                                                    {dbUser?.last_name?.slice(-1)}
-                                                    <Crown className="absolute -top-3 -right-2.5 w-3.5 h-3.5 text-yellow-500 fill-yellow-500 -rotate-[15deg] drop-shadow-md" />
+                                                    {dbUser?.first_name?.[0]}
+                                                    <Crown className="absolute -top-3 -left-1.5 w-3.5 h-3.5 text-yellow-500 fill-yellow-500 -rotate-[25deg] drop-shadow-md" />
                                                 </span>
+                                                {dbUser?.first_name?.slice(1)}
                                             </span>
+                                            {' '}
+                                            {dbUser?.last_name}
                                             {daysRemaining !== null && (
                                                 <span className={cn(
                                                     "text-xs font-bold px-1.5 py-0.5 rounded ml-1",
@@ -324,7 +325,7 @@ export function DashboardSidebar() {
                                             "flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-all duration-200",
                                             isActive
                                                 ? dbUser?.role === 'agent'
-                                                    ? "bg-black text-yellow-500 shadow-lg"
+                                                    ? "bg-black text-[#1a1a1a] shadow-lg"
                                                     : "bg-yellow-500/20 dark:bg-yellow-500/10 text-yellow-600 dark:text-yellow-400"
                                                 : "text-gray-600 dark:text-gray-400 hover:bg-gray-300/60 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-gray-200",
                                             isCollapsed && "justify-center px-2"
@@ -332,7 +333,7 @@ export function DashboardSidebar() {
                                     >
                                         <item.icon className={cn(
                                             "w-5 h-5 flex-shrink-0",
-                                            isActive && (dbUser?.role === 'agent' ? "text-yellow-500" : "text-yellow-600 dark:text-yellow-400")
+                                            isActive && (dbUser?.role === 'agent' ? "text-[#1a1a1a]" : "text-yellow-600 dark:text-yellow-400")
                                         )} />
                                         {!isCollapsed && <span className="text-base font-medium">{item.label}</span>}
                                     </div>

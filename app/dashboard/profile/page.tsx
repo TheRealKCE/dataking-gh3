@@ -214,12 +214,14 @@ export default function ProfilePage() {
                         })()}
                         <div>
                             <CardTitle className="text-xl flex items-center gap-2 flex-wrap">
-                                {dbUser?.first_name} {dbUser?.last_name}
-                                {dbUser?.role === 'agent' && (
+                                {dbUser?.role === 'agent' ? (
                                     <>
-                                        <span className="relative inline-flex ml-1">
-                                            <span className="opacity-0">{dbUser?.last_name?.[dbUser?.last_name?.length - 1] || ''}</span>
-                                            <Crown className="absolute -top-4 -right-2.5 w-5 h-5 text-yellow-500 fill-yellow-500 -rotate-[15deg] drop-shadow-md" />
+                                        <span className="text-yellow-500 font-bold flex items-center">
+                                            <span className="relative">
+                                                {dbUser?.first_name?.[0]}
+                                                <Crown className="absolute -top-4 -left-2 w-5 h-5 text-yellow-500 fill-yellow-500 -rotate-[25deg] drop-shadow-md" />
+                                            </span>
+                                            {dbUser?.first_name?.slice(1)} {dbUser?.last_name}
                                         </span>
                                         {daysRemaining !== null && (
                                             <Badge className={cn(
@@ -232,6 +234,8 @@ export default function ProfilePage() {
                                             </Badge>
                                         )}
                                     </>
+                                ) : (
+                                    <span>{dbUser?.first_name} {dbUser?.last_name}</span>
                                 )}
                             </CardTitle>
                             <CardDescription>{dbUser?.email}</CardDescription>
