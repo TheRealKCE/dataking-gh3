@@ -32,7 +32,7 @@ import {
     Crown
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { formatDate } from '@/lib/utils'
+import { formatDate, cn } from '@/lib/utils'
 import { roleConfig, UserRole } from '@/lib/roles'
 
 export default function ProfilePage() {
