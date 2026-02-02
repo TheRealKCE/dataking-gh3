@@ -83,14 +83,31 @@ export default function AdminMembershipsPage() {
                 setShowStrikethrough(showStrike)
             }
 
+
             // Fetch Agents - Ensure we get ALL agents regardless of how they were set
             const { data: agentsData, error: agentsError } = await (supabase as any)
                 .from('users')
-                .select('*')
+                .select(`
+                    id,
+                    email,
+                    first_name,
+                    last_name,
+                    phone_number,
+                    role,
+                    status,
+                    agent_expires_at,
+                    created_at,
+                    updated_at
+                `)
                 .eq('role', 'agent')
                 .order('created_at', { ascending: false })
 
-            if (agentsError) throw agentsError
+            if (agentsError) {
+                console.error('Error fetching agents:', agentsError)
+                throw agentsError
+            }
+
+            console.log('Agents fetched:', agentsData?.length || 0, 'agents found')
             setAgents(agentsData || [])
 
         } catch (error: any) {
