@@ -214,13 +214,19 @@ export default function ProfilePage() {
                         })()}
                         <div>
                             <CardTitle className="text-xl flex items-center gap-2 flex-wrap">
-                                {dbUser?.first_name} {dbUser?.last_name}
                                 {dbUser?.role === 'agent' && (
                                     <>
-                                        <span className="text-yellow-500 text-2xl">👑</span>
+                                        <span className="relative flex items-center">
+                                            {dbUser.last_name.slice(-1) && (
+                                                <span className="relative">
+                                                    {dbUser.last_name.slice(-1)}
+                                                    <Crown className="absolute -top-4 -right-2.5 w-5 h-5 text-yellow-500 fill-yellow-500 -rotate-[15deg] drop-shadow-md" />
+                                                </span>
+                                            )}
+                                        </span>
                                         {daysRemaining !== null && (
                                             <Badge className={cn(
-                                                "font-bold text-xs",
+                                                "font-bold text-xs ml-2",
                                                 daysRemaining <= 3
                                                     ? "bg-red-100 text-red-700 hover:bg-red-200"
                                                     : "bg-green-100 text-green-700 hover:bg-green-200"
@@ -294,7 +300,12 @@ export default function ProfilePage() {
                                         <p className="text-sm text-muted-foreground">Full Name</p>
                                         <p className="font-medium flex items-center gap-2">
                                             {dbUser?.first_name} {dbUser?.last_name}
-                                            {dbUser?.role === 'agent' && <span className="text-yellow-500">👑</span>}
+                                            {dbUser?.role === 'agent' && (
+                                                <span className="relative ml-1">
+                                                    <span className="opacity-0">{dbUser.last_name.slice(-1)}</span>
+                                                    <Crown className="absolute -top-3 -right-2 w-4 h-4 text-yellow-500 fill-yellow-500 -rotate-[15deg] drop-shadow-sm" />
+                                                </span>
+                                            )}
                                         </p>
                                     </div>
                                 </div>

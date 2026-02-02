@@ -82,12 +82,11 @@ export default function CongratsModal({ onClose, onBrowsePackages }: CongratsMod
                     <X className="w-5 h-5 text-white" />
                 </button>
 
-                {/* Crown Animation */}
                 <div className="flex justify-center mb-6">
                     <div className="relative">
-                        <div className="text-8xl sm:text-9xl animate-[bounce_1s_infinite]">👑</div>
+                        <Crown className="w-24 h-24 sm:w-32 sm:h-32 text-white animate-[bounce_1s_infinite] drop-shadow-lg" />
                         <div className="absolute inset-0 animate-ping opacity-30">
-                            <div className="text-8xl sm:text-9xl">👑</div>
+                            <Crown className="w-24 h-24 sm:w-32 sm:h-32 text-white" />
                         </div>
                         <Sparkles className="absolute -top-2 -right-2 w-8 h-8 text-white animate-pulse" />
                         <Sparkles className="absolute -bottom-2 -left-2 w-6 h-6 text-white animate-pulse" style={{ animationDelay: '0.5s' }} />

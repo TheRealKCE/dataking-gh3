@@ -2,12 +2,13 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useAuth } from '@/contexts/auth-context'
+import { useUI } from '@/contexts/ui-context'
 import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Card } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { MessageCircle, X, Send, Minimize2, Maximize2, Loader2 } from 'lucide-react'
+import { MessageCircle, X, Send, Minimize2, Maximize2, Loader2, Crown } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
@@ -27,6 +28,7 @@ interface ConversationData {
 
 export default function AgentChatFloat() {
     const { dbUser } = useAuth()
+    const { isInternalSidebarOpen } = useUI()
     const [isOpen, setIsOpen] = useState(false)
     const [isMinimized, setIsMinimized] = useState(false)
     const [messages, setMessages] = useState<Message[]>([])
@@ -35,10 +37,15 @@ export default function AgentChatFloat() {
     const [unreadCount, setUnreadCount] = useState(0)
     const [isLoading, setIsLoading] = useState(false)
     const [isSending, setIsSending] = useState(false)
+    const [isDismissed, setIsDismissed] = useState(false)
     const messagesEndRef = useRef<HTMLDivElement>(null)
 
-    // Only show for agents
-    if (dbUser?.role !== 'agent') return null
+    // Hide if not an agent or dismissed
+    if (dbUser?.role !== 'agent' || isDismissed) return null
+
+    // Hide on mobile if sidebar is open
+    const isMobile = typeof window !== 'undefined' && window.innerWidth < 1024
+    if (isMobile && isInternalSidebarOpen) return null
 
     // Fetch or create conversation
     useEffect(() => {
@@ -58,7 +65,7 @@ export default function AgentChatFloat() {
                     setConversation(existing)
                 } else {
                     // Create new conversation
-                    // @ts-ignore - Types will be available after running chat_schema.sql migration
+                    // @ts-ignore
                     const { data: newConv, error } = await (supabase
                         .from('chat_conversations')
                         // @ts-ignore
@@ -142,7 +149,7 @@ export default function AgentChatFloat() {
     useEffect(() => {
         if (isOpen && conversation?.id && dbUser?.id) {
             const markAsRead = async () => {
-                // @ts-ignore - Types will be available after running chat_schema.sql migration
+                // @ts-ignore
                 await (supabase
                     .from('chat_messages')
                     // @ts-ignore
@@ -172,7 +179,7 @@ export default function AgentChatFloat() {
 
         setIsSending(true)
         try {
-            // @ts-ignore - Types will be available after running chat_schema.sql migration
+            // @ts-ignore
             const { error } = await (supabase
                 .from('chat_messages')
                 // @ts-ignore
@@ -203,19 +210,41 @@ export default function AgentChatFloat() {
 
     return (
         <>
-            {/* Float Button */}
+            {/* Float Button Label + Button */}
             {!isOpen && (
-                <button
-                    onClick={() => setIsOpen(true)}
-                    className="fixed bottom-6 left-6 z-50 w-16 h-16 bg-gradient-to-r from-yellow-400 to-yellow-600 hover:from-yellow-500 hover:to-yellow-700 text-black rounded-full shadow-2xl flex items-center justify-center transition-all hover:scale-110 active:scale-95"
-                >
-                    <MessageCircle className="w-7 h-7" />
-                    {unreadCount > 0 && (
-                        <Badge className="absolute -top-2 -right-2 bg-red-500 text-white px-2 py-0.5 text-xs font-bold">
-                            {unreadCount}
-                        </Badge>
-                    )}
-                </button>
+                <div className={cn(
+                    "fixed bottom-6 right-6 z-50 flex items-center gap-3 transition-all duration-300",
+                    isInternalSidebarOpen && !isMobile ? "translate-x-[-320px]" : "" // Shift if sidebar is open on desktop
+                )}>
+                    {/* Label */}
+                    <div className="bg-white px-4 py-2 rounded-xl shadow-lg border border-gray-200 animate-in fade-in slide-in-from-right-4 duration-500">
+                        <p className="text-sm font-bold text-gray-800 whitespace-nowrap">
+                            Chat Live with Admin
+                        </p>
+                    </div>
+
+                    <div className="relative group">
+                        <button
+                            onClick={() => setIsOpen(true)}
+                            className="w-16 h-16 bg-gradient-to-r from-yellow-400 to-yellow-600 hover:from-yellow-500 hover:to-yellow-700 text-black rounded-full shadow-2xl flex items-center justify-center transition-all hover:scale-110 active:scale-95"
+                        >
+                            <MessageCircle className="w-7 h-7" />
+                            {unreadCount > 0 && (
+                                <Badge className="absolute -top-2 -right-2 bg-red-500 text-white px-2 py-0.5 text-xs font-bold">
+                                    {unreadCount}
+                                </Badge>
+                            )}
+                        </button>
+
+                        {/* Dismiss Button */}
+                        <button
+                            onClick={() => setIsDismissed(true)}
+                            className="absolute -top-1 -left-1 w-6 h-6 bg-white rounded-full shadow-md flex items-center justify-center text-gray-500 hover:text-red-500 border border-gray-200 transition-colors opacity-0 group-hover:opacity-100"
+                        >
+                            <X className="w-3.5 h-3.5" />
+                        </button>
+                    </div>
+                </div>
             )}
 
             {/* Chat Window */}
@@ -223,6 +252,7 @@ export default function AgentChatFloat() {
                 <Card
                     className={cn(
                         "fixed bottom-6 right-6 z-50 shadow-2xl border-2 transition-all duration-300",
+                        isInternalSidebarOpen && !isMobile ? "translate-x-[-320px]" : "", // Shift if sidebar is open on desktop
                         isMinimized ? "w-80 h-16" : "w-96 h-[600px]",
                         "flex flex-col"
                     )}
@@ -305,7 +335,7 @@ export default function AgentChatFloat() {
                                     <Input
                                         value={newMessage}
                                         onChange={(e) => setNewMessage(e.target.value)}
-                                        onKeyPress={handleKeyPress}
+                                        onKeyDown={handleKeyPress}
                                         placeholder="Type a message..."
                                         className="flex-1"
                                         disabled={isSending}

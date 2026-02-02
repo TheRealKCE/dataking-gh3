@@ -122,7 +122,7 @@ export function DashboardSidebar() {
                 className={cn(
                     "fixed left-0 top-0 z-50 h-full flex flex-col transition-all duration-300 ease-in-out",
                     dbUser?.role === 'agent'
-                        ? "bg-gradient-to-br from-yellow-200/90 via-amber-100/85 to-yellow-300/95 dark:from-yellow-900/40 dark:via-amber-800/35 dark:to-yellow-700/40"
+                        ? "bg-gradient-to-br from-yellow-400 via-amber-500 to-yellow-600 dark:from-yellow-900 dark:via-amber-900 dark:to-yellow-800"
                         : "bg-[#E5E7EB] dark:bg-[#000000]",
                     isCollapsed ? "w-20" : "w-80",
                     "transform lg:transform-none",
@@ -143,7 +143,19 @@ export function DashboardSidebar() {
                         </div>
                         {!isCollapsed && (
                             <div className="flex flex-col transition-transform group-hover:scale-105">
-                                <span className="text-xl font-extrabold tracking-tight text-yellow-500 dark:text-yellow-400 font-display">KING FLEXY</span>
+                                <span className="text-xl font-extrabold tracking-tight text-yellow-500 dark:text-yellow-400 font-display">
+                                    {dbUser?.role === 'agent' ? (
+                                        <span className="relative">
+                                            KING FLEX
+                                            <span className="relative">
+                                                Y
+                                                <Crown className="absolute -top-3.5 -right-2.5 w-4 h-4 text-yellow-500 fill-yellow-500 -rotate-[15deg] drop-shadow-md" />
+                                            </span>
+                                        </span>
+                                    ) : (
+                                        "KING FLEXY"
+                                    )}
+                                </span>
                                 <span className="text-[11px] font-bold text-gray-600 dark:text-gray-400 -mt-1 tracking-widest">DATA LIMITED</span>
                             </div>
                         )}
@@ -185,13 +197,19 @@ export function DashboardSidebar() {
                             </div>
                             <div className="flex-1 min-w-0">
                                 <p className="text-sm font-bold text-gray-900 dark:text-white truncate flex items-center gap-1.5 flex-wrap">
-                                    {dbUser.first_name} {dbUser.last_name}
-                                    {dbUser?.role === 'agent' && (
+                                    {dbUser.role === 'agent' ? (
                                         <>
-                                            <span className="text-yellow-500">👑</span>
+                                            {dbUser.first_name}{' '}
+                                            <span className="relative">
+                                                {dbUser.last_name.slice(0, -1)}
+                                                <span className="relative">
+                                                    {dbUser.last_name.slice(-1)}
+                                                    <Crown className="absolute -top-3 -right-2.5 w-3.5 h-3.5 text-yellow-500 fill-yellow-500 -rotate-[15deg] drop-shadow-md" />
+                                                </span>
+                                            </span>
                                             {daysRemaining !== null && (
                                                 <span className={cn(
-                                                    "text-xs font-bold px-1.5 py-0.5 rounded",
+                                                    "text-xs font-bold px-1.5 py-0.5 rounded ml-1",
                                                     daysRemaining <= 3
                                                         ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
                                                         : "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
@@ -199,6 +217,10 @@ export function DashboardSidebar() {
                                                     {daysRemaining}d
                                                 </span>
                                             )}
+                                        </>
+                                    ) : (
+                                        <>
+                                            {dbUser.first_name} {dbUser.last_name}
                                         </>
                                     )}
                                 </p>
@@ -276,7 +298,8 @@ export function DashboardSidebar() {
                             )}
                         </div>
                     </div>
-                )}
+                )
+                }
 
                 {/* Navigation */}
                 <nav className={cn(
@@ -305,12 +328,17 @@ export function DashboardSidebar() {
                                         className={cn(
                                             "flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-all duration-200",
                                             isActive
-                                                ? "bg-yellow-500/20 dark:bg-yellow-500/10 text-yellow-600 dark:text-yellow-400"
+                                                ? dbUser?.role === 'agent'
+                                                    ? "bg-black text-yellow-500 shadow-lg"
+                                                    : "bg-yellow-500/20 dark:bg-yellow-500/10 text-yellow-600 dark:text-yellow-400"
                                                 : "text-gray-600 dark:text-gray-400 hover:bg-gray-300/60 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-gray-200",
                                             isCollapsed && "justify-center px-2"
                                         )}
                                     >
-                                        <item.icon className={cn("w-5 h-5 flex-shrink-0", isActive && "text-yellow-600 dark:text-yellow-400")} />
+                                        <item.icon className={cn(
+                                            "w-5 h-5 flex-shrink-0",
+                                            isActive && (dbUser?.role === 'agent' ? "text-yellow-500" : "text-yellow-600 dark:text-yellow-400")
+                                        )} />
                                         {!isCollapsed && <span className="text-base font-medium">{item.label}</span>}
                                     </div>
                                 </Link>

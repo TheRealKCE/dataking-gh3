@@ -203,12 +203,11 @@ export default function UpgradePage() {
 
                     {/* Header Section */}
                     <div className="text-center mb-8 sm:mb-12 space-y-3 sm:space-y-4">
-                        {/* Floating Crown Animation - Above Header */}
                         <div className="mb-4 sm:mb-6 flex justify-center">
                             <div className="relative">
-                                <div className="text-7xl sm:text-8xl animate-[bounce_2s_infinite]">👑</div>
+                                <Crown className="w-20 h-20 sm:w-28 sm:h-28 text-yellow-600 animate-[bounce_2s_infinite] drop-shadow-xl" />
                                 <div className="absolute inset-0 animate-ping opacity-20 pointer-events-none">
-                                    <div className="text-7xl sm:text-8xl">👑</div>
+                                    <Crown className="w-20 h-20 sm:w-28 sm:h-28 text-yellow-600" />
                                 </div>
                             </div>
                         </div>
