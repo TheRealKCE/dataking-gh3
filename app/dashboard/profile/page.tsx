@@ -28,7 +28,8 @@ import {
     Loader2,
     AlertCircle,
     CheckCircle2,
-    Trash2
+    Trash2,
+    Crown
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatDate } from '@/lib/utils'
@@ -43,6 +44,17 @@ export default function ProfilePage() {
         last_name: '',
         phone_number: '',
     })
+
+    // Calculate days remaining for agents
+    const calculateDaysRemaining = () => {
+        if (!dbUser?.agent_expires_at || dbUser?.role !== 'agent') return null
+        const now = new Date()
+        const expiresAt = new Date(dbUser.agent_expires_at)
+        const daysRemaining = Math.ceil((expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+        return daysRemaining > 0 ? daysRemaining : 0
+    }
+
+    const daysRemaining = calculateDaysRemaining()
 
     // Password change
     const [isChangingPassword, setIsChangingPassword] = useState(false)
@@ -201,8 +213,23 @@ export default function ProfilePage() {
                             )
                         })()}
                         <div>
-                            <CardTitle className="text-xl">
+                            <CardTitle className="text-xl flex items-center gap-2 flex-wrap">
                                 {dbUser?.first_name} {dbUser?.last_name}
+                                {dbUser?.role === 'agent' && (
+                                    <>
+                                        <span className="text-yellow-500 text-2xl">👑</span>
+                                        {daysRemaining !== null && (
+                                            <Badge className={cn(
+                                                "font-bold text-xs",
+                                                daysRemaining <= 3
+                                                    ? "bg-red-100 text-red-700 hover:bg-red-200"
+                                                    : "bg-green-100 text-green-700 hover:bg-green-200"
+                                            )}>
+                                                {daysRemaining} {daysRemaining === 1 ? 'day' : 'days'} left
+                                            </Badge>
+                                        )}
+                                    </>
+                                )}
                             </CardTitle>
                             <CardDescription>{dbUser?.email}</CardDescription>
                             <div className="flex items-center gap-2 mt-2">
@@ -265,7 +292,10 @@ export default function ProfilePage() {
                                     <User className="w-5 h-5 text-muted-foreground" />
                                     <div>
                                         <p className="text-sm text-muted-foreground">Full Name</p>
-                                        <p className="font-medium">{dbUser?.first_name} {dbUser?.last_name}</p>
+                                        <p className="font-medium flex items-center gap-2">
+                                            {dbUser?.first_name} {dbUser?.last_name}
+                                            {dbUser?.role === 'agent' && <span className="text-yellow-500">👑</span>}
+                                        </p>
                                     </div>
                                 </div>
                                 <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">

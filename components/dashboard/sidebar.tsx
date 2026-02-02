@@ -31,6 +31,7 @@ import {
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { usePageAccess } from '@/hooks/use-page-access'
+import { differenceInDays } from 'date-fns'
 
 const userNavItems = [
     { href: '/dashboard', label: 'Home', icon: LayoutDashboard },
@@ -47,6 +48,7 @@ const adminNavItems = [
     { href: '/admin', label: 'Dashboard', icon: Shield },
     { href: '/admin/orders', label: 'Orders', icon: ShoppingCart },
     { href: '/admin/memberships', label: 'Agent Members', icon: Crown },
+    { href: '/admin/agent-chats', label: 'Agent Chats', icon: MessageSquare },
     { href: '/admin/users', label: 'Users', icon: Users },
     { href: '/admin/packages', label: 'Packages', icon: Package },
     { href: '/admin/complaints', label: 'Complaints', icon: MessageSquare },
@@ -67,6 +69,17 @@ export function DashboardSidebar() {
     const { isPageAccessible, loading: pageAccessLoading } = usePageAccess()
     const [isCollapsed, setIsCollapsed] = useState(false)
     const [walletBalance, setWalletBalance] = useState(0)
+
+    // Calculate days remaining for agents
+    const calculateDaysRemaining = () => {
+        if (!dbUser?.agent_expires_at || dbUser?.role !== 'agent') return null
+        const now = new Date()
+        const expiresAt = new Date(dbUser.agent_expires_at)
+        const daysRemaining = Math.ceil((expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+        return daysRemaining > 0 ? daysRemaining : 0
+    }
+
+    const daysRemaining = calculateDaysRemaining()
 
     // Fetch wallet balance
     useEffect(() => {
@@ -107,7 +120,10 @@ export function DashboardSidebar() {
             {/* Sidebar */}
             <aside
                 className={cn(
-                    "fixed left-0 top-0 z-50 h-full flex flex-col bg-[#E5E7EB] dark:bg-[#000000] transition-all duration-300 ease-in-out",
+                    "fixed left-0 top-0 z-50 h-full flex flex-col transition-all duration-300 ease-in-out",
+                    dbUser?.role === 'agent'
+                        ? "bg-gradient-to-br from-yellow-200/90 via-amber-100/85 to-yellow-300/95 dark:from-yellow-900/40 dark:via-amber-800/35 dark:to-yellow-700/40"
+                        : "bg-[#E5E7EB] dark:bg-[#000000]",
                     isCollapsed ? "w-20" : "w-80",
                     "transform lg:transform-none",
                     isInternalSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
@@ -168,8 +184,23 @@ export function DashboardSidebar() {
                                 </div>
                             </div>
                             <div className="flex-1 min-w-0">
-                                <p className="text-sm font-bold text-gray-900 dark:text-white truncate">
+                                <p className="text-sm font-bold text-gray-900 dark:text-white truncate flex items-center gap-1.5 flex-wrap">
                                     {dbUser.first_name} {dbUser.last_name}
+                                    {dbUser?.role === 'agent' && (
+                                        <>
+                                            <span className="text-yellow-500">👑</span>
+                                            {daysRemaining !== null && (
+                                                <span className={cn(
+                                                    "text-xs font-bold px-1.5 py-0.5 rounded",
+                                                    daysRemaining <= 3
+                                                        ? "bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400"
+                                                        : "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400"
+                                                )}>
+                                                    {daysRemaining}d
+                                                </span>
+                                            )}
+                                        </>
+                                    )}
                                 </p>
                                 <div className="flex items-center gap-1.5 mt-0.5">
                                     <span
@@ -182,8 +213,39 @@ export function DashboardSidebar() {
                             </div>
                         </div>
 
-                        {/* Upgrade Button - Customers Only */}
-                        {dbUser?.role === 'customer' && (
+                        {/* Subscription Info for Agents / Upgrade for Customers */}
+                        {dbUser?.role === 'agent' ? (
+                            <div className="mt-3 space-y-2">
+                                {/* Days Remaining Display */}
+                                {daysRemaining !== null && (
+                                    <div className="p-3 rounded-xl bg-gradient-to-r from-yellow-50 to-amber-50 dark:from-yellow-900/20 dark:to-amber-900/20 border border-yellow-200 dark:border-yellow-700">
+                                        <p className="text-xs text-gray-600 dark:text-gray-400 font-semibold mb-1">
+                                            Subscription Status
+                                        </p>
+                                        <div className="flex items-center gap-2">
+                                            <span className={cn(
+                                                "text-lg font-black",
+                                                daysRemaining <= 3 ? "text-red-600 dark:text-red-500" : "text-green-600 dark:text-green-500"
+                                            )}>
+                                                {daysRemaining} {daysRemaining === 1 ? 'day' : 'days'}
+                                            </span>
+                                            <span className="text-xs text-gray-500 dark:text-gray-400">remaining</span>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Extend Button */}
+                                <Link href="/dashboard/upgrade" className="block" onClick={closeSidebar}>
+                                    <Button
+                                        size="sm"
+                                        className="w-full h-9 text-xs font-bold bg-gradient-to-r from-yellow-400 to-yellow-600 hover:from-yellow-500 hover:to-yellow-700 text-black rounded-lg shadow-md hover:shadow-lg transition-all active:scale-95 flex items-center justify-center gap-2"
+                                    >
+                                        <Crown className="w-4 h-4" />
+                                        Extend Subscription
+                                    </Button>
+                                </Link>
+                            </div>
+                        ) : dbUser?.role === 'customer' && (
                             <Link href="/dashboard/upgrade" className="block mt-3" onClick={closeSidebar}>
                                 <Button
                                     size="sm"
