@@ -192,11 +192,13 @@ export default function ProfilePage() {
     }
 
     return (
-        <div className="space-y-6 max-w-3xl">
+        <div className="space-y-6 max-w-3xl scroll-smooth">
             <h1 className="text-2xl font-bold">My Profile</h1>
 
             {/* Profile Card */}
-            <Card>
+            <Card className={cn(
+                dbUser?.role === 'agent' && "bg-gradient-to-br from-yellow-400 via-amber-500 to-yellow-600 border-yellow-600/30"
+            )}>
                 <CardHeader>
                     <div className="flex items-center gap-4">
                         {(() => {
@@ -214,27 +216,32 @@ export default function ProfilePage() {
                         })()}
                         <div>
                             <CardTitle className="text-xl flex items-center gap-2 flex-wrap">
-                                {dbUser?.role === 'agent' ? (
-                                    <>
-                                        <span className="flex items-center">
-                                            {dbUser?.first_name} {dbUser?.last_name}
-                                        </span>
-                                        {daysRemaining !== null && (
-                                            <Badge className={cn(
-                                                "font-bold text-xs ml-2",
-                                                daysRemaining <= 3
-                                                    ? "bg-red-100 text-red-700 hover:bg-red-200"
-                                                    : "bg-green-100 text-green-700 hover:bg-green-200"
-                                            )}>
-                                                {daysRemaining} {daysRemaining === 1 ? 'day' : 'days'} left
-                                            </Badge>
-                                        )}
-                                    </>
-                                ) : (
-                                    <span>{dbUser?.first_name} {dbUser?.last_name}</span>
+                                <span className={cn(
+                                    "flex items-center gap-2",
+                                    dbUser?.role === 'agent' && "text-black font-black"
+                                )}>
+                                    {dbUser?.first_name} {dbUser?.last_name}
+                                    {dbUser?.role === 'agent' && (
+                                        <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-yellow-300 to-amber-400 border border-black/10 shadow-sm">
+                                            <Crown className="w-3 h-3 text-black fill-black" />
+                                            <span className="text-[10px] font-black text-black uppercase tracking-wider">PREMIUM</span>
+                                        </div>
+                                    )}
+                                </span>
+                                {dbUser?.role === 'agent' && daysRemaining !== null && (
+                                    <Badge className={cn(
+                                        "font-bold text-xs",
+                                        daysRemaining <= 3
+                                            ? "bg-red-100 text-red-700 hover:bg-red-200"
+                                            : "bg-green-100 text-green-700 hover:bg-green-200"
+                                    )}>
+                                        {daysRemaining} {daysRemaining === 1 ? 'day' : 'days'} left
+                                    </Badge>
                                 )}
                             </CardTitle>
-                            <CardDescription>{dbUser?.email}</CardDescription>
+                            <CardDescription className={cn(
+                                dbUser?.role === 'agent' && "text-black/70 font-semibold"
+                            )}>{dbUser?.email}</CardDescription>
                             <div className="flex items-center gap-2 mt-2">
                                 <Badge variant={dbUser?.role === 'admin' ? 'destructive' : 'secondary'}>
                                     {dbUser?.role || 'User'}
@@ -290,41 +297,91 @@ export default function ProfilePage() {
                         </div>
                     ) : (
                         <>
-                            <div className="space-y-4">
-                                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-                                    <User className="w-5 h-5 text-muted-foreground" />
-                                    <div>
-                                        <p className="text-sm text-muted-foreground">Full Name</p>
-                                        <p className="font-medium flex items-center gap-2">
+                            <div className="space-y-3 sm:space-y-4">
+                                <div className={cn(
+                                    "flex items-center gap-3 p-3 sm:p-4 rounded-lg transition-all",
+                                    dbUser?.role === 'agent'
+                                        ? "bg-yellow-300/40 border border-yellow-600/20"
+                                        : "bg-muted/50"
+                                )}>
+                                    <User className={cn(
+                                        "w-5 h-5 flex-shrink-0",
+                                        dbUser?.role === 'agent' ? "text-black" : "text-muted-foreground"
+                                    )} />
+                                    <div className="min-w-0 flex-1">
+                                        <p className={cn(
+                                            "text-sm",
+                                            dbUser?.role === 'agent' ? "text-black/70 font-bold" : "text-muted-foreground"
+                                        )}>Full Name</p>
+                                        <p className={cn(
+                                            "font-medium break-words",
+                                            dbUser?.role === 'agent' && "text-black font-bold"
+                                        )}>
                                             {dbUser?.first_name} {dbUser?.last_name}
-                                            {dbUser?.role === 'agent' && (
-                                                <span className="relative ml-1">
-                                                    <span className="opacity-0">{dbUser?.last_name?.[dbUser?.last_name?.length - 1] || ''}</span>
-                                                    <Crown className="absolute -top-3 -right-2 w-4 h-4 text-yellow-500 fill-yellow-500 -rotate-[15deg] drop-shadow-sm" />
-                                                </span>
-                                            )}
                                         </p>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-                                    <Mail className="w-5 h-5 text-muted-foreground" />
-                                    <div>
-                                        <p className="text-sm text-muted-foreground">Email</p>
-                                        <p className="font-medium">{dbUser?.email}</p>
+                                <div className={cn(
+                                    "flex items-center gap-3 p-3 sm:p-4 rounded-lg transition-all",
+                                    dbUser?.role === 'agent'
+                                        ? "bg-yellow-300/40 border border-yellow-600/20"
+                                        : "bg-muted/50"
+                                )}>
+                                    <Mail className={cn(
+                                        "w-5 h-5 flex-shrink-0",
+                                        dbUser?.role === 'agent' ? "text-black" : "text-muted-foreground"
+                                    )} />
+                                    <div className="min-w-0 flex-1">
+                                        <p className={cn(
+                                            "text-sm",
+                                            dbUser?.role === 'agent' ? "text-black/70 font-bold" : "text-muted-foreground"
+                                        )}>Email</p>
+                                        <p className={cn(
+                                            "font-medium break-all",
+                                            dbUser?.role === 'agent' && "text-black font-bold"
+                                        )}>{dbUser?.email}</p>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-                                    <Phone className="w-5 h-5 text-muted-foreground" />
-                                    <div>
-                                        <p className="text-sm text-muted-foreground">Phone Number</p>
-                                        <p className="font-medium">{dbUser?.phone_number}</p>
+                                <div className={cn(
+                                    "flex items-center gap-3 p-3 sm:p-4 rounded-lg transition-all",
+                                    dbUser?.role === 'agent'
+                                        ? "bg-yellow-300/40 border border-yellow-600/20"
+                                        : "bg-muted/50"
+                                )}>
+                                    <Phone className={cn(
+                                        "w-5 h-5 flex-shrink-0",
+                                        dbUser?.role === 'agent' ? "text-black" : "text-muted-foreground"
+                                    )} />
+                                    <div className="min-w-0 flex-1">
+                                        <p className={cn(
+                                            "text-sm",
+                                            dbUser?.role === 'agent' ? "text-black/70 font-bold" : "text-muted-foreground"
+                                        )}>Phone Number</p>
+                                        <p className={cn(
+                                            "font-medium",
+                                            dbUser?.role === 'agent' && "text-black font-bold"
+                                        )}>{dbUser?.phone_number}</p>
                                     </div>
                                 </div>
-                                <div className="flex items-center gap-3 p-3 rounded-lg bg-muted/50">
-                                    <Calendar className="w-5 h-5 text-muted-foreground" />
-                                    <div>
-                                        <p className="text-sm text-muted-foreground">Member Since</p>
-                                        <p className="font-medium">{dbUser?.created_at ? formatDate(dbUser.created_at) : 'N/A'}</p>
+                                <div className={cn(
+                                    "flex items-center gap-3 p-3 sm:p-4 rounded-lg transition-all",
+                                    dbUser?.role === 'agent'
+                                        ? "bg-yellow-300/40 border border-yellow-600/20"
+                                        : "bg-muted/50"
+                                )}>
+                                    <Calendar className={cn(
+                                        "w-5 h-5 flex-shrink-0",
+                                        dbUser?.role === 'agent' ? "text-black" : "text-muted-foreground"
+                                    )} />
+                                    <div className="min-w-0 flex-1">
+                                        <p className={cn(
+                                            "text-sm",
+                                            dbUser?.role === 'agent' ? "text-black/70 font-bold" : "text-muted-foreground"
+                                        )}>Member Since</p>
+                                        <p className={cn(
+                                            "font-medium",
+                                            dbUser?.role === 'agent' && "text-black font-bold"
+                                        )}>{dbUser?.created_at ? formatDate(dbUser.created_at) : 'N/A'}</p>
                                     </div>
                                 </div>
                             </div>
@@ -337,10 +394,18 @@ export default function ProfilePage() {
             </Card>
 
             {/* Security Card */}
-            <Card>
+            <Card className={cn(
+                dbUser?.role === 'agent' && "bg-gradient-to-br from-yellow-400 via-amber-500 to-yellow-600 border-yellow-600/30"
+            )}>
                 <CardHeader>
-                    <CardTitle className="flex items-center gap-2">
-                        <Shield className="w-5 h-5" />
+                    <CardTitle className={cn(
+                        "flex items-center gap-2",
+                        dbUser?.role === 'agent' && "text-black"
+                    )}>
+                        <Shield className={cn(
+                            "w-5 h-5",
+                            dbUser?.role === 'agent' && "text-black"
+                        )} />
                         Security
                     </CardTitle>
                 </CardHeader>
