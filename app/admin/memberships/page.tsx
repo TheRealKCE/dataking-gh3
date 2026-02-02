@@ -79,22 +79,54 @@ export default function AdminMembershipsPage() {
     const handleSavePrices = async () => {
         setIsSavingPrices(true)
         try {
-            const updates = [
+            // Update each price individually for better reliability
+            const priceKeys = [
                 { key: 'agent_upgrade_price_3d', value: prices['3d'] },
                 { key: 'agent_upgrade_price_14d', value: prices['14d'] },
                 { key: 'agent_upgrade_price_30d', value: prices['30d'] },
             ]
 
-            const { error } = await (supabase.from('admin_settings') as any).upsert(updates, {
-                onConflict: 'key',
-                ignoreDuplicates: false
-            })
-            if (error) throw error
+            for (const item of priceKeys) {
+                // First, try to update existing record
+                const { data: existing } = await (supabase as any)
+                    .from('admin_settings')
+                    .select('*')
+                    .eq('key', item.key)
+                    .single()
 
-            toast.success('Prices updated successfully')
+                if (existing) {
+                    // Update existing record
+                    const { error: updateError } = await (supabase as any)
+                        .from('admin_settings')
+                        .update({ value: item.value })
+                        .eq('key', item.key)
+
+                    if (updateError) throw updateError
+                } else {
+                    // Insert new record
+                    const { error: insertError } = await (supabase as any)
+                        .from('admin_settings')
+                        .insert({ key: item.key, value: item.value })
+
+                    if (insertError) throw insertError
+                }
+            }
+
+            // Verify the save by fetching back the values
+            const { data: verifyData } = await (supabase as any)
+                .from('admin_settings')
+                .select('*')
+
+            const p3 = verifyData?.find((s: any) => s.key === 'agent_upgrade_price_3d')?.value
+            const p14 = verifyData?.find((s: any) => s.key === 'agent_upgrade_price_14d')?.value
+            const p30 = verifyData?.find((s: any) => s.key === 'agent_upgrade_price_30d')?.value
+
+            console.log('Verified saved prices:', { p3, p14, p30 })
+
+            toast.success(`Prices updated: 3d=GHS${p3}, 14d=GHS${p14}, 30d=GHS${p30}`)
         } catch (error: any) {
             console.error('Error saving prices:', error)
-            toast.error('Failed to save prices')
+            toast.error('Failed to save prices: ' + error.message)
         } finally {
             setIsSavingPrices(false)
         }
