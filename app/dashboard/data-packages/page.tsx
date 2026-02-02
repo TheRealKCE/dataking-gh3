@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 import { supabase } from '@/lib/supabase'
-import { formatCurrency, getNetworkGradient } from '@/lib/utils'
+import { formatCurrency, getNetworkGradient, cn } from '@/lib/utils'
 import { validateGhanaianPhone, detectNetwork } from '@/lib/phone-validation'
 import { NetworkIcon } from '@/components/network-icon'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -478,13 +478,13 @@ export default function DataPackagesPage() {
 
                 {/* Bulk Order Section - Agents Only */}
                 {dbUser?.role === 'agent' && (
-                    <Card className="w-full max-w-3xl mx-auto border-dashed border-2 bg-slate-50 dark:bg-slate-900/50">
+                    <Card className="w-full max-w-3xl mx-auto border-dashed border-2 border-[#FFCE00]/30 bg-[#1a1a1a] shadow-2xl">
                         <CardHeader className="pb-2">
                             <div className="flex items-center gap-2">
-                                <Upload className="w-5 h-5 text-purple-600" />
+                                <Upload className="w-5 h-5 text-[#FFCE00]" />
                                 <div className="text-left">
-                                    <CardTitle className="text-lg">Bulk Orders (Excel/Text)</CardTitle>
-                                    <p className="text-sm text-muted-foreground">Upload multiple phone numbers at once</p>
+                                    <CardTitle className="text-lg text-[#FFCE00]">Bulk Orders (Excel/Text)</CardTitle>
+                                    <p className="text-sm text-[#25D366]">Upload multiple phone numbers at once</p>
                                 </div>
                             </div>
                         </CardHeader>
@@ -510,17 +510,17 @@ export default function DataPackagesPage() {
                                 </div>
                             </div>
 
-                            <div className="flex gap-2 border-b">
+                            <div className="flex gap-2 border-b border-[#FFCE00]/20">
                                 <Button
                                     variant="default"
-                                    className="rounded-b-none bg-purple-600 hover:bg-purple-700 text-white"
+                                    className="rounded-b-none bg-[#FFCE00] hover:bg-[#FFCE00]/90 text-[#1a1a1a] font-bold"
                                     size="sm"
                                 >
                                     Text Input
                                 </Button>
                                 <Button
                                     variant="ghost"
-                                    className="rounded-b-none text-muted-foreground"
+                                    className="rounded-b-none text-gray-500"
                                     size="sm"
                                     disabled
                                 >
@@ -529,20 +529,20 @@ export default function DataPackagesPage() {
                             </div>
 
                             <div className="space-y-2">
-                                <Label className="text-left block">Paste numbers and volumes (e.g. 0551053716 1)</Label>
+                                <Label className="text-left block text-[#FFCE00]">Paste numbers and volumes (e.g. 0551053716 1)</Label>
                                 <textarea
-                                    className="flex min-h-[150px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 font-mono"
+                                    className="flex min-h-[150px] w-full rounded-md border-0 bg-[#FFCE00] px-3 py-2 text-sm text-[#1a1a1a] placeholder:text-[#1a1a1a]/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFCE00] font-mono font-bold"
                                     placeholder="One per line, e.g. 0551053716 1"
                                     value={bulkText}
                                     onChange={(e) => setBulkText(e.target.value)}
                                 />
-                                <p className="text-xs text-muted-foreground text-left">
+                                <p className="text-xs text-[#25D366] text-left font-medium">
                                     Format: Phone number followed by space and volume in GB
                                 </p>
                             </div>
 
                             <Button
-                                className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+                                className="w-full bg-[#FFCE00] hover:bg-[#FFCE00]/90 text-[#1a1a1a] font-black"
                                 onClick={handleValidateBulk}
                                 disabled={isValidating}
                             >
@@ -558,12 +558,12 @@ export default function DataPackagesPage() {
                             {validationResults.length > 0 && (
                                 <div className="mt-6 space-y-4">
                                     <div className="flex items-center justify-between">
-                                        <h3 className="font-bold text-lg">Validation Results</h3>
+                                        <h3 className="font-bold text-lg text-[#FFCE00]">Validation Results</h3>
                                         <div className="flex gap-2">
                                             <Button
                                                 variant="outline"
                                                 size="sm"
-                                                className="text-orange-600 border-orange-200 hover:bg-orange-50"
+                                                className="text-[#FFCE00] border-[#FFCE00]/50 hover:bg-[#FFCE00]/10 bg-transparent"
                                                 onClick={clearInvalid}
                                             >
                                                 <Trash2 className="w-3 h-3 mr-1" />
@@ -572,7 +572,7 @@ export default function DataPackagesPage() {
                                             <Button
                                                 variant="outline"
                                                 size="sm"
-                                                className="text-red-600 border-red-200 hover:bg-red-50"
+                                                className="text-[#E60000] border-[#E60000]/50 hover:bg-[#E60000]/10 bg-transparent"
                                                 onClick={clearAllResults}
                                             >
                                                 <Trash2 className="w-3 h-3 mr-1" />
@@ -581,34 +581,37 @@ export default function DataPackagesPage() {
                                         </div>
                                     </div>
 
-                                    <div className="rounded-md border overflow-hidden">
-                                        <table className="w-full text-sm">
-                                            <thead className="bg-muted/50">
-                                                <tr>
-                                                    <th className="p-3 text-left font-medium">#</th>
-                                                    <th className="p-3 text-left font-medium">Phone Number</th>
-                                                    <th className="p-3 text-left font-medium">Volume (GB)</th>
-                                                    <th className="p-3 text-left font-medium">Price</th>
-                                                    <th className="p-3 text-left font-medium">Status</th>
+                                    <div className="rounded-md border border-[#FFCE00]/20 max-h-[250px] overflow-y-auto overflow-x-auto">
+                                        <table className="w-full text-sm min-w-[500px]">
+                                            <thead className="bg-black sticky top-0 z-10">
+                                                <tr className="border-b border-[#FFCE00]/20">
+                                                    <th className="p-3 text-left font-bold text-[#FFCE00]">#</th>
+                                                    <th className="p-3 text-left font-bold text-[#FFCE00]">Phone Number</th>
+                                                    <th className="p-3 text-left font-bold text-[#FFCE00]">Volume</th>
+                                                    <th className="p-3 text-left font-bold text-[#FFCE00]">Price</th>
+                                                    <th className="p-3 text-left font-bold text-[#FFCE00]">Status</th>
                                                 </tr>
                                             </thead>
-                                            <tbody className="divide-y">
+                                            <tbody className="divide-y divide-[#FFCE00]/10">
                                                 {validationResults.map((res, i) => (
-                                                    <tr key={i} className={res.isValid ? 'bg-green-50/50' : 'bg-red-50/50'}>
-                                                        <td className="p-3">{res.lineNumber}</td>
-                                                        <td className="p-3 font-mono">{res.phoneNumber}</td>
-                                                        <td className="p-3">{res.volume} GB</td>
-                                                        <td className="p-3 font-medium">
+                                                    <tr key={i} className={cn(
+                                                        "transition-colors",
+                                                        res.isValid ? 'bg-green-500/5' : 'bg-red-500/5'
+                                                    )}>
+                                                        <td className="p-3 text-white/70">{res.lineNumber}</td>
+                                                        <td className="p-3 font-mono text-white">{res.phoneNumber}</td>
+                                                        <td className="p-3 text-white">{res.volume} GB</td>
+                                                        <td className="p-3 font-bold text-[#FFCE00]">
                                                             {res.packagePrice > 0 ? formatCurrency(res.packagePrice) : '-'}
                                                         </td>
                                                         <td className="p-3">
                                                             {res.isValid ? (
-                                                                <Badge className="bg-green-100 text-green-700 border-0 hover:bg-green-100">
+                                                                <Badge className="bg-green-500/20 text-[#25D366] border border-[#25D366]/30 hover:bg-green-500/30">
                                                                     <CheckCircle2 className="w-3 h-3 mr-1" />
                                                                     Valid
                                                                 </Badge>
                                                             ) : (
-                                                                <Badge variant="destructive" className="bg-red-100 text-red-700 border-0 hover:bg-red-100">
+                                                                <Badge variant="destructive" className="bg-red-500/20 text-[#E60000] border border-[#E60000]/30 hover:bg-red-500/30">
                                                                     <AlertCircle className="w-3 h-3 mr-1" />
                                                                     {res.errorMessage || 'Invalid'}
                                                                 </Badge>
@@ -620,33 +623,33 @@ export default function DataPackagesPage() {
                                         </table>
                                     </div>
 
-                                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-muted/30 p-4 rounded-lg border">
-                                        <div className="flex gap-4 text-sm">
-                                            <span>Total: <b>{validationResults.length}</b></span>
-                                            <span className="text-green-600">Valid: <b>{validationResults.filter(r => r.isValid).length}</b></span>
-                                            <span className="text-red-600">Invalid: <b>{validationResults.filter(r => !r.isValid).length}</b></span>
+                                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-black/50 p-4 rounded-lg border border-[#FFCE00]/20">
+                                        <div className="flex gap-4 text-xs">
+                                            <span className="text-white/70">Total: <b className="text-white">{validationResults.length}</b></span>
+                                            <span className="text-[#25D366]">Valid: <b>{validationResults.filter(r => r.isValid).length}</b></span>
+                                            <span className="text-[#E60000]">Invalid: <b>{validationResults.filter(r => !r.isValid).length}</b></span>
                                         </div>
-                                        <div className="flex items-center gap-4">
+                                        <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
                                             <div className="text-right">
-                                                <p className="text-xs text-muted-foreground">Total Cost</p>
-                                                <p className="text-xl font-black text-purple-600">
+                                                <p className="text-[10px] text-[#25D366] font-bold uppercase tracking-wider">Total Cost</p>
+                                                <p className="text-xl font-black text-[#FFCE00]">
                                                     {formatCurrency(validationResults.reduce((sum, r) => sum + r.packagePrice, 0))}
                                                 </p>
                                             </div>
                                             <Button
-                                                className="bg-purple-600 hover:bg-purple-700"
+                                                className="bg-[#FFCE00] hover:bg-[#FFCE00]/90 text-[#1a1a1a] font-black"
                                                 onClick={handleSubmitBulkOrder}
                                                 disabled={isSubmittingBulk || validationResults.filter(r => r.isValid).length === 0}
                                             >
                                                 {isSubmittingBulk ? (
                                                     <>
                                                         <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                                        Processing...
+                                                        Wait...
                                                     </>
                                                 ) : (
                                                     <>
                                                         <CheckCircle2 className="w-4 h-4 mr-2" />
-                                                        SUBMIT ORDER
+                                                        SUBMIT
                                                     </>
                                                 )}
                                             </Button>
