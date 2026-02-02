@@ -10,7 +10,9 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Prices are required' }, { status: 400 })
         }
 
-        // Update each price individually with proper error handling
+        // Update each price setting directly using any-typed client
+        const db = supabase as any
+
         const updates = [
             { key: 'agent_upgrade_price_3d', value: String(prices['3d']) },
             { key: 'agent_upgrade_price_14d', value: String(prices['14d']) },
@@ -19,15 +21,10 @@ export async function POST(request: NextRequest) {
 
         for (const { key, value } of updates) {
             // Delete existing record if it exists
-            await (supabase
-                .from('admin_settings')
-                .delete()
-                .eq('key', key) as any)
+            await db.from('admin_settings').delete().eq('key', key)
 
             // Insert new record
-            const { error } = await (supabase
-                .from('admin_settings')
-                .insert({ key, value }) as any)
+            const { error } = await db.from('admin_settings').insert({ key, value })
 
             if (error) {
                 console.error(`Error updating ${key}:`, error)
@@ -39,10 +36,10 @@ export async function POST(request: NextRequest) {
         }
 
         // Verify the updates
-        const { data: verifyData, error: verifyError } = await (supabase
+        const { data: verifyData, error: verifyError } = await db
             .from('admin_settings')
             .select('key, value')
-            .in('key', ['agent_upgrade_price_3d', 'agent_upgrade_price_14d', 'agent_upgrade_price_30d']) as any)
+            .in('key', ['agent_upgrade_price_3d', 'agent_upgrade_price_14d', 'agent_upgrade_price_30d'])
 
         if (verifyError) {
             console.error('Verification error:', verifyError)
