@@ -18,6 +18,7 @@ import { Badge } from '@/components/ui/badge'
 import { roleConfig } from '@/lib/roles'
 import { supabase } from '@/lib/supabase'
 import { Menu, Sun, Moon, Bell, User, Settings, LogOut } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 export function DashboardHeader() {
     const { dbUser, signOut, isAdmin, isSubAdmin } = useAuth()
@@ -51,19 +52,35 @@ export function DashboardHeader() {
     const RoleIcon = currentRole.icon
 
     return (
-        <header className="sticky top-0 z-40 h-16 bg-white/80 dark:bg-gray-900/80 backdrop-blur-xl border-b border-gray-200 dark:border-gray-800">
+        <header className={cn(
+            "sticky top-0 z-40 h-16 backdrop-blur-xl border-b transition-colors duration-200",
+            dbUser?.role === 'agent'
+                ? "bg-gradient-to-b from-yellow-400 via-amber-500 to-amber-600 border-amber-600/20 shadow-sm"
+                : "bg-white/80 dark:bg-gray-900/80 border-gray-200 dark:border-gray-800"
+        )}>
             <div className="h-full px-4 lg:px-8 flex items-center justify-between">
                 {/* Mobile Menu Button */}
-                <Button variant="ghost" size="icon" className="lg:hidden" onClick={toggleSidebar}>
+                <Button
+                    variant="ghost"
+                    size="icon"
+                    className={cn("lg:hidden", dbUser?.role === 'agent' ? "text-black hover:bg-black/10" : "")}
+                    onClick={toggleSidebar}
+                >
                     <Menu className="w-5 h-5" />
                 </Button>
 
                 {/* Welcome Message */}
                 <div className="hidden lg:block">
-                    <h1 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    <h1 className={cn(
+                        "text-lg font-semibold",
+                        dbUser?.role === 'agent' ? "text-black drop-shadow-sm font-bold" : "text-gray-900 dark:text-white"
+                    )}>
                         Welcome back, {dbUser?.first_name || 'User'}! 👋
                     </h1>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                    <p className={cn(
+                        "text-sm",
+                        dbUser?.role === 'agent' ? "text-black/80 font-medium" : "text-gray-500 dark:text-gray-400"
+                    )}>
                         Here's what's happening with your account
                     </p>
                 </div>
@@ -83,10 +100,17 @@ export function DashboardHeader() {
 
                     {/* Notifications */}
                     <Link href="/dashboard/notifications">
-                        <Button variant="ghost" size="icon" className="relative">
-                            <Bell className="w-5 h-5 text-gray-500 dark:text-gray-400" />
+                        <Button
+                            variant="ghost"
+                            size="icon"
+                            className={cn("relative", dbUser?.role === 'agent' ? "text-black hover:bg-black/10" : "")}
+                        >
+                            <Bell className={cn("w-5 h-5", dbUser?.role === 'agent' ? "text-black" : "text-gray-500 dark:text-gray-400")} />
                             {unreadCount > 0 && (
-                                <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
+                                <span className={cn(
+                                    "absolute -top-1 -right-1 w-5 h-5 text-xs rounded-full flex items-center justify-center",
+                                    dbUser?.role === 'agent' ? "bg-black text-[#FFCE00]" : "bg-red-500 text-white"
+                                )}>
                                     {unreadCount > 9 ? '9+' : unreadCount}
                                 </span>
                             )}
@@ -148,6 +172,6 @@ export function DashboardHeader() {
                     </DropdownMenu>
                 </div>
             </div>
-        </header>
+        </header >
     )
 }
