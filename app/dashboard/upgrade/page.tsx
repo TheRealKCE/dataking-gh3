@@ -149,7 +149,7 @@ export default function UpgradePage() {
         'No Top Up Charges (0% Paystack Fee)',
         'Live Chat with Agents',
         'Faster Order Processing & Delivery',
-        'Crown Badge on Profile with Avatar'
+        'Premium Badge on Profile with Avatar'
     ]
 
     if (isLoading) {
@@ -157,7 +157,7 @@ export default function UpgradePage() {
             <div className="fixed inset-0 bg-[#fffdf5] flex items-center justify-center z-50">
                 <div className="relative">
                     <div className="absolute inset-0 animate-ping rounded-full bg-yellow-400/20"></div>
-                    <Crown className="w-16 h-16 text-yellow-600 animate-bounce relative z-10" />
+                    <Star className="w-16 h-16 text-yellow-600 animate-bounce relative z-10" />
                 </div>
             </div>
         )
@@ -205,9 +205,9 @@ export default function UpgradePage() {
                     <div className="text-center mb-8 sm:mb-12 space-y-3 sm:space-y-4">
                         <div className="mb-4 sm:mb-6 flex justify-center">
                             <div className="relative">
-                                <Crown className="w-20 h-20 sm:w-28 sm:h-28 text-yellow-600 animate-[bounce_2s_infinite] drop-shadow-xl" />
+                                <Star className="w-20 h-20 sm:w-28 sm:h-28 text-yellow-600 animate-[bounce_2s_infinite] drop-shadow-xl" />
                                 <div className="absolute inset-0 animate-ping opacity-20 pointer-events-none">
-                                    <Crown className="w-20 h-20 sm:w-28 sm:h-28 text-yellow-600" />
+                                    <Star className="w-20 h-20 sm:w-28 sm:h-28 text-yellow-600" />
                                 </div>
                             </div>
                         </div>
@@ -246,7 +246,7 @@ export default function UpgradePage() {
                                     <div className={`absolute -top-3 left-1/2 -translate-x-1/2 px-3 sm:px-4 py-1.5 bg-gradient-to-r ${tier.badgeColor} rounded-full shadow-lg z-20 flex items-center gap-1.5 sm:gap-2`}>
                                         {tier.tier === 'bronze' && <Zap className="w-3 h-3 text-white fill-current" />}
                                         {tier.tier === 'gold' && <Sparkles className="w-3 h-3 text-white fill-current" />}
-                                        {tier.tier === 'diamond' && <Crown className="w-3 h-3 text-white fill-current" />}
+                                        {tier.tier === 'diamond' && <Star className="w-3 h-3 text-white fill-current" />}
                                         <span className="text-[10px] font-black text-white uppercase tracking-wider sm:tracking-widest">
                                             {tier.badgeText}
                                         </span>

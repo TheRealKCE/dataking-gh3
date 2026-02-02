@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Crown, CheckCircle, X, Sparkles } from 'lucide-react'
+import { Star, CheckCircle, X, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 
 interface CongratsModalProps {
@@ -84,9 +84,9 @@ export default function CongratsModal({ onClose, onBrowsePackages }: CongratsMod
 
                 <div className="flex justify-center mb-6">
                     <div className="relative">
-                        <Crown className="w-24 h-24 sm:w-32 sm:h-32 text-white animate-[bounce_1s_infinite] drop-shadow-lg" />
+                        <Star className="w-24 h-24 sm:w-32 sm:h-32 text-white animate-[bounce_1s_infinite] drop-shadow-lg" />
                         <div className="absolute inset-0 animate-ping opacity-30">
-                            <Crown className="w-24 h-24 sm:w-32 sm:h-32 text-white" />
+                            <Star className="w-24 h-24 sm:w-32 sm:h-32 text-white" />
                         </div>
                         <Sparkles className="absolute -top-2 -right-2 w-8 h-8 text-white animate-pulse" />
                         <Sparkles className="absolute -bottom-2 -left-2 w-6 h-6 text-white animate-pulse" style={{ animationDelay: '0.5s' }} />
@@ -106,9 +106,9 @@ export default function CongratsModal({ onClose, onBrowsePackages }: CongratsMod
                 {/* Features List */}
                 <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 sm:p-8 mb-8 border-2 border-white/20">
                     <h3 className="text-xl sm:text-2xl font-black text-white mb-5 text-center flex items-center justify-center gap-2">
-                        <Crown className="w-6 h-6" />
+                        <Star className="w-6 h-6" />
                         Your Premium Benefits
-                        <Crown className="w-6 h-6" />
+                        <Star className="w-6 h-6" />
                     </h3>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         {agentFeatures.map((feature, index) => (
