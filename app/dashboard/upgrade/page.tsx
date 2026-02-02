@@ -188,11 +188,20 @@ export default function UpgradePage() {
                             key={tier.id}
                             className={`relative bg-white rounded-3xl p-8 flex flex-col transition-all duration-500 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.1)] hover:shadow-[0_20px_40px_-4px_rgba(234,179,8,0.15)] border ${tier.color} ${tier.popular ? 'md:scale-105 z-10' : 'opacity-95'}`}
                         >
-                            {tier.popular && (
+                            {tier.badgeText && tier.tier === 'gold' && (
                                 <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1.5 bg-gradient-to-r from-yellow-500 to-amber-600 rounded-full shadow-lg z-20 flex items-center gap-2">
                                     <Sparkles className="w-3 h-3 text-white fill-current" />
                                     <span className="text-[10px] font-black text-white uppercase tracking-widest">
-                                        MOST POPULAR
+                                        {tier.badgeText}
+                                    </span>
+                                </div>
+                            )}
+
+                            {tier.badgeText && tier.tier === 'diamond' && (
+                                <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-700 rounded-full shadow-lg z-20 flex items-center gap-2">
+                                    <Crown className="w-3 h-3 text-white fill-current" />
+                                    <span className="text-[10px] font-black text-white uppercase tracking-widest">
+                                        {tier.badgeText}
                                     </span>
                                 </div>
                             )}
@@ -224,15 +233,12 @@ export default function UpgradePage() {
                             <Button
                                 onClick={() => handleUpgrade(tier.id)}
                                 disabled={isProcessing !== null}
-                                className={`w-full h-14 rounded-2xl text-base font-black transition-all active:scale-95 shadow-lg ${tier.popular
-                                    ? 'bg-gradient-to-r from-yellow-500 to-amber-600 hover:from-yellow-600 hover:to-amber-700 text-white shadow-yellow-500/20'
-                                    : 'bg-[#1a1a2e] hover:bg-[#1a1a2e]/90 text-white'
-                                    }`}
+                                className={`w-full h-14 rounded-2xl text-base font-black transition-all active:scale-95 text-white ${tier.buttonClass}`}
                             >
                                 {isProcessing === tier.id ? (
                                     <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
                                 ) : (
-                                    'Renew / Extend'
+                                    dbUser?.role === 'agent' ? 'Renew / Extend' : 'Be an Agent Today'
                                 )}
                             </Button>
                         </div>
