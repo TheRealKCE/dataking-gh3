@@ -18,16 +18,37 @@ import {
     Save,
     Loader2,
     Search,
-    UserPlus,
-    RefreshCw
+    RefreshCw,
+    MoreVertical,
+    History
 } from 'lucide-react'
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog'
+import {
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
 
 export default function AdminMembershipsPage() {
     const [agents, setAgents] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
     const [isSavingPrices, setIsSavingPrices] = useState(false)
     const [searchTerm, setSearchTerm] = useState('')
+
+    // Extension Dialog State
+    const [extensionUser, setExtensionUser] = useState<any>(null)
+    const [extensionDays, setExtensionDays] = useState('30')
+    const [isExtending, setIsExtending] = useState(false)
 
     // Pricing state
     const [prices, setPrices] = useState({
@@ -62,7 +83,7 @@ export default function AdminMembershipsPage() {
                 setShowStrikethrough(showStrike)
             }
 
-            // Fetch Agents
+            // Fetch Agents - Ensure we get ALL agents regardless of how they were set
             const { data: agentsData, error: agentsError } = await (supabase as any)
                 .from('users')
                 .select('*')
@@ -95,10 +116,7 @@ export default function AdminMembershipsPage() {
                 throw new Error(data.error || 'Failed to update prices')
             }
 
-            console.log('Price update response:', data)
             toast.success(data.message || '✅ Prices updated successfully!')
-
-            // Refresh data to show updated values
             await fetchData()
         } catch (error: any) {
             console.error('Error saving prices:', error)
@@ -108,28 +126,43 @@ export default function AdminMembershipsPage() {
         }
     }
 
-    const handleExtend = async (userId: string, currentExpiry: string | null) => {
+    const handleExtend = async () => {
+        if (!extensionUser || !extensionDays) return
+
+        const days = parseInt(extensionDays)
+        if (isNaN(days) || days <= 0) {
+            toast.error('Please enter a valid number of days')
+            return
+        }
+
+        setIsExtending(true)
         try {
+            const currentExpiry = extensionUser.agent_expires_at
             const baseDate = currentExpiry ? new Date(currentExpiry) : new Date()
+
             // If already expired, start from now
             const now = new Date()
             const startingPoint = baseDate > now ? baseDate : now
 
             const newExpiry = new Date(startingPoint)
-            newExpiry.setDate(newExpiry.getDate() + 30)
+            newExpiry.setDate(newExpiry.getDate() + days)
 
             const { error } = await (supabase as any)
                 .from('users')
                 .update({ agent_expires_at: newExpiry.toISOString() })
-                .eq('id', userId)
+                .eq('id', extensionUser.id)
 
             if (error) throw error
 
-            setAgents(agents.map(a => a.id === userId ? { ...a, agent_expires_at: newExpiry.toISOString() } : a))
-            toast.success('Subscription extended by 30 days')
+            setAgents(agents.map(a => a.id === extensionUser.id ? { ...a, agent_expires_at: newExpiry.toISOString() } : a))
+            toast.success(`Subscription extended by ${days} days`)
+            setExtensionUser(null)
+            setExtensionDays('30')
         } catch (error: any) {
             console.error('Error extending sub:', error)
             toast.error('Failed to extend subscription')
+        } finally {
+            setIsExtending(false)
         }
     }
 
@@ -172,7 +205,7 @@ export default function AdminMembershipsPage() {
                     <CardContent className="pt-6 space-y-6">
                         <div className="space-y-4">
                             <div className="space-y-2">
-                                <Label>3 Days Access (GHS)</Label>
+                                <Label>3 Days Access (GHS) - Starter</Label>
                                 <Input
                                     type="number"
                                     value={prices['3d']}
@@ -227,7 +260,7 @@ export default function AdminMembershipsPage() {
 
                 {/* Agents List Card */}
                 <Card className="lg:col-span-2 shadow-xl border-blue-50">
-                    <CardHeader className="flex flex-row items-center justify-between pb-4 border-b">
+                    <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-4 border-b gap-4">
                         <div className="space-y-1">
                             <CardTitle className="text-lg flex items-center gap-2">
                                 <Users className="w-5 h-5 text-blue-600" />
@@ -235,7 +268,7 @@ export default function AdminMembershipsPage() {
                             </CardTitle>
                             <CardDescription>Agents with active subscriptions.</CardDescription>
                         </div>
-                        <div className="relative w-64">
+                        <div className="relative w-full sm:w-64">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                             <Input
                                 placeholder="Search agents..."
@@ -259,66 +292,168 @@ export default function AdminMembershipsPage() {
                                 </Button>
                             </div>
                         ) : (
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-sm">
-                                    <thead className="bg-slate-50/50 text-slate-500 font-bold">
-                                        <tr>
-                                            <th className="px-6 py-4 text-left">Agent</th>
-                                            <th className="px-6 py-4 text-left">Status</th>
-                                            <th className="px-6 py-4 text-center">Days Left</th>
-                                            <th className="px-6 py-4 text-right">Actions</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody className="divide-y">
-                                        {filteredAgents.map((agent) => {
-                                            const daysLeft = calculateDaysLeft(agent.agent_expires_at)
-                                            return (
-                                                <tr key={agent.id} className="hover:bg-slate-50/50 transition-colors">
-                                                    <td className="px-6 py-4">
-                                                        <div className="flex flex-col">
-                                                            <span className="font-black text-slate-900">{agent.first_name} {agent.last_name}</span>
-                                                            <span className="text-xs text-muted-foreground">{agent.email}</span>
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-6 py-4">
-                                                        {daysLeft > 0 ? (
-                                                            <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border-emerald-200 uppercase text-[10px] font-black">Active</Badge>
-                                                        ) : (
-                                                            <Badge variant="destructive" className="uppercase text-[10px] font-black">Expired</Badge>
-                                                        )}
-                                                    </td>
-                                                    <td className="px-6 py-4 text-center">
-                                                        <div className="flex flex-col items-center gap-1">
-                                                            <span className={`text-xl font-black ${daysLeft < 5 ? 'text-red-600' : 'text-slate-900'}`}>{daysLeft}</span>
-                                                            <div className="w-16 h-1 bg-slate-100 rounded-full overflow-hidden">
-                                                                <div
-                                                                    className={`h-full ${daysLeft < 5 ? 'bg-red-500' : 'bg-blue-500'}`}
-                                                                    style={{ width: `${Math.min((daysLeft / 30) * 100, 100)}%` }}
-                                                                />
+                            <>
+                                {/* Desktop Table View */}
+                                <div className="hidden md:block overflow-x-auto">
+                                    <table className="w-full text-sm">
+                                        <thead className="bg-slate-50/50 text-slate-500 font-bold">
+                                            <tr>
+                                                <th className="px-6 py-4 text-left">Agent</th>
+                                                <th className="px-6 py-4 text-left">Status</th>
+                                                <th className="px-6 py-4 text-center">Days Left</th>
+                                                <th className="px-6 py-4 text-right">Actions</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="divide-y">
+                                            {filteredAgents.map((agent) => {
+                                                const daysLeft = calculateDaysLeft(agent.agent_expires_at)
+                                                return (
+                                                    <tr key={agent.id} className="hover:bg-slate-50/50 transition-colors">
+                                                        <td className="px-6 py-4">
+                                                            <div className="flex flex-col">
+                                                                <span className="font-black text-slate-900">{agent.first_name} {agent.last_name}</span>
+                                                                <span className="text-xs text-muted-foreground">{agent.email}</span>
                                                             </div>
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-6 py-4 text-right">
-                                                        <Button
-                                                            size="sm"
-                                                            variant="outline"
-                                                            onClick={() => handleExtend(agent.id, agent.agent_expires_at)}
-                                                            className="font-bold border-blue-200 text-blue-600 hover:bg-blue-50"
-                                                        >
-                                                            <Calendar className="w-4 h-4 mr-2" />
-                                                            Extend +30d
-                                                        </Button>
-                                                    </td>
-                                                </tr>
-                                            )
-                                        })}
-                                    </tbody>
-                                </table>
-                            </div>
+                                                        </td>
+                                                        <td className="px-6 py-4">
+                                                            {daysLeft > 0 ? (
+                                                                <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border-emerald-200 uppercase text-[10px] font-black">Active</Badge>
+                                                            ) : (
+                                                                <Badge variant="destructive" className="uppercase text-[10px] font-black">Expired</Badge>
+                                                            )}
+                                                        </td>
+                                                        <td className="px-6 py-4 text-center">
+                                                            <div className="flex flex-col items-center gap-1">
+                                                                <span className={cn(
+                                                                    "text-xl font-black",
+                                                                    daysLeft < 5 ? "text-red-600" : "text-slate-900"
+                                                                )}>{daysLeft}</span>
+                                                                <div className="w-16 h-1 bg-slate-100 rounded-full overflow-hidden">
+                                                                    <div
+                                                                        className={cn("h-full", daysLeft < 5 ? "bg-red-500" : "bg-blue-500")}
+                                                                        style={{ width: `${Math.min((daysLeft / 30) * 100, 100)}%` }}
+                                                                    />
+                                                                </div>
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-6 py-4 text-right">
+                                                            <DropdownMenu>
+                                                                <DropdownMenuTrigger asChild>
+                                                                    <Button variant="ghost" size="sm">
+                                                                        <MoreVertical className="w-4 h-4" />
+                                                                    </Button>
+                                                                </DropdownMenuTrigger>
+                                                                <DropdownMenuContent align="end">
+                                                                    <DropdownMenuItem onClick={() => {
+                                                                        setExtensionUser(agent)
+                                                                        setExtensionDays('30')
+                                                                    }}>
+                                                                        <Calendar className="w-4 h-4 mr-2" />
+                                                                        Extend Access
+                                                                    </DropdownMenuItem>
+                                                                </DropdownMenuContent>
+                                                            </DropdownMenu>
+                                                        </td>
+                                                    </tr>
+                                                )
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                {/* Mobile Card View */}
+                                <div className="md:hidden space-y-4 p-4">
+                                    {filteredAgents.map((agent) => {
+                                        const daysLeft = calculateDaysLeft(agent.agent_expires_at)
+                                        return (
+                                            <div key={agent.id} className="bg-white rounded-xl border p-4 shadow-sm flex flex-col gap-3">
+                                                <div className="flex justify-between items-start">
+                                                    <div>
+                                                        <h3 className="font-black text-slate-900">{agent.first_name} {agent.last_name}</h3>
+                                                        <p className="text-xs text-muted-foreground">{agent.email}</p>
+                                                    </div>
+                                                    {daysLeft > 0 ? (
+                                                        <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border-emerald-200 uppercase text-[10px] font-black">Active</Badge>
+                                                    ) : (
+                                                        <Badge variant="destructive" className="uppercase text-[10px] font-black">Expired</Badge>
+                                                    )}
+                                                </div>
+
+                                                <div className="flex items-center justify-between bg-slate-50 p-3 rounded-lg">
+                                                    <span className="text-xs font-bold text-slate-500">Days Remaining</span>
+                                                    <div className="flex items-center gap-2">
+                                                        <Clock className="w-3.5 h-3.5 text-slate-400" />
+                                                        <span className={cn(
+                                                            "text-lg font-black",
+                                                            daysLeft < 5 ? "text-red-600" : "text-slate-900"
+                                                        )}>{daysLeft}</span>
+                                                    </div>
+                                                </div>
+
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    className="w-full text-blue-600 border-blue-200 hover:bg-blue-50"
+                                                    onClick={() => {
+                                                        setExtensionUser(agent)
+                                                        setExtensionDays('30')
+                                                    }}
+                                                >
+                                                    <Calendar className="w-4 h-4 mr-2" />
+                                                    Extend Subscription
+                                                </Button>
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            </>
                         )}
                     </CardContent>
                 </Card>
             </div>
+
+            {/* Extension Dialog */}
+            <Dialog open={!!extensionUser} onOpenChange={() => setExtensionUser(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Extend Subscription</DialogTitle>
+                        <DialogDescription>
+                            Add access days for {extensionUser?.first_name} {extensionUser?.last_name}.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <Label>Number of Days to Add</Label>
+                            <Input
+                                type="number"
+                                value={extensionDays}
+                                onChange={(e) => setExtensionDays(e.target.value)}
+                                placeholder="e.g 30"
+                                className="font-bold text-lg"
+                            />
+                            <div className="flex gap-2">
+                                {[3, 7, 14, 30, 90].map(d => (
+                                    <Badge
+                                        key={d}
+                                        variant="outline"
+                                        className="cursor-pointer hover:bg-slate-100"
+                                        onClick={() => setExtensionDays(d.toString())}
+                                    >
+                                        +{d}d
+                                    </Badge>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setExtensionUser(null)}>Cancel</Button>
+                        <Button onClick={handleExtend} disabled={isExtending} className="bg-blue-600 hover:bg-blue-700">
+                            {isExtending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Calendar className="w-4 h-4 mr-2" />}
+                            Add Days
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }

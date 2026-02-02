@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
         const updateData: any = { role }
         if (role === 'agent') {
             const expiresAt = new Date()
-            expiresAt.setDate(expiresAt.getDate() + 30)
+            expiresAt.setDate(expiresAt.getDate() + 3) // Changed from 30 to 3 days per user request
             updateData.agent_expires_at = expiresAt.toISOString()
         } else {
             updateData.agent_expires_at = null
