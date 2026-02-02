@@ -24,11 +24,6 @@ export default function UpgradePage() {
     const [isProcessing, setIsProcessing] = useState<string | null>(null)
 
     useEffect(() => {
-        if (dbUser && dbUser.role !== 'customer') {
-            router.push('/dashboard')
-            return
-        }
-
         const fetchPrices = async () => {
             try {
                 const { data, error } = await (supabase as any)
@@ -94,7 +89,10 @@ export default function UpgradePage() {
             duration: '3 Days Access',
             price: prices['3d'],
             popular: false,
-            color: 'border-yellow-100'
+            tier: 'bronze',
+            color: 'border-slate-200',
+            buttonClass: 'bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800',
+            badgeText: null
         },
         {
             id: '14d',
@@ -102,7 +100,10 @@ export default function UpgradePage() {
             duration: '14 Days Access',
             price: prices['14d'],
             popular: true,
-            color: 'border-yellow-400 ring-2 ring-yellow-400/20'
+            tier: 'gold',
+            color: 'border-yellow-400 ring-2 ring-yellow-400/30',
+            buttonClass: 'bg-gradient-to-r from-yellow-500 to-amber-600 hover:from-yellow-600 hover:to-amber-700 shadow-lg shadow-yellow-500/20',
+            badgeText: 'MOST POPULAR'
         },
         {
             id: '30d',
@@ -110,7 +111,10 @@ export default function UpgradePage() {
             duration: '30 Days Access',
             price: prices['30d'],
             popular: false,
-            color: 'border-yellow-100'
+            tier: 'diamond',
+            color: 'border-purple-400 ring-2 ring-purple-400/30',
+            buttonClass: 'bg-gradient-to-r from-purple-600 via-blue-600 to-indigo-700 hover:from-purple-700 hover:via-blue-700 hover:to-indigo-800 shadow-lg shadow-purple-500/30',
+            badgeText: 'PREMIUM'
         }
     ]
 
