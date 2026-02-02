@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/contexts/auth-context'
 import { useUI } from '@/contexts/ui-context'
-import { useTheme } from 'next-themes'
 import { Button } from '@/components/ui/button'
 import {
     DropdownMenu,
@@ -23,7 +22,6 @@ import { Menu, Sun, Moon, Bell, User, Settings, LogOut } from 'lucide-react'
 export function DashboardHeader() {
     const { dbUser, signOut, isAdmin, isSubAdmin } = useAuth()
     const { toggleSidebar } = useUI()
-    const { theme, setTheme } = useTheme()
     const [unreadCount, setUnreadCount] = useState(0)
 
     useEffect(() => {
@@ -82,16 +80,6 @@ export function DashboardHeader() {
                     >
                         {currentRole.label}
                     </Badge>
-
-                    {/* Theme Toggle */}
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                        className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                    >
-                        {theme === 'dark' ? <Sun className="w-5 h-5" /> : <Moon className="w-5 h-5" />}
-                    </Button>
 
                     {/* Notifications */}
                     <Link href="/dashboard/notifications">

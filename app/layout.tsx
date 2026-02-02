@@ -7,7 +7,6 @@ export const viewport: Viewport = {
 }
 import { Fira_Sans } from 'next/font/google'
 import './globals.css'
-import { ThemeProvider } from '@/components/providers/theme-provider'
 import { AuthProvider } from '@/contexts/auth-context'
 import { Toaster } from '@/components/ui/sonner'
 
@@ -37,17 +36,10 @@ export default function RootLayout({
     return (
         <html lang="en" suppressHydrationWarning>
             <body className={firaSans.className}>
-                <ThemeProvider
-                    attribute="class"
-                    defaultTheme="light"
-                    enableSystem
-                    disableTransitionOnChange
-                >
-                    <AuthProvider>
-                        {children}
-                        <Toaster position="top-right" richColors />
-                    </AuthProvider>
-                </ThemeProvider>
+                <AuthProvider>
+                    {children}
+                    <Toaster position="top-right" richColors />
+                </AuthProvider>
             </body>
         </html>
     )
