@@ -56,25 +56,25 @@ export default function AdminChatPanel() {
         const fetchConversations = async () => {
             setIsLoading(true)
             try {
-                const { data: convs, error } = await supabase
+                const { data: convs, error } = await (supabase
                     .from('chat_conversations')
                     .select(`
                         *,
                         agent:users!agent_id(first_name, last_name, email)
                     `)
-                    .order('last_message_at', { ascending: false })
+                    .order('last_message_at', { ascending: false }) as any)
 
                 if (error) throw error
 
                 // Fetch unread counts for each conversation
                 const convsWithUnread = await Promise.all(
                     (convs || []).map(async (conv: any) => {
-                        const { count } = await supabase
+                        const { count } = await (supabase
                             .from('chat_messages')
                             .select('*', { count: 'exact', head: true })
                             .eq('conversation_id', conv.id)
                             .eq('read', false)
-                            .neq('sender_id', dbUser?.id)
+                            .neq('sender_id', dbUser?.id) as any)
 
                         return { ...conv, unread_count: count || 0 }
                     })
@@ -114,19 +114,20 @@ export default function AdminChatPanel() {
 
         const fetchMessages = async () => {
             try {
-                const { data, error } = await supabase
+                const { data, error } = await (supabase
                     .from('chat_messages')
                     .select('*')
                     .eq('conversation_id', selectedConv.id)
-                    .order('created_at', { ascending: true })
+                    .order('created_at', { ascending: true }) as any)
 
                 if (error) throw error
                 setMessages(data || [])
 
                 // Mark as read
-                await supabase
+                // @ts-ignore - Types will be available after running chat_schema.sql migration
+                await (supabase
                     .from('chat_messages')
-                    .update({ read: true })
+                    .update({ read: true }) as any)
                     .eq('conversation_id', selectedConv.id)
                     .eq('read', false)
                     .neq('sender_id', dbUser?.id)
@@ -172,13 +173,14 @@ export default function AdminChatPanel() {
 
         setIsSending(true)
         try {
-            const { error } = await supabase
+            // @ts-ignore - Types will be available after running chat_schema.sql migration
+            const { error } = await (supabase
                 .from('chat_messages')
                 .insert({
                     conversation_id: selectedConv.id,
                     sender_id: dbUser.id,
                     message: newMessage.trim()
-                })
+                }) as any)
 
             if (error) throw error
 

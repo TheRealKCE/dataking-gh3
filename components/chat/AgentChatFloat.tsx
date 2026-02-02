@@ -47,20 +47,21 @@ export default function AgentChatFloat() {
 
             try {
                 // Check if conversation exists
-                const { data: existing } = await supabase
+                const { data: existing } = await (supabase
                     .from('chat_conversations')
                     .select('*')
                     .eq('agent_id', dbUser.id)
                     .eq('status', 'active')
-                    .single()
+                    .single() as any)
 
                 if (existing) {
                     setConversation(existing)
                 } else {
                     // Create new conversation
-                    const { data: newConv, error } = await supabase
+                    // @ts-ignore - Types will be available after running chat_schema.sql migration
+                    const { data: newConv, error } = await (supabase
                         .from('chat_conversations')
-                        .insert({ agent_id: dbUser.id })
+                        .insert({ agent_id: dbUser.id }) as any)
                         .select()
                         .single()
 
@@ -82,11 +83,11 @@ export default function AgentChatFloat() {
         const fetchMessages = async () => {
             setIsLoading(true)
             try {
-                const { data, error } = await supabase
+                const { data, error } = await (supabase
                     .from('chat_messages')
                     .select('*')
                     .eq('conversation_id', conversation.id)
-                    .order('created_at', { ascending: true })
+                    .order('created_at', { ascending: true }) as any)
 
                 if (error) throw error
                 setMessages(data || [])
@@ -140,9 +141,10 @@ export default function AgentChatFloat() {
     useEffect(() => {
         if (isOpen && conversation?.id && dbUser?.id) {
             const markAsRead = async () => {
-                await supabase
+                // @ts-ignore - Types will be available after running chat_schema.sql migration
+                await (supabase
                     .from('chat_messages')
-                    .update({ read: true })
+                    .update({ read: true }) as any)
                     .eq('conversation_id', conversation.id)
                     .eq('read', false)
                     .neq('sender_id', dbUser.id)
@@ -168,13 +170,14 @@ export default function AgentChatFloat() {
 
         setIsSending(true)
         try {
-            const { error } = await supabase
+            // @ts-ignore - Types will be available after running chat_schema.sql migration
+            const { error } = await (supabase
                 .from('chat_messages')
                 .insert({
                     conversation_id: conversation.id,
                     sender_id: dbUser.id,
                     message: newMessage.trim()
-                })
+                }) as any)
 
             if (error) throw error
 
