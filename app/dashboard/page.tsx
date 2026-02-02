@@ -16,8 +16,13 @@ import {
     Wallet,
     Package,
     AlertCircle,
-    Plus
+    Plus,
+    Crown,
+    Shield,
+    Star,
+    Sparkles
 } from 'lucide-react'
+import { cn } from '@/lib/utils'
 
 interface DashboardStats {
     totalOrders: number
@@ -35,12 +40,69 @@ export default function DashboardPage() {
     const { dbUser } = useAuth()
     const [stats, setStats] = useState<DashboardStats | null>(null)
     const [isLoading, setIsLoading] = useState(true)
+    const [currentTime, setCurrentTime] = useState(new Date())
+
+    // Real-time clock updater
+    useEffect(() => {
+        const timer = setInterval(() => {
+            setCurrentTime(new Date())
+        }, 1000)
+        return () => clearInterval(timer)
+    }, [])
 
     useEffect(() => {
         if (dbUser) {
             fetchDashboardData()
         }
     }, [dbUser])
+
+    // Helper functions for greeting box
+    const getGreeting = () => {
+        const hour = currentTime.getHours()
+        if (hour >= 5 && hour < 12) return 'Good Morning'
+        if (hour >= 12 && hour < 17) return 'Good Afternoon'
+        if (hour >= 17 && hour < 21) return 'Good Evening'
+        return 'Good Night'
+    }
+
+    const formatDateTime = () => {
+        const dateStr = currentTime.toLocaleDateString('en-US', {
+            weekday: 'long',
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        })
+        const timeStr = currentTime.toLocaleTimeString('en-US', {
+            hour: 'numeric',
+            minute: '2-digit',
+            hour12: true
+        })
+        return { dateStr, timeStr }
+    }
+
+    const calculateDaysRemaining = () => {
+        if (!dbUser?.agent_expires_at || dbUser?.role !== 'agent') return null
+        const now = new Date()
+        const expires = new Date(dbUser.agent_expires_at)
+        const days = Math.ceil((expires.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+        return days > 0 ? days : 0
+    }
+
+    const getTimeSinceJoined = () => {
+        if (!dbUser?.created_at) return 'Recently'
+        const now = new Date()
+        const joined = new Date(dbUser.created_at)
+        const diffMs = now.getTime() - joined.getTime()
+        const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+
+        if (diffDays < 30) return `${diffDays} ${diffDays === 1 ? 'day' : 'days'} ago`
+        if (diffDays < 365) {
+            const months = Math.floor(diffDays / 30)
+            return `${months} ${months === 1 ? 'month' : 'months'} ago`
+        }
+        const years = Math.floor(diffDays / 365)
+        return `${years} ${years === 1 ? 'year' : 'years'} ago`
+    }
 
     const fetchDashboardData = async () => {
         try {
@@ -102,8 +164,79 @@ export default function DashboardPage() {
         )
     }
 
+    const { dateStr, timeStr } = formatDateTime()
+    const daysRemaining = calculateDaysRemaining()
+
     return (
         <div className="space-y-6">
+            {/* Golden Greeting Box - Agent Only */}
+            {dbUser?.role === 'agent' && (
+                <div className="bg-gradient-to-br from-yellow-400 via-amber-500 to-yellow-600 rounded-2xl p-4 sm:p-6 border-2 border-yellow-600/30 shadow-xl">
+                    {/* Greeting and Date/Time Row */}
+                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+                        <div className="flex items-center gap-2">
+                            <Sparkles className="w-6 h-6 sm:w-8 sm:h-8 text-black fill-black" />
+                            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-black">
+                                {getGreeting()}, {dbUser?.first_name}!
+                            </h2>
+                        </div>
+                        <div className="flex flex-col items-start sm:items-end text-black">
+                            <p className="text-sm sm:text-base font-bold">{dateStr}</p>
+                            <p className="text-lg sm:text-xl font-black">{timeStr}</p>
+                        </div>
+                    </div>
+
+                    {/* Three Information Columns */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
+                        {/* Column 1: Role */}
+                        <div className="bg-black rounded-xl p-4 sm:p-5 flex flex-col items-center text-center">
+                            <Shield className="w-8 h-8 sm:w-10 sm:h-10 text-white mb-2" />
+                            <p className="text-xs sm:text-sm text-white/70 font-semibold mb-1">Your Role</p>
+                            <p className="text-xl sm:text-2xl font-black" style={{ color: '#25D366' }}>
+                                Authorized Agent
+                            </p>
+                        </div>
+
+                        {/* Column 2: Status & Countdown */}
+                        <div className="bg-black rounded-xl p-4 sm:p-5 flex flex-col items-center text-center">
+                            <Clock className="w-8 h-8 sm:w-10 sm:h-10 text-white mb-2" />
+                            <p className="text-xs sm:text-sm text-white/70 font-semibold mb-1">Membership Status</p>
+                            <div className={cn(
+                                "inline-block px-3 py-1 rounded-full text-xs font-bold mb-2",
+                                daysRemaining !== null && daysRemaining <= 3
+                                    ? "bg-red-500 text-white"
+                                    : daysRemaining !== null && daysRemaining <= 7
+                                        ? "bg-yellow-500 text-black"
+                                        : "bg-green-500 text-white"
+                            )}>
+                                Active
+                            </div>
+                            {daysRemaining !== null && (
+                                <p className={cn(
+                                    "text-lg sm:text-xl font-black",
+                                    daysRemaining <= 3
+                                        ? "text-red-500"
+                                        : daysRemaining <= 7
+                                            ? "text-yellow-500"
+                                            : "text-green-500"
+                                )}>
+                                    {daysRemaining} {daysRemaining === 1 ? 'day' : 'days'} left
+                                </p>
+                            )}
+                        </div>
+
+                        {/* Column 3: Member Since */}
+                        <div className="bg-black rounded-xl p-4 sm:p-5 flex flex-col items-center text-center">
+                            <Star className="w-8 h-8 sm:w-10 sm:h-10 text-yellow-400 fill-yellow-400 mb-2" />
+                            <p className="text-xs sm:text-sm text-white/70 font-semibold mb-1">Member Since</p>
+                            <p className="text-lg sm:text-xl font-black text-white">
+                                {getTimeSinceJoined()}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {/* Stats Cards */}
             <div className="grid grid-cols-2 gap-3 sm:gap-4">
                 <Card className="bg-[#0056B3] text-white border-0">
