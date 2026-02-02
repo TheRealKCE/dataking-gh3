@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS public.users (
   phone_number TEXT NOT NULL UNIQUE,
   role TEXT DEFAULT 'customer' CHECK (role IN ('customer', 'agent', 'sub-admin', 'admin')),
   status TEXT DEFAULT 'active' CHECK (status IN ('active', 'suspended', 'inactive')),
+  agent_expires_at TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -194,6 +195,8 @@ CREATE INDEX IF NOT EXISTS idx_notifications_user_id ON public.notifications(use
 CREATE INDEX IF NOT EXISTS idx_notifications_is_read ON public.notifications(is_read);
 CREATE INDEX IF NOT EXISTS idx_complaints_user_id ON public.complaints(user_id);
 CREATE INDEX IF NOT EXISTS idx_complaints_status ON public.complaints(status);
+CREATE INDEX IF NOT EXISTS idx_users_role ON public.users(role);
+CREATE INDEX IF NOT EXISTS idx_users_agent_expires_at ON public.users(agent_expires_at);
 
 -- Row Level Security Policies
 

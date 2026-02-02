@@ -30,26 +30,46 @@ export async function GET(request: NextRequest) {
         // Service role client to bypass RLS
         const supabase = createServerClient()
 
-        const { data: users, error: fetchError } = await supabase
+        // Add timeout to prevent hanging queries
+        const timeoutPromise = new Promise((_, reject) =>
+            setTimeout(() => reject(new Error('Database query timeout')), 10000)
+        )
+
+        const fetchPromise = supabase
             .from('users')
             .select(`
-                *,
+                id,
+                email,
+                first_name,
+                last_name,
+                phone_number,
+                role,
+                status,
+                agent_expires_at,
+                created_at,
+                updated_at,
                 wallets (
                     balance
                 )
             `)
             .order('created_at', { ascending: false })
 
+        const { data: users, error: fetchError } = await Promise.race([
+            fetchPromise,
+            timeoutPromise
+        ]) as any
+
         if (fetchError) {
-            console.error('[AdminUsersFetch] Error:', fetchError)
-            throw fetchError
+            console.error('[AdminUsersFetch] Database error:', fetchError)
+            throw new Error(`Database query failed: ${fetchError.message}`)
         }
 
         if (users && users.length > 0) {
+            console.log('[AdminUsersFetch] Successfully fetched', users.length, 'users')
             console.log('[AdminUsersFetch] First user sample:', JSON.stringify(users[0], null, 2))
         }
 
-        return NextResponse.json(users)
+        return NextResponse.json(users || [])
     } catch (error: any) {
         console.error('Admin Users Fetch Error:', error)
         return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 })

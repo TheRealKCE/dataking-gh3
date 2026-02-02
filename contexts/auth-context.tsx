@@ -44,14 +44,26 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const fetchDbUser = useCallback(async (userId: string) => {
         try {
-            // Add 5 second timeout to prevent hanging
+            // Add 10 second timeout to prevent hanging (increased from 5s)
             const timeout = new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('Database timeout')), 5000)
+                setTimeout(() => reject(new Error('Database timeout')), 10000)
             )
 
+            // Use explicit columns instead of SELECT * for better performance
             const query = supabase
                 .from('users')
-                .select('*')
+                .select(`
+                    id,
+                    email,
+                    first_name,
+                    last_name,
+                    phone_number,
+                    role,
+                    status,
+                    agent_expires_at,
+                    created_at,
+                    updated_at
+                `)
                 .eq('id', userId)
                 .single()
 
@@ -60,7 +72,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 timeout
             ]) as any
 
-            if (!error && data) {
+            if (error) {
+                console.error('Error fetching user data:', error)
+                // Don't block UI on error - continue with auth user only
+                return
+            }
+
+            if (data) {
                 setDbUser(data)
             }
         } catch (error) {
