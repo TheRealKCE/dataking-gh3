@@ -61,6 +61,7 @@ export default function AgentChatFloat() {
                     // @ts-ignore - Types will be available after running chat_schema.sql migration
                     const { data: newConv, error } = await (supabase
                         .from('chat_conversations')
+                        // @ts-ignore
                         .insert({ agent_id: dbUser.id }) as any)
                         .select()
                         .single()
@@ -144,6 +145,7 @@ export default function AgentChatFloat() {
                 // @ts-ignore - Types will be available after running chat_schema.sql migration
                 await (supabase
                     .from('chat_messages')
+                    // @ts-ignore
                     .update({ read: true }) as any)
                     .eq('conversation_id', conversation.id)
                     .eq('read', false)
@@ -173,6 +175,7 @@ export default function AgentChatFloat() {
             // @ts-ignore - Types will be available after running chat_schema.sql migration
             const { error } = await (supabase
                 .from('chat_messages')
+                // @ts-ignore
                 .insert({
                     conversation_id: conversation.id,
                     sender_id: dbUser.id,

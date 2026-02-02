@@ -127,6 +127,7 @@ export default function AdminChatPanel() {
                 // @ts-ignore - Types will be available after running chat_schema.sql migration
                 await (supabase
                     .from('chat_messages')
+                    // @ts-ignore
                     .update({ read: true }) as any)
                     .eq('conversation_id', selectedConv.id)
                     .eq('read', false)
@@ -176,6 +177,7 @@ export default function AdminChatPanel() {
             // @ts-ignore - Types will be available after running chat_schema.sql migration
             const { error } = await (supabase
                 .from('chat_messages')
+                // @ts-ignore
                 .insert({
                     conversation_id: selectedConv.id,
                     sender_id: dbUser.id,
