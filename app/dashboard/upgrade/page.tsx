@@ -107,11 +107,11 @@ export default function UpgradePage() {
             oldPrice: oldPrices['3d'],
             popular: false,
             tier: 'bronze',
-            color: 'border-[#25D366]',
-            buttonClass: 'bg-[#25D366] hover:bg-[#128C7E] shadow-sm',
+            color: 'border-[#C0C0C0]',
+            buttonClass: 'bg-gradient-to-r from-gray-300 to-gray-400 hover:from-gray-400 hover:to-gray-500 text-gray-800 shadow-sm',
             badgeText: 'STARTER',
-            badgeColor: 'from-[#25D366] to-[#128C7E]',
-            priceColor: 'text-[#25D366]'
+            badgeColor: 'from-gray-300 to-gray-400',
+            priceColor: 'text-gray-600'
         },
         {
             id: '14d',
@@ -154,7 +154,7 @@ export default function UpgradePage() {
 
     if (isLoading) {
         return (
-            <div className="fixed inset-0 bg-[#fffdf5] flex items-center justify-center z-50">
+            <div className="fixed inset-0 bg-[#FFCE00] flex items-center justify-center z-50">
                 <div className="relative">
                     <Crown className="w-16 h-16 text-yellow-600 animate-bounce relative z-10" />
                 </div>
@@ -172,7 +172,7 @@ export default function UpgradePage() {
                 />
             )}
 
-            <div className="relative -m-4 sm:-m-6 min-h-[calc(100vh+2rem)] lg:min-h-screen bg-[#fffdf5] overflow-x-hidden selection:bg-yellow-200 px-4 sm:px-6 py-10 sm:py-16 flex flex-col items-center scroll-smooth" style={{ fontFamily: '"Fira Sans", sans-serif' }}>
+            <div className="relative -m-4 sm:-m-6 min-h-[calc(100vh+2rem)] lg:min-h-screen bg-[#FFCE00] overflow-x-hidden selection:bg-yellow-200 px-4 sm:px-6 py-10 sm:py-16 flex flex-col items-center scroll-smooth" style={{ fontFamily: '"Fira Sans", sans-serif' }}>
 
                 <div className="relative z-10 w-full max-w-6xl flex flex-col items-center">
 
@@ -227,7 +227,8 @@ export default function UpgradePage() {
                         {tiers.map((tier) => (
                             <div
                                 key={tier.id}
-                                className={`relative bg-white rounded-2xl p-6 flex flex-col transition-all duration-500 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.1)] hover:shadow-[0_20px_40px_-4px_rgba(234,179,8,0.15)] border ${tier.color} ${tier.popular ? 'md:scale-105 z-10' : 'opacity-95'}`}
+                                className={`relative bg-white rounded-2xl p-6 flex flex-col transition-all duration-500 shadow-[0_8px_30px_rgba(238,238,238,0.8)] hover:shadow-[0_12px_40px_rgba(238,238,238,1)] border-2 ${tier.color} ${tier.popular ? 'md:scale-105 z-10' : 'opacity-95'}`}
+                                style={{ borderColor: '#EEEEEE' }}
                             >
                                 {/* Badge for all tiers */}
                                 {tier.badgeText && (
@@ -292,7 +293,7 @@ export default function UpgradePage() {
 
                     {/* Secure Badge Section */}
                     <div className="w-full max-w-3xl">
-                        <div className="bg-white/40 backdrop-blur-xl rounded-2xl p-6 sm:p-10 border border-white shadow-sm flex flex-col items-center text-center space-y-6">
+                        <div className="bg-white/60 backdrop-blur-xl rounded-2xl p-6 sm:p-10 border-2 shadow-[0_8px_30px_rgba(238,238,238,0.8)] flex flex-col items-center text-center space-y-6" style={{ borderColor: '#EEEEEE' }}>
                             <div className="inline-flex items-center gap-2 text-amber-600 bg-yellow-100/50 px-4 py-1.5 rounded-full border border-yellow-200/50">
                                 <Zap className="w-5 h-5 fill-current" />
                                 <span className="text-xs font-black uppercase tracking-[0.2em]">FAST & SECURE</span>
