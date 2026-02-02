@@ -26,39 +26,26 @@ export default function UpgradePage() {
     useEffect(() => {
         const fetchPrices = async () => {
             try {
-                // Add timestamp to bypass cache
-                const { data, error } = await (supabase as any)
-                    .from('admin_settings')
-                    .select('*')
+                // Use API endpoint to bypass RLS
+                const response = await fetch('/api/admin/get-prices', {
+                    cache: 'no-store' // Ensure fresh data
+                })
 
-                if (error) {
-                    console.error('Failed to fetch upgrade prices:', error)
-                    // Optionally, show a toast error to the user
+                if (!response.ok) {
+                    console.error('Failed to fetch upgrade prices')
                     toast.error('Failed to load upgrade prices. Please try again later.')
                     setIsLoading(false)
-                    return // Exit early if there's an error
+                    return
                 }
 
-                console.log('Fetched price data:', data) // Debug log
+                const data = await response.json()
+                console.log('Fetched prices from API:', data.prices)
 
-                const getVal = (key: string, def: number) => {
-                    const s = data?.find((s: any) => s.key === key)
-                    if (!s || s.value === undefined || s.value === null) return def
-                    const val = Number(s.value)
-                    return isNaN(val) ? def : val
-                }
-
-                const newPrices = {
-                    '3d': getVal('agent_upgrade_price_3d', 9.99),
-                    '14d': getVal('agent_upgrade_price_14d', 49.99),
-                    '30d': getVal('agent_upgrade_price_30d', 99.99)
-                }
-
-                console.log('Setting prices to:', newPrices) // Debug log
-                setPrices(newPrices)
+                setPrices(data.prices)
                 setIsLoading(false)
             } catch (err) {
                 console.error('Failed to fetch upgrade prices:', err)
+                toast.error('Failed to load upgrade prices.')
                 setIsLoading(false)
             }
         }
