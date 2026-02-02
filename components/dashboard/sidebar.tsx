@@ -141,7 +141,17 @@ export function DashboardSidebar() {
                         {!isCollapsed && (
                             <div className="flex flex-col transition-transform group-hover:scale-105">
                                 <span className="text-xl font-extrabold tracking-tight text-yellow-500 dark:text-yellow-400 font-display drop-shadow-md">
-                                    {dbUser?.role === 'agent' ? "KING FLEXY" : "KING FLEXY"}
+                                    {dbUser?.role === 'agent' ? (
+                                        <span className="relative">
+                                            <span className="relative">
+                                                KING
+                                                <Crown className="absolute -top-3.5 -left-2 w-4 h-4 text-yellow-500 fill-yellow-500 -rotate-[25deg] drop-shadow-md" />
+                                            </span>
+                                            {' '}FLEXY
+                                        </span>
+                                    ) : (
+                                        "KING FLEXY"
+                                    )}
                                 </span>
                                 <span className="text-[11px] font-bold text-gray-600 dark:text-gray-400 -mt-1 tracking-widest drop-shadow-sm">DATA LIMITED</span>
                             </div>

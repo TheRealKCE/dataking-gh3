@@ -157,7 +157,7 @@ export default function UpgradePage() {
             <div className="fixed inset-0 bg-[#fffdf5] flex items-center justify-center z-50">
                 <div className="relative">
                     <div className="absolute inset-0 animate-ping rounded-full bg-yellow-400/20"></div>
-                    <Star className="w-16 h-16 text-yellow-600 animate-bounce relative z-10" />
+                    <Crown className="w-16 h-16 text-yellow-600 animate-bounce relative z-10" />
                 </div>
             </div>
         )
@@ -205,24 +205,40 @@ export default function UpgradePage() {
                     <div className="text-center mb-8 sm:mb-12 space-y-3 sm:space-y-4">
                         <div className="mb-4 sm:mb-6 flex justify-center">
                             <div className="relative">
-                                <Star className="w-20 h-20 sm:w-28 sm:h-28 text-yellow-600 animate-[bounce_2s_infinite] drop-shadow-xl" />
+                                <Crown className="w-20 h-20 sm:w-28 sm:h-28 text-yellow-600 animate-[bounce_2s_infinite] drop-shadow-xl" />
                                 <div className="absolute inset-0 animate-ping opacity-20 pointer-events-none">
-                                    <Star className="w-20 h-20 sm:w-28 sm:h-28 text-yellow-600" />
+                                    <Crown className="w-20 h-20 sm:w-28 sm:h-28 text-yellow-600" />
                                 </div>
                             </div>
                         </div>
 
                         <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black text-[#b45309] leading-tight">
-                            {dbUser?.role === 'agent' ? 'ALREADY AN AGENT' : 'BECOME AN AGENT'}
+                            {dbUser?.role === 'agent' ? (
+                                <span className="relative inline-block">
+                                    <span className="relative">
+                                        A
+                                        <Crown className="absolute -top-6 -left-3 w-8 h-8 sm:w-12 sm:h-12 text-yellow-500 fill-yellow-500 -rotate-[25deg] drop-shadow-md" />
+                                    </span>
+                                    LREADY AN AGENT
+                                </span>
+                            ) : (
+                                <span className="relative inline-block">
+                                    <span className="relative">
+                                        B
+                                        <Crown className="absolute -top-6 -left-3 w-8 h-8 sm:w-12 sm:h-12 text-yellow-500 fill-yellow-500 -rotate-[25deg] drop-shadow-md" />
+                                    </span>
+                                    ECOME AN AGENT
+                                </span>
+                            )}
                         </h1>
 
                         {/* Premium Badge - Only visible to agents */}
                         {dbUser?.role === 'agent' && (
                             <div className="inline-block px-4 py-1.5 rounded-full bg-yellow-100/90 border border-yellow-200 backdrop-blur-sm shadow-sm group">
                                 <span className="text-[10px] sm:text-xs font-black text-yellow-700 uppercase tracking-[0.2em] flex items-center gap-2">
-                                    <Star className="w-3 h-3 fill-yellow-600 text-yellow-600 group-hover:rotate-180 transition-transform duration-700" />
+                                    <Crown className="w-3 h-3 fill-yellow-600 text-yellow-600 group-hover:rotate-180 transition-transform duration-700" />
                                     PREMIUM MEMBERSHIP
-                                    <Star className="w-3 h-3 fill-yellow-600 text-yellow-600 group-hover:rotate-180 transition-transform duration-700" />
+                                    <Crown className="w-3 h-3 fill-yellow-600 text-yellow-600 group-hover:rotate-180 transition-transform duration-700" />
                                 </span>
                             </div>
                         )}
@@ -246,7 +262,7 @@ export default function UpgradePage() {
                                     <div className={`absolute -top-3 left-1/2 -translate-x-1/2 px-3 sm:px-4 py-1.5 bg-gradient-to-r ${tier.badgeColor} rounded-full shadow-lg z-20 flex items-center gap-1.5 sm:gap-2`}>
                                         {tier.tier === 'bronze' && <Zap className="w-3 h-3 text-white fill-current" />}
                                         {tier.tier === 'gold' && <Sparkles className="w-3 h-3 text-white fill-current" />}
-                                        {tier.tier === 'diamond' && <Star className="w-3 h-3 text-white fill-current" />}
+                                        {tier.tier === 'diamond' && <Crown className="w-3 h-3 text-white fill-current" />}
                                         <span className="text-[10px] font-black text-white uppercase tracking-wider sm:tracking-widest">
                                             {tier.badgeText}
                                         </span>
