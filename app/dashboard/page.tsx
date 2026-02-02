@@ -75,6 +75,7 @@ export default function DashboardPage() {
         const timeStr = currentTime.toLocaleTimeString('en-US', {
             hour: 'numeric',
             minute: '2-digit',
+            second: '2-digit',
             hour12: true
         })
         return { dateStr, timeStr }
@@ -171,65 +172,82 @@ export default function DashboardPage() {
         <div className="space-y-6">
             {/* Golden Greeting Box - Agent Only */}
             {dbUser?.role === 'agent' && (
-                <div className="bg-gradient-to-br from-yellow-400 via-amber-500 to-yellow-600 rounded-2xl p-4 sm:p-6 border-2 border-yellow-600/30 shadow-xl">
+                <div className="bg-[#FFCE00] rounded-2xl p-4 sm:p-6 border-2 border-yellow-600/30 shadow-xl">
                     {/* Greeting and Date/Time Row */}
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
                         <div className="flex items-center gap-2">
                             <Sparkles className="w-6 h-6 sm:w-8 sm:h-8 text-black fill-black" />
-                            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-black">
+                            <h2 className="text-xl sm:text-2xl font-black text-black">
                                 {getGreeting()}, {dbUser?.first_name}!
                             </h2>
                         </div>
-                        <div className="flex flex-col items-start sm:items-end text-black">
-                            <p className="text-sm sm:text-base font-bold">{dateStr}</p>
-                            <p className="text-lg sm:text-xl font-black">{timeStr}</p>
+                        <div className="flex flex-row sm:flex-col items-center sm:items-end gap-2 sm:gap-0 text-black">
+                            <p className="text-xs sm:text-base font-bold">{dateStr}</p>
+                            <p className="text-sm sm:text-xl font-black">{timeStr}</p>
                         </div>
                     </div>
 
-                    {/* Three Information Columns */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
-                        {/* Column 1: Role */}
-                        <div className="bg-black rounded-xl p-4 sm:p-5 flex flex-col items-center text-center">
-                            <Shield className="w-8 h-8 sm:w-10 sm:h-10 text-white mb-2" />
-                            <p className="text-xs sm:text-sm text-white/70 font-semibold mb-1">Your Role</p>
-                            <p className="text-xl sm:text-2xl font-black" style={{ color: '#25D366' }}>
+                    {/* Three Information Rows (Single Column) */}
+                    <div className="flex flex-col gap-3">
+                        {/* Row 1: Role */}
+                        <div className="bg-black rounded-xl p-3 sm:p-4 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <Shield className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                                <p className="text-xs sm:text-sm text-white/70 font-semibold">Your Role</p>
+                            </div>
+                            <p className="text-sm sm:text-lg font-black" style={{ color: '#25D366' }}>
                                 Authorized Agent
                             </p>
                         </div>
 
-                        {/* Column 2: Status & Countdown */}
-                        <div className="bg-black rounded-xl p-4 sm:p-5 flex flex-col items-center text-center">
-                            <Clock className="w-8 h-8 sm:w-10 sm:h-10 text-white mb-2" />
-                            <p className="text-xs sm:text-sm text-white/70 font-semibold mb-1">Membership Status</p>
-                            <div className={cn(
-                                "inline-block px-3 py-1 rounded-full text-xs font-bold mb-2",
-                                daysRemaining !== null && daysRemaining <= 3
-                                    ? "bg-red-500 text-white"
-                                    : daysRemaining !== null && daysRemaining <= 7
-                                        ? "bg-yellow-500 text-black"
-                                        : "bg-green-500 text-white"
-                            )}>
-                                Active
+                        {/* Row 2: Status & Countdown */}
+                        <div className="bg-black rounded-xl p-3 sm:p-4 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <Clock className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                                <div className="flex flex-col">
+                                    <p className="text-xs sm:text-sm text-white/70 font-semibold">Membership</p>
+                                    <div className={cn(
+                                        "inline-block px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-bold w-fit",
+                                        daysRemaining !== null && daysRemaining <= 3
+                                            ? "bg-red-500 text-white"
+                                            : daysRemaining !== null && daysRemaining <= 7
+                                                ? "bg-yellow-500 text-black"
+                                                : "bg-green-500 text-white"
+                                    )}>
+                                        Active
+                                    </div>
+                                </div>
                             </div>
-                            {daysRemaining !== null && (
-                                <p className={cn(
-                                    "text-lg sm:text-xl font-black",
-                                    daysRemaining <= 3
-                                        ? "text-red-500"
-                                        : daysRemaining <= 7
-                                            ? "text-yellow-500"
-                                            : "text-green-500"
-                                )}>
-                                    {daysRemaining} {daysRemaining === 1 ? 'day' : 'days'} left
-                                </p>
-                            )}
+                            <div className="flex flex-col items-end gap-1">
+                                {daysRemaining !== null && (
+                                    <p className={cn(
+                                        "text-sm sm:text-lg font-black",
+                                        daysRemaining <= 3
+                                            ? "text-red-500"
+                                            : daysRemaining <= 7
+                                                ? "text-yellow-500"
+                                                : "text-green-500"
+                                    )}>
+                                        {daysRemaining} {daysRemaining === 1 ? 'day' : 'days'} left
+                                    </p>
+                                )}
+                                {daysRemaining !== null && daysRemaining <= 3 && (
+                                    <Link href="/dashboard/upgrade">
+                                        <Button size="sm" className="h-7 px-3 text-[10px] sm:text-xs bg-red-600 hover:bg-red-700 text-white border-0">
+                                            Renew Now
+                                        </Button>
+                                    </Link>
+                                )}
+                            </div>
                         </div>
 
-                        {/* Column 3: Member Since */}
-                        <div className="bg-black rounded-xl p-4 sm:p-5 flex flex-col items-center text-center">
-                            <Star className="w-8 h-8 sm:w-10 sm:h-10 text-yellow-400 fill-yellow-400 mb-2" />
-                            <p className="text-xs sm:text-sm text-white/70 font-semibold mb-1">Member Since</p>
-                            <p className="text-lg sm:text-xl font-black text-white">
+                        {/* Row 3: Member Since */}
+                        <div className="bg-black rounded-xl p-3 sm:p-4 flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <Star className="w-5 h-5 sm:w-6 sm:h-6 text-yellow-400 fill-yellow-400" />
+                                <p className="text-xs sm:text-sm text-white/70 font-semibold">Member Since</p>
+                            </div>
+                            <p className="text-sm sm:text-lg font-black text-white">
                                 {getTimeSinceJoined()}
                             </p>
                         </div>
