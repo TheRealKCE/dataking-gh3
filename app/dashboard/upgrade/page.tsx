@@ -26,6 +26,7 @@ export default function UpgradePage() {
     useEffect(() => {
         const fetchPrices = async () => {
             try {
+                // Add timestamp to bypass cache
                 const { data, error } = await (supabase as any)
                     .from('admin_settings')
                     .select('*')
@@ -38,6 +39,8 @@ export default function UpgradePage() {
                     return // Exit early if there's an error
                 }
 
+                console.log('Fetched price data:', data) // Debug log
+
                 const getVal = (key: string, def: number) => {
                     const s = data?.find((s: any) => s.key === key)
                     if (!s || s.value === undefined || s.value === null) return def
@@ -45,11 +48,14 @@ export default function UpgradePage() {
                     return isNaN(val) ? def : val
                 }
 
-                setPrices({
+                const newPrices = {
                     '3d': getVal('agent_upgrade_price_3d', 9.99),
                     '14d': getVal('agent_upgrade_price_14d', 49.99),
                     '30d': getVal('agent_upgrade_price_30d', 99.99)
-                })
+                }
+
+                console.log('Setting prices to:', newPrices) // Debug log
+                setPrices(newPrices)
                 setIsLoading(false)
             } catch (err) {
                 console.error('Failed to fetch upgrade prices:', err)
@@ -58,7 +64,7 @@ export default function UpgradePage() {
         }
 
         fetchPrices()
-    }, [dbUser, router])
+    }, [])
 
     const handleUpgrade = async (plan: string) => {
         setIsProcessing(plan)
