@@ -9,7 +9,7 @@ import { DashboardSidebar } from '@/components/dashboard/sidebar'
 import { DashboardHeader } from '@/components/dashboard/header'
 import { Skeleton } from '@/components/ui/skeleton'
 import { WhatsAppButton } from '@/components/whatsapp-button'
-import AgentChatFloat from '@/components/chat/AgentChatFloat'
+
 
 export default function DashboardLayout({
     children,
@@ -53,7 +53,6 @@ export default function DashboardLayout({
                     </main>
                 </div>
                 <WhatsAppButton />
-                <AgentChatFloat />
             </div>
         </UIProvider>
     )
