@@ -8,6 +8,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { Checkbox } from '@/components/ui/checkbox'
 import {
     Users,
     Clock,
@@ -34,6 +35,7 @@ export default function AdminMembershipsPage() {
         '14d': '49.99',
         '30d': '99.99'
     })
+    const [showStrikethrough, setShowStrikethrough] = useState(false)
 
     useEffect(() => {
         fetchData()
@@ -51,11 +53,13 @@ export default function AdminMembershipsPage() {
                 const p3 = settingsData.find((s: any) => s.key === 'agent_upgrade_price_3d')?.value || '9.99'
                 const p14 = settingsData.find((s: any) => s.key === 'agent_upgrade_price_14d')?.value || '49.99'
                 const p30 = settingsData.find((s: any) => s.key === 'agent_upgrade_price_30d')?.value || '99.99'
+                const showStrike = settingsData.find((s: any) => s.key === 'show_price_strikethrough')?.value === 'true'
                 setPrices({
                     '3d': String(p3),
                     '14d': String(p14),
                     '30d': String(p30)
                 })
+                setShowStrikethrough(showStrike)
             }
 
             // Fetch Agents
@@ -82,7 +86,7 @@ export default function AdminMembershipsPage() {
             const response = await fetch('/api/admin/update-prices', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prices })
+                body: JSON.stringify({ prices, showStrikethrough })
             })
 
             const data = await response.json()
@@ -194,6 +198,21 @@ export default function AdminMembershipsPage() {
                                     className="font-bold text-lg"
                                 />
                             </div>
+                        </div>
+                        <div className="space-y-3 pt-2 border-t">
+                            <div className="flex items-center space-x-2">
+                                <Checkbox
+                                    id="strikethrough"
+                                    checked={showStrikethrough}
+                                    onCheckedChange={(checked) => setShowStrikethrough(checked as boolean)}
+                                />
+                                <Label htmlFor="strikethrough" className="text-sm font-medium cursor-pointer">
+                                    Show old prices with strikethrough
+                                </Label>
+                            </div>
+                            <p className="text-xs text-muted-foreground">
+                                Enable to display previous prices crossed out when prices change
+                            </p>
                         </div>
                         <Button
                             className="w-full bg-slate-900 hover:bg-slate-800 h-12 text-base font-black"

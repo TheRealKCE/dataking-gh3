@@ -15,11 +15,15 @@ export async function GET(request: NextRequest) {
             }
         )
 
-        // Fetch prices from admin_settings
+        // Fetch prices from admin_settings (including old prices and strikethrough toggle)
         const { data, error } = await supabaseAdmin
             .from('admin_settings')
             .select('key, value')
-            .in('key', ['agent_upgrade_price_3d', 'agent_upgrade_price_14d', 'agent_upgrade_price_30d'])
+            .in('key', [
+                'agent_upgrade_price_3d', 'agent_upgrade_price_14d', 'agent_upgrade_price_30d',
+                'agent_upgrade_price_3d_old', 'agent_upgrade_price_14d_old', 'agent_upgrade_price_30d_old',
+                'show_price_strikethrough'
+            ])
 
         if (error) {
             console.error('Error fetching prices:', error)
@@ -32,7 +36,15 @@ export async function GET(request: NextRequest) {
             '30d': parseFloat(data?.find(s => s.key === 'agent_upgrade_price_30d')?.value || '99.99')
         }
 
-        return NextResponse.json({ prices })
+        const oldPrices = {
+            '3d': parseFloat(data?.find(s => s.key === 'agent_upgrade_price_3d_old')?.value || '0'),
+            '14d': parseFloat(data?.find(s => s.key === 'agent_upgrade_price_14d_old')?.value || '0'),
+            '30d': parseFloat(data?.find(s => s.key === 'agent_upgrade_price_30d_old')?.value || '0')
+        }
+
+        const showStrikethrough = data?.find(s => s.key === 'show_price_strikethrough')?.value === 'true'
+
+        return NextResponse.json({ prices, oldPrices, showStrikethrough })
 
     } catch (error: any) {
         console.error('Error in get-prices API:', error)

@@ -20,6 +20,13 @@ export default function UpgradePage() {
         '30d': 99.99
     })
 
+    const [oldPrices, setOldPrices] = useState({
+        '3d': 0,
+        '14d': 0,
+        '30d': 0
+    })
+
+    const [showStrikethrough, setShowStrikethrough] = useState(false)
     const [isLoading, setIsLoading] = useState(true)
     const [isProcessing, setIsProcessing] = useState<string | null>(null)
 
@@ -39,9 +46,11 @@ export default function UpgradePage() {
                 }
 
                 const data = await response.json()
-                console.log('Fetched prices from API:', data.prices)
+                console.log('Fetched prices from API:', data)
 
                 setPrices(data.prices)
+                setOldPrices(data.oldPrices || { '3d': 0, '14d': 0, '30d': 0 })
+                setShowStrikethrough(data.showStrikethrough || false)
                 setIsLoading(false)
             } catch (err) {
                 console.error('Failed to fetch upgrade prices:', err)
@@ -81,33 +90,42 @@ export default function UpgradePage() {
             name: '3 Days',
             duration: '3 Days Access',
             price: prices['3d'],
+            oldPrice: oldPrices['3d'],
             popular: false,
             tier: 'bronze',
-            color: 'border-slate-200',
+            color: 'border-slate-300',
             buttonClass: 'bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800',
-            badgeText: null
+            badgeText: 'STARTER',
+            badgeColor: 'from-slate-500 to-slate-600',
+            priceColor: 'text-slate-700'
         },
         {
             id: '14d',
             name: '2 weeks',
             duration: '14 Days Access',
             price: prices['14d'],
+            oldPrice: oldPrices['14d'],
             popular: true,
             tier: 'gold',
             color: 'border-yellow-400 ring-2 ring-yellow-400/30',
             buttonClass: 'bg-gradient-to-r from-yellow-500 to-amber-600 hover:from-yellow-600 hover:to-amber-700 shadow-lg shadow-yellow-500/20',
-            badgeText: 'MOST POPULAR'
+            badgeText: 'MOST POPULAR',
+            badgeColor: 'from-yellow-500 to-amber-600',
+            priceColor: 'text-yellow-600'
         },
         {
             id: '30d',
             name: '1 month',
             duration: '30 Days Access',
             price: prices['30d'],
+            oldPrice: oldPrices['30d'],
             popular: false,
             tier: 'diamond',
             color: 'border-purple-400 ring-2 ring-purple-400/30',
             buttonClass: 'bg-gradient-to-r from-purple-600 via-blue-600 to-indigo-700 hover:from-purple-700 hover:via-blue-700 hover:to-indigo-800 shadow-lg shadow-purple-500/30',
-            badgeText: 'PREMIUM'
+            badgeText: 'PREMIUM',
+            badgeColor: 'from-purple-600 to-indigo-700',
+            priceColor: 'text-purple-600'
         }
     ]
 
@@ -155,70 +173,77 @@ export default function UpgradePage() {
             <div className="relative z-10 w-full max-w-6xl flex flex-col items-center">
 
                 {/* Header Section */}
-                <div className="text-center mb-10 sm:mb-16 space-y-4">
-                    <div className="inline-block px-4 py-1.5 rounded-full bg-yellow-100/90 border border-yellow-200 backdrop-blur-sm shadow-sm group">
-                        <span className="text-[10px] sm:text-xs font-black text-yellow-700 uppercase tracking-[0.2em] flex items-center gap-2">
-                            <Star className="w-3 h-3 fill-yellow-600 text-yellow-600 group-hover:rotate-180 transition-transform duration-700" />
-                            PREMIUM MEMBERSHIP
-                            <Star className="w-3 h-3 fill-yellow-600 text-yellow-600 group-hover:rotate-180 transition-transform duration-700" />
-                        </span>
-                    </div>
-
+                <div className="text-center mb-8 sm:mb-12 space-y-3 sm:space-y-4">
                     <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black text-[#b45309] leading-tight flex items-center justify-center gap-2 sm:gap-4 flex-wrap">
-                        BE A KING FLEXY AGENT
+                        {dbUser?.role === 'agent' ? 'ALREADY AN AGENT' : 'BECOME AN AGENT'}
                         <Crown className="w-10 h-10 sm:w-14 sm:h-14 text-yellow-500 inline-block animate-[bounce_2s_infinite]" />
                     </h1>
 
-                    <p className="text-base sm:text-lg lg:text-xl text-gray-600 font-semibold max-w-2xl mx-auto opacity-80">
-                        Unlock wholesale rates, sub-agent management, and exclusive features to grow your business.
+                    {/* Premium Badge - Only visible to agents */}
+                    {dbUser?.role === 'agent' && (
+                        <div className="inline-block px-4 py-1.5 rounded-full bg-yellow-100/90 border border-yellow-200 backdrop-blur-sm shadow-sm group">
+                            <span className="text-[10px] sm:text-xs font-black text-yellow-700 uppercase tracking-[0.2em] flex items-center gap-2">
+                                <Star className="w-3 h-3 fill-yellow-600 text-yellow-600 group-hover:rotate-180 transition-transform duration-700" />
+                                PREMIUM MEMBERSHIP
+                                <Star className="w-3 h-3 fill-yellow-600 text-yellow-600 group-hover:rotate-180 transition-transform duration-700" />
+                            </span>
+                        </div>
+                    )}
+
+                    <p className="text-sm sm:text-base lg:text-lg text-gray-600 font-semibold max-w-3xl mx-auto opacity-80 px-4">
+                        Unlock the New Premium Membership (Agent Role) for Exciting Features to Grow your Business. Choose from the Plans below (Each plan has same features).
                     </p>
                 </div>
 
                 {/* Plans Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 lg:gap-8 mb-12 w-full max-w-5xl items-stretch">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-5 lg:gap-6 mb-12 w-full max-w-5xl items-stretch">
                     {tiers.map((tier) => (
                         <div
                             key={tier.id}
-                            className={`relative bg-white rounded-3xl p-8 flex flex-col transition-all duration-500 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.1)] hover:shadow-[0_20px_40px_-4px_rgba(234,179,8,0.15)] border ${tier.color} ${tier.popular ? 'md:scale-105 z-10' : 'opacity-95'}`}
+                            className={`relative bg-white rounded-2xl p-6 flex flex-col transition-all duration-500 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.1)] hover:shadow-[0_20px_40px_-4px_rgba(234,179,8,0.15)] border ${tier.color} ${tier.popular ? 'md:scale-105 z-10' : 'opacity-95'}`}
                         >
-                            {tier.badgeText && tier.tier === 'gold' && (
-                                <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1.5 bg-gradient-to-r from-yellow-500 to-amber-600 rounded-full shadow-lg z-20 flex items-center gap-2">
-                                    <Sparkles className="w-3 h-3 text-white fill-current" />
-                                    <span className="text-[10px] font-black text-white uppercase tracking-widest">
+                            {/* Badge for all tiers */}
+                            {tier.badgeText && (
+                                <div className={`absolute -top-3 left-1/2 -translate-x-1/2 px-3 sm:px-4 py-1.5 bg-gradient-to-r ${tier.badgeColor} rounded-full shadow-lg z-20 flex items-center gap-1.5 sm:gap-2`}>
+                                    {tier.tier === 'bronze' && <Zap className="w-3 h-3 text-white fill-current" />}
+                                    {tier.tier === 'gold' && <Sparkles className="w-3 h-3 text-white fill-current" />}
+                                    {tier.tier === 'diamond' && <Crown className="w-3 h-3 text-white fill-current" />}
+                                    <span className="text-[10px] font-black text-white uppercase tracking-wider sm:tracking-widest">
                                         {tier.badgeText}
                                     </span>
                                 </div>
                             )}
 
-                            {tier.badgeText && tier.tier === 'diamond' && (
-                                <div className="absolute -top-4 left-1/2 -translate-x-1/2 px-4 py-1.5 bg-gradient-to-r from-purple-600 to-indigo-700 rounded-full shadow-lg z-20 flex items-center gap-2">
-                                    <Crown className="w-3 h-3 text-white fill-current" />
-                                    <span className="text-[10px] font-black text-white uppercase tracking-widest">
-                                        {tier.badgeText}
+                            <div className="text-center mb-5 space-y-1">
+                                <h3 className="text-xl sm:text-2xl font-black text-gray-900 border-b-2 border-yellow-50/50 pb-2">{tier.name}</h3>
+                                <p className="text-gray-400 text-xs sm:text-sm font-bold pt-1">{tier.duration}</p>
+                            </div>
+
+                            <div className="text-center mb-6 flex flex-col items-center justify-center gap-1">
+                                {/* Old Price with Strikethrough */}
+                                {showStrikethrough && tier.oldPrice > 0 && tier.oldPrice !== tier.price && (
+                                    <div className="flex items-baseline gap-1">
+                                        <span className="text-gray-400 line-through text-sm font-bold">GHS {tier.oldPrice.toFixed(2)}</span>
+                                    </div>
+                                )}
+
+                                {/* New Price */}
+                                <div className="flex items-baseline justify-center gap-1.5">
+                                    <span className={`font-black text-base sm:text-lg ${tier.priceColor}`}>GHS</span>
+                                    <span className={`text-4xl sm:text-5xl font-black ${tier.priceColor} tracking-tighter`}>
+                                        {tier.price.toString().split('.')[0]}
+                                        <span className="text-2xl sm:text-3xl font-black">{tier.price.toFixed(2).includes('.') ? '.' + tier.price.toFixed(2).split('.')[1] : '.99'}</span>
                                     </span>
                                 </div>
-                            )}
-
-                            <div className="text-center mb-6 space-y-1">
-                                <h3 className="text-2xl font-black text-gray-900 border-b-2 border-yellow-50/50 pb-2">{tier.name}</h3>
-                                <p className="text-gray-400 text-sm font-bold pt-1">{tier.duration}</p>
                             </div>
 
-                            <div className="text-center mb-8 flex items-baseline justify-center gap-1.5">
-                                <span className="text-gray-400 font-black text-lg">GHS</span>
-                                <span className="text-5xl lg:text-6xl font-black text-gray-900 tracking-tighter">
-                                    {tier.price.toString().split('.')[0]}
-                                    <span className="text-3xl font-black">{tier.price.toFixed(2).includes('.') ? '.' + tier.price.toFixed(2).split('.')[1] : '.99'}</span>
-                                </span>
-                            </div>
-
-                            <div className="space-y-4 mb-10 flex-1">
+                            <div className="space-y-3 mb-8 flex-1">
                                 {commonFeatures.map((feature, i) => (
-                                    <div key={i} className="flex items-start gap-3">
-                                        <div className="mt-0.5 flex-shrink-0 w-6 h-6 rounded-full bg-green-50 flex items-center justify-center">
-                                            <CheckCircle className="w-4 h-4 text-green-500" />
+                                    <div key={i} className="flex items-start gap-2.5">
+                                        <div className="mt-0.5 flex-shrink-0 w-5 h-5 rounded-full bg-green-50 flex items-center justify-center">
+                                            <CheckCircle className="w-3.5 h-3.5 text-green-500" />
                                         </div>
-                                        <span className="text-sm font-bold text-gray-600">{feature}</span>
+                                        <span className="text-xs sm:text-sm font-bold text-gray-600 leading-snug">{feature}</span>
                                     </div>
                                 ))}
                             </div>
@@ -226,10 +251,10 @@ export default function UpgradePage() {
                             <Button
                                 onClick={() => handleUpgrade(tier.id)}
                                 disabled={isProcessing !== null}
-                                className={`w-full h-14 rounded-2xl text-base font-black transition-all active:scale-95 text-white ${tier.buttonClass}`}
+                                className={`w-full h-11 sm:h-12 rounded-xl text-sm sm:text-base font-black transition-all active:scale-95 text-white ${tier.buttonClass}`}
                             >
                                 {isProcessing === tier.id ? (
-                                    <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+                                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
                                 ) : (
                                     dbUser?.role === 'agent' ? 'Renew / Extend' : 'Be an Agent Today'
                                 )}
