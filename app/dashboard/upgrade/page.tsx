@@ -35,11 +35,19 @@ export default function UpgradePage() {
                     .from('admin_settings')
                     .select('*')
 
-                if (error) throw error
+                if (error) {
+                    console.error('Failed to fetch upgrade prices:', error)
+                    // Optionally, show a toast error to the user
+                    toast.error('Failed to load upgrade prices. Please try again later.')
+                    setIsLoading(false)
+                    return // Exit early if there's an error
+                }
 
                 const getVal = (key: string, def: number) => {
                     const s = data?.find((s: any) => s.key === key)
-                    return s ? Number(s.value) : def
+                    if (!s || s.value === undefined || s.value === null) return def
+                    const val = Number(s.value)
+                    return isNaN(val) ? def : val
                 }
 
                 setPrices({
@@ -47,9 +55,9 @@ export default function UpgradePage() {
                     '14d': getVal('agent_upgrade_price_14d', 49.99),
                     '30d': getVal('agent_upgrade_price_30d', 99.99)
                 })
+                setIsLoading(false)
             } catch (err) {
                 console.error('Failed to fetch upgrade prices:', err)
-            } finally {
                 setIsLoading(false)
             }
         }
@@ -213,8 +221,8 @@ export default function UpgradePage() {
                                 onClick={() => handleUpgrade(tier.id)}
                                 disabled={isProcessing !== null}
                                 className={`w-full h-14 rounded-2xl text-base font-black transition-all active:scale-95 shadow-lg ${tier.popular
-                                        ? 'bg-gradient-to-r from-yellow-500 to-amber-600 hover:from-yellow-600 hover:to-amber-700 text-white shadow-yellow-500/20'
-                                        : 'bg-[#1a1a2e] hover:bg-[#1a1a2e]/90 text-white'
+                                    ? 'bg-gradient-to-r from-yellow-500 to-amber-600 hover:from-yellow-600 hover:to-amber-700 text-white shadow-yellow-500/20'
+                                    : 'bg-[#1a1a2e] hover:bg-[#1a1a2e]/90 text-white'
                                     }`}
                             >
                                 {isProcessing === tier.id ? (

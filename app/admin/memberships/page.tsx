@@ -85,7 +85,10 @@ export default function AdminMembershipsPage() {
                 { key: 'agent_upgrade_price_30d', value: prices['30d'] },
             ]
 
-            const { error } = await (supabase.from('admin_settings') as any).upsert(updates)
+            const { error } = await (supabase.from('admin_settings') as any).upsert(updates, {
+                onConflict: 'key',
+                ignoreDuplicates: false
+            })
             if (error) throw error
 
             toast.success('Prices updated successfully')
