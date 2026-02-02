@@ -113,11 +113,11 @@ export default function UpgradePage() {
 
     const commonFeatures = [
         'Exclusive Wholesale Pricing',
-        'Crown Badge on Profile',
         'Priority Customer Support',
-        'Manage Sub-Agents',
-        'Bulk Order Access',
-        'Custom Shop Branding'
+        'No Top Up Charges (0% Paystack Fee)',
+        'Live Chat with Agents',
+        'Faster Order Processing & Delivery',
+        'Crown Badge on Profile with Avatar'
     ]
 
     if (isLoading) {
