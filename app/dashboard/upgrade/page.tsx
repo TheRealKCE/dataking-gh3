@@ -107,11 +107,11 @@ export default function UpgradePage() {
             oldPrice: oldPrices['3d'],
             popular: false,
             tier: 'bronze',
-            color: 'border-slate-300',
-            buttonClass: 'bg-gradient-to-r from-slate-600 to-slate-700 hover:from-slate-700 hover:to-slate-800',
+            color: 'border-[#25D366]',
+            buttonClass: 'bg-[#25D366] hover:bg-[#128C7E] shadow-sm',
             badgeText: 'STARTER',
-            badgeColor: 'from-slate-500 to-slate-600',
-            priceColor: 'text-slate-700'
+            badgeColor: 'from-[#25D366] to-[#128C7E]',
+            priceColor: 'text-[#25D366]'
         },
         {
             id: '14d',
@@ -121,10 +121,10 @@ export default function UpgradePage() {
             oldPrice: oldPrices['14d'],
             popular: true,
             tier: 'gold',
-            color: 'border-yellow-400 ring-2 ring-yellow-400/30',
-            buttonClass: 'bg-gradient-to-r from-yellow-500 to-amber-600 hover:from-yellow-600 hover:to-amber-700 shadow-lg shadow-yellow-500/20',
+            color: 'border-[#FFCE00] ring-2 ring-[#FFCE00]/30',
+            buttonClass: 'bg-[#FFCE00] hover:bg-[#E6B800] text-black shadow-lg shadow-[#FFCE00]/20',
             badgeText: 'MOST POPULAR',
-            badgeColor: 'from-yellow-500 to-amber-600',
+            badgeColor: 'from-[#FFCE00] to-[#E6B800]',
             priceColor: 'text-yellow-600'
         },
         {
@@ -156,7 +156,6 @@ export default function UpgradePage() {
         return (
             <div className="fixed inset-0 bg-[#fffdf5] flex items-center justify-center z-50">
                 <div className="relative">
-                    <div className="absolute inset-0 animate-ping rounded-full bg-yellow-400/20"></div>
                     <Crown className="w-16 h-16 text-yellow-600 animate-bounce relative z-10" />
                 </div>
             </div>
@@ -173,31 +172,7 @@ export default function UpgradePage() {
                 />
             )}
 
-            <div className="relative -m-4 sm:-m-6 min-h-[calc(100vh+2rem)] lg:min-h-screen bg-[#fffdf5] overflow-x-hidden selection:bg-yellow-200 px-4 sm:px-6 py-10 sm:py-16 flex flex-col items-center" style={{ fontFamily: '"Fira Sans", sans-serif' }}>
-
-                {/* Twinkling Star Background */}
-                <div className="absolute inset-0 pointer-events-none z-0">
-                    {[...Array(80)].map((_, i) => {
-                        const colors = ['#FBBF24', '#F59E0B', '#FCD34D', '#FDE047']
-                        const randomColor = colors[Math.floor(Math.random() * colors.length)]
-                        return (
-                            <div
-                                key={i}
-                                className="absolute rounded-full animate-twinkle"
-                                style={{
-                                    left: `${Math.random() * 100}%`,
-                                    top: `${Math.random() * 100}%`,
-                                    width: `${Math.random() * 3 + 2}px`,
-                                    height: `${Math.random() * 3 + 2}px`,
-                                    backgroundColor: randomColor,
-                                    boxShadow: `0 0 ${Math.random() * 8 + 4}px ${randomColor}`,
-                                    animationDelay: `${Math.random() * 5}s`,
-                                    animationDuration: `${3 + Math.random() * 4}s`
-                                }}
-                            ></div>
-                        )
-                    })}
-                </div>
+            <div className="relative -m-4 sm:-m-6 min-h-[calc(100vh+2rem)] lg:min-h-screen bg-[#fffdf5] overflow-x-hidden selection:bg-yellow-200 px-4 sm:px-6 py-10 sm:py-16 flex flex-col items-center scroll-smooth" style={{ fontFamily: '"Fira Sans", sans-serif' }}>
 
                 <div className="relative z-10 w-full max-w-6xl flex flex-col items-center">
 
@@ -206,9 +181,6 @@ export default function UpgradePage() {
                         <div className="mb-4 sm:mb-6 flex justify-center">
                             <div className="relative">
                                 <Crown className="w-20 h-20 sm:w-28 sm:h-28 text-yellow-600 animate-[bounce_2s_infinite] drop-shadow-xl" />
-                                <div className="absolute inset-0 animate-ping opacity-20 pointer-events-none">
-                                    <Crown className="w-20 h-20 sm:w-28 sm:h-28 text-yellow-600" />
-                                </div>
                             </div>
                         </div>
 
@@ -336,15 +308,7 @@ export default function UpgradePage() {
                     </div>
                 </div>
 
-                <style jsx>{`
-                @keyframes twinkle {
-                    0%, 100% { opacity: 0.2; transform: scale(0.5); }
-                    50% { opacity: 1; transform: scale(1.5); }
-                }
-                .animate-twinkle {
-                    animation: twinkle ease-in-out infinite;
-                }
-            `}</style>
+
             </div>
         </>
     )
