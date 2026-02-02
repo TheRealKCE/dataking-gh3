@@ -35,10 +35,23 @@ export async function POST(request: Request) {
             )
         }
 
-        // Fetch upgrade prices from admin settings
-        const { data: settings } = await supabase
+        // Fetch upgrade prices from admin settings using service role to bypass RLS
+        const { createClient } = await import('@supabase/supabase-js')
+        const supabaseAdmin = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.SUPABASE_SERVICE_ROLE_KEY!,
+            {
+                auth: {
+                    autoRefreshToken: false,
+                    persistSession: false
+                }
+            }
+        )
+
+        const { data: settings } = await supabaseAdmin
             .from('admin_settings')
-            .select('*')
+            .select('key, value')
+            .in('key', ['agent_upgrade_price_3d', 'agent_upgrade_price_14d', 'agent_upgrade_price_30d'])
 
         const getPrice = (key: string, def: number) => {
             const s = settings?.find((s: any) => s.key === key);
