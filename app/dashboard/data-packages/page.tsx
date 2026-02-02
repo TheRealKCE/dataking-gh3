@@ -484,13 +484,13 @@ export default function DataPackagesPage() {
                                 <Upload className="w-5 h-5 text-[#FFCE00]" />
                                 <div className="text-left">
                                     <CardTitle className="text-lg text-[#FFCE00]">Bulk Orders (Excel/Text)</CardTitle>
-                                    <p className="text-sm text-[#25D366]">Upload multiple phone numbers at once</p>
+                                    <p className="text-sm text-[#FFCE00]">Upload multiple phone numbers at once</p>
                                 </div>
                             </div>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             <div className="space-y-2 text-left">
-                                <Label>Select Network</Label>
+                                <Label className="text-[#E60000] font-bold">Select Network</Label>
                                 <div className="flex gap-2 flex-wrap">
                                     {NETWORKS.map(net => (
                                         <Button
@@ -531,7 +531,7 @@ export default function DataPackagesPage() {
                             <div className="space-y-2">
                                 <Label className="text-left block text-[#FFCE00]">Paste numbers and volumes (e.g. 0551053716 1)</Label>
                                 <textarea
-                                    className="flex min-h-[150px] w-full rounded-md border-0 bg-[#FFCE00] px-3 py-2 text-sm text-[#1a1a1a] placeholder:text-[#1a1a1a]/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFCE00] font-mono font-bold"
+                                    className="flex min-h-[150px] w-full rounded-md border-0 bg-[#FFFFFF] px-3 py-2 text-sm text-[#1a1a1a] placeholder:text-gray-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFCE00] font-mono font-bold"
                                     placeholder="One per line, e.g. 0551053716 1"
                                     value={bulkText}
                                     onChange={(e) => setBulkText(e.target.value)}
