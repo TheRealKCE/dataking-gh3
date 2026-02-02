@@ -137,23 +137,16 @@ export function DashboardSidebar() {
                                 className="object-contain"
                                 priority
                             />
+                            {dbUser?.role === 'agent' && (
+                                <Crown className="absolute -top-4 -right-2 w-6 h-6 text-black fill-black -rotate-[25deg] drop-shadow-md z-10" />
+                            )}
                         </div>
                         {!isCollapsed && (
                             <div className="flex flex-col transition-transform group-hover:scale-105">
-                                <span className="text-xl font-extrabold tracking-tight text-yellow-500 dark:text-yellow-400 font-display drop-shadow-md">
-                                    {dbUser?.role === 'agent' ? (
-                                        <span className="relative">
-                                            <span className="relative">
-                                                KING
-                                                <Crown className="absolute -top-3.5 -left-2 w-4 h-4 text-yellow-500 fill-yellow-500 -rotate-[25deg] drop-shadow-md" />
-                                            </span>
-                                            {' '}FLEXY
-                                        </span>
-                                    ) : (
-                                        "KING FLEXY"
-                                    )}
+                                <span className="text-xl font-extrabold tracking-tight text-black dark:text-white font-display drop-shadow-sm">
+                                    KING FLEXY
                                 </span>
-                                <span className="text-[11px] font-bold text-gray-600 dark:text-gray-400 -mt-1 tracking-widest drop-shadow-sm">DATA LIMITED</span>
+                                <span className="text-[11px] font-bold text-gray-800 dark:text-gray-300 -mt-1 tracking-widest drop-shadow-sm">DATA LIMITED</span>
                             </div>
                         )}
                     </Link>
@@ -177,7 +170,12 @@ export function DashboardSidebar() {
 
                 {/* Profile Widget - Premium Card Style */}
                 {!isCollapsed && dbUser && (
-                    <div className="mx-4 mt-6 p-4 rounded-2xl bg-gradient-to-br from-gray-200/90 to-gray-300 dark:from-gray-800/90 dark:to-gray-900 border border-gray-400/50 dark:border-gray-700/50 shadow-lg">
+                    <div className={cn(
+                        "mx-4 mt-6 p-4 rounded-2xl border shadow-lg",
+                        dbUser?.role === 'agent'
+                            ? "bg-[#FFCE00] border-black/10"
+                            : "bg-gradient-to-br from-gray-200/90 to-gray-300 dark:from-gray-800/90 dark:to-gray-900 border-gray-400/50 dark:border-gray-700/50"
+                    )}>
                         {/* User Info Row */}
                         <div className="flex items-center gap-3.5 mb-4">
                             {/* Avatar with Role Icon */}
@@ -268,7 +266,12 @@ export function DashboardSidebar() {
                         )}
 
                         {/* Wallet Section */}
-                        <div className="flex items-center justify-between p-3 rounded-xl bg-gray-300/60 dark:bg-black/40 border border-gray-400/30 dark:border-gray-800/50 backdrop-blur-md">
+                        <div className={cn(
+                            "flex items-center justify-between p-3 rounded-xl border backdrop-blur-md",
+                            dbUser?.role === 'agent'
+                                ? "bg-[#FFCE00] border-black/10"
+                                : "bg-gray-300/60 dark:bg-black/40 border-gray-400/30 dark:border-gray-800/50"
+                        )}>
                             <div>
                                 <p className="text-[10px] text-gray-600 dark:text-gray-400 uppercase tracking-wider font-bold mb-0.5">Balance</p>
                                 <p className="text-base font-black text-emerald-600 dark:text-emerald-400 tracking-tight">{formatCurrency(walletBalance)}</p>
@@ -317,15 +320,17 @@ export function DashboardSidebar() {
                                             "flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-all duration-200",
                                             isActive
                                                 ? dbUser?.role === 'agent'
-                                                    ? "bg-black text-[#1a1a1a] shadow-lg"
+                                                    ? "bg-black text-[#FFCE00] shadow-lg"
                                                     : "bg-yellow-500/20 dark:bg-yellow-500/10 text-yellow-600 dark:text-yellow-400"
-                                                : "text-gray-600 dark:text-gray-400 hover:bg-gray-300/60 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-gray-200",
+                                                : dbUser?.role === 'agent'
+                                                    ? "text-black hover:text-[#FFCE00] hover:bg-black/10"
+                                                    : "text-gray-600 dark:text-gray-400 hover:bg-gray-300/60 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-gray-200",
                                             isCollapsed && "justify-center px-2"
                                         )}
                                     >
                                         <item.icon className={cn(
                                             "w-5 h-5 flex-shrink-0",
-                                            isActive && (dbUser?.role === 'agent' ? "text-[#1a1a1a]" : "text-yellow-600 dark:text-yellow-400")
+                                            isActive && (dbUser?.role === 'agent' ? "text-[#FFCE00]" : "text-yellow-600 dark:text-yellow-400")
                                         )} />
                                         {!isCollapsed && <span className="text-base font-medium">{item.label}</span>}
                                     </div>
