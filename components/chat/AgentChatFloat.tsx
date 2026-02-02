@@ -65,11 +65,11 @@ export default function AgentChatFloat() {
                     setConversation(existing)
                 } else {
                     // Create new conversation
-                    const { data: newConv, error: insertError } = await (supabase
-                        .from('chat_conversations')
+                    const { data: newConv, error: insertError } = await ((supabase
+                        .from('chat_conversations') as any)
                         .insert({ agent_id: dbUser.id })
                         .select()
-                        .single() as any)
+                        .single())
 
                     if (insertError) {
                         console.error('Error creating conversation:', insertError)
