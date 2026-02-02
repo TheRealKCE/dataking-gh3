@@ -1,17 +1,22 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/contexts/auth-context'
 import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Crown, Sparkles, Zap, Star, CheckCircle } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import { toast } from 'sonner'
+import CongratsModal from '@/components/upgrade/CongratsModal'
 
 export default function UpgradePage() {
     const { dbUser } = useAuth()
     const router = useRouter()
+    const searchParams = useSearchParams()
+
+    // Congrats modal state
+    const [showCongrats, setShowCongrats] = useState(false)
 
     // Prices for tiers
     const [prices, setPrices] = useState({
@@ -61,6 +66,15 @@ export default function UpgradePage() {
 
         fetchPrices()
     }, [])
+
+    // Detect successful payment and show congrats modal
+    useEffect(() => {
+        if (searchParams.get('success') === 'true' && dbUser?.role === 'agent') {
+            setShowCongrats(true)
+            // Clean URL without reloading
+            window.history.replaceState({}, '', '/dashboard/upgrade')
+        }
+    }, [searchParams, dbUser])
 
     const handleUpgrade = async (plan: string) => {
         setIsProcessing(plan)
@@ -150,146 +164,173 @@ export default function UpgradePage() {
     }
 
     return (
-        <div className="relative -m-4 sm:-m-6 min-h-[calc(100vh+2rem)] lg:min-h-screen bg-[#fffdf5] overflow-x-hidden selection:bg-yellow-200 px-4 sm:px-6 py-10 sm:py-16 flex flex-col items-center" style={{ fontFamily: '"Fira Sans", sans-serif' }}>
+        <>
+            {/* Congrats Modal */}
+            {showCongrats && (
+                <CongratsModal
+                    onClose={() => setShowCongrats(false)}
+                    onBrowsePackages={() => router.push('/dashboard/data')}
+                />
+            )}
 
-            {/* Twinkling Star Background */}
-            <div className="absolute inset-0 pointer-events-none z-0">
-                {[...Array(50)].map((_, i) => (
-                    <div
-                        key={i}
-                        className="absolute bg-yellow-400 rounded-full animate-twinkle opacity-0"
-                        style={{
-                            left: `${Math.random() * 100}%`,
-                            top: `${Math.random() * 100}%`,
-                            width: `${Math.random() * 3 + 1}px`,
-                            height: `${Math.random() * 3 + 1}px`,
-                            animationDelay: `${Math.random() * 5}s`,
-                            animationDuration: `${3 + Math.random() * 4}s`
-                        }}
-                    ></div>
-                ))}
-            </div>
+            <div className="relative -m-4 sm:-m-6 min-h-[calc(100vh+2rem)] lg:min-h-screen bg-[#fffdf5] overflow-x-hidden selection:bg-yellow-200 px-4 sm:px-6 py-10 sm:py-16 flex flex-col items-center" style={{ fontFamily: '"Fira Sans", sans-serif' }}>
 
-            <div className="relative z-10 w-full max-w-6xl flex flex-col items-center">
-
-                {/* Header Section */}
-                <div className="text-center mb-8 sm:mb-12 space-y-3 sm:space-y-4">
-                    <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black text-[#b45309] leading-tight flex items-center justify-center gap-2 sm:gap-4 flex-wrap">
-                        {dbUser?.role === 'agent' ? 'ALREADY AN AGENT' : 'BECOME AN AGENT'}
-                        <Crown className="w-10 h-10 sm:w-14 sm:h-14 text-yellow-500 inline-block animate-[bounce_2s_infinite]" />
-                    </h1>
-
-                    {/* Premium Badge - Only visible to agents */}
-                    {dbUser?.role === 'agent' && (
-                        <div className="inline-block px-4 py-1.5 rounded-full bg-yellow-100/90 border border-yellow-200 backdrop-blur-sm shadow-sm group">
-                            <span className="text-[10px] sm:text-xs font-black text-yellow-700 uppercase tracking-[0.2em] flex items-center gap-2">
-                                <Star className="w-3 h-3 fill-yellow-600 text-yellow-600 group-hover:rotate-180 transition-transform duration-700" />
-                                PREMIUM MEMBERSHIP
-                                <Star className="w-3 h-3 fill-yellow-600 text-yellow-600 group-hover:rotate-180 transition-transform duration-700" />
-                            </span>
-                        </div>
-                    )}
-
-                    <p className="text-sm sm:text-base lg:text-lg text-gray-600 font-semibold max-w-3xl mx-auto opacity-80 px-4">
-                        Unlock the New Premium Membership (Agent Role) for Exciting Features to Grow your Business. Choose from the Plans below (Each plan has same features).
-                    </p>
+                {/* Twinkling Star Background */}
+                <div className="absolute inset-0 pointer-events-none z-0">
+                    {[...Array(80)].map((_, i) => {
+                        const colors = ['#FBBF24', '#F59E0B', '#FCD34D', '#FDE047']
+                        const randomColor = colors[Math.floor(Math.random() * colors.length)]
+                        return (
+                            <div
+                                key={i}
+                                className="absolute rounded-full animate-twinkle"
+                                style={{
+                                    left: `${Math.random() * 100}%`,
+                                    top: `${Math.random() * 100}%`,
+                                    width: `${Math.random() * 3 + 2}px`,
+                                    height: `${Math.random() * 3 + 2}px`,
+                                    backgroundColor: randomColor,
+                                    boxShadow: `0 0 ${Math.random() * 8 + 4}px ${randomColor}`,
+                                    animationDelay: `${Math.random() * 5}s`,
+                                    animationDuration: `${3 + Math.random() * 4}s`
+                                }}
+                            ></div>
+                        )
+                    })}
                 </div>
 
-                {/* Plans Grid */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-5 lg:gap-6 mb-12 w-full max-w-5xl items-stretch">
-                    {tiers.map((tier) => (
-                        <div
-                            key={tier.id}
-                            className={`relative bg-white rounded-2xl p-6 flex flex-col transition-all duration-500 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.1)] hover:shadow-[0_20px_40px_-4px_rgba(234,179,8,0.15)] border ${tier.color} ${tier.popular ? 'md:scale-105 z-10' : 'opacity-95'}`}
-                        >
-                            {/* Badge for all tiers */}
-                            {tier.badgeText && (
-                                <div className={`absolute -top-3 left-1/2 -translate-x-1/2 px-3 sm:px-4 py-1.5 bg-gradient-to-r ${tier.badgeColor} rounded-full shadow-lg z-20 flex items-center gap-1.5 sm:gap-2`}>
-                                    {tier.tier === 'bronze' && <Zap className="w-3 h-3 text-white fill-current" />}
-                                    {tier.tier === 'gold' && <Sparkles className="w-3 h-3 text-white fill-current" />}
-                                    {tier.tier === 'diamond' && <Crown className="w-3 h-3 text-white fill-current" />}
-                                    <span className="text-[10px] font-black text-white uppercase tracking-wider sm:tracking-widest">
-                                        {tier.badgeText}
-                                    </span>
-                                </div>
-                            )}
+                <div className="relative z-10 w-full max-w-6xl flex flex-col items-center">
 
-                            <div className="text-center mb-5 space-y-1">
-                                <h3 className="text-xl sm:text-2xl font-black text-gray-900 border-b-2 border-yellow-50/50 pb-2">{tier.name}</h3>
-                                <p className="text-gray-400 text-xs sm:text-sm font-bold pt-1">{tier.duration}</p>
-                            </div>
-
-                            <div className="text-center mb-6 flex flex-col items-center justify-center gap-1">
-                                {/* Old Price with Strikethrough */}
-                                {showStrikethrough && tier.oldPrice > 0 && tier.oldPrice !== tier.price && (
-                                    <div className="flex items-baseline gap-1">
-                                        <span className="text-gray-400 line-through text-sm font-bold">GHS {tier.oldPrice.toFixed(2)}</span>
-                                    </div>
-                                )}
-
-                                {/* New Price */}
-                                <div className="flex items-baseline justify-center gap-1.5">
-                                    <span className={`font-black text-base sm:text-lg ${tier.priceColor}`}>GHS</span>
-                                    <span className={`text-4xl sm:text-5xl font-black ${tier.priceColor} tracking-tighter`}>
-                                        {tier.price.toString().split('.')[0]}
-                                        <span className="text-2xl sm:text-3xl font-black">{tier.price.toFixed(2).includes('.') ? '.' + tier.price.toFixed(2).split('.')[1] : '.99'}</span>
-                                    </span>
+                    {/* Header Section */}
+                    <div className="text-center mb-8 sm:mb-12 space-y-3 sm:space-y-4">
+                        {/* Floating Crown Animation - Above Header */}
+                        <div className="mb-4 sm:mb-6 flex justify-center">
+                            <div className="relative">
+                                <div className="text-7xl sm:text-8xl animate-[bounce_2s_infinite]">👑</div>
+                                <div className="absolute inset-0 animate-ping opacity-20 pointer-events-none">
+                                    <div className="text-7xl sm:text-8xl">👑</div>
                                 </div>
                             </div>
+                        </div>
 
-                            <div className="space-y-3 mb-8 flex-1">
-                                {commonFeatures.map((feature, i) => (
-                                    <div key={i} className="flex items-start gap-2.5">
-                                        <div className="mt-0.5 flex-shrink-0 w-5 h-5 rounded-full bg-green-50 flex items-center justify-center">
-                                            <CheckCircle className="w-3.5 h-3.5 text-green-500" />
-                                        </div>
-                                        <span className="text-xs sm:text-sm font-bold text-gray-600 leading-snug">{feature}</span>
-                                    </div>
-                                ))}
+                        <h1 className="text-4xl sm:text-6xl lg:text-7xl font-black text-[#b45309] leading-tight">
+                            {dbUser?.role === 'agent' ? 'ALREADY AN AGENT' : 'BECOME AN AGENT'}
+                        </h1>
+
+                        {/* Premium Badge - Only visible to agents */}
+                        {dbUser?.role === 'agent' && (
+                            <div className="inline-block px-4 py-1.5 rounded-full bg-yellow-100/90 border border-yellow-200 backdrop-blur-sm shadow-sm group">
+                                <span className="text-[10px] sm:text-xs font-black text-yellow-700 uppercase tracking-[0.2em] flex items-center gap-2">
+                                    <Star className="w-3 h-3 fill-yellow-600 text-yellow-600 group-hover:rotate-180 transition-transform duration-700" />
+                                    PREMIUM MEMBERSHIP
+                                    <Star className="w-3 h-3 fill-yellow-600 text-yellow-600 group-hover:rotate-180 transition-transform duration-700" />
+                                </span>
                             </div>
+                        )}
 
-                            <Button
-                                onClick={() => handleUpgrade(tier.id)}
-                                disabled={isProcessing !== null}
-                                className={`w-full h-11 sm:h-12 rounded-xl text-sm sm:text-base font-black transition-all active:scale-95 text-white ${tier.buttonClass}`}
-                            >
-                                {isProcessing === tier.id ? (
-                                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                                ) : (
-                                    dbUser?.role === 'agent' ? 'Renew / Extend' : 'Be an Agent Today'
-                                )}
-                            </Button>
-                        </div>
-                    ))}
-                </div>
-
-                {/* Secure Badge Section */}
-                <div className="w-full max-w-3xl">
-                    <div className="bg-white/40 backdrop-blur-xl rounded-2xl p-6 sm:p-10 border border-white shadow-sm flex flex-col items-center text-center space-y-6">
-                        <div className="inline-flex items-center gap-2 text-amber-600 bg-yellow-100/50 px-4 py-1.5 rounded-full border border-yellow-200/50">
-                            <Zap className="w-5 h-5 fill-current" />
-                            <span className="text-xs font-black uppercase tracking-[0.2em]">FAST & SECURE</span>
-                        </div>
-                        <p className="text-base text-gray-500 font-bold leading-relaxed max-w-xl">
-                            Upgrade your account in seconds using card, mobile money or bank transfer via Paystack. Your benefits start immediately.
+                        <p className="text-sm sm:text-base lg:text-lg text-gray-600 font-semibold max-w-3xl mx-auto opacity-80 px-4">
+                            {dbUser?.role === 'agent'
+                                ? "Renew/Extend Your Subscription to Continue Enjoying Your Existing Features and Benefits"
+                                : "Unlock the New Premium Membership (Agent Role) for Exciting Features to Grow your Business. Choose from the Plans below (Each plan has same features)."}
                         </p>
-                        <div className="flex items-center gap-3 pt-2 grayscale opacity-50">
-                            <div className="w-7 h-7 bg-gray-200 rounded-lg flex items-center justify-center text-[10px] font-black text-gray-500 border border-gray-300">?</div>
-                            <span className="text-[11px] font-black text-gray-400 uppercase tracking-widest">SECURE PAYMENTS BY PAYSTACK</span>
+                    </div>
+
+                    {/* Plans Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-5 lg:gap-6 mb-12 w-full max-w-5xl items-stretch">
+                        {tiers.map((tier) => (
+                            <div
+                                key={tier.id}
+                                className={`relative bg-white rounded-2xl p-6 flex flex-col transition-all duration-500 shadow-[0_4px_20px_-4px_rgba(0,0,0,0.1)] hover:shadow-[0_20px_40px_-4px_rgba(234,179,8,0.15)] border ${tier.color} ${tier.popular ? 'md:scale-105 z-10' : 'opacity-95'}`}
+                            >
+                                {/* Badge for all tiers */}
+                                {tier.badgeText && (
+                                    <div className={`absolute -top-3 left-1/2 -translate-x-1/2 px-3 sm:px-4 py-1.5 bg-gradient-to-r ${tier.badgeColor} rounded-full shadow-lg z-20 flex items-center gap-1.5 sm:gap-2`}>
+                                        {tier.tier === 'bronze' && <Zap className="w-3 h-3 text-white fill-current" />}
+                                        {tier.tier === 'gold' && <Sparkles className="w-3 h-3 text-white fill-current" />}
+                                        {tier.tier === 'diamond' && <Crown className="w-3 h-3 text-white fill-current" />}
+                                        <span className="text-[10px] font-black text-white uppercase tracking-wider sm:tracking-widest">
+                                            {tier.badgeText}
+                                        </span>
+                                    </div>
+                                )}
+
+                                <div className="text-center mb-5 space-y-1">
+                                    <h3 className="text-xl sm:text-2xl font-black text-gray-900 border-b-2 border-yellow-50/50 pb-2">{tier.name}</h3>
+                                    <p className="text-gray-400 text-xs sm:text-sm font-bold pt-1">{tier.duration}</p>
+                                </div>
+
+                                <div className="text-center mb-6 flex flex-col items-center justify-center gap-1">
+                                    {/* Old Price with Strikethrough */}
+                                    {showStrikethrough && tier.oldPrice > 0 && tier.oldPrice !== tier.price && (
+                                        <div className="flex items-baseline gap-1">
+                                            <span className="text-gray-400 line-through text-sm font-bold">GHS {tier.oldPrice.toFixed(2)}</span>
+                                        </div>
+                                    )}
+
+                                    {/* New Price */}
+                                    <div className="flex items-baseline justify-center gap-1.5">
+                                        <span className={`font-black text-base sm:text-lg ${tier.priceColor}`}>GHS</span>
+                                        <span className={`text-4xl sm:text-5xl font-black ${tier.priceColor} tracking-tighter`}>
+                                            {tier.price.toString().split('.')[0]}
+                                            <span className="text-2xl sm:text-3xl font-black">{tier.price.toFixed(2).includes('.') ? '.' + tier.price.toFixed(2).split('.')[1] : '.99'}</span>
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-3 mb-8 flex-1">
+                                    {commonFeatures.map((feature, i) => (
+                                        <div key={i} className="flex items-start gap-2.5">
+                                            <div className="mt-0.5 flex-shrink-0 w-5 h-5 rounded-full bg-green-50 flex items-center justify-center">
+                                                <CheckCircle className="w-3.5 h-3.5 text-green-500" />
+                                            </div>
+                                            <span className="text-xs sm:text-sm font-bold text-gray-600 leading-snug">{feature}</span>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <Button
+                                    onClick={() => handleUpgrade(tier.id)}
+                                    disabled={isProcessing !== null}
+                                    className={`w-full h-11 sm:h-12 rounded-xl text-sm sm:text-base font-black transition-all active:scale-95 text-white ${tier.buttonClass}`}
+                                >
+                                    {isProcessing === tier.id ? (
+                                        <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                                    ) : (
+                                        dbUser?.role === 'agent' ? 'Renew / Extend' : 'Be an Agent Today'
+                                    )}
+                                </Button>
+                            </div>
+                        ))}
+                    </div>
+
+                    {/* Secure Badge Section */}
+                    <div className="w-full max-w-3xl">
+                        <div className="bg-white/40 backdrop-blur-xl rounded-2xl p-6 sm:p-10 border border-white shadow-sm flex flex-col items-center text-center space-y-6">
+                            <div className="inline-flex items-center gap-2 text-amber-600 bg-yellow-100/50 px-4 py-1.5 rounded-full border border-yellow-200/50">
+                                <Zap className="w-5 h-5 fill-current" />
+                                <span className="text-xs font-black uppercase tracking-[0.2em]">FAST & SECURE</span>
+                            </div>
+                            <p className="text-base text-gray-500 font-bold leading-relaxed max-w-xl">
+                                Upgrade your account in seconds using card, mobile money or bank transfer via Paystack. Your benefits start immediately.
+                            </p>
+                            <div className="flex items-center gap-3 pt-2 grayscale opacity-50">
+                                <div className="w-7 h-7 bg-gray-200 rounded-lg flex items-center justify-center text-[10px] font-black text-gray-500 border border-gray-300">?</div>
+                                <span className="text-[11px] font-black text-gray-400 uppercase tracking-widest">SECURE PAYMENTS BY PAYSTACK</span>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
 
-            <style jsx>{`
+                <style jsx>{`
                 @keyframes twinkle {
-                    0%, 100% { opacity: 0; transform: scale(0.5); }
-                    50% { opacity: 0.8; transform: scale(1.2); }
+                    0%, 100% { opacity: 0.2; transform: scale(0.5); }
+                    50% { opacity: 1; transform: scale(1.5); }
                 }
                 .animate-twinkle {
                     animation: twinkle ease-in-out infinite;
                 }
             `}</style>
-        </div>
+            </div>
+        </>
     )
 }

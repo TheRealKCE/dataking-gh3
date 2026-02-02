@@ -98,7 +98,7 @@ export async function POST(request: Request) {
                     base_amount: upgradePrice,
                     fee: fee,
                 },
-                callback_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard`,
+                callback_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/upgrade?success=true`,
             }),
         })
 
