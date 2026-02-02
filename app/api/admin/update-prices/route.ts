@@ -19,15 +19,15 @@ export async function POST(request: NextRequest) {
 
         for (const { key, value } of updates) {
             // Delete existing record if it exists
-            await supabase
+            await (supabase
                 .from('admin_settings')
                 .delete()
-                .eq('key', key)
+                .eq('key', key) as any)
 
             // Insert new record
-            const { error } = await supabase
+            const { error } = await (supabase
                 .from('admin_settings')
-                .insert({ key, value })
+                .insert({ key, value }) as any)
 
             if (error) {
                 console.error(`Error updating ${key}:`, error)
@@ -39,19 +39,19 @@ export async function POST(request: NextRequest) {
         }
 
         // Verify the updates
-        const { data: verifyData, error: verifyError } = await supabase
+        const { data: verifyData, error: verifyError } = await (supabase
             .from('admin_settings')
             .select('key, value')
-            .in('key', ['agent_upgrade_price_3d', 'agent_upgrade_price_14d', 'agent_upgrade_price_30d'])
+            .in('key', ['agent_upgrade_price_3d', 'agent_upgrade_price_14d', 'agent_upgrade_price_30d']) as any)
 
         if (verifyError) {
             console.error('Verification error:', verifyError)
         }
 
         const verified = {
-            '3d': verifyData?.find(s => s.key === 'agent_upgrade_price_3d')?.value || prices['3d'],
-            '14d': verifyData?.find(s => s.key === 'agent_upgrade_price_14d')?.value || prices['14d'],
-            '30d': verifyData?.find(s => s.key === 'agent_upgrade_price_30d')?.value || prices['30d']
+            '3d': verifyData?.find((s: any) => s.key === 'agent_upgrade_price_3d')?.value || prices['3d'],
+            '14d': verifyData?.find((s: any) => s.key === 'agent_upgrade_price_14d')?.value || prices['14d'],
+            '30d': verifyData?.find((s: any) => s.key === 'agent_upgrade_price_30d')?.value || prices['30d']
         }
 
         return NextResponse.json({
