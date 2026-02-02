@@ -65,24 +65,27 @@ export default function AgentChatFloat() {
                     setConversation(existing)
                 } else {
                     // Create new conversation
-                    // @ts-ignore
-                    const { data: newConv, error } = await (supabase
+                    const { data: newConv, error: insertError } = await (supabase
                         .from('chat_conversations')
-                        // @ts-ignore
-                        .insert({ agent_id: dbUser.id }) as any)
+                        .insert({ agent_id: dbUser.id })
                         .select()
-                        .single()
+                        .single() as any)
 
-                    if (error) throw error
-                    setConversation(newConv)
+                    if (insertError) {
+                        console.error('Error creating conversation:', insertError)
+                        return
+                    }
+                    if (newConv) setConversation(newConv)
                 }
-            } catch (error) {
-                console.error('Error initializing conversation:', error)
+            } catch (err: any) {
+                console.error('Error in initConversation:', err?.message || err)
             }
         }
 
-        initConversation()
-    }, [dbUser?.id])
+        if (dbUser?.role === 'agent') {
+            initConversation()
+        }
+    }, [dbUser?.id, dbUser?.role])
 
     // Fetch messages
     useEffect(() => {

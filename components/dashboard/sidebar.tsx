@@ -60,8 +60,6 @@ const adminNavItems = [
 
 import { roleConfig } from '@/lib/roles'
 
-// ... (existing imports remain, ensure roleConfig is imported and local definition removed)
-
 export function DashboardSidebar() {
     const pathname = usePathname()
     const { dbUser, isAdmin, isSubAdmin, signOut } = useAuth()
@@ -121,7 +119,7 @@ export function DashboardSidebar() {
             <aside
                 className={cn(
                     "fixed left-0 top-0 z-50 h-full flex flex-col transition-all duration-300 ease-in-out",
-                    dbUser?.role === 'agent'
+                    (dbUser?.role === 'agent')
                         ? "bg-gradient-to-br from-yellow-400 via-amber-500 to-yellow-600 dark:from-yellow-900 dark:via-amber-900 dark:to-yellow-800"
                         : "bg-[#E5E7EB] dark:bg-[#000000]",
                     isCollapsed ? "w-20" : "w-80",
@@ -197,13 +195,13 @@ export function DashboardSidebar() {
                             </div>
                             <div className="flex-1 min-w-0">
                                 <p className="text-sm font-bold text-gray-900 dark:text-white truncate flex items-center gap-1.5 flex-wrap">
-                                    {dbUser.role === 'agent' ? (
+                                    {dbUser?.role === 'agent' ? (
                                         <>
-                                            {dbUser.first_name}{' '}
+                                            {dbUser?.first_name}{' '}
                                             <span className="relative">
-                                                {dbUser.last_name.slice(0, -1)}
+                                                {dbUser?.last_name?.slice(0, -1)}
                                                 <span className="relative">
-                                                    {dbUser.last_name.slice(-1)}
+                                                    {dbUser?.last_name?.slice(-1)}
                                                     <Crown className="absolute -top-3 -right-2.5 w-3.5 h-3.5 text-yellow-500 fill-yellow-500 -rotate-[15deg] drop-shadow-md" />
                                                 </span>
                                             </span>
@@ -219,9 +217,7 @@ export function DashboardSidebar() {
                                             )}
                                         </>
                                     ) : (
-                                        <>
-                                            {dbUser.first_name} {dbUser.last_name}
-                                        </>
+                                        <span>{dbUser?.first_name} {dbUser?.last_name}</span>
                                     )}
                                 </p>
                                 <div className="flex items-center gap-1.5 mt-0.5">

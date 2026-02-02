@@ -214,15 +214,12 @@ export default function ProfilePage() {
                         })()}
                         <div>
                             <CardTitle className="text-xl flex items-center gap-2 flex-wrap">
+                                {dbUser?.first_name} {dbUser?.last_name}
                                 {dbUser?.role === 'agent' && (
                                     <>
-                                        <span className="relative flex items-center">
-                                            {dbUser.last_name.slice(-1) && (
-                                                <span className="relative">
-                                                    {dbUser.last_name.slice(-1)}
-                                                    <Crown className="absolute -top-4 -right-2.5 w-5 h-5 text-yellow-500 fill-yellow-500 -rotate-[15deg] drop-shadow-md" />
-                                                </span>
-                                            )}
+                                        <span className="relative inline-flex ml-1">
+                                            <span className="opacity-0">{dbUser?.last_name?.[dbUser?.last_name?.length - 1] || ''}</span>
+                                            <Crown className="absolute -top-4 -right-2.5 w-5 h-5 text-yellow-500 fill-yellow-500 -rotate-[15deg] drop-shadow-md" />
                                         </span>
                                         {daysRemaining !== null && (
                                             <Badge className={cn(
@@ -302,7 +299,7 @@ export default function ProfilePage() {
                                             {dbUser?.first_name} {dbUser?.last_name}
                                             {dbUser?.role === 'agent' && (
                                                 <span className="relative ml-1">
-                                                    <span className="opacity-0">{dbUser.last_name.slice(-1)}</span>
+                                                    <span className="opacity-0">{dbUser?.last_name?.[dbUser?.last_name?.length - 1] || ''}</span>
                                                     <Crown className="absolute -top-3 -right-2 w-4 h-4 text-yellow-500 fill-yellow-500 -rotate-[15deg] drop-shadow-sm" />
                                                 </span>
                                             )}
