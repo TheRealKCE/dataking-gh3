@@ -79,54 +79,26 @@ export default function AdminMembershipsPage() {
     const handleSavePrices = async () => {
         setIsSavingPrices(true)
         try {
-            // Update each price individually for better reliability
-            const priceKeys = [
-                { key: 'agent_upgrade_price_3d', value: prices['3d'] },
-                { key: 'agent_upgrade_price_14d', value: prices['14d'] },
-                { key: 'agent_upgrade_price_30d', value: prices['30d'] },
-            ]
+            const response = await fetch('/api/admin/update-prices', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prices })
+            })
 
-            for (const item of priceKeys) {
-                // First, try to update existing record
-                const { data: existing } = await (supabase as any)
-                    .from('admin_settings')
-                    .select('*')
-                    .eq('key', item.key)
-                    .single()
+            const data = await response.json()
 
-                if (existing) {
-                    // Update existing record
-                    const { error: updateError } = await (supabase as any)
-                        .from('admin_settings')
-                        .update({ value: item.value })
-                        .eq('key', item.key)
-
-                    if (updateError) throw updateError
-                } else {
-                    // Insert new record
-                    const { error: insertError } = await (supabase as any)
-                        .from('admin_settings')
-                        .insert({ key: item.key, value: item.value })
-
-                    if (insertError) throw insertError
-                }
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to update prices')
             }
 
-            // Verify the save by fetching back the values
-            const { data: verifyData } = await (supabase as any)
-                .from('admin_settings')
-                .select('*')
+            console.log('Price update response:', data)
+            toast.success(data.message || '✅ Prices updated successfully!')
 
-            const p3 = verifyData?.find((s: any) => s.key === 'agent_upgrade_price_3d')?.value
-            const p14 = verifyData?.find((s: any) => s.key === 'agent_upgrade_price_14d')?.value
-            const p30 = verifyData?.find((s: any) => s.key === 'agent_upgrade_price_30d')?.value
-
-            console.log('Verified saved prices:', { p3, p14, p30 })
-
-            toast.success(`Prices updated: 3d=GHS${p3}, 14d=GHS${p14}, 30d=GHS${p30}`)
+            // Refresh data to show updated values
+            await fetchData()
         } catch (error: any) {
             console.error('Error saving prices:', error)
-            toast.error('Failed to save prices: ' + error.message)
+            toast.error('❌ ' + error.message)
         } finally {
             setIsSavingPrices(false)
         }
