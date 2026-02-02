@@ -36,6 +36,20 @@ import {
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { DataPackage } from '@/types/supabase'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Trash2, Upload } from 'lucide-react'
+
+interface ValidationResult {
+    lineNumber: number
+    phoneNumber: string
+    volume: number
+    packagePrice: number
+    isValid: boolean
+    errorMessage?: string
+    packageId?: string
+    packageName?: string
+}
+
 
 const NETWORKS = ['MTN', 'Telecel', 'AT-iShare', 'AT-BigTime'] as const
 
@@ -58,6 +72,14 @@ export default function DataPackagesPage() {
     const [phoneError, setPhoneError] = useState('')
     const [isPurchasing, setIsPurchasing] = useState(false)
     const [purchaseSuccess, setPurchaseSuccess] = useState(false)
+
+    // Bulk Order State
+    const [bulkText, setBulkText] = useState('')
+    const [bulkNetwork, setBulkNetwork] = useState<string>('')
+    const [validationResults, setValidationResults] = useState<ValidationResult[]>([])
+    const [isValidating, setIsValidating] = useState(false)
+    const [isSubmittingBulk, setIsSubmittingBulk] = useState(false)
+
 
     useEffect(() => {
         fetchPackages()
@@ -218,6 +240,192 @@ export default function DataPackagesPage() {
         }
     }
 
+    // Bulk Order Functions
+    const parseTextInput = (text: string) => {
+        const lines = text.trim().split('\n')
+        return lines
+            .map((line, index) => {
+                const trimmed = line.trim()
+                if (!trimmed) return null
+
+                // Split by spaces or tabs
+                const parts = trimmed.split(/\s+/)
+                if (parts.length < 2) return null
+
+                // Assuming format: phone volume (e.g., "0551234567 1")
+                // Handle 1GB, 1gb, 1 etc.
+                const phone = parts[0]
+                const volStr = parts[1].toLowerCase().replace('gb', '')
+                const volume = parseFloat(volStr)
+
+                return {
+                    lineNumber: index + 1,
+                    phoneNumber: phone,
+                    volume: volume,
+                    rawLine: trimmed
+                }
+            })
+            .filter(Boolean)
+    }
+
+    const handleValidateBulk = async () => {
+        if (!bulkNetwork) {
+            toast.error('Please select a network first')
+            return
+        }
+        if (!bulkText.trim()) {
+            toast.error('Please enter phone numbers')
+            return
+        }
+
+        setIsValidating(true)
+        const parsedLines = parseTextInput(bulkText)
+
+        const results: ValidationResult[] = parsedLines.map((line: any) => {
+            // Validate phone
+            const phoneValidation = validateGhanaianPhone(line.phoneNumber)
+            if (!phoneValidation.isValid) {
+                return {
+                    ...line,
+                    packagePrice: 0,
+                    isValid: false,
+                    errorMessage: 'Invalid phone number'
+                }
+            }
+
+            // Check network match
+            const detectedNet = detectNetwork(line.phoneNumber)
+            // Handle AT network variations
+            const targetNet = bulkNetwork === 'AT-BigTime' || bulkNetwork === 'AT-iShare' ? 'AirtelTigo' : bulkNetwork
+            if (detectedNet !== targetNet) {
+                return {
+                    ...line,
+                    packagePrice: 0,
+                    isValid: false,
+                    errorMessage: `Wrong network (${detectedNet})`
+                }
+            }
+
+            // Find package
+            // Match volume (e.g. 1 -> 1GB, 0.5 -> 500MB is harder without exact match, assume GB for now as per prompt example)
+            // User prompt example: "0551053716 1" -> 1GB
+
+            // Try to find package with exact size match first (e.g. "1GB", "1 GB")
+            const pkg = packages.find(p => {
+                if (p.network !== bulkNetwork) return false
+                // Extract number from size string "1GB" -> 1
+                const pkgSize = p.size.toLowerCase()
+
+                // Handle different size formats
+                if (pkgSize.includes('gb')) {
+                    const sizeVal = parseFloat(pkgSize.replace('gb', '').trim())
+                    return sizeVal === line.volume
+                } else if (pkgSize.includes('mb')) {
+                    // If input is < 1, might be meant as parts of GB? 
+                    // Or input "1" implies 1GB. Protocol: Input is in GB.
+                    // 1000MB = 1GB
+                    const sizeVal = parseFloat(pkgSize.replace('mb', '').trim())
+                    return sizeVal / 1000 === line.volume
+                }
+                return false
+            })
+
+            if (!pkg) {
+                return {
+                    ...line,
+                    packagePrice: 0,
+                    isValid: false,
+                    errorMessage: `No ${line.volume}GB package found`
+                }
+            }
+
+            return {
+                ...line,
+                packagePrice: getEffectivePrice(pkg),
+                packageId: pkg.id,
+                packageName: pkg.network + ' ' + pkg.size,
+                isValid: true
+            }
+        })
+
+        setValidationResults(results)
+        setIsValidating(false)
+        if (results.length > 0) {
+            toast.success(`Validated ${results.length} entries`)
+        } else {
+            toast.error('No valid lines found')
+        }
+    }
+
+    const clearInvalid = () => {
+        setValidationResults(prev => prev.filter(r => r.isValid))
+    }
+
+    const clearAllResults = () => {
+        setValidationResults([])
+        setBulkText('')
+    }
+
+    const handleSubmitBulkOrder = async () => {
+        const validOrders = validationResults.filter(r => r.isValid)
+        if (validOrders.length === 0) return
+
+        const totalCost = validOrders.reduce((sum, order) => sum + order.packagePrice, 0)
+        if (walletBalance < totalCost) {
+            toast.error(`Insufficient balance. Need GHS ${formatCurrency(totalCost)}`)
+            return
+        }
+
+        setIsSubmittingBulk(true)
+        let successCount = 0
+        let failCount = 0
+
+        try {
+            // Process sequentially to be safe with wallet balance and order creation
+            for (const order of validOrders) {
+                try {
+                    const response = await fetch('/api/orders/purchase', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Authorization': `Bearer ${session?.access_token}`
+                        },
+                        body: JSON.stringify({
+                            packageId: order.packageId,
+                            phoneNumber: validateGhanaianPhone(order.phoneNumber).normalizedNumber,
+                        }),
+                    })
+
+                    if (response.ok) {
+                        successCount++
+                    } else {
+                        failCount++
+                    }
+                } catch (e) {
+                    failCount++
+                }
+            }
+
+            // Update stats
+            fetchWalletBalance()
+            fetchOrdersToday()
+
+            if (successCount > 0) {
+                toast.success(`Submitted ${successCount} orders successfully`)
+                setValidationResults([])
+                setBulkText('')
+                setBulkNetwork('')
+            }
+            if (failCount > 0) {
+                toast.error(`${failCount} orders failed to process`)
+            }
+
+        } catch (error) {
+            toast.error('Error submitting bulk orders')
+        } finally {
+            setIsSubmittingBulk(false)
+        }
+    }
     if (isLoading) {
         return (
             <div className="space-y-6">
@@ -267,6 +475,188 @@ export default function DataPackagesPage() {
                         </p>
                     </div>
                 </div>
+
+                {/* Bulk Order Section - Agents Only */}
+                {dbUser?.role === 'agent' && (
+                    <Card className="w-full max-w-3xl mx-auto border-dashed border-2 bg-slate-50 dark:bg-slate-900/50">
+                        <CardHeader className="pb-2">
+                            <div className="flex items-center gap-2">
+                                <Upload className="w-5 h-5 text-purple-600" />
+                                <div className="text-left">
+                                    <CardTitle className="text-lg">Bulk Orders (Excel/Text)</CardTitle>
+                                    <p className="text-sm text-muted-foreground">Upload multiple phone numbers at once</p>
+                                </div>
+                            </div>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="space-y-2 text-left">
+                                <Label>Select Network</Label>
+                                <div className="flex gap-2 flex-wrap">
+                                    {NETWORKS.map(net => (
+                                        <Button
+                                            key={net}
+                                            variant={bulkNetwork === net ? "default" : "outline"}
+                                            className={bulkNetwork === net ?
+                                                (net === 'MTN' ? 'bg-[#FFCC00] text-black hover:bg-[#FFCC00]/90' :
+                                                    net === 'Telecel' ? 'bg-[#E60000] text-white hover:bg-[#E60000]/90' :
+                                                        'bg-[#0056B3] text-white hover:bg-[#0056B3]/90')
+                                                : ''}
+                                            onClick={() => setBulkNetwork(net)}
+                                            size="sm"
+                                        >
+                                            {net}
+                                        </Button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="flex gap-2 border-b">
+                                <Button
+                                    variant="default"
+                                    className="rounded-b-none bg-purple-600 hover:bg-purple-700 text-white"
+                                    size="sm"
+                                >
+                                    Text Input
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    className="rounded-b-none text-muted-foreground"
+                                    size="sm"
+                                    disabled
+                                >
+                                    Excel Upload
+                                </Button>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label className="text-left block">Paste numbers and volumes (e.g. 0551053716 1)</Label>
+                                <textarea
+                                    className="flex min-h-[150px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 font-mono"
+                                    placeholder="One per line, e.g. 0551053716 1"
+                                    value={bulkText}
+                                    onChange={(e) => setBulkText(e.target.value)}
+                                />
+                                <p className="text-xs text-muted-foreground text-left">
+                                    Format: Phone number followed by space and volume in GB
+                                </p>
+                            </div>
+
+                            <Button
+                                className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+                                onClick={handleValidateBulk}
+                                disabled={isValidating}
+                            >
+                                {isValidating ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                        Validating...
+                                    </>
+                                ) : 'Validate'}
+                            </Button>
+
+                            {/* Validation Results */}
+                            {validationResults.length > 0 && (
+                                <div className="mt-6 space-y-4">
+                                    <div className="flex items-center justify-between">
+                                        <h3 className="font-bold text-lg">Validation Results</h3>
+                                        <div className="flex gap-2">
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="text-orange-600 border-orange-200 hover:bg-orange-50"
+                                                onClick={clearInvalid}
+                                            >
+                                                <Trash2 className="w-3 h-3 mr-1" />
+                                                Clear Invalid
+                                            </Button>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="text-red-600 border-red-200 hover:bg-red-50"
+                                                onClick={clearAllResults}
+                                            >
+                                                <Trash2 className="w-3 h-3 mr-1" />
+                                                Clear All
+                                            </Button>
+                                        </div>
+                                    </div>
+
+                                    <div className="rounded-md border overflow-hidden">
+                                        <table className="w-full text-sm">
+                                            <thead className="bg-muted/50">
+                                                <tr>
+                                                    <th className="p-3 text-left font-medium">#</th>
+                                                    <th className="p-3 text-left font-medium">Phone Number</th>
+                                                    <th className="p-3 text-left font-medium">Volume (GB)</th>
+                                                    <th className="p-3 text-left font-medium">Price</th>
+                                                    <th className="p-3 text-left font-medium">Status</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody className="divide-y">
+                                                {validationResults.map((res, i) => (
+                                                    <tr key={i} className={res.isValid ? 'bg-green-50/50' : 'bg-red-50/50'}>
+                                                        <td className="p-3">{res.lineNumber}</td>
+                                                        <td className="p-3 font-mono">{res.phoneNumber}</td>
+                                                        <td className="p-3">{res.volume} GB</td>
+                                                        <td className="p-3 font-medium">
+                                                            {res.packagePrice > 0 ? formatCurrency(res.packagePrice) : '-'}
+                                                        </td>
+                                                        <td className="p-3">
+                                                            {res.isValid ? (
+                                                                <Badge className="bg-green-100 text-green-700 border-0 hover:bg-green-100">
+                                                                    <CheckCircle2 className="w-3 h-3 mr-1" />
+                                                                    Valid
+                                                                </Badge>
+                                                            ) : (
+                                                                <Badge variant="destructive" className="bg-red-100 text-red-700 border-0 hover:bg-red-100">
+                                                                    <AlertCircle className="w-3 h-3 mr-1" />
+                                                                    {res.errorMessage || 'Invalid'}
+                                                                </Badge>
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                ))}
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-muted/30 p-4 rounded-lg border">
+                                        <div className="flex gap-4 text-sm">
+                                            <span>Total: <b>{validationResults.length}</b></span>
+                                            <span className="text-green-600">Valid: <b>{validationResults.filter(r => r.isValid).length}</b></span>
+                                            <span className="text-red-600">Invalid: <b>{validationResults.filter(r => !r.isValid).length}</b></span>
+                                        </div>
+                                        <div className="flex items-center gap-4">
+                                            <div className="text-right">
+                                                <p className="text-xs text-muted-foreground">Total Cost</p>
+                                                <p className="text-xl font-black text-purple-600">
+                                                    {formatCurrency(validationResults.reduce((sum, r) => sum + r.packagePrice, 0))}
+                                                </p>
+                                            </div>
+                                            <Button
+                                                className="bg-purple-600 hover:bg-purple-700"
+                                                onClick={handleSubmitBulkOrder}
+                                                disabled={isSubmittingBulk || validationResults.filter(r => r.isValid).length === 0}
+                                            >
+                                                {isSubmittingBulk ? (
+                                                    <>
+                                                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                                        Processing...
+                                                    </>
+                                                ) : (
+                                                    <>
+                                                        <CheckCircle2 className="w-4 h-4 mr-2" />
+                                                        SUBMIT ORDER
+                                                    </>
+                                                )}
+                                            </Button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </CardContent>
+                    </Card>
+                )}
 
                 <div className="flex items-center gap-2">
                     <Button
