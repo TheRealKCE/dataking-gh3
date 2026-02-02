@@ -72,8 +72,10 @@ export async function POST(request: Request) {
             planLabel = '30 Days Agent Pass';
         }
 
-        const fee = calculatePaystackFee(upgradePrice)
-        const totalAmount = upgradePrice + fee
+
+        // No fees for membership payments - customer pays exact price
+        const fee = 0
+        const totalAmount = upgradePrice
 
         // Initialize Paystack payment
         const reference = `agent_upgrade_${generateReferenceCode()}`
