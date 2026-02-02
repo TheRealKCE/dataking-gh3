@@ -42,30 +42,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const isAdmin = dbUser?.role === 'admin'
     const isSubAdmin = dbUser?.role === 'sub-admin'
 
-    // Browser close / Background detection
-    useEffect(() => {
-        // Mark session as active in sessionStorage (cleared when browser closes)
-        if (typeof window !== 'undefined') {
-            const isSessionActive = sessionStorage.getItem('is_session_active')
-
-            // If we have a user in localStorage (Supabase default) but no flag in sessionStorage,
-            // it means the browser was closed and reopened -> Force Logout
-            if (!isSessionActive) {
-                const clearAuth = async () => {
-                    await supabase.auth.signOut()
-                    setUser(null)
-                    setDbUser(null)
-                    setSession(null)
-                    router.push('/')
-                }
-                clearAuth()
-            }
-
-            // Set the flag for this current session
-            sessionStorage.setItem('is_session_active', 'true')
-        }
-    }, [router])
-
     const fetchDbUser = useCallback(async (userId: string) => {
         try {
             // Add 5 second timeout to prevent hanging
@@ -105,11 +81,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             password,
         })
 
-        // Set session active flag on login
-        if (!error && typeof window !== 'undefined') {
-            sessionStorage.setItem('is_session_active', 'true')
-        }
-
         return { error }
     }
 
@@ -133,18 +104,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const signOut = async () => {
         await supabase.auth.signOut()
-
-        // Clear session flags
-        if (typeof window !== 'undefined') {
-            sessionStorage.removeItem('is_session_active')
-
-            Object.keys(sessionStorage).forEach(key => {
-                if (key.startsWith('announcement_seen_')) {
-                    sessionStorage.removeItem(key)
-                }
-            })
-        }
-
         setUser(null)
         setDbUser(null)
         setSession(null)
@@ -158,10 +117,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         const updateActivity = () => {
             setLastActivity(Date.now())
-            // Also keep session alive in storage
-            if (typeof window !== 'undefined') {
-                sessionStorage.setItem('is_session_active', 'true')
-            }
         }
 
         const events = ['mousedown', 'keydown', 'scroll', 'touchstart', 'click']
@@ -188,9 +143,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 setUser(null)
                 setDbUser(null)
                 setSession(null)
-                if (typeof window !== 'undefined') {
-                    sessionStorage.removeItem('is_session_active')
-                }
                 router.push('/')
             }
         }, 60000) // Check every minute
