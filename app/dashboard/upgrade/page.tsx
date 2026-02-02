@@ -67,12 +67,27 @@ export default function UpgradePage() {
         fetchPrices()
     }, [])
 
+    const [isVerifying, setIsVerifying] = useState(false)
+
     // Detect successful payment and show congrats modal
     useEffect(() => {
-        if (searchParams.get('success') === 'true' && dbUser?.role === 'agent') {
-            setShowCongrats(true)
-            // Clean URL without reloading
-            window.history.replaceState({}, '', '/dashboard/upgrade')
+        const success = searchParams.get('success') === 'true'
+
+        if (success) {
+            if (dbUser?.role === 'agent') {
+                setShowCongrats(true)
+                setIsVerifying(false)
+                // Clean URL without reloading
+                window.history.replaceState({}, '', '/dashboard/upgrade')
+            } else {
+                setIsVerifying(true)
+                // Polling logic to wait for role update (every 2 seconds)
+                const timer = setTimeout(() => {
+                    // This will trigger re-run of this effect when dbUser updates
+                    window.location.reload()
+                }, 3000)
+                return () => clearTimeout(timer)
+            }
         }
     }, [searchParams, dbUser])
 
@@ -152,11 +167,19 @@ export default function UpgradePage() {
         'Premium Badge on Profile with Avatar'
     ]
 
-    if (isLoading) {
+    if (isLoading || isVerifying) {
         return (
             <div className="fixed inset-0 bg-[#FFCE00] flex items-center justify-center z-50">
-                <div className="relative">
-                    <Crown className="w-16 h-16 text-yellow-600 animate-bounce relative z-10" />
+                <div className="flex flex-col items-center gap-4">
+                    <div className="relative">
+                        <Crown className="w-16 h-16 text-yellow-600 animate-bounce relative z-10" />
+                    </div>
+                    {isVerifying && (
+                        <div className="text-center space-y-2">
+                            <h2 className="text-2xl font-black text-yellow-800">Verifying Payment...</h2>
+                            <p className="text-yellow-700 font-bold animate-pulse">Please wait while we activate your agent status.</p>
+                        </div>
+                    )}
                 </div>
             </div>
         )

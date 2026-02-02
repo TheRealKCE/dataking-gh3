@@ -77,9 +77,49 @@ export async function POST(request: Request) {
         const fee = 0
         const totalAmount = upgradePrice
 
-        // Initialize Paystack payment
+        // Create a pending record in wallet_payments so the webhook can find it
         const reference = `agent_upgrade_${generateReferenceCode()}`
 
+        // Get user's wallet
+        const { data: wallet } = await supabaseAdmin
+            .from('wallets')
+            .select('id')
+            .eq('user_id', user.id)
+            .single()
+
+        if (!wallet) {
+            throw new Error('User wallet not found')
+        }
+
+        const planDays = plan === '3d' ? 3 : (plan === '14d' ? 14 : 30)
+
+        const { error: paymentError } = await (supabaseAdmin
+            .from('wallet_payments') as any)
+            .insert({
+                user_id: user.id,
+                wallet_id: (wallet as any).id,
+                amount: upgradePrice,
+                fee: 0,
+                total_amount: upgradePrice,
+                reference,
+                provider: 'paystack',
+                status: 'pending',
+                metadata: {
+                    user_id: user.id,
+                    upgrade_type: 'agent',
+                    plan_type: plan,
+                    plan_days: planDays,
+                    plan_label: planLabel,
+                    base_amount: upgradePrice,
+                }
+            })
+
+        if (paymentError) {
+            console.error('[UpgradeInit] Database error:', paymentError)
+            throw new Error('Failed to record payment attempt')
+        }
+
+        // Initialize Paystack payment
         const paystackResponse = await fetch('https://api.paystack.co/transaction/initialize', {
             method: 'POST',
             headers: {
@@ -94,6 +134,7 @@ export async function POST(request: Request) {
                     user_id: user.id,
                     upgrade_type: 'agent',
                     plan_type: plan,
+                    plan_days: planDays,
                     plan_label: planLabel,
                     base_amount: upgradePrice,
                     fee: fee,

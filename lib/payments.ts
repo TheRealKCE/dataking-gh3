@@ -155,3 +155,102 @@ export async function processCompletedWalletPayment(reference: string, providerM
 
     return { success: true }
 }
+
+/**
+ * Processes a completed upgrade payment by updating the user's role 
+ * and extending their agent membership duration.
+ */
+export async function processCompletedUpgradePayment(reference: string, providerMetadata: any) {
+    const supabase = createServerClient()
+
+    // 1. Get payment record
+    const { data: paymentData, error: paymentError } = await supabase
+        .from('wallet_payments')
+        .select('*')
+        .eq('reference', reference)
+        .single()
+
+    const payment = paymentData as any
+
+    if (paymentError || !payment) {
+        console.error('[UpgradeProcess] Payment not found:', reference)
+        return { success: false, error: 'Payment not found' }
+    }
+
+    // 2. Atomic Update (Idempotency Check)
+    const { data: updatedPayment, error: updatePaymentError } = await (supabase
+        .from('wallet_payments') as any)
+        .update({
+            status: 'completed',
+            metadata: providerMetadata,
+            updated_at: new Date().toISOString(),
+        })
+        .eq('id', payment.id)
+        .eq('status', 'pending')
+        .select()
+        .single()
+
+    if (updatePaymentError) {
+        if (updatePaymentError.code === 'PGRST116') {
+            return { success: true, alreadyProcessed: true }
+        }
+        console.error('[UpgradeProcess] Update payment error:', updatePaymentError)
+        return { success: false, error: 'Failed to update payment status' }
+    }
+
+    if (!updatedPayment) return { success: true, alreadyProcessed: true }
+
+    // 3. Get User and current expiry
+    const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('role, agent_expires_at, email')
+        .eq('id', payment.user_id)
+        .single()
+
+    const user = userData as any
+
+    if (userError || !user) {
+        console.error('[UpgradeProcess] User not found:', payment.user_id)
+        return { success: false, error: 'User not found' }
+    }
+
+    // 4. Calculate new expiry
+    const planDays = (payment.metadata as any)?.plan_days || 30
+    const now = new Date()
+    let currentExpiry = user.agent_expires_at ? new Date(user.agent_expires_at) : null
+    let newExpiry: Date
+
+    if (currentExpiry && currentExpiry > now) {
+        // Extend existing
+        newExpiry = new Date(currentExpiry.getTime() + (planDays * 24 * 60 * 60 * 1000))
+    } else {
+        // Start fresh
+        newExpiry = new Date(now.getTime() + (planDays * 24 * 60 * 60 * 1000))
+    }
+
+    // 5. Update user role and expiry
+    const { error: updateUserError } = await (supabase
+        .from('users') as any)
+        .update({
+            role: 'agent',
+            agent_expires_at: newExpiry.toISOString(),
+            updated_at: new Date().toISOString(),
+        })
+        .eq('id', payment.user_id)
+
+    if (updateUserError) {
+        console.error('[UpgradeProcess] Update user error:', updateUserError)
+        return { success: false, error: 'Failed to update user role' }
+    }
+
+    // 6. Create notification
+    await (supabase.from('notifications') as any).insert({
+        user_id: payment.user_id,
+        title: 'Upgrade Successful',
+        message: `Congratulations! Your Agent membership has been ${currentExpiry && currentExpiry > now ? 'extended' : 'activated'} until ${newExpiry.toLocaleDateString()}.`,
+        type: 'system',
+        action_url: '/dashboard',
+    })
+
+    return { success: true }
+}

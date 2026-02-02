@@ -47,8 +47,14 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({ received: true })
             }
 
-            // Process the payment using shared utility
-            await processCompletedWalletPayment(reference, event.data)
+            // Process the payment based on metadata
+            const metadata = event.data.metadata
+            if (metadata?.upgrade_type === 'agent') {
+                const { processCompletedUpgradePayment } = await import('@/lib/payments')
+                await processCompletedUpgradePayment(reference, event.data)
+            } else {
+                await processCompletedWalletPayment(reference, event.data)
+            }
         }
 
         return NextResponse.json({ received: true })
