@@ -35,10 +35,10 @@ import { differenceInDays } from 'date-fns'
 
 const userNavItems = [
     { href: '/dashboard', label: 'Home', icon: LayoutDashboard },
+    { href: '/dashboard/upgrade', label: 'Membership', icon: Crown },
     { href: '/dashboard/data-packages', label: 'Data Packages', icon: Package },
     { href: '/dashboard/my-orders', label: 'Orders', icon: ShoppingCart },
     { href: '/dashboard/wallet', label: 'Wallet', icon: Wallet },
-    { href: '/dashboard/upgrade', label: 'Membership', icon: Crown },
     { href: '/dashboard/complaints', label: 'Complaints', icon: MessageSquare },
     { href: '/dashboard/notifications', label: 'Notifications', icon: Bell },
     { href: '/dashboard/profile', label: 'Profile', icon: User },
@@ -138,7 +138,7 @@ export function DashboardSidebar() {
                                 priority
                             />
                             {dbUser?.role === 'agent' && (
-                                <Crown className="absolute -top-4 -right-2 w-6 h-6 text-black fill-black -rotate-[25deg] drop-shadow-md z-10" />
+                                <Crown className="absolute -top-4 -left-3 w-6 h-6 text-black fill-black -rotate-[25deg] drop-shadow-md z-10" />
                             )}
                         </div>
                         {!isCollapsed && (
@@ -146,7 +146,7 @@ export function DashboardSidebar() {
                                 <span className="text-xl font-extrabold tracking-tight text-black dark:text-white font-display drop-shadow-sm">
                                     KING FLEXY
                                 </span>
-                                <span className="text-[11px] font-bold text-gray-800 dark:text-gray-300 -mt-1 tracking-widest drop-shadow-sm">DATA LIMITED</span>
+                                <span className="text-[11px] font-bold text-[#E60000] -mt-1 tracking-widest drop-shadow-sm">DATA LIMITED</span>
                             </div>
                         )}
                     </Link>
@@ -273,8 +273,14 @@ export function DashboardSidebar() {
                                 : "bg-gray-300/60 dark:bg-black/40 border-gray-400/30 dark:border-gray-800/50"
                         )}>
                             <div>
-                                <p className="text-[10px] text-gray-600 dark:text-gray-400 uppercase tracking-wider font-bold mb-0.5">Balance</p>
-                                <p className="text-base font-black text-emerald-600 dark:text-emerald-400 tracking-tight">{formatCurrency(walletBalance)}</p>
+                                <p className={cn(
+                                    "text-[10px] uppercase tracking-wider font-bold mb-0.5",
+                                    dbUser?.role === 'agent' ? "text-black" : "text-gray-600 dark:text-gray-400"
+                                )}>Balance</p>
+                                <p className={cn(
+                                    "text-base font-black tracking-tight",
+                                    dbUser?.role === 'agent' ? "text-black" : "text-emerald-600 dark:text-emerald-400"
+                                )}>{formatCurrency(walletBalance)}</p>
                             </div>
                             {!(process.env.NEXT_PUBLIC_PAYMENT_MAINTENANCE_MODE === 'true' && !isAdmin) && isPageAccessible('/dashboard/wallet') && (
                                 <Link href="/dashboard/wallet">
