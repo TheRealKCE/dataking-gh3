@@ -581,15 +581,15 @@ export default function DataPackagesPage() {
                                         </div>
                                     </div>
 
-                                    <div className="rounded-md border border-[#FFCE00]/20 max-h-[250px] overflow-y-auto overflow-x-auto">
+                                    <div className="rounded-md border border-[#FFCE00]/20 max-h-[250px] overflow-y-auto overflow-x-auto bg-[#FFFFFF]">
                                         <table className="w-full text-sm min-w-[500px]">
-                                            <thead className="bg-black sticky top-0 z-10">
+                                            <thead className="bg-gray-100 sticky top-0 z-10">
                                                 <tr className="border-b border-[#FFCE00]/20">
-                                                    <th className="p-3 text-left font-bold text-[#FFCE00]">#</th>
-                                                    <th className="p-3 text-left font-bold text-[#FFCE00]">Phone Number</th>
-                                                    <th className="p-3 text-left font-bold text-[#FFCE00]">Volume</th>
-                                                    <th className="p-3 text-left font-bold text-[#FFCE00]">Price</th>
-                                                    <th className="p-3 text-left font-bold text-[#FFCE00]">Status</th>
+                                                    <th className="p-3 text-left font-bold text-[#1a1a1a]">#</th>
+                                                    <th className="p-3 text-left font-bold text-[#1a1a1a]">Phone Number</th>
+                                                    <th className="p-3 text-left font-bold text-[#1a1a1a]">Volume</th>
+                                                    <th className="p-3 text-left font-bold text-[#1a1a1a]">Price</th>
+                                                    <th className="p-3 text-left font-bold text-[#1a1a1a]">Status</th>
                                                 </tr>
                                             </thead>
                                             <tbody className="divide-y divide-[#FFCE00]/10">
@@ -598,9 +598,9 @@ export default function DataPackagesPage() {
                                                         "transition-colors",
                                                         res.isValid ? 'bg-green-500/5' : 'bg-red-500/5'
                                                     )}>
-                                                        <td className="p-3 text-white/70">{res.lineNumber}</td>
-                                                        <td className="p-3 font-mono text-white">{res.phoneNumber}</td>
-                                                        <td className="p-3 text-white">{res.volume} GB</td>
+                                                        <td className="p-3 text-[#1a1a1a]/70">{res.lineNumber}</td>
+                                                        <td className="p-3 font-mono text-[#1a1a1a]">{res.phoneNumber}</td>
+                                                        <td className="p-3 text-[#1a1a1a]">{res.volume} GB</td>
                                                         <td className="p-3 font-bold text-[#FFCE00]">
                                                             {res.packagePrice > 0 ? formatCurrency(res.packagePrice) : '-'}
                                                         </td>
@@ -623,9 +623,9 @@ export default function DataPackagesPage() {
                                         </table>
                                     </div>
 
-                                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-black/50 p-4 rounded-lg border border-[#FFCE00]/20">
+                                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 bg-[#FFFFFF] p-4 rounded-lg border border-[#FFCE00]/20">
                                         <div className="flex gap-4 text-xs">
-                                            <span className="text-white/70">Total: <b className="text-white">{validationResults.length}</b></span>
+                                            <span className="text-[#1a1a1a]/70">Total: <b className="text-[#1a1a1a]">{validationResults.length}</b></span>
                                             <span className="text-[#25D366]">Valid: <b>{validationResults.filter(r => r.isValid).length}</b></span>
                                             <span className="text-[#E60000]">Invalid: <b>{validationResults.filter(r => !r.isValid).length}</b></span>
                                         </div>
