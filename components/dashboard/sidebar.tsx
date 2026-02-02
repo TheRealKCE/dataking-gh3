@@ -45,6 +45,7 @@ const userNavItems = [
 const adminNavItems = [
     { href: '/admin', label: 'Dashboard', icon: Shield },
     { href: '/admin/orders', label: 'Orders', icon: ShoppingCart },
+    { href: '/admin/memberships', label: 'Agent Members', icon: Crown },
     { href: '/admin/users', label: 'Users', icon: Users },
     { href: '/admin/packages', label: 'Packages', icon: Package },
     { href: '/admin/complaints', label: 'Complaints', icon: MessageSquare },

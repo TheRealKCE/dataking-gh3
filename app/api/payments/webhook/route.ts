@@ -45,11 +45,23 @@ export async function POST(request: NextRequest) {
                     return NextResponse.json({ received: true }, { status: 200 })
                 }
 
-                // Update user role to agent
+                // Calculate expiration date
+                let expirationDate = new Date()
+                if (metadata.plan_type === '3d') {
+                    expirationDate.setDate(expirationDate.getDate() + 3)
+                } else if (metadata.plan_type === '14d') {
+                    expirationDate.setDate(expirationDate.getDate() + 14)
+                } else {
+                    // Default to 30 days for '30d' or unknown
+                    expirationDate.setDate(expirationDate.getDate() + 30)
+                }
+
+                // Update user role to agent and set expiration
                 const { error: updateError } = await (supabase as any)
                     .from('users')
                     .update({
                         role: 'agent',
+                        agent_expires_at: expirationDate.toISOString(),
                         updated_at: new Date().toISOString()
                     })
                     .eq('id', metadata.user_id)

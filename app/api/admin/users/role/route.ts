@@ -37,9 +37,19 @@ export async function POST(request: NextRequest) {
         // Service role client to bypass RLS
         const supabase = createServerClient()
 
+        // Calculate expiration if role is agent
+        const updateData: any = { role }
+        if (role === 'agent') {
+            const expiresAt = new Date()
+            expiresAt.setDate(expiresAt.getDate() + 30)
+            updateData.agent_expires_at = expiresAt.toISOString()
+        } else {
+            updateData.agent_expires_at = null
+        }
+
         const { error: updateError } = await (supabase
             .from('users') as any)
-            .update({ role })
+            .update(updateData)
             .eq('id', userId)
 
         if (updateError) {
