@@ -268,10 +268,10 @@ function WalletContent() {
                                 <Link href="https://wa.me/233551617309" target="_blank" className="flex-1 sm:flex-none">
                                     <Button
                                         size="sm"
-                                        className="w-full bg-[#25D366] text-white font-black hover:bg-[#20ba5a] transition-all rounded-xl shadow-lg shadow-[#25D366]/20 flex items-center gap-2 px-4 border-0"
+                                        className="w-full bg-[#FACC15] text-black font-black hover:bg-black hover:text-[#FACC15] transition-all rounded-xl shadow-lg shadow-[#FACC15]/20 flex items-center gap-2 px-4 border-2 border-black"
                                     >
-                                        <div className="bg-white/20 p-1 rounded-md">
-                                            <Send className="w-3 h-3 text-white" />
+                                        <div className="bg-black/10 p-1 rounded-md">
+                                            <Send className="w-3 h-3 text-black" />
                                         </div>
                                         WhatsApp
                                     </Button>
