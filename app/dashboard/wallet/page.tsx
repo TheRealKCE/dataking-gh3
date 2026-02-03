@@ -202,6 +202,50 @@ function WalletContent() {
                 <p className="text-muted-foreground">Top up your wallet to continue shopping</p>
             </div>
 
+            {/* Agent-only Manual Top Up Instructions */}
+            {dbUser?.role === 'agent' && (
+                <Card className="border-2 border-[#FACC15] bg-yellow-50 dark:bg-yellow-900/10 overflow-hidden">
+                    <CardHeader className="bg-[#FACC15] py-3">
+                        <CardTitle className="text-black text-lg flex items-center gap-2">
+                            <Plus className="w-5 h-5" />
+                            0% Admin Manual Credit Top Up Option
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="pt-6 space-y-5">
+                        <div className="space-y-4">
+                            <div className="flex gap-4">
+                                <div className="flex-shrink-0 w-7 h-7 rounded-full bg-yellow-200 dark:bg-yellow-800 flex items-center justify-center text-sm font-black text-yellow-800 dark:text-yellow-100">1</div>
+                                <p className="text-sm sm:text-base font-bold text-gray-800 dark:text-gray-200 leading-relaxed">
+                                    Send your payment using Mobile Money: <br />
+                                    <span className="text-yellow-700 dark:text-yellow-400 font-black">Mobile Money Numbers: MTN 0551617309, Telecel 0507193592.</span><br />
+                                    Name is the same <span className="underline decoration-yellow-500 decoration-2">[Felix Boahen]</span>
+                                </p>
+                            </div>
+                            <div className="flex gap-4">
+                                <div className="flex-shrink-0 w-7 h-7 rounded-full bg-yellow-200 dark:bg-yellow-800 flex items-center justify-center text-sm font-black text-yellow-800 dark:text-yellow-100">2</div>
+                                <p className="text-sm sm:text-base font-bold text-gray-800 dark:text-gray-200 leading-relaxed">
+                                    When sending use your Registered name as the reference (<span className="text-yellow-700 dark:text-yellow-400 font-extrabold uppercase text-xs">For Quick Account Credit</span>) or copy and send your Transaction ID to <span className="text-yellow-700 dark:text-yellow-400 font-black">0551617309</span> on SMS or WhatsApp.
+                                </p>
+                            </div>
+                            <div className="flex gap-4">
+                                <div className="flex-shrink-0 w-7 h-7 rounded-full bg-yellow-200 dark:bg-yellow-800 flex items-center justify-center text-sm font-black text-yellow-800 dark:text-yellow-100">3</div>
+                                <p className="text-sm sm:text-base font-bold text-gray-800 dark:text-gray-200 leading-relaxed">
+                                    Refresh your page after receiving your confirmation.
+                                </p>
+                            </div>
+                        </div>
+                        <div className="pt-4 border-t border-yellow-200 dark:border-yellow-800/50">
+                            <div className="inline-block px-3 py-1 rounded-full bg-yellow-100 dark:bg-yellow-900/30 border border-yellow-200 dark:border-yellow-800">
+                                <p className="text-xs font-black text-yellow-700 dark:text-yellow-500 uppercase tracking-widest flex items-center gap-1.5">
+                                    <AlertTriangle className="w-3.5 h-3.5" />
+                                    Minimum Amount: GHS 10
+                                </p>
+                            </div>
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
+
             {/* Maintenance Banner - Only show to non-admin users when wallet is disabled */}
             {!isAdmin && !isPageAccessible('/dashboard/wallet') && (
                 <div className="bg-yellow-50 dark:bg-yellow-900/20 border-2 border-yellow-400 dark:border-yellow-600 rounded-xl p-4">
