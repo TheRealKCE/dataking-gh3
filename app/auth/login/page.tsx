@@ -156,7 +156,7 @@ export default function LoginPage() {
                             <Button
                                 asChild
                                 variant="default"
-                                className="w-full sm:w-auto sm:min-w-[200px] sm:mx-auto h-12 text-base font-bold bg-slate-900 hover:bg-slate-800 text-white shadow-lg rounded-xl flex items-center justify-center"
+                                className="w-full sm:w-auto sm:min-w-[200px] sm:mx-auto h-12 text-base font-bold bg-sky-500 hover:bg-sky-600 text-white shadow-lg rounded-xl flex items-center justify-center"
                             >
                                 <Link href="/auth/signup">
                                     Create New Account
