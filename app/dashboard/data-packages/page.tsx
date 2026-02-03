@@ -653,7 +653,7 @@ export default function DataPackagesPage() {
                                                         <textarea
                                                             ref={textareaRef}
                                                             className="w-full min-h-[120px] rounded-2xl border-2 border-gray-50 dark:border-zinc-800 bg-gray-50/50 dark:bg-zinc-800/50 pl-10 pr-4 py-3 text-[11px] leading-tight text-black dark:text-white placeholder:text-gray-300 dark:placeholder:text-zinc-600 focus:outline-none focus:border-[#FFCE00] transition-colors font-mono font-bold resize-none overflow-hidden"
-                                                            placeholder="0246677889 2&#10;0546627266 3"
+                                                            placeholder={`0246677889 2\n0546627266 3`}
                                                             value={bulkText}
                                                             onChange={(e) => setBulkText(e.target.value)}
                                                         />
