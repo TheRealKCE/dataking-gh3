@@ -98,15 +98,24 @@ function WalletContent() {
                     .eq('user_id', dbUser?.id as any)
                     .single(),
 
-                // Fetch today's top-up transactions only
-                supabase
-                    .from('wallet_transactions')
-                    .select('*')
-                    .eq('user_id', dbUser?.id as any)
-                    .eq('type', 'credit')
-                    .eq('source', 'payment')
-                    .gte('created_at', new Date(new Date().setHours(0, 0, 0, 0)).toISOString())
-                    .order('created_at', { ascending: false }),
+                // Fetch top-up transactions
+                dbUser?.role === 'agent'
+                    ? supabase
+                        .from('wallet_transactions')
+                        .select('*')
+                        .eq('user_id', dbUser?.id as any)
+                        .eq('type', 'credit')
+                        .or('source.eq.payment,source.eq.admin')
+                        .order('created_at', { ascending: false })
+                        .limit(50)
+                    : supabase
+                        .from('wallet_transactions')
+                        .select('*')
+                        .eq('user_id', dbUser?.id as any)
+                        .eq('type', 'credit')
+                        .eq('source', 'payment')
+                        .gte('created_at', new Date(new Date().setHours(0, 0, 0, 0)).toISOString())
+                        .order('created_at', { ascending: false }),
 
                 // Fetch settings
                 supabase
@@ -501,7 +510,7 @@ function WalletContent() {
             {/* Recent Transactions */}
             <Card>
                 <CardHeader>
-                    <CardTitle>Today</CardTitle>
+                    <CardTitle>{dbUser?.role === 'agent' ? 'Recent Activity' : 'Today'}</CardTitle>
                 </CardHeader>
                 <CardContent>
                     {transactions.length === 0 ? (
