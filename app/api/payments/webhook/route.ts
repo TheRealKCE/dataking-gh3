@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { processCompletedWalletPayment } from '@/lib/payments'
 import { createServerClient } from '@/lib/supabase'
+import { sendAgentUpgradeSuccessSMS } from '@/lib/sms-service'
 
 export async function POST(request: NextRequest) {
     try {
@@ -45,16 +46,35 @@ export async function POST(request: NextRequest) {
                     return NextResponse.json({ received: true }, { status: 200 })
                 }
 
+                // Fetch user details for SMS and extension logic
+                const { data: userData, error: userError } = await supabase
+                    .from('users')
+                    .select('first_name, phone_number, role, agent_expires_at')
+                    .eq('id', metadata.user_id)
+                    .single()
+
+                if (userError || !userData) {
+                    console.error('Failed to fetch user details for agent upgrade:', userError)
+                    return NextResponse.json({ received: true }, { status: 200 })
+                }
+
+                const user = userData as any
+
+                // Calculate base plan days
+                const planDaysCount = metadata.plan_days || (metadata.plan_type === '3d' ? 3 : metadata.plan_type === '14d' ? 14 : 30)
+
                 // Calculate expiration date
                 let expirationDate = new Date()
-                if (metadata.plan_type === '3d') {
-                    expirationDate.setDate(expirationDate.getDate() + 3)
-                } else if (metadata.plan_type === '14d') {
-                    expirationDate.setDate(expirationDate.getDate() + 14)
-                } else {
-                    // Default to 30 days for '30d' or unknown
-                    expirationDate.setDate(expirationDate.getDate() + 30)
+
+                // Extension logic: If already an agent and not expired, start from current expiry
+                if (user.role === 'agent' && user.agent_expires_at) {
+                    const currentExpiry = new Date(user.agent_expires_at)
+                    if (currentExpiry > new Date()) {
+                        expirationDate = currentExpiry
+                    }
                 }
+
+                expirationDate.setDate(expirationDate.getDate() + planDaysCount)
 
                 // Update user role to agent and set expiration
                 const { error: updateError } = await (supabase as any)
@@ -71,17 +91,33 @@ export async function POST(request: NextRequest) {
                     return NextResponse.json({ received: true }, { status: 200 })
                 }
 
+                // Calculate total remaining days for SMS
+                const now = new Date()
+                const diffMs = expirationDate.getTime() - now.getTime()
+                const remainingDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
+
+                // Send SMS notification
+                if (user.phone_number) {
+                    const planLabelText = metadata.plan_type === '3d' ? '3days' : metadata.plan_type === '14d' ? '14days' : '30days'
+                    await sendAgentUpgradeSuccessSMS(
+                        user.phone_number,
+                        user.first_name || 'User',
+                        planLabelText,
+                        remainingDays
+                    )
+                }
+
                 // Create notification
                 await (supabase as any)
                     .from('notifications')
                     .insert({
                         user_id: metadata.user_id,
                         title: 'Upgrade Successful! 👑',
-                        message: 'Congratulations! You are now an Agent. Enjoy exclusive benefits and premium features.',
+                        message: `Congratulations! Your Agent status is now valid for ${remainingDays} days.`,
                         type: 'system',
                     })
 
-                console.log(`Successfully upgraded user ${metadata.user_id} to agent`)
+                console.log(`Successfully upgraded user ${metadata.user_id} to agent. Remaining days: ${remainingDays}`)
                 return NextResponse.json({ received: true }, { status: 200 })
             }
 

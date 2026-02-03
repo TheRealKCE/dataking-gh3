@@ -260,3 +260,40 @@ export async function sendWelcomeSMS(
         message
     })
 }
+/**
+ * Send Agent upgrade success SMS
+ * Template: "Hi [User First Name]! Your [Plan purchase days] Upgrade to Agent Role was Successful! Your Agent role is now valid for [Remaining Agent Role Days] thank you. KingFlexyGh"
+ */
+export async function sendAgentUpgradeSuccessSMS(
+    phoneNumber: string,
+    firstName: string,
+    planDays: string,
+    remainingDays: number
+) {
+    const message = `Hi ${firstName}! Your ${planDays} Upgrade to Agent Role was Successful! Your Agent role is now valid for ${remainingDays}days thank you.
+
+KingFlexyGh`
+
+    return sendSMS({
+        recipient: phoneNumber,
+        message
+    })
+}
+
+/**
+ * Send Agent renewal reminder SMS (1 day left)
+ * Template: "Hi [Agent First Name]! Your Agent Role plan is about to expire, kindly extend your plan to continue enjoying the benefits thank you. KingFlexyGh."
+ */
+export async function sendAgentRenewalReminderSMS(
+    phoneNumber: string,
+    firstName: string
+) {
+    const message = `Hi ${firstName}! Your Agent Role plan is about to expire, kindly extend your plan to continue enjoying the benefits thank you.
+
+KingFlexyGh.`
+
+    return sendSMS({
+        recipient: phoneNumber,
+        message
+    })
+}
