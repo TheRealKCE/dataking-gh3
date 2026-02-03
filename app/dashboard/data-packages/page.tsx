@@ -261,6 +261,33 @@ export default function DataPackagesPage() {
     }
 
     // Bulk Order Functions
+    const parseTextInput = (text: string) => {
+        const lines = text.trim().split('\n')
+        return lines
+            .map((line, index) => {
+                const trimmed = line.trim()
+                if (!trimmed) return null
+
+                // Split by spaces or tabs
+                const parts = trimmed.split(/\s+/)
+                if (parts.length < 2) return null
+
+                // Assuming format: phone volume (e.g., "0551234567 1")
+                // Handle 1GB, 1gb, 1 etc.
+                const phone = parts[0]
+                const volStr = parts[1].toLowerCase().replace('gb', '')
+                const volume = parseFloat(volStr)
+
+                return {
+                    lineNumber: index + 1,
+                    phoneNumber: phone,
+                    volume: volume,
+                    rawLine: trimmed
+                }
+            })
+            .filter(Boolean)
+    }
+
     const validateLines = (parsedLines: any[]) => {
         if (!bulkNetwork) {
             toast.error('Please select a network first')
