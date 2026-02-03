@@ -9,6 +9,7 @@ import { Crown, Sparkles, Zap, Star, CheckCircle } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
 import { toast } from 'sonner'
 import CongratsModal from '@/components/upgrade/CongratsModal'
+import { cn } from '@/lib/utils'
 
 export default function UpgradePage() {
     const { dbUser } = useAuth()
@@ -126,7 +127,8 @@ export default function UpgradePage() {
             buttonClass: 'bg-gradient-to-r from-gray-300 to-gray-400 hover:from-gray-400 hover:to-gray-500 text-gray-800 shadow-sm',
             badgeText: 'STARTER',
             badgeColor: 'from-gray-300 to-gray-400',
-            priceColor: 'text-gray-600'
+            priceColor: 'text-gray-600',
+            bgClass: 'bg-slate-50'
         },
         {
             id: '14d',
@@ -140,7 +142,8 @@ export default function UpgradePage() {
             buttonClass: 'bg-[#FFCE00] hover:bg-[#E6B800] text-black shadow-lg shadow-[#FFCE00]/20',
             badgeText: 'MOST POPULAR',
             badgeColor: 'from-[#FFCE00] to-[#E6B800]',
-            priceColor: 'text-yellow-600'
+            priceColor: 'text-amber-600',
+            bgClass: 'bg-amber-50'
         },
         {
             id: '30d',
@@ -154,17 +157,19 @@ export default function UpgradePage() {
             buttonClass: 'bg-gradient-to-r from-purple-600 via-blue-600 to-indigo-700 hover:from-purple-700 hover:via-blue-700 hover:to-indigo-800 shadow-lg shadow-purple-500/30',
             badgeText: 'PREMIUM',
             badgeColor: 'from-purple-600 to-indigo-700',
-            priceColor: 'text-purple-600'
+            priceColor: 'text-purple-600',
+            bgClass: 'bg-purple-50'
         }
     ]
 
     const commonFeatures = [
         'Exclusive Wholesale Pricing',
         'Priority Customer Support',
-        'No Top Up Charges (0% Paystack Fee)',
-        'Live Chat with Agents',
-        'Faster Order Processing & Delivery',
-        'Premium Badge on Profile with Avatar'
+        '0% Top Up Charges (Admin Manual Top Up)',
+        'Faster Order Processing',
+        'Bulk Order Import Feature',
+        'New Exclusive UI Design Features',
+        'The Awaited “Shop” Feature (Coming Soon)'
     ]
 
     if (isLoading || isVerifying) {
@@ -195,7 +200,7 @@ export default function UpgradePage() {
                 />
             )}
 
-            <div className="relative -m-4 sm:-m-6 min-h-[calc(100vh+2rem)] lg:min-h-screen bg-[#FFCE00] overflow-x-hidden selection:bg-yellow-200 px-4 sm:px-6 py-10 sm:py-16 flex flex-col items-center scroll-smooth" style={{ fontFamily: '"Fira Sans", sans-serif' }}>
+            <div className="relative -m-4 sm:-m-6 min-h-[calc(100vh+2rem)] lg:min-h-screen bg-gradient-to-br from-yellow-400 via-amber-500 to-yellow-600 overflow-x-hidden selection:bg-yellow-200 px-4 sm:px-6 py-10 sm:py-16 flex flex-col items-center scroll-smooth" style={{ fontFamily: '"Fira Sans", sans-serif' }}>
 
                 <div className="relative z-10 w-full max-w-6xl flex flex-col items-center">
 
@@ -203,7 +208,7 @@ export default function UpgradePage() {
                     <div className="text-center mb-8 sm:mb-12 space-y-3 sm:space-y-4">
                         <div className="mb-4 sm:mb-6 flex justify-center">
                             <div className="relative">
-                                <Crown className="w-20 h-20 sm:w-28 sm:h-28 text-yellow-600 animate-[bounce_2s_infinite] drop-shadow-xl" />
+                                <Crown className="w-20 h-20 sm:w-28 sm:h-28 text-black animate-[bounce_2s_infinite] drop-shadow-xl" />
                             </div>
                         </div>
 
@@ -238,7 +243,7 @@ export default function UpgradePage() {
                             </div>
                         )}
 
-                        <p className="text-sm sm:text-base lg:text-lg text-gray-600 font-semibold max-w-3xl mx-auto opacity-80 px-4">
+                        <p className="text-sm sm:text-base lg:text-lg text-white font-black max-w-3xl mx-auto px-4 drop-shadow-sm">
                             {dbUser?.role === 'agent'
                                 ? "Renew/Extend Your Subscription to Continue Enjoying Your Existing Features and Benefits"
                                 : "Unlock the New Premium Membership (Agent Role) for Exciting Features to Grow your Business. Choose from the Plans below (Each plan has same features)."}
@@ -250,8 +255,12 @@ export default function UpgradePage() {
                         {tiers.map((tier) => (
                             <div
                                 key={tier.id}
-                                className={`relative bg-white rounded-2xl p-6 flex flex-col transition-all duration-500 shadow-[0_8px_30px_rgba(238,238,238,0.8)] hover:shadow-[0_12px_40px_rgba(238,238,238,1)] border-2 ${tier.color} ${tier.popular ? 'md:scale-105 z-10' : 'opacity-95'}`}
-                                style={{ borderColor: '#EEEEEE' }}
+                                className={cn(
+                                    "relative rounded-2xl p-6 flex flex-col transition-all duration-500 shadow-xl border-2",
+                                    tier.bgClass,
+                                    tier.color,
+                                    tier.popular ? 'md:scale-105 z-10' : 'opacity-95'
+                                )}
                             >
                                 {/* Badge for all tiers */}
                                 {tier.badgeText && (
@@ -289,14 +298,23 @@ export default function UpgradePage() {
                                 </div>
 
                                 <div className="space-y-3 mb-8 flex-1">
-                                    {commonFeatures.map((feature, i) => (
-                                        <div key={i} className="flex items-start gap-2.5">
-                                            <div className="mt-0.5 flex-shrink-0 w-5 h-5 rounded-full bg-green-50 flex items-center justify-center">
-                                                <CheckCircle className="w-3.5 h-3.5 text-green-500" />
+                                    {commonFeatures.map((feature, i) => {
+                                        const isComingSoon = feature.toLowerCase().includes('coming soon')
+                                        return (
+                                            <div key={i} className="flex items-start gap-2.5">
+                                                <div className={cn(
+                                                    "mt-0.5 flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center",
+                                                    isComingSoon ? "bg-yellow-100" : "bg-green-50"
+                                                )}>
+                                                    <CheckCircle className={cn(
+                                                        "w-3.5 h-3.5",
+                                                        isComingSoon ? "text-yellow-500" : "text-green-500"
+                                                    )} />
+                                                </div>
+                                                <span className="text-xs sm:text-sm font-bold text-gray-700 leading-snug">{feature}</span>
                                             </div>
-                                            <span className="text-xs sm:text-sm font-bold text-gray-600 leading-snug">{feature}</span>
-                                        </div>
-                                    ))}
+                                        )
+                                    })}
                                 </div>
 
                                 <Button

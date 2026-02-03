@@ -27,10 +27,11 @@ export default function CongratsModal({ onClose, onBrowsePackages }: CongratsMod
     const agentFeatures = [
         'Exclusive Wholesale Pricing',
         'Priority Customer Support',
-        'No Top Up Charges (0% Paystack Fee)',
-        'Live Chat with Agents',
-        'Faster Order Processing & Delivery',
-        'Crown Badge on Profile with Avatar'
+        '0% Top Up Charges (Admin Manual Top Up)',
+        'Faster Order Processing',
+        'Bulk Order Import Feature',
+        'New Exclusive UI Design Features',
+        'The Awaited “Shop” Feature (Coming Soon)'
     ]
 
     const handleClose = () => {
@@ -73,7 +74,7 @@ export default function CongratsModal({ onClose, onBrowsePackages }: CongratsMod
             )}
 
             {/* Modal */}
-            <div className={`relative bg-gradient-to-br from-yellow-400/95 via-amber-500/90 to-yellow-600/95 rounded-3xl p-6 sm:p-10 max-w-2xl w-full border-4 border-yellow-300 shadow-2xl shadow-yellow-500/50 transform transition-all duration-500 ${isVisible ? 'scale-100 translate-y-0' : 'scale-75 translate-y-8'}`}>
+            <div className={`relative bg-gradient-to-br from-yellow-400/95 via-amber-500/90 to-yellow-600/95 rounded-3xl p-6 sm:p-8 max-w-lg w-full border-4 border-yellow-300 shadow-2xl shadow-yellow-500/50 transform transition-all duration-500 ${isVisible ? 'scale-100 translate-y-0' : 'scale-75 translate-y-8'}`}>
                 {/* Close Button */}
                 <button
                     onClick={handleClose}
@@ -94,11 +95,11 @@ export default function CongratsModal({ onClose, onBrowsePackages }: CongratsMod
                 </div>
 
                 {/* Success Message */}
-                <div className="text-center mb-8">
-                    <h2 className="text-4xl sm:text-5xl font-black text-white mb-3 drop-shadow-lg">
-                        🎉 Congratulations! 🎉
+                <div className="text-center mb-6">
+                    <h2 className="text-3xl sm:text-4xl font-black text-white mb-2 drop-shadow-lg">
+                        Congratulations!
                     </h2>
-                    <p className="text-xl sm:text-2xl font-bold text-amber-50">
+                    <p className="text-lg sm:text-xl font-bold text-amber-50">
                         You are Now a Premium Agent!
                     </p>
                 </div>
