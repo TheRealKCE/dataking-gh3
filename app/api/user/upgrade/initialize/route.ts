@@ -28,9 +28,9 @@ export async function POST(request: Request) {
             .eq('id', user.id)
             .single()
 
-        if (dbUser?.role !== 'customer') {
+        if (dbUser?.role !== 'customer' && dbUser?.role !== 'agent') {
             return NextResponse.json(
-                { error: 'Only customers can upgrade to agent status' },
+                { error: 'Membership upgrades are only available for customers and existing agents' },
                 { status: 400 }
             )
         }

@@ -12,12 +12,13 @@ import CongratsModal from '@/components/upgrade/CongratsModal'
 import { cn } from '@/lib/utils'
 
 export default function UpgradePage() {
-    const { dbUser } = useAuth()
+    const { dbUser, refreshUser } = useAuth()
     const router = useRouter()
     const searchParams = useSearchParams()
 
     // Congrats modal state
     const [showCongrats, setShowCongrats] = useState(false)
+    const [initialExpiry, setInitialExpiry] = useState<string | null>(null)
 
     // Prices for tiers
     const [prices, setPrices] = useState({
@@ -35,6 +36,13 @@ export default function UpgradePage() {
     const [showStrikethrough, setShowStrikethrough] = useState(false)
     const [isLoading, setIsLoading] = useState(true)
     const [isProcessing, setIsProcessing] = useState<string | null>(null)
+
+    // Store initial expiry date when user data is available
+    useEffect(() => {
+        if (dbUser?.agent_expires_at && !initialExpiry) {
+            setInitialExpiry(dbUser.agent_expires_at)
+        }
+    }, [dbUser, initialExpiry])
 
     useEffect(() => {
         const fetchPrices = async () => {
@@ -75,22 +83,36 @@ export default function UpgradePage() {
         const success = searchParams.get('success') === 'true'
 
         if (success) {
-            if (dbUser?.role === 'agent') {
-                setShowCongrats(true)
-                setIsVerifying(false)
-                // Clean URL without reloading
-                window.history.replaceState({}, '', '/dashboard/upgrade')
-            } else {
-                setIsVerifying(true)
-                // Polling logic to wait for role update (every 2 seconds)
-                const timer = setTimeout(() => {
-                    // This will trigger re-run of this effect when dbUser updates
-                    window.location.reload()
-                }, 3000)
-                return () => clearTimeout(timer)
+            const verifyAndShowCongrats = async () => {
+                // Check if upgrade is actually confirmed in DB
+                // For existing agents, check if expiry has increased
+                // For customers, check if role changed to agent
+                const isConfirmed = dbUser?.role === 'agent' && (
+                    !initialExpiry || dbUser.agent_expires_at !== initialExpiry
+                )
+
+                if (isConfirmed) {
+                    setShowCongrats(true)
+                    setIsVerifying(false)
+                    // Clean URL without reloading
+                    window.history.replaceState({}, '', '/dashboard/upgrade')
+                } else {
+                    setIsVerifying(true)
+                    // Refresh data or reload until confirmed
+                    const timer = setTimeout(() => {
+                        if (dbUser) {
+                            refreshUser()
+                        } else {
+                            window.location.reload()
+                        }
+                    }, 3000)
+                    return () => clearTimeout(timer)
+                }
             }
+
+            verifyAndShowCongrats()
         }
-    }, [searchParams, dbUser])
+    }, [searchParams, dbUser, initialExpiry, refreshUser])
 
     const handleUpgrade = async (plan: string) => {
         setIsProcessing(plan)
