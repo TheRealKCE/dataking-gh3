@@ -164,10 +164,19 @@ export default function LoginPage() {
                             </Button>
                         </div>
 
-                        <div className="mt-3 text-center">
-                            <Link href="/auth/reset-password" className="text-sm text-slate-500 hover:text-[#0056B3]">
-                                Forgot password?
-                            </Link>
+                        <div className="text-center space-y-3 mt-4">
+                            <p className="text-slate-600 text-sm">
+                                Forgot your password?
+                            </p>
+                            <Button
+                                asChild
+                                variant="default"
+                                className="w-full sm:w-auto sm:min-w-[200px] sm:mx-auto h-12 text-base font-bold bg-sky-500 hover:bg-sky-600 text-white shadow-lg rounded-xl flex items-center justify-center"
+                            >
+                                <Link href="/auth/reset-password">
+                                    Reset Password
+                                </Link>
+                            </Button>
                         </div>
 
                         <div className="mt-5 border-t border-slate-300/50 pt-4">

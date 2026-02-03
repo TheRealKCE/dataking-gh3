@@ -304,13 +304,19 @@ export default function SignupPage() {
                             <div className="flex-1 h-px bg-slate-300/60"></div>
                         </div>
 
-                        <div className="text-center">
+                        <div className="text-center space-y-3 mt-4">
                             <p className="text-slate-600 text-sm">
-                                Already have an account?{' '}
-                                <Link href="/auth/login" className="text-[#0056B3] font-bold hover:underline">
+                                Already have an account?
+                            </p>
+                            <Button
+                                asChild
+                                variant="default"
+                                className="w-full sm:w-auto sm:min-w-[200px] sm:mx-auto h-12 text-base font-bold bg-sky-500 hover:bg-sky-600 text-white shadow-lg rounded-xl flex items-center justify-center"
+                            >
+                                <Link href="/auth/login">
                                     Sign In
                                 </Link>
-                            </p>
+                            </Button>
                         </div>
 
                         <div className="mt-4 border-t border-slate-300/50 pt-4">
