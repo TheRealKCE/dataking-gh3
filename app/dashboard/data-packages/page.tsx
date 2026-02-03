@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import * as XLSX from 'xlsx'
 import { useAuth } from '@/contexts/auth-context'
 import { supabase } from '@/lib/supabase'
+import Link from 'next/link'
 import { formatCurrency, getNetworkGradient, cn } from '@/lib/utils'
 import { validateGhanaianPhone, detectNetwork } from '@/lib/phone-validation'
 import { NetworkIcon } from '@/components/network-icon'
@@ -802,56 +803,57 @@ export default function DataPackagesPage() {
                                             </div>
 
                                             {/* Summary Container */}
-                                            <div className="bg-[#FFCE00] rounded-3xl p-6 shadow-xl relative overflow-hidden">
-                                                <div className="flex flex-col sm:flex-row gap-6 relative z-10">
-                                                    <div className="flex-1 space-y-1">
-                                                        <p className="text-[10px] font-black text-black uppercase tracking-widest opacity-60">Total Cost</p>
-                                                        <h2 className="text-4xl font-black text-black">{formatCurrency(totalBulkCost)}</h2>
-                                                        <p className="text-[10px] font-bold text-black opacity-60">Order value</p>
+                                            <div className="bg-[#FFCE00] rounded-3xl p-4 shadow-xl relative overflow-hidden max-w-md mx-auto w-full">
+                                                <div className="grid grid-cols-2 gap-4 relative z-10 items-center">
+                                                    <div className="text-center space-y-0.5 border-r border-black/10">
+                                                        <p className="text-[9px] font-black text-black uppercase tracking-widest opacity-60">Total Cost</p>
+                                                        <h2 className="text-2xl font-black text-black leading-tight">{formatCurrency(totalBulkCost)}</h2>
+                                                        <p className="text-[9px] font-bold text-black opacity-60 uppercase tracking-tighter">Order value</p>
                                                     </div>
-                                                    <div className="w-px bg-black/10 hidden sm:block" />
-                                                    <div className="flex-1 space-y-1">
-                                                        <p className="text-[10px] font-black text-black uppercase tracking-widest opacity-60">Total Data</p>
-                                                        <h2 className="text-4xl font-black text-black">{totalBulkData} GB</h2>
-                                                        <p className="text-[10px] font-bold text-black opacity-60">Data Volume</p>
-                                                    </div>
-                                                    <div className="absolute right-6 top-1/2 -translate-y-1/2 opacity-20 hidden lg:block">
-                                                        <div className="bg-black/10 p-4 rounded-2xl">
-                                                            <DollarSign className="w-8 h-8 text-black" />
-                                                        </div>
+                                                    <div className="text-center space-y-0.5">
+                                                        <p className="text-[9px] font-black text-black uppercase tracking-widest opacity-60">Total Data</p>
+                                                        <h2 className="text-2xl font-black text-black leading-tight">{totalBulkData} <span className="text-sm">GB</span></h2>
+                                                        <p className="text-[9px] font-bold text-black opacity-60 uppercase tracking-tighter">Data Volume</p>
                                                     </div>
                                                 </div>
                                             </div>
 
                                             {/* Submit Section */}
-                                            <div className="flex flex-col sm:flex-row items-center justify-between gap-4 py-2">
-                                                <div className="flex items-center gap-3">
-                                                    <div className="p-2 bg-gray-100 dark:bg-zinc-800 rounded-xl">
-                                                        <DollarSign className="w-4 h-4 text-gray-500" />
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-[10px] font-bold text-gray-400 uppercase tracking-widest">Wallet Balance</p>
-                                                        <p className="text-sm font-black text-black dark:text-white">{formatCurrency(walletBalance)}</p>
-                                                    </div>
-                                                </div>
-
-                                                <Button
-                                                    className="w-full sm:w-auto min-w-[200px] bg-black text-[#FFCE00] hover:bg-black/90 font-black py-6 rounded-2xl shadow-xl shadow-black/10 text-sm h-auto"
-                                                    onClick={handleSubmitBulkOrder}
-                                                    disabled={isSubmittingBulk || validationResults.filter(r => r.isValid).length === 0}
-                                                >
-                                                    {isSubmittingBulk ? (
-                                                        <>
-                                                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                                            Processing...
-                                                        </>
-                                                    ) : (
-                                                        <div className="flex items-center gap-2">
-                                                            <CheckCircle2 className="w-4 h-4" />
-                                                            SUBMIT ORDERS
-                                                        </div>
-                                                    )}
-                                                </Button>
+                                            <div className="flex flex-col items-center justify-center gap-4 py-4 max-w-md mx-auto w-full">
+                                                {walletBalance < totalBulkCost ? (
+                                                    <Link href="/dashboard/wallet" className="w-full">
+                                                        <Button
+                                                            className="w-full bg-[#FFCE00] text-black hover:bg-[#FFCE00]/90 font-black py-6 rounded-2xl shadow-xl shadow-yellow-500/20 text-sm h-auto uppercase tracking-widest"
+                                                        >
+                                                            <DollarSign className="w-5 h-5 mr-2" />
+                                                            Recharge Wallet
+                                                        </Button>
+                                                    </Link>
+                                                ) : (
+                                                    <Button
+                                                        className="w-full bg-black text-[#FFCE00] hover:bg-black/90 font-black py-5 rounded-2xl shadow-xl shadow-black/10 text-sm h-auto flex flex-col items-center gap-1"
+                                                        onClick={handleSubmitBulkOrder}
+                                                        disabled={isSubmittingBulk || validationResults.filter(r => r.isValid).length === 0}
+                                                    >
+                                                        {isSubmittingBulk ? (
+                                                            <div className="flex items-center">
+                                                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                                                Processing...
+                                                            </div>
+                                                        ) : (
+                                                            <>
+                                                                <div className="text-[10px] font-bold opacity-60 flex items-center gap-1 mb-1 bg-white/10 px-3 py-0.5 rounded-full">
+                                                                    <DollarSign className="w-2.5 h-2.5" />
+                                                                    Wallet Balance: {formatCurrency(walletBalance)}
+                                                                </div>
+                                                                <div className="flex items-center gap-2 text-base tracking-widest">
+                                                                    <CheckCircle2 className="w-5 h-5" />
+                                                                    SUBMIT ORDERS
+                                                                </div>
+                                                            </>
+                                                        )}
+                                                    </Button>
+                                                )}
                                             </div>
                                         </div>
                                     )}
