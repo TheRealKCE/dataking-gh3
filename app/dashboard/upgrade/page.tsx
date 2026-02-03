@@ -19,6 +19,7 @@ export default function UpgradePage() {
     // Congrats modal state
     const [showCongrats, setShowCongrats] = useState(false)
     const [initialExpiry, setInitialExpiry] = useState<string | null>(null)
+    const [showFallbackButton, setShowFallbackButton] = useState(false)
 
     // Prices for tiers
     const [prices, setPrices] = useState({
@@ -111,8 +112,26 @@ export default function UpgradePage() {
             }
 
             verifyAndShowCongrats()
+        } else {
+            // Reset fallback button if not in success/verifying mode
+            setShowFallbackButton(false)
         }
     }, [searchParams, dbUser, initialExpiry, refreshUser])
+
+    // Timer for fallback button during verification
+    useEffect(() => {
+        let timer: NodeJS.Timeout
+        if (isVerifying) {
+            timer = setTimeout(() => {
+                setShowFallbackButton(true)
+            }, 10000) // 10 seconds
+        } else {
+            setShowFallbackButton(false)
+        }
+        return () => {
+            if (timer) clearTimeout(timer)
+        }
+    }, [isVerifying])
 
     const handleUpgrade = async (plan: string) => {
         setIsProcessing(plan)
@@ -196,15 +215,38 @@ export default function UpgradePage() {
 
     if (isLoading || isVerifying) {
         return (
-            <div className="fixed inset-0 bg-[#FFCE00] flex items-center justify-center z-50">
-                <div className="flex flex-col items-center gap-4">
+            <div className="fixed inset-0 bg-[#FFCE00] flex items-center justify-center z-50 p-6">
+                <div className="flex flex-col items-center gap-6 max-w-sm w-full">
                     <div className="relative">
                         <Crown className="w-16 h-16 text-yellow-600 animate-bounce relative z-10" />
                     </div>
                     {isVerifying && (
-                        <div className="text-center space-y-2">
-                            <h2 className="text-2xl font-black text-yellow-800">Verifying Payment...</h2>
-                            <p className="text-yellow-700 font-bold animate-pulse">Please wait while we activate your agent status.</p>
+                        <div className="text-center space-y-4 w-full">
+                            <div className="space-y-2">
+                                <h2 className="text-2xl font-black text-yellow-800">Verifying Payment...</h2>
+                                <p className="text-yellow-700 font-bold animate-pulse">Please wait while we activate your agent status.</p>
+                            </div>
+
+                            {showFallbackButton && (
+                                <div className="pt-4 space-y-3 animate-in fade-in slide-in-from-bottom-4 duration-700">
+                                    <p className="text-yellow-800/80 text-xs font-black uppercase tracking-widest">Taking longer than expected?</p>
+                                    <div className="grid grid-cols-1 gap-3">
+                                        <Button
+                                            onClick={() => window.location.reload()}
+                                            variant="outline"
+                                            className="bg-white/50 border-yellow-400 text-yellow-800 font-black hover:bg-white/80 rounded-xl"
+                                        >
+                                            Refresh Page
+                                        </Button>
+                                        <Button
+                                            onClick={() => router.push('/dashboard')}
+                                            className="bg-black text-[#FFCE00] font-black hover:bg-black/90 rounded-xl"
+                                        >
+                                            Go to Dashboard
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     )}
                 </div>
