@@ -5,7 +5,7 @@ import { useAuth } from '@/contexts/auth-context'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
-import { formatCurrency, formatDate, calculatePaystackFee } from '@/lib/utils'
+import { formatCurrency, formatDate, calculatePaystackFee, cn } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -205,77 +205,112 @@ function WalletContent() {
                 <p className="text-muted-foreground">Top up your wallet to continue shopping</p>
             </div>
 
+            {/* Balance Card at top for Agents */}
+            {dbUser?.role === 'agent' && (
+                <div className="w-full">
+                    <Card className="overflow-hidden border-2 border-[#1A1A1A] shadow-lg">
+                        <div className="bg-[#1A1A1A] p-6 text-white">
+                            <div className="flex items-center justify-between mb-6">
+                                <div className="flex items-center gap-2">
+                                    <Wallet className="w-6 h-6 text-[#FACC15]" />
+                                    <span className="font-semibold uppercase tracking-widest text-xs text-[#FACC15]">Wallet Balance</span>
+                                </div>
+                                <Badge className="bg-[#FACC15] text-black border-0 font-bold">Active</Badge>
+                            </div>
+                            <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-4">
+                                <div>
+                                    <p className="text-sm text-gray-400 mb-1">Available Balance</p>
+                                    <p className="text-4xl font-black">{formatCurrency(walletBalance)}</p>
+                                </div>
+                                <div className="flex gap-8 pt-4 sm:pt-0 border-t sm:border-t-0 border-gray-800">
+                                    <div>
+                                        <div className="flex items-center gap-1 text-gray-400 text-xs mb-1">
+                                            <TrendingUp className="w-3.5 h-3.5" />
+                                            <span>Credited</span>
+                                        </div>
+                                        <p className="font-bold text-lg">{formatCurrency(totalCredited)}</p>
+                                    </div>
+                                    <div>
+                                        <div className="flex items-center gap-1 text-gray-400 text-xs mb-1">
+                                            <TrendingDown className="w-3.5 h-3.5" />
+                                            <span>Spent</span>
+                                        </div>
+                                        <p className="font-bold text-lg">{formatCurrency(totalDebited)}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </Card>
+                </div>
+            )}
+
             {/* Agent-only Manual Top Up Instructions */}
             {dbUser?.role === 'agent' && (
-                <Card className="border-2 border-[#1A1A1A] bg-white overflow-hidden shadow-2xl">
-                    <div className="bg-[#1A1A1A] px-6 py-4 flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                            <Wallet className="w-5 h-5 text-[#FACC15]" />
-                            <span className="text-[#FACC15] font-black uppercase tracking-widest text-xs">Wallet Balance</span>
-                        </div>
-                        <span className="text-2xl font-black text-white">{formatCurrency(walletBalance)}</span>
-                    </div>
-
-                    <CardHeader className="bg-white py-4 border-b border-gray-100">
-                        <CardTitle className="text-black text-xl font-black flex items-center gap-2">
+                <Card className="border-2 border-gray-100 bg-white overflow-hidden shadow-xl">
+                    <CardHeader className="bg-white py-4 border-b border-gray-50">
+                        <CardTitle className="text-black text-lg sm:text-xl font-semibold flex items-center gap-2">
                             <Plus className="w-5 h-5 text-[#FACC15]" />
                             Admin Manual Credit (Bypass Paystack Charges)
                         </CardTitle>
                     </CardHeader>
-                    <CardContent className="pt-8 space-y-6">
-                        <div className="space-y-6">
+                    <CardContent className="pt-8 space-y-8">
+                        <div className="space-y-8">
+                            {/* Step 1 */}
                             <div className="flex gap-5">
-                                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#FACC15] flex items-center justify-center text-sm font-black text-black shadow-sm">1</div>
-                                <p className="text-sm sm:text-base font-bold text-black leading-relaxed">
+                                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#FACC15] flex items-center justify-center text-sm font-bold text-black shadow-sm">1</div>
+                                <p className="text-sm sm:text-base font-medium text-black leading-relaxed pt-1">
                                     Send your payment using Mobile Money: <br />
-                                    <span className="text-[#b45309] font-black">Mobile Money Numbers: MTN 0551617309, Telecel 0507193592.</span><br />
-                                    Name is the same <span className="underline decoration-[#FACC15] decoration-4 underline-offset-4">[Felix Boahen]</span>
+                                    <span className="text-yellow-600 font-semibold">MTN 0551617309, Telecel 0507193592.</span><br />
+                                    Name: Felix Boahen
                                 </p>
                             </div>
+
+                            {/* Step 2 */}
                             <div className="flex gap-5">
-                                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#FACC15] flex items-center justify-center text-sm font-black text-black shadow-sm">2</div>
-                                <p className="text-sm sm:text-base font-bold text-black leading-relaxed">
-                                    When sending use your Registered name as the reference (<span className="bg-[#FACC15] text-black px-2 py-0.5 rounded text-[10px] font-black uppercase">For Quick Account Credit</span>) or copy and send your Transaction ID to <span className="text-[#b45309] font-black">0551617309</span> on SMS or WhatsApp.
-                                </p>
+                                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#FACC15] flex items-center justify-center text-sm font-bold text-black shadow-sm">2</div>
+                                <div className="space-y-4 pt-1 flex-1">
+                                    <p className="text-sm sm:text-base font-medium text-black leading-relaxed">
+                                        When sending use your Registered name as reference (For Quick Account Credit) or copy and send your Transaction ID to 0551617309 on SMS or WhatsApp.
+                                    </p>
+                                    <div className="flex flex-wrap items-center gap-6">
+                                        <Link
+                                            href={`sms:0551617309?body=Please I have sent the money so credit my account for me, account name is: ${dbUser?.first_name} ${dbUser?.last_name || dbUser?.email || 'N/A'}`}
+                                            className="group flex flex-col items-center gap-2"
+                                        >
+                                            <div className="p-3 rounded-full hover:bg-yellow-50 transition-colors">
+                                                <MessageSquare className="w-8 h-8 text-black" strokeWidth={1.5} />
+                                            </div>
+                                            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-tighter group-hover:text-black">tap here to send sms</span>
+                                        </Link>
+                                        <Link
+                                            href={`https://wa.me/233551617309?text=${encodeURIComponent(`Please I have sent the money so credit my account for me, account name is: ${dbUser?.first_name} ${dbUser?.last_name || dbUser?.email || 'N/A'}`)}`}
+                                            target="_blank"
+                                            className="group flex flex-col items-center gap-2"
+                                        >
+                                            <div className="p-3 rounded-full hover:bg-green-50 transition-colors">
+                                                <Send className="w-8 h-8 text-black" strokeWidth={1.5} />
+                                            </div>
+                                            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-tighter group-hover:text-black">tap here to send whatsapp</span>
+                                        </Link>
+                                    </div>
+                                </div>
                             </div>
+
+                            {/* Step 3 */}
                             <div className="flex gap-5">
-                                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#FACC15] flex items-center justify-center text-sm font-black text-black shadow-sm">3</div>
-                                <p className="text-sm sm:text-base font-bold text-black leading-relaxed">
-                                    Refresh your page after receiving your confirmation.
+                                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#FACC15] flex items-center justify-center text-sm font-bold text-black shadow-sm">3</div>
+                                <p className="text-sm sm:text-base font-medium text-black leading-relaxed pt-1">
+                                    Wait for Admin final approval message and refresh your page thank you (Credi is Instant after Approval).
                                 </p>
                             </div>
                         </div>
 
-                        <div className="pt-6 border-t border-gray-100 flex flex-wrap items-center justify-between gap-4">
-                            <div className="inline-flex items-center gap-2 bg-yellow-50 px-4 py-2 rounded-xl border border-[#FACC15]/30">
-                                <AlertTriangle className="w-4 h-4 text-yellow-600" />
-                                <span className="text-sm font-black text-black uppercase tracking-wider">
-                                    Min Amount: GHS 10
+                        <div className="pt-6 border-t border-gray-50">
+                            <div className="inline-flex items-center gap-2 text-yellow-600 bg-yellow-50 px-4 py-2 rounded-xl">
+                                <AlertTriangle className="w-4 h-4" />
+                                <span className="text-sm font-bold uppercase tracking-wide">
+                                    Minimum Amount: GH₵ 10.00
                                 </span>
-                            </div>
-
-                            <div className="flex items-center gap-2">
-                                <Link href="sms:0551617309" className="flex-1 sm:flex-none">
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="w-full border-2 border-black text-black font-black hover:bg-black hover:text-[#FACC15] transition-all rounded-xl flex items-center gap-2 px-4"
-                                    >
-                                        <MessageSquare className="w-4 h-4" />
-                                        SMS
-                                    </Button>
-                                </Link>
-                                <Link href="https://wa.me/233551617309" target="_blank" className="flex-1 sm:flex-none">
-                                    <Button
-                                        size="sm"
-                                        className="w-full bg-[#FACC15] text-black font-black hover:bg-black hover:text-[#FACC15] transition-all rounded-xl shadow-lg shadow-[#FACC15]/20 flex items-center gap-2 px-4 border-2 border-black"
-                                    >
-                                        <div className="bg-black/10 p-1 rounded-md">
-                                            <Send className="w-3 h-3 text-black" />
-                                        </div>
-                                        WhatsApp
-                                    </Button>
-                                </Link>
                             </div>
                         </div>
                     </CardContent>
@@ -304,9 +339,8 @@ function WalletContent() {
             )}
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Balance Card */}
-                <div className="lg:col-span-1">
-                    <Card className="overflow-hidden">
+                <div className={dbUser?.role === 'agent' ? 'lg:col-span-3' : 'lg:col-span-1'}>
+                    <Card className={cn("overflow-hidden", dbUser?.role === 'agent' && "hidden")}>
                         <div className="bg-[#FACC15] p-6 text-[#1A1A1A]">
                             <div className="flex items-center justify-between mb-6">
                                 <div className="flex items-center gap-2">
@@ -339,11 +373,11 @@ function WalletContent() {
                 </div>
 
                 {/* Top Up Card */}
-                <div className="lg:col-span-2">
+                <div className={dbUser?.role === 'agent' ? 'lg:col-span-3' : 'lg:col-span-2'}>
                     <Card>
                         <CardHeader>
-                            <CardTitle className="text-lg flex items-center gap-2">
-                                <Plus className="w-5 h-5" />
+                            <CardTitle className="text-base sm:text-lg flex items-center gap-2 font-semibold">
+                                <Plus className="w-5 h-5 text-blue-600" />
                                 {dbUser?.role === 'agent' ? 'Top Up Wallet (Paystack Charges Applied)' : 'Top Up Wallet'}
                             </CardTitle>
                             <CardDescription>
