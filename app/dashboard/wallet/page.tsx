@@ -26,6 +26,7 @@ import {
     TrendingDown,
     AlertTriangle,
     MessageSquare,
+    MessageCircle,
     Send
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -248,10 +249,13 @@ function WalletContent() {
             {dbUser?.role === 'agent' && (
                 <Card className="border-2 border-gray-100 bg-white overflow-hidden shadow-xl">
                     <CardHeader className="bg-white py-4 border-b border-gray-50">
-                        <CardTitle className="text-black text-lg sm:text-xl font-semibold flex items-center gap-2">
-                            <Plus className="w-5 h-5 text-[#FACC15]" />
-                            Admin Manual Credit (Bypass Paystack Charges)
-                        </CardTitle>
+                        <div className="flex flex-col">
+                            <CardTitle className="text-black text-lg sm:text-xl font-semibold flex items-center gap-2">
+                                <Plus className="w-5 h-5 text-[#FACC15]" />
+                                Quick Top Up
+                            </CardTitle>
+                            <span className="text-xs sm:text-sm font-bold text-[#25D366] ml-7">No Paystack Charges</span>
+                        </div>
                     </CardHeader>
                     <CardContent className="pt-8 space-y-8">
                         <div className="space-y-8">
@@ -277,10 +281,10 @@ function WalletContent() {
                                             href={`sms:0551617309?body=Please I have sent the money so credit my account for me, account name is: ${dbUser?.first_name} ${dbUser?.last_name || dbUser?.email || 'N/A'}`}
                                             className="group flex flex-col items-center gap-2"
                                         >
-                                            <div className="p-3 rounded-full hover:bg-yellow-50 transition-colors">
-                                                <MessageSquare className="w-8 h-8 text-black" strokeWidth={1.5} />
+                                            <div className="p-3 rounded-full hover:bg-blue-50 transition-colors">
+                                                <MessageCircle className="w-8 h-8 text-[#007AFF]" strokeWidth={2} />
                                             </div>
-                                            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-tighter group-hover:text-black">tap here to send sms</span>
+                                            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-tighter group-hover:text-[#007AFF]">tap here to send sms</span>
                                         </Link>
                                         <Link
                                             href={`https://wa.me/233551617309?text=${encodeURIComponent(`Please I have sent the money so credit my account for me, account name is: ${dbUser?.first_name} ${dbUser?.last_name || dbUser?.email || 'N/A'}`)}`}
@@ -288,9 +292,9 @@ function WalletContent() {
                                             className="group flex flex-col items-center gap-2"
                                         >
                                             <div className="p-3 rounded-full hover:bg-green-50 transition-colors">
-                                                <Send className="w-8 h-8 text-black" strokeWidth={1.5} />
+                                                <MessageCircle className="w-8 h-8 text-[#25D366]" strokeWidth={2} />
                                             </div>
-                                            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-tighter group-hover:text-black">tap here to send whatsapp</span>
+                                            <span className="text-[10px] font-bold text-gray-500 uppercase tracking-tighter group-hover:text-[#25D366]">tap here to send whatsapp</span>
                                         </Link>
                                     </div>
                                 </div>
@@ -300,7 +304,7 @@ function WalletContent() {
                             <div className="flex gap-5">
                                 <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#FACC15] flex items-center justify-center text-sm font-bold text-black shadow-sm">3</div>
                                 <p className="text-sm sm:text-base font-medium text-black leading-relaxed pt-1">
-                                    Wait for Admin final approval message and refresh your page thank you (Credi is Instant after Approval).
+                                    Wait for Admin final approval message and refresh your page thank you (Credit is Instant after Approval).
                                 </p>
                             </div>
                         </div>
@@ -376,11 +380,16 @@ function WalletContent() {
                 <div className={dbUser?.role === 'agent' ? 'lg:col-span-3' : 'lg:col-span-2'}>
                     <Card>
                         <CardHeader>
-                            <CardTitle className="text-base sm:text-lg flex items-center gap-2 font-semibold">
-                                <Plus className="w-5 h-5 text-blue-600" />
-                                {dbUser?.role === 'agent' ? 'Top Up Wallet (Paystack Charges Applied)' : 'Top Up Wallet'}
-                            </CardTitle>
-                            <CardDescription>
+                            <div className="flex flex-col">
+                                <CardTitle className="text-base sm:text-lg flex items-center gap-2 font-semibold text-black">
+                                    <Plus className="w-5 h-5 text-blue-600" />
+                                    Top Up Wallet
+                                </CardTitle>
+                                {dbUser?.role === 'agent' && (
+                                    <span className="text-xs sm:text-sm font-bold text-[#E60000] ml-7">Paystack Charges Applied</span>
+                                )}
+                            </div>
+                            <CardDescription className="mt-2">
                                 Add funds to your wallet using mobile money, card, or bank transfer
                             </CardDescription>
                         </CardHeader>
