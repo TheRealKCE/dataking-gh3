@@ -9,6 +9,7 @@ import { DashboardSidebar } from '@/components/dashboard/sidebar'
 import { DashboardHeader } from '@/components/dashboard/header'
 import { Skeleton } from '@/components/ui/skeleton'
 import { WhatsAppButton } from '@/components/whatsapp-button'
+import { SuspendedAccount } from '@/components/dashboard/SuspendedAccount'
 
 
 export default function DashboardLayout({
@@ -16,7 +17,7 @@ export default function DashboardLayout({
 }: {
     children: React.ReactNode
 }) {
-    const { user, isLoading } = useAuth()
+    const { user, dbUser, isLoading } = useAuth()
     const router = useRouter()
 
     useEffect(() => {
@@ -39,6 +40,25 @@ export default function DashboardLayout({
 
     if (!user) {
         return null
+    }
+
+    const isSuspended = dbUser?.status === 'suspended' && (dbUser?.role === 'agent' || dbUser?.role === 'customer')
+
+    if (isSuspended) {
+        return (
+            <UIProvider>
+                <div className="min-h-screen bg-[#E5E7EB] dark:bg-[#000000] relative">
+                    <DashboardSidebar />
+                    <div className="lg:pl-80">
+                        <DashboardHeader />
+                        <main className="p-4 lg:p-6">
+                            <SuspendedAccount />
+                        </main>
+                    </div>
+                    <WhatsAppButton />
+                </div>
+            </UIProvider>
+        )
     }
 
     return (
