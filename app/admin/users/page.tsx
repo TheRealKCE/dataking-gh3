@@ -53,6 +53,7 @@ export default function AdminUsersPage() {
     const [users, setUsers] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
     const [searchTerm, setSearchTerm] = useState('')
+    const [roleFilter, setRoleFilter] = useState('all')
 
     // Wallet Adjustment Dialog State
     const [adjustmentDialogUser, setAdjustmentDialogUser] = useState<any>(null)
@@ -199,12 +200,17 @@ export default function AdminUsersPage() {
         }
     }
 
-    const filteredUsers = users.filter(user =>
-        user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.last_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        user.phone_number?.includes(searchTerm)
-    )
+    const filteredUsers = users.filter(user => {
+        const matchesSearch =
+            user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            user.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            user.last_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+            user.phone_number?.includes(searchTerm)
+
+        const matchesRole = roleFilter === 'all' || user.role === roleFilter
+
+        return matchesSearch && matchesRole
+    })
 
     const exportToCSV = () => {
         try {
@@ -265,6 +271,20 @@ export default function AdminUsersPage() {
                             onChange={(e) => setSearchTerm(e.target.value)}
                             className="pl-9 bg-secondary/50 border-0 focus-visible:ring-1 focus-visible:ring-purple-500 transition-all rounded-xl"
                         />
+                    </div>
+                    <div className="w-full sm:w-48">
+                        <Select value={roleFilter} onValueChange={setRoleFilter}>
+                            <SelectTrigger className="bg-secondary/50 border-0 focus:ring-1 focus:ring-purple-500 rounded-xl">
+                                <SelectValue placeholder="Filter by Role" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All Roles</SelectItem>
+                                <SelectItem value="admin">Admin</SelectItem>
+                                <SelectItem value="sub-admin">Sub-Admin</SelectItem>
+                                <SelectItem value="agent">Agent</SelectItem>
+                                <SelectItem value="customer">Customer</SelectItem>
+                            </SelectContent>
+                        </Select>
                     </div>
                     <Button
                         onClick={exportToCSV}
