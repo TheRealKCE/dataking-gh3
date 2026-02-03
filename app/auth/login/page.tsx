@@ -149,13 +149,19 @@ export default function LoginPage() {
                             <div className="flex-1 h-px bg-slate-300/60"></div>
                         </div>
 
-                        <div className="text-center">
+                        <div className="text-center space-y-3 mt-4">
                             <p className="text-slate-600 text-sm">
-                                Don't have an account?{' '}
-                                <Link href="/auth/signup" className="text-[#0056B3] font-bold hover:underline">
-                                    Create Account
-                                </Link>
+                                Don't have an account?
                             </p>
+                            <Button
+                                asChild
+                                variant="default"
+                                className="w-full sm:w-auto sm:min-w-[200px] sm:mx-auto h-12 text-base font-bold bg-slate-900 hover:bg-slate-800 text-white shadow-lg rounded-xl flex items-center justify-center"
+                            >
+                                <Link href="/auth/signup">
+                                    Create New Account
+                                </Link>
+                            </Button>
                         </div>
 
                         <div className="mt-3 text-center">
