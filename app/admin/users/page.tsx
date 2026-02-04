@@ -53,7 +53,12 @@ export default function AdminUsersPage() {
     const [users, setUsers] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
     const [searchTerm, setSearchTerm] = useState('')
+    const [debouncedSearch, setDebouncedSearch] = useState('')
     const [roleFilter, setRoleFilter] = useState('all')
+    const [page, setPage] = useState(0)
+    const [totalCount, setTotalCount] = useState(0)
+    const [hasMore, setHasMore] = useState(true)
+    const ITEMS_PER_PAGE = 20
 
     // Wallet Adjustment Dialog State
     const [adjustmentDialogUser, setAdjustmentDialogUser] = useState<any>(null)
@@ -62,24 +67,55 @@ export default function AdminUsersPage() {
     const [adjustmentDescription, setAdjustmentDescription] = useState('Admin manual adjustment')
     const [isAdjusting, setIsAdjusting] = useState(false)
 
+    // Debounce search term
     useEffect(() => {
-        fetchUsers()
-    }, [])
+        const timer = setTimeout(() => {
+            setDebouncedSearch(searchTerm)
+        }, 500)
+        return () => clearTimeout(timer)
+    }, [searchTerm])
 
-    const fetchUsers = async () => {
+    // Fetch initial data or when filters change
+    useEffect(() => {
+        setPage(0)
+        fetchUsers(0, true)
+    }, [debouncedSearch, roleFilter])
+
+    const fetchUsers = async (pageToFetch: number, isNewSearch = false) => {
         try {
-            const response = await fetch('/api/admin/users')
+            setLoading(true)
+            const offset = pageToFetch * ITEMS_PER_PAGE
+            const url = `/api/admin/users?limit=${ITEMS_PER_PAGE}&offset=${offset}&search=${encodeURIComponent(debouncedSearch)}&role=${roleFilter}`
+
+            const response = await fetch(url)
             if (!response.ok) {
                 const result = await response.json()
                 throw new Error(result.error || 'Failed to fetch users')
             }
             const data = await response.json()
-            setUsers(data || [])
+
+            const newUsers = data.users || []
+            if (isNewSearch) {
+                setUsers(newUsers)
+            } else {
+                setUsers(prev => [...prev, ...newUsers])
+            }
+
+            setTotalCount(data.totalCount || 0)
+            setHasMore(newUsers.length === ITEMS_PER_PAGE)
         } catch (error: any) {
             console.error('Error fetching users:', error)
             toast.error(error.message || 'Failed to load users')
         } finally {
             setLoading(false)
+        }
+    }
+
+    const loadMore = () => {
+        if (!loading && hasMore) {
+            const nextPage = page + 1
+            setPage(nextPage)
+            fetchUsers(nextPage)
         }
     }
 
@@ -165,7 +201,7 @@ export default function AdminUsersPage() {
                 else toast.error(`DEBUG: SMS Failed: ${smsResult?.error || 'Unknown error'}`)
             }
 
-            fetchUsers() // Refresh list to show new balance
+            fetchUsers(0, true) // Refresh list to show new balance
             setAdjustmentDialogUser(null)
             setAdjustmentAmount('')
         } catch (error: any) {
@@ -200,22 +236,12 @@ export default function AdminUsersPage() {
         }
     }
 
-    const filteredUsers = users.filter(user => {
-        const matchesSearch =
-            user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            user.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            user.last_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            user.phone_number?.includes(searchTerm)
-
-        const matchesRole = roleFilter === 'all' || user.role === roleFilter
-
-        return matchesSearch && matchesRole
-    })
+    // Server-side filtered data is directly in 'users' state
 
     const exportToCSV = () => {
         try {
             // Filter users with phone numbers
-            const usersWithPhones = filteredUsers.filter(user => user.phone_number)
+            const usersWithPhones = users.filter(user => user.phone_number)
 
             if (usersWithPhones.length === 0) {
                 toast.error('No users with phone numbers to export')
@@ -260,7 +286,7 @@ export default function AdminUsersPage() {
                     <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
                         Users Management
                     </h1>
-                    <p className="text-sm text-muted-foreground">Manage accounts and wallets</p>
+                    <p className="text-sm text-muted-foreground">Manage {totalCount} accounts and wallets</p>
                 </div>
                 <div className="flex flex-col sm:flex-row items-center gap-3 w-full max-w-2xl">
                     <div className="relative flex-1 w-full">
@@ -302,182 +328,197 @@ export default function AdminUsersPage() {
                 <div className="flex justify-center py-20">
                     <Loader2 className="w-8 h-8 animate-spin text-purple-600" />
                 </div>
-            ) : filteredUsers.length === 0 ? (
+            ) : users.length === 0 ? (
                 <div className="text-center py-20 text-muted-foreground">
                     <p>No users found matching your search.</p>
                 </div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                    {filteredUsers.map((user) => (
-                        <Card
-                            key={user.id}
-                            className="group relative overflow-hidden border border-purple-100 dark:border-purple-900/30 hover:border-purple-500/50 transition-all duration-300 shadow-xl hover:shadow-2xl hover:-translate-y-1 bg-white dark:bg-slate-900/50"
-                        >
-                            <div className="absolute top-0 right-0 p-4 opacity-50 font-black text-6xl text-slate-100 dark:text-slate-800/50 -z-10 select-none pointer-events-none">
-                                {user.first_name?.[0]}
-                            </div>
+                <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                        {users.map((user) => (
+                            <Card
+                                key={user.id}
+                                className="group relative overflow-hidden border border-purple-100 dark:border-purple-900/30 lg:hover:border-purple-500/50 transition-all duration-200 shadow-md lg:hover:shadow-xl lg:hover:-translate-y-1 bg-white dark:bg-slate-900/50"
+                            >
+                                <div className="absolute top-0 right-0 p-4 opacity-50 font-black text-6xl text-slate-100 dark:text-slate-800/50 -z-10 select-none pointer-events-none">
+                                    {user.first_name?.[0]}
+                                </div>
 
-                            <CardContent className="p-6 space-y-6">
-                                {/* Header / ID Card Style */}
-                                <div className="flex justify-between items-start">
-                                    <div className="flex gap-4 items-center">
-                                        {(() => {
-                                            const userRole = (user.role || 'customer') as UserRole
-                                            const config = roleConfig[userRole] || roleConfig['customer']
-                                            const RoleIcon = config.icon
-                                            return (
-                                                <div
-                                                    className="h-16 w-16 rounded-full flex items-center justify-center text-white shadow-lg ring-4 ring-white dark:ring-gray-800 transition-transform hover:scale-105"
-                                                    style={{ backgroundColor: config.color }}
-                                                >
-                                                    <RoleIcon className="w-8 h-8" />
+                                <CardContent className="p-6 space-y-6">
+                                    {/* Header / ID Card Style */}
+                                    <div className="flex justify-between items-start">
+                                        <div className="flex gap-4 items-center">
+                                            {(() => {
+                                                const userRole = (user.role || 'customer') as UserRole
+                                                const config = roleConfig[userRole] || roleConfig['customer']
+                                                const RoleIcon = config.icon
+                                                return (
+                                                    <div
+                                                        className="h-16 w-16 rounded-full flex items-center justify-center text-white shadow-lg ring-4 ring-white dark:ring-gray-800 transition-transform hover:scale-105"
+                                                        style={{ backgroundColor: config.color }}
+                                                    >
+                                                        <RoleIcon className="w-8 h-8" />
+                                                    </div>
+                                                )
+                                            })()}
+                                            <div>
+                                                <h3 className="font-bold text-xl text-slate-900 dark:text-white line-clamp-1">{user.first_name} {user.last_name}</h3>
+                                                <div className="flex items-center gap-2 mt-1">
+                                                    {user.role === 'admin' ? (
+                                                        <Badge className="text-white" style={{ backgroundColor: '#E60000' }}>Admin</Badge>
+                                                    ) : user.role === 'sub-admin' ? (
+                                                        <Badge className="text-black" style={{ backgroundColor: '#FACC15' }}>Sub-Admin</Badge>
+                                                    ) : user.role === 'agent' ? (
+                                                        <Badge className="text-white" style={{ backgroundColor: '#25D366' }}>Agent</Badge>
+                                                    ) : (
+                                                        <Badge className="text-white" style={{ backgroundColor: '#0056B3' }}>Customer</Badge>
+                                                    )}
+                                                    <div className={`h-2 w-2 rounded-full ${user.status === 'active' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-red-500'}`} />
                                                 </div>
-                                            )
-                                        })()}
-                                        <div>
-                                            <h3 className="font-bold text-xl text-slate-900 dark:text-white line-clamp-1">{user.first_name} {user.last_name}</h3>
-                                            <div className="flex items-center gap-2 mt-1">
-                                                {user.role === 'admin' ? (
-                                                    <Badge className="text-white" style={{ backgroundColor: '#E60000' }}>Admin</Badge>
-                                                ) : user.role === 'sub-admin' ? (
-                                                    <Badge className="text-black" style={{ backgroundColor: '#FACC15' }}>Sub-Admin</Badge>
-                                                ) : user.role === 'agent' ? (
-                                                    <Badge className="text-white" style={{ backgroundColor: '#25D366' }}>Agent</Badge>
-                                                ) : (
-                                                    <Badge className="text-white" style={{ backgroundColor: '#0056B3' }}>Customer</Badge>
+                                            </div>
+                                        </div>
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="h-10 w-10 text-muted-foreground hover:text-foreground hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full">
+                                                    <MoreVertical className="w-5 h-5" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end" className="w-52">
+                                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                                                <DropdownMenuItem onClick={() => {
+                                                    setAdjustmentDialogUser(user)
+                                                    setAdjustmentType('credit')
+                                                    setAdjustmentDescription('Admin manual credit')
+                                                }}>
+                                                    <Wallet className="w-4 h-4 mr-2" />
+                                                    Credit Wallet
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem onClick={() => {
+                                                    setAdjustmentDialogUser(user)
+                                                    setAdjustmentType('debit')
+                                                    setAdjustmentDescription('Admin manual debit')
+                                                }}>
+                                                    <Wallet className="w-4 h-4 mr-2 text-red-500" />
+                                                    Debit Wallet
+                                                </DropdownMenuItem>
+                                                <DropdownMenuItem
+                                                    onClick={() => handleStatusChange(user.id, user.status === 'suspended' ? 'active' : 'suspended')}
+                                                >
+                                                    {user.status === 'suspended' ? (
+                                                        <>
+                                                            <CheckCircle className="w-4 h-4 mr-2 text-green-500" />
+                                                            Activate Account
+                                                        </>
+                                                    ) : (
+                                                        <>
+                                                            <Ban className="w-4 h-4 mr-2 text-orange-500" />
+                                                            Suspend Account
+                                                        </>
+                                                    )}
+                                                </DropdownMenuItem>
+                                                {/* Role Change Menu */}
+                                                <DropdownMenuLabel className="text-xs text-muted-foreground pt-2">Change Role</DropdownMenuLabel>
+                                                {user.role !== 'customer' && (
+                                                    <DropdownMenuItem onClick={() => handleRoleChange(user.id, 'customer')}>
+                                                        <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: '#0056B3' }} />
+                                                        Make Customer
+                                                    </DropdownMenuItem>
                                                 )}
-                                                <div className={`h-2 w-2 rounded-full ${user.status === 'active' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-red-500'}`} />
+                                                {user.role !== 'agent' && (
+                                                    <DropdownMenuItem onClick={() => handleRoleChange(user.id, 'agent')}>
+                                                        <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: '#25D366' }} />
+                                                        Make Agent
+                                                    </DropdownMenuItem>
+                                                )}
+                                                {user.role !== 'sub-admin' && (
+                                                    <DropdownMenuItem onClick={() => handleRoleChange(user.id, 'sub-admin')}>
+                                                        <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: '#FACC15' }} />
+                                                        Make Sub-Admin
+                                                    </DropdownMenuItem>
+                                                )}
+                                                {user.role !== 'admin' && (
+                                                    <DropdownMenuItem onClick={() => handleRoleChange(user.id, 'admin')}>
+                                                        <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: '#E60000' }} />
+                                                        Make Admin
+                                                    </DropdownMenuItem>
+                                                )}
+
+                                                <div className="h-px bg-border my-1" />
+
+                                                <DropdownMenuItem
+                                                    onClick={() => handleDeleteUser(user.id)}
+                                                    className="text-red-600 focus:text-red-700 focus:bg-red-50"
+                                                >
+                                                    <Trash2 className="w-4 h-4 mr-2" />
+                                                    Delete User
+                                                </DropdownMenuItem>
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </div>
+
+                                    {/* Details Grid */}
+                                    <div className="space-y-3">
+                                        <div className="flex items-center gap-3 text-slate-600 dark:text-slate-300 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                                            <div className="p-2 bg-white dark:bg-slate-800 rounded-lg shadow-sm">
+                                                <Mail className="w-4 h-4 text-blue-500" />
+                                            </div>
+                                            <span className="truncate text-sm font-medium">{user.email}</span>
+                                        </div>
+                                        <div className="grid grid-cols-2 gap-3">
+                                            <div className="flex items-center gap-3 text-slate-600 dark:text-slate-300 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                                                <div className="p-2 bg-white dark:bg-slate-800 rounded-lg shadow-sm">
+                                                    <Phone className="w-4 h-4 text-emerald-500" />
+                                                </div>
+                                                <span className="text-sm font-medium">{user.phone_number || 'N/A'}</span>
+                                            </div>
+                                            <div className="flex items-center gap-3 text-slate-600 dark:text-slate-300 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+                                                <div className="p-2 bg-white dark:bg-slate-800 rounded-lg shadow-sm">
+                                                    <Calendar className="w-4 h-4 text-orange-500" />
+                                                </div>
+                                                <span className="text-sm font-medium">{formatDate(user.created_at).split(',')[0]}</span>
                                             </div>
                                         </div>
                                     </div>
-                                    <DropdownMenu>
-                                        <DropdownMenuTrigger asChild>
-                                            <Button variant="ghost" size="icon" className="h-10 w-10 text-muted-foreground hover:text-foreground hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full">
-                                                <MoreVertical className="w-5 h-5" />
-                                            </Button>
-                                        </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end" className="w-52">
-                                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                            <DropdownMenuItem onClick={() => {
+
+                                    {/* Wallet Section */}
+                                    <div className="pt-4 flex justify-between items-center">
+                                        <div className="flex flex-col">
+                                            <span className="text-xs uppercase font-extrabold text-muted-foreground tracking-widest mb-1">Wallet Balance</span>
+                                            <span className="font-black text-2xl text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-green-500">
+                                                {formatCurrency((Array.isArray(user.wallets) ? user.wallets[0]?.balance : user.wallets?.balance) || 0)}
+                                            </span>
+                                        </div>
+                                        <Button
+                                            size="sm"
+                                            className="h-10 px-4 rounded-xl bg-slate-900 text-white hover:bg-slate-800 shadow-md hover:shadow-lg transition-all"
+                                            onClick={() => {
                                                 setAdjustmentDialogUser(user)
                                                 setAdjustmentType('credit')
                                                 setAdjustmentDescription('Admin manual credit')
-                                            }}>
-                                                <Wallet className="w-4 h-4 mr-2" />
-                                                Credit Wallet
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem onClick={() => {
-                                                setAdjustmentDialogUser(user)
-                                                setAdjustmentType('debit')
-                                                setAdjustmentDescription('Admin manual debit')
-                                            }}>
-                                                <Wallet className="w-4 h-4 mr-2 text-red-500" />
-                                                Debit Wallet
-                                            </DropdownMenuItem>
-                                            <DropdownMenuItem
-                                                onClick={() => handleStatusChange(user.id, user.status === 'suspended' ? 'active' : 'suspended')}
-                                            >
-                                                {user.status === 'suspended' ? (
-                                                    <>
-                                                        <CheckCircle className="w-4 h-4 mr-2 text-green-500" />
-                                                        Activate Account
-                                                    </>
-                                                ) : (
-                                                    <>
-                                                        <Ban className="w-4 h-4 mr-2 text-orange-500" />
-                                                        Suspend Account
-                                                    </>
-                                                )}
-                                            </DropdownMenuItem>
-                                            {/* Role Change Menu */}
-                                            <DropdownMenuLabel className="text-xs text-muted-foreground pt-2">Change Role</DropdownMenuLabel>
-                                            {user.role !== 'customer' && (
-                                                <DropdownMenuItem onClick={() => handleRoleChange(user.id, 'customer')}>
-                                                    <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: '#0056B3' }} />
-                                                    Make Customer
-                                                </DropdownMenuItem>
-                                            )}
-                                            {user.role !== 'agent' && (
-                                                <DropdownMenuItem onClick={() => handleRoleChange(user.id, 'agent')}>
-                                                    <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: '#25D366' }} />
-                                                    Make Agent
-                                                </DropdownMenuItem>
-                                            )}
-                                            {user.role !== 'sub-admin' && (
-                                                <DropdownMenuItem onClick={() => handleRoleChange(user.id, 'sub-admin')}>
-                                                    <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: '#FACC15' }} />
-                                                    Make Sub-Admin
-                                                </DropdownMenuItem>
-                                            )}
-                                            {user.role !== 'admin' && (
-                                                <DropdownMenuItem onClick={() => handleRoleChange(user.id, 'admin')}>
-                                                    <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: '#E60000' }} />
-                                                    Make Admin
-                                                </DropdownMenuItem>
-                                            )}
-
-                                            <div className="h-px bg-border my-1" />
-
-                                            <DropdownMenuItem
-                                                onClick={() => handleDeleteUser(user.id)}
-                                                className="text-red-600 focus:text-red-700 focus:bg-red-50"
-                                            >
-                                                <Trash2 className="w-4 h-4 mr-2" />
-                                                Delete User
-                                            </DropdownMenuItem>
-                                        </DropdownMenuContent>
-                                    </DropdownMenu>
-                                </div>
-
-                                {/* Details Grid */}
-                                <div className="space-y-3">
-                                    <div className="flex items-center gap-3 text-slate-600 dark:text-slate-300 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
-                                        <div className="p-2 bg-white dark:bg-slate-800 rounded-lg shadow-sm">
-                                            <Mail className="w-4 h-4 text-blue-500" />
-                                        </div>
-                                        <span className="truncate text-sm font-medium">{user.email}</span>
+                                            }}
+                                        >
+                                            <Wallet className="w-4 h-4 mr-2" />
+                                            Top up
+                                        </Button>
                                     </div>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <div className="flex items-center gap-3 text-slate-600 dark:text-slate-300 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
-                                            <div className="p-2 bg-white dark:bg-slate-800 rounded-lg shadow-sm">
-                                                <Phone className="w-4 h-4 text-emerald-500" />
-                                            </div>
-                                            <span className="text-sm font-medium">{user.phone_number || 'N/A'}</span>
-                                        </div>
-                                        <div className="flex items-center gap-3 text-slate-600 dark:text-slate-300 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
-                                            <div className="p-2 bg-white dark:bg-slate-800 rounded-lg shadow-sm">
-                                                <Calendar className="w-4 h-4 text-orange-500" />
-                                            </div>
-                                            <span className="text-sm font-medium">{formatDate(user.created_at).split(',')[0]}</span>
-                                        </div>
-                                    </div>
-                                </div>
-
-                                {/* Wallet Section */}
-                                <div className="pt-4 flex justify-between items-center">
-                                    <div className="flex flex-col">
-                                        <span className="text-xs uppercase font-extrabold text-muted-foreground tracking-widest mb-1">Wallet Balance</span>
-                                        <span className="font-black text-2xl text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-green-500">
-                                            {formatCurrency((Array.isArray(user.wallets) ? user.wallets[0]?.balance : user.wallets?.balance) || 0)}
-                                        </span>
-                                    </div>
-                                    <Button
-                                        size="sm"
-                                        className="h-10 px-4 rounded-xl bg-slate-900 text-white hover:bg-slate-800 shadow-md hover:shadow-lg transition-all"
-                                        onClick={() => {
-                                            setAdjustmentDialogUser(user)
-                                            setAdjustmentType('credit')
-                                            setAdjustmentDescription('Admin manual credit')
-                                        }}
-                                    >
-                                        <Wallet className="w-4 h-4 mr-2" />
-                                        Top up
-                                    </Button>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    ))}
-                </div>
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </div>
+                    {hasMore && (
+                        <div className="flex justify-center py-8">
+                            <Button
+                                onClick={loadMore}
+                                disabled={loading}
+                                variant="outline"
+                                className="min-w-[200px] rounded-xl border-purple-200 hover:border-purple-500 hover:bg-purple-50"
+                            >
+                                {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                                Load More Users ({users.length} of {totalCount})
+                            </Button>
+                        </div>
+                    )}
+                </>
             )}
 
             {/* Wallet Adjustment Dialog */}

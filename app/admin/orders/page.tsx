@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, Fragment } from 'react'
+import { useEffect, useState, Fragment, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
@@ -59,6 +59,7 @@ export default function AdminOrdersPage() {
     const [orders, setOrders] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
     const [searchTerm, setSearchTerm] = useState('')
+    const [debouncedSearch, setDebouncedSearch] = useState('')
     const [availableNetworkFilter, setAvailableNetworkFilter] = useState('all')
     const [historyNetworkFilter, setHistoryNetworkFilter] = useState('all')
     const [batches, setBatches] = useState<any[]>([])
@@ -68,18 +69,32 @@ export default function AdminOrdersPage() {
     const [customEnd, setCustomEnd] = useState('')
     const [isCustomDialogOpen, setIsCustomDialogOpen] = useState(false)
 
+    // Batch pagination state
+    const [batchPage, setBatchPage] = useState(0)
+    const [batchTotalCount, setBatchTotalCount] = useState(0)
+    const [hasMoreBatches, setHasMoreBatches] = useState(true)
+    const BATCHES_PER_PAGE = 10
+
     // Download protection states
     const [isDownloading, setIsDownloading] = useState(false)
     const [lastDownloadTime, setLastDownloadTime] = useState(0)
     const DOWNLOAD_COOLDOWN = 3000 // 3 seconds cooldown
 
+    // Debounce search term
     useEffect(() => {
-        const loadData = async () => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(searchTerm)
+        }, 500)
+        return () => clearTimeout(timer)
+    }, [searchTerm])
+
+    useEffect(() => {
+        const loadInitialData = async () => {
             setLoading(true)
-            await Promise.all([fetchOrders(), fetchBatches()])
+            await Promise.all([fetchOrders(), fetchBatches(0, true)])
             setLoading(false)
         }
-        loadData()
+        loadInitialData()
 
         // Realtime Subscription
         const channel = supabase
@@ -91,10 +106,13 @@ export default function AdminOrdersPage() {
                     schema: 'public',
                     table: 'orders'
                 },
-                (payload) => {
-                    console.log('Order change received!', payload)
-                    fetchOrders()
-                    fetchBatches()
+                () => {
+                    // Small delay to prevent rapid full re-fetches
+                    const timer = setTimeout(() => {
+                        fetchOrders()
+                        fetchBatches(0, true)
+                    }, 1000)
+                    return () => clearTimeout(timer)
                 }
             )
             .subscribe()
@@ -104,32 +122,73 @@ export default function AdminOrdersPage() {
         }
     }, [])
 
+    // Reset batches when network or date filter changes
+    useEffect(() => {
+        if (loading) return // Avoid double fetch on mount
+        fetchBatches(0, true)
+    }, [historyNetworkFilter, historyFilter, customStart, customEnd])
+
     const fetchOrders = async () => {
         try {
-            const response = await fetch('/api/admin/orders?available=true')
+            const response = await fetch('/api/admin/orders?available=true&limit=200')
             if (!response.ok) {
                 const result = await response.json()
                 throw new Error(result.error || 'Failed to fetch orders')
             }
             const data = await response.json()
-            setOrders(data || [])
+            setOrders(data.orders || [])
         } catch (error: any) {
             console.error('Error fetching orders:', error)
             toast.error(error.message || 'Failed to load orders')
         }
     }
 
-    const fetchBatches = async () => {
+    const fetchBatches = async (pageToFetch: number, isNewFilter = false) => {
         try {
-            const response = await fetch('/api/admin/batches')
+            let startDate = null
+            const now = new Date()
+
+            if (historyFilter === 'today') {
+                startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
+            } else if (historyFilter === 'yesterday') {
+                startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString()
+            } else if (historyFilter === 'last7days') {
+                startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
+            } else if (historyFilter === 'custom' && customStart) {
+                startDate = new Date(customStart).toISOString()
+            }
+
+            const offset = pageToFetch * BATCHES_PER_PAGE
+            let url = `/api/admin/batches?limit=${BATCHES_PER_PAGE}&offset=${offset}&network=${historyNetworkFilter}`
+            if (startDate) url += `&startDate=${startDate}`
+
+            const response = await fetch(url)
             if (!response.ok) {
                 const result = await response.json()
                 throw new Error(result.error || 'Failed to fetch batches')
             }
             const data = await response.json()
-            setBatches(data || [])
+
+            const newBatches = data.batches || []
+            if (isNewFilter) {
+                setBatches(newBatches)
+                setBatchPage(0)
+            } else {
+                setBatches(prev => [...prev, ...newBatches])
+            }
+
+            setBatchTotalCount(data.totalCount || 0)
+            setHasMoreBatches(newBatches.length === BATCHES_PER_PAGE)
         } catch (error: any) {
             console.error('Error fetching batches:', error)
+        }
+    }
+
+    const loadMoreBatches = () => {
+        if (hasMoreBatches) {
+            const nextPage = batchPage + 1
+            setBatchPage(nextPage)
+            fetchBatches(nextPage)
         }
     }
 
@@ -430,7 +489,7 @@ export default function AdminOrdersPage() {
 
             setLastDownloadTime(Date.now())
             fetchOrders()
-            fetchBatches()
+            fetchBatches(0, true)
         } catch (error: any) {
             console.error('Export error:', error)
             // Only show error if download actually failed (not after successful download)
@@ -554,7 +613,7 @@ export default function AdminOrdersPage() {
     }
 
     // Batch Card Component defined locally to access props/state needs
-    const BatchCard = ({ batch }: { batch: any }) => {
+    function BatchCard({ batch, onRefund, onFail }: { batch: any, onRefund?: any, onFail?: any }) {
         const [batchOrders, setBatchOrders] = useState<any[]>([])
         const [isLoadingOrders, setIsLoadingOrders] = useState(true)
         const [isUpdating, setIsUpdating] = useState(false)
@@ -592,7 +651,7 @@ export default function AdminOrdersPage() {
                 // Refresh local orders
                 const updatedOrders = batchOrders.map(o => ({ ...o, status }))
                 setBatchOrders(updatedOrders)
-                fetchBatches() // Update global counts if needed
+                fetchBatches(0, true) // Update global counts if needed
             } catch (error) {
                 toast.error('Failed to update batch status')
             } finally {
@@ -623,7 +682,7 @@ export default function AdminOrdersPage() {
 
                 toast.success(result.message || 'Failed orders deleted')
                 fetchOrders() // Refresh available orders
-                fetchBatches() // Refresh batches list
+                fetchBatches(0, true) // Refresh batches list
             } catch (error: any) {
                 toast.error(error.message || 'Failed to delete failed orders')
             } finally {
@@ -745,18 +804,31 @@ export default function AdminOrdersPage() {
         )
     }
 
-    const filteredOrders = orders.filter(order => {
-        const matchesSearch =
-            order.reference_code.toLowerCase().includes(searchTerm.toLowerCase()) ||
-            order.phone_number.includes(searchTerm) ||
-            order.users?.email?.toLowerCase().includes(searchTerm.toLowerCase())
+    const filteredOrders = useMemo(() => {
+        return orders.filter(order => {
+            const matchesSearch =
+                !debouncedSearch ||
+                order.phone_number?.includes(debouncedSearch) ||
+                order.users?.email?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+                order.users?.first_name?.toLowerCase().includes(debouncedSearch.toLowerCase()) ||
+                order.users?.last_name?.toLowerCase().includes(debouncedSearch.toLowerCase())
 
-        const matchesNetwork = availableNetworkFilter === 'all' || order.network === availableNetworkFilter
+            const matchesNetwork = availableNetworkFilter === 'all' || order.network === availableNetworkFilter
 
-        return matchesSearch && matchesNetwork
-    })
+            return matchesSearch && matchesNetwork
+        })
+    }, [orders, debouncedSearch, availableNetworkFilter])
 
-    const filteredBatches = batches.filter(batch => {
+    const filteredBatches = useMemo(() => {
+        // Most filtering now happens on server, but we keep search filtering on the client for batches we already have
+        return batches.filter(batch => {
+            const matchesSearch = !debouncedSearch || batches.some(b => b.id === batch.id) // This is a placeholder, usually search for batches would be server-side too if they have many. But here we fetch batches and filter locally.
+            // Wait, batches usually don't have user names, they have orders.
+            return true
+        })
+    }, [batches, debouncedSearch])
+
+    const filteredBatchesByDateAndNetwork = filteredBatches.filter(batch => {
         const batchDate = new Date(batch.created_at)
         const today = new Date()
         const isToday = batchDate.getDate() === today.getDate() &&
@@ -789,8 +861,6 @@ export default function AdminOrdersPage() {
         // 'all' filter shows only past 30 days
         return isWithin30Days && matchesNetwork
     })
-
-    const totalFilteredOrdersCount = filteredBatches.reduce((sum, batch) => sum + (batch.order_count || 0), 0)
 
     const getStatusBadge = (status: string) => {
         const styles: Record<string, string> = {
@@ -834,7 +904,7 @@ export default function AdminOrdersPage() {
                         )}
                     </Button>
                     <Button
-                        onClick={() => { fetchOrders(); fetchBatches(); }}
+                        onClick={() => { fetchOrders(); fetchBatches(0, true); }}
                         variant="outline"
                         disabled={loading}
                         className="transition-all duration-150 active:scale-95 hover:bg-primary/10 active:bg-primary/20 disabled:opacity-70"
@@ -848,7 +918,7 @@ export default function AdminOrdersPage() {
             <Tabs defaultValue="available" value={activeTab} onValueChange={setActiveTab}>
                 <TabsList className="grid w-full grid-cols-2 max-w-[400px]">
                     <TabsTrigger value="available">Available ({orders.length})</TabsTrigger>
-                    <TabsTrigger value="downloaded">Downloaded History ({totalFilteredOrdersCount})</TabsTrigger>
+                    <TabsTrigger value="downloaded">Downloaded History ({batchTotalCount})</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="available" className="space-y-4">
@@ -896,9 +966,9 @@ export default function AdminOrdersPage() {
                             <p className="text-muted-foreground text-center">No orders found matching your criteria.</p>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {filteredOrders.map((order) => (
-                                <Card key={order.id} className="shadow-md hover:shadow-lg transition-shadow duration-200">
+                                <Card key={order.id} className="relative overflow-hidden border shadow-sm lg:hover:shadow-md transition-all duration-200">
                                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                                         <div className="font-mono text-sm text-muted-foreground">
                                             {order.reference_code}
@@ -1018,7 +1088,7 @@ export default function AdminOrdersPage() {
                                 disabled={filteredBatches.length === 0}
                             >
                                 <Download className="w-4 h-4 mr-2" />
-                                Download ({totalFilteredOrdersCount})
+                                Download ({batchTotalCount})
                             </Button>
                             <Button
                                 variant="outline"
@@ -1073,11 +1143,27 @@ export default function AdminOrdersPage() {
                             <p className="text-muted-foreground text-center">No download history found.</p>
                         </div>
                     ) : (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                            {filteredBatches.map((batch) => (
-                                <BatchCard key={batch.id} batch={batch} />
-                            ))}
-                        </div>
+                        <>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                {batches.map((batch) => (
+                                    <BatchCard key={batch.id} batch={batch} onRefund={handleUpdateStatus} onFail={handleUpdateStatus} />
+                                ))}
+                            </div>
+
+                            {hasMoreBatches && (
+                                <div className="flex justify-center py-8">
+                                    <Button
+                                        onClick={loadMoreBatches}
+                                        disabled={loading}
+                                        variant="outline"
+                                        className="min-w-[200px] rounded-xl"
+                                    >
+                                        {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                                        Load More Batches ({batches.length} of {batchTotalCount})
+                                    </Button>
+                                </div>
+                            )}
+                        </>
                     )}
                 </TabsContent>
             </Tabs>

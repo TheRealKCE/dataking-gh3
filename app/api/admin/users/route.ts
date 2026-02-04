@@ -27,6 +27,12 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
         }
 
+        const { searchParams } = new URL(request.url)
+        const limit = parseInt(searchParams.get('limit') || '50')
+        const offset = parseInt(searchParams.get('offset') || '0')
+        const search = searchParams.get('search')
+        const role = searchParams.get('role')
+
         // Service role client to bypass RLS
         const supabase = createServerClient()
 
@@ -35,7 +41,7 @@ export async function GET(request: NextRequest) {
             setTimeout(() => reject(new Error('Database query timeout')), 10000)
         )
 
-        const fetchPromise = supabase
+        let query = supabase
             .from('users')
             .select(`
                 id,
@@ -51,10 +57,21 @@ export async function GET(request: NextRequest) {
                 wallets (
                     balance
                 )
-            `)
-            .order('created_at', { ascending: false })
+            `, { count: 'exact' })
 
-        const { data: users, error: fetchError } = await Promise.race([
+        if (role && role !== 'all') {
+            query = query.eq('role', role)
+        }
+
+        if (search) {
+            query = query.or(`email.ilike.%${search}%,first_name.ilike.%${search}%,last_name.ilike.%${search}%,phone_number.ilike.%${search}%`)
+        }
+
+        const fetchPromise = query
+            .order('created_at', { ascending: false })
+            .range(offset, offset + limit - 1)
+
+        const { data: users, count, error: fetchError } = await Promise.race([
             fetchPromise,
             timeoutPromise
         ]) as any
@@ -64,12 +81,10 @@ export async function GET(request: NextRequest) {
             throw new Error(`Database query failed: ${fetchError.message}`)
         }
 
-        if (users && users.length > 0) {
-            console.log('[AdminUsersFetch] Successfully fetched', users.length, 'users')
-            console.log('[AdminUsersFetch] First user sample:', JSON.stringify(users[0], null, 2))
-        }
-
-        return NextResponse.json(users || [])
+        return NextResponse.json({
+            users: users || [],
+            totalCount: count || 0
+        })
     } catch (error: any) {
         console.error('Admin Users Fetch Error:', error)
         return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 })

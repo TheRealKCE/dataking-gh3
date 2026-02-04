@@ -27,25 +27,41 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
         }
 
+        const { searchParams } = new URL(request.url)
+        const limit = parseInt(searchParams.get('limit') || '50')
+        const offset = parseInt(searchParams.get('offset') || '0')
+        const network = searchParams.get('network')
+        const startDate = searchParams.get('startDate') // ISO string
+
         // Service role client to bypass RLS
         const supabase = createServerClient()
 
-        // Default to last 48 hours to optimize load time
-        const fortyEightHoursAgo = new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString()
-
-        const { data: batches, error: fetchError } = await supabase
+        let query = supabase
             .from('download_batches')
-            .select('*')
-            .gte('created_at', fortyEightHoursAgo)
+            .select('*', { count: 'exact' })
             .gt('order_count', 0)
+
+        if (network && network !== 'all') {
+            query = query.eq('network', network)
+        }
+
+        if (startDate) {
+            query = query.gte('created_at', startDate)
+        }
+
+        const { data: batches, count, error: fetchError } = await query
             .order('created_at', { ascending: false })
+            .range(offset, offset + limit - 1)
 
         if (fetchError) {
             console.error('[AdminBatchesFetch] Error:', fetchError)
             throw fetchError
         }
 
-        return NextResponse.json(batches)
+        return NextResponse.json({
+            batches: batches || [],
+            totalCount: count || 0
+        })
     } catch (error: any) {
         console.error('Admin Batches Fetch Error:', error)
         return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 })

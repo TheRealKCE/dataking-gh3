@@ -31,6 +31,8 @@ export async function GET(request: NextRequest) {
         const available = searchParams.get('available') === 'true'
         const batchId = searchParams.get('batchId')
         const batchIds = searchParams.get('batchIds')
+        const limit = parseInt(searchParams.get('limit') || '50')
+        const offset = parseInt(searchParams.get('offset') || '0')
 
         // Service role client to bypass RLS
         const supabase = createServerClient()
@@ -44,7 +46,7 @@ export async function GET(request: NextRequest) {
                     last_name,
                     email
                 )
-            `)
+            `, { count: 'exact' })
 
         if (batchIds) {
             query = query.in('download_batch_id', batchIds.split(','))
@@ -54,7 +56,9 @@ export async function GET(request: NextRequest) {
             query = query.is('download_batch_id', null).eq('status', 'pending')
         }
 
-        const { data: orders, error: fetchError } = await query.order('created_at', { ascending: false }).limit(200)
+        const { data: orders, count, error: fetchError } = await query
+            .order('created_at', { ascending: false })
+            .range(offset, offset + limit - 1)
 
         if (fetchError) {
             console.error('[AdminOrdersFetch] Error:', fetchError)
@@ -87,7 +91,10 @@ export async function GET(request: NextRequest) {
             }
         }
 
-        return NextResponse.json(orders)
+        return NextResponse.json({
+            orders: orders || [],
+            totalCount: count || 0
+        })
     } catch (error: any) {
         console.error('Admin Orders Fetch Error:', error)
         return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 })
