@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
             .gt('order_count', 0)
 
         if (network && network !== 'all') {
-            query = query.eq('network', network)
+            query = query.or(`network.eq.${network},network.eq.Multiple`)
         }
 
         if (startDate) {

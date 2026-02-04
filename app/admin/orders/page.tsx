@@ -60,7 +60,7 @@ export default function AdminOrdersPage() {
     const [loading, setLoading] = useState(true)
     const [searchTerm, setSearchTerm] = useState('')
     const [debouncedSearch, setDebouncedSearch] = useState('')
-    const [availableNetworkFilter, setAvailableNetworkFilter] = useState('all')
+    const [availableNetworkFilter, setAvailableNetworkFilter] = useState('MTN')
     const [historyNetworkFilter, setHistoryNetworkFilter] = useState('all')
     const [batches, setBatches] = useState<any[]>([])
     const [activeTab, setActiveTab] = useState('available')
@@ -393,7 +393,7 @@ export default function AdminOrdersPage() {
             const idempotencyKey = `batch_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
 
             // Detect if all orders have the same network for intelligent labeling
-            const uniqueNetworks = Array.from(new Set(pendingOrders.map(o => o.network)))
+            const uniqueNetworks = Array.from(new Set(pendingOrders.map(o => o.network?.toString().trim())))
             const batchNetworkLabel = uniqueNetworks.length === 1 ? uniqueNetworks[0] : 'Multiple'
 
             const response = await fetch('/api/admin/orders/batch', {
