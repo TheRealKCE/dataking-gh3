@@ -74,7 +74,7 @@ export default function CongratsModal({ onClose, onBrowsePackages }: CongratsMod
             )}
 
             {/* Modal */}
-            <div className={`relative bg-gradient-to-br from-yellow-400/95 via-amber-500/90 to-yellow-600/95 rounded-3xl p-6 sm:p-8 max-w-lg w-full border-4 border-yellow-300 shadow-2xl shadow-yellow-500/50 transform transition-all duration-500 ${isVisible ? 'scale-100 translate-y-0' : 'scale-75 translate-y-8'}`}>
+            <div className={`relative bg-gradient-to-br from-yellow-400/95 via-amber-500/90 to-yellow-600/95 rounded-3xl p-5 sm:p-6 max-w-md w-full border-4 border-yellow-300 shadow-2xl shadow-yellow-500/50 transform transition-all duration-500 ${isVisible ? 'scale-100 translate-y-0' : 'scale-75 translate-y-8'}`}>
                 {/* Close Button */}
                 <button
                     onClick={handleClose}
@@ -83,45 +83,45 @@ export default function CongratsModal({ onClose, onBrowsePackages }: CongratsMod
                     <X className="w-5 h-5 text-white" />
                 </button>
 
-                <div className="flex justify-center mb-6">
+                <div className="flex justify-center mb-4">
                     <div className="relative">
-                        <Crown className="w-24 h-24 sm:w-32 sm:h-32 text-white animate-[bounce_1s_infinite] drop-shadow-lg" />
+                        <Crown className="w-20 h-20 sm:w-24 sm:h-24 text-white animate-[bounce_1s_infinite] drop-shadow-lg" />
                         <div className="absolute inset-0 animate-ping opacity-30">
-                            <Crown className="w-24 h-24 sm:w-32 sm:h-32 text-white" />
+                            <Crown className="w-20 h-20 sm:w-24 sm:h-24 text-white" />
                         </div>
-                        <Sparkles className="absolute -top-2 -right-2 w-8 h-8 text-white animate-pulse" />
-                        <Sparkles className="absolute -bottom-2 -left-2 w-6 h-6 text-white animate-pulse" style={{ animationDelay: '0.5s' }} />
+                        <Sparkles className="absolute -top-2 -right-2 w-6 h-6 text-white animate-pulse" />
+                        <Sparkles className="absolute -bottom-2 -left-2 w-4 h-4 text-white animate-pulse" style={{ animationDelay: '0.5s' }} />
                     </div>
                 </div>
 
                 {/* Success Message */}
-                <div className="text-center mb-6">
-                    <h2 className="text-3xl sm:text-4xl font-black text-white mb-2 drop-shadow-lg">
+                <div className="text-center mb-4">
+                    <h2 className="text-2xl sm:text-3xl font-black text-white mb-1 drop-shadow-lg">
                         Congratulations!
                     </h2>
-                    <p className="text-lg sm:text-xl font-bold text-amber-50">
+                    <p className="text-base sm:text-lg font-bold text-amber-50">
                         You are Now a Premium Agent!
                     </p>
                 </div>
 
                 {/* Features List */}
-                <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-6 sm:p-8 mb-8 border-2 border-white/20">
-                    <h3 className="text-xl sm:text-2xl font-black text-white mb-5 text-center flex items-center justify-center gap-2">
-                        <Crown className="w-6 h-6" />
+                <div className="bg-white/10 backdrop-blur-sm rounded-2xl p-5 sm:p-6 mb-5 border-2 border-white/20">
+                    <h3 className="text-lg sm:text-xl font-black text-white mb-4 text-center flex items-center justify-center gap-2">
+                        <Crown className="w-5 h-5" />
                         Your Premium Benefits
-                        <Crown className="w-6 h-6" />
+                        <Crown className="w-5 h-5" />
                     </h3>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                         {agentFeatures.map((feature, index) => (
                             <div
                                 key={index}
                                 className="flex items-start gap-3 animate-slideIn"
                                 style={{ animationDelay: `${index * 0.1}s` }}
                             >
-                                <div className="flex-shrink-0 w-6 h-6 rounded-full bg-green-400 flex items-center justify-center mt-0.5">
-                                    <CheckCircle className="w-4 h-4 text-white" />
+                                <div className="flex-shrink-0 w-5 h-5 rounded-full bg-green-400 flex items-center justify-center mt-0.5">
+                                    <CheckCircle className="w-3.5 h-3.5 text-white" />
                                 </div>
-                                <span className="text-sm sm:text-base font-bold text-white leading-snug">
+                                <span className="text-[13px] sm:text-sm font-bold text-white leading-snug">
                                     {feature}
                                 </span>
                             </div>
@@ -130,18 +130,18 @@ export default function CongratsModal({ onClose, onBrowsePackages }: CongratsMod
                 </div>
 
                 {/* Action Buttons */}
-                <div className="flex flex-col sm:flex-row gap-3">
+                <div className="flex flex-col sm:flex-row gap-2">
                     <Button
                         onClick={onBrowsePackages}
-                        className="flex-1 h-14 bg-white text-amber-600 hover:bg-amber-50 font-black text-lg rounded-xl transition-all hover:scale-105 active:scale-95 shadow-lg"
+                        className="flex-1 h-12 bg-white text-amber-600 hover:bg-amber-50 font-black text-base rounded-xl transition-all hover:scale-105 active:scale-95 shadow-lg"
                     >
-                        <Sparkles className="w-5 h-5 mr-2" />
+                        <Sparkles className="w-4 h-4 mr-2" />
                         Browse Your New Packages
                     </Button>
                     <Button
                         onClick={handleClose}
                         variant="outline"
-                        className="sm:w-auto h-14 bg-transparent border-2 border-white text-white hover:bg-white/10 font-bold rounded-xl"
+                        className="sm:w-auto h-12 bg-transparent border-2 border-white text-white hover:bg-white/10 font-bold px-6 rounded-xl"
                     >
                         Close
                     </Button>

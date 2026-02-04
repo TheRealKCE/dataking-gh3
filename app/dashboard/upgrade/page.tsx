@@ -272,7 +272,7 @@ export default function UpgradePage() {
             {showCongrats && (
                 <CongratsModal
                     onClose={() => setShowCongrats(false)}
-                    onBrowsePackages={() => router.push('/dashboard/data')}
+                    onBrowsePackages={() => router.push('/dashboard/data-packages')}
                 />
             )}
 
