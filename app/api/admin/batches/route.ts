@@ -42,8 +42,7 @@ export async function GET(request: NextRequest) {
             .gt('order_count', 0)
 
         if (network && network !== 'all') {
-            // Include 'Multiple' batches as they might contain the requested network orders (fallback for historical data)
-            query = query.or(`network.eq.${network},network.eq.Multiple`)
+            query = query.eq('network', network)
         }
 
         if (startDate) {

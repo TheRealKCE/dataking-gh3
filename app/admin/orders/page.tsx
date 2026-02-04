@@ -696,6 +696,13 @@ export default function AdminOrdersPage() {
             }
         }
 
+        const displayNetwork = useMemo(() => {
+            if (batch.network !== 'Multiple') return batch.network
+            if (batchOrders.length === 0) return 'Multiple'
+            const uniqueNets = Array.from(new Set(batchOrders.map(o => o.network?.toString().trim()).filter(Boolean)))
+            return uniqueNets.length === 1 ? uniqueNets[0] : 'Multiple'
+        }, [batch.network, batchOrders])
+
         return (
             <Card className="group relative overflow-hidden border-muted/40 shadow-lg hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 flex flex-col h-auto min-h-[300px] max-h-[600px] bg-gradient-to-br from-white to-slate-50 dark:from-slate-950 dark:to-slate-900/50 dark:border-blue-900/20">
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-200%] group-hover:animate-shine pointer-events-none" />
@@ -704,7 +711,7 @@ export default function AdminOrdersPage() {
                         <CardTitle className="text-sm font-medium truncate" title={batch.filename}>
                             {batch.filename}
                         </CardTitle>
-                        <Badge variant="outline" className="w-fit mt-1">{batch.network}</Badge>
+                        <Badge variant="outline" className="w-fit mt-1">{displayNetwork}</Badge>
                     </div>
                     <FileText className="w-8 h-8 text-blue-100 dark:text-blue-900 flex-shrink-0" />
                 </CardHeader>
