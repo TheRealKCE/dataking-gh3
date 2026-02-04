@@ -292,6 +292,8 @@ export default function AdminUsersPage() {
                     <div className="relative flex-1 w-full">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                         <Input
+                            id="user-search"
+                            name="user-search"
                             placeholder="Search users..."
                             value={searchTerm}
                             onChange={(e) => setSearchTerm(e.target.value)}
@@ -537,7 +539,7 @@ export default function AdminUsersPage() {
                                 value={adjustmentType}
                                 onValueChange={(value: 'credit' | 'debit') => setAdjustmentType(value)}
                             >
-                                <SelectTrigger>
+                                <SelectTrigger id="adjustment-type" name="adjustment-type">
                                     <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent>
@@ -549,6 +551,8 @@ export default function AdminUsersPage() {
                         <div className="space-y-2">
                             <Label>Amount (GHS)</Label>
                             <Input
+                                id="adjustment-amount"
+                                name="adjustment-amount"
                                 type="number"
                                 value={adjustmentAmount}
                                 onChange={(e) => setAdjustmentAmount(e.target.value)}
@@ -558,6 +562,8 @@ export default function AdminUsersPage() {
                         <div className="space-y-2">
                             <Label>Description</Label>
                             <Input
+                                id="adjustment-description"
+                                name="adjustment-description"
                                 value={adjustmentDescription}
                                 onChange={(e) => setAdjustmentDescription(e.target.value)}
                             />

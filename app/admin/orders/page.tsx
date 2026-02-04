@@ -893,10 +893,12 @@ export default function AdminOrdersPage() {
                                 <div className="relative flex-1">
                                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                                     <Input
+                                        id="order-search"
+                                        name="order-search"
                                         placeholder="Search orders..."
                                         value={searchTerm}
                                         onChange={(e) => setSearchTerm(e.target.value)}
-                                        className="pl-9 bg-background"
+                                        className="pl-9 bg-secondary/50 border-0 focus-visible:ring-1 focus-visible:ring-purple-500 transition-all rounded-xl"
                                     />
                                 </div>
                                 <div className="flex flex-wrap gap-1.5">
@@ -1023,6 +1025,8 @@ export default function AdminOrdersPage() {
                             {['All', 'MTN', 'Telecel', 'AT-iShare', 'AT-BigTime'].map((network) => (
                                 <Button
                                     key={network}
+                                    id={`network-filter-${network.toLowerCase()}`}
+                                    name={`network-filter-${network.toLowerCase()}`}
                                     variant={historyNetworkFilter === (network === 'All' ? 'all' : network) ? 'default' : 'outline'}
                                     size="sm"
                                     onClick={() => setHistoryNetworkFilter(network === 'All' ? 'all' : network)}
@@ -1145,7 +1149,8 @@ export default function AdminOrdersPage() {
                         <div className="grid gap-2">
                             <Label htmlFor="start">Start Date</Label>
                             <Input
-                                id="start"
+                                id="start-date"
+                                name="start-date"
                                 type="date"
                                 value={customStart}
                                 onChange={(e) => setCustomStart(e.target.value)}
@@ -1154,7 +1159,8 @@ export default function AdminOrdersPage() {
                         <div className="grid gap-2">
                             <Label htmlFor="end">End Date</Label>
                             <Input
-                                id="end"
+                                id="end-date"
+                                name="end-date"
                                 type="date"
                                 value={customEnd}
                                 onChange={(e) => setCustomEnd(e.target.value)}
