@@ -131,7 +131,7 @@ export default function AdminUsersPage() {
             const result = await response.json()
             if (!response.ok) throw new Error(result.error || 'Failed to update user status')
 
-            setUsers(users.map(u => u.id === userId ? { ...u, status: newStatus } : u))
+            setUsers(prevUsers => Array.isArray(prevUsers) ? prevUsers.map(u => u.id === userId ? { ...u, status: newStatus } : u) : [])
             toast.success(`User marked as ${newStatus}`)
         } catch (error: any) {
             console.error('Status change error:', error)
@@ -155,7 +155,7 @@ export default function AdminUsersPage() {
             const result = await response.json()
             if (!response.ok) throw new Error(result.error || 'Failed to update user role')
 
-            setUsers(users.map(u => u.id === userId ? { ...u, role: newRole } : u))
+            setUsers(prevUsers => Array.isArray(prevUsers) ? prevUsers.map(u => u.id === userId ? { ...u, role: newRole } : u) : [])
             toast.success(`User role updated to ${newRole}`)
         } catch (error: any) {
             console.error('Role change error:', error)
@@ -226,7 +226,7 @@ export default function AdminUsersPage() {
             const result = await response.json()
             if (!response.ok) throw new Error(result.error || 'Failed to delete user')
 
-            setUsers(users.filter(u => u.id !== userId))
+            setUsers(prevUsers => Array.isArray(prevUsers) ? prevUsers.filter(u => u.id !== userId) : [])
             toast.success('User permanently deleted')
         } catch (error: any) {
             console.error('Deletion error:', error)
@@ -241,7 +241,7 @@ export default function AdminUsersPage() {
     const exportToCSV = () => {
         try {
             // Filter users with phone numbers
-            const usersWithPhones = users.filter(user => user.phone_number)
+            const usersWithPhones = (Array.isArray(users) ? users : []).filter(user => user.phone_number)
 
             if (usersWithPhones.length === 0) {
                 toast.error('No users with phone numbers to export')
@@ -335,7 +335,7 @@ export default function AdminUsersPage() {
             ) : (
                 <>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                        {users.map((user) => (
+                        {Array.isArray(users) && users.map((user) => (
                             <Card
                                 key={user.id}
                                 className="group relative overflow-hidden border border-purple-100 dark:border-purple-900/30 lg:hover:border-purple-500/50 transition-all duration-200 shadow-md lg:hover:shadow-xl lg:hover:-translate-y-1 bg-white dark:bg-slate-900/50"
@@ -523,10 +523,10 @@ export default function AdminUsersPage() {
 
             {/* Wallet Adjustment Dialog */}
             <Dialog open={!!adjustmentDialogUser} onOpenChange={() => setAdjustmentDialogUser(null)}>
-                <DialogContent>
+                <DialogContent aria-describedby="adjustment-description">
                     <DialogHeader>
                         <DialogTitle>{adjustmentType === 'credit' ? 'Credit' : 'Debit'} User Wallet</DialogTitle>
-                        <DialogDescription>
+                        <DialogDescription id="adjustment-description">
                             {adjustmentType === 'credit' ? 'Add funds to' : 'Deduct funds from'} {adjustmentDialogUser?.first_name} {adjustmentDialogUser?.last_name}'s wallet.
                         </DialogDescription>
                     </DialogHeader>

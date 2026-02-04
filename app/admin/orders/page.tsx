@@ -342,7 +342,7 @@ export default function AdminOrdersPage() {
                 .update({ payment_status: 'refunded', status: 'failed' } as any)
                 .eq('id', order.id)
 
-            setOrders(prev => prev.map(o => o.id === order.id ? { ...o, payment_status: 'refunded', status: 'failed' } : o))
+            setOrders(prev => Array.isArray(prev) ? prev.map(o => o.id === order.id ? { ...o, payment_status: 'refunded', status: 'failed' } : o) : [])
             toast.success('Order refunded successfully')
 
             // Notify user
@@ -376,7 +376,7 @@ export default function AdminOrdersPage() {
             return
         }
 
-        const pendingOrders = (filteredOrders as any[]).filter(o => o.status === 'pending')
+        const pendingOrders = (Array.isArray(filteredOrders) ? filteredOrders : []).filter(o => o.status === 'pending')
 
         if (pendingOrders.length === 0) {
             toast.error('No PENDING orders to export')
@@ -590,7 +590,7 @@ export default function AdminOrdersPage() {
         const toastId = toast.loading(`Preparing ${label} download for ${filteredBatches.length} batches...`)
 
         try {
-            const batchIds = filteredBatches.map(b => b.id).join(',')
+            const batchIds = (Array.isArray(filteredBatches) ? filteredBatches : []).map(b => b.id).join(',')
             const response = await fetch(`/api/admin/orders?batchIds=${batchIds}`)
 
             if (!response.ok) throw new Error('Failed to fetch orders')
@@ -651,7 +651,7 @@ export default function AdminOrdersPage() {
 
                 toast.success('Batch updated successfully')
                 // Refresh local orders
-                const updatedOrders = batchOrders.map(o => ({ ...o, status }))
+                const updatedOrders = (Array.isArray(batchOrders) ? batchOrders : []).map(o => ({ ...o, status }))
                 setBatchOrders(updatedOrders)
                 fetchBatches(0, true) // Update global counts if needed
             } catch (error) {
@@ -721,7 +721,7 @@ export default function AdminOrdersPage() {
                                 No orders found
                             </div>
                         ) : (
-                            batchOrders.map(order => (
+                            Array.isArray(batchOrders) && batchOrders.map(order => (
                                 <div key={order.id} className="text-xs p-2 bg-background rounded border flex items-center justify-between">
                                     <div className="flex flex-col">
                                         <span className="font-bold text-[10px]">{order.users?.first_name} {order.users?.last_name}</span>
@@ -741,7 +741,7 @@ export default function AdminOrdersPage() {
                                                     <DropdownMenuItem onClick={async () => {
                                                         await handleUpdateStatus(order.id, 'failed')
                                                         // Update local state
-                                                        setBatchOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: 'failed' } : o))
+                                                        setBatchOrders(prev => Array.isArray(prev) ? prev.map(o => o.id === order.id ? { ...o, status: 'failed' } : o) : [])
                                                     }}>
                                                         <XCircle className="w-4 h-4 mr-2 text-red-500" />
                                                         Mark as Failed
@@ -751,7 +751,7 @@ export default function AdminOrdersPage() {
                                                     <DropdownMenuItem onClick={async () => {
                                                         await handleRefund(order)
                                                         // Update local state
-                                                        setBatchOrders(prev => prev.map(o => o.id === order.id ? { ...o, payment_status: 'refunded', status: 'failed' } : o))
+                                                        setBatchOrders(prev => Array.isArray(prev) ? prev.map(o => o.id === order.id ? { ...o, payment_status: 'refunded', status: 'failed' } : o) : [])
                                                     }}>
                                                         <RefreshCw className="w-4 h-4 mr-2 text-amber-500" />
                                                         Refund Order
@@ -932,7 +932,7 @@ export default function AdminOrdersPage() {
                         </div>
                     ) : (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                            {filteredOrders.map((order) => (
+                            {Array.isArray(filteredOrders) && filteredOrders.map((order) => (
                                 <Card key={order.id} className="relative overflow-hidden border shadow-sm lg:hover:shadow-md transition-all duration-200">
                                     <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                                         <div className="font-mono text-sm text-muted-foreground">
@@ -1110,7 +1110,7 @@ export default function AdminOrdersPage() {
                     ) : (
                         <>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {batches.map((batch) => (
+                                {Array.isArray(batches) && batches.map((batch) => (
                                     <BatchCard key={batch.id} batch={batch} onRefund={handleRefund} onFail={handleUpdateStatus} />
                                 ))}
                             </div>
@@ -1134,10 +1134,10 @@ export default function AdminOrdersPage() {
             </Tabs>
 
             <Dialog open={isCustomDialogOpen} onOpenChange={setIsCustomDialogOpen}>
-                <DialogContent className="sm:max-w-sm">
+                <DialogContent className="sm:max-w-sm" aria-describedby="date-range-description">
                     <DialogHeader>
                         <DialogTitle>Select Date Range</DialogTitle>
-                        <DialogDescription>
+                        <DialogDescription id="date-range-description">
                             Choose a start and end date to filter history.
                         </DialogDescription>
                     </DialogHeader>
