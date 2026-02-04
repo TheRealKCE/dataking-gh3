@@ -59,7 +59,8 @@ export default function AdminOrdersPage() {
     const [orders, setOrders] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
     const [searchTerm, setSearchTerm] = useState('')
-    const [networkFilter, setNetworkFilter] = useState('MTN')
+    const [availableNetworkFilter, setAvailableNetworkFilter] = useState('all')
+    const [historyNetworkFilter, setHistoryNetworkFilter] = useState('all')
     const [batches, setBatches] = useState<any[]>([])
     const [activeTab, setActiveTab] = useState('available')
     const [historyFilter, setHistoryFilter] = useState('today')
@@ -332,13 +333,17 @@ export default function AdminOrdersPage() {
             const fileName = `ghdata_orders_${new Date().toISOString().replace(/[:.]/g, '-')}.xlsx`
             const idempotencyKey = `batch_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
 
+            // Detect if all orders have the same network for intelligent labeling
+            const uniqueNetworks = Array.from(new Set(pendingOrders.map(o => o.network)))
+            const batchNetworkLabel = uniqueNetworks.length === 1 ? uniqueNetworks[0] : 'Multiple'
+
             const response = await fetch('/api/admin/orders/batch', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     orderIds: pendingOrders.map((o: any) => o.id),
                     filename: fileName,
-                    network: networkFilter === 'all' ? 'Multiple' : networkFilter,
+                    network: batchNetworkLabel,
                     idempotencyKey: idempotencyKey
                 })
             })
@@ -746,7 +751,7 @@ export default function AdminOrdersPage() {
             order.phone_number.includes(searchTerm) ||
             order.users?.email?.toLowerCase().includes(searchTerm.toLowerCase())
 
-        const matchesNetwork = networkFilter === 'all' || order.network === networkFilter
+        const matchesNetwork = availableNetworkFilter === 'all' || order.network === availableNetworkFilter
 
         return matchesSearch && matchesNetwork
     })
@@ -770,7 +775,7 @@ export default function AdminOrdersPage() {
         thirtyDaysAgo.setHours(0, 0, 0, 0)
         const isWithin30Days = batchDate >= thirtyDaysAgo
 
-        const matchesNetwork = networkFilter === 'all' || batch.network === networkFilter
+        const matchesNetwork = historyNetworkFilter === 'all' || batch.network === historyNetworkFilter
 
         if (historyFilter === 'today') return isToday && matchesNetwork
         if (historyFilter === 'yesterday') return isYesterday && matchesNetwork
@@ -863,10 +868,10 @@ export default function AdminOrdersPage() {
                                     {['All', 'MTN', 'Telecel', 'AT-iShare', 'AT-BigTime'].map((network) => (
                                         <Button
                                             key={network}
-                                            variant={networkFilter === (network === 'All' ? 'all' : network) ? 'default' : 'outline'}
+                                            variant={availableNetworkFilter === (network === 'All' ? 'all' : network) ? 'default' : 'outline'}
                                             size="sm"
-                                            onClick={() => setNetworkFilter(network === 'All' ? 'all' : network)}
-                                            className={`transition-all duration-150 active:scale-95 ${networkFilter === (network === 'All' ? 'all' : network)
+                                            onClick={() => setAvailableNetworkFilter(network === 'All' ? 'all' : network)}
+                                            className={`transition-all duration-150 active:scale-95 ${availableNetworkFilter === (network === 'All' ? 'all' : network)
                                                 ? network === 'MTN'
                                                     ? 'bg-yellow-500 hover:bg-yellow-600 text-black'
                                                     : network === 'Telecel'
@@ -978,6 +983,31 @@ export default function AdminOrdersPage() {
                 </TabsContent>
 
                 <TabsContent value="downloaded" className="space-y-4">
+                    <div className="flex flex-col md:flex-row gap-4">
+                        <div className="flex flex-wrap gap-1.5 pt-1">
+                            {['All', 'MTN', 'Telecel', 'AT-iShare', 'AT-BigTime'].map((network) => (
+                                <Button
+                                    key={network}
+                                    variant={historyNetworkFilter === (network === 'All' ? 'all' : network) ? 'default' : 'outline'}
+                                    size="sm"
+                                    onClick={() => setHistoryNetworkFilter(network === 'All' ? 'all' : network)}
+                                    className={`transition-all duration-150 active:scale-95 text-[10px] h-8 ${historyNetworkFilter === (network === 'All' ? 'all' : network)
+                                        ? network === 'MTN'
+                                            ? 'bg-yellow-500 hover:bg-yellow-600 text-black'
+                                            : network === 'Telecel'
+                                                ? 'bg-red-600 hover:bg-red-700 text-white'
+                                                : network === 'AT-iShare' || network === 'AT-BigTime'
+                                                    ? 'bg-blue-600 hover:bg-blue-700 text-white'
+                                                    : 'bg-primary text-primary-foreground'
+                                        : 'hover:bg-muted'
+                                        }`}
+                                >
+                                    {network === 'AT-BigTime' ? 'BigTime' : network}
+                                </Button>
+                            ))}
+                        </div>
+                    </div>
+
                     <div className="flex flex-col sm:flex-row justify-between gap-4 items-center">
                         <div className="flex flex-wrap gap-2 items-center">
                             <Button

@@ -102,6 +102,7 @@ export async function POST(request: NextRequest) {
                 network: (pkg as any).network,
                 size: (pkg as any).size,
                 price: priceToCharge,
+                cost_price: (pkg as any).cost_price || 0,
                 status: 'pending',
                 payment_status: 'paid',
                 reference_code: referenceCode,

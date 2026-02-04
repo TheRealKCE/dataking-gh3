@@ -61,6 +61,32 @@ export async function GET(request: NextRequest) {
             throw fetchError
         }
 
+        // Fallback for missing cost_price (for older orders)
+        if (orders && (orders as any[]).length > 0) {
+            const ordersArray = orders as any[]
+            // Check if any orders are missing cost_price
+            const missingCost = ordersArray.some(o => !(o as any).cost_price || (o as any).cost_price === 0)
+
+            if (missingCost) {
+                // Fetch all available data packages to match cost_price
+                const { data: packages } = await supabase
+                    .from('data_packages')
+                    .select('network, size, cost_price')
+
+                if (packages) {
+                    const packagesArray = packages as any[]
+                    ordersArray.forEach(order => {
+                        if (!(order as any).cost_price || (order as any).cost_price === 0) {
+                            const matchedPkg = packagesArray.find(p => p.network === order.network && p.size === order.size)
+                            if (matchedPkg) {
+                                (order as any).cost_price = matchedPkg.cost_price
+                            }
+                        }
+                    })
+                }
+            }
+        }
+
         return NextResponse.json(orders)
     } catch (error: any) {
         console.error('Admin Orders Fetch Error:', error)
