@@ -86,10 +86,22 @@ export default function UpgradePage() {
         if (success) {
             const verifyAndShowCongrats = async () => {
                 // Check if upgrade is actually confirmed in DB
-                // For existing agents, check if expiry has increased
-                // For customers, check if role changed to agent
-                const isConfirmed = dbUser?.role === 'agent' && (
-                    !initialExpiry || dbUser.agent_expires_at !== initialExpiry
+                // We check if the user is an agent AND if the profile was updated recently (within last 5 mins)
+                // This handles the page reload case where we lose the "previous" state
+                const isAgent = dbUser?.role === 'agent'
+
+                let isRecentlyUpdated = false
+                if (dbUser?.updated_at) {
+                    const updateTime = new Date(dbUser.updated_at).getTime()
+                    const fiveMinutesAgo = Date.now() - (5 * 60 * 1000)
+                    isRecentlyUpdated = updateTime > fiveMinutesAgo
+                }
+
+                // If role is agent and updated recently, it's our successful transaction
+                // OR if we still have initialExpiry state (no reload) and it changed
+                const isConfirmed = isAgent && (
+                    isRecentlyUpdated ||
+                    (initialExpiry && dbUser.agent_expires_at !== initialExpiry)
                 )
 
                 if (isConfirmed) {
