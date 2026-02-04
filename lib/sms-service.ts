@@ -191,11 +191,10 @@ export async function sendOrderSuccessSMS(
     // Extract last 9 digits of phone number (remove country code)
     const recipientDisplay = details.recipientNumber.replace(/^233/, '').replace(/^0/, '')
 
-    // Use stealth keywords: avoid "purchased", "wallet"
-    // Keep decimals for spent amount, round balance
-    const message = `Success! Your Flexy-Order has been received. Package: ${details.size}, Spent: GH${details.price.toFixed(2)}, Recipient: ${recipientDisplay}. Your total standing is GH${Math.round(details.currentBalance)}
+    // Updated Template: "Your order for [Data Size] to [Recipient] has been placed and is being processed. Your new wallet balance is GH[Remaining Balance]"
+    const message = `Your order for ${details.size} to ${recipientDisplay} has been placed and is being processed. Your new wallet balance is GH${details.currentBalance.toFixed(2)}
 
-KingFlexyGh Limited`
+KingFlexyGh`
 
     return sendSMS({
         recipient: accountHolderPhone,
@@ -213,12 +212,16 @@ export async function sendStatusUpdateSMS(
         status: string
     }
 ) {
+    // DISABLED AS REQUESTED
+    /*
     const message = `Order Update: Your order ${details.referenceCode} is now ${details.status.toUpperCase()}. Check your dashboard for details.`
 
     return sendSMS({
         recipient: phoneNumber,
         message
     })
+    */
+    return { success: true } // Mock success to prevent errors
 }
 
 /**
@@ -232,11 +235,10 @@ export async function sendWalletTopupSuccessSMS(
         newBalance: number
     }
 ) {
-    // Use stealth keywords: avoid "wallet", "credited", "GHS", "successful"
-    // Format amounts without decimals (GH50 instead of GH50.00)
-    const message = `Hello! You have added GH${Math.round(details.amount)} to your Flexy-balance. Your total standing is GH${Math.round(details.newBalance)}
+    // Updated Template: "Hello! You have added GH[Amount] to your Flexy-Wallet. Your Flexy-Wallet is now GH[New_Balance]"
+    const message = `Hello! You have added GH${details.amount.toFixed(2)} to your Flexy-Wallet. Your Flexy-Wallet is now GH${details.newBalance.toFixed(2)}
 
-KingFlexyGh Limited`
+KingFlexyGh`
 
     return sendSMS({
         recipient: phoneNumber,
@@ -252,31 +254,109 @@ export async function sendWelcomeSMS(
     phoneNumber: string,
     firstName: string
 ) {
-    // Use stealth keywords: avoid "data", "buy", "wallet", "purchase"
+    // DISABLED AS REQUESTED
+    /*
     const message = `Hello! Welcome to KingFlexyGh Ltd. All we do here is instant Delivery (PA-TU-PA) start ordering your package now. Chat us on WhatsApp:578065809`
 
     return sendSMS({
         recipient: phoneNumber,
         message
     })
+    */
+    return { success: true }
 }
 /**
  * Send Agent upgrade success SMS
  * Template: "Hi [User First Name]! Your [Plan purchase days] Upgrade to Agent Role was Successful! Your Agent role is now valid for [Remaining Agent Role Days] thank you. KingFlexyGh"
  */
+/**
+ * Send Agent upgrade success SMS
+ * Updated Template: "Congratulations! Your Agent membership has been upgraded until [Remaining_days]"
+ */
 export async function sendAgentUpgradeSuccessSMS(
     phoneNumber: string,
     firstName: string,
     planDays: string,
-    remainingDays: number
+    remainingDays: number,
+    expiryDate?: string | Date // Optional for compatibility, but preferred
 ) {
-    const message = `Hi ${firstName}! Your ${planDays} Upgrade to Agent Role was Successful! Your Agent role is now valid for ${remainingDays}days thank you.
+    let formattedDate = ''
+
+    if (expiryDate) {
+        const date = new Date(expiryDate)
+        // Format: "February 10th, 2026"
+        const day = date.getDate()
+        const month = date.toLocaleString('default', { month: 'long' })
+        const year = date.getFullYear()
+
+        // Add ordinal suffix (st, nd, rd, th)
+        const suffix = ["th", "st", "nd", "rd"][((day % 100) > 10 && (day % 100) < 20) ? 0 : (day % 10 < 4) ? day % 10 : 0]
+
+        formattedDate = `${month} ${day}${suffix}, ${year}`
+    } else {
+        // Fallback if no specific date provided
+        const date = new Date()
+        date.setDate(date.getDate() + remainingDays)
+        const day = date.getDate()
+        const month = date.toLocaleString('default', { month: 'long' })
+        const year = date.getFullYear()
+        const suffix = ["th", "st", "nd", "rd"][((day % 100) > 10 && (day % 100) < 20) ? 0 : (day % 10 < 4) ? day % 10 : 0]
+        formattedDate = `${month} ${day}${suffix}, ${year}`
+    }
+
+    const message = `Congratulations! Your Agent membership has been upgraded until ${formattedDate}
 
 KingFlexyGh`
 
     return sendSMS({
         recipient: phoneNumber,
         message
+    })
+}
+
+/**
+ * Send Agent Extend/Renewal Success SMS
+ * Template: "Congratulations! Your Agent membership has been extended until [Formatted_Date]"
+ */
+export async function sendAgentExtensionSuccessSMS(
+    phoneNumber: string,
+    expiryDate: string | Date
+) {
+    const date = new Date(expiryDate)
+    const day = date.getDate()
+    const month = date.toLocaleString('default', { month: 'long' })
+    const year = date.getFullYear()
+
+    const suffix = ["th", "st", "nd", "rd"][((day % 100) > 10 && (day % 100) < 20) ? 0 : (day % 10 < 4) ? day % 10 : 0]
+
+    const formattedDate = `${month} ${day}${suffix}, ${year}`
+
+    const message = `Congratulations! Your Agent membership has been extended until ${formattedDate}
+
+KingFlexyGh`
+
+    return sendSMS({
+        recipient: phoneNumber,
+        message
+    })
+}
+
+/**
+ * Send Admin Alert for New Agent Order
+ * Template: "NEW AGENT ORDER"
+ */
+export async function sendAdminAgentOrderAlert() {
+    // Get admin phone from env var or use default
+    const adminPhone = process.env.ADMIN_PHONE_NUMBER || '0540000000' // Placeholder fallback
+
+    if (adminPhone === '0540000000' && !process.env.ADMIN_PHONE_NUMBER) {
+        console.warn('[SMS Service] ADMIN_PHONE_NUMBER not set, skipping admin alert')
+        return { success: false, error: 'Admin phone not configured' }
+    }
+
+    return sendSMS({
+        recipient: adminPhone,
+        message: 'NEW AGENT ORDER'
     })
 }
 
@@ -288,6 +368,8 @@ export async function sendAgentRenewalReminderSMS(
     phoneNumber: string,
     firstName: string
 ) {
+    // DISABLED AS REQUESTED
+    /*
     const message = `Hi ${firstName}! Your Agent Role plan is about to expire, kindly extend your plan to continue enjoying the benefits thank you.
 
 KingFlexyGh.`
@@ -296,4 +378,6 @@ KingFlexyGh.`
         recipient: phoneNumber,
         message
     })
+    */
+    return { success: true }
 }

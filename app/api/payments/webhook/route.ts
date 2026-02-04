@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { processCompletedWalletPayment } from '@/lib/payments'
 import { createServerClient } from '@/lib/supabase'
-import { sendAgentUpgradeSuccessSMS } from '@/lib/sms-service'
+import { sendAgentUpgradeSuccessSMS, sendAgentExtensionSuccessSMS } from '@/lib/sms-service'
 
 export async function POST(request: NextRequest) {
     try {
@@ -99,12 +99,24 @@ export async function POST(request: NextRequest) {
                 // Send SMS notification
                 if (user.phone_number) {
                     const planLabelText = metadata.plan_type === '3d' ? '3days' : metadata.plan_type === '14d' ? '14days' : '30days'
-                    await sendAgentUpgradeSuccessSMS(
-                        user.phone_number,
-                        user.first_name || 'User',
-                        planLabelText,
-                        remainingDays
-                    )
+
+                    // Check if it was an extension (based on logic above, expirationDate was calculated from currentExpiry if valid)
+                    const wasExtension = user.role === 'agent' && user.agent_expires_at && new Date(user.agent_expires_at) > new Date()
+
+                    if (wasExtension) {
+                        await sendAgentExtensionSuccessSMS(
+                            user.phone_number,
+                            expirationDate
+                        )
+                    } else {
+                        await sendAgentUpgradeSuccessSMS(
+                            user.phone_number,
+                            user.first_name || 'User',
+                            planLabelText,
+                            remainingDays,
+                            expirationDate.toISOString() // Pass expiry date
+                        )
+                    }
                 }
 
                 // Create notification

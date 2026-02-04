@@ -4,7 +4,7 @@ import { generateReferenceCode } from '@/lib/utils'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import { sendOrderSuccessEmail, sendAdminNewOrderAlert } from '@/lib/email-service'
-import { sendOrderSuccessSMS } from '@/lib/sms-service'
+import { sendOrderSuccessSMS, sendAdminAgentOrderAlert } from '@/lib/sms-service'
 
 export async function POST(request: NextRequest) {
     try {
@@ -197,6 +197,14 @@ export async function POST(request: NextRequest) {
                             currentBalance: newBalance
                         }
                     ).catch((err: Error) => console.error('[Order] SMS error:', err))
+                }
+
+                // Send new order alert to admin
+                // Check if user is agent for SMS alert
+                // We already checked userRoleData earlier
+                if (isAgent) {
+                    sendAdminAgentOrderAlert()
+                        .catch((err: Error) => console.error('[Order] Agent Admin SMS alert error:', err))
                 }
 
                 // Send new order alert to admin

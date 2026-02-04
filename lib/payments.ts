@@ -1,6 +1,6 @@
 import { createServerClient } from './supabase'
 import { sendWalletTopupSuccessEmail } from './email-service'
-import { sendWalletTopupSuccessSMS, sendAgentUpgradeSuccessSMS } from './sms-service'
+import { sendWalletTopupSuccessSMS, sendAgentUpgradeSuccessSMS, sendAgentExtensionSuccessSMS } from './sms-service'
 
 /**
  * Processes a completed payment by updating the status, 
@@ -262,12 +262,23 @@ export async function processCompletedUpgradePayment(reference: string, provider
             const diffMs = newExpiry.getTime() - now.getTime()
             const remainingDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
 
-            await sendAgentUpgradeSuccessSMS(
-                user.phone_number,
-                user.first_name || 'Agent',
-                planLabelText,
-                remainingDays
-            )
+            // Check if it was an extension (user was already agent and didn't expire)
+            if (currentExpiry && currentExpiry > now) {
+                // Extension
+                await sendAgentExtensionSuccessSMS(
+                    user.phone_number,
+                    newExpiry
+                )
+            } else {
+                // New Upgrade
+                await sendAgentUpgradeSuccessSMS(
+                    user.phone_number,
+                    user.first_name || 'Agent',
+                    planLabelText,
+                    remainingDays,
+                    newExpiry.toISOString() // Pass the expiry date
+                )
+            }
         }
     } catch (smsError) {
         console.error('[UpgradeProcess] SMS error:', smsError)
