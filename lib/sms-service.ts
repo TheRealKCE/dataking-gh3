@@ -221,7 +221,6 @@ export async function sendStatusUpdateSMS(
         message
     })
     */
-    */
     return { success: true, messageId: 'disabled', error: undefined } // Mock success to prevent errors
 }
 
@@ -263,7 +262,6 @@ export async function sendWelcomeSMS(
         recipient: phoneNumber,
         message
     })
-    */
     */
     return { success: true, messageId: 'disabled', error: undefined }
 }
