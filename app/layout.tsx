@@ -3,7 +3,10 @@ import type { Metadata, Viewport } from 'next'
 export const viewport: Viewport = {
     width: 'device-width',
     initialScale: 1,
+    maximumScale: 1,
+    userScalable: false,
     themeColor: '#0f172a',
+    interactiveWidget: 'resizes-content', // Helps with virtual keyboard handling
 }
 import { Fira_Sans } from 'next/font/google'
 import './globals.css'

@@ -61,6 +61,9 @@
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
+    overflow-x: hidden;
+    width: 100%;
+    overscroll-behavior-y: none; /* Prevents pull-to-refresh on accidental swipes */
   }
 
   h1,
