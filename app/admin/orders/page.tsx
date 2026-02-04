@@ -151,20 +151,42 @@ export default function AdminOrdersPage() {
         }
     }
 
-    const generateExcelFile = async (ordersToExport: any[], filename: string) => {
+    const generateExcelFile = async (ordersToExport: any[], filename: string, mode: 'standard' | 'cost' | 'sales' = 'standard') => {
         // Perform export - CUSTOM FORMAT (Beneficiary Msisdn / GIGGS)
         const rows: any[][] = []
 
         // Header Row
-        rows.push(['Beneficiary Msisdn', 'GIGGS'])
+        if (mode === 'standard') {
+            rows.push(['Beneficiary Msisdn', 'GIGGS'])
+        } else if (mode === 'cost') {
+            rows.push(['Beneficiary Msisdn', 'GIGGS', 'Cost Price'])
+        } else if (mode === 'sales') {
+            rows.push(['Beneficiary Msisdn', 'GIGGS', 'Selling Price'])
+        }
 
         // Data Rows
+        let total = 0
         ordersToExport.forEach((order: any) => {
             const phone = order.phone_number
-            const size = order.size.replace(/GB/i, '').trim()
+            const size = (order.size || '').replace(/GB/i, '').trim()
 
-            rows.push([phone, size])
+            if (mode === 'standard') {
+                rows.push([phone, size])
+            } else if (mode === 'cost') {
+                const cost = order.cost_price || 0
+                total += cost
+                rows.push([phone, size, cost])
+            } else if (mode === 'sales') {
+                const sales = order.price || 0
+                total += sales
+                rows.push([phone, size, sales])
+            }
         })
+
+        // Add Sum Row for cost/sales
+        if (mode !== 'standard') {
+            rows.push(['', 'TOTAL SUM', total])
+        }
 
         // @ts-ignore
         const { utils, writeFile } = await import('xlsx-js-style')
@@ -177,7 +199,8 @@ export default function AdminOrdersPage() {
         // Set widths
         worksheet['!cols'] = [
             { wch: 25 }, // Beneficiary Msisdn
-            { wch: 15 }  // GIGGS
+            { wch: 15 }, // GIGGS
+            { wch: 15 }  // Price/Cost
         ]
 
         const PINK_COLOR = 'FF00FF'
@@ -492,13 +515,14 @@ export default function AdminOrdersPage() {
         }
     }
 
-    const handleDownloadAllFiltered = async () => {
+    const handleDownloadAllFiltered = async (exportMode: 'standard' | 'cost' | 'sales' = 'standard') => {
         if (filteredBatches.length === 0) {
             toast.error('No batches to download')
             return
         }
 
-        const toastId = toast.loading(`Preparing download for ${filteredBatches.length} batches...`)
+        const label = exportMode === 'cost' ? 'Cost' : exportMode === 'sales' ? 'Sales' : 'Orders'
+        const toastId = toast.loading(`Preparing ${label} download for ${filteredBatches.length} batches...`)
 
         try {
             const batchIds = filteredBatches.map(b => b.id).join(',')
@@ -512,11 +536,12 @@ export default function AdminOrdersPage() {
                 return
             }
 
-            const filename = `ghdata_merged_${historyFilter}_${new Date().toISOString().substring(0, 10)}.xlsx`
+            const prefix = exportMode === 'standard' ? 'ghdata_merged' : `ghdata_${exportMode}`
+            const filename = `${prefix}_${historyFilter}_${new Date().toISOString().substring(0, 10)}.xlsx`
 
-            await generateExcelFile(allOrders, filename)
+            await generateExcelFile(allOrders, filename, exportMode)
 
-            toast.success('Downloaded all filtered orders', { id: toastId })
+            toast.success(`Downloaded all filtered ${label}`, { id: toastId })
         } catch (error) {
             console.error('Bulk download error:', error)
             toast.error('Failed to download filtered batches', { id: toastId })
@@ -637,7 +662,38 @@ export default function AdminOrdersPage() {
                                         <span className="font-mono text-xs">{order.phone_number}</span>
                                         <span className="text-[10px] text-muted-foreground">{order.network} {order.size}</span>
                                     </div>
-                                    {getStatusBadge(order.status)}
+                                    <div className="flex items-center gap-2">
+                                        {getStatusBadge(order.status)}
+                                        <DropdownMenu>
+                                            <DropdownMenuTrigger asChild>
+                                                <Button variant="ghost" size="icon" className="h-6 w-6 p-0 hover:bg-muted">
+                                                    <MoreVertical className="w-3.5 h-3.5" />
+                                                </Button>
+                                            </DropdownMenuTrigger>
+                                            <DropdownMenuContent align="end">
+                                                {order.status !== 'failed' && (
+                                                    <DropdownMenuItem onClick={async () => {
+                                                        await handleUpdateStatus(order.id, 'failed')
+                                                        // Update local state
+                                                        setBatchOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: 'failed' } : o))
+                                                    }}>
+                                                        <XCircle className="w-4 h-4 mr-2 text-red-500" />
+                                                        Mark as Failed
+                                                    </DropdownMenuItem>
+                                                )}
+                                                {order.payment_status !== 'refunded' && (
+                                                    <DropdownMenuItem onClick={async () => {
+                                                        await handleRefund(order)
+                                                        // Update local state
+                                                        setBatchOrders(prev => prev.map(o => o.id === order.id ? { ...o, payment_status: 'refunded', status: 'failed' } : o))
+                                                    }}>
+                                                        <RefreshCw className="w-4 h-4 mr-2 text-amber-500" />
+                                                        Refund Order
+                                                    </DropdownMenuItem>
+                                                )}
+                                            </DropdownMenuContent>
+                                        </DropdownMenu>
+                                    </div>
                                 </div>
                             ))
                         )}
@@ -714,18 +770,22 @@ export default function AdminOrdersPage() {
         thirtyDaysAgo.setHours(0, 0, 0, 0)
         const isWithin30Days = batchDate >= thirtyDaysAgo
 
-        if (historyFilter === 'today') return isToday
-        if (historyFilter === 'yesterday') return isYesterday
+        const matchesNetwork = networkFilter === 'all' || batch.network === networkFilter
+
+        if (historyFilter === 'today') return isToday && matchesNetwork
+        if (historyFilter === 'yesterday') return isYesterday && matchesNetwork
         if (historyFilter === 'custom') {
-            if (!customStart || !customEnd) return true
+            if (!customStart || !customEnd) return matchesNetwork
             const start = new Date(customStart)
             const end = new Date(customEnd)
             end.setHours(23, 59, 59, 999)
-            return batchDate >= start && batchDate <= end
+            return batchDate >= start && batchDate <= end && matchesNetwork
         }
         // 'all' filter shows only past 30 days
-        return isWithin30Days
+        return isWithin30Days && matchesNetwork
     })
+
+    const totalFilteredOrdersCount = filteredBatches.reduce((sum, batch) => sum + (batch.order_count || 0), 0)
 
     const getStatusBadge = (status: string) => {
         const styles: Record<string, string> = {
@@ -783,7 +843,7 @@ export default function AdminOrdersPage() {
             <Tabs defaultValue="available" value={activeTab} onValueChange={setActiveTab}>
                 <TabsList className="grid w-full grid-cols-2 max-w-[400px]">
                     <TabsTrigger value="available">Available ({orders.length})</TabsTrigger>
-                    <TabsTrigger value="downloaded">Downloaded History</TabsTrigger>
+                    <TabsTrigger value="downloaded">Downloaded History ({totalFilteredOrdersCount})</TabsTrigger>
                 </TabsList>
 
                 <TabsContent value="available" className="space-y-4">
@@ -919,16 +979,38 @@ export default function AdminOrdersPage() {
 
                 <TabsContent value="downloaded" className="space-y-4">
                     <div className="flex flex-col sm:flex-row justify-between gap-4 items-center">
-                        <Button
-                            variant="outline"
-                            size="sm"
-                            className="bg-background border-dashed"
-                            onClick={handleDownloadAllFiltered}
-                            disabled={filteredBatches.length === 0}
-                        >
-                            <Download className="w-4 h-4 mr-2" />
-                            Download Filtered ({filteredBatches.length})
-                        </Button>
+                        <div className="flex flex-wrap gap-2 items-center">
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="bg-background border-dashed"
+                                onClick={() => handleDownloadAllFiltered('standard')}
+                                disabled={filteredBatches.length === 0}
+                            >
+                                <Download className="w-4 h-4 mr-2" />
+                                Download ({totalFilteredOrdersCount})
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="bg-emerald-50 text-emerald-700 border-emerald-200 hover:bg-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-800"
+                                onClick={() => handleDownloadAllFiltered('cost')}
+                                disabled={filteredBatches.length === 0}
+                            >
+                                <Download className="w-4 h-4 mr-2" />
+                                Download Cost
+                            </Button>
+                            <Button
+                                variant="outline"
+                                size="sm"
+                                className="bg-blue-50 text-blue-700 border-blue-200 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800"
+                                onClick={() => handleDownloadAllFiltered('sales')}
+                                disabled={filteredBatches.length === 0}
+                            >
+                                <Download className="w-4 h-4 mr-2" />
+                                Download Sales
+                            </Button>
+                        </div>
                         <div className="flex items-center space-x-1 bg-muted/50 p-1 rounded-lg">
                             {['today', 'yesterday', 'all'].map((filter) => (
                                 <button
