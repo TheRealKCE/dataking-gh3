@@ -505,9 +505,10 @@ export default function AdminOrdersPage() {
         try {
             const response = await fetch(`/api/admin/orders?batchId=${batch.id}`)
             if (!response.ok) throw new Error('Failed to fetch batch orders')
-            const batchOrders = await response.json()
+            const data = await response.json()
+            const batchOrdersList = data.orders || []
 
-            if (!batchOrders || batchOrders.length === 0) {
+            if (batchOrdersList.length === 0) {
                 toast.error('No orders found in this batch')
                 return
             }
@@ -519,7 +520,7 @@ export default function AdminOrdersPage() {
             rows.push(['Beneficiary Msisdn', 'GIGGS']);
 
             // Build Data Rows
-            (batchOrders as any[]).forEach((order: any) => {
+            batchOrdersList.forEach((order: any) => {
                 const phone = order.phone_number
                 const size = (order.size || '').replace(/GB/i, '').trim()
 
@@ -593,9 +594,10 @@ export default function AdminOrdersPage() {
             const response = await fetch(`/api/admin/orders?batchIds=${batchIds}`)
 
             if (!response.ok) throw new Error('Failed to fetch orders')
-            const allOrders = await response.json()
+            const data = await response.json()
+            const allOrders = data.orders || []
 
-            if (!allOrders || allOrders.length === 0) {
+            if (allOrders.length === 0) {
                 toast.error('No orders found in selected batches', { id: toastId })
                 return
             }
@@ -624,7 +626,7 @@ export default function AdminOrdersPage() {
                     const response = await fetch(`/api/admin/orders?batchId=${batch.id}`)
                     if (response.ok) {
                         const data = await response.json()
-                        setBatchOrders(data || [])
+                        setBatchOrders(data.orders || [])
                     }
                 } catch (error) {
                     console.error('Failed to load batch orders', error)
@@ -820,47 +822,10 @@ export default function AdminOrdersPage() {
     }, [orders, debouncedSearch, availableNetworkFilter])
 
     const filteredBatches = useMemo(() => {
-        // Most filtering now happens on server, but we keep search filtering on the client for batches we already have
-        return batches.filter(batch => {
-            const matchesSearch = !debouncedSearch || batches.some(b => b.id === batch.id) // This is a placeholder, usually search for batches would be server-side too if they have many. But here we fetch batches and filter locally.
-            // Wait, batches usually don't have user names, they have orders.
-            return true
-        })
-    }, [batches, debouncedSearch])
-
-    const filteredBatchesByDateAndNetwork = filteredBatches.filter(batch => {
-        const batchDate = new Date(batch.created_at)
-        const today = new Date()
-        const isToday = batchDate.getDate() === today.getDate() &&
-            batchDate.getMonth() === today.getMonth() &&
-            batchDate.getFullYear() === today.getFullYear()
-
-        const yesterday = new Date(today)
-        yesterday.setDate(yesterday.getDate() - 1)
-        const isYesterday = batchDate.getDate() === yesterday.getDate() &&
-            batchDate.getMonth() === yesterday.getMonth() &&
-            batchDate.getFullYear() === yesterday.getFullYear()
-
-        // Calculate 30 days ago
-        const thirtyDaysAgo = new Date(today)
-        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-        thirtyDaysAgo.setHours(0, 0, 0, 0)
-        const isWithin30Days = batchDate >= thirtyDaysAgo
-
-        const matchesNetwork = historyNetworkFilter === 'all' || batch.network === historyNetworkFilter
-
-        if (historyFilter === 'today') return isToday && matchesNetwork
-        if (historyFilter === 'yesterday') return isYesterday && matchesNetwork
-        if (historyFilter === 'custom') {
-            if (!customStart || !customEnd) return matchesNetwork
-            const start = new Date(customStart)
-            const end = new Date(customEnd)
-            end.setHours(23, 59, 59, 999)
-            return batchDate >= start && batchDate <= end && matchesNetwork
-        }
-        // 'all' filter shows only past 30 days
-        return isWithin30Days && matchesNetwork
-    })
+        // Most filtering now happens on server.
+        // We keep this to ensure we always have an array even during loading.
+        return batches || []
+    }, [batches])
 
     const getStatusBadge = (status: string) => {
         const styles: Record<string, string> = {
@@ -1146,7 +1111,7 @@ export default function AdminOrdersPage() {
                         <>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 {batches.map((batch) => (
-                                    <BatchCard key={batch.id} batch={batch} onRefund={handleUpdateStatus} onFail={handleUpdateStatus} />
+                                    <BatchCard key={batch.id} batch={batch} onRefund={handleRefund} onFail={handleUpdateStatus} />
                                 ))}
                             </div>
 
