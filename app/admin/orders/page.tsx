@@ -393,7 +393,11 @@ export default function AdminOrdersPage() {
             const idempotencyKey = `batch_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
 
             // Detect if all orders have the same network for intelligent labeling
-            const uniqueNetworks = Array.from(new Set(pendingOrders.map(o => o.network?.toString().trim())))
+            const uniqueNetworks = Array.from(new Set(
+                pendingOrders
+                    .map(o => o.network?.toString().trim())
+                    .filter(Boolean)
+            ))
             const batchNetworkLabel = uniqueNetworks.length === 1 ? uniqueNetworks[0] : 'Multiple'
 
             const response = await fetch('/api/admin/orders/batch', {
