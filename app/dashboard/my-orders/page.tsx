@@ -70,15 +70,15 @@ export default function MyOrdersPage() {
 
     const fetchData = async () => {
         try {
-            // Only fetch orders from the last 14 days for performance
-            const fourteenDaysAgo = new Date()
-            fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14)
+            // Only fetch orders from the last 30 days for performance
+            const thirtyDaysAgo = new Date()
+            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
 
             const { data, error } = await supabase
                 .from('orders')
                 .select('*, complaints(*)')
                 .eq('user_id', dbUser?.id as any)
-                .gte('created_at', fourteenDaysAgo.toISOString())
+                .gte('created_at', thirtyDaysAgo.toISOString())
                 .order('created_at', { ascending: false })
 
             if (error) throw error
