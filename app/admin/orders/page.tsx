@@ -55,6 +55,13 @@ import {
 import { toast } from 'sonner'
 import { Label } from '@/components/ui/label'
 
+// Simple browser-side cache to reduce Vercel CPU usage
+const adminCache = {
+    orders: { data: null as any[] | null, timestamp: 0 },
+    batches: {} as Record<string, { data: any[], total: number, timestamp: 0 }>
+}
+const CACHE_DURATION = 30000 // 30 seconds
+
 export default function AdminOrdersPage() {
     const [orders, setOrders] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
@@ -109,8 +116,8 @@ export default function AdminOrdersPage() {
                 () => {
                     // Small delay to prevent rapid full re-fetches
                     const timer = setTimeout(() => {
-                        fetchOrders()
-                        fetchBatches(0, true)
+                        fetchOrders(true) // Force fetch on realtime update
+                        fetchBatches(0, true, true) // Force fetch on realtime update
                     }, 1000)
                     return () => clearTimeout(timer)
                 }
@@ -125,10 +132,17 @@ export default function AdminOrdersPage() {
     // Reset batches when network or date filter changes
     useEffect(() => {
         if (loading) return // Avoid double fetch on mount
-        fetchBatches(0, true)
+        fetchBatches(0, true, false)
     }, [historyNetworkFilter, historyFilter, customStart, customEnd])
 
-    const fetchOrders = async () => {
+    const fetchOrders = async (force = false) => {
+        // Use cache if available and not forced
+        const fetchNow = Date.now()
+        if (!force && adminCache.orders.data && (fetchNow - adminCache.orders.timestamp < CACHE_DURATION)) {
+            setOrders(adminCache.orders.data)
+            return
+        }
+
         try {
             const response = await fetch('/api/admin/orders?available=true&limit=200')
             if (!response.ok) {
@@ -136,32 +150,52 @@ export default function AdminOrdersPage() {
                 throw new Error(result.error || 'Failed to fetch orders')
             }
             const data = await response.json()
-            setOrders(data.orders || [])
+            const freshOrders = data.orders || []
+
+            // Update cache
+            adminCache.orders = { data: freshOrders, timestamp: fetchNow }
+            setOrders(freshOrders)
         } catch (error: any) {
             console.error('Error fetching orders:', error)
             toast.error(error.message || 'Failed to load orders')
         }
     }
 
-    const fetchBatches = async (pageToFetch: number, isNewFilter = false) => {
-        try {
-            let startDate = null
-            const now = new Date()
+    const fetchBatches = async (pageToFetch: number, isNewFilter = false, force = false) => {
+        let startDate = null
+        const today = new Date()
 
-            if (historyFilter === 'today') {
-                startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
-            } else if (historyFilter === 'yesterday') {
-                startDate = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString()
-            } else if (historyFilter === 'last7days') {
-                startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
-            } else if (historyFilter === 'custom' && customStart) {
-                startDate = new Date(customStart).toISOString()
+        if (historyFilter === 'today') {
+            startDate = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString()
+        } else if (historyFilter === 'yesterday') {
+            startDate = new Date(today.getTime() - 24 * 60 * 60 * 1000).toISOString()
+        } else if (historyFilter === 'last7days') {
+            startDate = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
+        } else if (historyFilter === 'custom' && customStart) {
+            startDate = new Date(customStart).toISOString()
+        }
+
+        const offset = pageToFetch * BATCHES_PER_PAGE
+        let url = `/api/admin/batches?limit=${BATCHES_PER_PAGE}&offset=${offset}&network=${historyNetworkFilter}`
+        if (startDate) url += `&startDate=${startDate}`
+
+        // Cache Check
+        const cacheKey = `${url}_${isNewFilter}`
+        const currentTime = Date.now()
+        if (!force && adminCache.batches[cacheKey] && (currentTime - adminCache.batches[cacheKey].timestamp < CACHE_DURATION)) {
+            const cached = adminCache.batches[cacheKey]
+            if (isNewFilter) {
+                setBatches(cached.data)
+                setBatchPage(0)
+            } else {
+                // If it's pagination, we might need more complex logic, but for now we skip or append
             }
+            setBatchTotalCount(cached.total)
+            setHasMoreBatches(cached.data.length === BATCHES_PER_PAGE)
+            return
+        }
 
-            const offset = pageToFetch * BATCHES_PER_PAGE
-            let url = `/api/admin/batches?limit=${BATCHES_PER_PAGE}&offset=${offset}&network=${historyNetworkFilter}`
-            if (startDate) url += `&startDate=${startDate}`
-
+        try {
             const response = await fetch(url)
             if (!response.ok) {
                 const result = await response.json()
@@ -176,6 +210,9 @@ export default function AdminOrdersPage() {
             } else {
                 setBatches(prev => [...prev, ...newBatches])
             }
+
+            // Update Cache
+            adminCache.batches[cacheKey] = { data: newBatches, total: data.totalCount || 0, timestamp: currentTime as any }
 
             setBatchTotalCount(data.totalCount || 0)
             setHasMoreBatches(newBatches.length === BATCHES_PER_PAGE)
