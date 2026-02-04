@@ -221,7 +221,8 @@ export async function sendStatusUpdateSMS(
         message
     })
     */
-    return { success: true } // Mock success to prevent errors
+    */
+    return { success: true, messageId: 'disabled', error: undefined } // Mock success to prevent errors
 }
 
 /**
@@ -263,7 +264,8 @@ export async function sendWelcomeSMS(
         message
     })
     */
-    return { success: true }
+    */
+    return { success: true, messageId: 'disabled', error: undefined }
 }
 /**
  * Send Agent upgrade success SMS
@@ -379,5 +381,5 @@ KingFlexyGh.`
         message
     })
     */
-    return { success: true, messageId: 'disabled' } // Mock success to prevent errors
+    return { success: true, messageId: 'disabled', error: undefined } // Mock success to prevent errors
 }
