@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
         }
 
         // 2. Process each batch
-        for (const batch of multipleBatches) {
+        for (const batch of multipleBatches as any[]) {
             try {
                 // Find all orders in this batch
                 const { data: orders, error: ordersError } = await supabase
@@ -60,14 +60,14 @@ export async function GET(request: NextRequest) {
 
                 if (ordersError) throw ordersError
 
-                if (!orders || orders.length === 0) {
+                if (!orders || (orders as any[]).length === 0) {
                     summary.remainedMultiple++
                     continue
                 }
 
                 // Identify unique networks in this batch
                 const uniqueNetworks = Array.from(new Set(
-                    orders
+                    (orders as any[])
                         .map(o => o.network?.toString().trim())
                         .filter(Boolean)
                 ))
@@ -76,8 +76,8 @@ export async function GET(request: NextRequest) {
                     const actualNetwork = uniqueNetworks[0]
 
                     // Update batch label
-                    const { error: updateError } = await supabase
-                        .from('download_batches')
+                    const { error: updateError } = await (supabase
+                        .from('download_batches') as any)
                         .update({ network: actualNetwork })
                         .eq('id', batch.id)
 
