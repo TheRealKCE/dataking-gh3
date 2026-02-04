@@ -535,7 +535,7 @@ export default function DataPackagesPage() {
 
                 {/* Stats Dashboard */}
                 <div className="grid grid-cols-2 gap-4 w-full max-w-md mx-auto mb-2">
-                    <div className="bg-[#1A1A1A] dark:bg-[#E5E7EB] rounded-2xl p-4 text-center shadow-lg transition-colors flex flex-col items-center justify-between gap-3">
+                    <div className="bg-[#1A1A1A] dark:bg-[#E5E7EB] rounded-2xl p-4 text-center shadow-md lg:shadow-lg transition-colors flex flex-col items-center justify-between gap-3">
                         <div>
                             <p className="text-[#FACC15] font-medium text-xs mb-1">
                                 Wallet Balance
@@ -554,7 +554,7 @@ export default function DataPackagesPage() {
                         </Button>
                     </div>
 
-                    <div className="bg-[#1A1A1A] dark:bg-[#E5E7EB] rounded-2xl p-4 text-center shadow-lg transition-colors flex flex-col items-center justify-center">
+                    <div className="bg-[#1A1A1A] dark:bg-[#E5E7EB] rounded-2xl p-4 text-center shadow-md lg:shadow-lg transition-colors flex flex-col items-center justify-center">
                         <p className="text-[#FACC15] font-medium text-xs mb-1">
                             Orders Today
                         </p>
@@ -568,7 +568,7 @@ export default function DataPackagesPage() {
                 {dbUser?.role === 'agent' && (
                     <div className="w-full max-w-3xl mx-auto space-y-4">
                         {/* New Yellow Header Box */}
-                        <div className="bg-[#FFCE00] rounded-3xl p-6 shadow-xl relative overflow-hidden">
+                        <div className="bg-[#FFCE00] rounded-3xl p-6 shadow-md lg:shadow-xl relative overflow-hidden">
                             <div className="flex items-start gap-4 relative z-10">
                                 <div className="bg-[#1A1A1A] p-3 rounded-2xl shadow-lg">
                                     <CloudUpload className="w-6 h-6 text-[#FFCE00]" />
@@ -612,7 +612,7 @@ export default function DataPackagesPage() {
                         {bulkInputType && (
                             <Card className="border-0 bg-transparent shadow-none animate-in fade-in slide-in-from-top-4 duration-500">
                                 <CardContent className="p-0 space-y-4">
-                                    <div className="bg-white dark:bg-zinc-900 rounded-3xl p-6 shadow-lg border border-gray-100 dark:border-zinc-800">
+                                    <div className="bg-white dark:bg-zinc-900 rounded-3xl p-6 shadow-md lg:shadow-lg border border-gray-100 dark:border-zinc-800">
                                         <div className="space-y-4">
                                             <div className="space-y-1">
                                                 <Label className="text-[#E60000] font-black text-xs uppercase tracking-widest">Select Network</Label>

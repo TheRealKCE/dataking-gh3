@@ -172,7 +172,7 @@ export default function DashboardPage() {
         <div className="space-y-6">
             {/* Golden Greeting Box - Agent Only */}
             {dbUser?.role === 'agent' && (
-                <div className="bg-[#FFCE00] rounded-2xl p-4 sm:p-6 border-2 border-yellow-600/30 shadow-xl">
+                <div className="bg-[#FFCE00] rounded-2xl p-4 sm:p-6 border-2 border-yellow-600/30 shadow-md lg:shadow-xl">
                     {/* Greeting and Date/Time Row */}
                     <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
                         <div className="flex items-center gap-2">
@@ -341,7 +341,7 @@ export default function DashboardPage() {
                     <CardContent>
                         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                             <Link href="/dashboard/data-packages">
-                                <div className="p-4 rounded-xl bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-900/20 dark:to-yellow-800/20 border border-yellow-200 dark:border-yellow-800 hover:shadow-lg transition-all cursor-pointer group">
+                                <div className="p-4 rounded-xl bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-900/20 dark:to-yellow-800/20 border border-yellow-200 dark:border-yellow-800 lg:hover:shadow-lg transition-all cursor-pointer group">
                                     <div className="w-10 h-10 rounded-lg bg-yellow-500 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
                                         <Package className="w-5 h-5 text-white" />
                                     </div>
@@ -350,7 +350,7 @@ export default function DashboardPage() {
                                 </div>
                             </Link>
                             <Link href="/dashboard/my-orders">
-                                <div className="p-4 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border border-blue-200 dark:border-blue-800 hover:shadow-lg transition-all cursor-pointer group">
+                                <div className="p-4 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border border-blue-200 dark:border-blue-800 lg:hover:shadow-lg transition-all cursor-pointer group">
                                     <div className="w-10 h-10 rounded-lg bg-blue-500 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
                                         <ShoppingCart className="w-5 h-5 text-white" />
                                     </div>

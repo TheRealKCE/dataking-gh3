@@ -18,7 +18,7 @@ export default function HomePage() {
     return (
         <div className="min-h-screen bg-[#E5E7EB] overflow-x-hidden">
             {/* Navigation */}
-            <nav className="fixed top-0 w-full z-50 bg-white/80 backdrop-blur-xl border-b border-slate-200 shadow-sm">
+            <nav className="fixed top-0 w-full z-50 bg-white lg:bg-white/80 lg:backdrop-blur-xl border-b border-slate-200 shadow-sm">
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex items-center justify-between h-16">
                         <div className="flex items-center space-x-2 opacity-0"></div>
@@ -45,7 +45,7 @@ export default function HomePage() {
                         {/* Branding & Contact Header */}
                         <div className="flex flex-col items-center justify-center mb-8 space-y-4">
                             <div className="flex flex-col items-center space-y-2">
-                                <div className="relative w-24 h-24 mb-2 drop-shadow-2xl">
+                                <div className="relative w-24 h-24 mb-2 drop-shadow-lg lg:drop-shadow-2xl">
                                     <Image
                                         src="/logo.png"
                                         alt="King Flexy Data Ltd Logo"
@@ -88,7 +88,7 @@ export default function HomePage() {
                         </p>
                         <div className="flex flex-col sm:flex-row gap-4 justify-center px-4">
                             <Link href="/auth/signup">
-                                <Button size="xl" className="bg-[#0056B3] hover:bg-[#004494] text-white text-lg px-8 font-bold shadow-lg">
+                                <Button size="xl" className="bg-[#0056B3] hover:bg-[#004494] text-white text-lg px-8 font-bold shadow-md lg:shadow-lg">
                                     Start Buying Now
                                     <ArrowRight className="ml-2 w-5 h-5" />
                                 </Button>
@@ -159,7 +159,7 @@ export default function HomePage() {
                         ].map((feature, index) => (
                             <div
                                 key={index}
-                                className="group p-8 rounded-2xl bg-white/80 backdrop-blur-sm border border-slate-200 shadow-md hover:shadow-xl transition-all duration-300"
+                                className="group p-8 rounded-2xl bg-white/95 lg:bg-white/80 lg:backdrop-blur-sm border border-slate-200 shadow-sm lg:shadow-md lg:hover:shadow-xl transition-all duration-300"
                             >
                                 <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${feature.gradient} flex items-center justify-center mb-6 group-hover:scale-110 transition-transform`}>
                                     <feature.icon className="w-7 h-7 text-white" />
@@ -225,7 +225,7 @@ export default function HomePage() {
             {/* CTA Section */}
             <section className="py-20 px-4 sm:px-6 lg:px-8">
                 <div className="max-w-4xl mx-auto">
-                    <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#0056B3] to-[#00B4D8] p-12 text-center shadow-2xl">
+                    <div className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#0056B3] to-[#00B4D8] p-8 lg:p-12 text-center shadow-lg lg:shadow-2xl">
                         <div className="absolute inset-0 bg-grid-white/10 [mask-image:linear-gradient(0deg,transparent,rgba(255,255,255,0.5))]" />
                         <div className="relative z-10">
                             <h2 className="text-3xl md:text-4xl font-bold text-white mb-4">
