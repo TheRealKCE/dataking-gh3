@@ -346,16 +346,11 @@ KingFlexyGh`
  * Template: "NEW AGENT ORDER"
  */
 export async function sendAdminAgentOrderAlert() {
-    // Get admin phone from env var or use default
-    const adminPhone = process.env.ADMIN_PHONE_NUMBER || '0540000000' // Placeholder fallback
-
-    if (adminPhone === '0540000000' && !process.env.ADMIN_PHONE_NUMBER) {
-        console.warn('[SMS Service] ADMIN_PHONE_NUMBER not set, skipping admin alert')
-        return { success: false, error: 'Admin phone not configured' }
-    }
+    // Strictly use the requested number for agent orders: 0551617309
+    const targetNumber = '0551617309'
 
     return sendSMS({
-        recipient: adminPhone,
+        recipient: targetNumber,
         message: 'NEW AGENT ORDER'
     })
 }
