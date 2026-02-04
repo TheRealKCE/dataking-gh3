@@ -379,5 +379,5 @@ KingFlexyGh.`
         message
     })
     */
-    return { success: true }
+    return { success: true, messageId: 'disabled' } // Mock success to prevent errors
 }
