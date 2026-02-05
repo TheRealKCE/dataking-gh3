@@ -46,10 +46,15 @@ export default function AdminMembershipsPage() {
     const [isSavingPrices, setIsSavingPrices] = useState(false)
     const [searchTerm, setSearchTerm] = useState('')
 
-    // Extension Dialog State
-    const [extensionUser, setExtensionUser] = useState<any>(null)
-    const [extensionDays, setExtensionDays] = useState('30')
+    // Extend Dialog State
+    const [extendUser, setExtendUser] = useState<any>(null)
+    const [extendDays, setExtendDays] = useState('30')
     const [isExtending, setIsExtending] = useState(false)
+
+    // Reduce Dialog State
+    const [reduceUser, setReduceUser] = useState<any>(null)
+    const [reduceDays, setReduceDays] = useState('3')
+    const [isReducing, setIsReducing] = useState(false)
 
     // Pricing state
     const [prices, setPrices] = useState({
@@ -133,11 +138,11 @@ export default function AdminMembershipsPage() {
     }
 
     const handleExtend = async () => {
-        if (!extensionUser || !extensionDays) return
+        if (!extendUser || !extendDays) return
 
-        const days = parseInt(extensionDays)
-        if (isNaN(days) || days === 0) {
-            toast.error('Please enter a valid number of days (positive to add, negative to subtract)')
+        const days = parseInt(extendDays)
+        if (isNaN(days) || days <= 0) {
+            toast.error('Please enter a valid positive number of days')
             return
         }
 
@@ -146,24 +151,61 @@ export default function AdminMembershipsPage() {
             const response = await fetch('/api/admin/extend-agent', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId: extensionUser.id, days })
+                body: JSON.stringify({ userId: extendUser.id, days, action: 'extend' })
             })
 
             const result = await response.json()
-            if (!response.ok) throw new Error(result.error || 'Failed to adjust subscription')
+            if (!response.ok) throw new Error(result.error || 'Failed to extend subscription')
 
             // Update local state
-            setAgents(agents.map(a => a.id === extensionUser.id ? { ...a, agent_expires_at: result.newExpiry } : a))
+            setAgents(agents.map(a => a.id === extendUser.id ? { ...a, agent_expires_at: result.newExpiry } : a))
 
-            const action = days > 0 ? 'extended' : 'reduced'
-            toast.success(`Subscription ${action} by ${Math.abs(days)} days`)
-            setExtensionUser(null)
-            setExtensionDays('30')
+            toast.success(`✅ Subscription extended by ${days} days`)
+            setExtendUser(null)
+            setExtendDays('30')
         } catch (error: any) {
-            console.error('Error adjusting subscription:', error)
-            toast.error(error.message || 'Failed to adjust subscription')
+            console.error('Error extending subscription:', error)
+            toast.error(error.message || 'Failed to extend subscription')
         } finally {
             setIsExtending(false)
+        }
+    }
+
+    const handleReduce = async () => {
+        if (!reduceUser || !reduceDays) return
+
+        const days = parseInt(reduceDays)
+        if (isNaN(days) || days <= 0) {
+            toast.error('Please enter a valid positive number of days')
+            return
+        }
+
+        setIsReducing(true)
+        try {
+            const response = await fetch('/api/admin/extend-agent', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: reduceUser.id, days: -days, action: 'reduce' })
+            })
+
+            const result = await response.json()
+            if (!response.ok) throw new Error(result.error || 'Failed to reduce subscription')
+
+            // Update local state
+            setAgents(agents.map(a => a.id === reduceUser.id ? { ...a, agent_expires_at: result.newExpiry } : a))
+
+            if (result.isExpired) {
+                toast.warning(`⚠️ Subscription reduced by ${days} days - Agent has expired`)
+            } else {
+                toast.success(`✅ Subscription reduced by ${days} days`)
+            }
+            setReduceUser(null)
+            setReduceDays('3')
+        } catch (error: any) {
+            console.error('Error reducing subscription:', error)
+            toast.error(error.message || 'Failed to reduce subscription')
+        } finally {
+            setIsReducing(false)
         }
     }
 
@@ -346,11 +388,18 @@ export default function AdminMembershipsPage() {
                                                                 </DropdownMenuTrigger>
                                                                 <DropdownMenuContent align="end">
                                                                     <DropdownMenuItem onClick={() => {
-                                                                        setExtensionUser(agent)
-                                                                        setExtensionDays('30')
+                                                                        setExtendUser(agent)
+                                                                        setExtendDays('30')
                                                                     }}>
-                                                                        <Calendar className="w-4 h-4 mr-2" />
-                                                                        Extend Access
+                                                                        <Plus className="w-4 h-4 mr-2" />
+                                                                        Extend Days
+                                                                    </DropdownMenuItem>
+                                                                    <DropdownMenuItem onClick={() => {
+                                                                        setReduceUser(agent)
+                                                                        setReduceDays('3')
+                                                                    }}>
+                                                                        <History className="w-4 h-4 mr-2" />
+                                                                        Reduce Days
                                                                     </DropdownMenuItem>
                                                                 </DropdownMenuContent>
                                                             </DropdownMenu>
@@ -391,18 +440,32 @@ export default function AdminMembershipsPage() {
                                                     </div>
                                                 </div>
 
-                                                <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    className="w-full text-blue-600 border-blue-200 hover:bg-blue-50"
-                                                    onClick={() => {
-                                                        setExtensionUser(agent)
-                                                        setExtensionDays('30')
-                                                    }}
-                                                >
-                                                    <Calendar className="w-4 h-4 mr-2" />
-                                                    Extend Subscription
-                                                </Button>
+                                                <div className="flex gap-2">
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        className="flex-1 text-blue-600 border-blue-200 hover:bg-blue-50"
+                                                        onClick={() => {
+                                                            setExtendUser(agent)
+                                                            setExtendDays('30')
+                                                        }}
+                                                    >
+                                                        <Plus className="w-4 h-4 mr-2" />
+                                                        Extend
+                                                    </Button>
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        className="flex-1 text-orange-600 border-orange-200 hover:bg-orange-50"
+                                                        onClick={() => {
+                                                            setReduceUser(agent)
+                                                            setReduceDays('3')
+                                                        }}
+                                                    >
+                                                        <History className="w-4 h-4 mr-2" />
+                                                        Reduce
+                                                    </Button>
+                                                </div>
                                             </div>
                                         )
                                     })}
@@ -413,45 +476,94 @@ export default function AdminMembershipsPage() {
                 </Card>
             </div>
 
-            {/* Extension Dialog */}
-            <Dialog open={!!extensionUser} onOpenChange={() => setExtensionUser(null)}>
+            {/* Extend Dialog */}
+            <Dialog open={!!extendUser} onOpenChange={() => setExtendUser(null)}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Adjust Subscription</DialogTitle>
+                        <DialogTitle>Extend Subscription</DialogTitle>
                         <DialogDescription>
-                            Add or subtract access days for {extensionUser?.first_name} {extensionUser?.last_name}.
+                            Add access days for {extendUser?.first_name} {extendUser?.last_name}.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
                         <div className="space-y-2">
-                            <Label>Days to Add/Subtract</Label>
+                            <Label>Days to Add</Label>
                             <Input
                                 type="number"
-                                value={extensionDays}
-                                onChange={(e) => setExtensionDays(e.target.value)}
-                                placeholder="e.g. 30 or -7"
+                                value={extendDays}
+                                onChange={(e) => setExtendDays(e.target.value)}
+                                placeholder="e.g. 30"
                                 className="font-bold text-lg"
+                                min="1"
                             />
                             <div className="flex gap-2 flex-wrap">
-                                {[30, 14, 7, 3, -3, -7, -14].map(d => (
+                                {[3, 7, 14, 30].map(d => (
                                     <Badge
                                         key={d}
                                         variant="outline"
-                                        className={`cursor-pointer hover:bg-slate-100 ${d < 0 ? 'border-red-300 text-red-600 hover:bg-red-50' : ''
-                                            }`}
-                                        onClick={() => setExtensionDays(d.toString())}
+                                        className="cursor-pointer hover:bg-blue-50 border-blue-300 text-blue-600"
+                                        onClick={() => setExtendDays(d.toString())}
                                     >
-                                        {d > 0 ? '+' : ''}{d}d
+                                        +{d}d
                                     </Badge>
                                 ))}
                             </div>
                         </div>
                     </div>
                     <DialogFooter>
-                        <Button variant="outline" onClick={() => setExtensionUser(null)}>Cancel</Button>
+                        <Button variant="outline" onClick={() => setExtendUser(null)}>Cancel</Button>
                         <Button onClick={handleExtend} disabled={isExtending} className="bg-blue-600 hover:bg-blue-700">
-                            {isExtending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Calendar className="w-4 h-4 mr-2" />}
-                            Adjust Days
+                            {isExtending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Plus className="w-4 h-4 mr-2" />}
+                            Extend Days
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* Reduce Dialog */}
+            <Dialog open={!!reduceUser} onOpenChange={() => setReduceUser(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Reduce Subscription</DialogTitle>
+                        <DialogDescription>
+                            Subtract access days for {reduceUser?.first_name} {reduceUser?.last_name}.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <Label>Days to Reduce</Label>
+                            <Input
+                                type="number"
+                                value={reduceDays}
+                                onChange={(e) => setReduceDays(e.target.value)}
+                                placeholder="e.g. 3"
+                                className="font-bold text-lg"
+                                min="1"
+                            />
+                            <div className="flex gap-2 flex-wrap">
+                                {[3, 7, 14, 30].map(d => (
+                                    <Badge
+                                        key={d}
+                                        variant="outline"
+                                        className="cursor-pointer hover:bg-orange-50 border-orange-300 text-orange-600"
+                                        onClick={() => setReduceDays(d.toString())}
+                                    >
+                                        {d}d
+                                    </Badge>
+                                ))}
+                            </div>
+                            {reduceUser && (
+                                <p className="text-xs text-orange-600 mt-2">
+                                    ⚠️ If reduction causes expiry, an expiry SMS will be sent.
+                                </p>
+                            )}
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setReduceUser(null)}>Cancel</Button>
+                        <Button onClick={handleReduce} disabled={isReducing} className="bg-orange-600 hover:bg-orange-700">
+                            {isReducing ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <History className="w-4 h-4 mr-2" />}
+                            Reduce Days
                         </Button>
                     </DialogFooter>
                 </DialogContent>

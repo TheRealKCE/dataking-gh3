@@ -376,3 +376,25 @@ KingFlexyGh.`
     */
     return { success: true, messageId: 'disabled', error: undefined } // Mock success to prevent errors
 }
+
+/**
+ * Send SMS notification when agent subscription expires
+ */
+export async function sendAgentExpiryNotificationSMS(
+    phoneNumber: string,
+    firstName: string
+) {
+    const message = `Hello ${firstName},
+
+Your Agent membership has expired. You can renew your subscription anytime to continue enjoying agent benefits.
+
+Visit: kingflexydataltd.com/dashboard/upgrade
+
+KingFlexyGh`
+
+    return sendSMS({
+        recipient: phoneNumber,
+        message
+    })
+}
+

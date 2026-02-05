@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
-import { sendAgentExtensionSuccessSMS } from '@/lib/sms-service'
+import { sendAgentExtensionSuccessSMS, sendAgentExpiryNotificationSMS } from '@/lib/sms-service'
 
 export async function POST(request: NextRequest) {
     try {
@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json()
-        const { userId, days } = body
+        const { userId, days, action = 'extend' } = body // action: 'extend' or 'reduce'
 
         if (!userId || days === undefined) {
             return NextResponse.json({ error: 'userId and days are required' }, { status: 400 })
@@ -58,13 +58,16 @@ export async function POST(request: NextRequest) {
         // Calculate new expiry date
         const currentExpiry = targetUser.agent_expires_at
         const baseDate = currentExpiry ? new Date(currentExpiry) : new Date()
-        
+
         // If already expired, start from now
         const now = new Date()
         const startingPoint = baseDate > now ? baseDate : now
-        
+
         const newExpiry = new Date(startingPoint)
         newExpiry.setDate(newExpiry.getDate() + daysNum)
+
+        // Check if the new expiry causes expiration
+        const isNowExpired = newExpiry < now
 
         // Update the user's agent_expires_at
         const { error: updateError } = await (supabase
@@ -77,14 +80,29 @@ export async function POST(request: NextRequest) {
             throw updateError
         }
 
-        // Send SMS notification using existing template
+        // Send SMS based on action and expiry status
         if (targetUser.phone_number) {
             try {
-                await sendAgentExtensionSuccessSMS(
-                    targetUser.phone_number,
-                    newExpiry.toISOString()
-                )
-                console.log(`[ExtendAgent] SMS sent to ${targetUser.phone_number}`)
+                if (action === 'extend') {
+                    // Always send success SMS for extensions
+                    await sendAgentExtensionSuccessSMS(
+                        targetUser.phone_number,
+                        newExpiry.toISOString()
+                    )
+                    console.log(`[ExtendAgent] Extension SMS sent to ${targetUser.phone_number}`)
+                } else if (action === 'reduce') {
+                    if (isNowExpired) {
+                        // Send expiry notification if reduction causes expiry
+                        await sendAgentExpiryNotificationSMS(
+                            targetUser.phone_number,
+                            targetUser.first_name || 'Agent'
+                        )
+                        console.log(`[ExtendAgent] Expiry SMS sent to ${targetUser.phone_number}`)
+                    } else {
+                        // No SMS for reductions that don't cause expiry
+                        console.log(`[ExtendAgent] No SMS sent for reduction (still active)`)
+                    }
+                }
             } catch (smsError) {
                 console.error('[ExtendAgent] SMS error:', smsError)
                 // Don't fail the request if SMS fails
@@ -97,7 +115,9 @@ export async function POST(request: NextRequest) {
             success: true,
             userId,
             newExpiry: newExpiry.toISOString(),
-            daysAdjusted: daysNum
+            daysAdjusted: daysNum,
+            action,
+            isExpired: isNowExpired
         })
     } catch (error: any) {
         console.error('Extend Agent Error:', error)
