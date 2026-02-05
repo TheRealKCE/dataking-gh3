@@ -133,37 +133,32 @@ export default function AdminMembershipsPage() {
         if (!extensionUser || !extensionDays) return
 
         const days = parseInt(extensionDays)
-        if (isNaN(days) || days <= 0) {
-            toast.error('Please enter a valid number of days')
+        if (isNaN(days) || days === 0) {
+            toast.error('Please enter a valid number of days (positive to add, negative to subtract)')
             return
         }
 
         setIsExtending(true)
         try {
-            const currentExpiry = extensionUser.agent_expires_at
-            const baseDate = currentExpiry ? new Date(currentExpiry) : new Date()
+            const response = await fetch('/api/admin/extend-agent', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: extensionUser.id, days })
+            })
 
-            // If already expired, start from now
-            const now = new Date()
-            const startingPoint = baseDate > now ? baseDate : now
+            const result = await response.json()
+            if (!response.ok) throw new Error(result.error || 'Failed to adjust subscription')
 
-            const newExpiry = new Date(startingPoint)
-            newExpiry.setDate(newExpiry.getDate() + days)
+            // Update local state
+            setAgents(agents.map(a => a.id === extensionUser.id ? { ...a, agent_expires_at: result.newExpiry } : a))
 
-            const { error } = await (supabase as any)
-                .from('users')
-                .update({ agent_expires_at: newExpiry.toISOString() })
-                .eq('id', extensionUser.id)
-
-            if (error) throw error
-
-            setAgents(agents.map(a => a.id === extensionUser.id ? { ...a, agent_expires_at: newExpiry.toISOString() } : a))
-            toast.success(`Subscription extended by ${days} days`)
+            const action = days > 0 ? 'extended' : 'reduced'
+            toast.success(`Subscription ${action} by ${Math.abs(days)} days`)
             setExtensionUser(null)
             setExtensionDays('30')
         } catch (error: any) {
-            console.error('Error extending sub:', error)
-            toast.error('Failed to extend subscription')
+            console.error('Error adjusting subscription:', error)
+            toast.error(error.message || 'Failed to adjust subscription')
         } finally {
             setIsExtending(false)
         }
@@ -419,30 +414,31 @@ export default function AdminMembershipsPage() {
             <Dialog open={!!extensionUser} onOpenChange={() => setExtensionUser(null)}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>Extend Subscription</DialogTitle>
+                        <DialogTitle>Adjust Subscription</DialogTitle>
                         <DialogDescription>
-                            Add access days for {extensionUser?.first_name} {extensionUser?.last_name}.
+                            Add or subtract access days for {extensionUser?.first_name} {extensionUser?.last_name}.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
                         <div className="space-y-2">
-                            <Label>Number of Days to Add</Label>
+                            <Label>Days to Add/Subtract</Label>
                             <Input
                                 type="number"
                                 value={extensionDays}
                                 onChange={(e) => setExtensionDays(e.target.value)}
-                                placeholder="e.g 30"
+                                placeholder="e.g. 30 or -7"
                                 className="font-bold text-lg"
                             />
-                            <div className="flex gap-2">
-                                {[3, 7, 14, 30, 90].map(d => (
+                            <div className="flex gap-2 flex-wrap">
+                                {[30, 14, 7, 3, -3, -7, -14].map(d => (
                                     <Badge
                                         key={d}
                                         variant="outline"
-                                        className="cursor-pointer hover:bg-slate-100"
+                                        className={`cursor-pointer hover:bg-slate-100 ${d < 0 ? 'border-red-300 text-red-600 hover:bg-red-50' : ''
+                                            }`}
                                         onClick={() => setExtensionDays(d.toString())}
                                     >
-                                        +{d}d
+                                        {d > 0 ? '+' : ''}{d}d
                                     </Badge>
                                 ))}
                             </div>
@@ -452,7 +448,7 @@ export default function AdminMembershipsPage() {
                         <Button variant="outline" onClick={() => setExtensionUser(null)}>Cancel</Button>
                         <Button onClick={handleExtend} disabled={isExtending} className="bg-blue-600 hover:bg-blue-700">
                             {isExtending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Calendar className="w-4 h-4 mr-2" />}
-                            Add Days
+                            Adjust Days
                         </Button>
                     </DialogFooter>
                 </DialogContent>

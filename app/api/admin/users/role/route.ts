@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
+import { sendAgentUpgradeSuccessSMS } from '@/lib/sms-service'
 
 export async function POST(request: NextRequest) {
     try {
@@ -55,6 +56,37 @@ export async function POST(request: NextRequest) {
         if (updateError) {
             console.error('[AdminRoleUpdate] Update error:', updateError)
             throw updateError
+        }
+
+        // Send SMS notification if user was upgraded to agent
+        if (role === 'agent') {
+            try {
+                // Fetch user details for SMS
+                const { data: userDetails } = await (supabase
+                    .from('users') as any)
+                    .select('phone_number, first_name')
+                    .eq('id', userId)
+                    .single()
+
+                if (userDetails?.phone_number) {
+                    const expiryDate = new Date()
+                    expiryDate.setDate(expiryDate.getDate() + 3)
+
+                    await sendAgentUpgradeSuccessSMS(
+                        userDetails.phone_number,
+                        userDetails.first_name || 'User',
+                        '3 Days', // Plan days
+                        3, // Remaining days
+                        expiryDate.toISOString()
+                    )
+                    console.log(`[AdminRoleUpdate] SMS sent to ${userDetails.phone_number}`)
+                } else {
+                    console.warn(`[AdminRoleUpdate] No phone number for user ${userId}`)
+                }
+            } catch (smsError) {
+                console.error('[AdminRoleUpdate] SMS error:', smsError)
+                // Don't fail the request if SMS fails
+            }
         }
 
         return NextResponse.json({
