@@ -21,15 +21,15 @@ export function AgentExpiryModal() {
     const { dbUser, refreshUser } = useAuth()
     const router = useRouter()
     const [isOpen, setIsOpen] = useState(false)
-    const [isDowngrading, setIsDowngrading] = useState(false)
     const [pricing, setPricing] = useState({
         '3d': '9.99',
         '14d': '49.99',
         '30d': '99.99'
     })
 
-    // Check if agent is expired
-    const isExpired = dbUser?.role === 'agent' &&
+    // Check if user WAS an agent (now customer) with expired date
+    // This happens after auto-downgrade in AuthContext
+    const wasAgent = dbUser?.role === 'customer' &&
         dbUser?.agent_expires_at &&
         new Date(dbUser.agent_expires_at) < new Date()
 
@@ -48,19 +48,20 @@ export function AgentExpiryModal() {
             }
         }
 
-        if (isExpired) {
+        if (wasAgent) {
             fetchPricing()
         }
-    }, [isExpired])
+    }, [wasAgent])
 
-    // Show modal when expired
+    // Show modal when user was agent and is now downgraded
     useEffect(() => {
-        if (isExpired) {
+        if (wasAgent) {
             setIsOpen(true)
         } else {
             setIsOpen(false)
         }
-    }, [isExpired])
+    }, [wasAgent])
+
 
     const handleExtendAccess = () => {
         // Temporarily close modal and redirect to upgrade page
@@ -68,29 +69,8 @@ export function AgentExpiryModal() {
         router.push('/dashboard/upgrade')
     }
 
-    const handleDowngrade = async () => {
-        setIsDowngrading(true)
-        try {
-            const response = await fetch('/api/agent/downgrade', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' }
-            })
-
-            const result = await response.json()
-            if (!response.ok) throw new Error(result.error || 'Failed to downgrade')
-
-            toast.success('You have been returned to customer role')
-            await refreshUser()
-            setIsOpen(false)
-        } catch (error: any) {
-            console.error('Downgrade error:', error)
-            toast.error(error.message || 'Failed to downgrade')
-        } finally {
-            setIsDowngrading(false)
-        }
-    }
-
-    if (!isExpired) return null
+    // Don't show modal if not a recently downgraded agent
+    if (!wasAgent) return null
 
     return (
         <Dialog open={isOpen} onOpenChange={(open) => {
@@ -105,7 +85,7 @@ export function AgentExpiryModal() {
                         <DialogTitle className="text-2xl font-black">Agent Access Expired</DialogTitle>
                     </div>
                     <DialogDescription className="text-base">
-                        Your agent membership has expired. Choose an option below to continue.
+                        Your agent membership has expired. You have been automatically downgraded to customer role.
                     </DialogDescription>
                 </DialogHeader>
 
@@ -146,24 +126,14 @@ export function AgentExpiryModal() {
                             Extend Agent Access
                             <ArrowRight className="w-5 h-5 ml-2" />
                         </Button>
-
-                        <Button
-                            onClick={handleDowngrade}
-                            disabled={isDowngrading}
-                            variant="outline"
-                            className="w-full h-14 text-base font-bold border-2"
-                            size="lg"
-                        >
-                            <UserCheck className="w-5 h-5 mr-2" />
-                            {isDowngrading ? 'Processing...' : 'Return to Customer Role (Free)'}
-                        </Button>
                     </div>
 
                     <p className="text-xs text-center text-muted-foreground">
-                        You can always upgrade back to agent later
+                        Your account has been automatically downgraded to customer role. You can upgrade back to agent anytime.
                     </p>
                 </div>
             </DialogContent>
         </Dialog>
     )
 }
+
