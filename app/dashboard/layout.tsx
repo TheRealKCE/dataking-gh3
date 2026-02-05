@@ -3,6 +3,7 @@
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { SystemAnnouncementModal } from '@/components/system-announcement-modal'
+import { AgentExpiryModal } from '@/components/agent-expiry-modal'
 import { useAuth } from '@/contexts/auth-context'
 import { UIProvider } from '@/contexts/ui-context'
 import { DashboardSidebar } from '@/components/dashboard/sidebar'
@@ -65,6 +66,7 @@ export default function DashboardLayout({
         <UIProvider>
             <div className="min-h-screen bg-[#E5E7EB] dark:bg-[#000000] relative">
                 <SystemAnnouncementModal />
+                <AgentExpiryModal />
                 <DashboardSidebar />
                 <div className="lg:pl-80">
                     <DashboardHeader />
