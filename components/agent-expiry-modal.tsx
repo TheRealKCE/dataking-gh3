@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/auth-context'
-import { supabase } from '@/lib/supabase'
+import { getCachedPricing } from '@/lib/pricing-cache'
 import {
     Dialog,
     DialogContent,
@@ -33,25 +33,16 @@ export function AgentExpiryModal() {
         dbUser?.agent_expires_at &&
         new Date(dbUser.agent_expires_at) < new Date()
 
-    // Fetch current pricing
+    // Fetch current pricing using cache
     useEffect(() => {
         const fetchPricing = async () => {
             try {
-                const { data } = await supabase
-                    .from('admin_settings')
-                    .select('key, value')
-                    .in('key', ['agent_upgrade_price_3d', 'agent_upgrade_price_14d', 'agent_upgrade_price_30d'])
-
-                if (data) {
-                    const p3 = (data as any).find((s: any) => s.key === 'agent_upgrade_price_3d')?.value || '9.99'
-                    const p14 = (data as any).find((s: any) => s.key === 'agent_upgrade_price_14d')?.value || '49.99'
-                    const p30 = (data as any).find((s: any) => s.key === 'agent_upgrade_price_30d')?.value || '99.99'
-                    setPricing({
-                        '3d': String(p3),
-                        '14d': String(p14),
-                        '30d': String(p30)
-                    })
-                }
+                const data = await getCachedPricing()
+                setPricing({
+                    '3d': String(data.prices['3d']),
+                    '14d': String(data.prices['14d']),
+                    '30d': String(data.prices['30d'])
+                })
             } catch (error) {
                 console.error('Error fetching pricing:', error)
             }

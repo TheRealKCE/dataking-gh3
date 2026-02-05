@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/contexts/auth-context'
 import { supabase } from '@/lib/supabase'
+import { getCachedPricing } from '@/lib/pricing-cache'
 import { Button } from '@/components/ui/button'
 import { Crown, Sparkles, Zap, Star, CheckCircle } from 'lucide-react'
 import { formatCurrency } from '@/lib/utils'
@@ -48,20 +49,9 @@ export default function UpgradePage() {
     useEffect(() => {
         const fetchPrices = async () => {
             try {
-                // Use API endpoint to bypass RLS
-                const response = await fetch('/api/admin/get-prices', {
-                    cache: 'no-store' // Ensure fresh data
-                })
-
-                if (!response.ok) {
-                    console.error('Failed to fetch upgrade prices')
-                    toast.error('Failed to load upgrade prices. Please try again later.')
-                    setIsLoading(false)
-                    return
-                }
-
-                const data = await response.json()
-                console.log('Fetched prices from API:', data)
+                // Use cached pricing to reduce API calls
+                const data = await getCachedPricing()
+                console.log('Fetched prices (from cache or API):', data)
 
                 setPrices(data.prices)
                 setOldPrices(data.oldPrices || { '3d': 0, '14d': 0, '30d': 0 })

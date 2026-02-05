@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { clearPricingCache } from '@/lib/pricing-cache'
 import { formatCurrency } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -119,6 +120,8 @@ export default function AdminMembershipsPage() {
                 throw new Error(data.error || 'Failed to update prices')
             }
 
+            // Clear pricing cache so users get fresh prices
+            clearPricingCache()
             toast.success(data.message || '✅ Prices updated successfully!')
             await fetchData()
         } catch (error: any) {
