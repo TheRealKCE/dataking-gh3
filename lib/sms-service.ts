@@ -346,6 +346,8 @@ KingFlexyGh`
  * Template: "NEW AGENT ORDER"
  */
 export async function sendAdminAgentOrderAlert() {
+    // DISABLED AS REQUESTED
+    /*
     // Strictly use the requested number for agent orders: 0551617309
     const targetNumber = '0551617309'
 
@@ -353,6 +355,8 @@ export async function sendAdminAgentOrderAlert() {
         recipient: targetNumber,
         message: 'NEW AGENT ORDER'
     })
+    */
+    return { success: true, messageId: 'disabled', error: undefined } // Mock success to prevent errors
 }
 
 /**
