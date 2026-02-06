@@ -124,7 +124,7 @@ export async function POST(request: NextRequest) {
         // 6. Update order status
         const orderUpdate: any = {
             payment_status: 'refunded',
-            status: 'failed',
+            status: 'refunded',
             updated_at: new Date().toISOString()
         }
 

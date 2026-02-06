@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
             // Update batch of orders
             const { data: orders, error: fetchError } = await supabase
                 .from('orders')
-                .select('id, user_id, reference_code, phone_number, users!inner(phone_number)')
+                .select('id, user_id, reference_code, phone_number, status, payment_status, users!inner(phone_number)')
                 .eq('download_batch_id', batchId)
 
             if (fetchError) {
@@ -117,8 +117,10 @@ export async function POST(request: NextRequest) {
                 throw fetchError
             }
 
-            affectedOrders = orders || []
-            console.log(`[AdminStatusUpdate] Found ${affectedOrders.length} orders in batch ${batchId}`)
+            // Filter out refunded orders - they should not be affected by batch updates
+            const updatableOrders = (orders || []).filter(o => (o as any).payment_status !== 'refunded')
+            affectedOrders = updatableOrders
+            console.log(`[AdminStatusUpdate] Found ${affectedOrders.length} updatable orders in batch ${batchId} (excluding refunded)`)
 
             if (affectedOrders.length > 0) {
                 const { error: updateError } = await (supabase
@@ -128,6 +130,7 @@ export async function POST(request: NextRequest) {
                         updated_at: new Date().toISOString()
                     })
                     .eq('download_batch_id', batchId)
+                    .neq('payment_status', 'refunded')
 
                 if (updateError) {
                     console.error(`[AdminStatusUpdate] Update error for batch ${batchId}:`, updateError)
