@@ -41,13 +41,21 @@ export async function POST(request: NextRequest) {
         // 1. Fetch order details
         const { data: order, error: fetchError } = await supabase
             .from('orders')
-            .select('id, user_id, price, reference_code, phone_number, download_batch_id, users!inner(phone_number)')
+            .select('id, user_id, price, reference_code, phone_number, payment_status, download_batch_id, users!inner(phone_number)')
             .eq('id', orderId)
             .single()
 
         if (fetchError || !order) {
             console.error('[RefundOrder] Order fetch error:', fetchError)
             return NextResponse.json({ error: 'Order not found' }, { status: 404 })
+        }
+
+        // Check if order is already refunded
+        if ((order as any).payment_status === 'refunded') {
+            console.warn(`[RefundOrder] Order ${orderId} is already refunded`)
+            return NextResponse.json({
+                error: 'This order has already been refunded'
+            }, { status: 400 })
         }
 
         // 2. Fetch user wallet
