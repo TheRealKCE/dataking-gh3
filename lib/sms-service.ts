@@ -395,3 +395,25 @@ KingFlexyGh`
     })
 }
 
+/**
+ * Send SMS notification when an order is refunded
+ */
+export async function sendOrderRefundSMS(
+    phoneNumber: string,
+    recipientNumber: string,
+    refundAmount: number,
+    newBalance: number
+) {
+    // Format recipient number - remove country code prefix for display
+    const displayNumber = recipientNumber.replace(/^233/, '').replace(/^0/, '')
+
+    const message = `Your order for ${displayNumber} has been refunded due to an error. Refund was GH${refundAmount.toFixed(2)}. Your new Flexy-wallet is now GH${newBalance.toFixed(2)} thank you.
+
+KingFlexyGh`
+
+    return sendSMS({
+        recipient: phoneNumber,
+        message
+    })
+}
+

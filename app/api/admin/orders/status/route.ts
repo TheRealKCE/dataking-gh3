@@ -49,7 +49,7 @@ export async function POST(request: NextRequest) {
             // Update single order
             const { data: order, error: fetchError } = await supabase
                 .from('orders')
-                .select('id, user_id, reference_code, phone_number, users!inner(phone_number)')
+                .select('id, user_id, reference_code, phone_number, network, download_batch_id, users!inner(phone_number)')
                 .eq('id', orderId)
                 .single()
 
@@ -59,12 +59,45 @@ export async function POST(request: NextRequest) {
             }
             affectedOrders.push(order)
 
+            // Check if order needs to be assigned to a batch
+            let batchIdToAssign = (order as any).download_batch_id
+
+            if (!batchIdToAssign) {
+                // Create a new batch for this manually updated order
+                const timestamp = new Date().toISOString().replace(/[:.]/g, '-').substring(0, 19)
+                const filename = `manual_action_${status}_${timestamp}.xlsx`
+
+                const { data: newBatch, error: batchError } = await (supabase.from('download_batches') as any)
+                    .insert({
+                        filename: filename,
+                        order_count: 1,
+                        network: (order as any).network || 'Unknown'
+                    })
+                    .select()
+                    .single()
+
+                if (batchError) {
+                    console.error(`[AdminStatusUpdate] Batch creation error:`, batchError)
+                    // Don't fail the status update if batch creation fails
+                } else {
+                    batchIdToAssign = (newBatch as any).id
+                    console.log(`[AdminStatusUpdate] Created new batch ${batchIdToAssign} for order ${orderId}`)
+                }
+            }
+
+            // Update order with new status and batch assignment
+            const orderUpdate: any = {
+                status,
+                updated_at: new Date().toISOString()
+            }
+
+            if (batchIdToAssign && !(order as any).download_batch_id) {
+                orderUpdate.download_batch_id = batchIdToAssign
+            }
+
             const { error: updateError } = await (supabase
                 .from('orders') as any)
-                .update({
-                    status,
-                    updated_at: new Date().toISOString()
-                })
+                .update(orderUpdate)
                 .eq('id', orderId)
 
             if (updateError) {

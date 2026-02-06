@@ -240,8 +240,13 @@ export default function AdminOrdersPage() {
             const result = await response.json()
             if (!response.ok) throw new Error(result.error || 'Failed to update status')
 
-            setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: newStatus } : o))
+            // Remove from available orders if it was there
+            setOrders(prev => prev.filter(o => o.id !== orderId))
             toast.success(`Order marked as ${newStatus}`)
+
+            // Refresh both orders and batches to reflect the change
+            fetchOrders(true)
+            fetchBatches(0, true, true)
         } catch (error: any) {
             console.error('Update status error:', error)
             toast.error(`Error: ${error.message || 'Failed to update status'}`)
@@ -345,55 +350,26 @@ export default function AdminOrdersPage() {
         if (!confirm('Are you sure you want to refund this order? This will credit the user\'s wallet.')) return
 
         try {
-            // 1. Credit wallet
-            const { data: wallet } = await supabase
-                .from('wallets')
-                .select('*')
-                .eq('user_id', order.user_id)
-                .single()
-
-            if (!wallet) throw new Error('User wallet not found')
-
-            await (supabase.from('wallets') as any)
-                .update({
-                    balance: (wallet as any).balance + order.price,
-                    total_spent: (wallet as any).total_spent - order.price
-                })
-                .eq('id', (wallet as any).id)
-
-            // 2. Create refund transaction
-            await (supabase.from('wallet_transactions') as any).insert({
-                wallet_id: (wallet as any).id,
-                user_id: order.user_id,
-                type: 'credit',
-                amount: order.price,
-                description: `Refund for order ${order.reference_code}`,
-                reference: `REF-${order.reference_code}`,
-                source: 'refund',
-                status: 'completed'
+            const response = await fetch('/api/admin/orders/refund', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ orderId: order.id })
             })
 
-            // 3. Update order payment status
-            await (supabase
-                .from('orders') as any)
-                .update({ payment_status: 'refunded', status: 'failed' } as any)
-                .eq('id', order.id)
+            const result = await response.json()
+            if (!response.ok) throw new Error(result.error || 'Failed to process refund')
 
-            setOrders(prev => Array.isArray(prev) ? prev.map(o => o.id === order.id ? { ...o, payment_status: 'refunded', status: 'failed' } : o) : [])
+            // Update local state
+            setOrders(prev => Array.isArray(prev) ? prev.filter(o => o.id !== order.id) : [])
             toast.success('Order refunded successfully')
 
-            // Notify user
-            await (supabase.from('notifications') as any).insert({
-                user_id: order.user_id,
-                title: 'Order Refunded',
-                message: `Your order ${order.reference_code} has been refunded. GHS ${order.price} has been credited to your wallet.`,
-                type: 'balance_updated',
-                action_url: `/dashboard/wallet`
-            })
+            // Refresh both orders and batches to reflect the change
+            fetchOrders(true)
+            fetchBatches(0, true, true)
 
-        } catch (error) {
+        } catch (error: any) {
             console.error('Refund error:', error)
-            toast.error('Failed to process refund')
+            toast.error(error.message || 'Failed to process refund')
         }
     }
 
@@ -778,24 +754,48 @@ export default function AdminOrdersPage() {
                                     </div>
                                     <div className="flex items-center gap-2">
                                         {getStatusBadge(order.status)}
-                                        <DropdownMenu>
-                                            <DropdownMenuTrigger asChild>
-                                                <Button variant="ghost" size="icon" className="h-6 w-6 p-0 hover:bg-muted">
-                                                    <MoreVertical className="w-3.5 h-3.5" />
-                                                </Button>
-                                            </DropdownMenuTrigger>
-                                            <DropdownMenuContent align="end">
-                                                {order.status !== 'failed' && (
-                                                    <DropdownMenuItem onClick={async () => {
-                                                        await handleUpdateStatus(order.id, 'failed')
-                                                        // Update local state
-                                                        setBatchOrders(prev => Array.isArray(prev) ? prev.map(o => o.id === order.id ? { ...o, status: 'failed' } : o) : [])
-                                                    }}>
-                                                        <XCircle className="w-4 h-4 mr-2 text-red-500" />
-                                                        Mark as Failed
-                                                    </DropdownMenuItem>
-                                                )}
-                                                {order.payment_status !== 'refunded' && (
+                                        {order.payment_status === 'refunded' ? (
+                                            <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 bg-gray-100 text-gray-500">
+                                                No actions
+                                            </Badge>
+                                        ) : (
+                                            <DropdownMenu>
+                                                <DropdownMenuTrigger asChild>
+                                                    <Button variant="ghost" size="icon" className="h-6 w-6 p-0 hover:bg-muted">
+                                                        <MoreVertical className="w-3.5 h-3.5" />
+                                                    </Button>
+                                                </DropdownMenuTrigger>
+                                                <DropdownMenuContent align="end">
+                                                    {order.status !== 'processing' && (
+                                                        <DropdownMenuItem onClick={async () => {
+                                                            await handleUpdateStatus(order.id, 'processing')
+                                                            // Update local state
+                                                            setBatchOrders(prev => Array.isArray(prev) ? prev.map(o => o.id === order.id ? { ...o, status: 'processing' } : o) : [])
+                                                        }}>
+                                                            <Clock className="w-4 h-4 mr-2 text-blue-500" />
+                                                            Mark as Processing
+                                                        </DropdownMenuItem>
+                                                    )}
+                                                    {order.status !== 'failed' && (
+                                                        <DropdownMenuItem onClick={async () => {
+                                                            await handleUpdateStatus(order.id, 'failed')
+                                                            // Update local state
+                                                            setBatchOrders(prev => Array.isArray(prev) ? prev.map(o => o.id === order.id ? { ...o, status: 'failed' } : o) : [])
+                                                        }}>
+                                                            <XCircle className="w-4 h-4 mr-2 text-red-500" />
+                                                            Mark as Failed
+                                                        </DropdownMenuItem>
+                                                    )}
+                                                    {order.status !== 'completed' && (
+                                                        <DropdownMenuItem onClick={async () => {
+                                                            await handleUpdateStatus(order.id, 'completed')
+                                                            // Update local state
+                                                            setBatchOrders(prev => Array.isArray(prev) ? prev.map(o => o.id === order.id ? { ...o, status: 'completed' } : o) : [])
+                                                        }}>
+                                                            <CheckCircle2 className="w-4 h-4 mr-2 text-green-500" />
+                                                            Mark as Completed
+                                                        </DropdownMenuItem>
+                                                    )}
                                                     <DropdownMenuItem onClick={async () => {
                                                         await handleRefund(order)
                                                         // Update local state
@@ -804,9 +804,9 @@ export default function AdminOrdersPage() {
                                                         <RefreshCw className="w-4 h-4 mr-2 text-amber-500" />
                                                         Refund Order
                                                     </DropdownMenuItem>
-                                                )}
-                                            </DropdownMenuContent>
-                                        </DropdownMenu>
+                                                </DropdownMenuContent>
+                                            </DropdownMenu>
+                                        )}
                                     </div>
                                 </div>
                             ))
