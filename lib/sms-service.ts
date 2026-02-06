@@ -188,16 +188,13 @@ export async function sendOrderSuccessSMS(
         currentBalance: number
     }
 ) {
-    // Extract last 9 digits of phone number (remove country code)
-    const recipientDisplay = details.recipientNumber.replace(/^233/, '').replace(/^0/, '')
-
-    // Updated Template: "Your order for [Data Size] to [Recipient] has been placed and is being processed. Your new wallet balance is GH[Remaining Balance]"
-    const message = `Your order for ${details.size} to ${recipientDisplay} has been placed and is being processed. Your new wallet balance is GH${details.currentBalance.toFixed(2)}
+    // Updated Template: "Your order for [Data Size] has been received and is being processed. You will receive your data in less than 1hr thank you."
+    const message = `Your order for ${details.size} has been received and is being processed. You will receive your data in less than 1hr thank you.
 
 KingFlexyGh`
 
     return sendSMS({
-        recipient: accountHolderPhone,
+        recipient: details.recipientNumber,
         message
     })
 }
@@ -388,11 +385,7 @@ export async function sendAgentExpiryNotificationSMS(
     phoneNumber: string,
     firstName: string
 ) {
-    const message = `Hello ${firstName},
-
-Your Agent membership has expired. You can renew your subscription anytime to continue enjoying agent benefits.
-
-Visit: kingflexydataltd.com/dashboard/upgrade
+    const message = `Dear valued customer, your Agent membership has expired. You can renew your subscription anytime to continue enjoying agent benefits thank you.
 
 KingFlexyGh`
 
