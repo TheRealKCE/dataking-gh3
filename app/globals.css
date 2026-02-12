@@ -283,13 +283,21 @@
 /* Driver.js Tutorial Custom Theme */
 /* ============================================ */
 
-/* Main popover styling */
+/* Highlighted element - subtle glow instead of heavy overlay */
+.driver-active-element,
+.driver-highlighted-element {
+  box-shadow: 0 0 0 4px hsl(var(--primary) / 0.3), 0 0 20px hsl(var(--primary) / 0.2) !important;
+  border-radius: 0.5rem !important;
+  z-index: 10000 !important;
+}
+
+/* Main popover styling - lighter shadow */
 .driver-popover {
   background: hsl(var(--background)) !important;
   color: hsl(var(--foreground)) !important;
   border: 2px solid hsl(var(--primary)) !important;
   border-radius: 0.75rem !important;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15) !important;
   padding: 1.5rem !important;
 }
 

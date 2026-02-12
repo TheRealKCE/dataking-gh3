@@ -84,7 +84,7 @@ export function useTutorial(userRole: UserRole, currentPage: PagePath): UseTutor
             prevBtnText: '← Previous',
             doneBtnText: 'Done ✓',
             progressText: '{{current}} of {{total}}',
-            overlayColor: 'rgba(0, 0, 0, 0.6)',
+            overlayColor: 'rgba(0, 0, 0, 0.2)',
             smoothScroll: true,
             animate: true,
             disableActiveInteraction: false,
