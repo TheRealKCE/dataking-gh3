@@ -96,6 +96,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({
             success: true,
             batchId: (batch as any).id,
+            filename: (batch as any).filename,
             updatedCount: orderIds.length
         })
     } catch (error: any) {

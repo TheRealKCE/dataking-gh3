@@ -421,7 +421,6 @@ export default function AdminOrdersPage() {
 
         setIsDownloading(true)
         try {
-            const fileName = `ghdata_orders_${new Date().toISOString().replace(/[:.]/g, '-')}.xlsx`
             const idempotencyKey = `batch_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`
 
             // Detect if all orders have the same network for intelligent labeling
@@ -437,7 +436,6 @@ export default function AdminOrdersPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     orderIds: pendingOrders.map((o: any) => o.id),
-                    filename: fileName,
                     network: batchNetworkLabel,
                     idempotencyKey: idempotencyKey
                 })
@@ -453,6 +451,9 @@ export default function AdminOrdersPage() {
                 }
                 throw new Error(result.error || 'Failed to create batch')
             }
+
+            // Get the filename from the backend response (includes admin name)
+            const fileName = result.filename || `ghdata_orders_${new Date().toISOString().replace(/[:.]/g, '-')}.xlsx`
 
             // 3. Perform export - CUSTOM FORMAT (Beneficiary Msisdn / GIGGS)
             const rows: any[][] = []
