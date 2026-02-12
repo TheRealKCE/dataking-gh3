@@ -98,7 +98,6 @@ export function useTutorial(userRole: UserRole, currentPage: PagePath): UseTutor
             disableActiveInteraction: false,
             allowClose: true,
             popoverOffset: 20, // Add 20px space between popover and highlighted element
-            padding: 10, // Add padding around highlighted elements
             onDestroyStarted: () => {
                 // Mark as complete when user finishes or closes
                 markTutorialComplete();
