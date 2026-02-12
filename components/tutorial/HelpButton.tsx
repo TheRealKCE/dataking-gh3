@@ -1,5 +1,6 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { HelpCircle, GraduationCap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
@@ -14,12 +15,31 @@ interface HelpButtonProps {
  * 
  * Features:
  * - Clear text label with icon
- * - Descriptive tooltip on hover
+ * - Auto-showing tooltip (appears after 3s, disappears after 10s)
  * - Pulsing animation for visibility
  * - Professional badge design
- * - Accessible and mobile-friendly
+ * - Mobile-responsive and accessible
  */
 export function HelpButton({ onClick, className = '' }: HelpButtonProps) {
+    const [showTooltip, setShowTooltip] = useState(false);
+
+    useEffect(() => {
+        // Show tooltip after 3 seconds
+        const showTimer = setTimeout(() => {
+            setShowTooltip(true);
+        }, 3000);
+
+        // Hide tooltip after 10 seconds (3s delay + 7s visible)
+        const hideTimer = setTimeout(() => {
+            setShowTooltip(false);
+        }, 10000);
+
+        return () => {
+            clearTimeout(showTimer);
+            clearTimeout(hideTimer);
+        };
+    }, []);
+
     return (
         <Button
             onClick={onClick}
@@ -27,8 +47,8 @@ export function HelpButton({ onClick, className = '' }: HelpButtonProps) {
             aria-label="Start Interactive Tutorial - Click to start a guided tour of this page and learn how to use all features step-by-step"
             title="📚 Interactive Tutorial - Click to start a guided tour of this page and learn how to use all features step-by-step!"
         >
-            {/* Pulsing ring animation */}
-            <span className="absolute inset-0 rounded-full bg-primary/20 animate-ping opacity-75" style={{ animationDuration: '2s' }}></span>
+            {/* Pulsing ring animation - constrained to button size */}
+            <span className="absolute inset-0 rounded-full bg-primary/20 animate-ping opacity-75 overflow-hidden" style={{ animationDuration: '2s' }}></span>
 
             {/* Icon */}
             <GraduationCap className="h-5 w-5 relative z-10" />
@@ -41,8 +61,9 @@ export function HelpButton({ onClick, className = '' }: HelpButtonProps) {
             {/* Mobile-only icon */}
             <HelpCircle className="h-4 w-4 relative z-10 sm:hidden" />
 
-            {/* Hover Tooltip - Description Popup */}
-            <div className="absolute top-full right-0 mt-3 w-56 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none transform translate-y-2 group-hover:translate-y-0 text-left leading-relaxed border border-gray-700">
+            {/* Auto-showing Tooltip - Mobile Responsive */}
+            <div className={`absolute top-full right-0 mt-3 w-48 sm:w-56 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-xl transition-all duration-300 z-50 pointer-events-none transform text-left leading-relaxed border border-gray-700 ${showTooltip || false ? 'opacity-100 visible translate-y-0' : 'opacity-0 invisible translate-y-2'
+                } group-hover:opacity-100 group-hover:visible group-hover:translate-y-0`}>
                 <div className="font-bold mb-1 text-yellow-400">Interactive Guide</div>
                 Click to start a step-by-step tour of the features on this page.
                 {/* Arrow */}
