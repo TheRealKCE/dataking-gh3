@@ -163,7 +163,7 @@ export async function POST(request: NextRequest) {
             // Get user details for email and SMS
             const { data: userData } = await supabase
                 .from('users')
-                .select('email, first_name, last_name, phone_number')
+                .select('email, first_name, last_name, phone_number, role')
                 .eq('id', userId)
                 .single()
 
@@ -171,19 +171,23 @@ export async function POST(request: NextRequest) {
                 const userEmail = (userData as any).email
                 const firstName = (userData as any).first_name || 'Customer'
                 const lastName = (userData as any).last_name || ''
+                const userRole = (userData as any).role
 
-                // Send order success email to user
-                sendOrderSuccessEmail(
-                    userEmail,
-                    firstName,
-                    {
-                        referenceCode,
-                        phoneNumber,
-                        network: (pkg as any).network,
-                        size: (pkg as any).size,
-                        price: priceToCharge
-                    }
-                ).catch((err: Error) => console.error('[Order] User email error:', err))
+                // Send order success email to user (skip for admin/sub-admin)
+                const isAdminUser = userRole === 'admin' || userRole === 'sub-admin'
+                if (!isAdminUser) {
+                    sendOrderSuccessEmail(
+                        userEmail,
+                        firstName,
+                        {
+                            referenceCode,
+                            phoneNumber,
+                            network: (pkg as any).network,
+                            size: (pkg as any).size,
+                            price: priceToCharge
+                        }
+                    ).catch((err: Error) => console.error('[Order] User email error:', err))
+                }
 
                 // Send order success SMS to account holder
                 const accountHolderPhone = (userData as any).phone_number
