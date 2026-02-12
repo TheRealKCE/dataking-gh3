@@ -445,18 +445,10 @@
 /* Mobile responsiveness */
 @media (max-width: 640px) {
   .driver-popover {
-    /* Force full width centering on mobile to prevent overflow */
-    left: 5% !important;
-    right: auto !important;
-    width: 90% !important;
-    max-width: none !important;
+    /* Allow Driver.js to handle positioning naturally */
+    max-width: 90% !important;
     padding: 0 !important;
     box-sizing: border-box !important;
-  }
-
-  /* Hide the arrow tip on mobile since we are forcing centered position */
-  .driver-popover-tip {
-    display: none !important;
   }
 
   .driver-popover-title {
