@@ -118,6 +118,7 @@ export default function AdminComplaintsPage() {
                                 <TableRow>
                                     <TableHead>User</TableHead>
                                     <TableHead>Order Ref</TableHead>
+                                    <TableHead>Order Date</TableHead>
                                     <TableHead>Beneficiary</TableHead>
                                     <TableHead>Package</TableHead>
                                     <TableHead>Issue</TableHead>
@@ -144,6 +145,9 @@ export default function AdminComplaintsPage() {
                                             </TableCell>
                                             <TableCell className="font-mono text-sm">
                                                 {complaint.orders?.reference_code}
+                                            </TableCell>
+                                            <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                                                {complaint.orders?.created_at ? formatDate(complaint.orders.created_at) : '-'}
                                             </TableCell>
                                             <TableCell>
                                                 <span className="font-mono text-sm">{complaint.orders?.phone_number}</span>
@@ -193,7 +197,8 @@ export default function AdminComplaintsPage() {
                                 <div className="grid grid-cols-2 gap-2 text-sm bg-muted/50 p-3 rounded-lg">
                                     <div className="col-span-2">
                                         <span className="text-muted-foreground text-xs block">Order ID</span>
-                                        <span className="font-mono">{complaint.orders?.reference_code}</span>
+                                        <span className="font-mono block">{complaint.orders?.reference_code}</span>
+                                        <span className="text-xs text-muted-foreground">{complaint.orders?.created_at ? formatDate(complaint.orders.created_at) : ''}</span>
                                     </div>
                                     <div>
                                         <span className="text-muted-foreground text-xs block">Beneficiary</span>
