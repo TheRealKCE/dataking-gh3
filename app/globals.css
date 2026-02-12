@@ -312,27 +312,43 @@
 }
 
 .driver-popover-title {
-  font-family: var(--font-heading) !important;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif !important;
   font-size: 1.5rem !important;
-  font-weight: 800 !important;
+  font-weight: 900 !important;
   color: #FFCE00 !important;
   /* Brand Yellow */
   margin-bottom: 0.5rem !important;
   line-height: 1.2 !important;
-  text-shadow: 2px 2px 0 #000000 !important;
-  /* Solid black shadow */
+  text-shadow: 2px 2px 3px #000000, 0 0 10px rgba(0, 0, 0, 0.9) !important;
   letter-spacing: -0.02em !important;
 }
 
 .driver-popover-description {
-  font-family: var(--font-sans) !important;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Helvetica Neue', Arial, sans-serif !important;
   font-size: 1.125rem !important;
-  font-weight: 500 !important;
-  color: #ffffff !important;
+  font-weight: 600 !important;
+  color: ##ffffff !important;
   line-height: 1.6 !important;
   margin-bottom: 1.5rem !important;
-  text-shadow: 1px 1px 0 #000000 !important;
-  /* Solid black shadow */
+  text-shadow: 1px 1px 2px #000000, 0 0 8px rgba(0, 0, 0, 0.8) !important;
+}
+
+/* Make all nested text in description more visible */
+.driver-popover-description p,
+.driver-popover-description li,
+.driver-popover-description div {
+  font-weight: 600 !important;
+  text-shadow: 1px 1px 2px #000000, 0 0 8px rgba(0, 0, 0, 0.8) !important;
+}
+
+.driver-popover-description strong {
+  font-weight: 800 !important;
+  color: #FFCE00 !important;
+}
+
+.driver-popover-description em {
+  font-weight: 600 !important;
+  color: #F3F4F6 !important;
 }
 
 
