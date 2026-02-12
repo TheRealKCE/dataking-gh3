@@ -369,7 +369,8 @@
   font-size: 0.95rem !important;
   cursor: pointer !important;
   transition: none !important;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15) !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
   min-width: 100px !important;
 }
 
@@ -379,11 +380,15 @@
   border-color: hsl(var(--primary)) !important;
   transform: none !important;
   opacity: 1 !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
 }
 
 .driver-popover-prev-btn:active,
 .driver-popover-next-btn:active {
   background: hsl(var(--primary) / 0.8) !important;
+  box-shadow: none !important;
+  text-shadow: none !important;
 }
 
 /* Disabled state */
