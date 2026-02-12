@@ -450,3 +450,191 @@ export function getUpgradeTutorialSteps(): DriveStep[] {
     }
   ];
 }
+/**
+ * Wallet Page Tutorial Steps
+ */
+export function getWalletTutorialSteps(userRole: UserRole): DriveStep[] {
+  const steps: DriveStep[] = [
+    // Welcome
+    {
+      popover: {
+        title: '💰 Your Wallet',
+        description: `
+          <div>
+            <p>Manage your funds securely and view your transaction history here.</p>
+          </div>
+        `
+      }
+    }
+  ];
+
+  if (userRole === 'agent') {
+    steps.push({
+      element: '#wallet-balance-card',
+      popover: {
+        title: '💳 Agent Balance',
+        description: `
+          <div>
+            <p>Check your available balance, total credited amount, and total spent.</p>
+          </div>
+        `,
+        side: 'bottom',
+        align: 'start'
+      }
+    });
+
+    steps.push({
+      element: '#quick-topup-card',
+      popover: {
+        title: '⚡ Quick Top-Up (No Fees)',
+        description: `
+          <div>
+            <p>Send money directly via MoMo to avoid Paystack charges!</p>
+            <p style="margin-top: 8px; font-size: 12px; opacity: 0.8;">Follow the 3 easy steps shown here.</p>
+          </div>
+        `,
+        side: 'top',
+        align: 'start'
+      }
+    });
+  }
+
+  steps.push({
+    element: '#top-up-form',
+    popover: {
+      title: '➕ Top Up Wallet',
+      description: `
+        <div>
+          <p>Instantly load your wallet using Mobile Money or Card.</p>
+          <p style="margin-top: 8px; font-size: 12px;">Choose a quick amount or enter a custom one.</p>
+        </div>
+      `,
+      side: 'left',
+      align: 'start'
+    }
+  });
+
+  steps.push({
+    element: '#recent-activity',
+    popover: {
+      title: '📜 Transaction History',
+      description: `
+        <div>
+          <p>Track all your wallet activities, including top-ups and spending.</p>
+        </div>
+      `,
+      side: 'top',
+      align: 'start'
+    }
+  });
+
+  steps.push(getCommunityStep());
+
+  steps.push({
+    popover: {
+      title: '🎉 Wallet Tour Complete!',
+      description: `
+        <div>
+          <p>You're ready to manage your funds!</p>
+        </div>
+      `
+    }
+  });
+
+  return steps;
+}
+
+/**
+ * Data Packages Page Tutorial Steps
+ */
+export function getDataPackagesTutorialSteps(userRole: UserRole): DriveStep[] {
+  const steps: DriveStep[] = [
+    // Welcome
+    {
+      popover: {
+        title: '📦 Data Packages',
+        description: `
+          <div>
+            <p>Browse and purchase affordable data bundles for all networks.</p>
+          </div>
+        `
+      }
+    },
+    // Stats
+    {
+      element: '#stats-dashboard',
+      popover: {
+        title: '📊 Quick Stats',
+        description: `
+          <div>
+            <p>See your current balance and today's order count at a glance.</p>
+          </div>
+        `,
+        side: 'bottom',
+        align: 'center'
+      }
+    }
+  ];
+
+  if (userRole === 'agent') {
+    steps.push({
+      element: '#bulk-order-section',
+      popover: {
+        title: '🚀 Bulk Orders',
+        description: `
+          <div>
+            <p><strong>Agent Exclusive:</strong> Import multiple orders via Excel or Text!</p>
+            <p style="margin-top: 8px; font-size: 12px; opacity: 0.8;">Great for processing many client orders at once.</p>
+          </div>
+        `,
+        side: 'bottom',
+        align: 'start'
+      }
+    });
+  }
+
+  // Filters
+  steps.push({
+    element: '#package-filters',
+    popover: {
+      title: '🔍 Find Packages',
+      description: `
+        <div>
+          <p>Filter by <strong>Network</strong> or search for specific bundles.</p>
+        </div>
+      `,
+      side: 'bottom',
+      align: 'start'
+    }
+  });
+
+  // Package List
+  steps.push({
+    element: '#packages-grid',
+    popover: {
+      title: '📱 Select & Buy',
+      description: `
+        <div>
+          <p>Click "Buy Now" on any package to purchase instantly.</p>
+        </div>
+      `,
+      side: 'top',
+      align: 'start'
+    }
+  });
+
+  steps.push(getCommunityStep());
+
+  steps.push({
+    popover: {
+      title: '🎉 Tour Complete!',
+      description: `
+        <div>
+          <p>Start saving on data bundles today!</p>
+        </div>
+      `
+    }
+  });
+
+  return steps;
+}

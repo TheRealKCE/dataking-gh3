@@ -8,11 +8,13 @@ import {
     getOrderHistoryTutorialSteps,
     getComplaintsTutorialSteps,
     getProfileTutorialSteps,
-    getUpgradeTutorialSteps
+    getUpgradeTutorialSteps,
+    getWalletTutorialSteps,
+    getDataPackagesTutorialSteps
 } from '@/lib/tutorial-steps';
 
 type UserRole = 'customer' | 'agent';
-type PagePath = '/dashboard' | '/orders' | '/complaints' | '/profile' | '/upgrade' | string;
+type PagePath = '/dashboard' | '/orders' | '/complaints' | '/profile' | '/upgrade' | '/wallet' | '/data-packages' | string;
 
 interface UseTutorialReturn {
     hasSeenTutorial: boolean;
@@ -61,6 +63,10 @@ export function useTutorial(userRole: UserRole, currentPage: PagePath): UseTutor
                 return getProfileTutorialSteps();
             case '/upgrade':
                 return getUpgradeTutorialSteps();
+            case '/wallet':
+                return getWalletTutorialSteps(userRole);
+            case '/data-packages':
+                return getDataPackagesTutorialSteps(userRole);
             default:
                 // Default to dashboard steps if page not recognized
                 return getDashboardTutorialSteps(userRole);

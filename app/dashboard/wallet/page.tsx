@@ -32,6 +32,8 @@ import {
 import { toast } from 'sonner'
 import { WalletTransaction } from '@/types/supabase'
 import { usePageAccess } from '@/hooks/use-page-access'
+import { useTutorial } from '@/hooks/useTutorial'
+import { HelpButton } from '@/components/tutorial/HelpButton'
 
 const QUICK_AMOUNTS = [50, 100, 200, 500]
 const MIN_AMOUNT = 5
@@ -49,6 +51,10 @@ function WalletContent() {
     const [isProcessing, setIsProcessing] = useState(false)
     const [paystackFeePercent, setPaystackFeePercent] = useState(1.95)
     const searchParams = useSearchParams()
+
+    // Tutorial hook
+    const userRole = dbUser?.role === 'agent' ? 'agent' : 'customer'
+    const { startTutorial } = useTutorial(userRole as 'customer' | 'agent', '/wallet')
 
     // Check if wallet page is accessible
     const isWalletAccessible = isAdmin || isPageAccessible('/dashboard/wallet')
@@ -210,15 +216,18 @@ function WalletContent() {
 
     return (
         <div className="space-y-6">
-            <div>
-                <h1 className="text-2xl font-bold">Load Wallet</h1>
-                <p className="text-muted-foreground">Top up your wallet to continue shopping</p>
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-2xl font-bold">Load Wallet</h1>
+                    <p className="text-muted-foreground">Top up your wallet to continue shopping</p>
+                </div>
+                <HelpButton onClick={startTutorial} />
             </div>
 
             {/* Balance Card at top for Agents */}
             {dbUser?.role === 'agent' && (
                 <div className="w-full">
-                    <Card className="overflow-hidden border-2 border-[#1A1A1A] shadow-lg">
+                    <Card id="wallet-balance-card" className="overflow-hidden border-2 border-[#1A1A1A] shadow-lg">
                         <div className="bg-[#1A1A1A] p-6 text-white">
                             <div className="flex items-center justify-between mb-6">
                                 <div className="flex items-center gap-2">
@@ -256,7 +265,7 @@ function WalletContent() {
 
             {/* Agent-only Manual Top Up Instructions */}
             {dbUser?.role === 'agent' && (
-                <Card className="border-2 border-gray-100 bg-white overflow-hidden shadow-xl">
+                <Card id="quick-topup-card" className="border-2 border-gray-100 bg-white overflow-hidden shadow-xl">
                     <CardHeader className="bg-white py-4 border-b border-gray-50">
                         <div className="flex flex-col">
                             <CardTitle className="text-black text-lg sm:text-xl font-semibold flex items-center gap-2">
@@ -386,7 +395,7 @@ function WalletContent() {
                 </div>
 
                 {/* Top Up Card */}
-                <div className={dbUser?.role === 'agent' ? 'lg:col-span-3' : 'lg:col-span-2'}>
+                <div id="top-up-form" className={dbUser?.role === 'agent' ? 'lg:col-span-3' : 'lg:col-span-2'}>
                     <Card>
                         <CardHeader>
                             <div className="flex flex-col">
@@ -508,7 +517,7 @@ function WalletContent() {
             </div>
 
             {/* Recent Transactions */}
-            <Card>
+            <Card id="recent-activity">
                 <CardHeader>
                     <CardTitle>{dbUser?.role === 'agent' ? 'Recent Activity' : 'Today'}</CardTitle>
                 </CardHeader>

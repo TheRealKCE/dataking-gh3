@@ -46,6 +46,8 @@ import { toast } from 'sonner'
 import { DataPackage } from '@/types/supabase'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Trash2, Upload } from 'lucide-react'
+import { useTutorial } from '@/hooks/useTutorial'
+import { HelpButton } from '@/components/tutorial/HelpButton'
 
 interface ValidationResult {
     lineNumber: number
@@ -64,6 +66,11 @@ const NETWORKS = ['MTN', 'Telecel', 'AT-iShare', 'AT-BigTime'] as const
 export default function DataPackagesPage() {
     const { dbUser, session } = useAuth()
     const router = useRouter()
+
+    // Tutorial hook
+    const userRole = dbUser?.role === 'agent' ? 'agent' : 'customer'
+    const { startTutorial } = useTutorial(userRole as 'customer' | 'agent', '/data-packages')
+
     const [packages, setPackages] = useState<DataPackage[]>([])
     const [filteredPackages, setFilteredPackages] = useState<DataPackage[]>([])
     const [selectedNetwork, setSelectedNetwork] = useState<string>('MTN')
@@ -530,11 +537,17 @@ export default function DataPackagesPage() {
     return (
         <div className="space-y-6">
             {/* Header */}
+            <div className="flex items-center justify-between">
+                <div className="flex-1 text-center">
+                    <h1 className="text-2xl font-bold">Data Packages</h1>
+                </div>
+                <HelpButton onClick={startTutorial} />
+            </div>
+
             <div className="flex flex-col items-center gap-4 text-center">
-                <h1 className="text-2xl font-bold">Data Packages</h1>
 
                 {/* Stats Dashboard */}
-                <div className="grid grid-cols-2 gap-4 w-full max-w-md mx-auto mb-2">
+                <div id="stats-dashboard" className="grid grid-cols-2 gap-4 w-full max-w-md mx-auto mb-2">
                     <div className="bg-[#1A1A1A] dark:bg-[#E5E7EB] rounded-2xl p-4 text-center shadow-md lg:shadow-lg transition-colors flex flex-col items-center justify-between gap-3">
                         <div>
                             <p className="text-[#FACC15] font-medium text-xs mb-1">
@@ -566,7 +579,7 @@ export default function DataPackagesPage() {
 
                 {/* Bulk Order Section - Agents Only */}
                 {dbUser?.role === 'agent' && (
-                    <div className="w-full max-w-3xl mx-auto space-y-4">
+                    <div id="bulk-order-section" className="w-full max-w-3xl mx-auto space-y-4">
                         {/* New Yellow Header Box */}
                         <div className="bg-[#FFCE00] rounded-3xl p-6 shadow-md lg:shadow-xl relative overflow-hidden">
                             <div className="flex items-start gap-4 relative z-10">
@@ -882,7 +895,7 @@ export default function DataPackagesPage() {
             </div>
 
             {/* Search */}
-            <div className="relative max-w-md mx-auto w-full">
+            <div id="package-filters" className="relative max-w-md mx-auto w-full">
                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
                     placeholder="Search packages..."
@@ -916,7 +929,7 @@ export default function DataPackagesPage() {
                     })}
                 </TabsList>
 
-                <TabsContent value={selectedNetwork} className="mt-6">
+                <TabsContent id="packages-grid" value={selectedNetwork} className="mt-6">
                     {filteredPackages.length === 0 ? (
                         <Card className="p-12 text-center">
                             <Wifi className="w-12 h-12 mx-auto text-muted-foreground/50 mb-4" />

@@ -292,30 +292,42 @@
 }
 
 /* Main popover styling - lighter shadow */
+/* Main popover styling - Glassmorphic "Pro" Look */
 .driver-popover {
-  background: hsl(var(--background)) !important;
+  background: rgba(255, 255, 255, 0.95) !important;
   color: hsl(var(--foreground)) !important;
-  border: 2px solid hsl(var(--primary)) !important;
-  border-radius: 0.75rem !important;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15) !important;
-  padding: 1.5rem !important;
+  border: 1px solid rgba(0, 0, 0, 0.1) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12) !important;
+  padding: 16px !important;
+  backdrop-filter: blur(12px) !important;
+  -webkit-backdrop-filter: blur(12px) !important;
+  max-width: 300px !important;
 }
 
-/* Popover title */
+.dark .driver-popover {
+  background: rgba(20, 20, 20, 0.90) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  color: white !important;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4) !important;
+}
+
 .driver-popover-title {
-  font-size: 1.35rem !important;
+  font-size: 16px !important;
   font-weight: 700 !important;
+  margin-bottom: 8px !important;
+  line-height: 1.4 !important;
   color: hsl(var(--primary)) !important;
-  margin-bottom: 1rem !important;
 }
 
-/* Popover description */
 .driver-popover-description {
-  font-size: 1rem !important;
-  line-height: 1.7 !important;
-  color: hsl(var(--foreground)) !important;
-  margin-bottom: 1.25rem !important;
+  font-size: 13px !important;
+  line-height: 1.6 !important;
+  font-weight: 400 !important;
+  color: inherit !important;
+  margin-bottom: 12px !important;
 }
+
 
 /* Close button */
 .driver-popover-close-btn {
