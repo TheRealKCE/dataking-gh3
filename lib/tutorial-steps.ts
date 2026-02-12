@@ -1,26 +1,70 @@
 import { DriveStep } from 'driver.js';
 
+type UserRole = 'customer' | 'agent';
+
 /**
- * Customer Tutorial Steps
- * Tutorial flow for customer role users
+ * Community Section Step (Reusable)
+ * Used at the end of every page tutorial
  */
-export function getCustomerTutorialSteps(): DriveStep[] {
-  return [
-    // Welcome Step
+function getCommunityStep(): DriveStep {
+  return {
+    element: '#community-section',
+    popover: {
+      title: '📢 Join Our Community',
+      description: `
+        <div>
+          <p>Stay connected with us for instant updates, exclusive promotions, and priority support!</p>
+          <div style="margin-top: 16px; display: flex; gap: 12px; flex-direction: column;">
+            <a 
+              href="https://chat.whatsapp.com/FC6jYV3VDEQ4MmdTXiFqDV" 
+              target="_blank"
+              style="display: flex; align-items: center; gap: 8px; padding: 12px; background: linear-gradient(135deg, #25D366 0%, #128C7E 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: 600; box-shadow: 0 2px 8px rgba(37, 211, 102, 0.3); transition: transform 0.2s;"
+              onmouseover="this.style.transform='scale(1.05)'"
+              onmouseout="this.style.transform='scale(1)'"
+            >
+              <span>💬 Join WhatsApp Group</span>
+            </a>
+            <a 
+              href="https://whatsapp.com/channel/0029Vb7HTfx47XeIZz7ht232" 
+              target="_blank"
+              style="display: flex; align-items: center; gap: 8px; padding: 12px; background: linear-gradient(135deg, #128C7E 0%, #075E54 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: 600; box-shadow: 0 2px 8px rgba(18, 140, 126, 0.3); transition: transform 0.2s;"
+              onmouseover="this.style.transform='scale(1.05)'"
+              onmouseout="this.style.transform='scale(1)'"
+            >
+              <span>📺 Join WhatsApp Channel</span>
+            </a>
+          </div>
+          <p style="margin-top: 12px; font-size: 12px; color: #666; text-align: center; margin-bottom: 0;">
+            <em>Get instant notifications about promotions, new features, and support!</em>
+          </p>
+        </div>
+      `,
+      side: 'top',
+      align: 'center'
+    }
+  };
+}
+
+/**
+ * Dashboard Tutorial Steps
+ */
+export function getDashboardTutorialSteps(userRole: UserRole): DriveStep[] {
+  const steps: DriveStep[] = [
+    // Welcome
     {
       popover: {
-        title: '👋 Welcome to KingFlexy Data!',
+        title: userRole === 'agent' ? '👋 Welcome Agent!' : '👋 Welcome to KingFlexy Data!',
         description: `
           <div>
-            <p>Let's take a quick tour to help you get started with buying data and managing your orders.</p>
+            <p>${userRole === 'agent' ? 'Welcome to your Agent Dashboard! Let\'s explore the features available to you.' : 'Let\'s take a quick tour of your dashboard and learn how to use the platform.'}</p>
             <p style="margin-top: 8px; font-size: 14px; color: #666;">
-              <em>This tour will only take 2 minutes. You can skip it anytime or replay it later from the Help button.</em>
+              <em>This tour will only take 2 minutes. You can skip it anytime or replay it later from the Tutorial button.</em>
             </p>
           </div>
         `
       }
     },
-    // Wallet Card
+    // Wallet
     {
       element: '#wallet-card',
       popover: {
@@ -35,226 +79,31 @@ export function getCustomerTutorialSteps(): DriveStep[] {
         align: 'start'
       }
     },
-    // Data Packages Section
+    // Statistics Cards
     {
-      element: '#data-packages',
+      element: '#stats-cards',
       popover: {
-        title: '📦 Browse Data Packages',
+        title: '📊 Your Statistics',
         description: `
           <div>
-            <p>Here you can browse all available data packages for different networks (MTN, Vodafone, AirtelTigo).</p>
-            <p style="margin-top: 8px;">Select a package that fits your needs and budget.</p>
-          </div>
-        `,
-        side: 'top',
-        align: 'start'
-      }
-    },
-    // Buy Data - Important Warning
-    {
-      element: '#buy-data-section',
-      popover: {
-        title: '🛒 How to Buy Data',
-        description: `
-          <div>
-            <p>Enter the phone number and select a package to purchase data.</p>
-            <div style="margin-top: 12px; padding: 12px; background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px;">
-              <strong>⚠️ Important Tip:</strong>
-              <p style="margin-top: 4px; margin-bottom: 0;">Avoid buying data twice for the same phone number. Always check your order history first to prevent duplicate purchases!</p>
-            </div>
-          </div>
-        `,
-        side: 'top',
-        align: 'start'
-      }
-    },
-    // Order History
-    {
-      element: '#order-history',
-      popover: {
-        title: '📋 Order History',
-        description: `
-          <div>
-            <p>Track all your past orders here. You can see:</p>
+            <p>Track your order statistics at a glance:</p>
             <ul style="margin-top: 8px; margin-left: 16px; margin-bottom: 0;">
-              <li>Order status (Pending, Completed, Failed)</li>
-              <li>Phone numbers and networks</li>
-              <li>Package details and prices</li>
-              <li>Transaction dates</li>
-            </ul>
-          </div>
-        `,
-        side: 'top',
-        align: 'start'
-      }
-    },
-    // Complaint System - Detailed Guidance
-    {
-      element: '#complaint-button',
-      popover: {
-        title: '🆘 Need Help? Submit a Complaint',
-        description: `
-          <div>
-            <p>Having an issue with an order? Submit a complaint for quick resolution.</p>
-            <div style="margin-top: 12px; padding: 12px; background: #d1ecf1; border-left: 4px solid #17a2b8; border-radius: 4px;">
-              <strong>💡 Pro Tip:</strong>
-              <p style="margin-top: 4px;">Write clear, detailed complaints for faster resolutions. Include:</p>
-              <ul style="margin-top: 4px; margin-left: 16px; margin-bottom: 4px;">
-                <li>Phone number</li>
-                <li>Network provider</li>
-                <li>Detailed issue description</li>
-                <li>When the issue occurred</li>
-              </ul>
-              <p style="margin-top: 4px; margin-bottom: 0;"><em>Good complaints = faster support! ⚡</em></p>
-            </div>
-          </div>
-        `,
-        side: 'left',
-        align: 'start'
-      }
-    },
-    // Upgrade to Agent
-    {
-      element: '#upgrade-section',
-      popover: {
-        title: '🚀 Upgrade to Agent',
-        description: `
-          <div>
-            <p>Become an agent to unlock exclusive features:</p>
-            <ul style="margin-top: 8px; margin-left: 16px;">
-              <li>Quick wallet top-up options</li>
-              <li>Bulk order capabilities</li>
-              <li>Earn commissions on sales</li>
-              <li>Priority support</li>
-            </ul>
-            <p style="margin-top: 8px; font-weight: 600; color: #4f46e5;">
-              Perfect for resellers and businesses!
-            </p>
-          </div>
-        `,
-        side: 'top',
-        align: 'start'
-      }
-    },
-    // Community Join - WhatsApp
-    {
-      element: '#community-section',
-      popover: {
-        title: '📢 Join Our Community',
-        description: `
-          <div>
-            <p>Stay connected with us for instant updates, exclusive promotions, and priority support!</p>
-            <div style="margin-top: 16px; display: flex; gap: 12px; flex-direction: column;">
-              <a 
-                href="https://chat.whatsapp.com/FC6jYV3VDEQ4MmdTXiFqDV" 
-                target="_blank"
-                style="display: flex; align-items: center; gap: 8px; padding: 12px; background: linear-gradient(135deg, #25D366 0%, #128C7E 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: 600; box-shadow: 0 2px 8px rgba(37, 211, 102, 0.3); transition: transform 0.2s;"
-                onmouseover="this.style.transform='scale(1.05)'"
-                onmouseout="this.style.transform='scale(1)'"
-              >
-                <span>💬 Join WhatsApp Group</span>
-              </a>
-              <a 
-                href="https://whatsapp.com/channel/0029Vb7HTfx47XeIZz7ht232" 
-                target="_blank"
-                style="display: flex; align-items: center; gap: 8px; padding: 12px; background: linear-gradient(135deg, #128C7E 0%, #075E54 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: 600; box-shadow: 0 2px 8px rgba(18, 140, 126, 0.3); transition: transform 0.2s;"
-                onmouseover="this.style.transform='scale(1.05)'"
-                onmouseout="this.style.transform='scale(1)'"
-              >
-                <span>📺 Join WhatsApp Channel</span>
-              </a>
-            </div>
-            <p style="margin-top: 12px; font-size: 12px; color: #666; text-align: center; margin-bottom: 0;">
-              <em>Get instant notifications about promotions, new features, and support!</em>
-            </p>
-          </div>
-        `
-      }
-    },
-    // Profile Section
-    {
-      element: '#profile-section',
-      popover: {
-        title: '⚙️ Profile & Settings',
-        description: `
-          <div>
-            <p>Manage your account settings here:</p>
-            <ul style="margin-top: 8px; margin-left: 16px; margin-bottom: 0;">
-              <li>Update personal information</li>
-              <li>Change password</li>
-              <li>View account details</li>
-              <li>Manage preferences</li>
+              <li><strong>Total Orders</strong> - All orders you've placed</li>
+              <li><strong>Completed</strong> - Successfully delivered orders</li>
+              <li><strong>Processing</strong> - Orders being processed</li>
+              <li><strong>Failed</strong> - Orders that need attention</li>
             </ul>
           </div>
         `,
         side: 'bottom',
         align: 'start'
-      }
-    },
-    // Completion
-    {
-      popover: {
-        title: '🎉 Tutorial Complete!',
-        description: `
-          <div>
-            <p>You're all set! You now know how to:</p>
-            <ul style="margin-top: 8px; margin-left: 16px;">
-              <li>✅ Buy data packages</li>
-              <li>✅ Track your orders</li>
-              <li>✅ Submit complaints</li>
-              <li>✅ Join our community</li>
-            </ul>
-            <p style="margin-top: 12px; padding: 10px; background: #f0f9ff; border-radius: 6px; margin-bottom: 0;">
-              <strong>💡 Tip:</strong> Click the <strong>Help</strong> button anytime to replay this tutorial!
-            </p>
-          </div>
-        `
       }
     }
   ];
-}
 
-/**
- * Agent Tutorial Steps
- * Tutorial flow for agent role users with additional features
- */
-export function getAgentTutorialSteps(): DriveStep[] {
-  return [
-    // Welcome Step
-    {
-      popover: {
-        title: '👋 Welcome Agent!',
-        description: `
-          <div>
-            <p>Welcome to your Agent Dashboard! Let's explore the powerful features available to you.</p>
-            <p style="margin-top: 8px; font-size: 14px; color: #666;">
-              <em>This tour will show you agent-exclusive features. You can skip or replay anytime from the Help button.</em>
-            </p>
-          </div>
-        `
-      }
-    },
-    // Wallet Card
-    {
-      element: '#wallet-card',
-      popover: {
-        title: '💰 Agent Wallet',
-        description: `
-          <div>
-            <p>Your wallet shows your balance and earnings. As an agent, you have access to:</p>
-            <ul style="margin-top: 8px; margin-left: 16px; margin-bottom: 0;">
-              <li>Quick top-up options</li>
-              <li>Commission tracking</li>
-              <li>Transaction history</li>
-            </ul>
-          </div>
-        `,
-        side: 'bottom',
-        align: 'start'
-      }
-    },
-    // Quick Top-Up
-    {
+  // Agent-specific steps
+  if (userRole === 'agent') {
+    steps.push({
       element: '#quick-topup',
       popover: {
         title: '⚡ Quick Top-Up',
@@ -267,9 +116,9 @@ export function getAgentTutorialSteps(): DriveStep[] {
         side: 'bottom',
         align: 'start'
       }
-    },
-    // Bulk Orders - Important Warning
-    {
+    });
+
+    steps.push({
       element: '#bulk-orders',
       popover: {
         title: '📦 Bulk Orders',
@@ -278,99 +127,358 @@ export function getAgentTutorialSteps(): DriveStep[] {
             <p>Place multiple orders at once! Great for serving multiple customers efficiently.</p>
             <div style="margin-top: 12px; padding: 12px; background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px;">
               <strong>⚠️ Important Tip:</strong>
-              <p style="margin-top: 4px; margin-bottom: 0;">Even in bulk orders, avoid buying data twice for the same phone number. The system will help detect duplicates, but always double-check your list!</p>
+              <p style="margin-top: 4px; margin-bottom: 0;">Avoid buying data twice for the same phone number. The system will help detect duplicates!</p>
             </div>
           </div>
         `,
         side: 'top',
         align: 'start'
       }
-    },
-    // Commission Info
+    });
+  }
+
+  // Community section (for all users)
+  steps.push(getCommunityStep());
+
+  // Completion
+  steps.push({
+    popover: {
+      title: '🎉 Dashboard Tour Complete!',
+      description: `
+        <div>
+          <p>You now know your way around the dashboard!</p>
+          <p style="margin-top: 12px; padding: 10px; background: #f0f9ff; border-radius: 6px; margin-bottom: 0;">
+            <strong>💡 Tip:</strong> Click the <strong>Tutorial</strong> button on any page to learn about that page's features!
+          </p>
+        </div>
+      `
+    }
+  });
+
+  return steps;
+}
+
+/**
+ * Order History Page Tutorial Steps
+ */
+export function getOrderHistoryTutorialSteps(): DriveStep[] {
+  return [
+    // Welcome
     {
-      element: '#commission-info',
       popover: {
-        title: '💎 Commission & Earnings',
+        title: '📋 Welcome to Order History',
         description: `
           <div>
-            <p>Track your earnings and commission rates here.</p>
-            <p style="margin-top: 8px;">The more orders you process, the more you earn! View detailed earnings reports and withdrawal options.</p>
-          </div>
-        `,
-        side: 'top',
-        align: 'start'
-      }
-    },
-    // Order Management
-    {
-      element: '#order-history',
-      popover: {
-        title: '📊 Order Management',
-        description: `
-          <div>
-            <p>Manage all your customer orders in one place:</p>
-            <ul style="margin-top: 8px; margin-left: 16px; margin-bottom: 0;">
-              <li>Filter by status, date, or network</li>
-              <li>Export order reports</li>
-              <li>Track pending orders</li>
-              <li>Manage complaints</li>
-            </ul>
-          </div>
-        `,
-        side: 'top',
-        align: 'start'
-      }
-    },
-    // Community Join - Agent Version
-    {
-      element: '#community-section',
-      popover: {
-        title: '📢 Join Agent Community',
-        description: `
-          <div>
-            <p>Connect with fellow agents for tips, bulk deals, and priority support!</p>
-            <div style="margin-top: 16px; display: flex; gap: 12px; flex-direction: column;">
-              <a 
-                href="https://chat.whatsapp.com/FC6jYV3VDEQ4MmdTXiFqDV" 
-                target="_blank"
-                style="display: flex; align-items: center; gap: 8px; padding: 12px; background: linear-gradient(135deg, #25D366 0%, #128C7E 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: 600; box-shadow: 0 2px 8px rgba(37, 211, 102, 0.3); transition: transform 0.2s;"
-                onmouseover="this.style.transform='scale(1.05)'"
-                onmouseout="this.style.transform='scale(1)'"
-              >
-                <span>💬 Join Agent WhatsApp Group</span>
-              </a>
-              <a 
-                href="https://whatsapp.com/channel/0029Vb7HTfx47XeIZz7ht232" 
-                target="_blank"
-                style="display: flex; align-items: center; gap: 8px; padding: 12px; background: linear-gradient(135deg, #128C7E 0%, #075E54 100%); color: white; text-decoration: none; border-radius: 8px; font-weight: 600; box-shadow: 0 2px 8px rgba(18, 140, 126, 0.3); transition: transform 0.2s;"
-                onmouseover="this.style.transform='scale(1.05)'"
-                onmouseout="this.style.transform='scale(1)'"
-              >
-                <span>📺 Join Agent WhatsApp Channel</span>
-              </a>
-            </div>
-            <p style="margin-top: 12px; font-size: 12px; color: #666; text-align: center; margin-bottom: 0;">
-              <em>Get agent tips, bulk deals, and priority support!</em>
-            </p>
+            <p>This page shows all your past and current orders. Let's explore the features!</p>
           </div>
         `
       }
     },
+    // Order Table
+    {
+      element: '#orders-table',
+      popover: {
+        title: '📦 Your Orders',
+        description: `
+          <div>
+            <p>View all your orders with details like:</p>
+            <ul style="margin-top: 8px; margin-left: 16px; margin-bottom: 0;">
+              <li>Phone number and network</li>
+              <li>Package details and price</li>
+              <li>Order status and date</li>
+            </ul>
+          </div>
+        `,
+        side: 'top',
+        align: 'start'
+      }
+    },
+    // Filters
+    {
+      element: '#order-filters',
+      popover: {
+        title: '🔍 Filter Orders',
+        description: `
+          <div>
+            <p>Use filters to find specific orders:</p>
+            <ul style="margin-top: 8px; margin-left: 16px; margin-bottom: 0;">
+              <li>Filter by status (Completed, Pending, Failed)</li>
+              <li>Filter by network (MTN, Vodafone, AirtelTigo)</li>
+              <li>Search by phone number</li>
+            </ul>
+          </div>
+        `,
+        side: 'bottom',
+        align: 'start'
+      }
+    },
+    // Complaint Button
+    {
+      element: '#complaint-button',
+      popover: {
+        title: '🆘 Submit Complaint',
+        description: `
+          <div>
+            <p>Having an issue with an order? Submit a complaint for quick resolution.</p>
+            <div style="margin-top: 12px; padding: 12px; background: #d1ecf1; border-left: 4px solid #17a2b8; border-radius: 4px;">
+              <strong>💡 Pro Tip:</strong>
+              <p style="margin-top: 4px; margin-bottom: 0;">Write clear, detailed complaints for faster resolutions. Include phone number, network, and detailed issue description.</p>
+            </div>
+          </div>
+        `,
+        side: 'left',
+        align: 'start'
+      }
+    },
+    // Community
+    getCommunityStep(),
     // Completion
     {
       popover: {
-        title: '🎉 Agent Tutorial Complete!',
+        title: '🎉 Order History Tour Complete!',
         description: `
           <div>
-            <p>You're now ready to maximize your agent potential!</p>
-            <ul style="margin-top: 8px; margin-left: 16px;">
-              <li>✅ Quick wallet top-up</li>
-              <li>✅ Efficient bulk ordering</li>
-              <li>✅ Commission tracking</li>
-              <li>✅ Community connection</li>
+            <p>You now know how to track and manage your orders!</p>
+            <p style="margin-top: 12px; padding: 10px; background: #f0f9ff; border-radius: 6px; margin-bottom: 0;">
+              <strong>💡 Tip:</strong> Click the <strong>Tutorial</strong> button anytime to replay this tour!
+            </p>
+          </div>
+        `
+      }
+    }
+  ];
+}
+
+/**
+ * Complaints Page Tutorial Steps
+ */
+export function getComplaintsTutorialSteps(): DriveStep[] {
+  return [
+    // Welcome
+    {
+      popover: {
+        title: '🆘 Welcome to Complaints',
+        description: `
+          <div>
+            <p>Submit and track complaints for any issues you encounter. Let's see how it works!</p>
+          </div>
+        `
+      }
+    },
+    // Submit Button
+    {
+      element: '#submit-complaint-btn',
+      popover: {
+        title: '📝 Submit New Complaint',
+        description: `
+          <div>
+            <p>Click here to submit a new complaint about an order or service issue.</p>
+          </div>
+        `,
+        side: 'bottom',
+        align: 'start'
+      }
+    },
+    // Complaint Form
+    {
+      element: '#complaint-form',
+      popover: {
+        title: '✍️ Complaint Form',
+        description: `
+          <div>
+            <p>Fill in all required fields for faster resolution:</p>
+            <ul style="margin-top: 8px; margin-left: 16px; margin-bottom: 4px;">
+              <li>Phone number</li>
+              <li>Network provider</li>
+              <li>Detailed issue description</li>
+              <li>When the issue occurred</li>
             </ul>
-            <p style="margin-top: 12px; padding: 10px; background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border-radius: 6px; margin-bottom: 0;">
-              <strong>💡 Tip:</strong> Click the <strong>Help</strong> button anytime to replay this tutorial!
+            <p style="margin-top: 8px; font-weight: 600; color: #17a2b8;">
+              Good complaints = faster support! ⚡
+            </p>
+          </div>
+        `,
+        side: 'right',
+        align: 'start'
+      }
+    },
+    // Complaint History
+    {
+      element: '#complaint-history',
+      popover: {
+        title: '📜 Complaint History',
+        description: `
+          <div>
+            <p>Track all your submitted complaints and their status:</p>
+            <ul style="margin-top: 8px; margin-left: 16px; margin-bottom: 0;">
+              <li><strong>Pending</strong> - Under review</li>
+              <li><strong>In Progress</strong> - Being resolved</li>
+              <li><strong>Resolved</strong> - Issue fixed</li>
+            </ul>
+          </div>
+        `,
+        side: 'top',
+        align: 'start'
+      }
+    },
+    // Community
+    getCommunityStep(),
+    // Completion
+    {
+      popover: {
+        title: '🎉 Complaints Tour Complete!',
+        description: `
+          <div>
+            <p>You now know how to submit and track complaints!</p>
+            <p style="margin-top: 12px; padding: 10px; background: #f0f9ff; border-radius: 6px; margin-bottom: 0;">
+              <strong>💡 Tip:</strong> Always provide detailed information for faster resolutions!
+            </p>
+          </div>
+        `
+      }
+    }
+  ];
+}
+
+/**
+ * Profile Page Tutorial Steps
+ */
+export function getProfileTutorialSteps(): DriveStep[] {
+  return [
+    // Welcome
+    {
+      popover: {
+        title: '⚙️ Welcome to Profile Settings',
+        description: `
+          <div>
+            <p>Manage your account information and preferences here. Let's explore!</p>
+          </div>
+        `
+      }
+    },
+    // Personal Info
+    {
+      element: '#personal-info',
+      popover: {
+        title: '👤 Personal Information',
+        description: `
+          <div>
+            <p>Update your personal details:</p>
+            <ul style="margin-top: 8px; margin-left: 16px; margin-bottom: 0;">
+              <li>Name and email</li>
+              <li>Phone number</li>
+              <li>Profile picture</li>
+            </ul>
+          </div>
+        `,
+        side: 'right',
+        align: 'start'
+      }
+    },
+    // Security
+    {
+      element: '#security-section',
+      popover: {
+        title: '🔒 Security Settings',
+        description: `
+          <div>
+            <p>Keep your account secure:</p>
+            <ul style="margin-top: 8px; margin-left: 16px; margin-bottom: 0;">
+              <li>Change password</li>
+              <li>Enable two-factor authentication</li>
+              <li>View login history</li>
+            </ul>
+          </div>
+        `,
+        side: 'right',
+        align: 'start'
+      }
+    },
+    // Community
+    getCommunityStep(),
+    // Completion
+    {
+      popover: {
+        title: '🎉 Profile Tour Complete!',
+        description: `
+          <div>
+            <p>You now know how to manage your account settings!</p>
+            <p style="margin-top: 12px; padding: 10px; background: #f0f9ff; border-radius: 6px; margin-bottom: 0;">
+              <strong>💡 Tip:</strong> Keep your information up to date for better service!
+            </p>
+          </div>
+        `
+      }
+    }
+  ];
+}
+
+/**
+ * Upgrade Page Tutorial Steps (Customer only)
+ */
+export function getUpgradeTutorialSteps(): DriveStep[] {
+  return [
+    // Welcome
+    {
+      popover: {
+        title: '🚀 Welcome to Agent Upgrade',
+        description: `
+          <div>
+            <p>Become an agent to unlock exclusive features! Let's see what's available.</p>
+          </div>
+        `
+      }
+    },
+    // Benefits
+    {
+      element: '#agent-benefits',
+      popover: {
+        title: '💎 Agent Benefits',
+        description: `
+          <div>
+            <p>Unlock powerful features:</p>
+            <ul style="margin-top: 8px; margin-left: 16px; margin-bottom: 0;">
+              <li>Quick wallet top-up options</li>
+              <li>Bulk order capabilities</li>
+              <li>Earn commissions on sales</li>
+              <li>Priority support</li>
+            </ul>
+          </div>
+        `,
+        side: 'bottom',
+        align: 'start'
+      }
+    },
+    // Pricing
+    {
+      element: '#pricing-plans',
+      popover: {
+        title: '💰 Pricing Plans',
+        description: `
+          <div>
+            <p>Choose a plan that fits your needs:</p>
+            <ul style="margin-top: 8px; margin-left: 16px; margin-bottom: 0;">
+              <li>Daily, weekly, or monthly plans</li>
+              <li>Flexible payment options</li>
+              <li>Cancel anytime</li>
+            </ul>
+          </div>
+        `,
+        side: 'top',
+        align: 'start'
+      }
+    },
+    // Community
+    getCommunityStep(),
+    // Completion
+    {
+      popover: {
+        title: '🎉 Upgrade Tour Complete!',
+        description: `
+          <div>
+            <p>You now know all about becoming an agent!</p>
+            <p style="margin-top: 12px; padding: 10px; background: #f0f9ff; border-radius: 6px; margin-bottom: 0;">
+              <strong>💡 Tip:</strong> Perfect for resellers and businesses!
             </p>
           </div>
         `

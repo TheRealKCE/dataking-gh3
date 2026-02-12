@@ -44,9 +44,9 @@ export default function DashboardPage() {
     const [isLoading, setIsLoading] = useState(true)
     const [currentTime, setCurrentTime] = useState(new Date())
 
-    // Tutorial hook
+    // Tutorial hook - page-specific
     const userRole = dbUser?.role === 'agent' ? 'agent' : 'customer'
-    const { hasSeenTutorial, startTutorial } = useTutorial(userRole as 'customer' | 'agent')
+    const { hasSeenTutorial, startTutorial } = useTutorial(userRole as 'customer' | 'agent', '/dashboard')
 
     // Real-time clock updater
     useEffect(() => {

@@ -14,6 +14,7 @@ interface HelpButtonProps {
  * 
  * Features:
  * - Clear text label with icon
+ * - Descriptive tooltip on hover
  * - Pulsing animation for visibility
  * - Professional badge design
  * - Accessible and mobile-friendly
@@ -23,8 +24,8 @@ export function HelpButton({ onClick, className = '' }: HelpButtonProps) {
         <Button
             onClick={onClick}
             className={`group relative flex items-center gap-2 bg-primary/10 hover:bg-primary/20 text-primary border-2 border-primary/30 hover:border-primary/50 px-4 py-2 rounded-full font-semibold transition-all duration-200 shadow-sm hover:shadow-md ${className}`}
-            aria-label="Start Interactive Tutorial"
-            title="Click to start or replay the interactive tutorial"
+            aria-label="Start Interactive Tutorial - Click to start a guided tour of this page and learn how to use all features step-by-step"
+            title="📚 Interactive Tutorial - Click to start a guided tour of this page and learn how to use all features step-by-step!"
         >
             {/* Pulsing ring animation */}
             <span className="absolute inset-0 rounded-full bg-primary/20 animate-ping opacity-75" style={{ animationDuration: '2s' }}></span>

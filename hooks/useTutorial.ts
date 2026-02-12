@@ -3,9 +3,16 @@
 import { useEffect, useState, useCallback } from 'react';
 import { driver, DriveStep } from 'driver.js';
 import 'driver.js/dist/driver.css';
-import { getCustomerTutorialSteps, getAgentTutorialSteps } from '@/lib/tutorial-steps';
+import {
+    getDashboardTutorialSteps,
+    getOrderHistoryTutorialSteps,
+    getComplaintsTutorialSteps,
+    getProfileTutorialSteps,
+    getUpgradeTutorialSteps
+} from '@/lib/tutorial-steps';
 
 type UserRole = 'customer' | 'agent';
+type PagePath = '/dashboard' | '/orders' | '/complaints' | '/profile' | '/upgrade' | string;
 
 interface UseTutorialReturn {
     hasSeenTutorial: boolean;
@@ -14,24 +21,24 @@ interface UseTutorialReturn {
 }
 
 /**
- * Tutorial Hook
- * Manages tutorial state and logic for customer and agent roles
+ * Page-Specific Tutorial Hook
+ * Manages tutorial state and logic for each page independently
  * 
  * Features:
- * - Auto-starts tutorial for first-time users (per role)
- * - Detects role upgrades and triggers agent tutorial
+ * - Page-aware tutorial steps
+ * - Auto-starts tutorial on first visit to each page
+ * - Separate tracking per page and role
  * - Provides manual replay functionality
- * - Tracks completion separately for customer and agent tutorials
  */
-export function useTutorial(userRole: UserRole): UseTutorialReturn {
+export function useTutorial(userRole: UserRole, currentPage: PagePath): UseTutorialReturn {
     const [hasSeenTutorial, setHasSeenTutorial] = useState(true); // Default true to prevent flash
     const TUTORIAL_VERSION = 'v1';
 
-    // Separate tracking keys for each role
-    const TUTORIAL_KEY = `tutorial_completed_${userRole}_${TUTORIAL_VERSION}`;
-    const PREVIOUS_ROLE_KEY = 'previous_user_role';
+    // Page-specific tracking key
+    const pageName = currentPage.replace('/', '') || 'dashboard';
+    const TUTORIAL_KEY = `tutorial_completed_${pageName}_${userRole}_${TUTORIAL_VERSION}`;
 
-    // Check if user has seen the tutorial for their current role
+    // Check if user has seen the tutorial for current page
     useEffect(() => {
         if (typeof window !== 'undefined') {
             const completed = localStorage.getItem(TUTORIAL_KEY) === 'true';
@@ -39,41 +46,34 @@ export function useTutorial(userRole: UserRole): UseTutorialReturn {
         }
     }, [TUTORIAL_KEY]);
 
-    // Detect role upgrades (customer -> agent) and auto-start agent tutorial
-    useEffect(() => {
-        if (typeof window !== 'undefined') {
-            const previousRole = localStorage.getItem(PREVIOUS_ROLE_KEY);
-            const currentRole = userRole;
-
-            // If role changed from customer to agent, trigger agent tutorial
-            if (previousRole === 'customer' && currentRole === 'agent') {
-                const hasSeenAgentTutorial = localStorage.getItem(`tutorial_completed_agent_${TUTORIAL_VERSION}`) === 'true';
-
-                // Only show if they haven't seen agent tutorial before
-                if (!hasSeenAgentTutorial) {
-                    // Delay to let dashboard load
-                    setTimeout(() => {
-                        startTutorial();
-                    }, 1500);
-                }
-            }
-
-            // Update stored role for next check
-            localStorage.setItem(PREVIOUS_ROLE_KEY, currentRole);
+    /**
+     * Get tutorial steps for current page
+     */
+    const getStepsForPage = useCallback((): DriveStep[] => {
+        switch (currentPage) {
+            case '/dashboard':
+                return getDashboardTutorialSteps(userRole);
+            case '/orders':
+                return getOrderHistoryTutorialSteps();
+            case '/complaints':
+                return getComplaintsTutorialSteps();
+            case '/profile':
+                return getProfileTutorialSteps();
+            case '/upgrade':
+                return getUpgradeTutorialSteps();
+            default:
+                // Default to dashboard steps if page not recognized
+                return getDashboardTutorialSteps(userRole);
         }
-    }, [userRole]);
+    }, [currentPage, userRole]);
 
     /**
-     * Start the tutorial
-     * Can be called manually for replay or automatically on first visit
+     * Start the tutorial for current page
      */
     const startTutorial = useCallback(() => {
         if (typeof window === 'undefined') return;
 
-        // Get role-specific steps
-        const steps: DriveStep[] = userRole === 'agent'
-            ? getAgentTutorialSteps()
-            : getCustomerTutorialSteps();
+        const steps = getStepsForPage();
 
         // Initialize Driver.js
         const driverObj = driver({
@@ -84,19 +84,14 @@ export function useTutorial(userRole: UserRole): UseTutorialReturn {
             prevBtnText: '← Previous',
             doneBtnText: 'Done ✓',
             progressText: '{{current}} of {{total}}',
-            overlayColor: 'rgba(0, 0, 0, 0.5)',
+            overlayColor: 'rgba(0, 0, 0, 0.6)',
             smoothScroll: true,
             animate: true,
             disableActiveInteraction: false,
             allowClose: true,
             onDestroyStarted: () => {
-                // When user completes or closes tutorial
-                if (driverObj.isLastStep() || driverObj.getActiveIndex() === steps.length - 1) {
-                    markTutorialComplete();
-                } else {
-                    // User skipped, still mark as seen
-                    markTutorialComplete();
-                }
+                // Mark as complete when user finishes or closes
+                markTutorialComplete();
                 driverObj.destroy();
             },
             onNextClick: () => {
@@ -109,11 +104,10 @@ export function useTutorial(userRole: UserRole): UseTutorialReturn {
 
         // Start the tour
         driverObj.drive();
-    }, [userRole]);
+    }, [getStepsForPage]);
 
     /**
-     * Mark tutorial as complete
-     * Saves completion state to localStorage
+     * Mark tutorial as complete for current page
      */
     const markTutorialComplete = useCallback(() => {
         if (typeof window !== 'undefined') {
