@@ -34,9 +34,16 @@ import {
 import { toast } from 'sonner'
 import { formatDate, cn } from '@/lib/utils'
 import { roleConfig, UserRole } from '@/lib/roles'
+import { useTutorial } from '@/hooks/useTutorial'
+import { HelpButton } from '@/components/tutorial/HelpButton'
 
 export default function ProfilePage() {
     const { dbUser, signOut, refreshUser } = useAuth()
+
+    // Tutorial hook
+    const userRole = dbUser?.role === 'agent' ? 'agent' : 'customer'
+    const { startTutorial } = useTutorial(userRole as 'customer' | 'agent', '/profile')
+
     const [isEditing, setIsEditing] = useState(false)
     const [isSaving, setIsSaving] = useState(false)
     const [formData, setFormData] = useState({
@@ -193,10 +200,13 @@ export default function ProfilePage() {
 
     return (
         <div className="space-y-6 max-w-3xl scroll-smooth">
-            <h1 className="text-2xl font-bold">My Profile</h1>
+            <div className="flex items-center justify-between">
+                <h1 className="text-2xl font-bold">My Profile</h1>
+                <HelpButton onClick={startTutorial} />
+            </div>
 
             {/* Profile Card */}
-            <Card className={cn(
+            <Card id="personal-info" className={cn(
                 dbUser?.role === 'agent' && "bg-gradient-to-br from-yellow-400 via-amber-500 to-yellow-600 border-yellow-600/30"
             )}>
                 <CardHeader>
@@ -394,7 +404,7 @@ export default function ProfilePage() {
             </Card>
 
             {/* Security Card */}
-            <Card className={cn(
+            <Card id="security-section" className={cn(
                 dbUser?.role === 'agent' && "bg-gradient-to-br from-yellow-400 via-amber-500 to-yellow-600 border-yellow-600/30"
             )}>
                 <CardHeader>

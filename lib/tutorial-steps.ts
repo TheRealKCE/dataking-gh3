@@ -265,43 +265,7 @@ export function getComplaintsTutorialSteps(): DriveStep[] {
         `
       }
     },
-    // Submit Button
-    {
-      element: '#submit-complaint-btn',
-      popover: {
-        title: '📝 Submit New Complaint',
-        description: `
-          <div>
-            <p>Click here to submit a new complaint about an order or service issue.</p>
-          </div>
-        `,
-        side: 'bottom',
-        align: 'start'
-      }
-    },
-    // Complaint Form
-    {
-      element: '#complaint-form',
-      popover: {
-        title: '✍️ Complaint Form',
-        description: `
-          <div>
-            <p>Fill in all required fields for faster resolution:</p>
-            <ul style="margin-top: 8px; margin-left: 16px; margin-bottom: 4px;">
-              <li>Phone number</li>
-              <li>Network provider</li>
-              <li>Detailed issue description</li>
-              <li>When the issue occurred</li>
-            </ul>
-            <p style="margin-top: 8px; font-weight: 600; color: #17a2b8;">
-              Good complaints = faster support! ⚡
-            </p>
-          </div>
-        `,
-        side: 'right',
-        align: 'start'
-      }
-    },
+
     // Complaint History
     {
       element: '#complaint-history',

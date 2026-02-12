@@ -9,6 +9,8 @@ import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { MessageSquare, Clock, CheckCircle2, XCircle, AlertCircle } from 'lucide-react'
 import { Complaint } from '@/types/supabase'
+import { useTutorial } from '@/hooks/useTutorial'
+import { HelpButton } from '@/components/tutorial/HelpButton'
 
 interface ComplaintWithOrder extends Complaint {
     orders?: {
@@ -23,6 +25,11 @@ interface ComplaintWithOrder extends Complaint {
 
 export default function ComplaintsPage() {
     const { dbUser } = useAuth()
+
+    // Tutorial hook
+    const userRole = dbUser?.role === 'agent' ? 'agent' : 'customer'
+    const { startTutorial } = useTutorial(userRole as 'customer' | 'agent', '/complaints')
+
     const [complaints, setComplaints] = useState<ComplaintWithOrder[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [stats, setStats] = useState({
@@ -151,7 +158,10 @@ export default function ComplaintsPage() {
 
     return (
         <div className="space-y-6">
-            <h1 className="text-2xl font-bold">Complaints Management</h1>
+            <div className="flex items-center justify-between">
+                <h1 className="text-2xl font-bold">Complaints Management</h1>
+                <HelpButton onClick={startTutorial} />
+            </div>
 
             {/* Stats */}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
@@ -211,7 +221,7 @@ export default function ComplaintsPage() {
                     </p>
                 </Card>
             ) : (
-                <div className="space-y-4">
+                <div id="complaint-history" className="space-y-4">
                     {complaints.map((complaint) => (
                         <Card key={complaint.id}>
                             <CardContent className="p-6">

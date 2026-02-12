@@ -11,11 +11,17 @@ import { formatCurrency } from '@/lib/utils'
 import { toast } from 'sonner'
 import CongratsModal from '@/components/upgrade/CongratsModal'
 import { cn } from '@/lib/utils'
+import { useTutorial } from '@/hooks/useTutorial'
+import { HelpButton } from '@/components/tutorial/HelpButton'
 
 export default function UpgradePage() {
     const { dbUser, refreshUser } = useAuth()
     const router = useRouter()
     const searchParams = useSearchParams()
+
+    // Tutorial hook
+    const userRole = dbUser?.role === 'agent' ? 'agent' : 'customer'
+    const { startTutorial } = useTutorial(userRole as 'customer' | 'agent', '/upgrade')
 
     // Congrats modal state
     const [showCongrats, setShowCongrats] = useState(false)
@@ -271,7 +277,12 @@ export default function UpgradePage() {
                 <div className="relative z-10 w-full max-w-6xl flex flex-col items-center">
 
                     {/* Header Section */}
-                    <div className="text-center mb-8 sm:mb-12 space-y-3 sm:space-y-4">
+                    <div className="text-center mb-8 sm:mb-12 space-y-3 sm:space-y-4 relative w-full">
+                        {/* Help Button - Absolute positioning top right of header section */}
+                        <div className="absolute top-0 right-0 z-20">
+                            <HelpButton onClick={startTutorial} />
+                        </div>
+
                         <div className="mb-4 sm:mb-6 flex justify-center">
                             <div className="relative">
                                 <Crown className="w-20 h-20 sm:w-28 sm:h-28 text-black animate-[bounce_2s_infinite] drop-shadow-xl" />
@@ -309,7 +320,7 @@ export default function UpgradePage() {
                             </div>
                         )}
 
-                        <p className="text-sm sm:text-base lg:text-lg text-white font-black max-w-3xl mx-auto px-4 drop-shadow-sm">
+                        <p id="agent-benefits" className="text-sm sm:text-base lg:text-lg text-white font-black max-w-3xl mx-auto px-4 drop-shadow-sm">
                             {dbUser?.role === 'agent'
                                 ? "Renew/Extend Your Subscription to Continue Enjoying Your Existing Features and Benefits"
                                 : "Unlock the New Premium Membership (Agent Role) for Exciting Features to Grow your Business. Choose from the Plans below (Each plan has same features)."}
@@ -317,7 +328,7 @@ export default function UpgradePage() {
                     </div>
 
                     {/* Plans Grid */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-5 lg:gap-6 mb-12 w-full max-w-5xl items-stretch">
+                    <div id="pricing-plans" className="grid grid-cols-1 md:grid-cols-3 gap-5 lg:gap-6 mb-12 w-full max-w-5xl items-stretch">
                         {tiers.map((tier) => (
                             <div
                                 key={tier.id}

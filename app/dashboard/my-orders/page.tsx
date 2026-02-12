@@ -36,6 +36,8 @@ import {
 import { toast } from 'sonner'
 import { Order, DataPackage, Complaint } from '@/types/supabase'
 import { format, differenceInHours } from 'date-fns'
+import { useTutorial } from '@/hooks/useTutorial'
+import { HelpButton } from '@/components/tutorial/HelpButton'
 
 interface OrderWithComplaints extends Order {
     complaints?: Complaint[]
@@ -48,6 +50,10 @@ const TIME_PERIODS = ['Today', 'Yesterday', 'This Week', 'This Month', 'Custom']
 export default function MyOrdersPage() {
     const { dbUser } = useAuth()
     const [orders, setOrders] = useState<OrderWithComplaints[]>([])
+
+    // Tutorial hook
+    const userRole = dbUser?.role === 'agent' ? 'agent' : 'customer'
+    const { startTutorial } = useTutorial(userRole as 'customer' | 'agent', '/orders')
     const [isLoading, setIsLoading] = useState(true)
     const [searchQuery, setSearchQuery] = useState('')
     const [networkFilter, setNetworkFilter] = useState('All')
@@ -290,9 +296,13 @@ export default function MyOrdersPage() {
     return (
         <div className="space-y-6 pb-8">
             {/* Header */}
-            <div className="text-center space-y-1">
+            <div className="text-center space-y-1 relative">
                 <h1 className="text-2xl font-bold">My Order History</h1>
                 <p className="text-sm text-muted-foreground">View and manage your order transactions</p>
+                {/* Help Button */}
+                <div className="absolute top-0 right-0">
+                    <HelpButton onClick={startTutorial} />
+                </div>
             </div>
 
             {/* Summary Stats - Yellow/Gold Theme */}
@@ -342,7 +352,7 @@ export default function MyOrdersPage() {
 
 
             {/* Filters */}
-            <div className="space-y-4">
+            <div id="order-filters" className="space-y-4">
                 {/* Search by Phone */}
                 <div className="space-y-2">
                     <Label className="text-sm font-medium">Search by Phone</Label>
@@ -393,7 +403,7 @@ export default function MyOrdersPage() {
             </div>
 
             {/* Order Cards */}
-            <div className="space-y-4">
+            <div id="orders-table" className="space-y-4">
                 {filteredOrders.length === 0 ? (
                     <Card className="shadow-md dark:shadow-gray-900/50">
                         <CardContent className="py-12 text-center">
@@ -449,6 +459,7 @@ export default function MyOrdersPage() {
                                     ) : (
                                         order.status === 'completed' && isWithin48Hours(order.created_at) && (
                                             <Button
+                                                id="complaint-button"
                                                 size="sm"
                                                 variant="outline"
                                                 onClick={() => handleComplaint(order)}
