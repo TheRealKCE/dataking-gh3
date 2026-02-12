@@ -1,6 +1,6 @@
 'use client';
 
-import { HelpCircle } from 'lucide-react';
+import { HelpCircle, GraduationCap } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 
 interface HelpButtonProps {
@@ -10,24 +10,35 @@ interface HelpButtonProps {
 
 /**
  * Help Button Component
- * Provides a button to replay the interactive tutorial
+ * Professional badge-style button to replay the interactive tutorial
  * 
  * Features:
- * - Question mark icon with native tooltip
+ * - Clear text label with icon
+ * - Pulsing animation for visibility
+ * - Professional badge design
  * - Accessible and mobile-friendly
- * - Consistent with app design
  */
 export function HelpButton({ onClick, className = '' }: HelpButtonProps) {
     return (
         <Button
-            variant="ghost"
-            size="icon"
             onClick={onClick}
-            className={`relative hover:bg-primary/10 ${className}`}
-            aria-label="Replay Tutorial"
-            title="Replay Tutorial"
+            className={`group relative flex items-center gap-2 bg-primary/10 hover:bg-primary/20 text-primary border-2 border-primary/30 hover:border-primary/50 px-4 py-2 rounded-full font-semibold transition-all duration-200 shadow-sm hover:shadow-md ${className}`}
+            aria-label="Start Interactive Tutorial"
+            title="Click to start or replay the interactive tutorial"
         >
-            <HelpCircle className="h-5 w-5 text-primary" />
+            {/* Pulsing ring animation */}
+            <span className="absolute inset-0 rounded-full bg-primary/20 animate-ping opacity-75" style={{ animationDuration: '2s' }}></span>
+
+            {/* Icon */}
+            <GraduationCap className="h-5 w-5 relative z-10" />
+
+            {/* Text label */}
+            <span className="relative z-10 text-sm font-bold hidden sm:inline">
+                Tutorial
+            </span>
+
+            {/* Mobile-only icon */}
+            <HelpCircle className="h-4 w-4 relative z-10 sm:hidden" />
         </Button>
     );
 }
