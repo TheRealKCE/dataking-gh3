@@ -16,7 +16,7 @@ export async function POST(request: NextRequest) {
         // Check if user is admin
         const { data: userData } = await supabaseUserClient
             .from('users')
-            .select('role')
+            .select('role, first_name')
             .eq('id', session.user.id)
             .single()
 
@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
         const { data: batch, error: batchError } = await (supabase
             .from('download_batches') as any)
             .insert({
-                filename: filename || `ghdata_orders_${new Date().toISOString()}.xlsx`,
+                filename: filename || `ghdata_${userData?.first_name || 'Admin'}_${new Date().toISOString()}.xlsx`,
                 network: network || 'Multiple',
                 order_count: orderIds.length,
                 idempotency_key: idempotencyKey

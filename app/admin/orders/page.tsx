@@ -163,21 +163,40 @@ export default function AdminOrdersPage() {
 
     const fetchBatches = async (pageToFetch: number, isNewFilter = false, force = false) => {
         let startDate = null
+        let endDate = null
         const today = new Date()
 
         if (historyFilter === 'today') {
             startDate = new Date(today.getFullYear(), today.getMonth(), today.getDate()).toISOString()
         } else if (historyFilter === 'yesterday') {
-            startDate = new Date(today.getTime() - 24 * 60 * 60 * 1000).toISOString()
+            // Start of yesterday
+            const yStart = new Date(today.getFullYear(), today.getMonth(), today.getDate() - 1)
+            // End of yesterday (Start of today)
+            const yEnd = new Date(today.getFullYear(), today.getMonth(), today.getDate())
+
+            startDate = yStart.toISOString()
+            endDate = yEnd.toISOString()
         } else if (historyFilter === 'last7days') {
             startDate = new Date(today.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
         } else if (historyFilter === 'custom' && customStart) {
             startDate = new Date(customStart).toISOString()
+            if (customEnd) {
+                // Set to end of the day
+                const end = new Date(customEnd)
+                end.setHours(23, 59, 59, 999)
+                endDate = end.toISOString()
+            }
         }
 
         const offset = pageToFetch * BATCHES_PER_PAGE
         let url = `/api/admin/batches?limit=${BATCHES_PER_PAGE}&offset=${offset}&network=${historyNetworkFilter}`
         if (startDate) url += `&startDate=${startDate}`
+        if (endDate) url += `&endDate=${endDate}`
+
+        // Add search term if active tab is downloaded
+        if (activeTab === 'downloaded' && debouncedSearch) {
+            url += `&search=${encodeURIComponent(debouncedSearch)}`
+        }
 
         // Cache Check
         const cacheKey = `${url}_${isNewFilter}`
@@ -724,7 +743,14 @@ export default function AdminOrdersPage() {
                         <CardTitle className="text-sm font-medium truncate" title={batch.filename}>
                             {batch.filename}
                         </CardTitle>
-                        <Badge variant="outline" className="w-fit mt-1">{displayNetwork}</Badge>
+                        <div className="flex gap-2 mt-1">
+                            <Badge variant="outline" className="w-fit">{displayNetwork}</Badge>
+                            {batch.filename.includes('ghdata_') && !batch.filename.includes('ghdata_orders_') && (
+                                <Badge variant="secondary" className="w-fit text-[10px] bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400 border-purple-200">
+                                    Only {batch.filename.split('_')[1]}
+                                </Badge>
+                            )}
+                        </div>
                     </div>
                     <FileText className="w-8 h-8 text-blue-100 dark:text-blue-900 flex-shrink-0" />
                 </CardHeader>
@@ -1073,7 +1099,16 @@ export default function AdminOrdersPage() {
                 </TabsContent>
 
                 <TabsContent value="downloaded" className="space-y-4">
-                    <div className="flex flex-col md:flex-row gap-4">
+                    <div className="flex flex-col md:flex-row gap-4 justify-between">
+                        <div className="relative flex-1 max-w-sm">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                            <Input
+                                placeholder="Search batches by phone, ref..."
+                                value={searchTerm}
+                                onChange={(e) => setSearchTerm(e.target.value)}
+                                className="pl-9 bg-secondary/50 border-0 focus-visible:ring-1 focus-visible:ring-purple-500 transition-all rounded-xl"
+                            />
+                        </div>
                         <div className="flex flex-wrap gap-1.5 pt-1">
                             {['All', 'MTN', 'Telecel', 'AT-iShare', 'AT-BigTime'].map((network) => (
                                 <Button
