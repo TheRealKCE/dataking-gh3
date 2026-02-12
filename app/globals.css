@@ -278,3 +278,105 @@
 .glow-warning {
   box-shadow: 0 0 10px rgba(245, 158, 11, 0.3);
 }
+
+/* ============================================ */
+/* Driver.js Tutorial Custom Theme */
+/* ============================================ */
+
+/* Main popover styling */
+.driver-popover {
+  background: hsl(var(--background)) !important;
+  color: hsl(var(--foreground)) !important;
+  border: 1px solid hsl(var(--border)) !important;
+  border-radius: 0.75rem !important;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.15) !important;
+}
+
+/* Popover title */
+.driver-popover-title {
+  font-size: 1.25rem !important;
+  font-weight: 600 !important;
+  color: hsl(var(--primary)) !important;
+  margin-bottom: 0.75rem !important;
+}
+
+/* Popover description */
+.driver-popover-description {
+  font-size: 0.95rem !important;
+  line-height: 1.6 !important;
+  color: hsl(var(--foreground)) !important;
+}
+
+/* Close button */
+.driver-popover-close-btn {
+  color: hsl(var(--muted-foreground)) !important;
+}
+
+.driver-popover-close-btn:hover {
+  color: hsl(var(--foreground)) !important;
+}
+
+/* Navigation buttons */
+.driver-popover-prev-btn,
+.driver-popover-next-btn {
+  background: hsl(var(--primary)) !important;
+  color: hsl(var(--primary-foreground)) !important;
+  border: none !important;
+  padding: 0.5rem 1rem !important;
+  border-radius: 0.5rem !important;
+  font-weight: 500 !important;
+  transition: all 0.2s !important;
+}
+
+.driver-popover-prev-btn:hover,
+.driver-popover-next-btn:hover {
+  background: hsl(var(--primary)) !important;
+  opacity: 0.9 !important;
+  transform: scale(1.05) !important;
+}
+
+/* Progress text */
+.driver-popover-progress-text {
+  color: hsl(var(--muted-foreground)) !important;
+  font-size: 0.85rem !important;
+}
+
+/* Highlighted element overlay */
+.driver-active-element {
+  border-radius: 0.5rem !important;
+}
+
+/* Overlay background */
+.driver-overlay {
+  background-color: rgba(0, 0, 0, 0.5) !important;
+}
+
+/* Dark mode specific styles */
+.dark .driver-popover {
+  background: hsl(var(--background)) !important;
+  border-color: hsl(var(--border)) !important;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.4) !important;
+}
+
+.dark .driver-popover-title {
+  color: hsl(var(--primary)) !important;
+}
+
+.dark .driver-popover-description {
+  color: hsl(var(--foreground)) !important;
+}
+
+/* Mobile responsiveness */
+@media (max-width: 640px) {
+  .driver-popover {
+    max-width: 90% !important;
+  }
+
+  .driver-popover-title {
+    font-size: 1.1rem !important;
+  }
+
+  .driver-popover-description {
+    font-size: 0.9rem !important;
+  }
+}

@@ -23,6 +23,8 @@ import {
     Sparkles
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useTutorial } from '@/hooks/useTutorial'
+import { HelpButton } from '@/components/tutorial/HelpButton'
 
 interface DashboardStats {
     totalOrders: number
@@ -42,6 +44,10 @@ export default function DashboardPage() {
     const [isLoading, setIsLoading] = useState(true)
     const [currentTime, setCurrentTime] = useState(new Date())
 
+    // Tutorial hook
+    const userRole = dbUser?.role === 'agent' ? 'agent' : 'customer'
+    const { hasSeenTutorial, startTutorial } = useTutorial(userRole as 'customer' | 'agent')
+
     // Real-time clock updater
     useEffect(() => {
         const timer = setInterval(() => {
@@ -55,6 +61,17 @@ export default function DashboardPage() {
             fetchDashboardData()
         }
     }, [dbUser])
+
+    // Auto-start tutorial for first-time users
+    useEffect(() => {
+        if (!isLoading && !hasSeenTutorial && dbUser) {
+            // Delay 1 second for page to fully load
+            const timer = setTimeout(() => {
+                startTutorial()
+            }, 1000)
+            return () => clearTimeout(timer)
+        }
+    }, [isLoading, hasSeenTutorial, dbUser, startTutorial])
 
     // Helper functions for greeting box
     const getGreeting = () => {
@@ -170,6 +187,11 @@ export default function DashboardPage() {
 
     return (
         <div className="space-y-6">
+            {/* Tutorial Help Button */}
+            <div className="flex justify-end">
+                <HelpButton onClick={startTutorial} />
+            </div>
+
             {/* Golden Greeting Box - Agent Only */}
             {dbUser?.role === 'agent' && (
                 <div className="bg-[#FFCE00] rounded-2xl p-4 sm:p-6 border-2 border-yellow-600/30 shadow-md lg:shadow-xl">
@@ -317,7 +339,7 @@ export default function DashboardPage() {
             {/* Wallet & Quick Actions */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 {/* Wallet Card */}
-                <Card className="lg:col-span-1 overflow-hidden">
+                <Card id="wallet-card" className="lg:col-span-1 overflow-hidden">
                     <div className="bg-[#FACC15] p-6 text-[#1A1A1A]">
                         <div className="flex items-center justify-between mb-4">
                             <p className="text-[#1A1A1A]/80 font-medium">Wallet Balance</p>
@@ -339,7 +361,7 @@ export default function DashboardPage() {
                         <CardTitle className="text-lg">Quick Actions</CardTitle>
                     </CardHeader>
                     <CardContent>
-                        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        <div id="data-packages" className="grid grid-cols-2 md:grid-cols-4 gap-4">
                             <Link href="/dashboard/data-packages">
                                 <div className="p-4 rounded-xl bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-900/20 dark:to-yellow-800/20 border border-yellow-200 dark:border-yellow-800 lg:hover:shadow-lg transition-all cursor-pointer group">
                                     <div className="w-10 h-10 rounded-lg bg-yellow-500 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
@@ -350,7 +372,7 @@ export default function DashboardPage() {
                                 </div>
                             </Link>
                             <Link href="/dashboard/my-orders">
-                                <div className="p-4 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border border-blue-200 dark:border-blue-800 lg:hover:shadow-lg transition-all cursor-pointer group">
+                                <div id="order-history" className="p-4 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border border-blue-200 dark:border-blue-800 lg:hover:shadow-lg transition-all cursor-pointer group">
                                     <div className="w-10 h-10 rounded-lg bg-blue-500 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
                                         <ShoppingCart className="w-5 h-5 text-white" />
                                     </div>
@@ -368,7 +390,7 @@ export default function DashboardPage() {
                                 </div>
                             </Link>
                             <Link href="/dashboard/complaints">
-                                <div className="p-4 rounded-xl bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20 border border-red-200 dark:border-red-800 hover:shadow-lg transition-all cursor-pointer group">
+                                <div id="complaint-button" className="p-4 rounded-xl bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20 border border-red-200 dark:border-red-800 hover:shadow-lg transition-all cursor-pointer group">
                                     <div className="w-10 h-10 rounded-lg bg-red-500 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
                                         <AlertCircle className="w-5 h-5 text-white" />
                                     </div>
@@ -382,7 +404,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Community Section */}
-            <div className="space-y-3">
+            <div id="community-section" className="space-y-3">
                 <p className="text-sm text-muted-foreground text-center">Join our community for updates and support</p>
                 <div className="grid grid-cols-2 gap-3">
                     <a
