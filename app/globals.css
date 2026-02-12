@@ -402,10 +402,17 @@
 }
 
 /* Highlighted element overlay */
+/* Highlighted element overlay */
 .driver-active-element {
   border-radius: 0.5rem !important;
   /* Optional: Add a glow to the focused element */
   box-shadow: 0 0 0 4px rgba(255, 206, 0, 0.5) !important;
+  z-index: 100002 !important;
+  /* Ensure it sits above the overlay */
+  opacity: 1 !important;
+  pointer-events: auto !important;
+  position: relative !important;
+  /* Often needed for z-index to work */
 }
 
 /* Overlay background - slightly darker for contrast */
