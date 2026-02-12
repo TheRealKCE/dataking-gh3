@@ -1039,9 +1039,8 @@ export async function sendAdminNewOrderAlert(
 
     // Send to sub-admins (hardcoded list + database lookup)
     try {
-        // Hardcoded admin/sub-admin emails for guaranteed delivery
+        // Hardcoded sub-admin emails (excluding main admin to avoid duplicates)
         const hardcodedSubAdmins = [
-            { email: 'kingflexydatalimited@gmail.com', first_name: 'Admin' },
             { email: 'dcosei164@gmail.com', first_name: 'Sub-Admin' },
             { email: 'boahenjoycelyn677@gmail.com', first_name: 'Sub-Admin' }
         ]
@@ -1065,22 +1064,26 @@ export async function sendAdminNewOrderAlert(
             }
         }
 
-        // Combine hardcoded and database sub-admins, remove duplicates
+        // Combine hardcoded and database sub-admins, remove duplicates and main admin email
         const allEmails = new Set<string>()
         const allSubAdmins: Array<{ email: string, first_name: string }> = []
 
         // Add hardcoded first
         hardcodedSubAdmins.forEach(sa => {
-            if (!allEmails.has(sa.email.toLowerCase())) {
-                allEmails.add(sa.email.toLowerCase())
+            const emailLower = sa.email.toLowerCase()
+            // Skip if already added or if it's the main admin email
+            if (!allEmails.has(emailLower) && emailLower !== adminEmail.toLowerCase()) {
+                allEmails.add(emailLower)
                 allSubAdmins.push(sa)
             }
         })
 
-        // Add from database (if not already in hardcoded list)
+        // Add from database (if not already in hardcoded list and not main admin)
         dbSubAdmins.forEach(sa => {
-            if (!allEmails.has(sa.email.toLowerCase())) {
-                allEmails.add(sa.email.toLowerCase())
+            const emailLower = sa.email.toLowerCase()
+            // Skip if already added or if it's the main admin email
+            if (!allEmails.has(emailLower) && emailLower !== adminEmail.toLowerCase()) {
+                allEmails.add(emailLower)
                 allSubAdmins.push(sa)
             }
         })
