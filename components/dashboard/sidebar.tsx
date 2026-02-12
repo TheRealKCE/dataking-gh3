@@ -39,6 +39,7 @@ const userNavItems = [
     { href: '/dashboard/data-packages', label: 'Data Packages', icon: Package },
     { href: '/dashboard/my-orders', label: 'Orders', icon: ShoppingCart },
     { href: '/dashboard/wallet', label: 'Wallet', icon: Wallet },
+    { href: '/dashboard/afa-orders', label: 'AFA Application', icon: BadgeCheck },
     { href: '/dashboard/complaints', label: 'Complaints', icon: MessageSquare },
     { href: '/dashboard/notifications', label: 'Notifications', icon: Bell },
     { href: '/dashboard/profile', label: 'Profile', icon: User },
@@ -47,6 +48,7 @@ const userNavItems = [
 const adminNavItems = [
     { href: '/admin', label: 'Dashboard', icon: Shield },
     { href: '/admin/orders', label: 'Orders', icon: ShoppingCart },
+    { href: '/admin/afa-management', label: 'AFA Management', icon: BadgeCheck },
     { href: '/admin/memberships', label: 'Agent Members', icon: Crown },
     { href: '/admin/users', label: 'Users', icon: Users },
     { href: '/admin/packages', label: 'Packages', icon: Package },
