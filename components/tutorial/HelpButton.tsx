@@ -57,13 +57,13 @@ export function HelpButton({ onClick, className = '' }: HelpButtonProps) {
             {/* Mobile-only icon */}
             <HelpCircle className="h-4 w-4 relative z-10 sm:hidden" />
 
-            {/* Tooltip - Positioned ABOVE and LEFT to prevent overflow */}
-            <div className={`absolute bottom-full left-0 mb-3 w-48 sm:w-56 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-xl transition-all duration-300 z-50 pointer-events-none transform text-left leading-relaxed border border-gray-700 ${showTooltip || false ? 'opacity-100 visible -translate-y-0' : 'opacity-0 invisible translate-y-2'
+            {/* Tooltip - Positioned ABOVE and RIGHT to prevent overflow */}
+            <div className={`absolute bottom-full right-0 mb-3 w-44 sm:w-56 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-xl transition-all duration-300 z-50 pointer-events-none transform text-left leading-relaxed border border-gray-700 ${showTooltip || false ? 'opacity-100 visible -translate-y-0' : 'opacity-0 invisible translate-y-2'
                 } group-hover:opacity-100 group-hover:visible group-hover:-translate-y-0`}>
                 <div className="font-bold mb-1 text-yellow-400">Interactive Guide</div>
                 Click to start a step-by-step tour of the features on this page.
                 {/* Arrow pointing DOWN since tooltip is above */}
-                <div className="absolute -bottom-1 left-6 w-2 h-2 bg-gray-900 transform rotate-45 border-r border-b border-gray-700"></div>
+                <div className="absolute -bottom-1 right-6 w-2 h-2 bg-gray-900 transform rotate-45 border-r border-b border-gray-700"></div>
             </div>
         </Button>
     );
