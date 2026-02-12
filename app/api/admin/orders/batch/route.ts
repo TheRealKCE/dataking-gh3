@@ -69,10 +69,17 @@ export async function POST(request: NextRequest) {
         }
 
         // 2. Create batch record
+        // Generate filename with admin name
+        const adminName = userData?.first_name?.trim() || 'Admin'
+        const timestamp = new Date().toISOString().replace(/[:.]/g, '-').replace('Z', '')
+        const generatedFilename = `ghdata_${adminName}_${timestamp}.xlsx`
+
+        console.log('[BatchCreate] Generating filename:', { adminName, generatedFilename, receivedFilename: filename })
+
         const { data: batch, error: batchError } = await (supabase
             .from('download_batches') as any)
             .insert({
-                filename: filename || `ghdata_${userData?.first_name || 'Admin'}_${new Date().toISOString()}.xlsx`,
+                filename: generatedFilename, // Always use generated filename with admin name
                 network: network || 'Multiple',
                 order_count: orderIds.length,
                 idempotency_key: idempotencyKey
