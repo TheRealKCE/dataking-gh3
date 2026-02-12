@@ -31,10 +31,58 @@ export default function AFAOrdersPage() {
     })
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [applicationStatus, setApplicationStatus] = useState<string | null>(null)
+    const [applicationPrice, setApplicationPrice] = useState(0)
+    const [walletBalance, setWalletBalance] = useState(0)
+    const [loadingPrice, setLoadingPrice] = useState(true)
 
     useEffect(() => {
         checkExistingApplication()
+        fetchApplicationPrice()
+        fetchWalletBalance()
     }, [dbUser])
+
+    const fetchApplicationPrice = async () => {
+        try {
+            const { data, error } = await supabase
+                .from('admin_settings')
+                .select('key, value')
+                .in('key', ['afa_price_customer', 'afa_price_agent'])
+
+            if (error) throw error
+
+            const settings = data?.reduce((acc: any, curr: any) => {
+                acc[curr.key] = curr.value
+                return acc
+            }, {})
+
+            const userRole = dbUser?.role || 'customer'
+            const price = userRole === 'agent'
+                ? parseFloat(settings?.afa_price_agent || '10')
+                : parseFloat(settings?.afa_price_customer || '10')
+
+            setApplicationPrice(price)
+        } catch (error) {
+            console.error('Error fetching AFA price:', error)
+            setApplicationPrice(15) // Default fallback
+        } finally {
+            setLoadingPrice(false)
+        }
+    }
+
+    const fetchWalletBalance = async () => {
+        if (!dbUser?.id) return
+        try {
+            const { data } = await supabase
+                .from('wallets')
+                .select('balance')
+                .eq('user_id', dbUser.id)
+                .single()
+
+            if (data) setWalletBalance(data.balance || 0)
+        } catch (error) {
+            console.error('Error fetching wallet balance:', error)
+        }
+    }
 
     const checkExistingApplication = async () => {
         if (!dbUser) return
@@ -54,17 +102,81 @@ export default function AFAOrdersPage() {
         setIsSubmitting(true)
 
         try {
+            // Check wallet balance
+            if (walletBalance < applicationPrice) {
+                toast.error(`Insufficient balance. You need GHS ${applicationPrice.toFixed(2)} but have GHS ${walletBalance.toFixed(2)}`)
+                setIsSubmitting(false)
+                return
+            }
+
+            // Get user's wallet
+            const { data: wallet, error: walletError } = await supabase
+                .from('wallets')
+                .select('*')
+                .eq('user_id', dbUser?.id)
+                .single()
+
+            if (walletError || !wallet) {
+                toast.error('Failed to access wallet')
+                setIsSubmitting(false)
+                return
+            }
+
+            // Deduct payment from wallet
+            const newBalance = (wallet as any).balance - applicationPrice
+            const { error: debitError } = await supabase
+                .from('wallets')
+                .update({
+                    balance: newBalance,
+                    total_spent: ((wallet as any).total_spent || 0) + applicationPrice,
+                    updated_at: new Date().toISOString()
+                })
+                .eq('id', (wallet as any).id)
+
+            if (debitError) {
+                toast.error('Failed to process payment')
+                setIsSubmitting(false)
+                return
+            }
+
+            // Create wallet transaction
+            await supabase.from('wallet_transactions').insert({
+                wallet_id: (wallet as any).id,
+                user_id: dbUser?.id,
+                type: 'debit',
+                amount: applicationPrice,
+                description: `AFA Application Fee`,
+                source: 'afa_application',
+                status: 'completed'
+            })
+
+            // Submit application
             const { error } = await (supabase.from('afa_orders') as any).insert({
                 user_id: dbUser?.id,
                 ...formData,
-                status: 'pending'
+                status: 'pending',
+                payment_amount: applicationPrice
             })
 
-            if (error) throw error
+            if (error) {
+                // Rollback wallet deduction if application insert fails
+                await supabase
+                    .from('wallets')
+                    .update({
+                        balance: (wallet as any).balance,
+                        total_spent: (wallet as any).total_spent,
+                        updated_at: new Date().toISOString()
+                    })
+                    .eq('id', (wallet as any).id)
+
+                throw error
+            }
 
             toast.success('Application submitted successfully!')
             setApplicationStatus('pending')
+            setWalletBalance(newBalance)
         } catch (error) {
+            console.error('Error submitting application:', error)
             toast.error('Failed to submit application')
         } finally {
             setIsSubmitting(false)
@@ -110,6 +222,45 @@ export default function AFAOrdersPage() {
                     Apply to become an Authorized Field Agent (AFA) and earn commissions
                 </p>
             </div>
+
+            {/* Price and Balance Card */}
+            {loadingPrice ? (
+                <Card>
+                    <CardContent className="p-6 flex items-center justify-center">
+                        <Loader2 className="w-6 h-6 animate-spin" />
+                    </CardContent>
+                </Card>
+            ) : (
+                <Card className="bg-gradient-to-br from-yellow-50 to-amber-50 dark:from-yellow-900/20 dark:to-amber-900/20 border-yellow-200 dark:border-yellow-800">
+                    <CardContent className="p-6">
+                        <div className="grid grid-cols-2 gap-4">
+                            <div>
+                                <p className="text-sm text-muted-foreground mb-1">Application Fee</p>
+                                <p className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
+                                    GHS {applicationPrice.toFixed(2)}
+                                </p>
+                            </div>
+                            <div>
+                                <p className="text-sm text-muted-foreground mb-1">Your Balance</p>
+                                <p className={`text-2xl font-bold ${walletBalance >= applicationPrice ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                                    GHS {walletBalance.toFixed(2)}
+                                </p>
+                            </div>
+                        </div>
+                        {walletBalance < applicationPrice ? (
+                            <Alert className="mt-4 bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800">
+                                <AlertDescription className="text-sm text-red-800 dark:text-red-300">
+                                    ⚠️ Insufficient balance. Please top up your wallet to proceed with the application.
+                                </AlertDescription>
+                            </Alert>
+                        ) : (
+                            <p className="text-sm text-muted-foreground mt-4">
+                                ✓ Balance after payment: <span className="font-semibold">GHS {(walletBalance - applicationPrice).toFixed(2)}</span>
+                            </p>
+                        )}
+                    </CardContent>
+                </Card>
+            )}
 
             <Card>
                 <CardHeader>
@@ -195,18 +346,24 @@ export default function AFAOrdersPage() {
 
                         <Alert className="bg-blue-50 dark:bg-blue-900/10 border-blue-200">
                             <AlertDescription className="text-sm text-blue-800 dark:text-blue-300">
-                                By submitting this form, you agree to our terms and conditions for agents.
+                                By submitting this form, you agree to pay GHS {applicationPrice.toFixed(2)} from your wallet for the AFA application processing fee.
                             </AlertDescription>
                         </Alert>
 
-                        <Button type="submit" className="w-full" disabled={isSubmitting}>
+                        <Button
+                            type="submit"
+                            className="w-full"
+                            disabled={isSubmitting || loadingPrice || walletBalance < applicationPrice}
+                        >
                             {isSubmitting ? (
                                 <>
                                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                    Submitting Application...
+                                    Processing Payment...
                                 </>
+                            ) : walletBalance < applicationPrice ? (
+                                <>Insufficient Balance - Top Up Wallet</>
                             ) : (
-                                'Submit Application'
+                                <>Submit Application & Pay GHS {applicationPrice.toFixed(2)}</>
                             )}
                         </Button>
                     </form>

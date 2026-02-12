@@ -21,6 +21,8 @@ export default function AdminSettingsPage() {
     const [agentPaystackFee, setAgentPaystackFee] = useState('1.95')
     const [mtnAdjustment, setMtnAdjustment] = useState('0')
     const [agentUpgradePrice, setAgentUpgradePrice] = useState('100')
+    const [afaPriceCustomer, setAfaPriceCustomer] = useState('15')
+    const [afaPriceAgent, setAfaPriceAgent] = useState('15')
     const [supportEmail, setSupportEmail] = useState('')
     const [autoFulfillment, setAutoFulfillment] = useState(true)
 
@@ -57,6 +59,8 @@ export default function AdminSettingsPage() {
             setAgentPaystackFee(settingsMap.agent_paystack_fee_percent || '1.95')
             setMtnAdjustment(settingsMap.mtn_price_adjustment || '0')
             setAgentUpgradePrice(settingsMap.agent_upgrade_price || '100')
+            setAfaPriceCustomer(settingsMap.afa_price_customer || '15')
+            setAfaPriceAgent(settingsMap.afa_price_agent || '15')
             setSupportEmail(settingsMap.support_email || '')
             setAutoFulfillment(settingsMap.auto_fulfillment_enabled === 'true')
 
@@ -85,6 +89,8 @@ export default function AdminSettingsPage() {
                 { key: 'agent_paystack_fee_percent', value: agentPaystackFee },
                 { key: 'mtn_price_adjustment', value: mtnAdjustment },
                 { key: 'agent_upgrade_price', value: agentUpgradePrice },
+                { key: 'afa_price_customer', value: afaPriceCustomer },
+                { key: 'afa_price_agent', value: afaPriceAgent },
                 { key: 'support_email', value: supportEmail },
                 { key: 'auto_fulfillment_enabled', value: String(autoFulfillment) },
                 // Page access settings
@@ -192,6 +198,37 @@ export default function AdminSettingsPage() {
                                     step="0.01"
                                 />
                                 <p className="text-xs text-muted-foreground">Additional markup fee for all MTN packages</p>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>AFA Application Pricing</CardTitle>
+                            <CardDescription>Set application fees for Authorized Field Agent registrations</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="space-y-2">
+                                <Label>Customer Application Fee (GHS)</Label>
+                                <Input
+                                    type="number"
+                                    value={afaPriceCustomer}
+                                    onChange={(e) => setAfaPriceCustomer(e.target.value)}
+                                    step="0.01"
+                                    min="0"
+                                />
+                                <p className="text-xs text-muted-foreground">Fee charged to customers for AFA application</p>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Agent Application Fee (GHS)</Label>
+                                <Input
+                                    type="number"
+                                    value={afaPriceAgent}
+                                    onChange={(e) => setAfaPriceAgent(e.target.value)}
+                                    step="0.01"
+                                    min="0"
+                                />
+                                <p className="text-xs text-muted-foreground">Fee charged to agents for AFA application</p>
                             </div>
                         </CardContent>
                     </Card>
