@@ -311,25 +311,27 @@
 }
 
 .driver-popover-title {
+  font-family: var(--font-heading) !important;
   font-size: 1.5rem !important;
-  /* Larger title */
   font-weight: 800 !important;
+  color: #FFCE00 !important;
+  /* Brand Yellow */
   margin-bottom: 0.5rem !important;
   line-height: 1.2 !important;
-  color: #FFCE00 !important;
-  /* Brand Yellow for "deeper" highlight talk */
-  text-shadow: 0 4px 12px rgba(0, 0, 0, 0.9) !important;
-  /* Strong shadow for visibility */
+  text-shadow: 2px 2px 0 #000000 !important;
+  /* Solid black shadow */
+  letter-spacing: -0.02em !important;
 }
 
 .driver-popover-description {
-  font-size: 1rem !important;
-  line-height: 1.6 !important;
+  font-family: var(--font-sans) !important;
+  font-size: 1.125rem !important;
   font-weight: 500 !important;
-  color: white !important;
+  color: #ffffff !important;
+  line-height: 1.6 !important;
   margin-bottom: 1.5rem !important;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.9) !important;
-  /* Shadow for readability */
+  text-shadow: 1px 1px 0 #000000 !important;
+  /* Solid black shadow */
 }
 
 
@@ -443,26 +445,37 @@
 /* Mobile responsiveness */
 @media (max-width: 640px) {
   .driver-popover {
-    max-width: 90% !important;
+    /* Force full width centering on mobile to prevent overflow */
+    left: 5% !important;
+    right: auto !important;
+    width: 90% !important;
+    max-width: none !important;
     padding: 0 !important;
+    box-sizing: border-box !important;
+  }
+
+  /* Hide the arrow tip on mobile since we are forcing centered position */
+  .driver-popover-tip {
+    display: none !important;
   }
 
   .driver-popover-title {
     font-size: 1.25rem !important;
+    text-align: center !important;
   }
 
   .driver-popover-description {
     font-size: 0.95rem !important;
+    text-align: center !important;
+  }
+
+  .driver-popover-footer {
+    justify-content: center !important;
   }
 }
 
 /* Extra small devices */
 @media (max-width: 480px) {
-  .driver-popover {
-    max-width: calc(100vw - 32px) !important;
-    padding: 0 !important;
-  }
-
   .driver-popover-title {
     font-size: 1.1rem !important;
     margin-bottom: 0.4rem !important;
@@ -472,10 +485,6 @@
     font-size: 0.9rem !important;
     line-height: 1.4 !important;
     margin-bottom: 1rem !important;
-  }
-
-  .driver-popover-footer {
-    gap: 0.5rem !important;
   }
 
   .driver-popover-prev-btn,
