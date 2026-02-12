@@ -40,6 +40,14 @@ export function HelpButton({ onClick, className = '' }: HelpButtonProps) {
 
             {/* Mobile-only icon */}
             <HelpCircle className="h-4 w-4 relative z-10 sm:hidden" />
+
+            {/* Hover Tooltip - Description Popup */}
+            <div className="absolute top-full right-0 mt-3 w-56 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 z-50 pointer-events-none transform translate-y-2 group-hover:translate-y-0 text-left leading-relaxed border border-gray-700">
+                <div className="font-bold mb-1 text-yellow-400">Interactive Guide</div>
+                Click to start a step-by-step tour of the features on this page.
+                {/* Arrow */}
+                <div className="absolute -top-1 right-6 w-2 h-2 bg-gray-900 transform rotate-45 border-l border-t border-gray-700"></div>
+            </div>
         </Button>
     );
 }
