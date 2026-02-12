@@ -113,7 +113,7 @@ export default function AFAOrdersPage() {
             const { data: wallet, error: walletError } = await (supabase
                 .from('wallets')
                 .select('*')
-                .eq('user_id', dbUser?.id)
+                .eq('user_id', dbUser!.id)
                 .single() as any)
 
             if (walletError || !wallet) {
