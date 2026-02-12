@@ -125,13 +125,13 @@ export default function AFAOrdersPage() {
             // Deduct payment from wallet
             const newBalance = (wallet as any).balance - applicationPrice
             const { error: debitError } = await (supabase
-                .from('wallets')
+                .from('wallets') as any)
                 .update({
                     balance: newBalance,
                     total_spent: ((wallet as any).total_spent || 0) + applicationPrice,
                     updated_at: new Date().toISOString()
                 })
-                .eq('id', (wallet as any).id) as any)
+                .eq('id', (wallet as any).id)
 
             if (debitError) {
                 toast.error('Failed to process payment')
@@ -140,7 +140,7 @@ export default function AFAOrdersPage() {
             }
 
             // Create wallet transaction
-            await (supabase.from('wallet_transactions').insert({
+            await (supabase.from('wallet_transactions') as any).insert({
                 wallet_id: (wallet as any).id,
                 user_id: dbUser?.id,
                 type: 'debit',
@@ -148,7 +148,7 @@ export default function AFAOrdersPage() {
                 description: `AFA Application Fee`,
                 source: 'afa_application',
                 status: 'completed'
-            }) as any)
+            })
 
             // Submit application
             const { error } = await (supabase.from('afa_orders') as any).insert({
@@ -161,13 +161,13 @@ export default function AFAOrdersPage() {
             if (error) {
                 // Rollback wallet deduction if application insert fails
                 await (supabase
-                    .from('wallets')
+                    .from('wallets') as any)
                     .update({
                         balance: (wallet as any).balance,
                         total_spent: (wallet as any).total_spent,
                         updated_at: new Date().toISOString()
                     })
-                    .eq('id', (wallet as any).id) as any)
+                    .eq('id', (wallet as any).id)
 
                 throw error
             }
