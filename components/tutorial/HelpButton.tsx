@@ -15,14 +15,30 @@ interface HelpButtonProps {
  * 
  * Features:
  * - Clear text label with icon
- * - Auto-showing tooltip (appears after 3s, disappears after 10s)
- * - Positioned above and left to prevent mobile overflow
+ * - Auto-showing tooltip on desktop only (3s-10s)
+ * - Hover-only tooltip on mobile
  * - Mobile-responsive and accessible
  */
 export function HelpButton({ onClick, className = '' }: HelpButtonProps) {
     const [showTooltip, setShowTooltip] = useState(false);
+    const [isMobile, setIsMobile] = useState(false);
 
     useEffect(() => {
+        // Check if mobile
+        const checkMobile = () => {
+            setIsMobile(window.innerWidth < 640);
+        };
+
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
+
+    useEffect(() => {
+        // Only auto-show on desktop
+        if (isMobile) return;
+
         // Show tooltip after 3 seconds
         const showTimer = setTimeout(() => {
             setShowTooltip(true);
@@ -37,7 +53,7 @@ export function HelpButton({ onClick, className = '' }: HelpButtonProps) {
             clearTimeout(showTimer);
             clearTimeout(hideTimer);
         };
-    }, []);
+    }, [isMobile]);
 
     return (
         <Button
@@ -57,13 +73,13 @@ export function HelpButton({ onClick, className = '' }: HelpButtonProps) {
             {/* Mobile-only icon */}
             <HelpCircle className="h-4 w-4 relative z-10 sm:hidden" />
 
-            {/* Tooltip - Positioned ABOVE and RIGHT to prevent overflow */}
-            <div className={`absolute bottom-full right-0 mb-3 w-44 sm:w-56 p-3 bg-gray-900 text-white text-xs rounded-lg shadow-xl transition-all duration-300 z-50 pointer-events-none transform text-left leading-relaxed border border-gray-700 ${showTooltip || false ? 'opacity-100 visible -translate-y-0' : 'opacity-0 invisible translate-y-2'
+            {/* Tooltip - Much smaller on mobile, hover-only on mobile */}
+            <div className={`absolute bottom-full right-0 mb-2 w-36 sm:w-52 p-2 sm:p-3 bg-gray-900 text-white text-xs rounded-lg shadow-xl transition-all duration-300 z-50 pointer-events-none text-left leading-snug border border-gray-700 ${!isMobile && showTooltip ? 'opacity-100 visible -translate-y-0' : 'opacity-0 invisible translate-y-2'
                 } group-hover:opacity-100 group-hover:visible group-hover:-translate-y-0`}>
-                <div className="font-bold mb-1 text-yellow-400">Interactive Guide</div>
-                Click to start a step-by-step tour of the features on this page.
-                {/* Arrow pointing DOWN since tooltip is above */}
-                <div className="absolute -bottom-1 right-6 w-2 h-2 bg-gray-900 transform rotate-45 border-r border-b border-gray-700"></div>
+                <div className="font-bold mb-1 text-yellow-400 text-xs">Guide</div>
+                <div className="text-xs leading-tight">Click for tour</div>
+                {/* Arrow pointing DOWN */}
+                <div className="absolute -bottom-1 right-4 w-2 h-2 bg-gray-900 transform rotate-45 border-r border-b border-gray-700"></div>
             </div>
         </Button>
     );
