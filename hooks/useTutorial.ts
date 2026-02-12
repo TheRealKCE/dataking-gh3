@@ -48,6 +48,8 @@ export function useTutorial(userRole: UserRole, currentPage: PagePath): UseTutor
         }
     }, [TUTORIAL_KEY]);
 
+
+
     /**
      * Get tutorial steps for current page
      */
@@ -121,6 +123,17 @@ export function useTutorial(userRole: UserRole, currentPage: PagePath): UseTutor
             setHasSeenTutorial(true);
         }
     }, [TUTORIAL_KEY]);
+
+    // Auto-start tutorial if not seen
+    useEffect(() => {
+        if (!hasSeenTutorial) {
+            // Small delay to ensure elements are rendered
+            const timer = setTimeout(() => {
+                startTutorial();
+            }, 1500);
+            return () => clearTimeout(timer);
+        }
+    }, [hasSeenTutorial, startTutorial]);
 
     return {
         hasSeenTutorial,

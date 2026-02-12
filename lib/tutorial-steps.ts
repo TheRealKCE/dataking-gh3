@@ -226,7 +226,7 @@ export function getOrderHistoryTutorialSteps(): DriveStep[] {
             </div>
           </div>
         `,
-        side: 'left',
+        side: 'bottom',
         align: 'start'
       }
     },
@@ -335,7 +335,7 @@ export function getProfileTutorialSteps(): DriveStep[] {
             </ul>
           </div>
         `,
-        side: 'right',
+        side: 'bottom',
         align: 'start'
       }
     },
@@ -354,7 +354,7 @@ export function getProfileTutorialSteps(): DriveStep[] {
             </ul>
           </div>
         `,
-        side: 'right',
+        side: 'bottom',
         align: 'start'
       }
     },
@@ -509,7 +509,7 @@ export function getWalletTutorialSteps(userRole: UserRole): DriveStep[] {
           <p style="margin-top: 8px; font-size: 12px;">Choose a quick amount or enter a custom one.</p>
         </div>
       `,
-      side: 'left',
+      side: 'bottom',
       align: 'start'
     }
   });
