@@ -71,9 +71,8 @@ export default function FulfillmentPage() {
     const [customDate, setCustomDate] = useState<string>('') // Changed to string for input date
     const [searchQuery, setSearchQuery] = useState('')
 
-    // Pagination State
-    const [page, setPage] = useState(0)
-    const [hasMore, setHasMore] = useState(true)
+    // Pagination State (Disabled for total load)
+    const [ordersCount, setOrdersCount] = useState(0)
 
     // Settings state
     const [settings, setSettings] = useState<FulfillmentSettings>({
@@ -88,10 +87,9 @@ export default function FulfillmentPage() {
         }
     }, [dbUser])
 
-    // Reset page when filters change
+    // Reset when filters change
     useEffect(() => {
-        setPage(0)
-        fetchOrders(0, true)
+        fetchOrders(true)
     }, [networkFilter, dateFilter, customDate, searchQuery]) // eslint-disable-line react-hooks/exhaustive-deps
 
     // Determine Date Range
@@ -194,7 +192,7 @@ export default function FulfillmentPage() {
         saveSettings(newSettings)
     }
 
-    const fetchOrders = async (pageIdx = 0, isNewFilter = false) => {
+    const fetchOrders = async (isNewFilter = false) => {
         setIsLoadingOrders(true)
         try {
             const { start, end } = getDateRange()
@@ -207,9 +205,8 @@ export default function FulfillmentPage() {
                     mtn_fulfillment_tracking!inner(status)
                 `)
                 .in('status', ['processing', 'failed', 'completed'])
-                .is('batch_id', null) // Exclude manually downloaded orders (batched)
                 .order('created_at', { ascending: false })
-                .range(pageIdx * PAGE_SIZE, (pageIdx + 1) * PAGE_SIZE - 1)
+                .limit(500) // Safety limit for total load
 
             // Apply Filters
             if (networkFilter !== 'All') {
@@ -227,25 +224,13 @@ export default function FulfillmentPage() {
             if (error) throw error
 
             const fetchedOrders = data as any as Order[] || []
-
-            if (isNewFilter) {
-                setOrders(fetchedOrders)
-            } else {
-                setOrders(prev => [...prev, ...fetchedOrders])
-            }
-
-            setHasMore(fetchedOrders.length === PAGE_SIZE)
+            setOrders(fetchedOrders)
+            setOrdersCount(fetchedOrders.length)
         } catch (error: any) {
             toast.error('Failed to fetch orders: ' + error.message)
         } finally {
             setIsLoadingOrders(false)
         }
-    }
-
-    const loadMore = () => {
-        const nextPage = page + 1
-        setPage(nextPage)
-        fetchOrders(nextPage, false)
     }
 
     const bulkUpdateStatus = async (newStatus: 'completed' | 'failed' | 'processing') => {
@@ -270,8 +255,7 @@ export default function FulfillmentPage() {
             setSelectedOrders(new Set())
 
             // Re-fetch current view
-            setPage(0)
-            await fetchOrders(0, true)
+            await fetchOrders(true)
         } catch (error: any) {
             toast.error('Update failed: ' + error.message)
         } finally {
@@ -298,7 +282,7 @@ export default function FulfillmentPage() {
                     <p className="text-xs md:text-sm text-muted-foreground">Manage multi-network automated and manual order processing</p>
                 </div>
                 <div className="flex items-center gap-3">
-                    <Button onClick={() => { setPage(0); fetchOrders(0, true); }} disabled={isLoadingOrders} variant="outline" size="sm">
+                    <Button onClick={() => fetchOrders(true)} disabled={isLoadingOrders} variant="outline" size="sm">
                         <RefreshCw className={`w-3.5 h-3.5 mr-2 ${isLoadingOrders ? 'animate-spin' : ''}`} />
                         Refresh
                     </Button>
@@ -558,23 +542,14 @@ export default function FulfillmentPage() {
                                         </div>
                                     ))}
 
-                                    {/* Pagination Controls */}
-                                    <div className="pt-4 flex items-center justify-center gap-4">
-                                        {hasMore ? (
-                                            <Button
-                                                variant="secondary"
-                                                size="sm"
-                                                onClick={loadMore}
-                                                disabled={isLoadingOrders}
-                                                className="w-full md:w-auto min-w-[150px]"
-                                            >
-                                                {isLoadingOrders && <RefreshCw className="h-3 w-3 mr-2 animate-spin" />}
-                                                Load More Orders
-                                            </Button>
-                                        ) : orders.length > 0 && (
-                                            <p className="text-xs text-muted-foreground">No more orders to load</p>
-                                        )}
-                                    </div>
+                                    {/* Footer Info */}
+                                    {orders.length > 0 && (
+                                        <div className="pt-4 flex items-center justify-center">
+                                            <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold">
+                                                Showing {orders.length} orders in this period
+                                            </p>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </CardContent>
