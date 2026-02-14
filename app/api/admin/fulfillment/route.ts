@@ -49,7 +49,9 @@ export async function GET(request: NextRequest) {
                     email
                 ),
                 mtn_fulfillment_tracking (
-                    status
+                    status,
+                    api_response,
+                    retry_count
                 )
             `)
 
@@ -75,7 +77,7 @@ export async function GET(request: NextRequest) {
             query = query.ilike('phone_number', `%${search}%`)
         }
 
-        const { data: orders, error: fetchError } = await query
+        const { data: rawOrders, error: fetchError } = await query
             .order('created_at', { ascending: false })
             .limit(limit)
 
@@ -84,8 +86,26 @@ export async function GET(request: NextRequest) {
             throw fetchError
         }
 
+        // Transform data to match expected frontend structure (extracting transaction_id)
+        const orders = (rawOrders || []).map((order: any) => {
+            const tracking = order.mtn_fulfillment_tracking && order.mtn_fulfillment_tracking[0]
+                ? order.mtn_fulfillment_tracking
+                : []
+
+            // Map tracking info to include extracted transaction_id
+            const mappedTracking = tracking.map((t: any) => ({
+                ...t,
+                transaction_id: t.api_response?.data?.transaction_id || t.api_response?.transactionId || null
+            }))
+
+            return {
+                ...order,
+                mtn_fulfillment_tracking: mappedTracking
+            }
+        })
+
         return NextResponse.json({
-            orders: orders || []
+            orders: orders
         })
     } catch (error: any) {
         console.error('Fulfillment Orders Fetch Error:', error)
