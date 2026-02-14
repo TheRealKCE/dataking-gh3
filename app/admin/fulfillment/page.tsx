@@ -274,7 +274,7 @@ export default function FulfillmentPage() {
     }
 
     return (
-        <div className="p-4 md:p-8 max-w-[1400px] mx-auto space-y-6">
+        <div className="px-2 py-4 md:p-8 max-w-[1400px] mx-auto space-y-6">
             {/* Header Section */}
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
@@ -471,7 +471,7 @@ export default function FulfillmentPage() {
                                 </Button>
                             </div>
                         </CardHeader>
-                        <CardContent className="px-2 md:px-6">
+                        <CardContent className="px-1 md:px-6">
                             {orders.length === 0 && !isLoadingOrders ? (
                                 <div className="text-center py-20 border-2 border-dashed rounded-xl m-2">
                                     <Package className="w-12 h-12 mx-auto text-muted-foreground/30 mb-3" />
@@ -483,60 +483,64 @@ export default function FulfillmentPage() {
                                     {orders.map(order => (
                                         <div
                                             key={order.id}
-                                            className={`group relative flex items-center gap-3 p-3 border rounded-xl transition-all duration-200 hover:shadow-md ${selectedOrders.has(order.id) ? 'bg-primary/5 border-primary/50' : 'bg-card hover:border-primary/20'
-                                                }`}
+                                            onClick={() => {
+                                                const next = new Set(selectedOrders)
+                                                next.has(order.id) ? next.delete(order.id) : next.add(order.id)
+                                                setSelectedOrders(next)
+                                            }}
+                                            className={cn(
+                                                "group relative flex items-center gap-3 p-3 border-2 rounded-xl transition-all duration-200 cursor-pointer select-none",
+                                                selectedOrders.has(order.id)
+                                                    ? "bg-primary/10 border-primary shadow-md scale-[1.01]"
+                                                    : "bg-card border-transparent hover:border-primary/20 hover:bg-accent/50"
+                                            )}
                                         >
                                             <Checkbox
                                                 checked={selectedOrders.has(order.id)}
-                                                onCheckedChange={() => {
-                                                    const next = new Set(selectedOrders)
-                                                    next.has(order.id) ? next.delete(order.id) : next.add(order.id)
-                                                    setSelectedOrders(next)
-                                                }}
-                                                className="scale-90"
+                                                className="scale-110 pointer-events-none"
                                             />
 
                                             <div className="flex-1 grid grid-cols-2 md:grid-cols-6 items-center gap-x-2 gap-y-3 md:gap-4 p-1">
                                                 <div className="space-y-0.5">
-                                                    <p className="text-[9px] uppercase font-extrabold text-muted-foreground">Beneficiary</p>
-                                                    <p className="text-[11px] md:text-sm font-bold truncate">{order.phone_number}</p>
+                                                    <p className="text-[10px] md:text-[11px] uppercase font-extrabold text-muted-foreground">Beneficiary</p>
+                                                    <p className="text-[13px] md:text-sm font-black truncate text-primary">{order.phone_number}</p>
                                                 </div>
                                                 <div className="space-y-0.5">
-                                                    <p className="text-[9px] uppercase font-extrabold text-muted-foreground">Bundle</p>
+                                                    <p className="text-[10px] md:text-[11px] uppercase font-extrabold text-muted-foreground">Bundle</p>
                                                     <div className="flex items-center gap-1.5 flex-wrap">
-                                                        <Badge variant="outline" className="text-[8px] px-1 font-black leading-none py-0.5">{order.network}</Badge>
-                                                        <span className="text-[11px] md:text-xs font-bold">{order.size}</span>
+                                                        <Badge variant="outline" className="text-[10px] px-1.5 font-black leading-none py-1 bg-secondary/50">{order.network}</Badge>
+                                                        <span className="text-[13px] md:text-xs font-black">{order.size}</span>
                                                     </div>
                                                 </div>
                                                 <div className="space-y-0.5">
-                                                    <p className="text-[9px] uppercase font-extrabold text-muted-foreground">Purchaser</p>
-                                                    <div className="text-[10px] md:text-xs">
-                                                        <p className="font-bold truncate max-w-[80px] md:max-w-full" title={`${order.users?.first_name} ${order.users?.last_name}`}>
+                                                    <p className="text-[10px] md:text-[11px] uppercase font-extrabold text-muted-foreground">Purchaser</p>
+                                                    <div className="text-[11px] md:text-xs">
+                                                        <p className="font-bold truncate max-w-[100px] md:max-w-full" title={`${order.users?.first_name} ${order.users?.last_name}`}>
                                                             {order.users?.first_name || 'N/A'} {order.users?.last_name || ''}
                                                         </p>
-                                                        <p className="text-muted-foreground opacity-60 text-[9px] capitalize">{order.users?.role || 'User'}</p>
+                                                        <p className="text-muted-foreground opacity-70 text-[10px] font-bold uppercase">{order.users?.role || 'User'}</p>
                                                     </div>
                                                 </div>
                                                 <div className="space-y-0.5">
-                                                    <p className="text-[9px] uppercase font-extrabold text-muted-foreground">Status</p>
+                                                    <p className="text-[10px] md:text-[11px] uppercase font-extrabold text-muted-foreground">Status</p>
                                                     <div>
                                                         <Badge
                                                             variant={order.status === 'completed' ? 'success' : order.status === 'failed' ? 'destructive' : 'default'}
-                                                            className="text-[9px] font-black uppercase tracking-wider h-4 md:h-5 px-1.5"
+                                                            className="text-[10px] md:text-[11px] font-black uppercase tracking-wider h-5 px-2"
                                                         >
                                                             {order.status}
                                                         </Badge>
                                                     </div>
                                                 </div>
                                                 <div className="space-y-0.5">
-                                                    <p className="text-[9px] uppercase font-extrabold text-muted-foreground">Time</p>
-                                                    <p className="text-[9px] md:text-[10px] font-medium opacity-60">
-                                                        {new Date(order.created_at).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                                                    <p className="text-[10px] md:text-[11px] uppercase font-extrabold text-muted-foreground">Time</p>
+                                                    <p className="text-[11px] md:text-[12px] font-bold opacity-80">
+                                                        {new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} • {new Date(order.created_at).toLocaleDateString([], { month: 'short', day: 'numeric' })}
                                                     </p>
                                                 </div>
                                                 <div className="hidden md:block space-y-0.5 text-right">
-                                                    <p className="text-[9px] uppercase font-extrabold text-muted-foreground">Cost</p>
-                                                    <p className="text-xs font-semibold">{formatCurrency(order.price)}</p>
+                                                    <p className="text-[11px] uppercase font-extrabold text-muted-foreground">Cost</p>
+                                                    <p className="text-sm font-black text-primary">{formatCurrency(order.price)}</p>
                                                 </div>
                                             </div>
                                         </div>
