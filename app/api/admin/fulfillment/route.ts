@@ -49,8 +49,7 @@ export async function GET(request: NextRequest) {
                     email
                 ),
                 mtn_fulfillment_tracking (
-                    status,
-                    transaction_id
+                    status
                 )
             `)
 
