@@ -28,53 +28,68 @@ export async function GET(request: NextRequest) {
         }
 
         const { searchParams } = new URL(request.url)
-        const available = searchParams.get('available') === 'true'
-        const batchId = searchParams.get('batchId')
-        const batchIds = searchParams.get('batchIds')
-        const limit = parseInt(searchParams.get('limit') || '50')
-        const offset = parseInt(searchParams.get('offset') || '0')
+        const network = searchParams.get('network')
+        const status = searchParams.get('status')
+        const startDate = searchParams.get('startDate')
+        const endDate = searchParams.get('endDate')
+        const search = searchParams.get('search')
+        const limit = parseInt(searchParams.get('limit') || '500')
 
-        // Service role client to bypass RLS
+        // Use service role client to bypass RLS
         const supabase = createServerClient()
 
         let query = supabase
             .from('orders')
             .select(`
-                *,
+                id, created_at, phone_number, network, size, price, status, user_id,
                 users (
                     first_name,
                     last_name,
+                    role,
                     email
+                ),
+                mtn_fulfillment_tracking (
+                    status,
+                    transaction_id
                 )
-            `, { count: 'exact' })
+            `)
 
-        if (batchIds) {
-            query = query.in('download_batch_id', batchIds.split(','))
-        } else if (batchId) {
-            query = query.eq('download_batch_id', batchId)
-        } else if (available) {
-            query = query.is('download_batch_id', null).in('status', ['pending', 'processing'])
+        // Filter by pertinent statuses for fulfillment center
+        if (status && status !== 'All') {
+            query = query.eq('status', status)
+        } else {
+            query = query.in('status', ['processing', 'failed', 'completed', 'pending'])
         }
 
-        const { data: orders, count, error: fetchError } = await query
+        if (network && network !== 'All') {
+            query = query.eq('network', network)
+        }
+
+        if (startDate) {
+            query = query.gte('created_at', startDate)
+        }
+        if (endDate) {
+            query = query.lte('created_at', endDate)
+        }
+
+        if (search) {
+            query = query.ilike('phone_number', `%${search}%`)
+        }
+
+        const { data: orders, error: fetchError } = await query
             .order('created_at', { ascending: false })
-            .range(offset, offset + limit - 1)
+            .limit(limit)
 
         if (fetchError) {
-            console.error('[AdminOrdersFetch] Error:', fetchError)
+            console.error('[FulfillmentFetch] Error:', fetchError)
             throw fetchError
         }
 
-        // Since cost_price is now saved during purchase, most records will have it.
-        // We remove the expensive server-side O(N^2) loop that was matching packages to orders.
-        // This significantly reduces Fluid Active CPU usage.
-
         return NextResponse.json({
-            orders: orders || [],
-            totalCount: count || 0
+            orders: orders || []
         })
     } catch (error: any) {
-        console.error('Admin Orders Fetch Error:', error)
+        console.error('Fulfillment Orders Fetch Error:', error)
         return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 })
     }
 }

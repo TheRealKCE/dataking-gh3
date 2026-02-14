@@ -67,6 +67,7 @@ export default function FulfillmentPage() {
 
     // Filter State
     const [networkFilter, setNetworkFilter] = useState('All')
+    const [statusFilter, setStatusFilter] = useState('All')
     const [dateFilter, setDateFilter] = useState('today')
     const [customDate, setCustomDate] = useState<string>('') // Changed to string for input date
     const [searchQuery, setSearchQuery] = useState('')
@@ -90,7 +91,7 @@ export default function FulfillmentPage() {
     // Reset when filters change
     useEffect(() => {
         fetchOrders(true)
-    }, [networkFilter, dateFilter, customDate, searchQuery]) // eslint-disable-line react-hooks/exhaustive-deps
+    }, [networkFilter, statusFilter, dateFilter, customDate, searchQuery]) // eslint-disable-line react-hooks/exhaustive-deps
 
     // Determine Date Range
     const getDateRange = () => {
@@ -197,36 +198,23 @@ export default function FulfillmentPage() {
         try {
             const { start, end } = getDateRange()
 
-            let query = supabase
-                .from('orders')
-                .select(`
-                    id, created_at, phone_number, network, size, price, status, user_id,
-                    users(first_name, last_name, role),
-                    mtn_fulfillment_tracking!inner(status)
-                `)
-                .in('status', ['processing', 'failed', 'completed'])
-                .order('created_at', { ascending: false })
-                .limit(500) // Safety limit for total load
+            let url = `/api/admin/fulfillment?network=${networkFilter}&status=${statusFilter}&limit=500`
+            if (start) url += `&startDate=${start.toISOString()}`
+            if (end) url += `&endDate=${end.toISOString()}`
+            if (searchQuery) url += `&search=${encodeURIComponent(searchQuery)}`
 
-            // Apply Filters
-            if (networkFilter !== 'All') {
-                query = query.eq('network', networkFilter)
-            }
-            if (start) query = query.gte('created_at', start.toISOString())
-            if (end) query = query.lte('created_at', end.toISOString())
-
-            if (searchQuery) {
-                query = query.ilike('phone_number', `%${searchQuery}%`)
+            const response = await fetch(url)
+            if (!response.ok) {
+                const errorData = await response.json()
+                throw new Error(errorData.error || 'Failed to fetch orders')
             }
 
-            const { data, error } = await query
-
-            if (error) throw error
-
-            const fetchedOrders = data as any as Order[] || []
+            const data = await response.json()
+            const fetchedOrders = data.orders || []
             setOrders(fetchedOrders)
             setOrdersCount(fetchedOrders.length)
         } catch (error: any) {
+            console.error('Fetch orders error:', error)
             toast.error('Failed to fetch orders: ' + error.message)
         } finally {
             setIsLoadingOrders(false)
@@ -383,6 +371,24 @@ export default function FulfillmentPage() {
                                 )}
                             </div>
 
+                            {/* Status Filter */}
+                            <div className="space-y-1.5">
+                                <label className="text-[10px] uppercase font-bold text-muted-foreground">Status</label>
+                                <div className="flex flex-wrap gap-1.5">
+                                    {['All', 'Pending', 'Processing', 'Completed', 'Failed'].map(s => (
+                                        <Button
+                                            key={s}
+                                            variant={statusFilter === (s === 'All' ? 'All' : s.toLowerCase()) ? "default" : "outline"}
+                                            size="sm"
+                                            className="h-7 text-[10px] px-2.5"
+                                            onClick={() => setStatusFilter(s === 'All' ? 'All' : s.toLowerCase())}
+                                        >
+                                            {s}
+                                        </Button>
+                                    ))}
+                                </div>
+                            </div>
+
                             {/* Network Filter */}
                             <div className="space-y-1.5">
                                 <label className="text-[10px] uppercase font-bold text-muted-foreground">Network</label>
@@ -403,6 +409,10 @@ export default function FulfillmentPage() {
 
                             <div className="pt-4 border-t">
                                 <div className="grid grid-cols-2 gap-2">
+                                    <div className="p-2 md:p-2.5 bg-amber-50 dark:bg-amber-900/10 rounded-lg border border-amber-100 dark:border-amber-900/20 italic">
+                                        <p className="text-[9px] md:text-[10px] text-amber-700 dark:text-amber-400 font-bold uppercase">Pending</p>
+                                        <p className="text-lg md:text-xl font-black text-amber-600 dark:text-amber-500">{orders.filter(o => o.status === 'pending').length}</p>
+                                    </div>
                                     <div className="p-2 md:p-2.5 bg-yellow-50 dark:bg-yellow-900/10 rounded-lg border border-yellow-100 dark:border-yellow-900/20 italic">
                                         <p className="text-[9px] md:text-[10px] text-yellow-700 dark:text-yellow-400 font-bold uppercase">Processing</p>
                                         <p className="text-lg md:text-xl font-black text-yellow-600 dark:text-yellow-500">{orders.filter(o => o.status === 'processing').length}</p>
@@ -525,8 +535,11 @@ export default function FulfillmentPage() {
                                                     <p className="text-[10px] md:text-[11px] uppercase font-extrabold text-muted-foreground">Status</p>
                                                     <div>
                                                         <Badge
-                                                            variant={order.status === 'completed' ? 'success' : order.status === 'failed' ? 'destructive' : 'default'}
-                                                            className="text-[10px] md:text-[11px] font-black uppercase tracking-wider h-5 px-2"
+                                                            variant={order.status === 'completed' ? 'success' : order.status === 'failed' ? 'destructive' : order.status === 'pending' ? 'outline' : 'default'}
+                                                            className={cn(
+                                                                "text-[10px] md:text-[11px] font-black uppercase tracking-wider h-5 px-2",
+                                                                order.status === 'pending' && "border-amber-500 text-amber-600 bg-amber-50 dark:bg-amber-900/20"
+                                                            )}
                                                         >
                                                             {order.status}
                                                         </Badge>
