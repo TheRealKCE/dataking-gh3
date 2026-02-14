@@ -34,10 +34,10 @@ export async function GET(request: NextRequest) {
 
             // Get admin users
             const supabase = createRouteClient()
-            const { data: admins } = await supabase
+            const { data: admins } = await (supabase
                 .from('users')
                 .select('id, email, phone_number, first_name, last_name')
-                .eq('role', 'admin')
+                .eq('role', 'admin') as any)
 
             if (admins && admins.length > 0) {
                 let emailCount = 0

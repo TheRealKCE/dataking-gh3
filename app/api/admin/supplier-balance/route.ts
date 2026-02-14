@@ -12,11 +12,11 @@ export async function GET() {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        const { data: dbUser } = await supabase
+        const { data: dbUser } = await (supabase
             .from('users')
             .select('role')
             .eq('id', user.id)
-            .single()
+            .single() as any)
 
         if (dbUser?.role !== 'admin') {
             return NextResponse.json({ error: 'Admin only' }, { status: 403 })
