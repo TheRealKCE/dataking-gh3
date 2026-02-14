@@ -6,11 +6,11 @@
         },
         {
             "path": "/api/cron/sync-mtn-status",
-            "schedule": "0 8,20 * * *"
+            "schedule": "0 8 * * *"
         },
         {
             "path": "/api/cron/check-supplier-balance",
-            "schedule": "0 8 * * *"
+            "schedule": "0 9 * * *"
         }
     ],
     "headers": [
