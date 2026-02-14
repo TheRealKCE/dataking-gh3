@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
                             await sendEmail({
                                 to: admin.email,
                                 subject: `⚠️ Low Supplier Balance Alert - ${currency} ${balance.toFixed(2)}`,
-                                html: `
+                                htmlContent: `
                                     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
                                         <div style="background: linear-gradient(135deg, #E60000, #C50000); color: white; padding: 30px; border-radius: 10px 10px 0 0;">
                                             <h1 style="margin: 0; font-size: 24px;">⚠️ Low Supplier Balance Alert</h1>
