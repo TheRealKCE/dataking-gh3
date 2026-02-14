@@ -53,7 +53,7 @@ export async function GET(request: NextRequest) {
         } else if (batchId) {
             query = query.eq('download_batch_id', batchId)
         } else if (available) {
-            query = query.is('download_batch_id', null).in('status', ['pending', 'processing'])
+            query = query.is('download_batch_id', null).eq('status', 'pending')
         }
 
         const { data: orders, count, error: fetchError } = await query
