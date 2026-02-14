@@ -41,8 +41,6 @@ export default function MTNFulfillmentPage() {
     const { dbUser } = useAuth()
     const [orders, setOrders] = useState<Order[]>([])
     const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set())
-    const [supplierBalance, setSupplierBalance] = useState<number | null>(null)
-    const [isLoadingBalance, setIsLoadingBalance] = useState(false)
     const [isLoadingOrders, setIsLoadingOrders] = useState(true)
     const [isUpdating, setIsUpdating] = useState(false)
 
@@ -63,7 +61,7 @@ export default function MTNFulfillmentPage() {
                     mtn_fulfillment_tracking!inner(api_response)
                 `)
                 .eq('network', 'MTN')
-                .in('status', ['pending', 'processing'])
+                .in('status', ['processing', 'failed', 'completed'])
                 .order('created_at', { ascending: false })
                 .limit(100)
 
@@ -76,24 +74,7 @@ export default function MTNFulfillmentPage() {
         }
     }
 
-    const fetchBalance = async () => {
-        setIsLoadingBalance(true)
-        try {
-            const response = await fetch('/api/admin/supplier-balance')
-            const data = await response.json()
 
-            if (!response.ok) {
-                throw new Error(data.error || 'Failed to fetch balance')
-            }
-
-            setSupplierBalance(data.balance)
-            toast.success(`Supplier Balance: GHS ${data.balance.toFixed(2)}`)
-        } catch (error: any) {
-            toast.error(error.message || 'Failed to fetch balance')
-        } finally {
-            setIsLoadingBalance(false)
-        }
-    }
 
     const toggleOrderSelection = (orderId: string) => {
         const newSelection = new Set(selectedOrders)
@@ -150,7 +131,8 @@ export default function MTNFulfillmentPage() {
     }
 
     const processingOrders = orders.filter(o => o.status === 'processing')
-    const pendingOrders = orders.filter(o => o.status === 'pending')
+    const completedOrders = orders.filter(o => o.status === 'completed')
+    const failedOrders = orders.filter(o => o.status === 'failed')
 
     return (
         <div className="space-y-6 p-6">
@@ -183,10 +165,22 @@ export default function MTNFulfillmentPage() {
                     <CardContent className="p-6">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-sm text-muted-foreground">Pending</p>
-                                <p className="text-2xl font-bold">{pendingOrders.length}</p>
+                                <p className="text-sm text-muted-foreground">Completed</p>
+                                <p className="text-2xl font-bold">{completedOrders.length}</p>
                             </div>
-                            <Package className="w-8 h-8 text-blue-500" />
+                            <CheckCircle2 className="w-8 h-8 text-green-500" />
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card>
+                    <CardContent className="p-6">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm text-muted-foreground">Failed</p>
+                                <p className="text-2xl font-bold">{failedOrders.length}</p>
+                            </div>
+                            <XCircle className="w-8 h-8 text-red-500" />
                         </div>
                     </CardContent>
                 </Card>
@@ -198,30 +192,7 @@ export default function MTNFulfillmentPage() {
                                 <p className="text-sm text-muted-foreground">Selected</p>
                                 <p className="text-2xl font-bold">{selectedOrders.size}</p>
                             </div>
-                            <CheckCircle2 className="w-8 h-8 text-green-500" />
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card>
-                    <CardContent className="p-6">
-                        <div>
-                            <p className="text-sm text-muted-foreground mb-2">Supplier Balance</p>
-                            <p className="text-2xl font-bold mb-2">
-                                {supplierBalance !== null
-                                    ? formatCurrency(supplierBalance)
-                                    : '---'
-                                }
-                            </p>
-                            <Button
-                                size="sm"
-                                onClick={fetchBalance}
-                                disabled={isLoadingBalance}
-                                className="w-full"
-                            >
-                                <Wallet className={`w-3 h-3 mr-2 ${isLoadingBalance ? 'animate-spin' : ''}`} />
-                                {isLoadingBalance ? 'Checking...' : 'Check Balance'}
-                            </Button>
+                            <CheckCircle2 className="w-8 h-8 text-blue-500" />
                         </div>
                     </CardContent>
                 </Card>
@@ -264,7 +235,7 @@ export default function MTNFulfillmentPage() {
             <Card>
                 <CardHeader>
                     <div className="flex items-center justify-between">
-                        <CardTitle>MTN Orders (Pending / Processing)</CardTitle>
+                        <CardTitle>MTN Orders (Processing / Failed)</CardTitle>
                         {orders.length > 0 && (
                             <Button variant="outline" size="sm" onClick={selectAll}>
                                 {selectedOrders.size === orders.length ? 'Deselect All' : 'Select All'}
