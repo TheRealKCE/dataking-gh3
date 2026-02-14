@@ -3,14 +3,6 @@
         {
             "path": "/api/cron/delete-old-orders",
             "schedule": "0 2 * * *"
-        },
-        {
-            "path": "/api/cron/sync-mtn-status",
-            "schedule": "0 8 * * *"
-        },
-        {
-            "path": "/api/cron/check-supplier-balance",
-            "schedule": "0 9 * * *"
         }
     ],
     "headers": [

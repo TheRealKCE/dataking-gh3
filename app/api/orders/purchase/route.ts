@@ -279,23 +279,46 @@ async function updateCustomerPurchases(
 }
 
 async function triggerFulfillment(orderId: string, network: string) {
-    // Check if auto-fulfillment is enabled (can be disabled via env variable)
-    if (process.env.ENABLE_AUTO_FULFILLMENT === 'false') {
-        console.log(`[Fulfillment] Auto-fulfillment disabled via environment variable`)
-        return
-    }
-
-    // Only auto-fulfill MTN orders for now
-    if (network !== 'MTN') {
-        console.log(`[Fulfillment] Skipping auto-fulfillment for ${network} order ${orderId}`)
-        return
-    }
-
     try {
-        const { fulfillMTNOrder } = await import('@/lib/mtn-fulfillment')
+        const { fulfillOrder } = await import('@/lib/fulfillment-service')
         const supabase = createServerClient()
 
-        // Get order details
+        // 1. Get fulfillment settings from database
+        const { data: settingsData } = await supabase
+            .from('admin_settings')
+            .select('key, value')
+            .in('key', ['auto_fulfillment_enabled', 'fulfillment_settings'])
+
+        const settingsMap = (settingsData || []).reduce((acc: any, curr: any) => {
+            acc[curr.key] = curr.value
+            return acc
+        }, {})
+
+        // Check global toggle
+        if (settingsMap.auto_fulfillment_enabled === 'false') {
+            console.log(`[Fulfillment] Auto-fulfillment globally disabled via database settings`)
+            return
+        }
+
+        // Check network-specific toggle (if exists)
+        let fulfillmentSettings = { networks: {} as Record<string, boolean> }
+        try {
+            if (settingsMap.fulfillment_settings) {
+                fulfillmentSettings = typeof settingsMap.fulfillment_settings === 'string'
+                    ? JSON.parse(settingsMap.fulfillment_settings)
+                    : settingsMap.fulfillment_settings
+            }
+        } catch (e) {
+            console.error('[Fulfillment] Failed to parse fulfillment_settings:', e)
+        }
+
+        const isNetworkEnabled = fulfillmentSettings.networks[network] !== false // Default to true if not specified
+        if (!isNetworkEnabled) {
+            console.log(`[Fulfillment] Auto-fulfillment disabled for ${network} via database settings`)
+            return
+        }
+
+        // 2. Get order details
         const { data: order } = await supabase
             .from('orders')
             .select('*')
@@ -307,23 +330,27 @@ async function triggerFulfillment(orderId: string, network: string) {
             return
         }
 
-        console.log(`[Fulfillment] Processing MTN order ${orderId}`)
+        console.log(`[Fulfillment] Processing ${network} order ${orderId}`)
 
-        // Call DataKazina API
-        const result = await fulfillMTNOrder(
+        // 3. Call Service API
+        const result = await fulfillOrder(
+            network,
             (order as any).phone_number,
             (order as any).size,
             orderId
         )
 
         if (result.success) {
-            console.log(`[Fulfillment] Order ${orderId} submitted successfully`)
+            console.log(`[Fulfillment] Order ${orderId} (${network}) submitted successfully`)
 
             // Create tracking record
+            // We'll keep using mtn_fulfillment_tracking for now or handle per network if needed
+            // For now, let's assume all go into this table or we should have a generic one
+            // The schema has mtn_fulfillment_tracking specifically.
             await (supabase.from('mtn_fulfillment_tracking') as any).insert({
                 order_id: orderId,
                 status: 'processing',
-                api_response: result.apiResponse || { reference: result.reference },
+                api_response: result.apiResponse || { reference: result.reference, network },
             })
 
             // Update order status to processing
@@ -334,17 +361,14 @@ async function triggerFulfillment(orderId: string, network: string) {
                 })
                 .eq('id', orderId)
         } else {
-            console.error(`[Fulfillment] Order ${orderId} failed:`, result.error)
+            console.error(`[Fulfillment] Order ${orderId} (${network}) failed:`, result.error)
 
             // Create tracking record with error
             await (supabase.from('mtn_fulfillment_tracking') as any).insert({
                 order_id: orderId,
                 status: 'failed',
-                api_response: { error: result.error, ...result.apiResponse },
+                api_response: { error: result.error, network, ...result.apiResponse },
             })
-
-            // Note: We don't update order status to failed here
-            // The cron job will handle retries and eventual failure
         }
     } catch (error) {
         console.error(`[Fulfillment] Error processing order ${orderId}:`, error)

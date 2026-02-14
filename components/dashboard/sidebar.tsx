@@ -27,7 +27,8 @@ import {
     Star,
     BadgeCheck,
     UserCircle,
-    Plus
+    Plus,
+    Activity
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -49,7 +50,7 @@ const userNavItems = [
 const adminNavItems = [
     { href: '/admin', label: 'Dashboard', icon: Shield },
     { href: '/admin/orders', label: 'Orders', icon: ShoppingCart },
-    { href: '/admin/mtn-fulfillment', label: 'MTN Fulfillment', icon: Send },
+    { href: '/admin/fulfillment', label: 'Fulfillment', icon: Activity },
     { href: '/admin/afa-management', label: 'AFA Management', icon: BadgeCheck },
     { href: '/admin/memberships', label: 'Agent Members', icon: Crown },
     { href: '/admin/users', label: 'Users', icon: Users },
