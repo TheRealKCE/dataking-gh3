@@ -276,19 +276,11 @@ export default function AdminOrdersPage() {
         // Perform export - CUSTOM FORMAT (Beneficiary Msisdn / GIGGS)
         const rows: any[][] = []
 
-        // Header Row
-        if (mode === 'standard') {
-            rows.push(['Beneficiary Msisdn', 'GIGGS'])
-        } else if (mode === 'cost') {
-            rows.push(['Beneficiary Msisdn', 'GIGGS', 'Cost Price'])
-        } else if (mode === 'sales') {
-            rows.push(['Beneficiary Msisdn', 'GIGGS', 'Selling Price'])
-        }
-
         // Data Rows
         let total = 0
         ordersToExport.forEach((order: any) => {
-            const phone = order.phone_number
+            // Strip leading zero for auto-formatting in Excel
+            const phone = (order.phone_number || '').replace(/^0/, '')
             const size = (order.size || '').replace(/GB/i, '').trim()
 
             if (mode === 'standard') {
@@ -332,28 +324,15 @@ export default function AdminOrdersPage() {
                 const cell_address = utils.encode_cell({ r: R, c: C })
                 if (!worksheet[cell_address]) continue
 
-                const isHeader = R === 0
-
-                if (isHeader) {
-                    worksheet[cell_address].s = {
-                        font: { sz: 12, bold: true, color: { rgb: PINK_COLOR } },
-                        alignment: { horizontal: "center", vertical: "center" },
-                        border: {
-                            bottom: { style: 'thin', color: { rgb: BORDER_COLOR } },
-                            right: { style: 'thin', color: { rgb: BORDER_COLOR } },
-                            left: { style: 'thin', color: { rgb: BORDER_COLOR } },
-                            top: { style: 'thin', color: { rgb: BORDER_COLOR } }
-                        }
-                    }
-                } else {
-                    worksheet[cell_address].s = {
-                        font: { sz: 11, bold: false, color: { rgb: '000000' } },
-                        alignment: { horizontal: "center", vertical: "center" },
-                        border: {
-                            bottom: { style: 'thin', color: { rgb: BORDER_COLOR } },
-                            right: { style: 'thin', color: { rgb: BORDER_COLOR } },
-                            left: { style: 'thin', color: { rgb: BORDER_COLOR } }
-                        }
+                // Standard data styling (no headers)
+                worksheet[cell_address].s = {
+                    font: { sz: 12, bold: false, color: { rgb: '000000' } },
+                    alignment: { horizontal: "center", vertical: "center" },
+                    border: {
+                        bottom: { style: 'thin', color: { rgb: BORDER_COLOR } },
+                        right: { style: 'thin', color: { rgb: BORDER_COLOR } },
+                        left: { style: 'thin', color: { rgb: BORDER_COLOR } },
+                        top: { style: 'thin', color: { rgb: BORDER_COLOR } }
                     }
                 }
             }
@@ -458,12 +437,10 @@ export default function AdminOrdersPage() {
             // 3. Perform export - CUSTOM FORMAT (Beneficiary Msisdn / GIGGS)
             const rows: any[][] = []
 
-            // Header Row
-            rows.push(['Beneficiary Msisdn', 'GIGGS'])
-
             // Data Rows
             pendingOrders.forEach((order: any) => {
-                const phone = order.phone_number
+                // Strip leading zero for auto-formatting
+                const phone = (order.phone_number || '').replace(/^0/, '')
                 const size = (order.size || '').replace(/GB/i, '').trim()
 
                 rows.push([phone, size])
@@ -491,28 +468,14 @@ export default function AdminOrdersPage() {
                     const cell_address = utils.encode_cell({ r: R, c: C })
                     if (!worksheet[cell_address]) continue
 
-                    const isHeader = R === 0
-
-                    if (isHeader) {
-                        worksheet[cell_address].s = {
-                            font: { sz: 12, bold: true, color: { rgb: PINK_COLOR } },
-                            alignment: { horizontal: "center", vertical: "center" },
-                            border: {
-                                bottom: { style: 'thin', color: { rgb: BORDER_COLOR } },
-                                right: { style: 'thin', color: { rgb: BORDER_COLOR } },
-                                left: { style: 'thin', color: { rgb: BORDER_COLOR } },
-                                top: { style: 'thin', color: { rgb: BORDER_COLOR } }
-                            }
-                        }
-                    } else {
-                        worksheet[cell_address].s = {
-                            font: { sz: 11, bold: false, color: { rgb: '000000' } },
-                            alignment: { horizontal: "center", vertical: "center" },
-                            border: {
-                                bottom: { style: 'thin', color: { rgb: BORDER_COLOR } },
-                                right: { style: 'thin', color: { rgb: BORDER_COLOR } },
-                                left: { style: 'thin', color: { rgb: BORDER_COLOR } }
-                            }
+                    worksheet[cell_address].s = {
+                        font: { sz: 12, bold: false, color: { rgb: '000000' } },
+                        alignment: { horizontal: "center", vertical: "center" },
+                        border: {
+                            bottom: { style: 'thin', color: { rgb: BORDER_COLOR } },
+                            right: { style: 'thin', color: { rgb: BORDER_COLOR } },
+                            left: { style: 'thin', color: { rgb: BORDER_COLOR } },
+                            top: { style: 'thin', color: { rgb: BORDER_COLOR } }
                         }
                     }
                 }
@@ -553,12 +516,10 @@ export default function AdminOrdersPage() {
             // Perform export - CUSTOM FORMAT (Beneficiary Msisdn / GIGGS)
             const rows: any[][] = []
 
-            // Header Row
-            rows.push(['Beneficiary Msisdn', 'GIGGS']);
-
             // Build Data Rows
             batchOrdersList.forEach((order: any) => {
-                const phone = order.phone_number
+                // Strip leading zero for auto-formatting
+                const phone = (order.phone_number || '').replace(/^0/, '')
                 const size = (order.size || '').replace(/GB/i, '').trim()
 
                 rows.push([phone, size])
@@ -581,28 +542,14 @@ export default function AdminOrdersPage() {
                     const cell_address = utils.encode_cell({ r: R, c: C })
                     if (!worksheet[cell_address]) continue
 
-                    const isHeader = R === 0
-
-                    if (isHeader) {
-                        worksheet[cell_address].s = {
-                            font: { sz: 12, bold: true, color: { rgb: PINK_COLOR } },
-                            alignment: { horizontal: "center", vertical: "center" },
-                            border: {
-                                bottom: { style: 'thin', color: { rgb: BORDER_COLOR } },
-                                right: { style: 'thin', color: { rgb: BORDER_COLOR } },
-                                left: { style: 'thin', color: { rgb: BORDER_COLOR } },
-                                top: { style: 'thin', color: { rgb: BORDER_COLOR } }
-                            }
-                        }
-                    } else {
-                        worksheet[cell_address].s = {
-                            font: { sz: 11, bold: false, color: { rgb: '000000' } },
-                            alignment: { horizontal: "center", vertical: "center" },
-                            border: {
-                                bottom: { style: 'thin', color: { rgb: BORDER_COLOR } },
-                                right: { style: 'thin', color: { rgb: BORDER_COLOR } },
-                                left: { style: 'thin', color: { rgb: BORDER_COLOR } }
-                            }
+                    worksheet[cell_address].s = {
+                        font: { sz: 12, bold: false, color: { rgb: '000000' } },
+                        alignment: { horizontal: "center", vertical: "center" },
+                        border: {
+                            bottom: { style: 'thin', color: { rgb: BORDER_COLOR } },
+                            right: { style: 'thin', color: { rgb: BORDER_COLOR } },
+                            left: { style: 'thin', color: { rgb: BORDER_COLOR } },
+                            top: { style: 'thin', color: { rgb: BORDER_COLOR } }
                         }
                     }
                 }
