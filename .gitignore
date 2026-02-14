@@ -18,3 +18,4 @@ yarn-error.log*
 .vscode
 coverage
 .turbo
+.env*.local
