@@ -9,6 +9,7 @@ export const viewport: Viewport = {
     interactiveWidget: 'resizes-content', // Helps with virtual keyboard handling
 }
 import { Fira_Sans } from 'next/font/google'
+import { Suspense } from 'react'
 import './globals.css'
 import { AuthProvider } from '@/contexts/auth-context'
 import { Toaster } from '@/components/ui/sonner'
@@ -48,7 +49,9 @@ export default function RootLayout({
                     disableTransitionOnChange
                 >
                     <AuthProvider>
-                        <GlobalLoader />
+                        <Suspense fallback={null}>
+                            <GlobalLoader />
+                        </Suspense>
                         {children}
                         <Toaster position="top-right" richColors />
                     </AuthProvider>
