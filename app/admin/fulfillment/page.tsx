@@ -204,7 +204,7 @@ export default function FulfillmentPage() {
                 .select(`
                     id, created_at, phone_number, network, size, price, status, user_id,
                     users(first_name, last_name, role),
-                    mtn_fulfillment_tracking!inner(transaction_id)
+                    mtn_fulfillment_tracking!inner(status)
                 `)
                 .in('status', ['processing', 'failed', 'completed'])
                 .is('batch_id', null) // Exclude manually downloaded orders (batched)
@@ -363,20 +363,27 @@ export default function FulfillmentPage() {
                             {/* Date Filter */}
                             <div className="space-y-1.5">
                                 <label className="text-[10px] uppercase font-bold text-muted-foreground">Date Range</label>
-                                <Select value={dateFilter} onValueChange={setDateFilter}>
-                                    <SelectTrigger className="h-8 text-xs">
-                                        <SelectValue placeholder="Select period" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="todays">Today (Now)</SelectItem>
-                                        <SelectItem value="today">Today (00:00 - 23:59)</SelectItem>
-                                        <SelectItem value="yesterday">Yesterday</SelectItem>
-                                        <SelectItem value="week">This Week</SelectItem>
-                                        <SelectItem value="month">This Month</SelectItem>
-                                        <SelectItem value="all">All Time</SelectItem>
-                                        <SelectItem value="custom">Custom Date</SelectItem>
-                                    </SelectContent>
-                                </Select>
+                                <div className="grid grid-cols-2 md:grid-cols-1 gap-2">
+                                    {[
+                                        { id: 'today', label: 'Today' },
+                                        { id: 'yesterday', label: 'Yesterday' },
+                                        { id: 'week', label: 'This Week' },
+                                        { id: 'month', label: 'This Month' },
+                                        { id: 'all', label: 'All Time' },
+                                        { id: 'custom', label: 'Custom' }
+                                    ].map(range => (
+                                        <Button
+                                            key={range.id}
+                                            variant={dateFilter === range.id ? "default" : "outline"}
+                                            size="sm"
+                                            className="h-8 text-[11px] font-bold justify-start px-3"
+                                            onClick={() => setDateFilter(range.id)}
+                                        >
+                                            <CalendarIcon className="w-3.5 h-3.5 mr-2 opacity-60" />
+                                            {range.label}
+                                        </Button>
+                                    ))}
+                                </div>
                                 {dateFilter === 'custom' && (
                                     <div className="mt-2">
                                         <div className="relative">
@@ -412,21 +419,21 @@ export default function FulfillmentPage() {
 
                             <div className="pt-4 border-t">
                                 <div className="grid grid-cols-2 gap-2">
-                                    <div className="p-2.5 bg-yellow-50 rounded-lg border border-yellow-100 italic">
-                                        <p className="text-[10px] text-yellow-700 font-bold">Processing</p>
-                                        <p className="text-xl font-black text-yellow-600">{orders.filter(o => o.status === 'processing').length}</p>
+                                    <div className="p-2 md:p-2.5 bg-yellow-50 dark:bg-yellow-900/10 rounded-lg border border-yellow-100 dark:border-yellow-900/20 italic">
+                                        <p className="text-[9px] md:text-[10px] text-yellow-700 dark:text-yellow-400 font-bold uppercase">Processing</p>
+                                        <p className="text-lg md:text-xl font-black text-yellow-600 dark:text-yellow-500">{orders.filter(o => o.status === 'processing').length}</p>
                                     </div>
-                                    <div className="p-2.5 bg-green-50 rounded-lg border border-green-100">
-                                        <p className="text-[10px] text-green-700 font-bold">Completed</p>
-                                        <p className="text-xl font-black text-green-600">{orders.filter(o => o.status === 'completed').length}</p>
+                                    <div className="p-2 md:p-2.5 bg-green-50 dark:bg-green-900/10 rounded-lg border border-green-100 dark:border-green-900/20">
+                                        <p className="text-[9px] md:text-[10px] text-green-700 dark:text-green-400 font-bold uppercase">Completed</p>
+                                        <p className="text-lg md:text-xl font-black text-green-600 dark:text-green-500">{orders.filter(o => o.status === 'completed').length}</p>
                                     </div>
-                                    <div className="p-2.5 bg-red-50 rounded-lg border border-red-100">
-                                        <p className="text-[10px] text-red-700 font-bold">Failed</p>
-                                        <p className="text-xl font-black text-red-600">{orders.filter(o => o.status === 'failed').length}</p>
+                                    <div className="p-2 md:p-2.5 bg-red-50 dark:bg-red-900/10 rounded-lg border border-red-100 dark:border-red-900/20">
+                                        <p className="text-[9px] md:text-[10px] text-red-700 dark:text-red-400 font-bold uppercase">Failed</p>
+                                        <p className="text-lg md:text-xl font-black text-red-600 dark:text-red-500">{orders.filter(o => o.status === 'failed').length}</p>
                                     </div>
-                                    <div className="p-2.5 bg-blue-50 rounded-lg border border-blue-100">
-                                        <p className="text-[10px] text-blue-700 font-bold">Selected</p>
-                                        <p className="text-xl font-black text-blue-600">{selectedOrders.size}</p>
+                                    <div className="p-2 md:p-2.5 bg-blue-50 dark:bg-blue-900/10 rounded-lg border border-blue-100 dark:border-blue-900/20">
+                                        <p className="text-[9px] md:text-[10px] text-blue-700 dark:text-blue-400 font-bold uppercase">Selected</p>
+                                        <p className="text-lg md:text-xl font-black text-blue-600 dark:text-blue-500">{selectedOrders.size}</p>
                                     </div>
                                 </div>
                             </div>
@@ -449,20 +456,20 @@ export default function FulfillmentPage() {
                 <div className="lg:col-span-3 space-y-4">
                     {/* Bulk Actions Bar */}
                     {selectedOrders.size > 0 && (
-                        <div className="flex items-center justify-between bg-primary/5 border border-primary/20 p-3 rounded-xl shadow-sm animate-in fade-in slide-in-from-top-4 flex-wrap gap-2">
+                        <div className="sticky top-20 z-30 flex items-center justify-between bg-primary/10 dark:bg-primary/20 backdrop-blur-md border border-primary/20 p-2 md:p-3 rounded-xl shadow-lg animate-in fade-in slide-in-from-top-4 flex-wrap gap-2 mx-2">
                             <div className="flex items-center gap-2">
                                 <Badge variant="default" className="rounded-full px-2 text-[10px]">{selectedOrders.size}</Badge>
-                                <span className="text-xs font-medium">Selected</span>
+                                <span className="text-[10px] md:text-xs font-bold uppercase">Selected</span>
                             </div>
-                            <div className="flex gap-2 flex-wrap">
-                                <Button size="sm" onClick={() => bulkUpdateStatus('processing')} className="h-7 text-[10px] bg-yellow-500 hover:bg-yellow-600 text-black shadow-sm" disabled={isUpdating}>
-                                    <RotateCcw className="w-3 h-3 mr-1.5" /> Reprocess
+                            <div className="flex gap-1.5 md:gap-2 flex-wrap justify-end">
+                                <Button size="sm" onClick={() => bulkUpdateStatus('processing')} className="h-7 md:h-8 text-[9px] md:text-xs bg-yellow-500 hover:bg-yellow-600 text-black font-bold shadow-sm" disabled={isUpdating}>
+                                    <RotateCcw className="w-3 h-3 mr-1" /> Reprocess
                                 </Button>
-                                <Button size="sm" onClick={() => bulkUpdateStatus('completed')} className="h-7 text-[10px] bg-green-600 hover:bg-green-700 shadow-sm" disabled={isUpdating}>
-                                    <CheckCircle2 className="w-3 h-3 mr-1.5" /> Complete
+                                <Button size="sm" onClick={() => bulkUpdateStatus('completed')} className="h-7 md:h-8 text-[9px] md:text-xs bg-green-600 hover:bg-green-700 font-bold shadow-sm" disabled={isUpdating}>
+                                    <CheckCircle2 className="w-3 h-3 mr-1" /> Complete
                                 </Button>
-                                <Button size="sm" onClick={() => bulkUpdateStatus('failed')} variant="destructive" className="h-7 text-[10px] shadow-sm" disabled={isUpdating}>
-                                    <XCircle className="w-3 h-3 mr-1.5" /> Fail
+                                <Button size="sm" onClick={() => bulkUpdateStatus('failed')} variant="destructive" className="h-7 md:h-8 text-[9px] md:text-xs font-bold shadow-sm" disabled={isUpdating}>
+                                    <XCircle className="w-3 h-3 mr-1" /> Fail
                                 </Button>
                             </div>
                         </div>
@@ -505,21 +512,17 @@ export default function FulfillmentPage() {
                                                 className="scale-90"
                                             />
 
-                                            <div className="flex-1 grid grid-cols-2 md:grid-cols-6 items-center gap-2 md:gap-4">
+                                            <div className="flex-1 grid grid-cols-2 md:grid-cols-6 items-center gap-x-2 gap-y-3 md:gap-4 p-1">
                                                 <div className="space-y-0.5">
                                                     <p className="text-[9px] uppercase font-extrabold text-muted-foreground">Beneficiary</p>
-                                                    <p className="text-xs md:text-sm font-bold truncate">{order.phone_number}</p>
+                                                    <p className="text-[11px] md:text-sm font-bold truncate">{order.phone_number}</p>
                                                 </div>
                                                 <div className="space-y-0.5">
                                                     <p className="text-[9px] uppercase font-extrabold text-muted-foreground">Bundle</p>
-                                                    <div className="flex items-center gap-1.5">
-                                                        <Badge variant="outline" className="text-[9px] px-1 font-black leading-none py-0.5">{order.network}</Badge>
-                                                        <span className="text-xs font-bold">{order.size}</span>
+                                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                                        <Badge variant="outline" className="text-[8px] px-1 font-black leading-none py-0.5">{order.network}</Badge>
+                                                        <span className="text-[11px] md:text-xs font-bold">{order.size}</span>
                                                     </div>
-                                                </div>
-                                                <div className="hidden md:block space-y-0.5">
-                                                    <p className="text-[9px] uppercase font-extrabold text-muted-foreground">Cost</p>
-                                                    <p className="text-xs font-semibold">{formatCurrency(order.price)}</p>
                                                 </div>
                                                 <div className="space-y-0.5">
                                                     <p className="text-[9px] uppercase font-extrabold text-muted-foreground">Purchaser</p>
@@ -527,34 +530,31 @@ export default function FulfillmentPage() {
                                                         <p className="font-bold truncate max-w-[80px] md:max-w-full" title={`${order.users?.first_name} ${order.users?.last_name}`}>
                                                             {order.users?.first_name || 'N/A'} {order.users?.last_name || ''}
                                                         </p>
-                                                        <p className="text-muted-foreground opacity-60 capitalize">{order.users?.role || 'User'}</p>
+                                                        <p className="text-muted-foreground opacity-60 text-[9px] capitalize">{order.users?.role || 'User'}</p>
                                                     </div>
                                                 </div>
                                                 <div className="space-y-0.5">
                                                     <p className="text-[9px] uppercase font-extrabold text-muted-foreground">Status</p>
-                                                    <Badge
-                                                        variant={order.status === 'completed' ? 'success' : order.status === 'failed' ? 'destructive' : 'default'}
-                                                        className="text-[9px] font-black uppercase tracking-wider h-4 md:h-5 px-1.5"
-                                                    >
-                                                        {order.status}
-                                                    </Badge>
+                                                    <div>
+                                                        <Badge
+                                                            variant={order.status === 'completed' ? 'success' : order.status === 'failed' ? 'destructive' : 'default'}
+                                                            className="text-[9px] font-black uppercase tracking-wider h-4 md:h-5 px-1.5"
+                                                        >
+                                                            {order.status}
+                                                        </Badge>
+                                                    </div>
                                                 </div>
-                                                <div className="space-y-0.5 text-right">
+                                                <div className="space-y-0.5">
                                                     <p className="text-[9px] uppercase font-extrabold text-muted-foreground">Time</p>
                                                     <p className="text-[9px] md:text-[10px] font-medium opacity-60">
                                                         {new Date(order.created_at).toLocaleDateString([], { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
                                                     </p>
                                                 </div>
-                                            </div>
-
-                                            {/* Transaction ID if available */}
-                                            {order.mtn_fulfillment_tracking?.[0]?.transaction_id && (
-                                                <div className="absolute top-1 right-1 hidden group-hover:block">
-                                                    <Badge variant="secondary" className="text-[8px] font-mono px-1 py-0 h-3">
-                                                        #{order.mtn_fulfillment_tracking[0].transaction_id}
-                                                    </Badge>
+                                                <div className="hidden md:block space-y-0.5 text-right">
+                                                    <p className="text-[9px] uppercase font-extrabold text-muted-foreground">Cost</p>
+                                                    <p className="text-xs font-semibold">{formatCurrency(order.price)}</p>
                                                 </div>
-                                            )}
+                                            </div>
                                         </div>
                                     ))}
 
