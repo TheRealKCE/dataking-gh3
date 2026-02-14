@@ -12,6 +12,8 @@ import { Fira_Sans } from 'next/font/google'
 import './globals.css'
 import { AuthProvider } from '@/contexts/auth-context'
 import { Toaster } from '@/components/ui/sonner'
+import { ThemeProvider } from '@/components/theme-provider'
+import { GlobalLoader } from '@/components/ui/global-loader'
 
 const firaSans = Fira_Sans({
     weight: ['300', '400', '500', '600', '700'],
@@ -39,10 +41,18 @@ export default function RootLayout({
     return (
         <html lang="en" suppressHydrationWarning>
             <body className={firaSans.className}>
-                <AuthProvider>
-                    {children}
-                    <Toaster position="top-right" richColors />
-                </AuthProvider>
+                <ThemeProvider
+                    attribute="class"
+                    defaultTheme="system"
+                    enableSystem
+                    disableTransitionOnChange
+                >
+                    <AuthProvider>
+                        <GlobalLoader />
+                        {children}
+                        <Toaster position="top-right" richColors />
+                    </AuthProvider>
+                </ThemeProvider>
             </body>
         </html>
     )

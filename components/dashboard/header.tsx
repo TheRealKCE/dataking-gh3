@@ -4,7 +4,9 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/contexts/auth-context'
 import { useUI } from '@/contexts/ui-context'
+import { useUI } from '@/contexts/ui-context'
 import { Button } from '@/components/ui/button'
+import { ThemeToggle } from '@/components/ui/theme-toggle'
 import {
     DropdownMenu,
     DropdownMenuContent,
@@ -87,6 +89,8 @@ export function DashboardHeader() {
 
                 {/* Right Side Actions */}
                 <div className="flex items-center gap-2">
+                    <ThemeToggle />
+
                     {/* Role Badge */}
                     <Badge
                         className="hidden sm:flex text-xs"
