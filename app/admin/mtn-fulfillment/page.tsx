@@ -60,7 +60,7 @@ export default function MTNFulfillmentPage() {
                 .select(`
                     *,
                     users(first_name, last_name, email),
-                    mtn_fulfillment_tracking(api_response)
+                    mtn_fulfillment_tracking!inner(api_response)
                 `)
                 .eq('network', 'MTN')
                 .in('status', ['pending', 'processing'])
