@@ -31,6 +31,7 @@ interface Order {
         first_name: string
         last_name: string
         email: string
+        role: string
     }
     mtn_fulfillment_tracking: Array<{
         api_response: any
@@ -57,7 +58,7 @@ export default function MTNFulfillmentPage() {
                 .from('orders')
                 .select(`
                     *,
-                    users(first_name, last_name, email),
+                    users(first_name, last_name, email, role),
                     mtn_fulfillment_tracking!inner(api_response)
                 `)
                 .eq('network', 'MTN')
@@ -104,15 +105,26 @@ export default function MTNFulfillmentPage() {
         try {
             const orderIds = Array.from(selectedOrders)
 
-            const { error } = await (supabase.from('orders') as any)
-                .update({ status: newStatus })
-                .in('id', orderIds)
+            const response = await fetch('/api/admin/orders/update-status', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    orderIds,
+                    status: newStatus
+                }),
+            })
 
-            if (error) throw error
+            const data = await response.json()
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to update orders')
+            }
 
             toast.success(`${orderIds.length} order(s) marked as ${newStatus}`)
             setSelectedOrders(new Set())
-            fetchOrders()
+            await fetchOrders()
         } catch (error: any) {
             toast.error('Failed to update orders: ' + error.message)
         } finally {
@@ -269,32 +281,37 @@ export default function MTNFulfillmentPage() {
                                             onCheckedChange={() => toggleOrderSelection(order.id)}
                                             className="mt-1"
                                         />
-                                        <div className="flex-1 grid grid-cols-1 md:grid-cols-6 gap-4">
-                                            <div>
+                                        <div className="flex-1 grid grid-cols-2 md:grid-cols-6 gap-4">
+                                            <div className="col-span-1">
                                                 <p className="text-xs text-muted-foreground">Phone</p>
-                                                <p className="font-medium">{order.phone_number}</p>
+                                                <p className="font-medium truncate" title={order.phone_number}>{order.phone_number}</p>
                                             </div>
-                                            <div>
+                                            <div className="col-span-1">
                                                 <p className="text-xs text-muted-foreground">Size</p>
                                                 <p className="font-medium">{order.size}</p>
                                             </div>
-                                            <div>
+                                            <div className="col-span-1">
                                                 <p className="text-xs text-muted-foreground">Price</p>
                                                 <p className="font-medium">{formatCurrency(order.price)}</p>
                                             </div>
-                                            <div>
-                                                <p className="text-xs text-muted-foreground">Customer</p>
-                                                <p className="font-medium text-sm">
-                                                    {order.users?.first_name} {order.users?.last_name}
-                                                </p>
+                                            <div className="col-span-1">
+                                                <p className="text-xs text-muted-foreground">User</p>
+                                                <div className="flex flex-col">
+                                                    <p className="font-medium text-sm truncate" title={`${order.users?.first_name} ${order.users?.last_name}`}>
+                                                        {order.users?.first_name} {order.users?.last_name}
+                                                    </p>
+                                                    <span className="text-xs text-muted-foreground capitalize">
+                                                        {order.users?.role || 'User'}
+                                                    </span>
+                                                </div>
                                             </div>
-                                            <div>
+                                            <div className="col-span-1">
                                                 <p className="text-xs text-muted-foreground">Status</p>
-                                                <Badge variant={order.status === 'processing' ? 'default' : 'secondary'}>
+                                                <Badge variant={order.status === 'processing' ? 'default' : order.status === 'completed' ? 'success' : 'destructive'} className="capitalize">
                                                     {order.status}
                                                 </Badge>
                                             </div>
-                                            <div>
+                                            <div className="col-span-1">
                                                 <p className="text-xs text-muted-foreground">Created</p>
                                                 <p className="text-sm">
                                                     {new Date(order.created_at).toLocaleString('en-US', {
