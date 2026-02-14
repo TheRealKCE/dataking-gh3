@@ -1,11 +1,11 @@
 import { NextResponse } from 'next/server'
 import { fetchSupplierBalance } from '@/lib/mtn-fulfillment'
-import { createServerClient } from '@/lib/supabase-server'
+import { createRouteClient } from '@/lib/supabase-server'
 
 export async function GET() {
     try {
         // Check admin authorization
-        const supabase = createServerClient()
+        const supabase = createRouteClient()
         const { data: { user } } = await supabase.auth.getUser()
 
         if (!user) {

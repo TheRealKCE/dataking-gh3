@@ -124,10 +124,10 @@ export default function MTNFulfillmentPage() {
         try {
             const orderIds = Array.from(selectedOrders)
 
-            const { error } = await supabase
+            const { error } = await (supabase
                 .from('orders')
                 .update({ status: newStatus })
-                .in('id', orderIds)
+                .in('id', orderIds) as any)
 
             if (error) throw error
 

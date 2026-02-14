@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { fetchSupplierBalance } from '@/lib/mtn-fulfillment'
 import { sendEmail } from '@/lib/email-service'
-import { createServerClient } from '@/lib/supabase-server'
+import { createRouteClient } from '@/lib/supabase-server'
 
 export async function GET(request: NextRequest) {
     // Verify cron secret
@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
             console.log('[Supplier Balance Check] ⚠️ Low balance detected! Sending alerts...')
 
             // Get admin users
-            const supabase = createServerClient()
+            const supabase = createRouteClient()
             const { data: admins } = await supabase
                 .from('users')
                 .select('id, email, phone_number, first_name, last_name')
