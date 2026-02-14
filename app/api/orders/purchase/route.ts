@@ -227,8 +227,12 @@ export async function POST(request: NextRequest) {
             console.error('[Order] Failed to send email notification:', emailError)
         }
 
-        // Trigger auto-fulfillment (async)
-        triggerFulfillment((order as any).id, (pkg as any).network)
+        // Trigger auto-fulfillment (async) - Awaited to ensure Vercel execution
+        try {
+            await triggerFulfillment((order as any).id, (pkg as any).network)
+        } catch (fulfillmentError) {
+            console.error('[Purchase API] Fulfillment trigger error:', fulfillmentError)
+        }
 
         return NextResponse.json({
             success: true,
