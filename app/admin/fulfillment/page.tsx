@@ -10,8 +10,6 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Switch } from '@/components/ui/switch'
 import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { Calendar } from '@/components/ui/calendar'
 import {
     RefreshCw,
     CheckCircle2,
@@ -70,7 +68,7 @@ export default function FulfillmentPage() {
     // Filter State
     const [networkFilter, setNetworkFilter] = useState('All')
     const [dateFilter, setDateFilter] = useState('today')
-    const [customDate, setCustomDate] = useState<Date | undefined>(undefined)
+    const [customDate, setCustomDate] = useState<string>('') // Changed to string for input date
     const [searchQuery, setSearchQuery] = useState('')
 
     // Pagination State
@@ -117,8 +115,11 @@ export default function FulfillmentPage() {
             start = new Date(now.getFullYear(), now.getMonth(), 1)
             end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)
         } else if (dateFilter === 'custom' && customDate) {
-            start = new Date(customDate.getFullYear(), customDate.getMonth(), customDate.getDate())
-            end = new Date(customDate.getFullYear(), customDate.getMonth(), customDate.getDate(), 23, 59, 59, 999)
+            // customDate is YYYY-MM-DD string
+            const dateParts = customDate.split('-').map(Number)
+            // Create date in local time (months are 0-indexed)
+            start = new Date(dateParts[0], dateParts[1] - 1, dateParts[2])
+            end = new Date(dateParts[0], dateParts[1] - 1, dateParts[2], 23, 59, 59, 999)
         }
 
         return { start, end }
@@ -378,22 +379,15 @@ export default function FulfillmentPage() {
                                 </Select>
                                 {dateFilter === 'custom' && (
                                     <div className="mt-2">
-                                        <Popover>
-                                            <PopoverTrigger asChild>
-                                                <Button variant="outline" className="w-full justify-start text-left font-normal text-xs h-8">
-                                                    <CalendarIcon className="mr-2 h-3.5 w-3.5" />
-                                                    {customDate ? format(customDate, "PPP") : <span>Pick a date</span>}
-                                                </Button>
-                                            </PopoverTrigger>
-                                            <PopoverContent className="w-auto p-0" align="start">
-                                                <Calendar
-                                                    mode="single"
-                                                    selected={customDate}
-                                                    onSelect={setCustomDate}
-                                                    initialFocus
-                                                />
-                                            </PopoverContent>
-                                        </Popover>
+                                        <div className="relative">
+                                            <CalendarIcon className="absolute left-2 top-2 h-4 w-4 text-muted-foreground" />
+                                            <Input
+                                                type="date"
+                                                className="pl-8 h-8 text-xs w-full block"
+                                                value={customDate}
+                                                onChange={(e) => setCustomDate(e.target.value)}
+                                            />
+                                        </div>
                                     </div>
                                 )}
                             </div>
