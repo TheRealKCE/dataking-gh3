@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { fetchSupplierBalance } from '@/lib/mtn-fulfillment'
+import { fetchSupplierBalance } from '@/lib/fulfillment-service'
 import { createRouteClient } from '@/lib/supabase-server'
 
 export async function GET() {
