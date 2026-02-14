@@ -33,7 +33,6 @@ interface Order {
         email: string
     }
     mtn_fulfillment_tracking: Array<{
-        transaction_id: string
         api_response: any
     }>
 }
@@ -61,7 +60,7 @@ export default function MTNFulfillmentPage() {
                 .select(`
                     *,
                     users(first_name, last_name, email),
-                    mtn_fulfillment_tracking(transaction_id, api_response)
+                    mtn_fulfillment_tracking(api_response)
                 `)
                 .eq('network', 'MTN')
                 .in('status', ['pending', 'processing'])
@@ -337,9 +336,9 @@ export default function MTNFulfillmentPage() {
                                             </div>
                                         </div>
                                     </div>
-                                    {order.mtn_fulfillment_tracking?.[0]?.transaction_id && (
+                                    {order.mtn_fulfillment_tracking?.[0]?.api_response?.data?.transaction_id && (
                                         <div className="mt-2 ml-10 text-xs text-muted-foreground">
-                                            Transaction: {order.mtn_fulfillment_tracking[0].transaction_id}
+                                            Transaction: {order.mtn_fulfillment_tracking[0].api_response.data.transaction_id}
                                         </div>
                                     )}
                                 </div>
