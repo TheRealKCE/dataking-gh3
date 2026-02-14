@@ -279,11 +279,74 @@ async function updateCustomerPurchases(
 }
 
 async function triggerFulfillment(orderId: string, network: string) {
-    // This would be called asynchronously to trigger the fulfillment service
-    // For now, we'll just log it and rely on the cron job
-    console.log(`Triggering fulfillment for order ${orderId} on ${network}`)
+    // Check if auto-fulfillment is enabled (can be disabled via env variable)
+    if (process.env.ENABLE_AUTO_FULFILLMENT === 'false') {
+        console.log(`[Fulfillment] Auto-fulfillment disabled via environment variable`)
+        return
+    }
 
-    // In production, you'd call:
-    // - MTN API for MTN orders
-    // - CodeCraft API for Telecel, AT-iShare, AT-BigTime orders
+    // Only auto-fulfill MTN orders for now
+    if (network !== 'MTN') {
+        console.log(`[Fulfillment] Skipping auto-fulfillment for ${network} order ${orderId}`)
+        return
+    }
+
+    try {
+        const { fulfillMTNOrder } = await import('@/lib/mtn-fulfillment')
+        const supabase = createServerClient()
+
+        // Get order details
+        const { data: order } = await supabase
+            .from('orders')
+            .select('*')
+            .eq('id', orderId)
+            .single()
+
+        if (!order) {
+            console.error(`[Fulfillment] Order ${orderId} not found`)
+            return
+        }
+
+        console.log(`[Fulfillment] Processing MTN order ${orderId}`)
+
+        // Call DataKazina API
+        const result = await fulfillMTNOrder(
+            (order as any).phone_number,
+            (order as any).size,
+            orderId
+        )
+
+        if (result.success) {
+            console.log(`[Fulfillment] Order ${orderId} submitted successfully`)
+
+            // Create tracking record
+            await (supabase.from('mtn_fulfillment_tracking') as any).insert({
+                order_id: orderId,
+                status: 'processing',
+                api_response: result.apiResponse || { reference: result.reference },
+            })
+
+            // Update order status to processing
+            await (supabase.from('orders') as any)
+                .update({
+                    status: 'processing',
+                    updated_at: new Date().toISOString(),
+                })
+                .eq('id', orderId)
+        } else {
+            console.error(`[Fulfillment] Order ${orderId} failed:`, result.error)
+
+            // Create tracking record with error
+            await (supabase.from('mtn_fulfillment_tracking') as any).insert({
+                order_id: orderId,
+                status: 'failed',
+                api_response: { error: result.error, ...result.apiResponse },
+            })
+
+            // Note: We don't update order status to failed here
+            // The cron job will handle retries and eventual failure
+        }
+    } catch (error) {
+        console.error(`[Fulfillment] Error processing order ${orderId}:`, error)
+    }
 }

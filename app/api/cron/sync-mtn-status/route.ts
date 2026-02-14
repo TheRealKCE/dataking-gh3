@@ -10,29 +10,39 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const supabase = createServerClient()
-
     try {
-        // Get pending/processing MTN orders
-        const { data: orders, error } = await supabase
+        const supabase = createServerClient()
+
+        // Only check orders from last 2 hours 5 minutes (125 minutes)
+        // This gives cron 2 chances to check before timing out (hourly schedule)
+        const timeoutMinutes = 125
+        const cutoffTime = new Date(Date.now() - timeoutMinutes * 60 * 1000).toISOString()
+
+        // Fetch orders that are pending or processing
+        const { data: orders } = await supabase
             .from('orders')
-            .select('*, mtn_fulfillment_tracking(*)')
-            .eq('network', 'MTN')
+            .select(`
+        *,
+        mtn_fulfillment_tracking(*)
+      `)
             .in('status', ['pending', 'processing'])
+            .eq('network', 'MTN')
+            .gte('created_at', cutoffTime)  // Only recent orders
             .limit(50)
 
-        if (error) throw error
+        if (!orders || orders.length === 0) {
+            return NextResponse.json({ success: true, processed: 0, updated: 0, failed: 0 })
+        }
 
         let updated = 0
         let failed = 0
 
-        for (const order of orders || []) {
+        for (const order of orders) {
             try {
-                // Get tracking record
                 const tracking = (order as any).mtn_fulfillment_tracking?.[0]
-                if (!tracking?.api_response?.reference) continue
+                if (!tracking?.api_response?.transaction_id) continue
 
-                const statusResult = await checkMTNOrderStatus(tracking.api_response.reference)
+                const statusResult = await checkMTNOrderStatus(tracking.api_response.transaction_id)
 
                 if (statusResult.success) {
                     const newStatus = statusResult.status
@@ -63,43 +73,8 @@ export async function GET(request: NextRequest) {
                             ...notifData,
                         })
 
-                        // If failed, refund wallet
-                        if (newStatus === 'failed') {
-                            const { data: wallet } = await supabase
-                                .from('wallets')
-                                .select('*')
-                                .eq('user_id', (order as any).user_id)
-                                .single()
-
-                            if (wallet) {
-                                await (supabase
-                                    .from('wallets') as any)
-                                    .update({
-                                        balance: (wallet as any).balance + (order as any).price,
-                                        total_spent: (wallet as any).total_spent - (order as any).price,
-                                        updated_at: new Date().toISOString(),
-                                    })
-                                    .eq('id', (wallet as any).id)
-
-                                // Create refund transaction
-                                await (supabase.from('wallet_transactions') as any).insert({
-                                    wallet_id: (wallet as any).id,
-                                    user_id: (order as any).user_id,
-                                    type: 'credit',
-                                    amount: (order as any).price,
-                                    description: `Refund for failed order ${(order as any).reference_code}`,
-                                    reference: (order as any).reference_code,
-                                    source: 'refund',
-                                    status: 'completed',
-                                })
-
-                                // Update order payment status
-                                await (supabase
-                                    .from('orders') as any)
-                                    .update({ payment_status: 'refunded' })
-                                    .eq('id', (order as any).id)
-                            }
-                        }
+                        // Note: Failed orders are not automatically refunded
+                        // Admin will manually review and refund via admin panel
 
                         updated++
                     }

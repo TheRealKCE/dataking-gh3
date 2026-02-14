@@ -60,7 +60,7 @@ const adminCache = {
     orders: { data: null as any[] | null, timestamp: 0 },
     batches: {} as Record<string, { data: any[], total: number, timestamp: 0 }>
 }
-const CACHE_DURATION = 30000 // 30 seconds
+const CACHE_DURATION = 300000 // 5 minutes (increased from 30s to save CPU)
 
 export default function AdminOrdersPage() {
     const [orders, setOrders] = useState<any[]>([])
