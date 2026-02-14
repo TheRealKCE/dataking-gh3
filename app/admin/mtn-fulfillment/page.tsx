@@ -124,12 +124,8 @@ export default function MTNFulfillmentPage() {
         try {
             const orderIds = Array.from(selectedOrders)
 
-            // Update via direct SQL-style approach to avoid type issues
-            const updateData: any = { status: newStatus }
-
-            const { error } = await supabase
-                .from('orders')
-                .update(updateData)
+            const { error } = await (supabase.from('orders') as any)
+                .update({ status: newStatus })
                 .in('id', orderIds)
 
             if (error) throw error
