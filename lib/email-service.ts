@@ -969,62 +969,54 @@ export async function sendAdminNewOrderAlert(
         customerEmail: string
     }
 ): Promise<EmailResult> {
+    // DISABLED AS REQUESTED TO SAVE API COSTS
+    return { success: true, messageId: 'disabled' }
+
+    /*
     const adminEmail = process.env.ADMIN_EMAIL || 'kingflexydatalimited@gmail.com'
 
     const content = `
         <h1 class="greeting">New Order Received! 🔔</h1>
-        <p class="subtitle">A new data order has been placed</p>
-        
-        <div class="amount-display">
-            <p class="amount-label">Order Value</p>
-            <p class="amount-value"><span class="amount-currency">GHS</span> ${orderDetails.price.toFixed(2)}</p>
-        </div>
+        <p class="subtitle">A new order has been placed on the platform</p>
         
         <div class="info-card">
             <div class="info-card-header">
                 <div class="info-card-icon">📦</div>
-                <span class="info-card-title">Order Information</span>
+                <span class="info-card-title">Order Details</span>
             </div>
             <div class="info-row">
                 <span class="info-label">Reference</span>
                 <span class="info-value">${orderDetails.referenceCode}</span>
             </div>
             <div class="info-row">
-                <span class="info-label">Beneficiary Number</span>
-                <span class="info-value" style="font-size: 16px; color: #D4AF37;">${orderDetails.phoneNumber}</span>
+                <span class="info-label">Customer</span>
+                <span class="info-value">${orderDetails.customerName} (${orderDetails.customerEmail})</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Phone Number</span>
+                <span class="info-value">${orderDetails.phoneNumber}</span>
             </div>
             <div class="info-row">
                 <span class="info-label">Network</span>
                 <span class="info-value">${orderDetails.network}</span>
             </div>
             <div class="info-row">
-                <span class="info-label">Product</span>
-                <span class="info-value" style="font-size: 16px; color: #10b981;">${orderDetails.size}</span>
-            </div>
-        </div>
-        
-        <div class="info-card">
-            <div class="info-card-header">
-                <div class="info-card-icon">👤</div>
-                <span class="info-card-title">Customer Information</span>
+                <span class="info-label">Data Size</span>
+                <span class="info-value">${orderDetails.size}</span>
             </div>
             <div class="info-row">
-                <span class="info-label">Customer Name</span>
-                <span class="info-value">${orderDetails.customerName}</span>
+                <span class="info-label">Price</span>
+                <span class="info-value">GHS ${orderDetails.price.toFixed(2)}</span>
             </div>
             <div class="info-row">
-                <span class="info-label">Customer Email</span>
-                <span class="info-value">${orderDetails.customerEmail}</span>
-            </div>
-            <div class="info-row">
-                <span class="info-label">Order Time</span>
+                <span class="info-label">Date</span>
                 <span class="info-value">${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
             </div>
         </div>
         
         <div class="cta-container">
             <a href="${process.env.NEXT_PUBLIC_APP_URL}/admin/orders" class="cta-button">
-                View in Admin Panel
+                View Order
             </a>
         </div>
     `
@@ -1108,6 +1100,7 @@ export async function sendAdminNewOrderAlert(
     }
 
     return adminResult
+    */
 }
 
 /**
