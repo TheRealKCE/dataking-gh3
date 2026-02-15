@@ -28,7 +28,8 @@ import {
     BadgeCheck,
     UserCircle,
     Plus,
-    Activity
+    Activity,
+    Banknote
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -58,6 +59,7 @@ const adminNavItems = [
     { href: '/admin/complaints', label: 'Complaints', icon: MessageSquare },
     { href: '/admin/announcements', label: 'Announce', icon: Bell },
     { href: '/admin/sms-broadcast', label: 'SMS', icon: MessageSquare },
+    { href: '/admin/finance', label: 'Finance', icon: Banknote },
     { href: '/admin/profits-history', label: 'Profits', icon: Wallet },
     { href: '/admin/settings', label: 'Settings', icon: Settings },
 ]
