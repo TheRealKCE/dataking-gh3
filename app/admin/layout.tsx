@@ -25,8 +25,8 @@ export default function AdminLayout({
                 router.push('/auth/login')
             } else if (!isAdmin && !isSubAdmin) {
                 router.push('/dashboard')
-            } else if (isSubAdmin && pathname && !pathname.startsWith('/admin/orders')) {
-                // Redirect sub-admin to orders if they try to access other admin pages
+            } else if (isSubAdmin && pathname && !pathname.startsWith('/admin/orders') && !pathname.startsWith('/admin/finance')) {
+                // Redirect sub-admin to orders if they try to access unauthorized admin pages
                 router.push('/admin/orders')
             }
         }

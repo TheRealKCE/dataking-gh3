@@ -361,7 +361,7 @@ export function DashboardSidebar() {
                             )}
                             {adminNavItems.filter(item => {
                                 if (isAdmin) return true
-                                if (isSubAdmin) return item.href === '/admin/orders'
+                                if (isSubAdmin) return item.href === '/admin/orders' || item.href === '/admin/finance'
                                 return false
                             }).map((item) => {
                                 const isActive = isLinkActive(item.href)
