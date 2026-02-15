@@ -28,11 +28,17 @@ import { WalletTransaction } from '@/types/supabase'
 
 export default function TransactionsPage() {
     const { dbUser } = useAuth()
-    const [transactions, setTransactions] = useState<WalletTransaction[]>([])
-    const [filteredTransactions, setFilteredTransactions] = useState<WalletTransaction[]>([])
+    const [transactions, setTransactions] = useState<any[]>([])
     const [isLoading, setIsLoading] = useState(true)
+    const [page, setPage] = useState(0)
+    const [totalCount, setTotalCount] = useState(0)
     const [searchQuery, setSearchQuery] = useState('')
     const [typeFilter, setTypeFilter] = useState('all')
+    const [sourceFilter, setSourceFilter] = useState('all')
+    const [startDate, setStartDate] = useState('')
+    const [endDate, setEndDate] = useState('')
+    const ITEMS_PER_PAGE = 20
+
     const [stats, setStats] = useState({
         total: 0,
         todayCredits: 0,
@@ -44,33 +50,60 @@ export default function TransactionsPage() {
         if (dbUser) {
             fetchTransactions()
         }
-    }, [dbUser])
+    }, [dbUser, page, typeFilter, sourceFilter, startDate, endDate])
 
-    useEffect(() => {
-        filterTransactions()
-    }, [transactions, searchQuery, typeFilter])
+    // Local search filter (since we search description/reference)
+    const filteredTransactions = searchQuery
+        ? transactions.filter(t =>
+            t.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            t.reference?.toLowerCase().includes(searchQuery.toLowerCase())
+        )
+        : transactions
 
     const fetchTransactions = async () => {
         try {
-            const { data, error } = await supabase
-                .from('wallet_transactions')
-                .select('*')
-                .eq('user_id', dbUser?.id as any)
-                .order('created_at', { ascending: false })
+            setIsLoading(true)
+            const params = {
+                p_user_id: dbUser?.id,
+                p_limit: ITEMS_PER_PAGE,
+                p_offset: page * ITEMS_PER_PAGE,
+                p_source_filter: sourceFilter,
+                p_type_filter: typeFilter,
+                p_start_date: startDate || null,
+                p_end_date: endDate ? `${endDate}T23:59:59` : null
+            }
+
+            // @ts-ignore
+            const { data, error } = await supabase.rpc('get_user_transactions_with_balance', params)
 
             if (error) throw error
             setTransactions(data || [])
 
-            // Calculate stats
-            const today = new Date().toISOString().split('T')[0]
-            const todayTxns = (data as any)?.filter((t: any) => t.created_at.startsWith(today)) || []
+            // Fetch total count and stats
+            // For stats we fetch a wider range or separate summary
+            const { count } = await supabase
+                .from('wallet_transactions')
+                .select('*', { count: 'exact', head: true })
+                .eq('user_id', dbUser?.id as any)
 
-            setStats({
-                total: data?.length || 0,
-                todayCredits: todayTxns.filter((t: any) => t.type === 'credit' && t.source !== 'refund').reduce((sum: number, t: any) => sum + t.amount, 0),
-                todayDebits: todayTxns.filter((t: any) => t.type === 'debit').reduce((sum: number, t: any) => sum + t.amount, 0),
-                todayRefunds: todayTxns.filter((t: any) => t.source === 'refund').reduce((sum: number, t: any) => sum + t.amount, 0),
-            })
+            setTotalCount(count || 0)
+
+            // Calculate simple stats from recent data or separate query
+            const today = new Date().toISOString().split('T')[0]
+            const { data: todayData } = await supabase
+                .from('wallet_transactions')
+                .select('amount, type, source')
+                .eq('user_id', dbUser?.id as any)
+                .gte('created_at', today)
+
+            if (todayData) {
+                setStats({
+                    total: count || 0,
+                    todayCredits: todayData.filter((t: any) => t.type === 'credit' && t.source !== 'refund').reduce((sum: number, t: any) => sum + t.amount, 0),
+                    todayDebits: todayData.filter((t: any) => t.type === 'debit').reduce((sum: number, t: any) => sum + t.amount, 0),
+                    todayRefunds: todayData.filter((t: any) => t.source === 'refund').reduce((sum: number, t: any) => sum + t.amount, 0),
+                })
+            }
         } catch (error) {
             console.error('Error fetching transactions:', error)
         } finally {
@@ -78,23 +111,7 @@ export default function TransactionsPage() {
         }
     }
 
-    const filterTransactions = () => {
-        let filtered = transactions
 
-        if (typeFilter !== 'all') {
-            filtered = filtered.filter(t => t.type === typeFilter)
-        }
-
-        if (searchQuery) {
-            const query = searchQuery.toLowerCase()
-            filtered = filtered.filter(t =>
-                t.description.toLowerCase().includes(query) ||
-                t.reference?.toLowerCase().includes(query)
-            )
-        }
-
-        setFilteredTransactions(filtered)
-    }
 
     if (isLoading) {
         return (
@@ -163,27 +180,76 @@ export default function TransactionsPage() {
 
             {/* Filters */}
             <Card>
-                <CardContent className="p-4">
+                <CardContent className="p-4 space-y-4">
                     <div className="flex flex-col md:flex-row gap-4">
                         <div className="relative flex-1">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                             <Input
-                                placeholder="Search transactions..."
+                                placeholder="Search in this page..."
                                 value={searchQuery}
                                 onChange={(e) => setSearchQuery(e.target.value)}
                                 className="pl-9"
                             />
                         </div>
-                        <Select value={typeFilter} onValueChange={setTypeFilter}>
-                            <SelectTrigger className="w-[150px]">
-                                <SelectValue placeholder="Type" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All Types</SelectItem>
-                                <SelectItem value="credit">Credits</SelectItem>
-                                <SelectItem value="debit">Debits</SelectItem>
-                            </SelectContent>
-                        </Select>
+                        <div className="flex gap-2">
+                            <Select value={typeFilter} onValueChange={(v) => { setTypeFilter(v); setPage(0); }}>
+                                <SelectTrigger className="w-[130px]">
+                                    <SelectValue placeholder="Type" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All Types</SelectItem>
+                                    <SelectItem value="credit">Credits</SelectItem>
+                                    <SelectItem value="debit">Debits</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <Select value={sourceFilter} onValueChange={(v) => { setSourceFilter(v); setPage(0); }}>
+                                <SelectTrigger className="w-[150px]">
+                                    <SelectValue placeholder="Category" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All Categories</SelectItem>
+                                    <SelectItem value="purchase">Data Purchase</SelectItem>
+                                    <SelectItem value="payment">Wallet Funding</SelectItem>
+                                    <SelectItem value="admin">Adjustments</SelectItem>
+                                    <SelectItem value="refund">Refunds</SelectItem>
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+                    <div className="flex flex-col md:flex-row gap-4 items-end">
+                        <div className="grid grid-cols-2 gap-2 flex-1">
+                            <div className="space-y-1">
+                                <label className="text-xs font-medium text-muted-foreground">From</label>
+                                <Input
+                                    type="date"
+                                    value={startDate}
+                                    onChange={(e) => { setStartDate(e.target.value); setPage(0); }}
+                                    className="h-9"
+                                />
+                            </div>
+                            <div className="space-y-1">
+                                <label className="text-xs font-medium text-muted-foreground">To</label>
+                                <Input
+                                    type="date"
+                                    value={endDate}
+                                    onChange={(e) => { setEndDate(e.target.value); setPage(0); }}
+                                    className="h-9"
+                                />
+                            </div>
+                        </div>
+                        <button
+                            onClick={() => {
+                                setStartDate('');
+                                setEndDate('');
+                                setTypeFilter('all');
+                                setSourceFilter('all');
+                                setSearchQuery('');
+                                setPage(0);
+                            }}
+                            className="text-xs text-blue-600 hover:underline mb-2"
+                        >
+                            Reset Filters
+                        </button>
                     </div>
                 </CardContent>
             </Card>
@@ -203,8 +269,9 @@ export default function TransactionsPage() {
                                     <TableHead>Type</TableHead>
                                     <TableHead>Description</TableHead>
                                     <TableHead>Reference</TableHead>
-                                    <TableHead>Source</TableHead>
-                                    <TableHead>Amount</TableHead>
+                                    <TableHead className="text-right">Amount</TableHead>
+                                    <TableHead className="text-right">Prev Bal</TableHead>
+                                    <TableHead className="text-right">New Bal</TableHead>
                                     <TableHead>Status</TableHead>
                                     <TableHead>Date</TableHead>
                                 </TableRow>
@@ -225,25 +292,56 @@ export default function TransactionsPage() {
                                             </div>
                                         </TableCell>
                                         <TableCell className="max-w-xs truncate">{txn.description}</TableCell>
-                                        <TableCell className="font-mono text-sm">{txn.reference || '-'}</TableCell>
                                         <TableCell>
-                                            <Badge variant="secondary">{txn.source}</Badge>
+                                            <div className="font-mono text-sm uppercase tracking-tighter text-muted-foreground">
+                                                {txn.reference?.slice(-6) || '-'}
+                                            </div>
                                         </TableCell>
-                                        <TableCell className={txn.type === 'credit' ? 'text-green-600' : 'text-red-600'}>
+                                        <TableCell className={`text-right font-medium ${txn.type === 'credit' ? 'text-green-600' : 'text-red-600'}`}>
                                             {txn.type === 'credit' ? '+' : '-'}{formatCurrency(txn.amount)}
                                         </TableCell>
+                                        <TableCell className="text-right font-mono text-xs text-muted-foreground">
+                                            {txn.balance_before !== undefined ? formatCurrency(txn.balance_before) : '-'}
+                                        </TableCell>
+                                        <TableCell className="text-right font-mono text-xs font-semibold">
+                                            {txn.balance_after !== undefined ? formatCurrency(txn.balance_after) : '-'}
+                                        </TableCell>
                                         <TableCell>
-                                            <Badge variant={txn.status === 'completed' ? 'completed' : txn.status === 'failed' ? 'failed' : 'pending'}>
+                                            <Badge variant={txn.status === 'completed' ? 'completed' : txn.status === 'failed' ? 'failed' : 'pending'} className="text-[10px] h-5 px-1.5">
                                                 {txn.status}
                                             </Badge>
                                         </TableCell>
-                                        <TableCell className="text-muted-foreground text-sm">
+                                        <TableCell className="text-muted-foreground text-xs whitespace-nowrap">
                                             {formatDate(txn.created_at)}
                                         </TableCell>
                                     </TableRow>
                                 ))}
                             </TableBody>
                         </Table>
+                    )}
+                    {/* Pagination */}
+                    {totalCount > ITEMS_PER_PAGE && (
+                        <div className="p-4 border-t flex items-center justify-between">
+                            <p className="text-xs text-muted-foreground">
+                                Showing {page * ITEMS_PER_PAGE + 1} to {Math.min((page + 1) * ITEMS_PER_PAGE, totalCount)} of {totalCount}
+                            </p>
+                            <div className="flex gap-2">
+                                <button
+                                    onClick={() => setPage(p => Math.max(0, p - 1))}
+                                    disabled={page === 0}
+                                    className="px-3 py-1 text-xs border rounded hover:bg-slate-50 disabled:opacity-50"
+                                >
+                                    Previous
+                                </button>
+                                <button
+                                    onClick={() => setPage(p => p + 1)}
+                                    disabled={(page + 1) * ITEMS_PER_PAGE >= totalCount}
+                                    className="px-3 py-1 text-xs border rounded hover:bg-slate-50 disabled:opacity-50"
+                                >
+                                    Next
+                                </button>
+                            </div>
+                        </div>
                     )}
                 </CardContent>
             </Card>
