@@ -185,100 +185,64 @@ export default function UserTransactionHistoryPage({ params }: { params: Promise
                                 <TableHead>Description</TableHead>
                                 <TableHead>Type</TableHead>
                                 <TableHead className="text-right">Amount</TableHead>
-                                <TableHead className="text-right">Balance</TableHead>
-                                <TableHead>Category</TableHead> {/* Changed Header */}
+                                <TableHead className="text-right">Prev Bal</TableHead>
+                                <TableHead className="text-right">New Bal</TableHead>
+                                <TableHead>Category</TableHead>
                             </TableRow>
                         </TableHeader>
                         <TableBody>
                             {loading ? (
                                 <TableRow>
-                                    <TableCell colSpan={7} className="h-24 text-center">
+                                    <TableCell colSpan={8} className="h-24 text-center">
                                         <Loader2 className="w-4 h-4 animate-spin mx-auto text-muted-foreground" />
                                     </TableCell>
                                 </TableRow>
                             ) : transactions.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
+                                    <TableCell colSpan={8} className="h-24 text-center text-muted-foreground">
                                         No transactions found matching your filters.
                                     </TableCell>
                                 </TableRow>
                             ) : (
-                                (() => {
-                                    // Calculate running balance for display
-                                    // Note: This logic assumes we are showing the latest transactions first.
-                                    // For Page 0, start with currentBalance.
-                                    // For Page > 0, we would ideally need the balance at that offset.
-                                    // LIMITATION: Without backend support for 'historical balance', this is accurate only for the first page 
-                                    // or continuous fetching. We will use currentBalance as anchor.
-
-                                    let runningBalance = currentBalance
-
-                                    // If we are not on page 0, the 'runningBalance' passed here is actually the current CURRENT balance,
-                                    // not the balance at the start of this page. 
-                                    // To make this accurate for pagination, we'd need to subtract the net change of all newer pages.
-                                    // For now, we render what we have. If page > 0, we hide the balance column or show estimated?
-                                    // User asked for "Remaining Balance after each action".
-                                    // Let's computed it: Row N Balance = Running Balance. Next Row Balance = Running Balance - (Change).
-                                    // Change = if Credit, we gained money. So previous was Less. 
-                                    // Wait, we are going BACK in time.
-                                    // Row 1 (Newest): Balance After = Current Balance (if no newer txns exist).
-                                    // if Page 0: Row 1 Balance = Current Balance.
-                                    // Row 2 Balance = Row 1 Balance - (Row 1 Amount * Sign).
-                                    // If Row 1 was Credit (+10), then Before it was Balance - 10. 
-                                    // So Row 2 (older) "Remaining Balance" (at that time) was Balance - 10.
-
-                                    // We need to map transactions to include their calculated balance
-                                    const txnsWithBalance = transactions.map((txn, index) => {
-                                        const snapshotBalance = runningBalance
-
-                                        // Prepare for next iteration (older transaction)
-                                        if (txn.type === 'credit') {
-                                            runningBalance -= txn.amount
-                                        } else {
-                                            runningBalance += txn.amount
-                                        }
-
-                                        return { ...txn, balanceAfter: snapshotBalance }
-                                    })
-
-                                    return txnsWithBalance.map((txn) => (
-                                        <TableRow key={txn.id}>
-                                            <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
-                                                {formatDate(txn.created_at)}
-                                            </TableCell>
-                                            <TableCell className="font-mono text-xs text-muted-foreground">
-                                                {txn.reference || '-'}
-                                            </TableCell>
-                                            <TableCell className="max-w-[200px] truncate" title={txn.description}>
-                                                {txn.description}
-                                            </TableCell>
-                                            <TableCell>
-                                                <Badge
-                                                    variant="outline"
-                                                    className={txn.type === 'credit'
-                                                        ? 'bg-green-50 text-green-700 border-green-200'
-                                                        : 'bg-red-50 text-red-700 border-red-200'
-                                                    }
-                                                >
-                                                    {txn.type === 'credit' ? <ArrowUpCircle className="w-3 h-3 mr-1" /> : <ArrowDownCircle className="w-3 h-3 mr-1" />}
-                                                    {txn.type.toUpperCase()}
-                                                </Badge>
-                                            </TableCell>
-                                            <TableCell className={`text-right font-medium ${txn.type === 'credit' ? 'text-green-600' : 'text-red-600'}`}>
-                                                {txn.type === 'credit' ? '+' : '-'}{formatCurrency(txn.amount)}
-                                            </TableCell>
-                                            <TableCell className="text-right font-mono text-xs text-muted-foreground">
-                                                {/* Only show balance if on first page to avoid confusion, or if we accept it's approximate for deep pages without deep fetch */}
-                                                {page === 0 ? formatCurrency(txn.balanceAfter) : '-'}
-                                            </TableCell>
-                                            <TableCell>
-                                                <Badge variant="secondary" className="capitalize font-normal text-muted-foreground bg-slate-100 hover:bg-slate-200 text-xs">
-                                                    {formatSource(txn.source)}
-                                                </Badge>
-                                            </TableCell>
-                                        </TableRow>
-                                    ))
-                                })()
+                                transactions.map((txn) => (
+                                    <TableRow key={txn.id}>
+                                        <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                                            {formatDate(txn.created_at)}
+                                        </TableCell>
+                                        <TableCell className="font-mono text-xs text-muted-foreground">
+                                            {txn.reference || '-'}
+                                        </TableCell>
+                                        <TableCell className="max-w-[200px] truncate" title={txn.description}>
+                                            {txn.description}
+                                        </TableCell>
+                                        <TableCell>
+                                            <Badge
+                                                variant="outline"
+                                                className={txn.type === 'credit'
+                                                    ? 'bg-green-50 text-green-700 border-green-200'
+                                                    : 'bg-red-50 text-red-700 border-red-200'
+                                                }
+                                            >
+                                                {txn.type === 'credit' ? <ArrowUpCircle className="w-3 h-3 mr-1" /> : <ArrowDownCircle className="w-3 h-3 mr-1" />}
+                                                {txn.type.toUpperCase()}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell className={`text-right font-medium ${txn.type === 'credit' ? 'text-green-600' : 'text-red-600'}`}>
+                                            {txn.type === 'credit' ? '+' : '-'}{formatCurrency(txn.amount)}
+                                        </TableCell>
+                                        <TableCell className="text-right font-mono text-xs text-muted-foreground">
+                                            {formatCurrency(txn.balance_before)}
+                                        </TableCell>
+                                        <TableCell className="text-right font-mono text-xs font-medium">
+                                            {formatCurrency(txn.balance_after)}
+                                        </TableCell>
+                                        <TableCell>
+                                            <Badge variant="secondary" className="capitalize font-normal text-muted-foreground bg-slate-100 hover:bg-slate-200 text-xs">
+                                                {formatSource(txn.source)}
+                                            </Badge>
+                                        </TableCell>
+                                    </TableRow>
+                                ))
                             )}
                         </TableBody>
                     </Table>

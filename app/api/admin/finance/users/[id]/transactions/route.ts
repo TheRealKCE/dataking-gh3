@@ -45,39 +45,59 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
             .from('wallet_transactions')
             .select('*', { count: 'exact' })
             .eq('user_id', userId)
-
         // Apply filters
+        // Note: The 'type' filter is not directly used in the RPC call as the RPC function
+        // currently only supports source filtering. If 'type' filtering is needed,
+        // it would need to be added to the RPC function or filtered client-side.
+        // For now, we'll proceed with the RPC call as specified.
+
+        // Use the new RPC function to get transactions with calculated running balance
+        // @ts-ignore - RPC types might not be generated yet
+        const { data, error } = await (supabase as any).rpc('get_user_transactions_with_balance', {
+            p_user_id: userId,
+            p_limit: limit,
+            p_offset: offset,
+            p_source_filter: source,
+            p_type_filter: type, // Pass type filter to RPC
+            p_start_date: startDate, // Pass start date to RPC
+            p_end_date: endDate // Pass end date to RPC
+        })
+
+        if (error) {
+            console.error('RPC Error:', error)
+            throw new Error(`RPC call failed: ${error.message}`)
+        }
+
+        // Get total count separately (RPC returns paginated data)
+        // Efficient: Just counting rows handling filters
+        let countQuery = supabase
+            .from('wallet_transactions')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', userId)
+
         if (type && type !== 'all') {
-            query = query.eq('type', type)
+            countQuery = countQuery.eq('type', type)
         }
 
         if (source && source !== 'all') {
-            query = query.eq('source', source)
+            countQuery = countQuery.eq('source', source)
         }
 
         if (startDate) {
-            query = query.gte('created_at', startDate)
+            countQuery = countQuery.gte('created_at', startDate)
         }
 
         if (endDate) {
-            // Add time to end date to make it inclusive of the day
-            // But usually client sends ISO string. If just YYYY-MM-DD, append time.
             let endISO = endDate
             if (!endDate.includes('T')) {
                 endISO = `${endDate}T23:59:59`
             }
-            query = query.lte('created_at', endISO)
+            countQuery = countQuery.lte('created_at', endISO)
         }
 
-        const { data: transactions, count, error: fetchError } = await query
-            .order('created_at', { ascending: false })
-            .range(offset, offset + limit - 1)
+        const { count } = await countQuery
 
-        if (fetchError) {
-            throw new Error(`Database query failed: ${fetchError.message}`)
-        }
-
-        // Fetch current wallet balance to enable running balance calculation on frontend
+        // Fetch current wallet balance (still useful for verification or top-level display)
         const { data: walletData } = await supabase
             .from('wallets')
             .select('balance')
@@ -85,7 +105,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
             .single()
 
         return NextResponse.json({
-            transactions: transactions || [],
+            transactions: data || [],
             totalCount: count || 0,
             currentBalance: (walletData as any)?.balance || 0
         })
