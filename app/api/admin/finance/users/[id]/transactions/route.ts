@@ -87,7 +87,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         return NextResponse.json({
             transactions: transactions || [],
             totalCount: count || 0,
-            currentBalance: walletData?.balance || 0
+            currentBalance: (walletData as any)?.balance || 0
         })
 
     } catch (error: any) {
