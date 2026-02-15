@@ -34,7 +34,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         const limit = parseInt(searchParams.get('limit') || '20')
         const offset = parseInt(searchParams.get('offset') || '0')
         const type = searchParams.get('type') // credit, debit
-        const status = searchParams.get('status') // completed, failed, pending
+        const source = searchParams.get('source') // purchase, payment, admin, refund
         const startDate = searchParams.get('startDate')
         const endDate = searchParams.get('endDate')
 
@@ -51,8 +51,8 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
             query = query.eq('type', type)
         }
 
-        if (status && status !== 'all') {
-            query = query.eq('status', status)
+        if (source && source !== 'all') {
+            query = query.eq('source', source)
         }
 
         if (startDate) {
