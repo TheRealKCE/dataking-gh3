@@ -77,9 +77,17 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
             throw new Error(`Database query failed: ${fetchError.message}`)
         }
 
+        // Fetch current wallet balance to enable running balance calculation on frontend
+        const { data: walletData } = await supabase
+            .from('wallets')
+            .select('balance')
+            .eq('user_id', userId)
+            .single()
+
         return NextResponse.json({
             transactions: transactions || [],
-            totalCount: count || 0
+            totalCount: count || 0,
+            currentBalance: walletData?.balance || 0
         })
 
     } catch (error: any) {
