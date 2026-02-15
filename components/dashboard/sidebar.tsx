@@ -41,7 +41,6 @@ const userNavItems = [
     { href: '/dashboard/upgrade', label: 'Membership', icon: Crown },
     { href: '/dashboard/data-packages', label: 'Data Packages', icon: Package },
     { href: '/dashboard/my-orders', label: 'Orders', icon: ShoppingCart },
-    { href: '/dashboard/transactions', label: 'Transactions', icon: Activity },
     { href: '/dashboard/wallet', label: 'Wallet', icon: Wallet },
     { href: '/dashboard/afa-orders', label: 'AFA Application', icon: BadgeCheck },
     { href: '/dashboard/complaints', label: 'Complaints', icon: MessageSquare },
@@ -315,8 +314,45 @@ export function DashboardSidebar() {
                             Menu
                         </p>
                     )}
+
+                    {/* General Items (Visible to all) */}
+                    {[
+                        { href: '/dashboard', label: 'Home', icon: LayoutDashboard },
+                        { href: '/dashboard/transactions', label: 'Transactions', icon: Activity },
+                    ].map((item) => {
+                        const isActive = isLinkActive(item.href)
+                        return (
+                            <Link key={item.href} href={item.href} onClick={() => {
+                                if (window.innerWidth < 1024) closeSidebar()
+                            }}>
+                                <div
+                                    className={cn(
+                                        "flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-all duration-200",
+                                        isActive
+                                            ? dbUser?.role === 'agent'
+                                                ? "bg-black text-[#FFCE00] shadow-lg"
+                                                : "bg-yellow-500/20 dark:bg-yellow-500/10 text-yellow-600 dark:text-yellow-400"
+                                            : dbUser?.role === 'agent'
+                                                ? "text-black hover:text-[#FFCE00] hover:bg-black/10"
+                                                : "text-gray-600 dark:text-gray-400 hover:bg-gray-300/60 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-gray-200",
+                                        isCollapsed && "justify-center px-2"
+                                    )}
+                                >
+                                    <item.icon className={cn(
+                                        "w-5 h-5 flex-shrink-0",
+                                        isActive && (dbUser?.role === 'agent' ? "text-[#FFCE00]" : "text-yellow-600 dark:text-yellow-400")
+                                    )} />
+                                    {!isCollapsed && <span className="text-base font-medium">{item.label}</span>}
+                                </div>
+                            </Link>
+                        )
+                    })}
+
                     {userNavItems
                         .filter(item => {
+                            // Exclude Home (it's in general now)
+                            if (item.href === '/dashboard' || item.href === '/dashboard/transactions') return false
+
                             // Admins see everything
                             if (isAdmin) return true
 
@@ -361,7 +397,7 @@ export function DashboardSidebar() {
                             )}
                             {adminNavItems.filter(item => {
                                 if (isAdmin) return true
-                                if (isSubAdmin) return item.href === '/admin/orders' || item.href === '/admin/finance'
+                                if (isSubAdmin) return item.href === '/admin/orders'
                                 return false
                             }).map((item) => {
                                 const isActive = isLinkActive(item.href)
