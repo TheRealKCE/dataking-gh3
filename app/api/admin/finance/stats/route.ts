@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
         // Calls the optimized Postgres function `get_wallet_stats`
         // eliminating the need to fetch thousands of records to the server.
         // @ts-ignore - Database types not yet updated with new RPC function
-        const { data, error } = await supabase
+        const { data, error } = await (supabase as any)
             .rpc('get_wallet_stats', { role_filter: role || 'all' })
 
         if (error) {
