@@ -40,6 +40,12 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({ received: true })
             }
 
+            // ✅ IDEMPOTENCY CHECK: Prevent duplicate webhook processing
+            if ((payment as any).status === 'completed') {
+                console.log(`[PaystackWebhook] Payment ${reference} already processed, ignoring duplicate webhook`)
+                return NextResponse.json({ received: true })
+            }
+
             // Verify amount (Paystack sends amount in kobo/pesewas)
             const expectedAmountKobo = Math.round((payment as any).total_amount * 100)
             if (paidAmountKobo !== expectedAmountKobo) {

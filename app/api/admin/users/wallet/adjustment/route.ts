@@ -43,6 +43,19 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Invalid amount' }, { status: 400 })
         }
 
+        // ✅ SECURITY: Add maximum adjustment limit
+        const MAX_ADJUSTMENT = 10000  // GHS 10,000
+        if (adjustmentAmount > MAX_ADJUSTMENT) {
+            return NextResponse.json({
+                error: `Adjustment exceeds maximum limit of GHS ${MAX_ADJUSTMENT.toLocaleString()}. Please contact system administrator for larger adjustments.`
+            }, { status: 400 })
+        }
+
+        // ✅ AUDIT: Log large adjustments
+        if (adjustmentAmount > 1000) {
+            console.warn(`[AUDIT] Large wallet adjustment: Admin ${session.user.id} ${type} GHS ${adjustmentAmount} to user ${userId}. Reason: ${description || 'No reason provided'}`)
+        }
+
         // Service role client to bypass RLS
         const supabase = createServerClient()
 

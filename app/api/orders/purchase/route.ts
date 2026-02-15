@@ -33,6 +33,21 @@ export async function POST(request: NextRequest) {
 
         const { packageId, phoneNumber } = body
 
+        // ✅ VALIDATE PHONE NUMBER FORMAT
+        if (!phoneNumber || typeof phoneNumber !== 'string') {
+            return NextResponse.json({ error: 'Phone number is required' }, { status: 400 })
+        }
+
+        // Ghana phone format: 0XXXXXXXXX (10 digits) or 233XXXXXXXXX (12 digits)
+        const cleanPhone = phoneNumber.replace(/\s+/g, '') // Remove spaces
+        const ghanaPhoneRegex = /^(0\d{9}|233\d{9})$/
+
+        if (!ghanaPhoneRegex.test(cleanPhone)) {
+            return NextResponse.json({
+                error: 'Invalid phone number format. Use Ghana format: 0XXXXXXXXX or 233XXXXXXXXX'
+            }, { status: 400 })
+        }
+
         // Service role client for privileged operations
         const supabase = createServerClient()
 
@@ -331,6 +346,18 @@ async function triggerFulfillment(orderId: string, network: string) {
 
         if (!order) {
             console.error(`[Fulfillment] Order ${orderId} not found`)
+            return
+        }
+
+        // ✅ IDEMPOTENCY CHECK: Prevent duplicate fulfillment
+        const { data: existingTracking } = await supabase
+            .from('mtn_fulfillment_tracking')
+            .select('status')
+            .eq('order_id', orderId)
+            .single()
+
+        if (existingTracking) {
+            console.log(`[Fulfillment] Order ${orderId} already in tracking with status: ${(existingTracking as any).status}, skipping duplicate fulfillment`)
             return
         }
 

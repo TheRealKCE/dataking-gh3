@@ -1,8 +1,34 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { cookies } from 'next/headers'
 
 export async function GET(request: NextRequest) {
     try {
+        // 1. AUTHENTICATE USER
+        const cookieStore = await cookies()
+        const supabaseUserClient = createRouteHandlerClient({
+            // @ts-expect-error - auth-helpers types expect Promise but runtime needs synchronous object
+            cookies: () => cookieStore
+        })
+        const { data: { session }, error: sessionError } = await supabaseUserClient.auth.getSession()
+
+        if (sessionError || !session?.user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+
+        // 2. VERIFY ADMIN ROLE
+        const { data: userData } = await supabaseUserClient
+            .from('users')
+            .select('role')
+            .eq('id', session.user.id)
+            .single()
+
+        if (userData?.role !== 'admin') {
+            return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 })
+        }
+
+        // 3. CONTINUE WITH PRICE FETCH LOGIC
         // Create admin client with service role key to bypass RLS
         const supabaseAdmin = createClient(
             process.env.NEXT_PUBLIC_SUPABASE_URL!,
