@@ -10,7 +10,7 @@ import {
     TableHeader,
     TableRow,
 } from '@/components/ui/table'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import {
@@ -21,7 +21,7 @@ import {
     SelectValue,
 } from '@/components/ui/select'
 import { Input } from '@/components/ui/input'
-import { ArrowLeft, Loader2, Calendar as CalendarIcon, Wallet, ArrowUpCircle, ArrowDownCircle } from 'lucide-react'
+import { ArrowLeft, Loader2, ArrowUpCircle, ArrowDownCircle } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { toast } from 'sonner'
 
@@ -37,38 +37,15 @@ export default function UserTransactionHistoryPage({ params }: { params: Promise
 
     // Filters
     const [typeFilter, setTypeFilter] = useState('all')
-    const [statusFilter, setStatusFilter] = useState('all')
+    const [sourceFilter, setSourceFilter] = useState('all') // Changed from statusFilter
     const [startDate, setStartDate] = useState('')
     const [endDate, setEndDate] = useState('')
-
-    // User Summary (Could be fetched separately or passed, but for now we fetch basic user info if needed or just rely on IDs)
-    // Actually, we probably want to show WHO this is for. 
-    // The previous page has user info, but deep linking needs a fetch.
-    // Let's assume we might need a quick user fetch or just show ID for now.
-    // Enhanced: Fetch user summary stats alongside if possible, but our transaction API doesn't return user details.
-    // We can fetch user details from the finance user API or a dedicated one.
-    // Let's add a small fetch for user details to display name.
-    const [userDetails, setUserDetails] = useState<any>(null)
 
     const ITEMS_PER_PAGE = 20
 
     useEffect(() => {
-        const fetchUserDetails = async () => {
-            try {
-                // leveraging the existing finance users api but searching by ID is not efficiently supported there without filter.
-                // Let's use the basic users endpoint or just display ID.
-                // Better: generic /api/admin/users/ID if available? No.
-                // We'll rely on the transactions page mostly.
-                // Actually, let's just fetch the transactions. The user name isn't critical but nice to have.
-                // We can fetch it from the client-side supabase if needed, or just ignore for this iteration.
-            } catch (e) { console.error(e) }
-        }
-        fetchUserDetails()
-    }, [userId])
-
-    useEffect(() => {
         fetchTransactions()
-    }, [userId, page, typeFilter, statusFilter, startDate, endDate])
+    }, [userId, page, typeFilter, sourceFilter, startDate, endDate]) // Updated dependency
 
     const fetchTransactions = async () => {
         try {
@@ -78,7 +55,7 @@ export default function UserTransactionHistoryPage({ params }: { params: Promise
                 limit: ITEMS_PER_PAGE.toString(),
                 offset: offset.toString(),
                 type: typeFilter,
-                status: statusFilter,
+                source: sourceFilter, // Updated param key
             })
 
             if (startDate) queryParams.append('startDate', startDate)
@@ -95,6 +72,17 @@ export default function UserTransactionHistoryPage({ params }: { params: Promise
             toast.error('Failed to load transactions')
         } finally {
             setLoading(false)
+        }
+    }
+
+    // Helper to format source for display
+    const formatSource = (source: string) => {
+        switch (source) {
+            case 'purchase': return 'Order'
+            case 'payment': return 'Wallet Funding'
+            case 'admin': return 'Admin Adjustment'
+            case 'refund': return 'Refund'
+            default: return source
         }
     }
 
@@ -133,17 +121,19 @@ export default function UserTransactionHistoryPage({ params }: { params: Promise
                                 </SelectContent>
                             </Select>
                         </div>
+                        {/* Source Filter (Replaces Status) */}
                         <div className="space-y-2 w-full md:w-auto">
-                            <label className="text-xs font-medium text-muted-foreground">Status</label>
-                            <Select value={statusFilter} onValueChange={(val) => { setStatusFilter(val); setPage(0) }}>
+                            <label className="text-xs font-medium text-muted-foreground">Category</label>
+                            <Select value={sourceFilter} onValueChange={(val) => { setSourceFilter(val); setPage(0) }}>
                                 <SelectTrigger className="w-full md:w-[150px]">
-                                    <SelectValue placeholder="All Statuses" />
+                                    <SelectValue placeholder="All Categories" />
                                 </SelectTrigger>
                                 <SelectContent>
-                                    <SelectItem value="all">All Statuses</SelectItem>
-                                    <SelectItem value="completed">Completed</SelectItem>
-                                    <SelectItem value="pending">Pending</SelectItem>
-                                    <SelectItem value="failed">Failed</SelectItem>
+                                    <SelectItem value="all">All Categories</SelectItem>
+                                    <SelectItem value="purchase">Orders / Purchases</SelectItem>
+                                    <SelectItem value="payment">Wallet Funding</SelectItem>
+                                    <SelectItem value="admin">Admin Adjustments</SelectItem>
+                                    <SelectItem value="refund">Refunds</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -169,7 +159,7 @@ export default function UserTransactionHistoryPage({ params }: { params: Promise
                             variant="outline"
                             onClick={() => {
                                 setTypeFilter('all')
-                                setStatusFilter('all')
+                                setSourceFilter('all') // Reset source
                                 setStartDate('')
                                 setEndDate('')
                                 setPage(0)
@@ -193,7 +183,7 @@ export default function UserTransactionHistoryPage({ params }: { params: Promise
                                 <TableHead>Description</TableHead>
                                 <TableHead>Type</TableHead>
                                 <TableHead className="text-right">Amount</TableHead>
-                                <TableHead>Status</TableHead>
+                                <TableHead>Category</TableHead> {/* Changed Header */}
                             </TableRow>
                         </TableHeader>
                         <TableBody>
@@ -237,11 +227,9 @@ export default function UserTransactionHistoryPage({ params }: { params: Promise
                                             {txn.type === 'credit' ? '+' : '-'}{formatCurrency(txn.amount)}
                                         </TableCell>
                                         <TableCell>
-                                            <span className={`text-xs font-medium capitalize ${txn.status === 'completed' ? 'text-green-600' :
-                                                    txn.status === 'failed' ? 'text-red-600' : 'text-amber-600'
-                                                }`}>
-                                                {txn.status}
-                                            </span>
+                                            <Badge variant="secondary" className="capitalize font-normal text-muted-foreground bg-slate-100 hover:bg-slate-200 text-xs">
+                                                {formatSource(txn.source)}
+                                            </Badge>
                                         </TableCell>
                                     </TableRow>
                                 ))
@@ -250,6 +238,7 @@ export default function UserTransactionHistoryPage({ params }: { params: Promise
                     </Table>
                 </CardContent>
             </Card>
+
             {/* Pagination */}
             <div className="flex justify-between items-center text-sm text-muted-foreground">
                 <div>

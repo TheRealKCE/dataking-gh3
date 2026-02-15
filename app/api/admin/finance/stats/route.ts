@@ -35,6 +35,7 @@ export async function GET(request: NextRequest) {
 
         // Calls the optimized Postgres function `get_wallet_stats`
         // eliminating the need to fetch thousands of records to the server.
+        // @ts-ignore - Database types not yet updated with new RPC function
         const { data, error } = await supabase
             .rpc('get_wallet_stats', { role_filter: role || 'all' })
 
@@ -43,7 +44,8 @@ export async function GET(request: NextRequest) {
         }
 
         // RPC returns an array (even if single row), so we take the first item
-        const stats = Array.isArray(data) ? data[0] : data
+        // Explicitly cast to any to avoid 'never' type errors since RPC types are missing
+        const stats = (Array.isArray(data) ? data[0] : data) as any
 
         return NextResponse.json({
             totalBalance: stats?.total_balance ?? 0,
