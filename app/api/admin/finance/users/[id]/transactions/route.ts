@@ -53,19 +53,42 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
         // Use the new RPC function to get transactions with calculated running balance
         // @ts-ignore - RPC types might not be generated yet
-        const { data, error } = await (supabase as any).rpc('get_user_transactions_with_balance', {
+        let { data, error } = await (supabase as any).rpc('get_user_transactions_with_balance', {
             p_user_id: userId,
             p_limit: limit,
             p_offset: offset,
             p_source_filter: source,
-            p_type_filter: type, // Pass type filter to RPC
-            p_start_date: startDate, // Pass start date to RPC
-            p_end_date: endDate // Pass end date to RPC
+            p_type_filter: type,
+            p_start_date: startDate,
+            p_end_date: endDate
         })
 
+        // FALLBACK: If RPC fails (e.g. function doesn't exist yet), fall back to standard query
         if (error) {
-            console.error('RPC Error:', error)
-            throw new Error(`RPC call failed: ${error.message}`)
+            console.warn('RPC failed, falling back to standard query:', error.message)
+
+            let query = supabase
+                .from('wallet_transactions')
+                .select('*')
+                .eq('user_id', userId)
+
+            if (type && type !== 'all') query = query.eq('type', type)
+            if (source && source !== 'all') query = query.eq('source', source)
+            if (startDate) query = query.gte('created_at', startDate)
+            if (endDate) {
+                let endISO = endDate.includes('T') ? endDate : `${endDate}T23:59:59`
+                query = query.lte('created_at', endISO)
+            }
+
+            const { data: fallbackData, error: fallbackError } = await query
+                .order('created_at', { ascending: false })
+                .range(offset, offset + limit - 1)
+
+            if (fallbackError) {
+                throw new Error(`Fallback query failed: ${fallbackError.message}`)
+            }
+
+            data = fallbackData
         }
 
         // Get total count separately (RPC returns paginated data)
