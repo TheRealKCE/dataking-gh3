@@ -49,8 +49,6 @@ export async function GET(request: NextRequest) {
 
         return NextResponse.json({
             totalBalance: stats?.total_balance ?? 0,
-            totalCredited: stats?.total_credited ?? 0,
-            totalSpent: stats?.total_spent ?? 0,
             count: stats?.user_count ?? 0
         })
 

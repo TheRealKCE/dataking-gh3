@@ -141,7 +141,7 @@ export default function AdminFinancePage() {
             </div>
 
             {/* Big Stats Card */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-1 gap-4">
                 <Card className="bg-gradient-to-br from-emerald-500 to-teal-600 border-none shadow-lg text-white">
                     <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-medium text-emerald-100 flex items-center gap-2">
@@ -154,28 +154,6 @@ export default function AdminFinancePage() {
                         <p className="text-xs text-emerald-100 mt-1">
                             Across {stats.count || 0} users
                         </p>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                            <TrendingUp className="h-4 w-4 text-green-500" />
-                            Total Lifetime Credited
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{formatCurrency(stats.totalCredited)}</div>
-                    </CardContent>
-                </Card>
-                <Card>
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm font-medium text-muted-foreground flex items-center gap-2">
-                            <TrendingDown className="h-4 w-4 text-blue-500" />
-                            Total Lifetime Spent
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div className="text-2xl font-bold">{formatCurrency(stats.totalSpent)}</div>
                     </CardContent>
                 </Card>
             </div>
@@ -204,9 +182,6 @@ export default function AdminFinancePage() {
                                 <SelectContent>
                                     <SelectItem value="balance-desc">Highest Balance</SelectItem>
                                     <SelectItem value="balance-asc">Lowest Balance</SelectItem>
-                                    <SelectItem value="total_spent-desc">Highest Spenders</SelectItem>
-                                    <SelectItem value="total_spent-asc">Lowest Spenders</SelectItem>
-                                    <SelectItem value="total_credited-desc">Most Credited</SelectItem>
                                 </SelectContent>
                             </Select>
                         </div>
@@ -227,31 +202,13 @@ export default function AdminFinancePage() {
                                             <SortIcon column="balance" />
                                         </div>
                                     </TableHead>
-                                    <TableHead
-                                        className="cursor-pointer hover:bg-emerald-100/50 transition-colors text-right"
-                                        onClick={() => handleSort('total_credited')}
-                                    >
-                                        <div className="flex justify-end items-center">
-                                            Total Credited
-                                            <SortIcon column="total_credited" />
-                                        </div>
-                                    </TableHead>
-                                    <TableHead
-                                        className="cursor-pointer hover:bg-emerald-100/50 transition-colors text-right"
-                                        onClick={() => handleSort('total_spent')}
-                                    >
-                                        <div className="flex justify-end items-center">
-                                            Total Spent
-                                            <SortIcon column="total_spent" />
-                                        </div>
-                                    </TableHead>
                                     <TableHead className="text-right">Actions</TableHead>
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
                                 {loading ? (
                                     <TableRow>
-                                        <TableCell colSpan={5} className="h-24 text-center">
+                                        <TableCell colSpan={3} className="h-24 text-center">
                                             <div className="flex justify-center items-center gap-2 text-muted-foreground">
                                                 <Loader2 className="w-4 h-4 animate-spin" />
                                                 Loading financial data...
@@ -260,7 +217,7 @@ export default function AdminFinancePage() {
                                     </TableRow>
                                 ) : users.length === 0 ? (
                                     <TableRow>
-                                        <TableCell colSpan={5} className="h-24 text-center text-muted-foreground">
+                                        <TableCell colSpan={3} className="h-24 text-center text-muted-foreground">
                                             No users found.
                                         </TableCell>
                                     </TableRow>
@@ -278,14 +235,6 @@ export default function AdminFinancePage() {
                                                 <div className="font-bold text-lg text-emerald-600 dark:text-emerald-400">
                                                     {formatCurrency(user.wallet_balance)}
                                                 </div>
-                                            </TableCell>
-                                            <TableCell className="text-right text-muted-foreground">
-                                                {formatCurrency(user.total_credited)}
-                                            </TableCell>
-                                            <TableCell className="text-right">
-                                                <Badge variant="outline" className="font-mono bg-slate-50 dark:bg-slate-900">
-                                                    {formatCurrency(user.total_spent)}
-                                                </Badge>
                                             </TableCell>
                                             <TableCell className="text-right">
                                                 <Button
