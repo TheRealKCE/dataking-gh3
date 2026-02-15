@@ -33,62 +33,23 @@ export async function GET(request: NextRequest) {
         // Service role client to bypass RLS
         const supabase = createServerClient()
 
-        // We need to sum columns. 
-        // Queries with JOINs and SUMs can be tricky with Supabase JS client directly if we want efficient aggregation.
-        // But we can fetch just the columns needed and reduce in memory if valid for dataset size, 
-        // OR use a raw RPC call if we had one.
-        // OR use .select('balance, users!inner(role)') and iterate.
-        // For performance with potentially thousands of users, fetching all rows to sum in JS is bad.
-        // However, Supabase/PostgREST doesn't support aggregate functions easily without RPC.
-        // Let's check if we can use .select('balance.sum()') - No, that's not standard Supabase JS.
+        // Calls the optimized Postgres function `get_wallet_stats`
+        // eliminating the need to fetch thousands of records to the server.
+        const { data, error } = await supabase
+            .rpc('get_wallet_stats', { role_filter: role || 'all' })
 
-        // STANDARD APPROACH WITHOUT RPC:
-        // We have to paginate through all or assume dataset is small enough (limit 1000?). 
-        // If dataset is massive, RPC is mandatory for 'sum'.
-        // Let's assume for this project scope (thousands of users), fetching just 'balance' column is okay-ish, 
-        // but let's try to be smarter.
-
-        // actually, we can't do aggregates easily. 
-        // Let's write a loop to fetch in chunks if we have to, or just fetch all 'id, balance' entries. 
-        // Fetching 10,000 integers is very lightweight (approx 100KB payload).
-
-        let query = supabase
-            .from('wallets')
-            .select(`
-                balance,
-                total_credited,
-                total_spent,
-                users!inner (
-                    role
-                )
-            `)
-
-        if (role && role !== 'all') {
-            query = query.eq('users.role', role)
+        if (error) {
+            throw new Error(`RPC call failed: ${error.message}`)
         }
 
-        const { data: wallets, error: fetchError } = await query
-
-        if (fetchError) {
-            throw new Error(`Database query failed: ${fetchError.message}`)
-        }
-
-        // Calculate totals in memory (fast enough for <50k records)
-        let totalBalance = 0
-        let totalCredited = 0
-        let totalSpent = 0
-
-        wallets?.forEach((wallet: any) => {
-            totalBalance += wallet.balance || 0
-            totalCredited += wallet.total_credited || 0
-            totalSpent += wallet.total_spent || 0
-        })
+        // RPC returns an array (even if single row), so we take the first item
+        const stats = Array.isArray(data) ? data[0] : data
 
         return NextResponse.json({
-            totalBalance,
-            totalCredited,
-            totalSpent,
-            count: wallets?.length || 0
+            totalBalance: stats?.total_balance ?? 0,
+            totalCredited: stats?.total_credited ?? 0,
+            totalSpent: stats?.total_spent ?? 0,
+            count: stats?.user_count ?? 0
         })
 
     } catch (error: any) {
