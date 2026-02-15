@@ -41,6 +41,7 @@ const userNavItems = [
     { href: '/dashboard/upgrade', label: 'Membership', icon: Crown },
     { href: '/dashboard/data-packages', label: 'Data Packages', icon: Package },
     { href: '/dashboard/my-orders', label: 'Orders', icon: ShoppingCart },
+    { href: '/dashboard/transactions', label: 'Transactions', icon: Activity },
     { href: '/dashboard/wallet', label: 'Wallet', icon: Wallet },
     { href: '/dashboard/afa-orders', label: 'AFA Application', icon: BadgeCheck },
     { href: '/dashboard/complaints', label: 'Complaints', icon: MessageSquare },
