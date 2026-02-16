@@ -578,7 +578,7 @@ export default function DataPackagesPage() {
                 </div>
 
                 {/* Bulk Order Section - Agents, Admins, and Sub-Admins */}
-                {(dbUser?.role === 'agent' || dbUser?.role === 'admin' || dbUser?.role === 'sub_admin') && (
+                {(dbUser?.role === 'agent' || dbUser?.role === 'admin' || dbUser?.role === 'sub-admin') && (
                     <div id="bulk-order-section" className="w-full max-w-3xl mx-auto space-y-4">
                         {/* New Yellow Header Box */}
                         <div className="bg-[#FFCE00] rounded-3xl p-6 shadow-md lg:shadow-xl relative overflow-hidden">
