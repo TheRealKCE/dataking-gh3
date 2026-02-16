@@ -305,6 +305,35 @@ export default function FulfillmentPage() {
                 </div>
             </div>
 
+            {/* Supplier Balance Card */}
+            <Card className="bg-gradient-to-br from-emerald-600 to-emerald-800 text-white border-none shadow-lg">
+                <CardContent className="p-4 md:p-6">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                            <div className="bg-white/20 p-2.5 rounded-lg">
+                                <Server className="w-5 h-5 md:w-6 md:h-6" />
+                            </div>
+                            <div>
+                                <p className="text-[10px] md:text-xs font-bold uppercase tracking-wider opacity-90">DataKazina Balance</p>
+                                <p className="text-2xl md:text-3xl font-black">
+                                    {balance ? `${balance.currency} ${balance.amount.toFixed(2)}` : (isLoadingBalance ? 'Loading...' : 'GHS 0.00')}
+                                </p>
+                            </div>
+                        </div>
+                        <Button
+                            onClick={fetchBalance}
+                            disabled={isLoadingBalance}
+                            variant="secondary"
+                            size="sm"
+                            className="bg-white/20 hover:bg-white/30 text-white border-white/30"
+                        >
+                            <RefreshCw className={`w-4 h-4 mr-2 ${isLoadingBalance ? 'animate-spin' : ''}`} />
+                            Refresh Balance
+                        </Button>
+                    </div>
+                </CardContent>
+            </Card>
+
             {/* Network Connections */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
                 {NETWORKS.map(net => (
@@ -455,40 +484,6 @@ export default function FulfillmentPage() {
                                     </div>
                                 </div>
                             </div>
-                        </CardContent>
-                    </Card>
-
-                    {/* Supplier Balance Card */}
-                    <Card className="bg-gradient-to-br from-emerald-600 to-emerald-800 text-white border-none shadow-lg">
-                        <CardHeader className="pb-2 pt-4 px-4">
-                            <CardTitle className="text-sm font-bold flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                    <Server className="w-4 h-4" /> DataKazina Balance
-                                </div>
-                                <Button
-                                    size="sm"
-                                    variant="ghost"
-                                    className="h-6 w-6 p-0 text-white hover:bg-white/20"
-                                    onClick={fetchBalance}
-                                    disabled={isLoadingBalance}
-                                >
-                                    <RefreshCw className={`w-3.5 h-3.5 ${isLoadingBalance ? 'animate-spin' : ''}`} />
-                                </Button>
-                            </CardTitle>
-                        </CardHeader>
-                        <CardContent className="px-4 pb-4">
-                            {balance ? (
-                                <div className="space-y-1">
-                                    <p className="text-3xl font-black">
-                                        {balance.currency} {balance.amount.toFixed(2)}
-                                    </p>
-                                    <p className="text-[10px] opacity-80 uppercase tracking-wide">
-                                        Available Credit
-                                    </p>
-                                </div>
-                            ) : (
-                                <p className="text-sm opacity-90">{isLoadingBalance ? 'Loading...' : 'Click refresh to load'}</p>
-                            )}
                         </CardContent>
                     </Card>
 
