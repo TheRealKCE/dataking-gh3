@@ -9,7 +9,6 @@ export function WhatsAppButton() {
 
     const [isVisible, setIsVisible] = useState(true)
     const [showNote, setShowNote] = useState(false)
-    const [isHovered, setIsHovered] = useState(false)
 
     // WhatsApp Logo SVG
     const WhatsAppIcon = () => (
@@ -33,11 +32,7 @@ export function WhatsAppButton() {
     if (!isVisible) return null
 
     return (
-        <div
-            className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-2"
-            onMouseEnter={() => setIsHovered(true)}
-            onMouseLeave={() => setIsHovered(false)}
-        >
+        <div className="fixed bottom-6 right-6 z-50 flex flex-col items-end gap-2">
             {/* Professional Note Popover */}
             {showNote && (
                 <div className="bg-white dark:bg-slate-800 p-4 rounded-lg shadow-xl mb-2 max-w-[250px] animate-in slide-in-from-right-10 fade-in duration-300 border border-slate-100 dark:border-slate-700 relative">
@@ -65,7 +60,12 @@ export function WhatsAppButton() {
                 href={WHATSAPP_URL}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="group relative transition-all duration-300 hover:scale-110"
+                onClick={(e) => {
+                    // Ensure navigation happens on mobile
+                    e.preventDefault()
+                    window.open(WHATSAPP_URL, '_blank')
+                }}
+                className="group relative transition-all duration-300 active:scale-95 md:hover:scale-110 touch-manipulation cursor-pointer"
                 aria-label="Contact Support on WhatsApp"
             >
                 <div className="absolute -inset-2 bg-green-500/20 rounded-full blur-lg opacity-0 group-hover:opacity-100 transition-opacity" />
