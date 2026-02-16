@@ -232,14 +232,17 @@ export async function fetchSupplierBalance(): Promise<{ success: boolean; balanc
 
         console.log('[DataKazina Balance] API Response:', JSON.stringify(data))
 
-        // Handle successful response - DataKazina structure might vary
+        // Handle successful response
         if (response.ok) {
-            // Try multiple possible response structures
             let balance = 0
             let currency = 'GHS'
 
+            // DataKazina actual response: { "Wallet Balance": "444.10", ... }
+            if (data['Wallet Balance'] !== undefined) {
+                balance = parseFloat(data['Wallet Balance']) || 0
+            }
             // Structure 1: { success: true, data: { balance, currency } }
-            if (data.data?.balance !== undefined) {
+            else if (data.data?.balance !== undefined) {
                 balance = parseFloat(data.data.balance) || 0
                 currency = data.data.currency || 'GHS'
             }
