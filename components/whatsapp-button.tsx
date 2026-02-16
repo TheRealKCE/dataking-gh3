@@ -2,7 +2,6 @@
 
 import React, { useState, useEffect } from 'react'
 import { X } from 'lucide-react'
-import { Button } from './ui/button'
 
 export function WhatsAppButton() {
     const PHONE_NUMBER = '233578065809'
@@ -70,12 +69,9 @@ export function WhatsAppButton() {
                 aria-label="Contact Support on WhatsApp"
             >
                 <div className="absolute -inset-2 bg-green-500/20 rounded-full blur-lg opacity-0 group-hover:opacity-100 transition-opacity" />
-                <Button
-                    size="icon"
-                    className="h-14 w-14 rounded-full bg-[#25D366] hover:bg-[#20bd5a] shadow-[0_4px_14px_0_rgba(37,211,102,0.39)] border-none relative z-10"
-                >
+                <div className="h-14 w-14 rounded-full bg-[#25D366] hover:bg-[#20bd5a] shadow-[0_4px_14px_0_rgba(37,211,102,0.39)] relative z-10 flex items-center justify-center transition-colors">
                     <WhatsAppIcon />
-                </Button>
+                </div>
 
                 {/* Status Dot */}
                 <span className="absolute top-0 right-0 h-4 w-4 rounded-full bg-red-500 border-2 border-white dark:border-slate-900 z-20">
