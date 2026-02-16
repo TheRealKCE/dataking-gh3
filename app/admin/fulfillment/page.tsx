@@ -82,9 +82,14 @@ export default function FulfillmentPage() {
     })
     const [isSavingSettings, setIsSavingSettings] = useState(false)
 
+    // Balance state
+    const [balance, setBalance] = useState<{ amount: number; currency: string } | null>(null)
+    const [isLoadingBalance, setIsLoadingBalance] = useState(false)
+
     useEffect(() => {
         if (dbUser?.role === 'admin') {
             fetchSettings()
+            fetchBalance()
         }
     }, [dbUser])
 
@@ -218,6 +223,25 @@ export default function FulfillmentPage() {
             toast.error('Failed to fetch orders: ' + error.message)
         } finally {
             setIsLoadingOrders(false)
+        }
+    }
+
+    const fetchBalance = async () => {
+        setIsLoadingBalance(true)
+        try {
+            const response = await fetch('/api/admin/fulfillment/balance')
+            if (!response.ok) {
+                const error = await response.json()
+                throw new Error(error.error || 'Failed to fetch balance')
+            }
+
+            const data = await response.json()
+            setBalance({ amount: data.balance, currency: data.currency })
+        } catch (error: any) {
+            console.error('Balance fetch error:', error)
+            toast.error('Failed to fetch supplier balance')
+        } finally {
+            setIsLoadingBalance(false)
         }
     }
 
@@ -431,6 +455,40 @@ export default function FulfillmentPage() {
                                     </div>
                                 </div>
                             </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Supplier Balance Card */}
+                    <Card className="bg-gradient-to-br from-emerald-600 to-emerald-800 text-white border-none shadow-lg">
+                        <CardHeader className="pb-2 pt-4 px-4">
+                            <CardTitle className="text-sm font-bold flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                    <Server className="w-4 h-4" /> DataKazina Balance
+                                </div>
+                                <Button
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-6 w-6 p-0 text-white hover:bg-white/20"
+                                    onClick={fetchBalance}
+                                    disabled={isLoadingBalance}
+                                >
+                                    <RefreshCw className={`w-3.5 h-3.5 ${isLoadingBalance ? 'animate-spin' : ''}`} />
+                                </Button>
+                            </CardTitle>
+                        </CardHeader>
+                        <CardContent className="px-4 pb-4">
+                            {balance ? (
+                                <div className="space-y-1">
+                                    <p className="text-3xl font-black">
+                                        {balance.currency} {balance.amount.toFixed(2)}
+                                    </p>
+                                    <p className="text-[10px] opacity-80 uppercase tracking-wide">
+                                        Available Credit
+                                    </p>
+                                </div>
+                            ) : (
+                                <p className="text-sm opacity-90">{isLoadingBalance ? 'Loading...' : 'Click refresh to load'}</p>
+                            )}
                         </CardContent>
                     </Card>
 

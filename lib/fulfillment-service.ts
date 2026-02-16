@@ -224,7 +224,7 @@ function mapStatus(status: string): 'pending' | 'processing' | 'completed' | 'fa
 export async function fetchSupplierBalance(): Promise<{ success: boolean; balance?: number; currency?: string; error?: string }> {
     if (!DATAKAZINA_API_KEY) return { success: false, error: 'API key not configured' }
     try {
-        const response = await fetch(`${DATAKAZINA_API_BASE_URL}/fetch-user-account-balance`, {
+        const response = await fetch(`${DATAKAZINA_API_BASE_URL}/check-console-balance`, {
             method: 'GET',
             headers: { 'x-api-key': DATAKAZINA_API_KEY },
         })
