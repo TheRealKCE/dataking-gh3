@@ -17,18 +17,8 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        // 2. VERIFY ADMIN ROLE
-        const { data: userData } = await supabaseUserClient
-            .from('users')
-            .select('role')
-            .eq('id', session.user.id)
-            .single()
-
-        if (userData?.role !== 'admin') {
-            return NextResponse.json({ error: 'Forbidden - Admin access required' }, { status: 403 })
-        }
-
-        // 3. CONTINUE WITH PRICE FETCH LOGIC
+        // 2. FETCH UPGRADE PRICES
+        // (Removed admin-only restriction - pricing is public information for self-service upgrades)
         // Create admin client with service role key to bypass RLS
         const supabaseAdmin = createClient(
             process.env.NEXT_PUBLIC_SUPABASE_URL!,
