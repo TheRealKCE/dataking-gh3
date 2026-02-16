@@ -229,11 +229,36 @@ export async function fetchSupplierBalance(): Promise<{ success: boolean; balanc
             headers: { 'x-api-key': DATAKAZINA_API_KEY },
         })
         const data = await response.json()
-        if (response.ok && data.success && data.data) {
-            return { success: true, balance: data.data.balance || 0, currency: data.data.currency || 'GHS' }
+
+        console.log('[DataKazina Balance] API Response:', JSON.stringify(data))
+
+        // Handle successful response - DataKazina structure might vary
+        if (response.ok) {
+            // Try multiple possible response structures
+            let balance = 0
+            let currency = 'GHS'
+
+            // Structure 1: { success: true, data: { balance, currency } }
+            if (data.data?.balance !== undefined) {
+                balance = parseFloat(data.data.balance) || 0
+                currency = data.data.currency || 'GHS'
+            }
+            // Structure 2: { balance, currency } directly
+            else if (data.balance !== undefined) {
+                balance = parseFloat(data.balance) || 0
+                currency = data.currency || 'GHS'
+            }
+            // Structure 3: { data: balance_value }
+            else if (typeof data.data === 'number') {
+                balance = parseFloat(data.data) || 0
+            }
+
+            return { success: true, balance, currency }
         }
-        return { success: false, error: data.message || 'Failed to fetch balance' }
+
+        return { success: false, error: data.message || data.error || 'Failed to fetch balance' }
     } catch (error: any) {
+        console.error('[DataKazina Balance] Error:', error)
         return { success: false, error: error.message }
     }
 }
