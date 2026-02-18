@@ -41,7 +41,6 @@ export default function AdminShopsPage() {
     const [filterStatus, setFilterStatus] = useState<string>('all')
 
 
-
     useEffect(() => {
         if (dbUser && !isAdmin) { router.replace('/dashboard'); return }
         if (dbUser) fetchShops()
@@ -53,7 +52,6 @@ export default function AdminShopsPage() {
             .from('shop_profiles')
             .select('*, owner:users!shop_profiles_owner_id_fkey(first_name, last_name, email)')
             .order('created_at', { ascending: false }) as any)
-
 
         setShops(data || [])
         setLoading(false)
@@ -87,7 +85,6 @@ export default function AdminShopsPage() {
 
     return (
         <div className="space-y-6">
-
 
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
@@ -171,7 +168,12 @@ export default function AdminShopsPage() {
                                                 Created {new Date(shop.created_at).toLocaleDateString()}
                                             </p>
                                         </div>
-                                        <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                                        <div className="flex items-center gap-2">
+                                            <Button size="sm" variant="outline" className="h-8 text-xs">
+                                                Review
+                                            </Button>
+                                            <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+                                        </div>
                                     </CardContent>
                                 </Card>
                             </Link>
