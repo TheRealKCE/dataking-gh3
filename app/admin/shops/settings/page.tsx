@@ -45,7 +45,7 @@ export default function AdminShopSettingsPage() {
     }, [dbUser, isAdmin])
 
     const fetchSettings = async () => {
-        const { data } = await (supabase.from('shop_global_settings').select('*') as any)
+        const { data } = await (supabase as any).from('shop_global_settings').select('*')
         if (data) {
             const map: Record<string, any> = {}
             for (const row of data) {
@@ -76,10 +76,10 @@ export default function AdminShopSettingsPage() {
             ]
 
             for (const row of rows) {
-                await (supabase.from('shop_global_settings').upsert(
+                await (supabase as any).from('shop_global_settings').upsert(
                     { key: row.key, value: row.value, updated_at: new Date().toISOString() },
                     { onConflict: 'key' }
-                ) as any)
+                )
             }
 
             toast.success('Global settings saved!')

@@ -87,10 +87,10 @@ export default function AdminShopDetailPage() {
     const fetchData = async () => {
         try {
             const [shopRes, walletRes, withdrawalRes, ordersRes] = await Promise.all([
-                (supabase.from('shop_profiles').select('*, users(first_name, last_name, email)').eq('id', shopId).single() as any),
-                (supabase.from('shop_wallets').select('*').eq('shop_id', shopId).single() as any),
-                (supabase.from('shop_wallet_transactions').select('*').eq('type', 'withdrawal').order('created_at', { ascending: false }).limit(20) as any),
-                (supabase.from('shop_orders').select('id', { count: 'exact', head: true }).eq('shop_id', shopId) as any),
+                (supabase as any).from('shop_profiles').select('*, users(first_name, last_name, email)').eq('id', shopId).single(),
+                (supabase as any).from('shop_wallets').select('*').eq('shop_id', shopId).single(),
+                (supabase as any).from('shop_wallet_transactions').select('*').eq('type', 'withdrawal').order('created_at', { ascending: false }).limit(20),
+                (supabase as any).from('shop_orders').select('id', { count: 'exact', head: true }).eq('shop_id', shopId),
             ])
 
             if (shopRes.data) {
@@ -113,11 +113,11 @@ export default function AdminShopDetailPage() {
     const updateApproval = async (status: 'approved' | 'rejected' | 'suspended') => {
         setSaving(true)
         try {
-            const { error } = await (supabase.from('shop_profiles').update({
+            const { error } = await (supabase as any).from('shop_profiles').update({
                 approval_status: status,
                 approval_note: approvalNote.trim() || null,
                 updated_at: new Date().toISOString(),
-            }).eq('id', shopId) as any)
+            }).eq('id', shopId)
             if (error) throw error
             toast.success(`Shop ${status}`)
             fetchData()
@@ -131,12 +131,12 @@ export default function AdminShopDetailPage() {
     const saveSettings = async () => {
         setSaving(true)
         try {
-            const { error } = await (supabase.from('shop_profiles').update({
+            const { error } = await (supabase as any).from('shop_profiles').update({
                 fulfillment_mode: fulfillmentMode,
                 is_active: isActive,
                 paystack_fee_percent: feeOverride ? parseFloat(feeOverride) : null,
                 updated_at: new Date().toISOString(),
-            }).eq('id', shopId) as any)
+            }).eq('id', shopId)
             if (error) throw error
             toast.success('Settings saved')
             fetchData()
@@ -149,30 +149,30 @@ export default function AdminShopDetailPage() {
 
     const processWithdrawal = async (withdrawalId: string, action: 'completed' | 'rejected', note?: string) => {
         try {
-            const { error } = await (supabase.from('shop_wallet_transactions').update({
+            const { error } = await (supabase as any).from('shop_wallet_transactions').update({
                 status: action,
                 admin_note: note || null,
                 updated_at: new Date().toISOString(),
-            }).eq('id', withdrawalId) as any)
+            }).eq('id', withdrawalId)
             if (error) throw error
 
             if (action === 'rejected') {
                 // Refund to wallet
                 const w = withdrawals.find(w => w.id === withdrawalId)
                 if (w && wallet) {
-                    await (supabase.from('shop_wallets').update({
+                    await (supabase as any).from('shop_wallets').update({
                         balance: (wallet.balance || 0) + w.amount,
                         updated_at: new Date().toISOString(),
-                    }).eq('shop_id', shopId) as any)
+                    }).eq('shop_id', shopId)
                 }
             } else if (action === 'completed') {
                 // Update total_withdrawn
                 const w = withdrawals.find(w => w.id === withdrawalId)
                 if (w && wallet) {
-                    await (supabase.from('shop_wallets').update({
+                    await (supabase as any).from('shop_wallets').update({
                         total_withdrawn: (wallet.total_withdrawn || 0) + w.amount,
                         updated_at: new Date().toISOString(),
-                    }).eq('shop_id', shopId) as any)
+                    }).eq('shop_id', shopId)
                 }
             }
 
