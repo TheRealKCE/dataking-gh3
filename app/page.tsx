@@ -49,9 +49,11 @@ export default function HomePage() {
                                     <Image
                                         src="/logo.png"
                                         alt="King Flexy Data Ltd Logo"
-                                        fill
+                                        width={96}
+                                        height={96}
                                         className="object-contain"
                                         priority
+                                        sizes="96px"
                                     />
                                 </div>
                                 <h1 className="text-3xl font-black text-slate-900 tracking-tight drop-shadow-sm">KING FLEXY DATA LTD</h1>

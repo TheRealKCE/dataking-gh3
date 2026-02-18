@@ -57,13 +57,15 @@ export default function LoginPage() {
                 <div className="text-center mb-6">
                     <Link href="/" className="inline-flex flex-col items-center">
                         <div className="relative w-20 h-20 sm:w-24 sm:h-24 mb-3">
-                            <div className="w-full h-full rounded-2xl bg-slate-900 flex items-center justify-center shadow-xl">
+                            <div className="w-full h-full rounded-2xl bg-slate-900 flex items-center justify-center shadow-xl p-2">
                                 <Image
                                     src="/logo.png"
                                     alt="KING FLEXY DATA LTD"
-                                    fill
-                                    className="object-contain p-2"
+                                    width={80}
+                                    height={80}
+                                    className="object-contain w-full h-full"
                                     priority
+                                    sizes="(max-width: 640px) 80px, 96px"
                                 />
                             </div>
                         </div>

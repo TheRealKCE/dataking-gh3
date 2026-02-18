@@ -19,6 +19,27 @@ const nextConfig: NextConfig = {
     },
     async headers() {
         return [
+            // Static assets - cache aggressively
+            {
+                source: '/_next/static/:path*',
+                headers: [
+                    {
+                        key: 'Cache-Control',
+                        value: 'public, max-age=31536000, immutable',
+                    },
+                ],
+            },
+            // Images - cache with revalidation
+            {
+                source: '/:path*\.(jpg|jpeg|png|gif|svg|webp|ico)',
+                headers: [
+                    {
+                        key: 'Cache-Control',
+                        value: 'public, max-age=86400, stale-while-revalidate',
+                    },
+                ],
+            },
+            // Dynamic pages and API routes - no cache for user-specific content
             {
                 source: '/:path*',
                 headers: [
