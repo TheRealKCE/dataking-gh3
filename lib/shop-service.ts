@@ -10,16 +10,20 @@ export async function syncShopOrderStatus(mainOrderId: string, status: string) {
 
     try {
         // 1. Fetch main order to see if it's linked to a shop order
+        // NOTE: Including reference_code for fallback mapping
         const { data: order, error: orderError } = await db
             .from('orders')
-            .select('id, shop_name, shop_order_id, price, cost_price, status')
+            .select('id, shop_name, shop_order_id, reference_code, price, cost_price, status')
             .eq('id', mainOrderId)
             .single()
 
         if (orderError || !order) return
 
         // If it's not a shop order, skip
-        if (!order.shop_order_id && !order.shop_name) return
+        if (!order.shop_order_id && !order.shop_name) {
+            console.log(`[ShopSync] Order ${mainOrderId} is not a shop order, skipping sync.`)
+            return
+        }
 
         let shopOrderId = order.shop_order_id
 
@@ -35,17 +39,21 @@ export async function syncShopOrderStatus(mainOrderId: string, status: string) {
 
             if (sOrder) {
                 shopOrderId = sOrder.id
+                console.log(`[ShopSync] Found matching shop order ${shopOrderId} via reference ${order.reference_code}`)
                 // Self-heal: update the main order with the missing ID
                 await db.from('orders').update({ shop_order_id: shopOrderId }).eq('id', mainOrderId)
             }
         }
 
-        if (!shopOrderId) return
+        if (!shopOrderId) {
+            console.warn(`[ShopSync] Could not find shop order ID for main order ${mainOrderId}`)
+            return
+        }
 
         console.log(`[ShopSync] Syncing shop order ${shopOrderId} to status: ${status}`)
 
         // 2. Update shop_orders status
-        await db
+        const { error: updateError } = await db
             .from('shop_orders')
             .update({
                 status: status,
@@ -53,12 +61,16 @@ export async function syncShopOrderStatus(mainOrderId: string, status: string) {
             })
             .eq('id', shopOrderId)
 
+        if (updateError) {
+            console.error(`[ShopSync] Failed to update shop order ${shopOrderId}:`, updateError)
+        }
+
         // 3. Handle Profit Credit on 'completed'
         if (status === 'completed') {
             await creditShopProfit(shopOrderId)
         }
     } catch (err) {
-        console.error('[ShopSync] Error:', err)
+        console.error('[ShopSync] Unexpected error:', err)
     }
 }
 
@@ -77,10 +89,16 @@ export async function creditShopProfit(shopOrderId: string) {
             .eq('id', shopOrderId)
             .single()
 
-        if (sOrderError || !sOrder || sOrder.profit <= 0) return
+        if (sOrderError || !sOrder || sOrder.profit <= 0) {
+            console.log(`[Profit] Order ${shopOrderId} has no profit or wasn't found.`)
+            return
+        }
 
         const ownerId = sOrder.shop_profiles?.owner_id
-        if (!ownerId) return
+        if (!ownerId) {
+            console.error(`[Profit] Could not find owner for shop order ${shopOrderId}`)
+            return
+        }
 
         // 2. Check for existing profit transaction for this shop order (Idempotency)
         const { data: existingTx } = await db
@@ -120,7 +138,10 @@ export async function creditShopProfit(shopOrderId: string) {
             })
             .eq('id', wallet.id)
 
-        if (walletError) throw walletError
+        if (walletError) {
+            console.error(`[Profit] Failed to update wallet ${wallet.id}:`, walletError)
+            throw walletError
+        }
 
         // Log transaction
         await db.from('shop_wallet_transactions').insert({
@@ -135,6 +156,6 @@ export async function creditShopProfit(shopOrderId: string) {
         console.log(`[Profit] Successfully credited ${profit} to wallet ${wallet.id} for order ${shopOrderId}`)
 
     } catch (err) {
-        console.error('[Profit] Error:', err)
+        console.error('[Profit] Credit error:', err)
     }
 }
