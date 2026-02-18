@@ -55,6 +55,7 @@ export default function ShopStorefront({ shop, packages }: Props) {
     const [loading, setLoading] = useState(false)
     const [pageLoading, setPageLoading] = useState(true)
     const [errorMsg, setErrorMsg] = useState<string | null>(null)
+    const [contactInfo, setContactInfo] = useState<{ phone?: string; whatsapp?: string; email?: string } | null>(null)
 
     // Derive available networks in fixed order
     const availableNetworks = NETWORK_ORDER.filter(n => packages.some(p => p.network === n))
@@ -111,7 +112,10 @@ export default function ShopStorefront({ shop, packages }: Props) {
             const data = await res.json()
 
             if (!res.ok || !data.authorization_url) {
-                toast.error(data.error || 'Failed to initialize payment')
+                setErrorMsg(data.error || 'Failed to initialize payment')
+                if (data.contact) {
+                    setContactInfo(data.contact)
+                }
                 setLoading(false)
                 return
             }
@@ -237,10 +241,38 @@ export default function ShopStorefront({ shop, packages }: Props) {
 
                 {/* Error banner */}
                 {errorMsg && (
-                    <div className="mb-4 p-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 flex items-start gap-2">
-                        <AlertCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
-                        <p className="text-sm text-red-700 dark:text-red-300 flex-1">{errorMsg}</p>
-                        <button onClick={() => setErrorMsg(null)}><X className="w-4 h-4 text-red-400" /></button>
+                    <div className="mb-4 p-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 space-y-3">
+                        <div className="flex items-start gap-2">
+                            <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                            <div className="flex-1">
+                                <p className="text-sm font-bold text-red-800 dark:text-red-300">{errorMsg}</p>
+                                {contactInfo ? (
+                                    <p className="text-xs text-red-700 dark:text-red-400 mt-1">
+                                        This shop is temporarily offline. Please contact the owner directly to complete your purchase:
+                                    </p>
+                                ) : (
+                                    <p className="text-xs text-red-700 dark:text-red-400 mt-1">Please try again or contact support if the issue persists.</p>
+                                )}
+                            </div>
+                            <button onClick={() => { setErrorMsg(null); setContactInfo(null); }} className="p-1 hover:bg-red-100 dark:hover:bg-red-800/40 rounded-full transition-colors">
+                                <X className="w-4 h-4 text-red-400" />
+                            </button>
+                        </div>
+
+                        {contactInfo && (
+                            <div className="flex flex-wrap gap-2 pt-1">
+                                {contactInfo.phone && (
+                                    <a href={`tel:${contactInfo.phone}`} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white dark:bg-gray-800 border border-red-100 dark:border-red-900/50 text-xs font-bold text-gray-700 dark:text-gray-200 shadow-sm">
+                                        <Phone className="w-3.5 h-3.5" /> Call {contactInfo.phone}
+                                    </a>
+                                )}
+                                {contactInfo.whatsapp && (
+                                    <a href={`https://wa.me/${contactInfo.whatsapp}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#25D366] text-xs font-bold text-white shadow-sm">
+                                        <MessageCircle className="w-3.5 h-3.5" /> WhatsApp
+                                    </a>
+                                )}
+                            </div>
+                        )}
                     </div>
                 )}
 

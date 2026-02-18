@@ -60,10 +60,30 @@ export async function GET(request: NextRequest) {
             .update({ status: 'processing', updated_at: new Date().toISOString() })
             .eq('id', order.id)
 
-        // 5. Credit profit to shop wallet (atomic upsert)
         const profit = parseFloat(order.profit) || 0
         const ownerId = order.shop_profiles?.owner_id
 
+        // 4.5 Mirror to main 'orders' table for admin visibility
+        try {
+            const shopName = order.shop_profiles?.shop_name || 'Shop'
+            await db.from('orders').insert({
+                user_id: ownerId,
+                phone_number: order.guest_phone,
+                network: order.network,
+                size: order.package_size,
+                price: order.selling_price,
+                cost_price: order.cost_price || 0,
+                status: 'processing',
+                payment_status: 'paid',
+                fulfillment_method: 'auto',
+                reference_code: `SHOP-${ref.slice(-8)}`,
+            })
+        } catch (mirrorErr) {
+            console.error('[Shop Verify] Mirroring error:', mirrorErr)
+            // Continue even if mirroring fails
+        }
+
+        // 5. Credit profit to shop wallet (atomic upsert)
         if (ownerId && profit > 0) {
             // Get or create shop wallet
             const { data: wallet } = await db

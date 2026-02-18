@@ -13,7 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import {
     Store, Wallet, TrendingUp, ShoppingCart, ArrowRight,
     Settings, Tag, Banknote, Clock, CheckCircle2, XCircle,
-    AlertCircle, ExternalLink, Copy, Check, Lightbulb
+    AlertCircle, ExternalLink, Copy, Check, Lightbulb, Filter
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -80,6 +80,7 @@ export default function ShopOverviewPage() {
     const [wallet, setWallet] = useState<ShopWallet | null>(null)
     const [stats, setStats] = useState<ShopStats | null>(null)
     const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([])
+    const [filter, setFilter] = useState<'today' | '7d' | '30d' | 'all'>('today')
     const [loading, setLoading] = useState(true)
     const [copied, setCopied] = useState(false)
 
@@ -89,7 +90,7 @@ export default function ShopOverviewPage() {
             return
         }
         if (dbUser) fetchShopData()
-    }, [dbUser, isAdmin, isSubAdmin])
+    }, [dbUser, isAdmin, isSubAdmin, filter])
 
     const fetchShopData = async () => {
         try {
@@ -106,10 +107,29 @@ export default function ShopOverviewPage() {
             }
             setShop(shopData)
 
-            // Fetch wallet, stats, and recent orders in parallel
+            // Determine date range for stats and orders
+            let query = (supabase as any)
+                .from('shop_orders')
+                .select('*')
+                .eq('shop_id', shopData.id)
+                .neq('status', 'pending') // Always exclude unpaid pending orders
+
+            const now = new Date()
+            if (filter === 'today') {
+                const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
+                query = query.gte('created_at', startOfDay)
+            } else if (filter === '7d') {
+                const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
+                query = query.gte('created_at', sevenDaysAgo)
+            } else if (filter === '30d') {
+                const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString()
+                query = query.gte('created_at', thirtyDaysAgo)
+            }
+
+            // Fetch wallet, stats, and filtered orders in parallel
             const [walletRes, ordersRes] = await Promise.all([
                 ((supabase as any).from('shop_wallets').select('*').eq('owner_id', dbUser!.id).single()),
-                ((supabase as any).from('shop_orders').select('*').eq('shop_id', shopData.id).order('created_at', { ascending: false }).limit(10)),
+                query.order('created_at', { ascending: false }),
             ])
 
             if (walletRes.data) setWallet(walletRes.data)
@@ -117,13 +137,16 @@ export default function ShopOverviewPage() {
             const orders = ordersRes.data || []
             setRecentOrders(orders)
 
-            // Calculate stats
+            // Calculate stats based on non-pending filtered orders
             const completed = orders.filter((o: any) => o.status === 'completed')
+            const processing = orders.filter((o: any) => o.status === 'processing')
+            const failed = orders.filter((o: any) => o.status === 'failed')
+
             setStats({
                 total_orders: orders.length,
                 completed_orders: completed.length,
-                processing_orders: orders.filter((o: any) => o.status === 'processing').length,
-                failed_orders: orders.filter((o: any) => o.status === 'failed').length,
+                processing_orders: processing.length,
+                failed_orders: failed.length,
                 total_revenue: completed.reduce((sum: number, o: any) => sum + (o.selling_price || 0), 0),
                 total_profit: completed.reduce((sum: number, o: any) => sum + (o.profit || 0), 0),
             })
@@ -134,7 +157,7 @@ export default function ShopOverviewPage() {
         }
     }
 
-    const shopUrl = shop ? `${process.env.NEXT_PUBLIC_APP_URL}/shop/${shop.shop_slug}` : ''
+    const shopUrl = shop ? `https://kingflexygh.com/shop/${shop.shop_slug}` : ''
 
     const copyLink = async () => {
         await navigator.clipboard.writeText(shopUrl)
@@ -287,30 +310,63 @@ export default function ShopOverviewPage() {
             </Card>
 
             {/* Stats */}
-            <div className={cn("grid grid-cols-2 lg:grid-cols-4 gap-3", isPending && "opacity-40 grayscale pointer-events-none")}>
-                {[
-                    { label: 'Total Orders', value: stats?.total_orders || 0, icon: ShoppingCart, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-900/20' },
-                    { label: 'Completed', value: stats?.completed_orders || 0, icon: CheckCircle2, color: 'text-green-600', bg: 'bg-green-50 dark:bg-green-900/20' },
-                    { label: 'Total Revenue', value: formatCurrency(stats?.total_revenue || 0), icon: TrendingUp, color: 'text-purple-600', bg: 'bg-purple-50 dark:bg-purple-900/20' },
-                    { label: 'Total Profit', value: formatCurrency(stats?.total_profit || 0), icon: Wallet, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-900/20' },
-                ].map((stat) => (
-                    <Card key={stat.label} className="border shadow-sm">
-                        <CardContent className="p-4">
-                            <div className={cn('w-9 h-9 rounded-lg flex items-center justify-center mb-3', stat.bg)}>
-                                <stat.icon className={cn('w-5 h-5', stat.color)} />
-                            </div>
-                            <p className="text-xs text-muted-foreground">{stat.label}</p>
-                            <p className="text-lg font-bold mt-0.5">{stat.value}</p>
-                        </CardContent>
-                    </Card>
-                ))}
+            <div className={cn("space-y-4", isPending && "opacity-40 grayscale pointer-events-none")}>
+                <div className="flex items-center justify-between">
+                    <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
+                        <Filter className="w-4 h-4" />
+                        Performance Stats
+                    </h3>
+                    <div className="flex bg-muted rounded-lg p-1">
+                        {[
+                            { id: 'today', label: 'Today' },
+                            { id: '7d', label: '7 Days' },
+                            { id: '30d', label: '30 Days' },
+                            { id: 'all', label: 'All Time' },
+                        ].map((f) => (
+                            <button
+                                key={f.id}
+                                onClick={() => setFilter(f.id as any)}
+                                className={cn(
+                                    "px-3 py-1 text-xs font-medium rounded-md transition-all",
+                                    filter === f.id ? "bg-white dark:bg-gray-800 shadow-sm text-emerald-600" : "text-muted-foreground hover:text-foreground"
+                                )}
+                            >
+                                {f.label}
+                            </button>
+                        ))}
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+                    {[
+                        { label: 'Total Orders', value: stats?.total_orders || 0, icon: ShoppingCart, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-900/20' },
+                        { label: 'Processing', value: stats?.processing_orders || 0, icon: Clock, color: 'text-orange-600', bg: 'bg-orange-50 dark:bg-orange-900/20' },
+                        { label: 'Completed', value: stats?.completed_orders || 0, icon: CheckCircle2, color: 'text-green-600', bg: 'bg-green-50 dark:bg-green-900/20' },
+                        { label: 'Total Revenue', value: formatCurrency(stats?.total_revenue || 0), icon: TrendingUp, color: 'text-purple-600', bg: 'bg-purple-50 dark:bg-purple-900/20' },
+                        { label: 'Total Profit', value: formatCurrency(stats?.total_profit || 0), icon: Wallet, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-900/20' },
+                    ].map((stat) => (
+                        <Card key={stat.label} className="border shadow-sm">
+                            <CardContent className="p-4">
+                                <div className={cn('w-9 h-9 rounded-lg flex items-center justify-center mb-3', stat.bg)}>
+                                    <stat.icon className={cn('w-5 h-5', stat.color)} />
+                                </div>
+                                <p className="text-xs text-muted-foreground">{stat.label}</p>
+                                <p className="text-lg font-bold mt-0.5">{stat.value}</p>
+                            </CardContent>
+                        </Card>
+                    ))}
+                </div>
             </div>
 
             {/* Recent Orders */}
             <Card>
                 <CardHeader className="flex flex-row items-center justify-between pb-3">
-                    <CardTitle className="text-base">Recent Orders</CardTitle>
-                    <span className="text-xs text-muted-foreground">Last 10</span>
+                    <CardTitle className="text-base">Order History</CardTitle>
+                    <span className="text-xs text-muted-foreground">
+                        {filter === 'today' ? 'Showing Today' :
+                            filter === '7d' ? 'Last 7 Days' :
+                                filter === '30d' ? 'Last 30 Days' : 'All Time'}
+                    </span>
                 </CardHeader>
                 <CardContent className="p-0">
                     {recentOrders.length === 0 ? (

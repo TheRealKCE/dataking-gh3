@@ -20,18 +20,34 @@ export async function POST(request: NextRequest) {
         const supabase = createServerClient()
         const db = supabase as any
 
-        // 1. Fetch shop (must be approved and active)
+        // 1. Fetch shop + owner details (must be approved and active)
         const { data: shop, error: shopError } = await db
             .from('shop_profiles')
-            .select('id, shop_name, shop_slug, owner_id, approval_status, is_active, fulfillment_mode, paystack_fee_percent')
+            .select(`
+                id, shop_name, shop_slug, owner_id, approval_status, is_active, 
+                fulfillment_mode, paystack_fee_percent, owner_phone, whatsapp_number,
+                owner:users!shop_profiles_owner_id_fkey(role, email)
+            `)
             .eq('shop_slug', shopSlug)
             .single()
 
         if (shopError || !shop) {
             return NextResponse.json({ error: 'Shop not found' }, { status: 404 })
         }
-        if (shop.approval_status !== 'approved' || !shop.is_active) {
-            return NextResponse.json({ error: 'This shop is not currently active' }, { status: 403 })
+
+        // Check if shop owner still has a valid role (agent or admin)
+        const ownerRole = shop.owner?.role
+        const isValidRole = ['agent', 'admin', 'sub-admin'].includes(ownerRole)
+
+        if (shop.approval_status !== 'approved' || !shop.is_active || !isValidRole) {
+            return NextResponse.json({
+                error: 'This shop is not currently active',
+                contact: {
+                    phone: shop.owner_phone,
+                    whatsapp: shop.whatsapp_number,
+                    email: shop.owner?.email
+                }
+            }, { status: 403 })
         }
 
         // 2. Fetch package (must be available)
