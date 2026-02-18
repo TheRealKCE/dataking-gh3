@@ -722,7 +722,14 @@ export default function AdminOrdersPage() {
                             Array.isArray(batchOrders) && batchOrders.map(order => (
                                 <div key={order.id} className="text-xs p-2 bg-background rounded border flex items-center justify-between">
                                     <div className="flex flex-col">
-                                        <span className="font-bold text-[10px]">{order.users?.first_name} {order.users?.last_name}</span>
+                                        <div className="flex items-center gap-1">
+                                            <span className="font-bold text-[10px]">{order.users?.first_name} {order.users?.last_name}</span>
+                                            {order.shop_name && (
+                                                <Badge variant="outline" className="text-[8px] h-3 px-1 leading-none bg-blue-50 text-blue-600 border-blue-100">
+                                                    {order.shop_name}
+                                                </Badge>
+                                            )}
+                                        </div>
                                         <span className="font-mono text-xs">{order.phone_number}</span>
                                         <span className="text-[10px] text-muted-foreground">{order.network} {order.size}</span>
                                     </div>
@@ -975,7 +982,14 @@ export default function AdminOrdersPage() {
                                                 <User className="w-4 h-4 text-slate-500" />
                                             </div>
                                             <div>
-                                                <p className="text-sm font-semibold">{order.users?.first_name} {order.users?.last_name}</p>
+                                                <div className="flex items-center gap-1.5 flex-wrap">
+                                                    <p className="text-sm font-semibold">{order.users?.first_name} {order.users?.last_name}</p>
+                                                    {order.shop_name && (
+                                                        <Badge variant="secondary" className="text-[9px] h-4 px-1.5 bg-blue-100 text-blue-700 hover:bg-blue-100 border-blue-200">
+                                                            Shop: {order.shop_name}
+                                                        </Badge>
+                                                    )}
+                                                </div>
                                                 <p className="text-xs text-muted-foreground">{order.users?.email}</p>
                                             </div>
                                         </div>

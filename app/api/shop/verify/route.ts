@@ -27,61 +27,93 @@ export async function GET(request: NextRequest) {
         const supabase = createServerClient()
         const db = supabase as any
 
-        // 2. Fetch the order by reference
-        const { data: order, error: orderError } = await db
+        // 2. Extract order data from metadata
+        const metadata = verifyData.data?.metadata
+        if (!metadata || !metadata.shop_id) {
+            console.error('[Shop Verify] Missing metadata in Paystack response:', verifyData)
+            return NextResponse.redirect(new URL(`/shop/${slug}?error=payment_error`, request.url))
+        }
+
+        // Check if order already exists (idempotency)
+        const { data: existingOrder } = await db
             .from('shop_orders')
-            .select('*, shop_profiles(id, owner_id, fulfillment_mode, shop_name)')
+            .select('id, status')
             .eq('paystack_reference', ref)
             .single()
 
-        if (orderError || !order) {
-            console.error('[Shop Verify] Order not found for ref:', ref)
-            return NextResponse.redirect(new URL(`/shop/${slug}?error=order_not_found`, request.url))
-        }
-
-        // Idempotency: if already processed, redirect to success
-        if (order.status !== 'pending') {
-            return NextResponse.redirect(new URL(`/shop/${slug}/success?ref=${ref}`, request.url))
-        }
-
         // 3. Check payment status
         if (!verifyData.status || verifyData.data?.status !== 'success') {
-            // Payment failed — mark order as failed
-            await db
-                .from('shop_orders')
-                .update({ status: 'failed', updated_at: new Date().toISOString() })
-                .eq('id', order.id)
+            if (existingOrder) {
+                await db
+                    .from('shop_orders')
+                    .update({ status: 'failed', updated_at: new Date().toISOString() })
+                    .eq('id', existingOrder.id)
+            }
             return NextResponse.redirect(new URL(`/shop/${slug}?error=payment_failed`, request.url))
         }
 
-        // 4. Mark order as processing
-        await db
-            .from('shop_orders')
-            .update({ status: 'processing', updated_at: new Date().toISOString() })
-            .eq('id', order.id)
+        // Idempotency: if already processed, redirect to success
+        if (existingOrder && existingOrder.status !== 'pending') {
+            return NextResponse.redirect(new URL(`/shop/${slug}/success?ref=${ref}`, request.url))
+        }
 
-        const profit = parseFloat(order.profit) || 0
-        const ownerId = order.shop_profiles?.owner_id
+        let orderId = existingOrder?.id
+        const fulfillmentMode = metadata.fulfillment_mode || 'auto'
+        const initialStatus = fulfillmentMode === 'auto' ? 'processing' : 'pending'
+
+        // 4. Create shop_orders record IF it doesn't exist
+        if (!existingOrder) {
+            const { data: newOrder, error: createError } = await db
+                .from('shop_orders')
+                .insert({
+                    shop_id: metadata.shop_id,
+                    package_id: metadata.package_id,
+                    guest_phone: metadata.guest_phone,
+                    network: metadata.network,
+                    package_size: metadata.package_size,
+                    selling_price: metadata.selling_price,
+                    cost_price: metadata.cost_price,
+                    profit: metadata.profit,
+                    paystack_reference: ref,
+                    status: initialStatus,
+                })
+                .select('id')
+                .single()
+
+            if (createError || !newOrder) {
+                console.error('[Shop Verify] Failed to create shop order:', createError)
+                return NextResponse.redirect(new URL(`/shop/${slug}?error=server_error`, request.url))
+            }
+            orderId = newOrder.id
+        }
 
         // 4.5 Mirror to main 'orders' table for admin visibility
         try {
-            const shopName = order.shop_profiles?.shop_name || 'Shop'
+            const { data: shopOwner } = await db
+                .from('shop_profiles')
+                .select('owner_id')
+                .eq('id', metadata.shop_id)
+                .single()
+
             await db.from('orders').insert({
-                user_id: ownerId,
-                phone_number: order.guest_phone,
-                network: order.network,
-                size: order.package_size,
-                price: order.selling_price,
-                cost_price: order.cost_price || 0,
-                status: 'processing',
+                user_id: shopOwner?.owner_id,
+                shop_name: metadata.shop_name, // NEW: Shop name tag
+                phone_number: metadata.guest_phone,
+                network: metadata.network,
+                size: metadata.package_size,
+                price: metadata.selling_price,
+                cost_price: metadata.cost_price || 0,
+                status: initialStatus,
                 payment_status: 'paid',
-                fulfillment_method: 'auto',
+                fulfillment_method: fulfillmentMode,
                 reference_code: `SHOP-${ref.slice(-8)}`,
             })
         } catch (mirrorErr) {
             console.error('[Shop Verify] Mirroring error:', mirrorErr)
-            // Continue even if mirroring fails
         }
+
+        const profit = parseFloat(metadata.profit) || 0
+        const ownerId = (await db.from('shop_profiles').select('owner_id').eq('id', metadata.shop_id).single()).data?.owner_id
 
         // 5. Credit profit to shop wallet (atomic upsert)
         if (ownerId && profit > 0) {
@@ -107,7 +139,7 @@ export async function GET(request: NextRequest) {
                     shop_wallet_id: wallet.id,
                     type: 'profit',
                     amount: profit,
-                    description: `Sale: ${order.network} ${order.package_size} to ${order.guest_phone}`,
+                    description: `Sale: ${metadata.network} ${metadata.package_size} to ${metadata.guest_phone}`,
                     status: 'completed',
                 })
             }
@@ -115,9 +147,8 @@ export async function GET(request: NextRequest) {
 
         // 6. Trigger fulfillment
         try {
-            const fulfillmentMode = order.shop_profiles?.fulfillment_mode || 'auto'
             if (fulfillmentMode === 'auto') {
-                await triggerShopFulfillment(order.id, order.network, order.guest_phone, order.package_size, db)
+                await triggerShopFulfillment(orderId, metadata.network, metadata.guest_phone, metadata.package_size, db)
             }
         } catch (fulfillErr) {
             console.error('[Shop Verify] Fulfillment error:', fulfillErr)
@@ -176,10 +207,21 @@ async function triggerShopFulfillment(
         const result = await fulfillOrder(network, phone, size, orderId)
 
         if (result.success) {
+            const updatedAt = new Date().toISOString()
             await db.from('shop_orders').update({
                 status: 'processing',
-                updated_at: new Date().toISOString(),
+                updated_at: updatedAt,
             }).eq('id', orderId)
+
+            // Update mirrored main order
+            const { data: sOrder } = await db.from('shop_orders').select('paystack_reference').eq('id', orderId).single()
+            if (sOrder?.paystack_reference) {
+                const mirrorRef = `SHOP-${sOrder.paystack_reference.slice(-8)}`
+                await db.from('orders').update({
+                    status: 'processing',
+                    updated_at: updatedAt,
+                }).eq('reference_code', mirrorRef)
+            }
         } else {
             console.error(`[Shop Fulfillment] Failed for order ${orderId}:`, result.error)
         }

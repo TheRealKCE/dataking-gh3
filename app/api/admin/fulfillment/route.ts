@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
         let query = supabase
             .from('orders')
             .select(`
-                id, created_at, phone_number, network, size, price, status, user_id,
+                id, created_at, phone_number, network, size, price, status, user_id, shop_name,
                 users (
                     first_name,
                     last_name,

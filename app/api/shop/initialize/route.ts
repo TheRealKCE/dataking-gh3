@@ -102,36 +102,14 @@ export async function POST(request: NextRequest) {
         const paystackFee = Math.round(sellingPrice * (paystackFeePercent / 100) * 100) / 100
         const totalAmount = Math.round((sellingPrice + paystackFee) * 100) // Paystack uses kobo/pesewas
 
-        // 5. Create shop_orders record (pending)
-        const paystackRef = `SHOP-${shop.id.slice(0, 8)}-${Date.now()}`
-        const { data: order, error: orderError } = await db
-            .from('shop_orders')
-            .insert({
-                shop_id: shop.id,
-                package_id: packageId,
-                guest_phone: cleanPhone,
-                network: pkg.network,
-                package_size: pkg.size,
-                selling_price: sellingPrice,
-                cost_price: costPrice,
-                profit: profit,
-                paystack_reference: paystackRef,
-                status: 'pending',
-            })
-            .select('id')
-            .single()
-
-        if (orderError || !order) {
-            console.error('[Shop Initialize] Order creation error:', orderError)
-            return NextResponse.json({ error: 'Failed to create order' }, { status: 500 })
-        }
-
-        // 6. Initialize Paystack — use platform email, guest stays anonymous
+        // 5. Initialize Paystack — use platform email, guest stays anonymous
+        // NEW: We don't create the shop_orders record until AFTER payment is successful
         const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY
         if (!PAYSTACK_SECRET_KEY) {
             return NextResponse.json({ error: 'Payment service unavailable' }, { status: 503 })
         }
 
+        const paystackRef = `SHOP-${shop.id.slice(0, 8)}-${Date.now()}`
         const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://kingflexygh.com'
         const callbackUrl = `${appUrl}/api/shop/verify?ref=${paystackRef}&slug=${shopSlug}`
 
@@ -147,11 +125,17 @@ export async function POST(request: NextRequest) {
                 reference: paystackRef,
                 callback_url: callbackUrl,
                 metadata: {
-                    order_id: order.id,
                     shop_id: shop.id,
+                    shop_name: shop.shop_name,
                     shop_slug: shopSlug,
                     guest_phone: cleanPhone,
                     package_id: packageId,
+                    network: pkg.network,
+                    package_size: pkg.size,
+                    selling_price: sellingPrice,
+                    cost_price: costPrice,
+                    profit: profit,
+                    fulfillment_mode: shop.fulfillment_mode,
                     custom_fields: [
                         { display_name: 'Shop', variable_name: 'shop', value: shop.shop_name },
                         { display_name: 'Phone', variable_name: 'phone', value: cleanPhone },
@@ -165,8 +149,6 @@ export async function POST(request: NextRequest) {
 
         if (!paystackData.status || !paystackData.data?.authorization_url) {
             console.error('[Shop Initialize] Paystack error:', paystackData)
-            // Cleanup the pending order
-            await db.from('shop_orders').delete().eq('id', order.id)
             return NextResponse.json({ error: 'Payment initialization failed' }, { status: 500 })
         }
 

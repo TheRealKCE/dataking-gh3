@@ -38,6 +38,7 @@ interface Order {
     price: number
     status: string
     user_id: string
+    shop_name?: string
     users: {
         first_name: string
         last_name: string
@@ -578,9 +579,16 @@ export default function FulfillmentPage() {
                                                 <div className="space-y-0.5">
                                                     <p className="text-[10px] md:text-[11px] uppercase font-extrabold text-muted-foreground">Purchaser</p>
                                                     <div className="text-[11px] md:text-xs">
-                                                        <p className="font-bold truncate max-w-[100px] md:max-w-full" title={`${order.users?.first_name} ${order.users?.last_name}`}>
-                                                            {order.users?.first_name || 'N/A'} {order.users?.last_name || ''}
-                                                        </p>
+                                                        <div className="flex items-center gap-1.5 flex-wrap">
+                                                            <p className="font-bold truncate max-w-[100px] md:max-w-full" title={`${order.users?.first_name} ${order.users?.last_name}`}>
+                                                                {order.users?.first_name || 'N/A'} {order.users?.last_name || ''}
+                                                            </p>
+                                                            {order.shop_name && (
+                                                                <Badge variant="secondary" className="text-[9px] h-4 px-1.5 bg-blue-100 text-blue-700 hover:bg-blue-100 border-blue-200">
+                                                                    Shop: {order.shop_name}
+                                                                </Badge>
+                                                            )}
+                                                        </div>
                                                         <p className="text-muted-foreground opacity-70 text-[10px] font-bold uppercase">{order.users?.role || 'User'}</p>
                                                     </div>
                                                 </div>
