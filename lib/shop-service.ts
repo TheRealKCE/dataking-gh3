@@ -137,15 +137,25 @@ export async function creditShopProfit(shopOrderId: string) {
         const profit = parseFloat(sOrder.profit) || 0
 
         // Get or create wallet
-        const { data: wallet } = await db
+        let { data: wallet } = await db
             .from('shop_wallets')
             .select('id, balance, total_earned')
             .eq('owner_id', ownerId)
             .single()
 
         if (!wallet) {
-            console.error(`[Profit] No wallet found for owner ${ownerId}`)
-            return
+            console.log(`[Profit] No wallet found for owner ${ownerId}, creating one...`)
+            const { data: newWallet, error: createError } = await db
+                .from('shop_wallets')
+                .insert({ owner_id: ownerId, balance: 0, total_earned: 0 })
+                .select()
+                .single()
+
+            if (createError) {
+                console.error(`[Profit] Failed to create wallet:`, createError)
+                return
+            }
+            wallet = newWallet
         }
 
         // Atomic update
