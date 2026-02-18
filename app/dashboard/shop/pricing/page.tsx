@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { useAuth } from '@/contexts/auth-context'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency } from '@/lib/utils'
@@ -11,7 +12,7 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
     Tag, Save, Loader2, TrendingUp, AlertCircle, CheckCircle2,
-    Clock, XCircle, Lightbulb, Send, Lock
+    Clock, XCircle, Lightbulb, Send, Lock, ArrowLeft
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -276,246 +277,254 @@ export default function ShopPricingPage() {
     return (
         <div className="space-y-6 pb-20 md:pb-0">
             {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold flex items-center gap-2">
-                        <Tag className="w-6 h-6 text-emerald-600" />
-                        Pricing Engine
-                    </h1>
-                    <p className="text-muted-foreground text-sm mt-1">
-                        Set your selling prices. Only packages with a price will appear on your shop.
-                        {setPricedCount > 0 && <span className="ml-2 font-semibold text-emerald-600">{setPricedCount} active</span>}
-                    </p>
+            <div className="flex flex-col gap-4">
+                <Link href="/dashboard/shop">
+                    <Button variant="ghost" size="sm" className="w-fit gap-2 -ml-2 text-muted-foreground hover:text-emerald-600 transition-colors">
+                        <ArrowLeft className="w-4 h-4" />
+                        Back to Shop Dashboard
+                    </Button>
+                </Link>
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                    <div>
+                        <h1 className="text-2xl font-bold flex items-center gap-2">
+                            <Tag className="w-6 h-6 text-emerald-600" />
+                            Pricing Engine
+                        </h1>
+                        <p className="text-muted-foreground text-sm mt-1">
+                            Set your selling prices. Only packages with a price will appear on your shop.
+                            {setPricedCount > 0 && <span className="ml-2 font-semibold text-emerald-600">{setPricedCount} active</span>}
+                        </p>
+                    </div>
+                    <div className="hidden sm:block">
+                        <Button
+                            onClick={handleSubmit}
+                            disabled={saving}
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
+                        >
+                            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                            {saving ? 'Submitting...' : 'Submit for Approval'}
+                        </Button>
+                    </div>
                 </div>
-                <div className="hidden sm:block">
+
+                {/* Warning banner for resubmission */}
+                {isResubmission && (
+                    <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 flex gap-2 text-sm text-amber-700 dark:text-amber-300">
+                        <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                        <span>
+                            <strong>Heads up!</strong> Your current live prices will remain active until the admin approves your new submission. Customers will continue to see your old prices in the meantime.
+                        </span>
+                    </div>
+                )}
+
+                {/* Cost info banner */}
+                <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 flex gap-2 text-sm text-blue-700 dark:text-blue-300">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                    <span>
+                        Your cost price is based on your role ({dbUser?.role === 'agent' ? 'Agent' : 'Customer'}).
+                        Selling price must be higher than your cost.
+                    </span>
+                </div>
+
+                {/* Business Tips */}
+                <Card className="border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-900/10">
+                    <CardHeader className="pb-2">
+                        <CardTitle className="text-sm flex items-center gap-2 text-emerald-700 dark:text-emerald-400">
+                            <Lightbulb className="w-4 h-4" />
+                            Tips for Better Business Growth
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-2">
+                        <ul className="text-xs text-emerald-800 dark:text-emerald-300 space-y-1.5">
+                            <li className="flex items-start gap-2">
+                                <TrendingUp className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-emerald-600" />
+                                <span>Keep your profit margin <strong>small but consistent</strong> — lower prices attract more repeat customers.</span>
+                            </li>
+                            <li className="flex items-start gap-2">
+                                <TrendingUp className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-emerald-600" />
+                                <span>A <strong>GHS 0.50–1.00 profit</strong> per bundle adds up to big earnings with volume sales.</span>
+                            </li>
+                            <li className="flex items-start gap-2">
+                                <TrendingUp className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-emerald-600" />
+                                <span>Competitive pricing builds <strong>customer loyalty</strong> faster than one-time high margins.</span>
+                            </li>
+                            <li className="flex items-start gap-2">
+                                <TrendingUp className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-emerald-600" />
+                                <span>Bundles with the <strong>best value-for-money</strong> get shared the most on WhatsApp — free marketing!</span>
+                            </li>
+                            <li className="flex items-start gap-2">
+                                <TrendingUp className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-emerald-600" />
+                                <span>Check what other shops charge and price <strong>slightly below</strong> to stand out and win customers.</span>
+                            </li>
+                        </ul>
+                    </CardContent>
+                </Card>
+
+                {/* Network Tabs */}
+                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                    {NETWORKS.map(network => {
+                        const count = packages.filter(p => p.network === network).length
+                        if (count === 0) return null
+                        const isActiveTab = activeNetwork === network
+                        const colorClass = networkColors[network]
+                        return (
+                            <button
+                                key={network}
+                                onClick={() => setActiveNetwork(network)}
+                                className={cn(
+                                    'flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-all whitespace-nowrap border',
+                                    isActiveTab
+                                        ? 'border-transparent shadow-sm scale-105'
+                                        : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50',
+                                    isActiveTab && colorClass
+                                )}
+                            >
+                                {network}
+                                <span className="text-xs opacity-70 px-1.5 py-0.5 rounded-full bg-black/5 dark:bg-white/10">
+                                    {count}
+                                </span>
+                            </button>
+                        )
+                    })}
+                </div>
+
+                {/* Pricing Table */}
+                <Card>
+                    <CardHeader className="pb-3 border-b">
+                        <CardTitle className="text-sm flex items-center justify-between">
+                            <span>{activeNetwork} Packages</span>
+                            <span className="text-xs font-normal text-muted-foreground">{filteredPackages.length} available</span>
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                        {filteredPackages.length === 0 ? (
+                            <div className="p-8 text-center text-muted-foreground">
+                                No packages available for {activeNetwork}.
+                            </div>
+                        ) : (
+                            <>
+                                {/* Desktop Table */}
+                                <div className="hidden md:block overflow-x-auto">
+                                    <table className="w-full text-sm">
+                                        <thead>
+                                            <tr className="bg-muted/40 text-xs text-muted-foreground">
+                                                <th className="text-left px-4 py-3 font-medium">Package</th>
+                                                <th className="text-right px-4 py-3 font-medium">Your Cost</th>
+                                                <th className="text-right px-4 py-3 font-medium w-40">Your Price (GHS)</th>
+                                                <th className="text-right px-4 py-3 font-medium">Profit</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {filteredPackages.map((pkg) => {
+                                                const val = pricing[pkg.id] || ''
+                                                const cost = getCostPrice(pkg)
+                                                const profit = getProfit(pkg, val)
+                                                const valid = isValidPrice(pkg, val)
+                                                return (
+                                                    <tr key={pkg.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
+                                                        <td className="px-4 py-3 font-medium">{pkg.size}</td>
+                                                        <td className="px-4 py-3 text-right text-muted-foreground font-mono">{formatCurrency(cost)}</td>
+                                                        <td className="px-4 py-3">
+                                                            <div className="relative max-w-[120px] ml-auto">
+                                                                <Input
+                                                                    type="number"
+                                                                    min="0"
+                                                                    step="0.01"
+                                                                    value={val}
+                                                                    onChange={(e) => setPricing(prev => ({ ...prev, [pkg.id]: e.target.value }))}
+                                                                    placeholder="—"
+                                                                    className={cn(
+                                                                        'text-right pr-2',
+                                                                        val && valid === false && 'border-red-500 focus-visible:ring-red-500',
+                                                                        val && valid === true && 'border-green-500 focus-visible:ring-green-500',
+                                                                    )}
+                                                                />
+                                                            </div>
+                                                        </td>
+                                                        <td className="px-4 py-3 text-right">
+                                                            {profit !== null ? (
+                                                                <span className={cn(
+                                                                    'font-bold inline-flex items-center gap-1',
+                                                                    profit > 0 ? 'text-emerald-600' : 'text-red-500'
+                                                                )}>
+                                                                    {profit > 0 ? '+' : ''}{formatCurrency(profit)}
+                                                                </span>
+                                                            ) : (
+                                                                <span className="text-muted-foreground">—</span>
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                )
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                {/* Mobile Card View */}
+                                <div className="md:hidden divide-y">
+                                    {filteredPackages.map((pkg) => {
+                                        const val = pricing[pkg.id] || ''
+                                        const cost = getCostPrice(pkg)
+                                        const profit = getProfit(pkg, val)
+                                        const valid = isValidPrice(pkg, val)
+                                        return (
+                                            <div key={pkg.id} className="p-4 space-y-3">
+                                                <div className="flex justify-between items-center">
+                                                    <span className="font-bold text-base">{pkg.size}</span>
+                                                    <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
+                                                        Cost: {formatCurrency(cost)}
+                                                    </span>
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-4 items-center">
+                                                    <div>
+                                                        <label className="text-xs text-muted-foreground mb-1 block">Your Price</label>
+                                                        <Input
+                                                            type="number"
+                                                            inputMode="decimal"
+                                                            value={val}
+                                                            onChange={(e) => setPricing(prev => ({ ...prev, [pkg.id]: e.target.value }))}
+                                                            placeholder="Set Price"
+                                                            className={cn(
+                                                                'h-10',
+                                                                val && valid === false && 'border-red-500 focus-visible:ring-red-500',
+                                                                val && valid === true && 'border-green-500 focus-visible:ring-green-500',
+                                                            )}
+                                                        />
+                                                    </div>
+                                                    <div className="text-right">
+                                                        <label className="text-xs text-muted-foreground mb-1 block">Profit</label>
+                                                        {profit !== null ? (
+                                                            <span className={cn(
+                                                                'text-lg font-bold block',
+                                                                profit > 0 ? 'text-emerald-600' : 'text-red-500'
+                                                            )}>
+                                                                {formatCurrency(profit)}
+                                                            </span>
+                                                        ) : (
+                                                            <span className="text-lg font-medium text-muted-foreground block">—</span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            </>
+                        )}
+                    </CardContent>
+                </Card>
+
+                {/* Mobile Sticky Submit Button */}
+                <div className="fixed bottom-4 left-4 right-4 md:hidden z-10">
                     <Button
                         onClick={handleSubmit}
                         disabled={saving}
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
+                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white h-12 text-lg shadow-xl gap-2"
                     >
-                        {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                        {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
                         {saving ? 'Submitting...' : 'Submit for Approval'}
                     </Button>
                 </div>
-            </div>
-
-            {/* Warning banner for resubmission */}
-            {isResubmission && (
-                <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 flex gap-2 text-sm text-amber-700 dark:text-amber-300">
-                    <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                    <span>
-                        <strong>Heads up!</strong> Your current live prices will remain active until the admin approves your new submission. Customers will continue to see your old prices in the meantime.
-                    </span>
-                </div>
-            )}
-
-            {/* Cost info banner */}
-            <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 flex gap-2 text-sm text-blue-700 dark:text-blue-300">
-                <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                <span>
-                    Your cost price is based on your role ({dbUser?.role === 'agent' ? 'Agent' : 'Customer'}).
-                    Selling price must be higher than your cost.
-                </span>
-            </div>
-
-            {/* Business Tips */}
-            <Card className="border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-900/10">
-                <CardHeader className="pb-2">
-                    <CardTitle className="text-sm flex items-center gap-2 text-emerald-700 dark:text-emerald-400">
-                        <Lightbulb className="w-4 h-4" />
-                        Tips for Better Business Growth
-                    </CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-2">
-                    <ul className="text-xs text-emerald-800 dark:text-emerald-300 space-y-1.5">
-                        <li className="flex items-start gap-2">
-                            <TrendingUp className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-emerald-600" />
-                            <span>Keep your profit margin <strong>small but consistent</strong> — lower prices attract more repeat customers.</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                            <TrendingUp className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-emerald-600" />
-                            <span>A <strong>GHS 0.50–1.00 profit</strong> per bundle adds up to big earnings with volume sales.</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                            <TrendingUp className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-emerald-600" />
-                            <span>Competitive pricing builds <strong>customer loyalty</strong> faster than one-time high margins.</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                            <TrendingUp className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-emerald-600" />
-                            <span>Bundles with the <strong>best value-for-money</strong> get shared the most on WhatsApp — free marketing!</span>
-                        </li>
-                        <li className="flex items-start gap-2">
-                            <TrendingUp className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-emerald-600" />
-                            <span>Check what other shops charge and price <strong>slightly below</strong> to stand out and win customers.</span>
-                        </li>
-                    </ul>
-                </CardContent>
-            </Card>
-
-            {/* Network Tabs */}
-            <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
-                {NETWORKS.map(network => {
-                    const count = packages.filter(p => p.network === network).length
-                    if (count === 0) return null
-                    const isActiveTab = activeNetwork === network
-                    const colorClass = networkColors[network]
-                    return (
-                        <button
-                            key={network}
-                            onClick={() => setActiveNetwork(network)}
-                            className={cn(
-                                'flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-all whitespace-nowrap border',
-                                isActiveTab
-                                    ? 'border-transparent shadow-sm scale-105'
-                                    : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50',
-                                isActiveTab && colorClass
-                            )}
-                        >
-                            {network}
-                            <span className="text-xs opacity-70 px-1.5 py-0.5 rounded-full bg-black/5 dark:bg-white/10">
-                                {count}
-                            </span>
-                        </button>
-                    )
-                })}
-            </div>
-
-            {/* Pricing Table */}
-            <Card>
-                <CardHeader className="pb-3 border-b">
-                    <CardTitle className="text-sm flex items-center justify-between">
-                        <span>{activeNetwork} Packages</span>
-                        <span className="text-xs font-normal text-muted-foreground">{filteredPackages.length} available</span>
-                    </CardTitle>
-                </CardHeader>
-                <CardContent className="p-0">
-                    {filteredPackages.length === 0 ? (
-                        <div className="p-8 text-center text-muted-foreground">
-                            No packages available for {activeNetwork}.
-                        </div>
-                    ) : (
-                        <>
-                            {/* Desktop Table */}
-                            <div className="hidden md:block overflow-x-auto">
-                                <table className="w-full text-sm">
-                                    <thead>
-                                        <tr className="bg-muted/40 text-xs text-muted-foreground">
-                                            <th className="text-left px-4 py-3 font-medium">Package</th>
-                                            <th className="text-right px-4 py-3 font-medium">Your Cost</th>
-                                            <th className="text-right px-4 py-3 font-medium w-40">Your Price (GHS)</th>
-                                            <th className="text-right px-4 py-3 font-medium">Profit</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {filteredPackages.map((pkg) => {
-                                            const val = pricing[pkg.id] || ''
-                                            const cost = getCostPrice(pkg)
-                                            const profit = getProfit(pkg, val)
-                                            const valid = isValidPrice(pkg, val)
-                                            return (
-                                                <tr key={pkg.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
-                                                    <td className="px-4 py-3 font-medium">{pkg.size}</td>
-                                                    <td className="px-4 py-3 text-right text-muted-foreground font-mono">{formatCurrency(cost)}</td>
-                                                    <td className="px-4 py-3">
-                                                        <div className="relative max-w-[120px] ml-auto">
-                                                            <Input
-                                                                type="number"
-                                                                min="0"
-                                                                step="0.01"
-                                                                value={val}
-                                                                onChange={(e) => setPricing(prev => ({ ...prev, [pkg.id]: e.target.value }))}
-                                                                placeholder="—"
-                                                                className={cn(
-                                                                    'text-right pr-2',
-                                                                    val && valid === false && 'border-red-500 focus-visible:ring-red-500',
-                                                                    val && valid === true && 'border-green-500 focus-visible:ring-green-500',
-                                                                )}
-                                                            />
-                                                        </div>
-                                                    </td>
-                                                    <td className="px-4 py-3 text-right">
-                                                        {profit !== null ? (
-                                                            <span className={cn(
-                                                                'font-bold inline-flex items-center gap-1',
-                                                                profit > 0 ? 'text-emerald-600' : 'text-red-500'
-                                                            )}>
-                                                                {profit > 0 ? '+' : ''}{formatCurrency(profit)}
-                                                            </span>
-                                                        ) : (
-                                                            <span className="text-muted-foreground">—</span>
-                                                        )}
-                                                    </td>
-                                                </tr>
-                                            )
-                                        })}
-                                    </tbody>
-                                </table>
-                            </div>
-
-                            {/* Mobile Card View */}
-                            <div className="md:hidden divide-y">
-                                {filteredPackages.map((pkg) => {
-                                    const val = pricing[pkg.id] || ''
-                                    const cost = getCostPrice(pkg)
-                                    const profit = getProfit(pkg, val)
-                                    const valid = isValidPrice(pkg, val)
-                                    return (
-                                        <div key={pkg.id} className="p-4 space-y-3">
-                                            <div className="flex justify-between items-center">
-                                                <span className="font-bold text-base">{pkg.size}</span>
-                                                <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
-                                                    Cost: {formatCurrency(cost)}
-                                                </span>
-                                            </div>
-                                            <div className="grid grid-cols-2 gap-4 items-center">
-                                                <div>
-                                                    <label className="text-xs text-muted-foreground mb-1 block">Your Price</label>
-                                                    <Input
-                                                        type="number"
-                                                        inputMode="decimal"
-                                                        value={val}
-                                                        onChange={(e) => setPricing(prev => ({ ...prev, [pkg.id]: e.target.value }))}
-                                                        placeholder="Set Price"
-                                                        className={cn(
-                                                            'h-10',
-                                                            val && valid === false && 'border-red-500 focus-visible:ring-red-500',
-                                                            val && valid === true && 'border-green-500 focus-visible:ring-green-500',
-                                                        )}
-                                                    />
-                                                </div>
-                                                <div className="text-right">
-                                                    <label className="text-xs text-muted-foreground mb-1 block">Profit</label>
-                                                    {profit !== null ? (
-                                                        <span className={cn(
-                                                            'text-lg font-bold block',
-                                                            profit > 0 ? 'text-emerald-600' : 'text-red-500'
-                                                        )}>
-                                                            {formatCurrency(profit)}
-                                                        </span>
-                                                    ) : (
-                                                        <span className="text-lg font-medium text-muted-foreground block">—</span>
-                                                    )}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )
-                                })}
-                            </div>
-                        </>
-                    )}
-                </CardContent>
-            </Card>
-
-            {/* Mobile Sticky Submit Button */}
-            <div className="fixed bottom-4 left-4 right-4 md:hidden z-10">
-                <Button
-                    onClick={handleSubmit}
-                    disabled={saving}
-                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white h-12 text-lg shadow-xl gap-2"
-                >
-                    {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-                    {saving ? 'Submitting...' : 'Submit for Approval'}
-                </Button>
             </div>
         </div>
     )

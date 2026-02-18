@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import Image from 'next/image'
 import { useAuth } from '@/contexts/auth-context'
 import { supabase } from '@/lib/supabase'
@@ -12,7 +13,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Store, Upload, Phone, Mail, MessageCircle, Palette, Eye, Save, Loader2, ExternalLink } from 'lucide-react'
+import { Store, Upload, Phone, Mail, MessageCircle, Palette, Eye, Save, Loader2, ExternalLink, ArrowLeft } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 
@@ -216,14 +217,22 @@ export default function ShopSetupPage() {
     return (
         <div className="space-y-6 max-w-2xl">
             {/* Header */}
-            <div>
-                <h1 className="text-2xl font-bold flex items-center gap-2">
-                    <Store className="w-6 h-6 text-emerald-600" />
-                    {existingShopId ? 'Edit Shop' : 'Create Your Shop'}
-                </h1>
-                <p className="text-muted-foreground text-sm mt-1">
-                    {existingShopId ? 'Update your shop details and branding.' : 'Set up your reseller storefront. An admin will review and approve it.'}
-                </p>
+            <div className="space-y-4">
+                <Link href="/dashboard/shop">
+                    <Button variant="ghost" size="sm" className="w-fit gap-2 -ml-2 text-muted-foreground hover:text-emerald-600 transition-colors">
+                        <ArrowLeft className="w-4 h-4" />
+                        Back to Shop Dashboard
+                    </Button>
+                </Link>
+                <div>
+                    <h1 className="text-2xl font-bold flex items-center gap-2">
+                        <Store className="w-6 h-6 text-emerald-600" />
+                        {existingShopId ? 'Edit Shop' : 'Create Your Shop'}
+                    </h1>
+                    <p className="text-muted-foreground text-sm mt-1">
+                        {existingShopId ? 'Update your shop details and branding.' : 'Set up your reseller storefront. An admin will review and approve it.'}
+                    </p>
+                </div>
             </div>
 
             {/* Basic Info */}
