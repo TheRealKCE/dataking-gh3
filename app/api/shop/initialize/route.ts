@@ -75,11 +75,12 @@ export async function POST(request: NextRequest) {
         }
 
         const sellingPrice = parseFloat(shopPrice.selling_price)
-        const costPrice = parseFloat(pkg.cost_price) || 0
+        // Correct Logic: Shop's cost is the platform's selling price (pkg.price), not the platform's cost (pkg.cost_price)
+        const costPrice = parseFloat(pkg.price) || 0
         const profit = sellingPrice - costPrice
 
         if (profit <= 0) {
-            return NextResponse.json({ error: 'Invalid shop pricing configuration' }, { status: 400 })
+            return NextResponse.json({ error: 'Invalid shop pricing configuration: Selling price must be higher than updated cost price' }, { status: 400 })
         }
 
         // 4. Get global settings for Paystack fee
