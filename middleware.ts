@@ -38,6 +38,24 @@ export async function middleware(request: NextRequest) {
         session = null
     }
 
+    // ─── Sticky Shop Redirect (Ghosting Phase 1.5) ───
+    // If user has visited a shop, auto-redirect/bounce them back if they try to go to root
+    const shopVisitorCookie = request.cookies.get('shop_visitor')?.value
+    const isExiting = request.nextUrl.searchParams.get('exit_shop') === 'true'
+
+    // 1. Handle Exit: If user explicitly wants to leave shop mode
+    if (isExiting) {
+        const response = NextResponse.redirect(new URL('/', request.url))
+        response.cookies.delete('shop_visitor')
+        return addNoCacheHeaders(response)
+    }
+
+    // 2. Handle Bounce: If at root `/` and has cookie → Send back to shop
+    if (pathname === '/' && shopVisitorCookie && !session) {
+        // Only redirect if NOT logged in as admin/user (to avoid locking out owners)
+        return NextResponse.redirect(new URL(`/shop/${shopVisitorCookie}`, request.url))
+    }
+
     // Protected dashboard routes
     if (pathname.startsWith('/dashboard')) {
         if (!session) {
