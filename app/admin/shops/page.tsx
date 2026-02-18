@@ -22,7 +22,7 @@ interface Shop {
     is_active: boolean
     created_at: string
     owner_phone: string
-    users?: { first_name: string; last_name: string; email: string }
+    owner?: { first_name: string; last_name: string; email: string }
 }
 
 const statusConfig = {
@@ -48,9 +48,10 @@ export default function AdminShopsPage() {
     }, [dbUser, isAdmin])
 
     const fetchShops = async () => {
+        // Fix: Explicitly specify the relationship to avoid ambiguity with 'approved_by'
         const { data, error } = await (supabase
             .from('shop_profiles')
-            .select('*, users(first_name, last_name, email)')
+            .select('*, owner:users!shop_profiles_owner_id_fkey(first_name, last_name, email)')
             .order('created_at', { ascending: false }) as any)
 
         if (error) {
@@ -66,7 +67,7 @@ export default function AdminShopsPage() {
             s.shop_name.toLowerCase().includes(search.toLowerCase()) ||
             s.shop_slug.toLowerCase().includes(search.toLowerCase()) ||
             s.owner_phone.includes(search) ||
-            (s.users as any)?.email?.toLowerCase().includes(search.toLowerCase())
+            s.owner?.email?.toLowerCase().includes(search.toLowerCase())
         const matchStatus = filterStatus === 'all' || s.approval_status === filterStatus
         return matchSearch && matchStatus
     })
@@ -156,7 +157,7 @@ export default function AdminShopsPage() {
                     filtered.map(shop => {
                         const cfg = statusConfig[shop.approval_status]
                         const Icon = cfg.icon
-                        const owner = shop.users as any
+                        const owner = shop.owner
                         return (
                             <Link key={shop.id} href={`/admin/shops/${shop.id}`}>
                                 <Card className="hover:shadow-md transition-shadow cursor-pointer">
