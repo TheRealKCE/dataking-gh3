@@ -343,7 +343,6 @@ export default function ShopOverviewPage() {
                         { label: 'Processing', value: stats?.processing_orders || 0, icon: Clock, color: 'text-orange-600', bg: 'bg-orange-50 dark:bg-orange-900/20' },
                         { label: 'Completed', value: stats?.completed_orders || 0, icon: CheckCircle2, color: 'text-green-600', bg: 'bg-green-50 dark:bg-green-900/20' },
                         { label: 'Total Revenue', value: formatCurrency(stats?.total_revenue || 0), icon: TrendingUp, color: 'text-purple-600', bg: 'bg-purple-50 dark:bg-purple-900/20' },
-                        { label: 'Total Profit', value: formatCurrency(stats?.total_profit || 0), icon: Wallet, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-900/20' },
                     ].map((stat) => (
                         <Card key={stat.label} className="border shadow-sm">
                             <CardContent className="p-4">
