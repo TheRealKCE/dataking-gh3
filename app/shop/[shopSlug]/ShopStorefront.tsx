@@ -2,10 +2,14 @@
 
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { formatCurrency } from '@/lib/utils'
 import { cn } from '@/lib/utils'
-import { Phone, MessageCircle, ShoppingCart, Loader2, CheckCircle2, AlertCircle, X } from 'lucide-react'
+import {
+    Phone, Mail, MessageCircle, ShoppingCart, Loader2,
+    CheckCircle2, AlertCircle, X, ClipboardList
+} from 'lucide-react'
 import { toast } from 'sonner'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 
@@ -34,6 +38,9 @@ interface Props {
     packages: Package[]
 }
 
+// Fixed network order + brand colors (matches main platform)
+const NETWORK_ORDER = ['MTN', 'Telecel', 'AT-iShare', 'AT-BigTime']
+
 const networkColors: Record<string, { bg: string; text: string; border: string }> = {
     MTN: { bg: '#FFCE00', text: '#000000', border: '#e6b800' },
     Telecel: { bg: '#E60000', text: '#ffffff', border: '#cc0000' },
@@ -47,8 +54,15 @@ export default function ShopStorefront({ shop, packages }: Props) {
     const [phone, setPhone] = useState('')
     const [loading, setLoading] = useState(false)
     const [pageLoading, setPageLoading] = useState(true)
-    const [activeNetwork, setActiveNetwork] = useState<string>('all')
     const [errorMsg, setErrorMsg] = useState<string | null>(null)
+
+    // Derive available networks in fixed order
+    const availableNetworks = NETWORK_ORDER.filter(n => packages.some(p => p.network === n))
+    // Also include any networks not in the fixed list (future-proofing)
+    const extraNetworks = [...new Set(packages.map(p => p.network))].filter(n => !NETWORK_ORDER.includes(n))
+    const networks = [...availableNetworks, ...extraNetworks]
+
+    const [activeNetwork, setActiveNetwork] = useState<string>(networks[0] || '')
 
     // Instant loader animation
     useEffect(() => {
@@ -70,8 +84,7 @@ export default function ShopStorefront({ shop, packages }: Props) {
         }
     }, [searchParams])
 
-    const networks = ['all', ...Array.from(new Set(packages.map(p => p.network)))]
-    const filteredPackages = activeNetwork === 'all' ? packages : packages.filter(p => p.network === activeNetwork)
+    const filteredPackages = packages.filter(p => p.network === activeNetwork)
 
     const handleBuy = async () => {
         if (!selectedPackage) { toast.error('Select a package first'); return }
@@ -102,6 +115,9 @@ export default function ShopStorefront({ shop, packages }: Props) {
                 setLoading(false)
                 return
             }
+
+            // Save phone to localStorage so status page can auto-load today's orders
+            try { localStorage.setItem('shop_last_phone', cleanPhone) } catch (_) { }
 
             // Redirect to Paystack
             window.location.href = data.authorization_url
@@ -165,25 +181,6 @@ export default function ShopStorefront({ shop, packages }: Props) {
                             )}
                         </div>
                     </div>
-
-                    {/* Contact bar */}
-                    <div className="flex flex-wrap gap-2 mt-4">
-                        <a
-                            href={`tel:${shop.owner_phone}`}
-                            className="inline-flex items-center gap-1.5 bg-white/20 hover:bg-white/30 text-white text-xs font-semibold px-3 py-1.5 rounded-full transition-colors"
-                        >
-                            <Phone className="w-3.5 h-3.5" />
-                            {shop.owner_phone}
-                        </a>
-                        {shop.owner_email && (
-                            <a
-                                href={`mailto:${shop.owner_email}`}
-                                className="inline-flex items-center gap-1.5 bg-white/20 hover:bg-white/30 text-white text-xs font-semibold px-3 py-1.5 rounded-full transition-colors"
-                            >
-                                {shop.owner_email}
-                            </a>
-                        )}
-                    </div>
                 </div>
 
                 {/* Wave divider */}
@@ -193,6 +190,51 @@ export default function ShopStorefront({ shop, packages }: Props) {
             </div>
 
             <div className="max-w-2xl mx-auto px-4 pb-24 -mt-2">
+
+                {/* ── Need Help? Contact Card ── */}
+                <div className="mb-5 rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm px-4 py-3 flex items-center justify-between gap-3">
+                    <div className="flex-1 min-w-0">
+                        <p className="text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1.5">Need Help?</p>
+                        <div className="flex flex-wrap gap-x-3 gap-y-1">
+                            <a
+                                href={`tel:${shop.owner_phone}`}
+                                className="inline-flex items-center gap-1 text-sm font-semibold text-gray-700 dark:text-gray-200 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors"
+                            >
+                                <Phone className="w-3.5 h-3.5 flex-shrink-0" />
+                                {shop.owner_phone}
+                            </a>
+                            {shop.owner_email && (
+                                <a
+                                    href={`mailto:${shop.owner_email}`}
+                                    className="inline-flex items-center gap-1 text-sm font-semibold text-gray-700 dark:text-gray-200 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors truncate max-w-[180px]"
+                                >
+                                    <Mail className="w-3.5 h-3.5 flex-shrink-0" />
+                                    <span className="truncate">{shop.owner_email}</span>
+                                </a>
+                            )}
+                            {shop.whatsapp_number && (
+                                <a
+                                    href={`https://wa.me/${shop.whatsapp_number}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 text-sm font-semibold text-[#25D366] hover:text-[#1ebe5d] transition-colors"
+                                >
+                                    <MessageCircle className="w-3.5 h-3.5 flex-shrink-0" />
+                                    WhatsApp
+                                </a>
+                            )}
+                        </div>
+                    </div>
+                    {/* Track Order button */}
+                    <Link
+                        href="/shop/status"
+                        className="flex-shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors text-center"
+                    >
+                        <ClipboardList className="w-5 h-5 text-gray-500 dark:text-gray-300" />
+                        <span className="text-[10px] font-bold text-gray-500 dark:text-gray-300 leading-tight">Track<br />Order</span>
+                    </Link>
+                </div>
+
                 {/* Error banner */}
                 {errorMsg && (
                     <div className="mb-4 p-3 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 flex items-start gap-2">
@@ -202,24 +244,33 @@ export default function ShopStorefront({ shop, packages }: Props) {
                     </div>
                 )}
 
-                {/* Network filter */}
-                {networks.length > 2 && (
+                {/* ── Network Filter Tabs ── */}
+                {networks.length > 1 && (
                     <div className="flex gap-2 overflow-x-auto pb-1 mb-4 scrollbar-hide">
-                        {networks.map(net => (
-                            <button
-                                key={net}
-                                onClick={() => setActiveNetwork(net)}
-                                className={cn(
-                                    'flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-semibold transition-all border',
-                                    activeNetwork === net
-                                        ? 'text-white border-transparent shadow-sm'
-                                        : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700'
-                                )}
-                                style={activeNetwork === net ? { backgroundColor: brandColor, borderColor: brandColor } : {}}
-                            >
-                                {net === 'all' ? 'All Networks' : net}
-                            </button>
-                        ))}
+                        {networks.map(net => {
+                            const isActive = activeNetwork === net
+                            const netStyle = networkColors[net]
+                            return (
+                                <button
+                                    key={net}
+                                    onClick={() => { setActiveNetwork(net); setSelectedPackage(null) }}
+                                    className={cn(
+                                        'flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-bold transition-all border-2',
+                                        isActive
+                                            ? 'shadow-md scale-[1.03]'
+                                            : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                                    )}
+                                    style={isActive && netStyle
+                                        ? { backgroundColor: netStyle.bg, color: netStyle.text, borderColor: netStyle.border }
+                                        : isActive
+                                            ? { backgroundColor: brandColor, color: '#fff', borderColor: brandColor }
+                                            : {}
+                                    }
+                                >
+                                    {net}
+                                </button>
+                            )
+                        })}
                     </div>
                 )}
 
@@ -227,7 +278,7 @@ export default function ShopStorefront({ shop, packages }: Props) {
                 {filteredPackages.length === 0 ? (
                     <div className="text-center py-16 text-gray-400">
                         <ShoppingCart className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                        <p className="text-sm">No packages available yet.</p>
+                        <p className="text-sm">No packages available for this network.</p>
                     </div>
                 ) : (
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
