@@ -102,90 +102,24 @@ export async function creditShopProfit(shopOrderId: string) {
     const db = supabase as any
 
     try {
-        // 1. Fetch shop order details
-        const { data: sOrder, error: sOrderError } = await db
-            .from('shop_orders')
-            .select('*, shop_profiles(owner_id)')
-            .eq('id', shopOrderId)
-            .single()
+        console.log(`[Profit] Attempting to credit profit for shop order ${shopOrderId}...`)
 
-        if (sOrderError || !sOrder || sOrder.profit <= 0) {
-            console.log(`[Profit] Order ${shopOrderId} has no profit or wasn't found.`)
-            return
-        }
-
-        const ownerId = sOrder.shop_profiles?.owner_id
-        if (!ownerId) {
-            console.error(`[Profit] Could not find owner for shop order ${shopOrderId}`)
-            return
-        }
-
-        // 2. Check for existing profit transaction for this shop order (Idempotency)
-        const { data: existingTx } = await db
-            .from('shop_wallet_transactions')
-            .select('id')
-            .eq('shop_order_id', shopOrderId)
-            .eq('type', 'profit')
-            .single()
-
-        if (existingTx) {
-            console.log(`[Profit] Already credited for order ${shopOrderId}`)
-            return
-        }
-
-        // 3. Credit wallet and log transaction
-        const profit = parseFloat(sOrder.profit) || 0
-
-        // Get or create wallet
-        let { data: wallet } = await db
-            .from('shop_wallets')
-            .select('id, balance, total_earned')
-            .eq('owner_id', ownerId)
-            .single()
-
-        if (!wallet) {
-            console.log(`[Profit] No wallet found for owner ${ownerId}, creating one...`)
-            const { data: newWallet, error: createError } = await db
-                .from('shop_wallets')
-                .insert({ owner_id: ownerId, balance: 0, total_earned: 0 })
-                .select()
-                .single()
-
-            if (createError) {
-                console.error(`[Profit] Failed to create wallet:`, createError)
-                return
-            }
-            wallet = newWallet
-        }
-
-        // Atomic update
-        const { error: walletError } = await db
-            .from('shop_wallets')
-            .update({
-                balance: (parseFloat(wallet.balance) || 0) + profit,
-                total_earned: (parseFloat(wallet.total_earned) || 0) + profit,
-                updated_at: new Date().toISOString(),
-            })
-            .eq('id', wallet.id)
-
-        if (walletError) {
-            console.error(`[Profit] Failed to update wallet ${wallet.id}:`, walletError)
-            throw walletError
-        }
-
-        // Log transaction
-        await db.from('shop_wallet_transactions').insert({
-            shop_wallet_id: wallet.id,
-            shop_order_id: shopOrderId,
-            type: 'profit',
-            amount: profit,
-            description: `Sale: ${sOrder.network} ${sOrder.package_size} to ${sOrder.guest_phone}`,
-            status: 'completed',
+        const { data, error } = await db.rpc('credit_shop_profit', {
+            p_shop_order_id: shopOrderId
         })
 
-        console.log(`[Profit] Successfully credited ${profit} to wallet ${wallet.id} for order ${shopOrderId}`)
+        if (error) {
+            console.error(`[Profit] RPC Error for order ${shopOrderId}:`, error)
+            return
+        }
+
+        if (data && !data.success) {
+            console.log(`[Profit] Skipped/Failed: ${data.message} (Order ${shopOrderId})`)
+        } else {
+            console.log(`[Profit] Success: ${data.message} (Order ${shopOrderId})`)
+        }
 
     } catch (err) {
-        console.error('[Profit] Credit error:', err)
+        console.error('[Profit] Unexpected error:', err)
     }
 }
