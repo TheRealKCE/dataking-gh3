@@ -355,6 +355,27 @@ export function DashboardSidebar() {
                             )
                         })}
 
+                    {/* My Shop link — admin/sub-admin only, but shown in main list */}
+                    {(isAdmin || isSubAdmin) && (() => {
+                        const isActive = isLinkActive('/dashboard/shop')
+                        return (
+                            <Link href="/dashboard/shop" onClick={() => {
+                                if (window.innerWidth < 1024) closeSidebar()
+                            }}>
+                                <div className={cn(
+                                    "flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-all duration-200",
+                                    isActive
+                                        ? "bg-emerald-500/20 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
+                                        : "text-gray-600 dark:text-gray-400 hover:bg-gray-300/60 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-gray-200",
+                                    isCollapsed && "justify-center px-2"
+                                )}>
+                                    <Store className={cn("w-5 h-5 flex-shrink-0", isActive && "text-emerald-600 dark:text-emerald-400")} />
+                                    {!isCollapsed && <span className="text-base font-medium">My Shop</span>}
+                                </div>
+                            </Link>
+                        )
+                    })()}
+
                     {(isAdmin || isSubAdmin) && (
                         <>
                             {!isCollapsed && (
@@ -362,26 +383,6 @@ export function DashboardSidebar() {
                                     Admin
                                 </p>
                             )}
-                            {/* My Shop link — admin/sub-admin only */}
-                            {(() => {
-                                const isActive = isLinkActive('/dashboard/shop')
-                                return (
-                                    <Link href="/dashboard/shop" onClick={() => {
-                                        if (window.innerWidth < 1024) closeSidebar()
-                                    }}>
-                                        <div className={cn(
-                                            "flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-all duration-200",
-                                            isActive
-                                                ? "bg-emerald-500/20 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                                                : "text-gray-600 dark:text-gray-400 hover:bg-gray-300/60 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-gray-200",
-                                            isCollapsed && "justify-center px-2"
-                                        )}>
-                                            <Store className={cn("w-5 h-5 flex-shrink-0", isActive && "text-emerald-600 dark:text-emerald-400")} />
-                                            {!isCollapsed && <span className="text-base font-medium">My Shop</span>}
-                                        </div>
-                                    </Link>
-                                )
-                            })()}
                             {adminNavItems.filter(item => {
                                 if (isAdmin) return true
                                 if (isSubAdmin) return item.href === '/admin/orders'
