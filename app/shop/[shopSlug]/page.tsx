@@ -34,6 +34,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
             description: shop.description || `Buy affordable data bundles from ${shop.shop_name}`,
             images: shop.logo_url ? [{ url: shop.logo_url }] : [],
         },
+        icons: {
+            icon: shop.logo_url || '/favicon.ico', // Fallback to default if no logo, but prefer shop logo
+        },
     }
 }
 
