@@ -7,6 +7,7 @@ import { formatCurrency } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import { Phone, MessageCircle, ShoppingCart, Loader2, CheckCircle2, AlertCircle, X } from 'lucide-react'
 import { toast } from 'sonner'
+import { ThemeToggle } from '@/components/ui/theme-toggle'
 
 interface ShopData {
     id: string
@@ -142,7 +143,10 @@ export default function ShopStorefront({ shop, packages }: Props) {
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
             {/* Header / Hero */}
-            <div className="relative" style={{ backgroundColor: brandColor }}>
+            <div className="relative transition-colors duration-300" style={{ backgroundColor: brandColor }}>
+                <div className="absolute top-4 right-4 z-10">
+                    <ThemeToggle />
+                </div>
                 <div className="max-w-2xl mx-auto px-4 py-8">
                     <div className="flex items-center gap-4">
                         {shop.logo_url ? (

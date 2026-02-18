@@ -17,6 +17,9 @@ import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 
 const BRAND_PRESETS = [
+    { name: 'Gold', color: '#FFCE00', accent: '#e6b800' },
+    { name: 'Green', color: '#25D366', accent: '#1ebc57' },
+    { name: 'Red', color: '#E60000', accent: '#cc0000' },
     { name: 'Ocean Blue', color: '#2563eb', accent: '#1e40af' },
     { name: 'Emerald', color: '#059669', accent: '#065f46' },
     { name: 'Purple', color: '#7c3aed', accent: '#5b21b6' },
@@ -208,7 +211,7 @@ export default function ShopSetupPage() {
         )
     }
 
-    const shopUrl = form.shop_slug ? `${process.env.NEXT_PUBLIC_APP_URL}/shop/${form.shop_slug}` : ''
+    const shopUrl = form.shop_slug ? `https://kingflexygh.com/shop/${form.shop_slug}` : ''
 
     return (
         <div className="space-y-6 max-w-2xl">
@@ -395,7 +398,7 @@ export default function ShopSetupPage() {
                                     onClick={() => setForm(prev => ({ ...prev, brand_color: preset.color, brand_accent: preset.accent }))}
                                     className={cn(
                                         'flex flex-col items-center gap-1.5 p-2 rounded-xl border-2 transition-all',
-                                        form.brand_color === preset.color
+                                        form.brand_color.toLowerCase() === preset.color.toLowerCase()
                                             ? 'border-gray-900 dark:border-white scale-105 shadow-md'
                                             : 'border-transparent hover:border-gray-300 dark:hover:border-gray-600'
                                     )}
