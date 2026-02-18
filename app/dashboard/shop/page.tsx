@@ -94,11 +94,11 @@ export default function ShopOverviewPage() {
     const fetchShopData = async () => {
         try {
             // Fetch shop profile
-            const { data: shopData } = await (supabase
+            const { data: shopData } = await ((supabase as any)
                 .from('shop_profiles')
                 .select('*')
                 .eq('owner_id', dbUser!.id)
-                .single() as any)
+                .single())
 
             if (!shopData) {
                 setLoading(false)
@@ -108,8 +108,8 @@ export default function ShopOverviewPage() {
 
             // Fetch wallet, stats, and recent orders in parallel
             const [walletRes, ordersRes] = await Promise.all([
-                (supabase.from('shop_wallets').select('*').eq('owner_id', dbUser!.id).single() as any),
-                (supabase.from('shop_orders').select('*').eq('shop_id', shopData.id).order('created_at', { ascending: false }).limit(10) as any),
+                ((supabase as any).from('shop_wallets').select('*').eq('owner_id', dbUser!.id).single()),
+                ((supabase as any).from('shop_orders').select('*').eq('shop_id', shopData.id).order('created_at', { ascending: false }).limit(10)),
             ])
 
             if (walletRes.data) setWallet(walletRes.data)

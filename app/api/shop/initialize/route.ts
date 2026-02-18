@@ -18,13 +18,14 @@ export async function POST(request: NextRequest) {
         }
 
         const supabase = createServerClient()
+        const db = supabase as any
 
         // 1. Fetch shop (must be approved and active)
-        const { data: shop, error: shopError } = await (supabase
+        const { data: shop, error: shopError } = await db
             .from('shop_profiles')
             .select('id, shop_name, shop_slug, owner_id, approval_status, is_active, fulfillment_mode, paystack_fee_percent')
             .eq('shop_slug', shopSlug)
-            .single() as any)
+            .single()
 
         if (shopError || !shop) {
             return NextResponse.json({ error: 'Shop not found' }, { status: 404 })
@@ -34,24 +35,24 @@ export async function POST(request: NextRequest) {
         }
 
         // 2. Fetch package (must be available)
-        const { data: pkg, error: pkgError } = await (supabase
+        const { data: pkg, error: pkgError } = await db
             .from('data_packages')
             .select('id, network, size, cost_price, is_available')
             .eq('id', packageId)
             .eq('is_available', true)
-            .single() as any)
+            .single()
 
         if (pkgError || !pkg) {
             return NextResponse.json({ error: 'Package not found or unavailable' }, { status: 404 })
         }
 
         // 3. Fetch shop's custom selling price (server-side — never trust frontend price)
-        const { data: shopPrice, error: priceError } = await (supabase
+        const { data: shopPrice, error: priceError } = await db
             .from('shop_pricing')
             .select('selling_price')
             .eq('shop_id', shop.id)
             .eq('package_id', packageId)
-            .single() as any)
+            .single()
 
         if (priceError || !shopPrice) {
             return NextResponse.json({ error: 'This package is not available in this shop' }, { status: 404 })
@@ -66,10 +67,10 @@ export async function POST(request: NextRequest) {
         }
 
         // 4. Get global settings for Paystack fee
-        const { data: settingsRows } = await (supabase
+        const { data: settingsRows } = await db
             .from('shop_global_settings')
             .select('key, value')
-            .in('key', ['shop_paystack_fee_percent', 'shop_feature_enabled']) as any)
+            .in('key', ['shop_paystack_fee_percent', 'shop_feature_enabled'])
 
         const settings: Record<string, any> = {}
         for (const row of (settingsRows || [])) {
@@ -87,7 +88,7 @@ export async function POST(request: NextRequest) {
 
         // 5. Create shop_orders record (pending)
         const paystackRef = `SHOP-${shop.id.slice(0, 8)}-${Date.now()}`
-        const { data: order, error: orderError } = await (supabase
+        const { data: order, error: orderError } = await db
             .from('shop_orders')
             .insert({
                 shop_id: shop.id,
@@ -102,7 +103,7 @@ export async function POST(request: NextRequest) {
                 status: 'pending',
             })
             .select('id')
-            .single() as any)
+            .single()
 
         if (orderError || !order) {
             console.error('[Shop Initialize] Order creation error:', orderError)
@@ -149,7 +150,7 @@ export async function POST(request: NextRequest) {
         if (!paystackData.status || !paystackData.data?.authorization_url) {
             console.error('[Shop Initialize] Paystack error:', paystackData)
             // Cleanup the pending order
-            await (supabase.from('shop_orders').delete().eq('id', order.id) as any)
+            await db.from('shop_orders').delete().eq('id', order.id)
             return NextResponse.json({ error: 'Payment initialization failed' }, { status: 500 })
         }
 

@@ -54,11 +54,11 @@ export default function ShopPricingPage() {
     const fetchData = async () => {
         try {
             // Get shop
-            const { data: shop } = await (supabase
+            const { data: shop } = await ((supabase as any)
                 .from('shop_profiles')
                 .select('id')
                 .eq('owner_id', dbUser!.id)
-                .single() as any)
+                .single())
 
             if (!shop) {
                 toast.error('Please create your shop first')
@@ -70,7 +70,7 @@ export default function ShopPricingPage() {
             // Get packages and existing pricing in parallel
             const [pkgRes, priceRes] = await Promise.all([
                 (supabase.from('data_packages').select('*').eq('is_available', true).order('network').order('sort_order') as any),
-                (supabase.from('shop_pricing').select('*').eq('shop_id', shop.id) as any),
+                ((supabase as any).from('shop_pricing').select('*').eq('shop_id', shop.id)),
             ])
 
             setPackages(pkgRes.data || [])
@@ -129,8 +129,8 @@ export default function ShopPricingPage() {
             }
 
             // Delete existing and re-insert (clean upsert)
-            await (supabase.from('shop_pricing').delete().eq('shop_id', shopId) as any)
-            const { error } = await (supabase.from('shop_pricing').insert(rows) as any)
+            await ((supabase as any).from('shop_pricing').delete().eq('shop_id', shopId))
+            const { error } = await ((supabase as any).from('shop_pricing').insert(rows))
             if (error) throw error
 
             toast.success(`${rows.length} prices saved!`)

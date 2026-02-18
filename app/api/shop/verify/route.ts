@@ -25,13 +25,14 @@ export async function GET(request: NextRequest) {
         const verifyData = await verifyRes.json()
 
         const supabase = createServerClient()
+        const db = supabase as any
 
         // 2. Fetch the order by reference
-        const { data: order, error: orderError } = await (supabase
+        const { data: order, error: orderError } = await db
             .from('shop_orders')
             .select('*, shop_profiles(id, owner_id, fulfillment_mode, shop_name)')
             .eq('paystack_reference', ref)
-            .single() as any)
+            .single()
 
         if (orderError || !order) {
             console.error('[Shop Verify] Order not found for ref:', ref)
@@ -46,51 +47,49 @@ export async function GET(request: NextRequest) {
         // 3. Check payment status
         if (!verifyData.status || verifyData.data?.status !== 'success') {
             // Payment failed — mark order as failed
-            await (supabase
+            await db
                 .from('shop_orders')
                 .update({ status: 'failed', updated_at: new Date().toISOString() })
-                .eq('id', order.id) as any)
+                .eq('id', order.id)
             return NextResponse.redirect(new URL(`/shop/${slug}?error=payment_failed`, request.url))
         }
 
         // 4. Mark order as processing
-        await (supabase
+        await db
             .from('shop_orders')
             .update({ status: 'processing', updated_at: new Date().toISOString() })
-            .eq('id', order.id) as any)
+            .eq('id', order.id)
 
         // 5. Credit profit to shop wallet (atomic upsert)
-        const shopId = order.shop_id
         const profit = parseFloat(order.profit) || 0
         const ownerId = order.shop_profiles?.owner_id
 
         if (ownerId && profit > 0) {
             // Get or create shop wallet
-            const { data: wallet } = await (supabase
+            const { data: wallet } = await db
                 .from('shop_wallets')
                 .select('id, balance, total_earned')
                 .eq('owner_id', ownerId)
-                .single() as any)
+                .single()
 
             if (wallet) {
-                await (supabase
+                await db
                     .from('shop_wallets')
                     .update({
                         balance: (parseFloat(wallet.balance) || 0) + profit,
                         total_earned: (parseFloat(wallet.total_earned) || 0) + profit,
                         updated_at: new Date().toISOString(),
                     })
-                    .eq('id', wallet.id) as any)
+                    .eq('id', wallet.id)
 
                 // Log the transaction
-                await (supabase.from('shop_wallet_transactions').insert({
+                await db.from('shop_wallet_transactions').insert({
                     shop_wallet_id: wallet.id,
-                    type: 'credit',
+                    type: 'profit',
                     amount: profit,
                     description: `Sale: ${order.network} ${order.package_size} to ${order.guest_phone}`,
-                    reference: ref,
                     status: 'completed',
-                }) as any)
+                })
             }
         }
 
@@ -98,7 +97,7 @@ export async function GET(request: NextRequest) {
         try {
             const fulfillmentMode = order.shop_profiles?.fulfillment_mode || 'auto'
             if (fulfillmentMode === 'auto') {
-                await triggerShopFulfillment(order.id, order.network, order.guest_phone, order.package_size, supabase)
+                await triggerShopFulfillment(order.id, order.network, order.guest_phone, order.package_size, db)
             }
         } catch (fulfillErr) {
             console.error('[Shop Verify] Fulfillment error:', fulfillErr)
@@ -118,13 +117,13 @@ async function triggerShopFulfillment(
     network: string,
     phone: string,
     size: string,
-    supabase: any
+    db: any
 ) {
     try {
         const { fulfillOrder } = await import('@/lib/fulfillment-service')
 
         // Check global auto-fulfillment toggle
-        const { data: settingsData } = await supabase
+        const { data: settingsData } = await db
             .from('admin_settings')
             .select('key, value')
             .in('key', ['auto_fulfillment_enabled', 'fulfillment_settings'])
@@ -157,7 +156,7 @@ async function triggerShopFulfillment(
         const result = await fulfillOrder(network, phone, size, orderId)
 
         if (result.success) {
-            await supabase.from('shop_orders').update({
+            await db.from('shop_orders').update({
                 status: 'processing',
                 updated_at: new Date().toISOString(),
             }).eq('id', orderId)

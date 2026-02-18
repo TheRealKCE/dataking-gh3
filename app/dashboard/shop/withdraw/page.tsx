@@ -65,14 +65,15 @@ export default function ShopWithdrawPage() {
 
     const fetchData = async () => {
         try {
+            const db = supabase as any
             const [walletRes, historyRes, settingsRes] = await Promise.all([
-                (supabase.from('shop_wallets').select('*').eq('owner_id', dbUser!.id).single() as any),
-                (supabase.from('shop_wallet_transactions')
+                db.from('shop_wallets').select('*').eq('owner_id', dbUser!.id).single(),
+                db.from('shop_wallet_transactions')
                     .select('*')
                     .eq('type', 'withdrawal')
                     .order('created_at', { ascending: false })
-                    .limit(20) as any),
-                (supabase.from('shop_global_settings').select('*') as any),
+                    .limit(20),
+                db.from('shop_global_settings').select('*'),
             ])
 
             if (walletRes.data) setWallet(walletRes.data)
@@ -110,7 +111,7 @@ export default function ShopWithdrawPage() {
 
         setSubmitting(true)
         try {
-            const { error } = await (supabase.from('shop_wallet_transactions').insert({
+            const { error } = await (supabase as any).from('shop_wallet_transactions').insert({
                 shop_wallet_id: wallet!.id,
                 type: 'withdrawal',
                 amount: amountNum,
@@ -119,14 +120,14 @@ export default function ShopWithdrawPage() {
                 momo_number: momoNumber.trim(),
                 description: `Withdrawal request — MoMo: ${momoNumber.trim()}`,
                 status: 'pending',
-            }) as any)
+            })
             if (error) throw error
 
             // Deduct from balance immediately (pending)
-            await (supabase.from('shop_wallets').update({
+            await (supabase as any).from('shop_wallets').update({
                 balance: (wallet!.balance - amountNum),
                 updated_at: new Date().toISOString(),
-            }).eq('id', wallet!.id) as any)
+            }).eq('id', wallet!.id)
 
             toast.success('Withdrawal request submitted! Admin will process within 24 hours.')
             setAmount('')

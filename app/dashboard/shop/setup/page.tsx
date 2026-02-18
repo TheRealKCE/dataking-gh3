@@ -74,11 +74,11 @@ export default function ShopSetupPage() {
     }, [dbUser, isAdmin, isSubAdmin])
 
     const fetchExistingShop = async () => {
-        const { data } = await (supabase
+        const { data } = await ((supabase as any)
             .from('shop_profiles')
             .select('*')
             .eq('owner_id', dbUser!.id)
-            .single() as any)
+            .single())
 
         if (data) {
             setExistingShopId(data.id)
@@ -114,12 +114,12 @@ export default function ShopSetupPage() {
     const checkSlug = async (slug: string) => {
         if (!slug || slug.length < 3) return
         setSlugChecking(true)
-        const { data } = await (supabase
+        const { data } = await ((supabase as any)
             .from('shop_profiles')
             .select('id')
             .eq('shop_slug', slug)
             .neq('owner_id', dbUser!.id)
-            .single() as any)
+            .single())
         setSlugTaken(!!data)
         setSlugChecking(false)
     }
@@ -146,9 +146,9 @@ export default function ShopSetupPage() {
         try {
             const ext = file.name.split('.').pop()
             const path = `${dbUser!.id}/logo.${ext}`
-            const { error } = await (supabase.storage.from('shop-logos').upload(path, file, { upsert: true }) as any)
+            const { error } = await (supabase.storage.from('shop-logos').upload(path, file, { upsert: true }))
             if (error) throw error
-            const { data: urlData } = (supabase.storage.from('shop-logos').getPublicUrl(path) as any)
+            const { data: urlData } = (supabase.storage.from('shop-logos').getPublicUrl(path))
             setLogoUrl(urlData.publicUrl)
             toast.success('Logo uploaded!')
         } catch (err) {
@@ -183,10 +183,10 @@ export default function ShopSetupPage() {
             }
 
             if (existingShopId) {
-                const { error } = await (supabase.from('shop_profiles').update(payload).eq('id', existingShopId) as any)
+                const { error } = await ((supabase as any).from('shop_profiles').update(payload).eq('id', existingShopId))
                 if (error) throw error
             } else {
-                const { error } = await (supabase.from('shop_profiles').insert(payload) as any)
+                const { error } = await ((supabase as any).from('shop_profiles').insert(payload))
                 if (error) throw error
             }
 
