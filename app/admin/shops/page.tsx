@@ -40,16 +40,23 @@ export default function AdminShopsPage() {
     const [search, setSearch] = useState('')
     const [filterStatus, setFilterStatus] = useState<string>('all')
 
+    const [errorMsg, setErrorMsg] = useState<string | null>(null)
+
     useEffect(() => {
         if (dbUser && !isAdmin) { router.replace('/dashboard'); return }
         if (dbUser) fetchShops()
     }, [dbUser, isAdmin])
 
     const fetchShops = async () => {
-        const { data } = await (supabase
+        const { data, error } = await (supabase
             .from('shop_profiles')
             .select('*, users(first_name, last_name, email)')
             .order('created_at', { ascending: false }) as any)
+
+        if (error) {
+            console.error('Error fetching shops:', error)
+            setErrorMsg(error.message)
+        }
         setShops(data || [])
         setLoading(false)
     }
@@ -82,6 +89,17 @@ export default function AdminShopsPage() {
 
     return (
         <div className="space-y-6">
+            {/* DEBUG SECTION - REMOVE AFTER FIXING */}
+            <div className="p-4 bg-red-50 border border-red-200 rounded-lg text-xs font-mono text-red-800 break-all">
+                <p><strong>DEBUG INFO:</strong></p>
+                <p>User ID: {dbUser?.id}</p>
+                <p>Role: {dbUser?.role}</p>
+                <p>IsAdmin: {isAdmin ? 'Yes' : 'No'}</p>
+                <p>Shops Found: {shops.length}</p>
+                <p>Loading: {loading ? 'Yes' : 'No'}</p>
+                {errorMsg && <p className="text-red-600 font-bold mt-2">Supabase Error: {errorMsg}</p>}
+            </div>
+
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                 <div>
                     <h1 className="text-2xl font-bold flex items-center gap-2">
