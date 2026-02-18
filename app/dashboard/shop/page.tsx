@@ -13,7 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import {
     Store, Wallet, TrendingUp, ShoppingCart, ArrowRight,
     Settings, Tag, Banknote, Clock, CheckCircle2, XCircle,
-    AlertCircle, ExternalLink, Copy, Check, Lightbulb, Filter
+    AlertCircle, ExternalLink, Copy, Check, Lightbulb, Filter, RefreshCcw
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -82,15 +82,8 @@ export default function ShopOverviewPage() {
     const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([])
     const [filter, setFilter] = useState<'today' | '7d' | '30d' | 'all'>('today')
     const [loading, setLoading] = useState(true)
+    const [isRefreshing, setIsRefreshing] = useState(false)
     const [copied, setCopied] = useState(false)
-
-    useEffect(() => {
-        if (dbUser && !isAdmin && !isSubAdmin) {
-            router.replace('/dashboard')
-            return
-        }
-        if (dbUser) fetchShopData()
-    }, [dbUser, isAdmin, isSubAdmin, filter])
 
     const fetchShopData = async () => {
         try {
@@ -157,6 +150,21 @@ export default function ShopOverviewPage() {
         }
     }
 
+    const handleRefresh = async () => {
+        setIsRefreshing(true)
+        await fetchShopData()
+        setIsRefreshing(false)
+        toast.success('Dashboard updated')
+    }
+
+    useEffect(() => {
+        if (dbUser && !isAdmin && !isSubAdmin) {
+            router.replace('/dashboard')
+            return
+        }
+        if (dbUser) fetchShopData()
+    }, [dbUser, isAdmin, isSubAdmin, filter])
+
     const shopUrl = shop ? `https://kingflexygh.com/shop/${shop.shop_slug}` : ''
 
     const copyLink = async () => {
@@ -221,6 +229,16 @@ export default function ShopOverviewPage() {
                     </div>
                 </div>
                 <div className="flex gap-2 flex-wrap">
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        className="gap-1.5"
+                        onClick={handleRefresh}
+                        disabled={isRefreshing}
+                    >
+                        <RefreshCcw className={cn("w-4 h-4", isRefreshing && "animate-spin")} />
+                        Refresh
+                    </Button>
                     <Link href="/dashboard/shop/setup">
                         <Button variant="outline" size="sm" className="gap-1.5">
                             <Settings className="w-4 h-4" /> Edit Shop
