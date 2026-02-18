@@ -127,10 +127,18 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
             .eq('user_id', userId)
             .single()
 
+        // Fetch user details for header display
+        const { data: userDetails } = await supabase
+            .from('users')
+            .select('first_name, last_name, email, phone_number')
+            .eq('id', userId)
+            .single()
+
         return NextResponse.json({
             transactions: data || [],
             totalCount: count || 0,
-            wallet: walletData || { balance: 0, total_credited: 0, total_spent: 0 }
+            wallet: walletData || { balance: 0, total_credited: 0, total_spent: 0 },
+            user: userDetails || null
         })
 
     } catch (error: any) {

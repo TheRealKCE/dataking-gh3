@@ -34,7 +34,8 @@ export default function UserTransactionHistoryPage({ params }: { params: Promise
     const [transactions, setTransactions] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
     const [totalCount, setTotalCount] = useState(0)
-    const [walletStats, setWalletStats] = useState<any>(null) // State for full wallet stats
+    const [walletStats, setWalletStats] = useState<any>(null)
+    const [user, setUser] = useState<any>(null) // New state for user details
     const [page, setPage] = useState(0)
 
     // Filters
@@ -70,6 +71,7 @@ export default function UserTransactionHistoryPage({ params }: { params: Promise
             setTransactions(data.transactions || [])
             setTotalCount(data.totalCount || 0)
             setWalletStats(data.wallet || null) // Set full wallet stats
+            setUser(data.user || null)
         } catch (error) {
             console.error('Error:', error)
             toast.error('Failed to load transactions')
@@ -103,7 +105,18 @@ export default function UserTransactionHistoryPage({ params }: { params: Promise
                 </Button>
                 <div>
                     <h1 className="text-2xl font-bold tracking-tight">Transaction History</h1>
-                    <p className="text-muted-foreground font-mono text-xs mt-1">User ID: {userId}</p>
+                    {user ? (
+                        <div className="flex flex-col mt-1">
+                            <p className="text-lg font-medium">{user.first_name} {user.last_name}</p>
+                            <div className="flex gap-3 text-xs text-muted-foreground font-mono">
+                                <span>{user.phone_number}</span>
+                                <span className="text-muted-foreground/30">•</span>
+                                <span>{user.email}</span>
+                            </div>
+                        </div>
+                    ) : (
+                        <p className="text-muted-foreground font-mono text-xs mt-1">User ID: {userId}</p>
+                    )}
                 </div>
             </div>
 
