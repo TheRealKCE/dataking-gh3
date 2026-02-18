@@ -13,7 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import {
     Store, Wallet, TrendingUp, ShoppingCart, ArrowRight,
     Settings, Tag, Banknote, Clock, CheckCircle2, XCircle,
-    AlertCircle, ExternalLink, Copy, Check
+    AlertCircle, ExternalLink, Copy, Check, Lightbulb
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -179,6 +179,7 @@ export default function ShopOverviewPage() {
     }
 
     const StatusIcon = statusConfig[shop.approval_status]?.icon || Clock
+    const isPending = shop.approval_status === 'pending'
 
     return (
         <div className="space-y-6">
@@ -202,16 +203,18 @@ export default function ShopOverviewPage() {
                             <Settings className="w-4 h-4" /> Edit Shop
                         </Button>
                     </Link>
-                    <Link href="/dashboard/shop/pricing">
-                        <Button variant="outline" size="sm" className="gap-1.5">
-                            <Tag className="w-4 h-4" /> Pricing
-                        </Button>
-                    </Link>
-                    <Link href="/dashboard/shop/withdraw">
-                        <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5">
-                            <Banknote className="w-4 h-4" /> Withdraw
-                        </Button>
-                    </Link>
+                    <div className={cn("flex gap-2", isPending && "opacity-40 pointer-events-none grayscale")}>
+                        <Link href="/dashboard/shop/pricing">
+                            <Button variant="outline" size="sm" className="gap-1.5">
+                                <Tag className="w-4 h-4" /> Pricing
+                            </Button>
+                        </Link>
+                        <Link href="/dashboard/shop/withdraw">
+                            <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5">
+                                <Banknote className="w-4 h-4" /> Withdraw
+                            </Button>
+                        </Link>
+                    </div>
                 </div>
             </div>
 
@@ -252,10 +255,23 @@ export default function ShopOverviewPage() {
                 </div>
             )}
 
+            {/* Profit Tip */}
+            <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 p-4 rounded-xl flex gap-3">
+                <Lightbulb className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
+                <div className="text-sm text-blue-800 dark:text-blue-300">
+                    <p className="font-semibold mb-1">How Profit Works</p>
+                    <p className="text-blue-700 dark:text-blue-400 leading-relaxed">
+                        You earn profit on every <strong>completed</strong> order made through your shop link.
+                        Profit is calculated as: <code>Selling Price - Cost Price</code>.
+                        Funds are credited to your Profit Balance instantly upon order completion.
+                    </p>
+                </div>
+            </div>
+
             {/* Shop Wallet */}
-            <Card className="overflow-hidden border-0 shadow-md">
+            <Card className={cn("overflow-hidden border-0 shadow-md", isPending && "opacity-40 grayscale pointer-events-none")}>
                 <div className="bg-gradient-to-br from-emerald-600 to-emerald-800 p-6 text-white">
-                    <p className="text-emerald-100 text-sm font-medium mb-1">Shop Wallet Balance</p>
+                    <p className="text-emerald-100 text-sm font-medium mb-1">Profit Balance</p>
                     <p className="text-4xl font-black mb-4">{formatCurrency(wallet?.balance || 0)}</p>
                     <div className="grid grid-cols-2 gap-4">
                         <div className="bg-white/10 rounded-xl p-3">
@@ -271,7 +287,7 @@ export default function ShopOverviewPage() {
             </Card>
 
             {/* Stats */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            <div className={cn("grid grid-cols-2 lg:grid-cols-4 gap-3", isPending && "opacity-40 grayscale pointer-events-none")}>
                 {[
                     { label: 'Total Orders', value: stats?.total_orders || 0, icon: ShoppingCart, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-900/20' },
                     { label: 'Completed', value: stats?.completed_orders || 0, icon: CheckCircle2, color: 'text-green-600', bg: 'bg-green-50 dark:bg-green-900/20' },
