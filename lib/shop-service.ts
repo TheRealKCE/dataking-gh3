@@ -8,6 +8,8 @@ export async function syncShopOrderStatus(mainOrderId: string, status: string) {
     const supabase = createServerClient()
     const db = supabase as any
 
+    console.log(`[ShopSync DEBUG] Starting sync for Order ${mainOrderId} -> Status: ${status}`)
+
     try {
         // 1. Fetch main order to see if it's linked to a shop order
         // NOTE: Including reference_code for fallback mapping
@@ -17,7 +19,17 @@ export async function syncShopOrderStatus(mainOrderId: string, status: string) {
             .eq('id', mainOrderId)
             .single()
 
-        if (orderError || !order) return
+        if (orderError) {
+            console.error(`[ShopSync DEBUG] Error fetching main order:`, orderError)
+            return
+        }
+
+        if (!order) {
+            console.error(`[ShopSync DEBUG] Main order ${mainOrderId} not found`)
+            return
+        }
+
+        console.log(`[ShopSync DEBUG] Fetched order:`, { shop_name: order.shop_name, shop_order_id: order.shop_order_id, ref: order.reference_code })
 
         // If it's not a shop order, skip
         if (!order.shop_order_id && !order.shop_name) {
@@ -30,12 +42,17 @@ export async function syncShopOrderStatus(mainOrderId: string, status: string) {
         // Fallback: If shop_order_id is missing, try to find it via reference mapping
         // (Useful for existing orders tagged before we added shop_order_id col)
         if (!shopOrderId && order.reference_code?.startsWith('SHOP-')) {
+            console.log(`[ShopSync DEBUG] Attempting fallback lookup via reference...`)
             const refSuffix = order.reference_code.replace('SHOP-', '')
-            const { data: sOrder } = await db
+            const { data: sOrder, error: lookupError } = await db
                 .from('shop_orders')
                 .select('id')
                 .ilike('paystack_reference', `%${refSuffix}`)
                 .single()
+
+            if (lookupError) {
+                console.error(`[ShopSync DEBUG] Fallback lookup failed:`, lookupError)
+            }
 
             if (sOrder) {
                 shopOrderId = sOrder.id
@@ -63,10 +80,13 @@ export async function syncShopOrderStatus(mainOrderId: string, status: string) {
 
         if (updateError) {
             console.error(`[ShopSync] Failed to update shop order ${shopOrderId}:`, updateError)
+        } else {
+            console.log(`[ShopSync DEBUG] Successfully updated shop order status.`)
         }
 
         // 3. Handle Profit Credit on 'completed'
         if (status === 'completed') {
+            console.log(`[ShopSync DEBUG] Status is completed, triggering profit credit...`)
             await creditShopProfit(shopOrderId)
         }
     } catch (err) {
