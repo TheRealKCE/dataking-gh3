@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
-import { sendStatusUpdateSMS } from '@/lib/sms-service'
+import { syncShopOrderStatus } from '@/lib/shop-service'
 
 export async function POST(request: NextRequest) {
     try {
@@ -104,6 +104,9 @@ export async function POST(request: NextRequest) {
                 console.error(`[AdminStatusUpdate] Update error for order ${orderId}:`, updateError)
                 throw updateError
             }
+
+            // Sync with shop_orders if applicable
+            await syncShopOrderStatus(orderId, status)
         } else if (batchId) {
             console.log(`[AdminStatusUpdate] Updating batch: ${batchId} to ${status}`)
             // Update batch of orders
@@ -136,6 +139,9 @@ export async function POST(request: NextRequest) {
                     console.error(`[AdminStatusUpdate] Update error for batch ${batchId}:`, updateError)
                     throw updateError
                 }
+
+                // Sync all affected shop orders
+                await Promise.all(affectedOrders.map(order => syncShopOrderStatus(order.id, status)))
             }
         }
 

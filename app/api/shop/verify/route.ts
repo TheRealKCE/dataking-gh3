@@ -97,7 +97,8 @@ export async function GET(request: NextRequest) {
 
             await db.from('orders').insert({
                 user_id: shopOwner?.owner_id,
-                shop_name: metadata.shop_name, // NEW: Shop name tag
+                shop_order_id: orderId, // NEW: Direct link for robust syncing
+                shop_name: metadata.shop_name,
                 phone_number: metadata.guest_phone,
                 network: metadata.network,
                 size: metadata.package_size,
@@ -112,38 +113,8 @@ export async function GET(request: NextRequest) {
             console.error('[Shop Verify] Mirroring error:', mirrorErr)
         }
 
-        const profit = parseFloat(metadata.profit) || 0
-        const ownerId = (await db.from('shop_profiles').select('owner_id').eq('id', metadata.shop_id).single()).data?.owner_id
-
-        // 5. Credit profit to shop wallet (atomic upsert)
-        if (ownerId && profit > 0) {
-            // Get or create shop wallet
-            const { data: wallet } = await db
-                .from('shop_wallets')
-                .select('id, balance, total_earned')
-                .eq('owner_id', ownerId)
-                .single()
-
-            if (wallet) {
-                await db
-                    .from('shop_wallets')
-                    .update({
-                        balance: (parseFloat(wallet.balance) || 0) + profit,
-                        total_earned: (parseFloat(wallet.total_earned) || 0) + profit,
-                        updated_at: new Date().toISOString(),
-                    })
-                    .eq('id', wallet.id)
-
-                // Log the transaction
-                await db.from('shop_wallet_transactions').insert({
-                    shop_wallet_id: wallet.id,
-                    type: 'profit',
-                    amount: profit,
-                    description: `Sale: ${metadata.network} ${metadata.package_size} to ${metadata.guest_phone}`,
-                    status: 'completed',
-                })
-            }
-        }
+        // 5. Profit credit is now handled on 'completed' status transition 
+        // via syncShopOrderStatus utility to ensure accuracy.
 
         // 6. Trigger fulfillment
         try {

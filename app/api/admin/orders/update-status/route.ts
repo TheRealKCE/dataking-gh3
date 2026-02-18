@@ -2,6 +2,7 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { syncShopOrderStatus } from '@/lib/shop-service'
 
 // Create a service role client to bypass RLS for admin updates functions
 const supabaseAdmin = createClient(
@@ -34,7 +35,7 @@ export async function POST(request: Request) {
             .eq('id', session.user.id)
             .single()
 
-        if (!user || user.role !== 'admin') {
+        if (!user || (user.role !== 'admin' && user.role !== 'sub-admin')) {
             return NextResponse.json(
                 { error: 'Forbidden: Admin access required' },
                 { status: 403 }
@@ -64,6 +65,9 @@ export async function POST(request: Request) {
                 { status: 500 }
             )
         }
+
+        // Sync with shop_orders
+        await Promise.all(orderIds.map(id => syncShopOrderStatus(id, status)))
 
         return NextResponse.json({ success: true, count: orderIds.length })
     } catch (error: any) {
