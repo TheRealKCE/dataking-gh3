@@ -415,19 +415,19 @@ export default function ShopSetupPage() {
                         <Label className="flex items-center gap-1.5"><Eye className="w-3.5 h-3.5" /> Preview</Label>
                         <div className="mt-2 rounded-xl border overflow-hidden shadow-sm">
                             <div className="p-4" style={{ backgroundColor: form.brand_color }}>
-                                <div className="flex items-center gap-3">
+                                <div className="flex flex-wrap items-center gap-3">
                                     {logoPreview ? (
-                                        <div className="relative w-10 h-10 rounded-lg overflow-hidden bg-white">
+                                        <div className="relative w-10 h-10 rounded-lg overflow-hidden bg-white flex-shrink-0">
                                             <Image src={logoPreview} alt="Logo" fill className="object-contain" />
                                         </div>
                                     ) : (
-                                        <div className="w-10 h-10 rounded-lg bg-white/20 flex items-center justify-center">
+                                        <div className="w-10 h-10 rounded-lg bg-white/20 flex items-center justify-center flex-shrink-0">
                                             <Store className="w-5 h-5 text-white" />
                                         </div>
                                     )}
-                                    <div>
-                                        <p className="text-white font-bold text-sm">{form.shop_name || 'Your Shop Name'}</p>
-                                        <p className="text-white/70 text-xs">{form.description || 'Your shop description'}</p>
+                                    <div className="min-w-0">
+                                        <p className="text-white font-bold text-sm truncate">{form.shop_name || 'Your Shop Name'}</p>
+                                        <p className="text-white/70 text-xs line-clamp-1">{form.description || 'Your shop description'}</p>
                                     </div>
                                 </div>
                             </div>
