@@ -123,14 +123,14 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         // Fetch current wallet balance (still useful for verification or top-level display)
         const { data: walletData } = await supabase
             .from('wallets')
-            .select('balance')
+            .select('balance, total_credited, total_spent')
             .eq('user_id', userId)
             .single()
 
         return NextResponse.json({
             transactions: data || [],
             totalCount: count || 0,
-            currentBalance: (walletData as any)?.balance || 0
+            wallet: walletData || { balance: 0, total_credited: 0, total_spent: 0 }
         })
 
     } catch (error: any) {

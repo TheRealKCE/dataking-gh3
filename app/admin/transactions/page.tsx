@@ -97,7 +97,7 @@ export default function AdminTransactionsPage() {
                                     <TableCell>
                                         <div className="flex flex-col">
                                             <span className="font-medium">{txn.users?.first_name} {txn.users?.last_name}</span>
-                                            <span className="text-xs text-muted-foreground">{txn.users?.phone_number}</span>
+                                            <span className="text-xs text-muted-foreground">{txn.users?.phone_number || txn.users?.email}</span>
                                         </div>
                                     </TableCell>
                                     <TableCell className="font-mono text-xs">{txn.reference}</TableCell>

@@ -24,6 +24,7 @@ import { Input } from '@/components/ui/input'
 import { ArrowLeft, Loader2, ArrowUpCircle, ArrowDownCircle } from 'lucide-react'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { toast } from 'sonner'
+import { WalletStatsCard } from '@/components/dashboard/WalletStatsCard'
 
 export default function UserTransactionHistoryPage({ params }: { params: Promise<{ userId: string }> }) {
     // Unwrap params using React.use()
@@ -33,7 +34,7 @@ export default function UserTransactionHistoryPage({ params }: { params: Promise
     const [transactions, setTransactions] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
     const [totalCount, setTotalCount] = useState(0)
-    const [currentBalance, setCurrentBalance] = useState(0) // New state for running balance
+    const [walletStats, setWalletStats] = useState<any>(null) // State for full wallet stats
     const [page, setPage] = useState(0)
 
     // Filters
@@ -68,7 +69,7 @@ export default function UserTransactionHistoryPage({ params }: { params: Promise
 
             setTransactions(data.transactions || [])
             setTotalCount(data.totalCount || 0)
-            setCurrentBalance(data.currentBalance || 0) // Set current balance
+            setWalletStats(data.wallet || null) // Set full wallet stats
         } catch (error) {
             console.error('Error:', error)
             toast.error('Failed to load transactions')
@@ -105,6 +106,15 @@ export default function UserTransactionHistoryPage({ params }: { params: Promise
                     <p className="text-muted-foreground font-mono text-xs mt-1">User ID: {userId}</p>
                 </div>
             </div>
+
+            {/* Lifetime Stats Card */}
+            {walletStats && (
+                <WalletStatsCard
+                    balance={walletStats.balance || 0}
+                    totalCredited={walletStats.total_credited || 0}
+                    totalSpent={walletStats.total_spent || 0}
+                />
+            )}
 
             {/* Filters */}
             <Card>
