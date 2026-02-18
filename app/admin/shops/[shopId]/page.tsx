@@ -15,7 +15,7 @@ import { Switch } from '@/components/ui/switch'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
     Store, ArrowLeft, CheckCircle2, XCircle, AlertCircle, Clock,
-    Banknote, ExternalLink, Loader2, Save, ShoppingCart, Wallet
+    Banknote, ExternalLink, Loader2, Save, Wallet, Tag, MessageCircle
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -27,6 +27,8 @@ interface ShopDetail {
     owner_id: string
     approval_status: 'pending' | 'approved' | 'rejected' | 'suspended'
     approval_note: string | null
+    pricing_status: 'not_submitted' | 'pending_review' | 'approved' | 'rejected'
+    pricing_note: string | null
     is_active: boolean
     fulfillment_mode: 'auto' | 'manual'
     paystack_fee_percent: number | null
@@ -34,7 +36,7 @@ interface ShopDetail {
     owner_email: string | null
     whatsapp_number: string | null
     created_at: string
-    users?: { first_name: string; last_name: string; email: string }
+    owner?: { first_name: string; last_name: string; email: string }
 }
 
 interface ShopWallet {
@@ -54,6 +56,13 @@ interface WithdrawalRequest {
     admin_note: string | null
 }
 
+interface PendingPrice {
+    package_id: string
+    selling_price: number
+    submitted_at: string
+    data_packages: { network: string; size: string; price: number; agent_price: number }
+}
+
 const statusConfig = {
     pending: { label: 'Pending', color: 'bg-yellow-100 text-yellow-700', icon: Clock },
     approved: { label: 'Active', color: 'bg-green-100 text-green-700', icon: CheckCircle2 },
@@ -70,11 +79,14 @@ export default function AdminShopDetailPage() {
     const [shop, setShop] = useState<ShopDetail | null>(null)
     const [wallet, setWallet] = useState<ShopWallet | null>(null)
     const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>([])
+    const [pendingPrices, setPendingPrices] = useState<PendingPrice[]>([])
     const [orderCount, setOrderCount] = useState(0)
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
+    const [pricingAction, setPricingAction] = useState<'approving' | 'rejecting' | null>(null)
 
     const [approvalNote, setApprovalNote] = useState('')
+    const [pricingNote, setPricingNote] = useState('')
     const [feeOverride, setFeeOverride] = useState('')
     const [fulfillmentMode, setFulfillmentMode] = useState<'auto' | 'manual'>('auto')
     const [isActive, setIsActive] = useState(true)
@@ -86,23 +98,41 @@ export default function AdminShopDetailPage() {
 
     const fetchData = async () => {
         try {
-            const [shopRes, walletRes, withdrawalRes, ordersRes] = await Promise.all([
-                (supabase as any).from('shop_profiles').select('*, users(first_name, last_name, email)').eq('id', shopId).single(),
-                (supabase as any).from('shop_wallets').select('*').eq('shop_id', shopId).single(),
-                (supabase as any).from('shop_wallet_transactions').select('*').eq('type', 'withdrawal').order('created_at', { ascending: false }).limit(20),
+            const [shopRes, walletRes, withdrawalRes, ordersRes, pendingRes] = await Promise.all([
+                // Fix: explicit FK to avoid ambiguous relationship error
+                (supabase as any).from('shop_profiles')
+                    .select('*, owner:users!shop_profiles_owner_id_fkey(first_name, last_name, email)')
+                    .eq('id', shopId).single(),
+                (supabase as any).from('shop_wallets').select('*').eq('owner_id',
+                    // We'll get owner_id after shop loads — fetch by shop_id workaround
+                    // Actually fetch after shop loads
+                    'placeholder'
+                ).single(),
+                (supabase as any).from('shop_wallet_transactions').select('*')
+                    .eq('type', 'withdrawal').order('created_at', { ascending: false }).limit(20),
                 (supabase as any).from('shop_orders').select('id', { count: 'exact', head: true }).eq('shop_id', shopId),
+                (supabase as any).from('shop_pricing_pending')
+                    .select('*, data_packages(network, size, price, agent_price)')
+                    .eq('shop_id', shopId)
+                    .order('submitted_at', { ascending: false }),
             ])
 
             if (shopRes.data) {
-                setShop(shopRes.data)
-                setApprovalNote(shopRes.data.approval_note || '')
-                setFeeOverride(shopRes.data.paystack_fee_percent != null ? String(shopRes.data.paystack_fee_percent) : '')
-                setFulfillmentMode(shopRes.data.fulfillment_mode || 'auto')
-                setIsActive(shopRes.data.is_active ?? true)
+                const s = shopRes.data
+                setShop(s)
+                setApprovalNote(s.approval_note || '')
+                setPricingNote(s.pricing_note || '')
+                setFeeOverride(s.paystack_fee_percent != null ? String(s.paystack_fee_percent) : '')
+                setFulfillmentMode(s.fulfillment_mode || 'auto')
+                setIsActive(s.is_active ?? true)
+
+                // Now fetch wallet by owner_id
+                const walletRes2 = await (supabase as any).from('shop_wallets').select('*').eq('owner_id', s.owner_id).single()
+                if (walletRes2.data) setWallet(walletRes2.data)
             }
-            if (walletRes.data) setWallet(walletRes.data)
             setWithdrawals(withdrawalRes.data || [])
             setOrderCount(ordersRes.count || 0)
+            setPendingPrices(pendingRes.data || [])
         } catch (err) {
             console.error(err)
         } finally {
@@ -113,11 +143,16 @@ export default function AdminShopDetailPage() {
     const updateApproval = async (status: 'approved' | 'rejected' | 'suspended') => {
         setSaving(true)
         try {
-            const { error } = await (supabase as any).from('shop_profiles').update({
+            const updates: any = {
                 approval_status: status,
                 approval_note: approvalNote.trim() || null,
                 updated_at: new Date().toISOString(),
-            }).eq('id', shopId)
+            }
+            if (status === 'approved') {
+                updates.pricing_status = 'not_submitted'
+                updates.is_active = false
+            }
+            const { error } = await (supabase as any).from('shop_profiles').update(updates).eq('id', shopId)
             if (error) throw error
             toast.success(`Shop ${status}`)
             fetchData()
@@ -125,6 +160,71 @@ export default function AdminShopDetailPage() {
             toast.error(err.message || 'Failed to update status')
         } finally {
             setSaving(false)
+        }
+    }
+
+    const approvePricing = async () => {
+        if (pendingPrices.length === 0) {
+            toast.error('No pending prices to approve')
+            return
+        }
+        setPricingAction('approving')
+        try {
+            // 1. Delete current live prices for this shop
+            await (supabase as any).from('shop_pricing').delete().eq('shop_id', shopId)
+
+            // 2. Copy pending prices to live pricing table
+            const liveRows = pendingPrices.map(p => ({
+                shop_id: shopId,
+                package_id: p.package_id,
+                selling_price: p.selling_price,
+            }))
+            const { error: insertErr } = await (supabase as any).from('shop_pricing').insert(liveRows)
+            if (insertErr) throw insertErr
+
+            // 3. Clear pending prices
+            await (supabase as any).from('shop_pricing_pending').delete().eq('shop_id', shopId)
+
+            // 4. Update shop profile
+            const { error } = await (supabase as any).from('shop_profiles').update({
+                pricing_status: 'approved',
+                pricing_note: null,
+                pricing_approved_at: new Date().toISOString(),
+                pricing_approved_by: dbUser?.id,
+                is_active: true,
+                updated_at: new Date().toISOString(),
+            }).eq('id', shopId)
+            if (error) throw error
+
+            toast.success('Pricing approved! Shop is now live.')
+            fetchData()
+        } catch (err: any) {
+            toast.error(err.message || 'Failed to approve pricing')
+        } finally {
+            setPricingAction(null)
+        }
+    }
+
+    const rejectPricing = async () => {
+        if (!pricingNote.trim()) {
+            toast.error('Please add a rejection note for the shop owner')
+            return
+        }
+        setPricingAction('rejecting')
+        try {
+            const { error } = await (supabase as any).from('shop_profiles').update({
+                pricing_status: 'rejected',
+                pricing_note: pricingNote.trim(),
+                pricing_rejection_acknowledged: false,
+                updated_at: new Date().toISOString(),
+            }).eq('id', shopId)
+            if (error) throw error
+            toast.success('Pricing rejected. Owner will be notified.')
+            fetchData()
+        } catch (err: any) {
+            toast.error(err.message || 'Failed to reject pricing')
+        } finally {
+            setPricingAction(null)
         }
     }
 
@@ -157,22 +257,20 @@ export default function AdminShopDetailPage() {
             if (error) throw error
 
             if (action === 'rejected') {
-                // Refund to wallet
                 const w = withdrawals.find(w => w.id === withdrawalId)
                 if (w && wallet) {
                     await (supabase as any).from('shop_wallets').update({
                         balance: (wallet.balance || 0) + w.amount,
                         updated_at: new Date().toISOString(),
-                    }).eq('shop_id', shopId)
+                    }).eq('owner_id', shop?.owner_id)
                 }
             } else if (action === 'completed') {
-                // Update total_withdrawn
                 const w = withdrawals.find(w => w.id === withdrawalId)
                 if (w && wallet) {
                     await (supabase as any).from('shop_wallets').update({
                         total_withdrawn: (wallet.total_withdrawn || 0) + w.amount,
                         updated_at: new Date().toISOString(),
-                    }).eq('shop_id', shopId)
+                    }).eq('owner_id', shop?.owner_id)
                 }
             }
 
@@ -202,7 +300,7 @@ export default function AdminShopDetailPage() {
         )
     }
 
-    const owner = shop.users as any
+    const owner = shop.owner as any
     const cfg = statusConfig[shop.approval_status]
     const Icon = cfg.icon
 
@@ -215,7 +313,7 @@ export default function AdminShopDetailPage() {
                         <ArrowLeft className="w-4 h-4" />
                     </Button>
                 </Link>
-                <div>
+                <div className="flex-1">
                     <h1 className="text-xl font-bold flex items-center gap-2">
                         <Store className="w-5 h-5 text-emerald-600" />
                         {shop.shop_name}
@@ -225,16 +323,33 @@ export default function AdminShopDetailPage() {
                             <Icon className="w-3 h-3" />
                             {cfg.label}
                         </span>
-                        <a href={`/shop/${shop.shop_slug}`} target="_blank" rel="noopener noreferrer" className="text-xs text-muted-foreground hover:underline flex items-center gap-1">
+                        <a href={`/shop/${shop.shop_slug}`} target="_blank" rel="noopener noreferrer"
+                            className="text-xs text-muted-foreground hover:underline flex items-center gap-1">
                             /shop/{shop.shop_slug} <ExternalLink className="w-3 h-3" />
                         </a>
                     </div>
                 </div>
             </div>
 
-            {/* Owner info */}
+            {/* Owner info + WhatsApp */}
             <Card>
-                <CardHeader><CardTitle className="text-sm">Owner Details</CardTitle></CardHeader>
+                <CardHeader>
+                    <div className="flex items-center justify-between">
+                        <CardTitle className="text-sm">Owner Details</CardTitle>
+                        {shop.whatsapp_number && (
+                            <a
+                                href={`https://wa.me/${shop.whatsapp_number}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                            >
+                                <Button size="sm" className="h-8 text-xs bg-[#25D366] hover:bg-[#1ebe5d] text-white gap-1.5">
+                                    <MessageCircle className="w-3.5 h-3.5" />
+                                    WhatsApp Owner
+                                </Button>
+                            </a>
+                        )}
+                    </div>
+                </CardHeader>
                 <CardContent className="grid grid-cols-2 gap-3 text-sm">
                     <div><p className="text-xs text-muted-foreground">Name</p><p className="font-medium">{owner?.first_name} {owner?.last_name}</p></div>
                     <div><p className="text-xs text-muted-foreground">Email</p><p className="font-medium">{owner?.email}</p></div>
@@ -260,9 +375,90 @@ export default function AdminShopDetailPage() {
                 </div>
             </Card>
 
+            {/* Stage 2: Pricing Review Panel */}
+            {shop.approval_status === 'approved' && shop.pricing_status === 'pending_review' && (
+                <Card className="border-purple-200 dark:border-purple-800">
+                    <CardHeader>
+                        <CardTitle className="text-sm flex items-center gap-2 text-purple-700 dark:text-purple-400">
+                            <Tag className="w-4 h-4" />
+                            Pricing Review — Action Required
+                        </CardTitle>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <p className="text-xs text-muted-foreground">
+                            The shop owner has submitted their pricing for review. Review the prices below and approve or reject.
+                        </p>
+
+                        {/* Pricing table */}
+                        <div className="rounded-lg border overflow-hidden">
+                            <table className="w-full text-sm">
+                                <thead>
+                                    <tr className="bg-muted/50 border-b text-xs text-muted-foreground">
+                                        <th className="text-left px-3 py-2 font-medium">Package</th>
+                                        <th className="text-right px-3 py-2 font-medium">Cost</th>
+                                        <th className="text-right px-3 py-2 font-medium">Selling</th>
+                                        <th className="text-right px-3 py-2 font-medium">Profit</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {pendingPrices.map(p => {
+                                        const pkg = p.data_packages as any
+                                        const cost = pkg?.price || 0
+                                        const profit = p.selling_price - cost
+                                        return (
+                                            <tr key={p.package_id} className="border-b last:border-0">
+                                                <td className="px-3 py-2 font-medium">{pkg?.network} {pkg?.size}</td>
+                                                <td className="px-3 py-2 text-right text-muted-foreground">{formatCurrency(cost)}</td>
+                                                <td className="px-3 py-2 text-right font-semibold">{formatCurrency(p.selling_price)}</td>
+                                                <td className={cn('px-3 py-2 text-right font-bold', profit > 0 ? 'text-emerald-600' : 'text-red-600')}>
+                                                    {profit > 0 ? '+' : ''}{formatCurrency(profit)}
+                                                </td>
+                                            </tr>
+                                        )
+                                    })}
+                                </tbody>
+                            </table>
+                        </div>
+
+                        {/* Rejection note */}
+                        <div>
+                            <Label htmlFor="pricing_note">Rejection Note (required if rejecting)</Label>
+                            <Textarea
+                                id="pricing_note"
+                                value={pricingNote}
+                                onChange={(e) => setPricingNote(e.target.value)}
+                                placeholder="Explain why the pricing was rejected so the owner can revise..."
+                                rows={2}
+                                className="mt-1"
+                            />
+                        </div>
+
+                        <div className="flex gap-2">
+                            <Button
+                                onClick={approvePricing}
+                                disabled={!!pricingAction}
+                                className="bg-green-600 hover:bg-green-700 text-white gap-1.5"
+                            >
+                                {pricingAction === 'approving' ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                                Approve Pricing
+                            </Button>
+                            <Button
+                                onClick={rejectPricing}
+                                disabled={!!pricingAction}
+                                variant="outline"
+                                className="border-red-500 text-red-600 hover:bg-red-50 gap-1.5"
+                            >
+                                {pricingAction === 'rejecting' ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}
+                                Reject Pricing
+                            </Button>
+                        </div>
+                    </CardContent>
+                </Card>
+            )}
+
             {/* Approval Controls */}
             <Card>
-                <CardHeader><CardTitle className="text-sm">Approval Controls</CardTitle></CardHeader>
+                <CardHeader><CardTitle className="text-sm">Profile Approval Controls</CardTitle></CardHeader>
                 <CardContent className="space-y-4">
                     <div>
                         <Label htmlFor="approval_note">Admin Note (shown to shop owner)</Label>
@@ -281,7 +477,7 @@ export default function AdminShopDetailPage() {
                             disabled={saving || shop.approval_status === 'approved'}
                             className="bg-green-600 hover:bg-green-700 text-white gap-1.5"
                         >
-                            <CheckCircle2 className="w-4 h-4" /> Approve
+                            <CheckCircle2 className="w-4 h-4" /> Approve Profile
                         </Button>
                         <Button
                             onClick={() => updateApproval('suspended')}
@@ -297,7 +493,7 @@ export default function AdminShopDetailPage() {
                             variant="outline"
                             className="border-red-500 text-red-600 hover:bg-red-50 gap-1.5"
                         >
-                            <XCircle className="w-4 h-4" /> Reject
+                            <XCircle className="w-4 h-4" /> Reject Profile
                         </Button>
                     </div>
                 </CardContent>

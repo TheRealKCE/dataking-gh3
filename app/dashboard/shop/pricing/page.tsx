@@ -9,7 +9,10 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Tag, Save, Loader2, TrendingUp, AlertCircle, CheckCircle2 } from 'lucide-react'
+import {
+    Tag, Save, Loader2, TrendingUp, AlertCircle, CheckCircle2,
+    Clock, XCircle, Lightbulb, Send, Lock
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 
@@ -18,15 +21,18 @@ interface Package {
     network: string
     size: string
     price: number
-    agent_price: number // Added agent price
-    cost_price: number // Admin cost
+    agent_price: number
+    cost_price: number
     is_available: boolean
     sort_order: number
 }
 
-interface PricingRow {
-    package_id: string
-    selling_price: string
+interface ShopProfile {
+    id: string
+    approval_status: string
+    pricing_status: 'not_submitted' | 'pending_review' | 'approved' | 'rejected'
+    pricing_note: string | null
+    pricing_rejection_acknowledged: boolean
 }
 
 const networkColors: Record<string, string> = {
@@ -41,11 +47,12 @@ const NETWORKS = ['MTN', 'Telecel', 'AT-iShare', 'AT-BigTime']
 export default function ShopPricingPage() {
     const { dbUser, isAdmin, isSubAdmin } = useAuth()
     const router = useRouter()
-    const [shopId, setShopId] = useState<string | null>(null)
+    const [shop, setShop] = useState<ShopProfile | null>(null)
     const [packages, setPackages] = useState<Package[]>([])
     const [pricing, setPricing] = useState<Record<string, string>>({})
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
+    const [acknowledging, setAcknowledging] = useState(false)
     const [activeNetwork, setActiveNetwork] = useState<string>('MTN')
 
     useEffect(() => {
@@ -58,31 +65,28 @@ export default function ShopPricingPage() {
 
     const fetchData = async () => {
         try {
-            // Get shop
-            const { data: shop } = await ((supabase as any)
+            const { data: shopData } = await ((supabase as any)
                 .from('shop_profiles')
-                .select('id')
+                .select('id, approval_status, pricing_status, pricing_note, pricing_rejection_acknowledged')
                 .eq('owner_id', dbUser!.id)
                 .single())
 
-            if (!shop) {
+            if (!shopData) {
                 toast.error('Please create your shop first')
                 router.push('/dashboard/shop/setup')
                 return
             }
-            setShopId(shop.id)
+            setShop(shopData)
 
-            // Get packages and existing pricing in parallel
             const [pkgRes, priceRes] = await Promise.all([
                 (supabase.from('data_packages').select('*').eq('is_available', true).order('sort_order') as any),
-                ((supabase as any).from('shop_pricing').select('*').eq('shop_id', shop.id)),
+                // Load live prices (for display reference)
+                ((supabase as any).from('shop_pricing').select('*').eq('shop_id', shopData.id)),
             ])
 
-            // Sort packages by network priority manually if needed, or trust sort_order
-            // We'll rely on activeNetwork filtering anyway
             setPackages(pkgRes.data || [])
 
-            // Build pricing map
+            // Build pricing map from live prices (what's currently approved)
             const priceMap: Record<string, string> = {}
             for (const row of (priceRes.data || [])) {
                 priceMap[row.package_id] = String(row.selling_price)
@@ -95,19 +99,15 @@ export default function ShopPricingPage() {
         }
     }
 
-    // Determine the cost based on user role
     const getCostPrice = (pkg: Package) => {
-        if (dbUser?.role === 'agent' && pkg.agent_price > 0) {
-            return pkg.agent_price
-        }
+        if (dbUser?.role === 'agent' && pkg.agent_price > 0) return pkg.agent_price
         return pkg.price
     }
 
     const getProfit = (pkg: Package, sellingStr: string) => {
         const selling = parseFloat(sellingStr)
         if (isNaN(selling)) return null
-        const cost = getCostPrice(pkg)
-        return selling - cost
+        return selling - getCostPrice(pkg)
     }
 
     const isValidPrice = (pkg: Package, sellingStr: string) => {
@@ -116,51 +116,69 @@ export default function ShopPricingPage() {
         return profit > 0
     }
 
-    const handleSave = async () => {
-        // Validate all entered prices
+    const handleAcknowledge = async () => {
+        if (!shop) return
+        setAcknowledging(true)
+        try {
+            const { error } = await (supabase as any).from('shop_profiles').update({
+                pricing_rejection_acknowledged: true,
+                updated_at: new Date().toISOString(),
+            }).eq('id', shop.id)
+            if (error) throw error
+            setShop(prev => prev ? { ...prev, pricing_rejection_acknowledged: true } : null)
+        } catch (err: any) {
+            toast.error(err.message || 'Failed to acknowledge')
+        } finally {
+            setAcknowledging(false)
+        }
+    }
+
+    const handleSubmit = async () => {
+        if (!shop) return
+
         const invalid = packages.filter(pkg => {
             const val = pricing[pkg.id]
             if (!val) return false
             return !isValidPrice(pkg, val)
         })
         if (invalid.length > 0) {
-            toast.error(`Selling price must be greater than cost price for: ${invalid.map(p => `${p.network} ${p.size}`).join(', ')}`)
+            toast.error(`Price must be above cost for: ${invalid.map(p => `${p.network} ${p.size}`).join(', ')}`)
+            return
+        }
+
+        const rows = packages
+            .filter(pkg => pricing[pkg.id] && parseFloat(pricing[pkg.id]) > 0)
+            .map(pkg => ({
+                shop_id: shop.id,
+                package_id: pkg.id,
+                selling_price: parseFloat(pricing[pkg.id]),
+                submitted_at: new Date().toISOString(),
+            }))
+
+        if (rows.length === 0) {
+            toast.error('Set at least one price before submitting')
             return
         }
 
         setSaving(true)
         try {
-            // Build upsert rows for packages that have a price set
-            const rows = packages
-                .filter(pkg => pricing[pkg.id] && parseFloat(pricing[pkg.id]) > 0)
-                .map(pkg => ({
-                    shop_id: shopId,
-                    package_id: pkg.id,
-                    selling_price: parseFloat(pricing[pkg.id]),
-                }))
+            // Save to pending table (not live table)
+            await (supabase as any).from('shop_pricing_pending').delete().eq('shop_id', shop.id)
+            const { error: insertErr } = await (supabase as any).from('shop_pricing_pending').insert(rows)
+            if (insertErr) throw insertErr
 
-            // Even if rows is empty, we might want to clear prices. 
-            // Current logic requires at least one price? Valid for a shop.
-            if (rows.length === 0) {
-                // If they clear everything, we should allow it? 
-                // "Only packages with a price will appear". 
-                // If they want to close shop effectively, maybe.
-                // But let's stick to previous logic or just warn.
-                // toast.error('Set at least one price')
-                // return
-            }
+            // Update pricing status
+            const { error } = await (supabase as any).from('shop_profiles').update({
+                pricing_status: 'pending_review',
+                pricing_submitted_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+            }).eq('id', shop.id)
+            if (error) throw error
 
-            // Transaction-like update: delete all for this shop, insert new
-            await ((supabase as any).from('shop_pricing').delete().eq('shop_id', shopId))
-
-            if (rows.length > 0) {
-                const { error } = await ((supabase as any).from('shop_pricing').insert(rows))
-                if (error) throw error
-            }
-
-            toast.success(`Prices saved successfully!`)
+            toast.success('Pricing submitted for admin review!')
+            setShop(prev => prev ? { ...prev, pricing_status: 'pending_review' } : null)
         } catch (err: any) {
-            toast.error(err.message || 'Failed to save prices')
+            toast.error(err.message || 'Failed to submit pricing')
         } finally {
             setSaving(false)
         }
@@ -175,14 +193,85 @@ export default function ShopPricingPage() {
         )
     }
 
-    // Filter by active network
+    // ── State: Profile not yet approved ──
+    if (shop?.approval_status !== 'approved') {
+        return (
+            <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
+                <div className="w-16 h-16 rounded-full bg-yellow-100 dark:bg-yellow-900/30 flex items-center justify-center">
+                    <Clock className="w-8 h-8 text-yellow-600" />
+                </div>
+                <h2 className="text-xl font-bold">Awaiting Profile Approval</h2>
+                <p className="text-muted-foreground text-sm max-w-sm">
+                    Your shop profile is being reviewed by an admin. You'll be able to set your prices once your profile is approved.
+                </p>
+            </div>
+        )
+    }
+
+    // ── State: Pricing rejected — must acknowledge before editing ──
+    if (shop?.pricing_status === 'rejected' && !shop?.pricing_rejection_acknowledged) {
+        return (
+            <div className="max-w-lg mx-auto py-10 space-y-4">
+                <Card className="border-red-200 dark:border-red-800">
+                    <CardContent className="p-6 space-y-4">
+                        <div className="flex items-center gap-3">
+                            <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center flex-shrink-0">
+                                <XCircle className="w-6 h-6 text-red-600" />
+                            </div>
+                            <div>
+                                <h2 className="font-bold text-lg">Pricing Rejected</h2>
+                                <p className="text-sm text-muted-foreground">Admin has reviewed and rejected your submitted prices.</p>
+                            </div>
+                        </div>
+
+                        {shop.pricing_note && (
+                            <div className="p-4 rounded-lg bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+                                <p className="text-xs font-semibold text-red-700 dark:text-red-400 mb-1">Admin Note:</p>
+                                <p className="text-sm text-red-800 dark:text-red-300">{shop.pricing_note}</p>
+                            </div>
+                        )}
+
+                        <p className="text-sm text-muted-foreground">
+                            Please read the admin's feedback above, then click below to revise your prices.
+                        </p>
+
+                        <Button
+                            onClick={handleAcknowledge}
+                            disabled={acknowledging}
+                            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
+                        >
+                            {acknowledging ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
+                            I Understand, Let Me Revise
+                        </Button>
+                    </CardContent>
+                </Card>
+            </div>
+        )
+    }
+
+    // ── State: Pricing submitted, awaiting admin review ──
+    if (shop?.pricing_status === 'pending_review') {
+        return (
+            <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
+                <div className="w-16 h-16 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
+                    <Clock className="w-8 h-8 text-purple-600 animate-pulse" />
+                </div>
+                <h2 className="text-xl font-bold">Pricing Under Review</h2>
+                <p className="text-muted-foreground text-sm max-w-sm">
+                    Your prices have been submitted and are awaiting admin approval. Your current live prices remain active in the meantime.
+                </p>
+                <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-sm text-blue-700 dark:text-blue-300 max-w-sm">
+                    <AlertCircle className="w-4 h-4 inline mr-1.5" />
+                    You'll be notified once the admin reviews your submission.
+                </div>
+            </div>
+        )
+    }
+
+    // ── Editable state (not_submitted or approved) ──
     const filteredPackages = packages.filter(p => p.network === activeNetwork)
-
-    // Sort logic: use sort_order, then size
-    // Using explicit sorting to match admin view if possible
-    // packages are already sorted by sort_order from fetch
-
     const setPricedCount = Object.values(pricing).filter(v => v && parseFloat(v) > 0).length
+    const isResubmission = shop?.pricing_status === 'approved'
 
     return (
         <div className="space-y-6 pb-20 md:pb-0">
@@ -200,30 +289,75 @@ export default function ShopPricingPage() {
                 </div>
                 <div className="hidden sm:block">
                     <Button
-                        onClick={handleSave}
+                        onClick={handleSubmit}
                         disabled={saving}
                         className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
                     >
-                        {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                        {saving ? 'Saving...' : 'Save All Prices'}
+                        {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                        {saving ? 'Submitting...' : 'Submit for Approval'}
                     </Button>
                 </div>
             </div>
 
+            {/* Warning banner for resubmission */}
+            {isResubmission && (
+                <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 flex gap-2 text-sm text-amber-700 dark:text-amber-300">
+                    <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                    <span>
+                        <strong>Heads up!</strong> Your current live prices will remain active until the admin approves your new submission. Customers will continue to see your old prices in the meantime.
+                    </span>
+                </div>
+            )}
+
+            {/* Cost info banner */}
             <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 flex gap-2 text-sm text-blue-700 dark:text-blue-300">
                 <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
                 <span>
-                    Your cost price depends on your role ({dbUser?.role === 'agent' ? 'Agent' : 'Customer'}).
+                    Your cost price is based on your role ({dbUser?.role === 'agent' ? 'Agent' : 'Customer'}).
                     Selling price must be higher than your cost.
                 </span>
             </div>
+
+            {/* Business Tips */}
+            <Card className="border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-900/10">
+                <CardHeader className="pb-2">
+                    <CardTitle className="text-sm flex items-center gap-2 text-emerald-700 dark:text-emerald-400">
+                        <Lightbulb className="w-4 h-4" />
+                        Tips for Better Business Growth
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-2">
+                    <ul className="text-xs text-emerald-800 dark:text-emerald-300 space-y-1.5">
+                        <li className="flex items-start gap-2">
+                            <TrendingUp className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-emerald-600" />
+                            <span>Keep your profit margin <strong>small but consistent</strong> — lower prices attract more repeat customers.</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                            <TrendingUp className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-emerald-600" />
+                            <span>A <strong>GHS 0.50–1.00 profit</strong> per bundle adds up to big earnings with volume sales.</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                            <TrendingUp className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-emerald-600" />
+                            <span>Competitive pricing builds <strong>customer loyalty</strong> faster than one-time high margins.</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                            <TrendingUp className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-emerald-600" />
+                            <span>Bundles with the <strong>best value-for-money</strong> get shared the most on WhatsApp — free marketing!</span>
+                        </li>
+                        <li className="flex items-start gap-2">
+                            <TrendingUp className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-emerald-600" />
+                            <span>Check what other shops charge and price <strong>slightly below</strong> to stand out and win customers.</span>
+                        </li>
+                    </ul>
+                </CardContent>
+            </Card>
 
             {/* Network Tabs */}
             <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
                 {NETWORKS.map(network => {
                     const count = packages.filter(p => p.network === network).length
                     if (count === 0) return null
-                    const isActive = activeNetwork === network
+                    const isActiveTab = activeNetwork === network
                     const colorClass = networkColors[network]
                     return (
                         <button
@@ -231,14 +365,14 @@ export default function ShopPricingPage() {
                             onClick={() => setActiveNetwork(network)}
                             className={cn(
                                 'flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-all whitespace-nowrap border',
-                                isActive
+                                isActiveTab
                                     ? 'border-transparent shadow-sm scale-105'
                                     : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50',
-                                isActive && colorClass
+                                isActiveTab && colorClass
                             )}
                         >
                             {network}
-                            <span className={cn('text-xs opacity-70 px-1.5 py-0.5 rounded-full bg-black/5 dark:bg-white/10')}>
+                            <span className="text-xs opacity-70 px-1.5 py-0.5 rounded-full bg-black/5 dark:bg-white/10">
                                 {count}
                             </span>
                         </button>
@@ -246,7 +380,7 @@ export default function ShopPricingPage() {
                 })}
             </div>
 
-            {/* Content Area */}
+            {/* Pricing Table */}
             <Card>
                 <CardHeader className="pb-3 border-b">
                     <CardTitle className="text-sm flex items-center justify-between">
@@ -261,7 +395,7 @@ export default function ShopPricingPage() {
                         </div>
                     ) : (
                         <>
-                            {/* Desktop Table View */}
+                            {/* Desktop Table */}
                             <div className="hidden md:block overflow-x-auto">
                                 <table className="w-full text-sm">
                                     <thead>
@@ -333,7 +467,6 @@ export default function ShopPricingPage() {
                                                     Cost: {formatCurrency(cost)}
                                                 </span>
                                             </div>
-
                                             <div className="grid grid-cols-2 gap-4 items-center">
                                                 <div>
                                                     <label className="text-xs text-muted-foreground mb-1 block">Your Price</label>
@@ -373,15 +506,15 @@ export default function ShopPricingPage() {
                 </CardContent>
             </Card>
 
-            {/* Mobile Sticky Save Button */}
+            {/* Mobile Sticky Submit Button */}
             <div className="fixed bottom-4 left-4 right-4 md:hidden z-10">
                 <Button
-                    onClick={handleSave}
+                    onClick={handleSubmit}
                     disabled={saving}
-                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white h-12 text-lg shadow-xl"
+                    className="w-full bg-emerald-600 hover:bg-emerald-700 text-white h-12 text-lg shadow-xl gap-2"
                 >
-                    {saving ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Save className="w-5 h-5 mr-2" />}
-                    {saving ? 'Saving...' : 'Save Prices'}
+                    {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                    {saving ? 'Submitting...' : 'Submit for Approval'}
                 </Button>
             </div>
         </div>
