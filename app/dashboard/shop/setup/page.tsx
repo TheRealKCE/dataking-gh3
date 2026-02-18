@@ -463,6 +463,41 @@ export default function ShopSetupPage() {
                 {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Save className="w-5 h-5" />}
                 {saving ? 'Saving...' : existingShopId ? 'Save Changes' : 'Create Shop'}
             </Button>
+            {/* Danger Zone */}
+            {existingShopId && (
+                <div className="pt-8 border-t">
+                    <h3 className="text-sm font-medium text-red-600 mb-2">Danger Zone</h3>
+                    <div className="flex items-center justify-between p-4 border border-red-200 bg-red-50 dark:bg-red-900/10 dark:border-red-900 rounded-lg">
+                        <div>
+                            <p className="font-medium text-red-900 dark:text-red-200">Delete Shop</p>
+                            <p className="text-xs text-red-700/80 dark:text-red-300/80">
+                                Permanently delete your shop, orders, and wallet. This action cannot be undone.
+                            </p>
+                        </div>
+                        <Button
+                            variant="destructive"
+                            size="sm"
+                            onClick={async () => {
+                                if (window.confirm('Are you absolutely sure?\n\nThis will permanently delete your shop, all orders, and your profit wallet.\nThis action cannot be undone.')) {
+                                    setSaving(true)
+                                    try {
+                                        const { error } = await supabase.rpc('delete_shop_data')
+                                        if (error) throw error
+                                        toast.success('Shop deleted successfully')
+                                        router.replace('/dashboard/shop')
+                                    } catch (err: any) {
+                                        toast.error(err.message || 'Failed to delete shop')
+                                        setSaving(false)
+                                    }
+                                }
+                            }}
+                            disabled={saving}
+                        >
+                            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Delete Shop'}
+                        </Button>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }
