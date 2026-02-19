@@ -10,7 +10,21 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
         }
 
+        // === SECURITY: Strict input validation ===
+        // Validate shopSlug format (alphanumeric, dashes, 3-60 chars)
+        if (typeof shopSlug !== 'string' || !/^[a-z0-9][a-z0-9-]{1,58}[a-z0-9]$/.test(shopSlug)) {
+            return NextResponse.json({ error: 'Invalid shop identifier' }, { status: 400 })
+        }
+
+        // Validate packageId format (UUID v4)
+        if (typeof packageId !== 'string' || !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(packageId)) {
+            return NextResponse.json({ error: 'Invalid package identifier' }, { status: 400 })
+        }
+
         // Validate Ghana phone format
+        if (typeof guestPhone !== 'string') {
+            return NextResponse.json({ error: 'Invalid phone number' }, { status: 400 })
+        }
         const cleanPhone = guestPhone.replace(/\s+/g, '')
         const ghanaPhoneRegex = /^(0\d{9}|233\d{9})$/
         if (!ghanaPhoneRegex.test(cleanPhone)) {
@@ -78,6 +92,12 @@ export async function POST(request: NextRequest) {
         // Correct Logic: Shop's cost is the platform's selling price (pkg.price), not the platform's cost (pkg.cost_price)
         const costPrice = parseFloat(pkg.price) || 0
         const profit = sellingPrice - costPrice
+
+        // === SECURITY: Explicit price guards ===
+        if (sellingPrice <= 0 || isNaN(sellingPrice)) {
+            console.error(`[Shop Initialize] SECURITY: Zero/negative selling price detected. Shop: ${shopSlug}, Package: ${packageId}, Price: ${sellingPrice}`)
+            return NextResponse.json({ error: 'Invalid pricing configuration' }, { status: 400 })
+        }
 
         if (profit <= 0) {
             return NextResponse.json({ error: 'Invalid shop pricing configuration: Selling price must be higher than updated cost price' }, { status: 400 })

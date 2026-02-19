@@ -58,11 +58,80 @@ export async function GET(request: NextRequest) {
             return NextResponse.redirect(new URL(`/shop/${slug}/success?ref=${ref}`, request.url))
         }
 
+        // ========================================================
+        // === SECURITY: STRICT AMOUNT VERIFICATION (Zero-Trust) ===
+        // ========================================================
+        // NEVER trust metadata for pricing. Re-query the database
+        // to get the REAL selling price and compare against what
+        // Paystack actually charged.
+
+        const paystackAmountPesewas = verifyData.data?.amount // Paystack returns amount in pesewas
+        if (!paystackAmountPesewas || paystackAmountPesewas <= 0) {
+            console.error(`[Shop Verify] FRAUD ALERT: Invalid Paystack amount. Ref: ${ref}, Amount: ${paystackAmountPesewas}`)
+            return NextResponse.redirect(new URL(`/shop/${slug}?error=payment_error`, request.url))
+        }
+
+        // Re-query the REAL selling price from the database (single source of truth)
+        const { data: shopPrice } = await db
+            .from('shop_pricing')
+            .select('selling_price')
+            .eq('shop_id', metadata.shop_id)
+            .eq('package_id', metadata.package_id)
+            .single()
+
+        if (!shopPrice) {
+            console.error(`[Shop Verify] SECURITY: Package ${metadata.package_id} not found in shop ${metadata.shop_id} pricing. Ref: ${ref}`)
+            return NextResponse.redirect(new URL(`/shop/${slug}?error=payment_error`, request.url))
+        }
+
+        const dbSellingPrice = parseFloat(shopPrice.selling_price)
+
+        // Fetch Paystack fee settings to calculate the expected total
+        const { data: shopProfile } = await db
+            .from('shop_profiles')
+            .select('owner_id, paystack_fee_percent, fulfillment_mode')
+            .eq('id', metadata.shop_id)
+            .single()
+
+        const { data: settingsRows } = await db
+            .from('shop_global_settings')
+            .select('key, value')
+            .in('key', ['shop_paystack_fee_percent'])
+
+        const globalFeePercent = settingsRows?.find((r: any) => r.key === 'shop_paystack_fee_percent')?.value
+        const paystackFeePercent = shopProfile?.paystack_fee_percent ?? parseFloat(globalFeePercent) ?? 1.95
+        const paystackFee = Math.round(dbSellingPrice * (paystackFeePercent / 100) * 100) / 100
+        const expectedTotalPesewas = Math.round((dbSellingPrice + paystackFee) * 100)
+
+        // Allow a tiny tolerance (1 pesewa) for rounding differences
+        const amountDifference = Math.abs(paystackAmountPesewas - expectedTotalPesewas)
+        if (amountDifference > 1) {
+            console.error(
+                `[Shop Verify] 🚨 FRAUD DETECTED: Amount mismatch! ` +
+                `Ref: ${ref}, Paid: ${paystackAmountPesewas} pesewas, Expected: ${expectedTotalPesewas} pesewas, ` +
+                `DB Price: ${dbSellingPrice}, Fee%: ${paystackFeePercent}%, Diff: ${amountDifference} pesewas`
+            )
+            // Do NOT process this order — redirect with error
+            return NextResponse.redirect(new URL(`/shop/${slug}?error=payment_mismatch`, request.url))
+        }
+
+        // === SECURITY: Use DB-verified prices, NOT metadata ===
+        const { data: pkg } = await db
+            .from('data_packages')
+            .select('price')
+            .eq('id', metadata.package_id)
+            .single()
+
+        const verifiedCostPrice = parseFloat(pkg?.price) || 0
+        const verifiedProfit = dbSellingPrice - verifiedCostPrice
+
+        // ========================================================
+
         let orderId = existingOrder?.id
-        const fulfillmentMode = metadata.fulfillment_mode || 'auto'
+        const fulfillmentMode = shopProfile?.fulfillment_mode || metadata.fulfillment_mode || 'auto'
         const initialStatus = fulfillmentMode === 'auto' ? 'processing' : 'pending'
 
-        // 4. Create shop_orders record IF it doesn't exist
+        // 4. Create shop_orders record IF it doesn't exist (with DB-verified prices)
         if (!existingOrder) {
             const { data: newOrder, error: createError } = await db
                 .from('shop_orders')
@@ -72,39 +141,45 @@ export async function GET(request: NextRequest) {
                     guest_phone: metadata.guest_phone,
                     network: metadata.network,
                     package_size: metadata.package_size,
-                    selling_price: metadata.selling_price,
-                    cost_price: metadata.cost_price,
-                    profit: metadata.profit,
+                    selling_price: dbSellingPrice,        // FROM DATABASE, not metadata
+                    cost_price: verifiedCostPrice,        // FROM DATABASE, not metadata
+                    profit: verifiedProfit,                // CALCULATED from DB values
                     paystack_reference: ref,
                     status: initialStatus,
                 })
                 .select('id')
                 .single()
 
-            if (createError || !newOrder) {
+            if (createError) {
+                // Race condition guard: if duplicate insert, try to fetch the existing one
+                if (createError.code === '23505') { // unique_violation
+                    console.log(`[Shop Verify] Duplicate insert caught for ref: ${ref}. Fetching existing.`)
+                    const { data: raceOrder } = await db
+                        .from('shop_orders')
+                        .select('id, status')
+                        .eq('paystack_reference', ref)
+                        .single()
+                    if (raceOrder) {
+                        return NextResponse.redirect(new URL(`/shop/${slug}/success?ref=${ref}`, request.url))
+                    }
+                }
                 console.error('[Shop Verify] Failed to create shop order:', createError)
                 return NextResponse.redirect(new URL(`/shop/${slug}?error=server_error`, request.url))
             }
-            orderId = newOrder.id
+            orderId = newOrder?.id
         }
 
         // 4.5 Mirror to main 'orders' table for admin visibility
         try {
-            const { data: shopOwner } = await db
-                .from('shop_profiles')
-                .select('owner_id')
-                .eq('id', metadata.shop_id)
-                .single()
-
             await db.from('orders').insert({
-                user_id: shopOwner?.owner_id,
-                shop_order_id: orderId, // NEW: Direct link for robust syncing
+                user_id: shopProfile?.owner_id,
+                shop_order_id: orderId,
                 shop_name: metadata.shop_name,
                 phone_number: metadata.guest_phone,
                 network: metadata.network,
                 size: metadata.package_size,
-                price: metadata.selling_price,
-                cost_price: metadata.cost_price || 0,
+                price: dbSellingPrice,             // FROM DATABASE
+                cost_price: verifiedCostPrice,     // FROM DATABASE
                 status: initialStatus,
                 payment_status: 'paid',
                 fulfillment_method: fulfillmentMode,
