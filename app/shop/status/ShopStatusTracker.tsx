@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import {
     Search, Loader2, CheckCircle2, XCircle, Clock,
-    Package, CalendarDays, History, Info
+    Package, CalendarDays, History, Info, ShoppingCart
 } from 'lucide-react'
 import { formatCurrency, cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -169,6 +169,18 @@ export default function ShopStatusTracker() {
                 <p className="text-muted-foreground text-sm max-w-xs mx-auto">
                     Enter your phone number to see the status of your data bundles.
                 </p>
+                {/* Buy More Data Button - Visible if we know the last shop visited */}
+                {(todayOrders.length > 0 || searchOrders.length > 0) && (
+                    <div className="pt-2">
+                        <Link
+                            href={`/shop/${(todayOrders[0] || searchOrders[0])?.shop_slug}`}
+                            className="inline-flex items-center gap-2 text-sm font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-4 py-2 rounded-full transition-colors"
+                        >
+                            <ShoppingCart className="w-4 h-4" />
+                            Buy More Data
+                        </Link>
+                    </div>
+                )}
             </div>
 
             {/* ── Today/Recent Auto-Load Section ── */}

@@ -163,37 +163,39 @@ export default function ShopStorefront({ shop, packages }: Props) {
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
             {/* Header / Hero */}
-            <div className="relative transition-colors duration-300" style={{ backgroundColor: brandColor }}>
+            <div className="relative transition-colors duration-300 pt-10 pb-16" style={{ backgroundColor: brandColor }}>
                 <div className="absolute top-4 right-4 z-10">
                     <ThemeToggle />
                 </div>
-                <div className="max-w-2xl mx-auto px-4 py-8">
-                    <div className="flex items-center gap-4">
+                <div className="max-w-2xl mx-auto px-4 text-center">
+                    <div className="flex flex-col items-center gap-4">
                         {shop.logo_url ? (
-                            <div className="relative w-14 h-14 rounded-2xl overflow-hidden bg-white/20 flex-shrink-0 shadow-lg">
+                            <div className="relative w-24 h-24 rounded-3xl overflow-hidden bg-white/20 flex-shrink-0 shadow-lg mb-2">
                                 <Image src={shop.logo_url} alt={shop.shop_name} fill className="object-contain" />
                             </div>
                         ) : (
-                            <div className="w-14 h-14 rounded-2xl bg-white/20 flex items-center justify-center flex-shrink-0">
-                                <ShoppingCart className="w-7 h-7 text-white" />
+                            <div className="w-24 h-24 rounded-3xl bg-white/20 flex items-center justify-center flex-shrink-0 mb-2">
+                                <ShoppingCart className="w-10 h-10 text-white" />
                             </div>
                         )}
                         <div>
-                            <h1 className="text-xl font-black text-white leading-tight">{shop.shop_name}</h1>
+                            <h1 className="text-3xl font-black text-white leading-tight mb-2">{shop.shop_name}</h1>
                             {shop.description && (
-                                <p className="text-white/80 text-sm mt-0.5 leading-snug">{shop.description}</p>
+                                <p className="text-white/90 text-sm max-w-sm mx-auto leading-relaxed">{shop.description}</p>
                             )}
                         </div>
                     </div>
                 </div>
 
-                {/* Wave divider */}
-                <svg viewBox="0 0 1440 40" className="w-full block" preserveAspectRatio="none" style={{ height: '40px' }}>
-                    <path d="M0,40 C360,0 1080,0 1440,40 L1440,40 L0,40 Z" fill="rgb(249 250 251)" className="dark:fill-gray-950" />
-                </svg>
+                {/* Wave divider - moved to absolute bottom */}
+                <div className="absolute bottom-0 left-0 w-full overflow-hidden leading-none">
+                    <svg viewBox="0 0 1200 120" preserveAspectRatio="none" className="relative block w-full h-[40px] fill-gray-50 dark:fill-gray-950">
+                        <path d="M321.39,56.44c58-10.79,114.16-30.13,172-41.86,82.39-16.72,168.19-17.73,250.45-.39C823.78,31,906.67,72,985.66,92.83c70.05,18.48,146.53,26.09,214.34,3V120H0V0C0,0,0,0,0,0c0,0,0,0,0,0Q160.69,78,321.39,56.44Z"></path>
+                    </svg>
+                </div>
             </div>
 
-            <div className="max-w-2xl mx-auto px-4 pb-24 -mt-2">
+            <div className="max-w-2xl mx-auto px-4 pb-40 -mt-2">
 
                 {/* ── Need Help? Contact Card ── */}
                 <div className="mb-5 rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm px-4 py-3 flex items-center justify-between gap-3">
