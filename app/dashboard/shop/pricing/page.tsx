@@ -12,7 +12,7 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
     Tag, Save, Loader2, TrendingUp, AlertCircle, CheckCircle2,
-    Clock, XCircle, Lightbulb, Send, Lock, ArrowLeft
+    Clock, XCircle, Lightbulb, Send, Lock, ArrowLeft, Sparkles
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -55,6 +55,7 @@ export default function ShopPricingPage() {
     const [saving, setSaving] = useState(false)
     const [acknowledging, setAcknowledging] = useState(false)
     const [activeNetwork, setActiveNetwork] = useState<string>('MTN')
+    const [profitMargin, setProfitMargin] = useState<string>('0.50')
 
     useEffect(() => {
         if (dbUser && !isAdmin && !isSubAdmin) {
@@ -274,6 +275,27 @@ export default function ShopPricingPage() {
     const setPricedCount = Object.values(pricing).filter(v => v && parseFloat(v) > 0).length
     const isResubmission = shop?.pricing_status === 'approved'
 
+    const handleAutoGenerate = () => {
+        if (!packages.length) return
+
+        const newPricing: Record<string, string> = { ...pricing }
+        let count = 0
+
+        packages.forEach(pkg => {
+            if (!pkg.is_available) return
+            const cost = getCostPrice(pkg)
+            // Logic: Cost + 0.50
+            const selling = cost + 0.50
+            newPricing[pkg.id] = selling.toFixed(2)
+            count++
+        })
+
+        setPricing(newPricing)
+        toast.success(`Generated prices for ${count} packages (Cost + 0.50)!`, {
+            description: 'Review the prices below and click Submit when ready.'
+        })
+    }
+
     return (
         <div className="space-y-6 pb-20 md:pb-0">
             {/* Header */}
@@ -295,7 +317,25 @@ export default function ShopPricingPage() {
                             {setPricedCount > 0 && <span className="ml-2 font-semibold text-emerald-600">{setPricedCount} active</span>}
                         </p>
                     </div>
-                    <div className="hidden sm:block">
+                    <div className="hidden sm:flex items-center gap-2">
+                        <div className="relative">
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">GHS</span>
+                            <Input
+                                type="number"
+                                value={profitMargin}
+                                onChange={(e) => setProfitMargin(e.target.value)}
+                                className="w-24 pl-8 h-10 bg-white dark:bg-gray-800"
+                                placeholder="0.50"
+                            />
+                        </div>
+                        <Button
+                            variant="outline"
+                            onClick={handleAutoGenerate}
+                            className="gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-400 dark:hover:bg-emerald-900/20"
+                        >
+                            <Sparkles className="w-4 h-4" />
+                            Auto Generate
+                        </Button>
                         <Button
                             onClick={handleSubmit}
                             disabled={saving}
@@ -515,14 +555,32 @@ export default function ShopPricingPage() {
                 </Card>
 
                 {/* Mobile Sticky Submit Button */}
-                <div className="fixed bottom-4 left-4 right-4 md:hidden z-10">
+                <div className="fixed bottom-4 left-4 right-4 md:hidden z-10 flex gap-2 items-center bg-white/80 dark:bg-gray-900/80 backdrop-blur-md p-2 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-xl">
+                    <div className="relative w-20 flex-shrink-0">
+                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-[10px]">GHS</span>
+                        <Input
+                            type="number"
+                            value={profitMargin}
+                            onChange={(e) => setProfitMargin(e.target.value)}
+                            className="w-full pl-6 h-10 text-xs bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700"
+                            placeholder="0.50"
+                        />
+                    </div>
+                    <Button
+                        variant="outline"
+                        onClick={handleAutoGenerate}
+                        className="flex-1 bg-white dark:bg-gray-800 border-emerald-200 text-emerald-700 h-10 text-xs gap-1 px-2"
+                    >
+                        <Sparkles className="w-3.5 h-3.5" />
+                        Auto
+                    </Button>
                     <Button
                         onClick={handleSubmit}
                         disabled={saving}
-                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white h-12 text-lg shadow-xl gap-2"
+                        className="flex-[2] bg-emerald-600 hover:bg-emerald-700 text-white h-10 text-sm gap-2"
                     >
-                        {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-                        {saving ? 'Submitting...' : 'Submit for Approval'}
+                        {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                        {saving ? 'Submit' : 'Submit'}
                     </Button>
                 </div>
             </div>
