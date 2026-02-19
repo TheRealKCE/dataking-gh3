@@ -6,6 +6,27 @@ import { cookies } from 'next/headers'
 import { sendOrderSuccessEmail, sendAdminNewOrderAlert } from '@/lib/email-service'
 import { sendOrderSuccessSMS, sendAdminAgentOrderAlert } from '@/lib/sms-service'
 
+// === SECURITY: In-memory rate limiter ===
+const purchaseRateMap = new Map<string, number[]>()
+const RATE_LIMIT_WINDOW_MS = 10_000 // 10 seconds
+const RATE_LIMIT_MAX = 3 // max 3 purchases per window
+
+function isRateLimited(userId: string): boolean {
+    const now = Date.now()
+    const timestamps = purchaseRateMap.get(userId) || []
+    const recent = timestamps.filter(t => now - t < RATE_LIMIT_WINDOW_MS)
+    if (recent.length >= RATE_LIMIT_MAX) return true
+    recent.push(now)
+    purchaseRateMap.set(userId, recent)
+    // Cleanup old entries every 100 users to prevent memory leak
+    if (purchaseRateMap.size > 1000) {
+        for (const [key, val] of purchaseRateMap) {
+            if (val.every(t => now - t > RATE_LIMIT_WINDOW_MS)) purchaseRateMap.delete(key)
+        }
+    }
+    return false
+}
+
 export async function POST(request: NextRequest) {
     try {
         const cookieStore = await cookies()
@@ -22,6 +43,11 @@ export async function POST(request: NextRequest) {
 
         const user = session.user
         const userId = user.id
+
+        // === SECURITY: Rate limit purchases ===
+        if (isRateLimited(userId)) {
+            return NextResponse.json({ error: 'Too many requests. Please wait a few seconds.' }, { status: 429 })
+        }
 
         let body;
         try {
@@ -90,25 +116,34 @@ export async function POST(request: NextRequest) {
             ? (pkg as any).agent_price
             : (pkg as any).price
 
-        // Get user's wallet
-        const { data: wallet, error: walletError } = await supabase
-            .from('wallets')
-            .select('*')
-            .eq('user_id', userId)
-            .single()
+        // === SECURITY: Atomic wallet deduction (prevents double-spend) ===
+        // This single RPC call checks balance >= amount AND deducts in one atomic operation.
+        // If 5 requests arrive simultaneously, only the ones where balance is sufficient succeed.
+        const { data: deductResult, error: deductError } = await (supabase as any)
+            .rpc('deduct_wallet_balance', {
+                p_user_id: userId,
+                p_amount: priceToCharge,
+            })
 
-        if (walletError || !wallet) {
-            return NextResponse.json({ error: 'Wallet not found' }, { status: 404 })
+        if (deductError) {
+            if (deductError.message?.includes('INSUFFICIENT_BALANCE')) {
+                return NextResponse.json({ error: 'Insufficient balance' }, { status: 400 })
+            }
+            console.error('Wallet deduction error:', deductError)
+            return NextResponse.json({ error: 'Failed to process payment' }, { status: 500 })
         }
 
-        // Check balance
-        if ((wallet as any).balance < priceToCharge) {
-            return NextResponse.json({ error: 'Insufficient balance' }, { status: 400 })
+        const walletRow = deductResult?.[0] || deductResult
+        const walletId = walletRow?.wallet_id
+        const newBalance = walletRow?.new_balance
+
+        if (!walletId) {
+            return NextResponse.json({ error: 'Wallet not found' }, { status: 404 })
         }
 
         const referenceCode = generateReferenceCode()
 
-        // Create order
+        // Create order AFTER successful deduction (no money lost if order insert fails)
         const { data: order, error: orderError } = await (supabase
             .from('orders') as any)
             .insert({
@@ -128,30 +163,20 @@ export async function POST(request: NextRequest) {
 
         if (orderError) {
             console.error('Order creation error:', orderError)
+            // Refund the deducted amount since order failed
+            await (supabase.from('wallets') as any)
+                .update({
+                    balance: (newBalance ?? 0) + priceToCharge,
+                    total_spent: (walletRow?.new_total_spent ?? 0) - priceToCharge,
+                    updated_at: new Date().toISOString(),
+                })
+                .eq('id', walletId)
             return NextResponse.json({ error: 'Failed to create order' }, { status: 500 })
-        }
-
-        // Debit wallet
-        const newBalance = (wallet as any).balance - priceToCharge
-        const { error: debitError } = await (supabase
-            .from('wallets') as any)
-            .update({
-                balance: newBalance,
-                total_spent: ((wallet as any).total_spent || 0) + priceToCharge,
-                updated_at: new Date().toISOString(),
-            })
-            .eq('id', (wallet as any).id)
-
-        if (debitError) {
-            console.error('Wallet debit error:', debitError)
-            // Rollback order
-            await (supabase.from('orders') as any).delete().eq('id', (order as any).id)
-            return NextResponse.json({ error: 'Failed to debit wallet' }, { status: 500 })
         }
 
         // Create wallet transaction
         await (supabase.from('wallet_transactions') as any).insert({
-            wallet_id: (wallet as any).id,
+            wallet_id: walletId,
             user_id: userId,
             type: 'debit',
             amount: priceToCharge,

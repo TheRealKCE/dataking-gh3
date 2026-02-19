@@ -38,8 +38,30 @@ export async function POST(request: NextRequest) {
 
             // Check if this is an agent upgrade payment
             if (metadata?.upgrade_type === 'agent') {
-                // For agent upgrades, verify amount matches metadata
-                const expectedAmountKobo = Math.round((metadata.base_amount + metadata.fee) * 100)
+                // === SECURITY: Verify amount against database, NOT metadata ===
+                // Fetch the expected upgrade price from admin_settings
+                const { data: priceSettings } = await supabase
+                    .from('admin_settings')
+                    .select('key, value')
+                    .in('key', ['agent_upgrade_prices'])
+
+                let expectedPrice = 0
+                if (priceSettings?.length) {
+                    try {
+                        const prices = typeof (priceSettings[0] as any).value === 'string'
+                            ? JSON.parse((priceSettings[0] as any).value)
+                            : (priceSettings[0] as any).value
+                        const planKey = metadata.plan_type || '30d'
+                        expectedPrice = prices[planKey] || 0
+                    } catch { /* fallback below */ }
+                }
+
+                // Fallback: if DB price not configured, trust metadata (backward compat)
+                if (expectedPrice <= 0) {
+                    expectedPrice = (metadata.base_amount || 0) + (metadata.fee || 0)
+                }
+
+                const expectedAmountKobo = Math.round(expectedPrice * 100)
 
                 if (paidAmountKobo !== expectedAmountKobo) {
                     console.error(`Webhook: AMOUNT MISMATCH for agent upgrade ${reference}. Expected: ${expectedAmountKobo}, Paid: ${paidAmountKobo}`)
