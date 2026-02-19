@@ -43,6 +43,28 @@ export async function middleware(request: NextRequest) {
     const shopVisitorCookie = request.cookies.get('shop_visitor')?.value
     const isExiting = request.nextUrl.searchParams.get('exit_shop') === 'true'
 
+    // 0. NEW: sticky shop tracking (Ghosting Phase 1.5)
+    // If user visits a shop page directly, set the cookie so they are "stuck" to it
+    // format: /shop/[slug]
+    const shopMatch = pathname.match(/^\/shop\/([^\/]+)/)
+    if (shopMatch && shopMatch[1] && shopMatch[1] !== 'status') {
+        const currentShopSlug = shopMatch[1]
+        
+        // If they are visiting a shop and don't have the cookie (or have a different one)
+        // We must update the cookie.
+        // Note: Middleware can set cookies on the response.
+        if (shopVisitorCookie !== currentShopSlug) {
+            const response = NextResponse.next()
+            // Set cookie for 30 days
+            response.cookies.set('shop_visitor', currentShopSlug, { 
+                path: '/', 
+                maxAge: 60 * 60 * 24 * 30,
+                sameSite: 'lax'
+            })
+            return addNoCacheHeaders(response)
+        }
+    }
+
     // 1. Handle Exit: If user explicitly wants to leave shop mode
     if (isExiting) {
         const response = NextResponse.redirect(new URL('/', request.url))

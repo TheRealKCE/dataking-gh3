@@ -54,10 +54,7 @@ export default async function ShopPage({ params }: Props) {
     // Set sticky cookie (Client won't be able to easily delete path)
     if (shop) {
         supabase.auth.updateUser({}) // Keep session alive if any
-        const { cookies } = await import('next/headers')
-        const cookieStore = await cookies()
-        // Expires in 30 days
-        cookieStore.set('shop_visitor', shopSlug, { path: '/', maxAge: 60 * 60 * 24 * 30 })
+        // Cookie setting moved to middleware to avoid Server Component error
     }
 
     // Shop doesn't exist or is not profile-approved → 404
