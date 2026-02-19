@@ -65,11 +65,12 @@ export default function ShopStorefront({ shop, packages }: Props) {
 
     const [activeNetwork, setActiveNetwork] = useState<string>(networks[0] || '')
 
-    // Instant loader animation
+    // Instant loader animation & save shop visit
     useEffect(() => {
         const timer = setTimeout(() => setPageLoading(false), 400)
+        try { localStorage.setItem('shop_last_slug', shop.shop_slug) } catch (_) { }
         return () => clearTimeout(timer)
-    }, [])
+    }, [shop.shop_slug])
 
     // Show error from URL params (e.g. payment_failed)
     useEffect(() => {

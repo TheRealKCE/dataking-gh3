@@ -30,6 +30,7 @@ interface ShopProfile {
     whatsapp_number: string | null
     logo_url: string | null
     brand_color: string
+    pricing_status: 'not_submitted' | 'pending_review' | 'approved' | 'rejected'
 }
 
 interface ShopWallet {
@@ -256,6 +257,26 @@ export default function ShopOverviewPage() {
                             </Button>
                         </Link>
                     </div>
+
+                    {/* Pricing Status Indicators */}
+                    {shop.pricing_status === 'pending_review' && (
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border border-orange-200 dark:border-orange-800">
+                            <Clock className="w-3.5 h-3.5" />
+                            <span className="text-xs font-bold whitespace-nowrap">Review Pricing</span>
+                        </div>
+                    )}
+
+                    {shop.pricing_status === 'approved' && (
+                        <div className="flex flex-col items-start md:items-end -my-1">
+                            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 mb-0.5">
+                                <CheckCircle2 className="w-3.5 h-3.5" />
+                                <span className="text-xs font-black uppercase tracking-wider whitespace-nowrap">Pricing Approved</span>
+                            </div>
+                            <span className="text-[10px] text-muted-foreground font-medium hidden sm:inline-block animate-pulse">
+                                Share link to earn profit 🚀
+                            </span>
+                        </div>
+                    )}
                 </div>
             </div>
 

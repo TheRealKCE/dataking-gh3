@@ -74,6 +74,7 @@ export default function ShopStatusTracker() {
     const [phone, setPhone] = useState('')
     const [searchOrders, setSearchOrders] = useState<Order[]>([])
     const [todayOrders, setTodayOrders] = useState<Order[]>([])
+    const [lastShopSlug, setLastShopSlug] = useState<string | null>(null)
 
     // Loading states
     const [searchLoading, setSearchLoading] = useState(false)
@@ -85,7 +86,10 @@ export default function ShopStatusTracker() {
     // ─── 1. Auto-load Today's Orders (on mount) ───
     useEffect(() => {
         let savedPhone: string | null = null
-        try { savedPhone = localStorage.getItem('shop_last_phone') } catch (_) { }
+        try {
+            savedPhone = localStorage.getItem('shop_last_phone')
+            setLastShopSlug(localStorage.getItem('shop_last_slug'))
+        } catch (_) { }
 
         if (!savedPhone) return
 
@@ -170,10 +174,10 @@ export default function ShopStatusTracker() {
                     Enter your phone number to see the status of your data bundles.
                 </p>
                 {/* Buy More Data Button - Visible if we know the last shop visited */}
-                {(todayOrders.length > 0 || searchOrders.length > 0) && (
+                {(todayOrders.length > 0 || searchOrders.length > 0 || lastShopSlug) && (
                     <div className="pt-2">
                         <Link
-                            href={`/shop/${(todayOrders[0] || searchOrders[0])?.shop_slug}`}
+                            href={`/shop/${(todayOrders[0] || searchOrders[0])?.shop_slug || lastShopSlug}`}
                             className="inline-flex items-center gap-2 text-sm font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-4 py-2 rounded-full transition-colors"
                         >
                             <ShoppingCart className="w-4 h-4" />
