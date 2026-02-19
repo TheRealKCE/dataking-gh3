@@ -376,6 +376,48 @@ export function DashboardSidebar() {
                         )
                     })()}
 
+                    {/* Shop Menu - Conditional */}
+                    {pathname?.startsWith('/dashboard/shop') && (
+                        <div className="mb-4">
+                            {!isCollapsed && (
+                                <p className="text-[10px] font-semibold text-emerald-600 dark:text-emerald-500 uppercase tracking-wider mb-1.5 px-2 flex items-center gap-1">
+                                    <Store className="w-3 h-3" />
+                                    My Shop
+                                </p>
+                            )}
+                            <div className="space-y-0.5">
+                                {[
+                                    { href: '/dashboard/shop', label: 'Overview', icon: LayoutDashboard },
+                                    { href: '/dashboard/shop/orders', label: 'Orders', icon: ShoppingCart },
+                                    { href: '/dashboard/shop/pricing', label: 'Pricing', icon: Tag },
+                                    { href: '/dashboard/shop/setup', label: 'Shop Profile', icon: Settings },
+                                    { href: '/dashboard/shop/withdraw', label: 'Withdraw', icon: Banknote },
+                                ].map(item => {
+                                    const isActive = pathname === item.href
+                                    return (
+                                        <Link key={item.href} href={item.href} onClick={() => {
+                                            if (window.innerWidth < 1024) closeSidebar()
+                                        }}>
+                                            <div
+                                                className={cn(
+                                                    "flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-all duration-200",
+                                                    isActive
+                                                        ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 font-semibold"
+                                                        : "text-gray-600 dark:text-gray-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/10 hover:text-emerald-600 dark:hover:text-emerald-400",
+                                                    isCollapsed && "justify-center px-2"
+                                                )}
+                                            >
+                                                <item.icon className={cn("w-5 h-5 flex-shrink-0", isActive && "text-emerald-600 dark:text-emerald-400")} />
+                                                {!isCollapsed && <span className="text-sm">{item.label}</span>}
+                                            </div>
+                                        </Link>
+                                    )
+                                })}
+                            </div>
+                            {!isCollapsed && <div className="h-px bg-gray-200 dark:bg-gray-800 my-4 mx-2" />}
+                        </div>
+                    )}
+
                     {(isAdmin || isSubAdmin) && (
                         <>
                             {!isCollapsed && (
