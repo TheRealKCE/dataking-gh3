@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
+import { creditShopProfit } from '@/lib/shop-service'
 
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
@@ -113,8 +114,12 @@ export async function GET(request: NextRequest) {
             console.error('[Shop Verify] Mirroring error:', mirrorErr)
         }
 
-        // 5. Profit credit is now handled on 'completed' status transition 
-        // via syncShopOrderStatus utility to ensure accuracy.
+        // 5. Credit profit immediately upon successful payment
+        try {
+            await creditShopProfit(orderId!)
+        } catch (profitErr) {
+            console.error('[Shop Verify] Profit credit error (non-fatal):', profitErr)
+        }
 
         // 6. Trigger fulfillment
         try {

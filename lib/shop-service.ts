@@ -84,11 +84,9 @@ export async function syncShopOrderStatus(mainOrderId: string, status: string) {
             console.log(`[ShopSync DEBUG] Successfully updated shop order status.`)
         }
 
-        // 3. Handle Profit Credit on 'completed'
-        if (status === 'completed') {
-            console.log(`[ShopSync DEBUG] Status is completed, triggering profit credit...`)
-            await creditShopProfit(shopOrderId)
-        }
+        // 3. Profit is now credited immediately at payment time (in /api/shop/verify).
+        // No longer credited here on 'completed' to prevent double-crediting.
+        console.log(`[ShopSync] Status synced to: ${status}. Profit crediting is handled at payment time.`)
     } catch (err) {
         console.error('[ShopSync] Unexpected error:', err)
     }
