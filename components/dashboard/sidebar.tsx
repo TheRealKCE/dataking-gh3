@@ -30,7 +30,8 @@ import {
     Plus,
     Activity,
     Banknote,
-    Store
+    Store,
+    Tag
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
