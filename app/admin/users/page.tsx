@@ -36,7 +36,8 @@ import {
     Phone,
     Calendar,
     Mail,
-    Download
+    Download,
+    KeyRound
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { Label } from '@/components/ui/label'
@@ -209,6 +210,26 @@ export default function AdminUsersPage() {
             toast.error(error.message || `Failed to ${adjustmentType} wallet`)
         } finally {
             setIsAdjusting(false)
+        }
+    }
+
+    const handleResetPassword = async (userId: string, userName: string) => {
+        if (!confirm(`Send a password reset email to ${userName}?\n\nThey will receive an email with a link to set a new password.`)) return
+
+        try {
+            const response = await fetch('/api/admin/users/reset-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId })
+            })
+
+            const result = await response.json()
+            if (!response.ok) throw new Error(result.error || 'Failed to send reset email')
+
+            toast.success(`Password reset email sent to ${userName}`)
+        } catch (error: any) {
+            console.error('Reset password error:', error)
+            toast.error(error.message || 'Failed to send reset email')
         }
     }
 
@@ -444,6 +465,16 @@ export default function AdminUsersPage() {
                                                         Make Admin
                                                     </DropdownMenuItem>
                                                 )}
+
+                                                <div className="h-px bg-border my-1" />
+
+                                                <DropdownMenuItem
+                                                    onClick={() => handleResetPassword(user.id, `${user.first_name} ${user.last_name}`.trim())}
+                                                    className="text-blue-600 focus:text-blue-700 focus:bg-blue-50"
+                                                >
+                                                    <KeyRound className="w-4 h-4 mr-2" />
+                                                    Reset Password
+                                                </DropdownMenuItem>
 
                                                 <div className="h-px bg-border my-1" />
 
