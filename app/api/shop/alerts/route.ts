@@ -21,10 +21,22 @@ import {
 
 export async function POST(req: NextRequest) {
     try {
-        // Auth check — must be a signed-in user (admin pages handle role guard)
+        // Auth check — must be a signed-in user with an elevated role
         const supabase = createRouteHandlerClient({ cookies })
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+        // Role check — only admins, sub-admins, and agents (shop owners) can fire alerts
+        const { data: dbUser } = await supabase
+            .from('users')
+            .select('role')
+            .eq('id', user.id)
+            .single()
+
+        const allowedRoles = ['admin', 'sub-admin', 'agent']
+        if (!dbUser || !allowedRoles.includes(dbUser.role)) {
+            return NextResponse.json({ error: 'Forbidden: insufficient role' }, { status: 403 })
+        }
 
         const body = await req.json()
         const { type, payload } = body
