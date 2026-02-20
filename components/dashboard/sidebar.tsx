@@ -88,10 +88,12 @@ export function DashboardSidebar() {
 
     const daysRemaining = calculateDaysRemaining()
 
-    // Fetch wallet balance
+    // Fetch wallet balance + subscribe to real-time updates
     useEffect(() => {
+        if (!dbUser?.id) return
+
+        // Initial fetch
         const fetchBalance = async () => {
-            if (!dbUser?.id) return
             const { data } = await (supabase
                 .from('wallets')
                 .select('balance')
@@ -100,6 +102,29 @@ export function DashboardSidebar() {
             if (data) setWalletBalance(data.balance || 0)
         }
         fetchBalance()
+
+        // Real-time subscription — fires instantly on any balance change
+        const channel = supabase
+            .channel(`sidebar-wallet-${dbUser.id}`)
+            .on(
+                'postgres_changes' as any,
+                {
+                    event: 'UPDATE',
+                    schema: 'public',
+                    table: 'wallets',
+                    filter: `user_id=eq.${dbUser.id}`,
+                },
+                (payload: any) => {
+                    if (payload.new?.balance !== undefined) {
+                        setWalletBalance(payload.new.balance)
+                    }
+                }
+            )
+            .subscribe()
+
+        return () => {
+            supabase.removeChannel(channel)
+        }
     }, [dbUser?.id])
 
     const isLinkActive = (href: string) => {
