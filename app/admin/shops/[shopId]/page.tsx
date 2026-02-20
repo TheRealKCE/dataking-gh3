@@ -156,6 +156,24 @@ export default function AdminShopDetailPage() {
             if (error) throw error
             toast.success(`Shop ${status}`)
             fetchData()
+
+            // Alerts 5 & 6 — profile approved/rejected SMS + Email (non-blocking)
+            if ((status === 'approved' || status === 'rejected') && shop && owner) {
+                fetch('/api/shop/alerts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        type: status === 'approved' ? 'profile_approved' : 'profile_rejected',
+                        payload: {
+                            phone: shop.owner_phone,
+                            firstName: owner.first_name,
+                            email: owner.email,
+                            shopName: shop.shop_name,
+                            reason: status === 'rejected' ? (approvalNote.trim() || 'Please check your dashboard for details.') : undefined,
+                        },
+                    }),
+                }).catch(err => console.warn('[ShopAlert]', err))
+            }
         } catch (err: any) {
             toast.error(err.message || 'Failed to update status')
         } finally {
@@ -198,6 +216,18 @@ export default function AdminShopDetailPage() {
 
             toast.success('Pricing approved! Shop is now live.')
             fetchData()
+
+            // Alert 3 — SMS + Email to owner (non-blocking)
+            if (shop && owner) {
+                fetch('/api/shop/alerts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        type: 'pricing_approved',
+                        payload: { phone: shop.owner_phone, firstName: owner.first_name, email: owner.email, shopName: shop.shop_name },
+                    }),
+                }).catch(err => console.warn('[ShopAlert]', err))
+            }
         } catch (err: any) {
             toast.error(err.message || 'Failed to approve pricing')
         } finally {
@@ -221,6 +251,18 @@ export default function AdminShopDetailPage() {
             if (error) throw error
             toast.success('Pricing rejected. Owner will be notified.')
             fetchData()
+
+            // Alert 4 — SMS + Email to owner (non-blocking)
+            if (shop && owner) {
+                fetch('/api/shop/alerts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        type: 'pricing_rejected',
+                        payload: { phone: shop.owner_phone, firstName: owner.first_name, email: owner.email, shopName: shop.shop_name, reason: pricingNote.trim() },
+                    }),
+                }).catch(err => console.warn('[ShopAlert]', err))
+            }
         } catch (err: any) {
             toast.error(err.message || 'Failed to reject pricing')
         } finally {
@@ -256,8 +298,9 @@ export default function AdminShopDetailPage() {
             }).eq('id', withdrawalId)
             if (error) throw error
 
+            const w = withdrawals.find(w => w.id === withdrawalId)
+
             if (action === 'rejected') {
-                const w = withdrawals.find(w => w.id === withdrawalId)
                 if (w && wallet) {
                     await (supabase as any).from('shop_wallets').update({
                         balance: (wallet.balance || 0) + w.amount,
@@ -265,12 +308,30 @@ export default function AdminShopDetailPage() {
                     }).eq('owner_id', shop?.owner_id)
                 }
             } else if (action === 'completed') {
-                const w = withdrawals.find(w => w.id === withdrawalId)
                 if (w && wallet) {
                     await (supabase as any).from('shop_wallets').update({
                         total_withdrawn: (wallet.total_withdrawn || 0) + w.amount,
                         updated_at: new Date().toISOString(),
                     }).eq('owner_id', shop?.owner_id)
+                }
+
+                // Alert 7 — Withdrawal processed SMS + Email to owner (non-blocking)
+                if (w && shop && owner) {
+                    fetch('/api/shop/alerts', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            type: 'withdrawal_processed',
+                            payload: {
+                                phone: shop.owner_phone,
+                                firstName: owner.first_name,
+                                email: owner.email,
+                                shopName: shop.shop_name,
+                                amount: w.amount,
+                                momoNumber: w.momo_number,
+                            },
+                        }),
+                    }).catch(err => console.warn('[ShopAlert]', err))
                 }
             }
 

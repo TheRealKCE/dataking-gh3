@@ -1157,3 +1157,209 @@ export async function sendAdminNewUserAlert(
         htmlContent: generatePremiumTemplate('New User Alert', content)
     })
 }
+
+// ==========================================
+// SHOP ALERT EMAIL FUNCTIONS — OWNER
+// ==========================================
+
+/**
+ * Alert 3 · Pricing Approved — Email to shop owner
+ */
+export async function sendShopPricingApprovedEmail(
+    email: string,
+    firstName: string,
+    shopName: string
+): Promise<EmailResult> {
+    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.kingflexygh.com'
+    const content = `
+        <h1 class="greeting">Pricing Approved! ✅</h1>
+        <p class="subtitle">Your shop prices are now live</p>
+        <p class="message-text">
+            Hi ${firstName}, your submitted prices for <strong>${shopName}</strong> have been reviewed and approved.
+            Your new prices are now <strong>live on your shop</strong>. Customers can start ordering immediately.
+        </p>
+        <div style="text-align: center; margin: 25px 0;"><span class="status-badge status-success">Approved</span></div>
+        <div class="cta-container"><a href="${siteUrl}/dashboard/shop" class="cta-button">View My Shop</a></div>
+    `
+    return sendEmail({ to: email, toName: firstName, subject: `✅ Your Shop Pricing is Approved — ${shopName}`, htmlContent: generatePremiumTemplate('Pricing Approved', content, '#10b981') })
+}
+
+/**
+ * Alert 4 · Pricing Rejected — Email to shop owner
+ */
+export async function sendShopPricingRejectedEmail(
+    email: string,
+    firstName: string,
+    shopName: string,
+    reason: string
+): Promise<EmailResult> {
+    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.kingflexygh.com'
+    const content = `
+        <h1 class="greeting">Pricing Needs Revision ⚠️</h1>
+        <p class="subtitle">Your pricing submission was returned</p>
+        <p class="message-text">Hi ${firstName}, your pricing submission for <strong>${shopName}</strong> has been returned for revision.</p>
+        <div class="highlight-box"><p class="highlight-text"><strong>Admin note:</strong> ${reason}</p></div>
+        <p class="message-text">Please log in, review the feedback, and resubmit your prices.</p>
+        <div style="text-align: center; margin: 25px 0;"><span class="status-badge status-failed">Rejected</span></div>
+        <div class="cta-container"><a href="${siteUrl}/dashboard/shop/pricing" class="cta-button">Revise Pricing</a></div>
+    `
+    return sendEmail({ to: email, toName: firstName, subject: `⚠️ Shop Pricing Needs Revision — ${shopName}`, htmlContent: generatePremiumTemplate('Pricing Rejected', content, '#ef4444') })
+}
+
+/**
+ * Alert 5 · Shop Profile Approved — Email to shop owner
+ */
+export async function sendShopProfileApprovedEmail(
+    email: string,
+    firstName: string,
+    shopName: string
+): Promise<EmailResult> {
+    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.kingflexygh.com'
+    const content = `
+        <h1 class="greeting">Your Shop is Approved! 🎉</h1>
+        <p class="subtitle">Welcome to the King Flexy Shop Network</p>
+        <p class="message-text">Hi ${firstName}, your shop <strong>${shopName}</strong> has been approved. Set your prices to go live!</p>
+        <div class="info-card">
+            <div class="info-card-header"><div class="info-card-icon">🚀</div><span class="info-card-title">Next Steps</span></div>
+            <div class="info-row"><span class="info-label">1. Set Pricing</span><span class="info-value">Go to Shop → Pricing</span></div>
+            <div class="info-row"><span class="info-label">2. Submit for Review</span><span class="info-value">Admin approves within 24hrs</span></div>
+            <div class="info-row"><span class="info-label">3. Go Live</span><span class="info-value">Share your shop link & start earning</span></div>
+        </div>
+        <div style="text-align: center; margin: 25px 0;"><span class="status-badge status-success">Approved</span></div>
+        <div class="cta-container"><a href="${siteUrl}/dashboard/shop/pricing" class="cta-button">Set Pricing Now</a></div>
+    `
+    return sendEmail({ to: email, toName: firstName, subject: `🎉 Your Shop "${shopName}" is Approved!`, htmlContent: generatePremiumTemplate('Shop Approved', content, '#10b981') })
+}
+
+/**
+ * Alert 6 · Shop Profile Rejected — Email to shop owner
+ */
+export async function sendShopProfileRejectedEmail(
+    email: string,
+    firstName: string,
+    shopName: string,
+    reason: string
+): Promise<EmailResult> {
+    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.kingflexygh.com'
+    const content = `
+        <h1 class="greeting">Shop Application — Action Required ❌</h1>
+        <p class="subtitle">Your shop application needs attention</p>
+        <p class="message-text">Hi ${firstName}, your shop application for <strong>${shopName}</strong> could not be approved at this time.</p>
+        <div class="highlight-box"><p class="highlight-text"><strong>Admin note:</strong> ${reason}</p></div>
+        <p class="message-text">Please log in, address the feedback, and resubmit your shop profile.</p>
+        <div style="text-align: center; margin: 25px 0;"><span class="status-badge status-failed">Rejected</span></div>
+        <div class="cta-container"><a href="${siteUrl}/dashboard/shop" class="cta-button">Update My Profile</a></div>
+    `
+    return sendEmail({ to: email, toName: firstName, subject: `❌ Shop Application – Action Required (${shopName})`, htmlContent: generatePremiumTemplate('Shop Rejected', content, '#ef4444') })
+}
+
+/**
+ * Alert 7 · Withdrawal Processed — Email to shop owner
+ */
+export async function sendShopWithdrawalProcessedEmail(
+    email: string,
+    firstName: string,
+    shopName: string,
+    amount: number,
+    momoNumber: string
+): Promise<EmailResult> {
+    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.kingflexygh.com'
+    const content = `
+        <h1 class="greeting">Withdrawal Processed! 💰</h1>
+        <p class="subtitle">Your funds are on the way</p>
+        <div class="amount-display">
+            <p class="amount-label">Amount Processed</p>
+            <p class="amount-value"><span class="amount-currency">GHS</span> ${amount.toFixed(2)}</p>
+        </div>
+        <p class="message-text">Hi ${firstName}, your withdrawal from <strong>${shopName}</strong> has been processed. Allow 1–2 business days for funds to reflect.</p>
+        <div class="info-card">
+            <div class="info-card-header"><div class="info-card-icon">🧾</div><span class="info-card-title">Withdrawal Details</span></div>
+            <div class="info-row"><span class="info-label">Amount</span><span class="info-value" style="color: #10b981;">GHS ${amount.toFixed(2)}</span></div>
+            <div class="info-row"><span class="info-label">MoMo Number</span><span class="info-value">${momoNumber}</span></div>
+            <div class="info-row"><span class="info-label">Date</span><span class="info-value">${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span></div>
+        </div>
+        <div style="text-align: center; margin: 25px 0;"><span class="status-badge status-success">Completed</span></div>
+        <div class="cta-container"><a href="${siteUrl}/dashboard/shop/wallet" class="cta-button">View Transactions</a></div>
+    `
+    return sendEmail({ to: email, toName: firstName, subject: `💰 Withdrawal of GHS ${amount.toFixed(2)} Processed — ${shopName}`, htmlContent: generatePremiumTemplate('Withdrawal Processed', content, '#10b981') })
+}
+
+// ==========================================
+// ADMIN SHOP ALERT EMAIL FUNCTIONS
+// ==========================================
+
+/**
+ * Alert 9 · New Pricing Submission — Email to admin only
+ */
+export async function sendAdminShopPricingSubmissionAlert(details: {
+    shopName: string; ownerName: string; ownerEmail: string; shopId: string; date: string
+}): Promise<EmailResult> {
+    const adminEmail = process.env.ADMIN_EMAIL || 'kingflexydatalimited@gmail.com'
+    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.kingflexygh.com'
+    const content = `
+        <h1 class="greeting">New Pricing Submission 🔔</h1>
+        <p class="subtitle">A shop owner has submitted pricing for review</p>
+        <div class="info-card">
+            <div class="info-card-header"><div class="info-card-icon">🏷️</div><span class="info-card-title">Submission Details</span></div>
+            <div class="info-row"><span class="info-label">Shop</span><span class="info-value">${details.shopName}</span></div>
+            <div class="info-row"><span class="info-label">Owner</span><span class="info-value">${details.ownerName}</span></div>
+            <div class="info-row"><span class="info-label">Owner Email</span><span class="info-value">${details.ownerEmail}</span></div>
+            <div class="info-row"><span class="info-label">Submitted</span><span class="info-value">${details.date}</span></div>
+        </div>
+        <div class="cta-container"><a href="${siteUrl}/admin/shops/${details.shopId}" class="cta-button">Review Pricing</a></div>
+    `
+    return sendEmail({ to: adminEmail, toName: 'Admin', subject: `🔔 New Pricing Submission – ${details.shopName}`, htmlContent: generatePremiumTemplate('Pricing Submission', content) })
+}
+
+/**
+ * Alert 10 · New Shop Registration — Email to admin only
+ */
+export async function sendAdminNewShopRegistrationAlert(details: {
+    shopName: string; ownerName: string; ownerEmail: string; date: string
+}): Promise<EmailResult> {
+    const adminEmail = process.env.ADMIN_EMAIL || 'kingflexydatalimited@gmail.com'
+    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.kingflexygh.com'
+    const content = `
+        <h1 class="greeting">New Shop Registration 🏪</h1>
+        <p class="subtitle">A new shop is awaiting your approval</p>
+        <div class="info-card">
+            <div class="info-card-header"><div class="info-card-icon">🏪</div><span class="info-card-title">Shop Details</span></div>
+            <div class="info-row"><span class="info-label">Shop Name</span><span class="info-value">${details.shopName}</span></div>
+            <div class="info-row"><span class="info-label">Owner</span><span class="info-value">${details.ownerName}</span></div>
+            <div class="info-row"><span class="info-label">Owner Email</span><span class="info-value">${details.ownerEmail}</span></div>
+            <div class="info-row"><span class="info-label">Submitted</span><span class="info-value">${details.date}</span></div>
+        </div>
+        <div style="text-align: center; margin: 25px 0;"><span class="status-badge status-pending">Pending Review</span></div>
+        <div class="cta-container"><a href="${siteUrl}/admin/shops" class="cta-button">Review Shop</a></div>
+    `
+    return sendEmail({ to: adminEmail, toName: 'Admin', subject: `🏪 New Shop Registration – ${details.shopName}`, htmlContent: generatePremiumTemplate('New Shop Registration', content) })
+}
+
+/**
+ * Alert 11 · Withdrawal Request — Email to admin only
+ */
+export async function sendAdminShopWithdrawalRequestAlert(details: {
+    shopName: string; ownerName: string; amount: number; momoNumber: string; date: string; shopId: string
+}): Promise<EmailResult> {
+    const adminEmail = process.env.ADMIN_EMAIL || 'kingflexydatalimited@gmail.com'
+    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.kingflexygh.com'
+    const content = `
+        <h1 class="greeting">Withdrawal Request 💸</h1>
+        <p class="subtitle">A shop owner has requested a withdrawal</p>
+        <div class="amount-display">
+            <p class="amount-label">Requested Amount</p>
+            <p class="amount-value"><span class="amount-currency">GHS</span> ${details.amount.toFixed(2)}</p>
+        </div>
+        <div class="info-card">
+            <div class="info-card-header"><div class="info-card-icon">🏪</div><span class="info-card-title">Request Details</span></div>
+            <div class="info-row"><span class="info-label">Shop</span><span class="info-value">${details.shopName}</span></div>
+            <div class="info-row"><span class="info-label">Owner</span><span class="info-value">${details.ownerName}</span></div>
+            <div class="info-row"><span class="info-label">Amount</span><span class="info-value" style="color: #D4AF37; font-size:16px;">GHS ${details.amount.toFixed(2)}</span></div>
+            <div class="info-row"><span class="info-label">MoMo Number</span><span class="info-value">${details.momoNumber}</span></div>
+            <div class="info-row"><span class="info-label">Requested</span><span class="info-value">${details.date}</span></div>
+        </div>
+        <div style="text-align: center; margin: 25px 0;"><span class="status-badge status-pending">Action Required</span></div>
+        <div class="cta-container"><a href="${siteUrl}/admin/shops/${details.shopId}" class="cta-button">Process Withdrawal</a></div>
+    `
+    return sendEmail({ to: adminEmail, toName: 'Admin', subject: `💸 Withdrawal Request – GHS ${details.amount.toFixed(2)} from ${details.shopName}`, htmlContent: generatePremiumTemplate('Withdrawal Request', content) })
+}

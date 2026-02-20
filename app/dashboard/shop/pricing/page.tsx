@@ -30,6 +30,7 @@ interface Package {
 
 interface ShopProfile {
     id: string
+    shop_name: string
     approval_status: string
     pricing_status: 'not_submitted' | 'pending_review' | 'approved' | 'rejected'
     pricing_note: string | null
@@ -69,7 +70,7 @@ export default function ShopPricingPage() {
         try {
             const { data: shopData } = await ((supabase as any)
                 .from('shop_profiles')
-                .select('id, approval_status, pricing_status, pricing_note, pricing_rejection_acknowledged')
+                .select('id, shop_name, approval_status, pricing_status, pricing_note, pricing_rejection_acknowledged')
                 .eq('owner_id', dbUser!.id)
                 .single())
 
@@ -179,6 +180,22 @@ export default function ShopPricingPage() {
 
             toast.success('Pricing submitted for admin review!')
             setShop(prev => prev ? { ...prev, pricing_status: 'pending_review' } : null)
+
+            // Alert 9 — notify admin about new pricing submission (non-blocking)
+            fetch('/api/shop/alerts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: 'admin_pricing_submission',
+                    payload: {
+                        shopName: shop?.shop_name || 'Unknown Shop',
+                        shopId: shop?.id || '',
+                        ownerName: `${dbUser?.first_name || ''} ${dbUser?.last_name || ''}`.trim(),
+                        ownerEmail: dbUser?.email || '',
+                        date: new Date().toLocaleString('en-GB'),
+                    },
+                }),
+            }).catch(err => console.warn('[ShopAlert]', err))
         } catch (err: any) {
             toast.error(err.message || 'Failed to submit pricing')
         } finally {

@@ -55,6 +55,7 @@ export default function ShopWithdrawPage() {
     const [submitting, setSubmitting] = useState(false)
     const [amount, setAmount] = useState('')
     const [momoNumber, setMomoNumber] = useState('')
+    const [shopName, setShopName] = useState('')
 
     useEffect(() => {
         if (dbUser && !isAdmin && !isSubAdmin) {
@@ -67,7 +68,7 @@ export default function ShopWithdrawPage() {
     const fetchData = async () => {
         try {
             const db = supabase as any
-            const [walletRes, historyRes, settingsRes] = await Promise.all([
+            const [walletRes, historyRes, settingsRes, shopRes] = await Promise.all([
                 db.from('shop_wallets').select('*').eq('owner_id', dbUser!.id).single(),
                 db.from('shop_wallet_transactions')
                     .select('*')
@@ -75,10 +76,12 @@ export default function ShopWithdrawPage() {
                     .order('created_at', { ascending: false })
                     .limit(20),
                 db.from('shop_global_settings').select('*'),
+                db.from('shop_profiles').select('shop_name').eq('owner_id', dbUser!.id).single(),
             ])
 
             if (walletRes.data) setWallet(walletRes.data)
             setHistory(historyRes.data || [])
+            if (shopRes.data?.shop_name) setShopName(shopRes.data.shop_name)
 
             // Parse global settings
             if (settingsRes.data) {
@@ -134,6 +137,23 @@ export default function ShopWithdrawPage() {
             setAmount('')
             setMomoNumber('')
             fetchData()
+
+            // Alert 11 — notify admin about new withdrawal request (non-blocking)
+            fetch('/api/shop/alerts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: 'admin_withdrawal_request',
+                    payload: {
+                        shopName: shopName || 'Unknown Shop',
+                        shopId: wallet?.id || '',
+                        ownerName: `${dbUser?.first_name || ''} ${dbUser?.last_name || ''}`.trim(),
+                        amount: amountNum,
+                        momoNumber: momoNumber.trim(),
+                        date: new Date().toLocaleString('en-GB'),
+                    },
+                }),
+            }).catch(err => console.warn('[ShopAlert]', err))
         } catch (err: any) {
             toast.error(err.message || 'Failed to submit request')
         } finally {

@@ -77,6 +77,25 @@ export default function AdminShopsPage() {
             if (error) throw error
             toast.success(action === 'approved' ? 'Shop profile approved! Owner can now set prices.' : 'Shop rejected.')
             fetchShops()
+
+            // Fire alert (non-blocking) — send SMS + Email to owner
+            const shop = shops.find(s => s.id === shopId)
+            if (shop && shop.owner) {
+                fetch('/api/shop/alerts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        type: action === 'approved' ? 'profile_approved' : 'profile_rejected',
+                        payload: {
+                            phone: shop.owner_phone,
+                            firstName: shop.owner.first_name,
+                            email: shop.owner.email,
+                            shopName: shop.shop_name,
+                            reason: action === 'rejected' ? 'Please check your dashboard for the rejection note.' : undefined,
+                        },
+                    }),
+                }).catch(err => console.warn('[ShopAlert] Failed to send alert:', err))
+            }
         } catch (err: any) {
             toast.error(err.message || 'Action failed')
         } finally {

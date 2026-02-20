@@ -417,3 +417,79 @@ KingFlexyGh`
     })
 }
 
+// ==========================================
+// SHOP ALERT SMS FUNCTIONS
+// ==========================================
+
+/**
+ * Alert 3 · Pricing Approved — SMS to shop owner
+ */
+export async function sendShopPricingApprovedSMS(
+    phoneNumber: string,
+    firstName: string
+) {
+    const message = `${firstName} Great news! Your shop pricing has been approved. Your prices are now live on your shop. Visit- kingflexygh.com/dashboard/shop
+
+KingFlexyGh`
+
+    return sendSMS({ recipient: phoneNumber, message })
+}
+
+/**
+ * Alert 4 · Pricing Rejected — SMS to shop owner
+ */
+export async function sendShopPricingRejectedSMS(
+    phoneNumber: string,
+    firstName: string,
+    reason: string
+) {
+    const message = `${firstName} Your shop pricing was not approved. Reason: ${reason}. Please log in and resubmit a new one.
+
+KingFlexyGh`
+
+    return sendSMS({ recipient: phoneNumber, message })
+}
+
+/**
+ * Alert 5 · Shop Profile Approved — SMS to shop owner
+ */
+export async function sendShopProfileApprovedSMS(
+    phoneNumber: string,
+    shopName: string
+) {
+    const message = `Congrats! Your shop "${shopName}" has been approved. You can now set your prices and go live. - kingflexygh.com
+
+KingFlexyGh`
+
+    return sendSMS({ recipient: phoneNumber, message })
+}
+
+/**
+ * Alert 6 · Shop Profile Rejected — SMS to shop owner
+ */
+export async function sendShopProfileRejectedSMS(
+    phoneNumber: string,
+    firstName: string,
+    reason: string
+) {
+    const message = `${firstName} Your shop application was not approved. Reason: ${reason}. Log in to update your profile. - kingflexygh.com
+
+KingFlexyGh`
+
+    return sendSMS({ recipient: phoneNumber, message })
+}
+
+/**
+ * Alert 7 · Withdrawal Processed — SMS to shop owner
+ */
+export async function sendShopWithdrawalProcessedSMS(
+    phoneNumber: string,
+    firstName: string,
+    amount: number
+) {
+    const message = `${firstName} Your withdrawal of GHS${amount.toFixed(2)} has been processed. Check your account for confirmation. - kingflexygh.com
+
+KingFlexyGh`
+
+    return sendSMS({ recipient: phoneNumber, message })
+}
