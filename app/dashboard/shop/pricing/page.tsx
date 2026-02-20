@@ -55,7 +55,7 @@ export default function ShopPricingPage() {
     const [saving, setSaving] = useState(false)
     const [acknowledging, setAcknowledging] = useState(false)
     const [activeNetwork, setActiveNetwork] = useState<string>('MTN')
-    const [profitMargin, setProfitMargin] = useState<string>('0.50')
+    const [manualMargin, setManualMargin] = useState<string>('0.50')
 
     useEffect(() => {
         if (dbUser && !isAdmin && !isSubAdmin) {
@@ -277,22 +277,37 @@ export default function ShopPricingPage() {
 
     const handleAutoGenerate = () => {
         if (!packages.length) return
-
         const newPricing: Record<string, string> = { ...pricing }
         let count = 0
-
         packages.forEach(pkg => {
             if (!pkg.is_available) return
-            const cost = getCostPrice(pkg)
-            // Logic: Cost + 0.50
-            const selling = cost + 0.50
+            const selling = getCostPrice(pkg) + 0.50
             newPricing[pkg.id] = selling.toFixed(2)
             count++
         })
-
         setPricing(newPricing)
-        toast.success(`Generated prices for ${count} packages (Cost + 0.50)!`, {
-            description: 'Review the prices below and click Submit when ready.'
+        toast.success(`Auto-generated prices for ${count} packages (Cost + GHS 0.50)`, {
+            description: 'Review below then click Submit for Approval when ready.'
+        })
+    }
+
+    const handleApplyManualMargin = () => {
+        const margin = parseFloat(manualMargin)
+        if (isNaN(margin) || margin <= 0) {
+            toast.error('Enter a valid profit amount greater than 0')
+            return
+        }
+        const newPricing: Record<string, string> = { ...pricing }
+        let count = 0
+        packages.forEach(pkg => {
+            if (!pkg.is_available) return
+            const selling = getCostPrice(pkg) + margin
+            newPricing[pkg.id] = selling.toFixed(2)
+            count++
+        })
+        setPricing(newPricing)
+        toast.success(`Applied GHS ${margin.toFixed(2)} profit to ${count} packages`, {
+            description: 'Review below then click Submit for Approval when ready.'
         })
     }
 
@@ -318,24 +333,6 @@ export default function ShopPricingPage() {
                         </p>
                     </div>
                     <div className="hidden sm:flex items-center gap-2">
-                        <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs">GHS</span>
-                            <Input
-                                type="number"
-                                value={profitMargin}
-                                onChange={(e) => setProfitMargin(e.target.value)}
-                                className="w-24 pl-8 h-10 bg-white dark:bg-gray-800"
-                                placeholder="0.50"
-                            />
-                        </div>
-                        <Button
-                            variant="outline"
-                            onClick={handleAutoGenerate}
-                            className="gap-2 border-emerald-200 text-emerald-700 hover:bg-emerald-50 dark:border-emerald-800 dark:text-emerald-400 dark:hover:bg-emerald-900/20"
-                        >
-                            <Sparkles className="w-4 h-4" />
-                            Auto Generate
-                        </Button>
                         <Button
                             onClick={handleSubmit}
                             disabled={saving}
@@ -426,6 +423,59 @@ export default function ShopPricingPage() {
                             </button>
                         )
                     })}
+                </div>
+
+                {/* ── Pricing Tools ── */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    {/* Auto Generate */}
+                    <div className="flex flex-col gap-2 p-4 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/60 dark:bg-emerald-900/10">
+                        <div className="flex items-center gap-2 mb-1">
+                            <Sparkles className="w-4 h-4 text-emerald-600" />
+                            <span className="font-semibold text-sm text-emerald-800 dark:text-emerald-300">Auto Generate Prices</span>
+                        </div>
+                        <p className="text-xs text-emerald-700 dark:text-emerald-400">
+                            Instantly sets all package prices at <strong>Cost + GHS 0.50</strong>. You can still edit individual prices after.
+                        </p>
+                        <Button
+                            onClick={handleAutoGenerate}
+                            className="mt-1 w-full gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
+                        >
+                            <Sparkles className="w-4 h-4" />
+                            Auto Generate (+GHS 0.50)
+                        </Button>
+                    </div>
+
+                    {/* Manual Profit */}
+                    <div className="flex flex-col gap-2 p-4 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50/60 dark:bg-blue-900/10">
+                        <div className="flex items-center gap-2 mb-1">
+                            <TrendingUp className="w-4 h-4 text-blue-600" />
+                            <span className="font-semibold text-sm text-blue-800 dark:text-blue-300">Manual Profit Margin</span>
+                        </div>
+                        <p className="text-xs text-blue-700 dark:text-blue-400">
+                            Enter your desired profit amount, then click <strong>Apply</strong> to set all prices at Cost + your amount.
+                        </p>
+                        <div className="flex gap-2 mt-1">
+                            <div className="relative flex-1">
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs font-medium">GHS</span>
+                                <Input
+                                    type="number"
+                                    min="0.01"
+                                    step="0.01"
+                                    value={manualMargin}
+                                    onChange={(e) => setManualMargin(e.target.value)}
+                                    className="pl-10 h-10 bg-white dark:bg-gray-800"
+                                    placeholder="e.g. 1.00"
+                                />
+                            </div>
+                            <Button
+                                onClick={handleApplyManualMargin}
+                                className="gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4"
+                            >
+                                <CheckCircle2 className="w-4 h-4" />
+                                Apply
+                            </Button>
+                        </div>
+                    </div>
                 </div>
 
                 {/* Pricing Table */}
@@ -555,32 +605,14 @@ export default function ShopPricingPage() {
                 </Card>
 
                 {/* Mobile Sticky Submit Button */}
-                <div className="fixed bottom-4 left-4 right-4 md:hidden z-10 flex gap-2 items-center bg-white/80 dark:bg-gray-900/80 backdrop-blur-md p-2 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-xl">
-                    <div className="relative w-20 flex-shrink-0">
-                        <span className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground text-[10px]">GHS</span>
-                        <Input
-                            type="number"
-                            value={profitMargin}
-                            onChange={(e) => setProfitMargin(e.target.value)}
-                            className="w-full pl-6 h-10 text-xs bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-700"
-                            placeholder="0.50"
-                        />
-                    </div>
-                    <Button
-                        variant="outline"
-                        onClick={handleAutoGenerate}
-                        className="flex-1 bg-white dark:bg-gray-800 border-emerald-200 text-emerald-700 h-10 text-xs gap-1 px-2"
-                    >
-                        <Sparkles className="w-3.5 h-3.5" />
-                        Auto
-                    </Button>
+                <div className="fixed bottom-4 left-4 right-4 md:hidden z-10 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md p-2 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-xl">
                     <Button
                         onClick={handleSubmit}
                         disabled={saving}
-                        className="flex-[2] bg-emerald-600 hover:bg-emerald-700 text-white h-10 text-sm gap-2"
+                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white h-11 text-sm gap-2"
                     >
                         {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                        {saving ? 'Submit' : 'Submit'}
+                        {saving ? 'Submitting...' : 'Submit for Approval'}
                     </Button>
                 </div>
             </div>
