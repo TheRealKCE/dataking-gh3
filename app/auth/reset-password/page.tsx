@@ -27,7 +27,7 @@ export default function ResetPasswordPage() {
         setIsLoading(true)
 
         try {
-            const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.kingflexygh.com'
+            const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.kingflexygh.com').replace(/\/$/, '')
             const { error } = await supabase.auth.resetPasswordForEmail(email, {
                 redirectTo: `${siteUrl}/auth/update-password`,
             })
