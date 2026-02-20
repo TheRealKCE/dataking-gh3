@@ -113,7 +113,7 @@ export default async function ShopPage({ params }: Props) {
     // Fetch live approved packages with shop pricing
     const { data: pricingRows } = await (supabase
         .from('shop_pricing')
-        .select('package_id, selling_price, data_packages(id, network, size, is_available)')
+        .select('package_id, selling_price, data_packages(id, network, size, description, sort_order, is_available)')
         .eq('shop_id', shop.id) as any)
 
     const packages = (pricingRows || [])
@@ -122,9 +122,11 @@ export default async function ShopPage({ params }: Props) {
             id: row.data_packages.id,
             network: row.data_packages.network,
             size: row.data_packages.size,
+            description: row.data_packages.description || null,
+            sort_order: row.data_packages.sort_order ?? 999,
             selling_price: parseFloat(row.selling_price),
         }))
-        .sort((a: any, b: any) => a.network.localeCompare(b.network) || a.selling_price - b.selling_price)
+        .sort((a: any, b: any) => a.network.localeCompare(b.network) || a.sort_order - b.sort_order)
 
     return <ShopStorefront shop={shop} packages={packages} />
 }

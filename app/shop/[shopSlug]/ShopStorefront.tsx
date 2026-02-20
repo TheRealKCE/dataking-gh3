@@ -8,7 +8,7 @@ import { formatCurrency } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import {
     Phone, Mail, MessageCircle, ShoppingCart, Loader2,
-    CheckCircle2, AlertCircle, X, ClipboardList
+    CheckCircle2, AlertCircle, X, ClipboardList, Zap
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
@@ -30,6 +30,7 @@ interface Package {
     id: string
     network: string
     size: string
+    description: string | null
     selling_price: number
 }
 
@@ -325,7 +326,7 @@ export default function ShopStorefront({ shop, packages }: Props) {
                                     key={pkg.id}
                                     onClick={() => setSelectedPackage(isSelected ? null : pkg)}
                                     className={cn(
-                                        'relative p-4 rounded-2xl border-2 text-left transition-all duration-200 active:scale-95',
+                                        'relative p-4 rounded-2xl border-2 text-left transition-all duration-200 active:scale-95 flex flex-col gap-1.5',
                                         isSelected
                                             ? 'shadow-lg scale-[1.02]'
                                             : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-md'
@@ -340,8 +341,10 @@ export default function ShopStorefront({ shop, packages }: Props) {
                                             <CheckCircle2 className="w-4 h-4 text-white" />
                                         </div>
                                     )}
+
+                                    {/* Network badge */}
                                     <div
-                                        className="inline-block text-[10px] font-black px-2 py-0.5 rounded-full mb-2"
+                                        className="inline-block text-[10px] font-black px-2 py-0.5 rounded-full self-start"
                                         style={netStyle
                                             ? { backgroundColor: netStyle.bg, color: netStyle.text }
                                             : { backgroundColor: '#e5e7eb', color: '#374151' }
@@ -349,12 +352,37 @@ export default function ShopStorefront({ shop, packages }: Props) {
                                     >
                                         {pkg.network}
                                     </div>
+
+                                    {/* Size */}
                                     <p className={cn('text-base font-black leading-tight', isSelected ? 'text-white' : 'text-gray-900 dark:text-white')}>
                                         {pkg.size}
                                     </p>
-                                    <p className={cn('text-sm font-bold mt-1', isSelected ? 'text-white/90' : 'text-gray-600 dark:text-gray-300')}>
+
+                                    {/* Price */}
+                                    <p className={cn('text-sm font-bold', isSelected ? 'text-white/90' : 'text-gray-600 dark:text-gray-300')}>
                                         {formatCurrency(pkg.selling_price)}
                                     </p>
+
+                                    {/* Instant Delivery tag */}
+                                    <div className={cn(
+                                        'inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full mt-0.5 self-start',
+                                        isSelected
+                                            ? 'bg-white/20 text-white'
+                                            : 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'
+                                    )}>
+                                        <Zap className="w-2.5 h-2.5" />
+                                        Instant Delivery
+                                    </div>
+
+                                    {/* Per-package description */}
+                                    {pkg.description && pkg.description !== 'Instant Delivery' && (
+                                        <p className={cn(
+                                            'text-[10px] leading-snug mt-0.5 line-clamp-2',
+                                            isSelected ? 'text-white/80' : 'text-gray-400 dark:text-gray-500'
+                                        )}>
+                                            {pkg.description}
+                                        </p>
+                                    )}
                                 </button>
                             )
                         })}
