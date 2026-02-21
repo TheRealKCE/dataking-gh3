@@ -36,7 +36,7 @@ interface ShopDetail {
     owner_email: string | null
     whatsapp_number: string | null
     created_at: string
-    owner?: { first_name: string; last_name: string; email: string }
+    owner?: { first_name: string; last_name: string; email: string; role: string }
 }
 
 interface ShopWallet {
@@ -101,7 +101,7 @@ export default function AdminShopDetailPage() {
             const [shopRes, walletRes, withdrawalRes, ordersRes, pendingRes] = await Promise.all([
                 // Fix: explicit FK to avoid ambiguous relationship error
                 (supabase as any).from('shop_profiles')
-                    .select('*, owner:users!shop_profiles_owner_id_fkey(first_name, last_name, email)')
+                    .select('*, owner:users!shop_profiles_owner_id_fkey(first_name, last_name, email, role)')
                     .eq('id', shopId).single(),
                 (supabase as any).from('shop_wallets').select('*').eq('owner_id',
                     // We'll get owner_id after shop loads — fetch by shop_id workaround
@@ -464,7 +464,9 @@ export default function AdminShopDetailPage() {
                                 <tbody>
                                     {pendingPrices.map(p => {
                                         const pkg = p.data_packages as any
-                                        const cost = pkg?.price || 0
+                                        // Agents get the agent_price, others get regular price
+                                        const isAgent = owner?.role === 'agent'
+                                        const cost = (isAgent && pkg?.agent_price > 0) ? pkg.agent_price : (pkg?.price || 0)
                                         const profit = p.selling_price - cost
                                         return (
                                             <tr key={p.package_id} className="border-b last:border-0">
