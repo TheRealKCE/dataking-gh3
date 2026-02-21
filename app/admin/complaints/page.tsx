@@ -141,6 +141,11 @@ export default function AdminComplaintsPage() {
                                                 <div className="flex flex-col">
                                                     <span className="font-medium">{complaint.users?.first_name} {complaint.users?.last_name}</span>
                                                     <span className="text-xs text-muted-foreground">{complaint.users?.email}</span>
+                                                    {complaint.orders?.shop_name && (
+                                                        <Badge variant="outline" className="mt-1 w-fit bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px] py-0 px-1.5 h-auto">
+                                                            Shop: {complaint.orders.shop_name}
+                                                        </Badge>
+                                                    )}
                                                 </div>
                                             </TableCell>
                                             <TableCell className="font-mono text-sm">
@@ -191,6 +196,11 @@ export default function AdminComplaintsPage() {
                                     <div className="flex flex-col">
                                         <span className="font-medium">{complaint.users?.first_name} {complaint.users?.last_name}</span>
                                         <span className="text-xs text-muted-foreground">{complaint.users?.email}</span>
+                                        {complaint.orders?.shop_name && (
+                                            <Badge variant="outline" className="mt-1 bg-emerald-50 text-emerald-700 border-emerald-200 text-[10px]">
+                                                Shop: {complaint.orders.shop_name}
+                                            </Badge>
+                                        )}
                                     </div>
                                     {getStatusBadge(complaint.status)}
                                 </div>
@@ -232,6 +242,11 @@ export default function AdminComplaintsPage() {
                         <DialogTitle>Complaint Details</DialogTitle>
                         <DialogDescription>
                             Order: {selectedComplaint?.orders?.reference_code}
+                            {selectedComplaint?.orders?.shop_name && (
+                                <span className="block text-emerald-600 font-semibold mt-1">
+                                    Reseller Shop: {selectedComplaint.orders.shop_name}
+                                </span>
+                            )}
                         </DialogDescription>
                     </DialogHeader>
 

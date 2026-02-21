@@ -11,10 +11,21 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
     ShoppingCart, Clock, CheckCircle2, XCircle, TrendingUp,
-    Search, ArrowLeft, AlertCircle, RefreshCcw
+    Search, ArrowLeft, AlertCircle, RefreshCcw, MessageSquare, Loader2
 } from 'lucide-react'
 import { toast } from 'sonner'
 import Link from 'next/link'
+import { format, differenceInHours } from 'date-fns'
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog'
+import { Label } from '@/components/ui/label'
+import { Textarea } from '@/components/ui/textarea'
 
 interface ShopOrder {
     id: string
@@ -49,6 +60,11 @@ export default function ShopOrdersPage() {
     const [filterStatus, setFilterStatus] = useState<string>('all')
     const [filterDate, setFilterDate] = useState<'today' | '7d' | '30d' | 'all'>('today')
     const [searchPhone, setSearchPhone] = useState('')
+
+    // Complaint state
+    const [selectedOrder, setSelectedOrder] = useState<ShopOrder | null>(null)
+    const [complaintDescription, setComplaintDescription] = useState('')
+    const [isSubmitting, setIsSubmitting] = useState(false)
 
     useEffect(() => {
         if (!dbUser) return
@@ -110,6 +126,56 @@ export default function ShopOrdersPage() {
         }
     }
 
+    const submitComplaint = async () => {
+        if (!selectedOrder || !complaintDescription) return
+
+        setIsSubmitting(true)
+        try {
+            // First, find the mirrored order ID
+            const { data: mirror, error: mirrorErr } = await (supabase as any)
+                .from('orders')
+                .select('id, reference_code')
+                .eq('shop_order_id', selectedOrder.id)
+                .single()
+
+            if (mirrorErr || !mirror) {
+                throw new Error('Could not find linked order record')
+            }
+
+            const response = await fetch('/api/complaints/submit', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    order_id: mirror.id,
+                    title: `[Shop: ${dbUser?.first_name}] Issue with order ${mirror.reference_code}`,
+                    description: complaintDescription,
+                    priority: 'medium',
+                })
+            })
+
+            if (!response.ok) {
+                const errorData = await response.json()
+                throw new Error(errorData.error || 'Failed to submit complaint')
+            }
+
+            toast.success('Complaint submitted successfully')
+            setSelectedOrder(null)
+            setComplaintDescription('')
+            fetchOrders() // Refresh to show complaint status if we add it to UI
+        } catch (error: any) {
+            console.error('Complaint submission error:', error)
+            toast.error(error.message || 'Failed to submit complaint')
+        } finally {
+            setIsSubmitting(false)
+        }
+    }
+
+    const isWithin48Hours = (createdAt: string) => {
+        const orderDate = new Date(createdAt)
+        const now = new Date()
+        return differenceInHours(now, orderDate) < 48
+    }
+
     const handleRefresh = async () => {
         setIsRefreshing(true)
         await fetchOrders()
@@ -126,13 +192,16 @@ export default function ShopOrdersPage() {
 
     // Stats Calculation
     const completed = filteredOrders.filter(o => o.status === 'completed')
+    const earningStatuses = ['pending', 'processing', 'completed']
+    const earningsOrders = filteredOrders.filter(o => earningStatuses.includes(o.status))
+
     const stats = {
         total: filteredOrders.length,
         pending: filteredOrders.filter(o => o.status === 'pending').length,
         processing: filteredOrders.filter(o => o.status === 'processing').length,
         completed: completed.length,
-        revenue: completed.reduce((sum, o) => sum + (o.selling_price || 0), 0),
-        profit: completed.reduce((sum, o) => sum + (o.profit || 0), 0)
+        revenue: earningsOrders.reduce((sum, o) => sum + (o.selling_price || 0), 0),
+        profit: earningsOrders.reduce((sum, o) => sum + (o.profit || 0), 0)
     }
 
     if (loading) {
@@ -292,13 +361,29 @@ export default function ShopOrdersPage() {
                                                 <td className="px-4 py-3 text-right font-medium">{formatCurrency(order.selling_price)}</td>
                                                 <td className="px-4 py-3 text-right text-emerald-600 font-semibold">{formatCurrency(order.profit)}</td>
                                                 <td className="px-4 py-3 text-center">
-                                                    <span className={cn(
-                                                        'inline-flex items-center gap-1 text-[10px] uppercase font-bold px-2 py-0.5 rounded-full',
-                                                        statusConfig[order.status]?.color || 'bg-gray-100 text-gray-600'
-                                                    )}>
-                                                        <StatusIcon className="w-3 h-3" />
-                                                        {statusConfig[order.status]?.label || order.status}
-                                                    </span>
+                                                    <div className="flex flex-col items-center gap-2">
+                                                        <span className={cn(
+                                                            'inline-flex items-center gap-1 text-[10px] uppercase font-bold px-2 py-0.5 rounded-full',
+                                                            statusConfig[order.status]?.color || 'bg-gray-100 text-gray-600'
+                                                        )}>
+                                                            <StatusIcon className="w-3 h-3" />
+                                                            {statusConfig[order.status]?.label || order.status}
+                                                        </span>
+                                                        {order.status === 'completed' && isWithin48Hours(order.created_at) && (
+                                                            <Button
+                                                                size="sm"
+                                                                variant="ghost"
+                                                                className="h-6 px-2 text-[10px] text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                                                                onClick={() => {
+                                                                    setSelectedOrder(order)
+                                                                    setComplaintDescription('')
+                                                                }}
+                                                            >
+                                                                <MessageSquare className="w-3 h-3 mr-1" />
+                                                                Complain
+                                                            </Button>
+                                                        )}
+                                                    </div>
                                                 </td>
                                             </tr>
                                         )
@@ -309,6 +394,58 @@ export default function ShopOrdersPage() {
                     </div>
                 </CardContent>
             </Card>
+
+            {/* Complaint Dialog */}
+            <Dialog open={!!selectedOrder} onOpenChange={() => setSelectedOrder(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>File a Complaint</DialogTitle>
+                        <DialogDescription>
+                            Describe the issue for order to {selectedOrder?.guest_phone}
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div className="p-4 rounded-xl bg-muted/50 text-sm">
+                            <div className="flex justify-between">
+                                <span>Phone:</span>
+                                <span className="font-mono">{selectedOrder?.guest_phone}</span>
+                            </div>
+                            <div className="flex justify-between mt-1">
+                                <span>Package:</span>
+                                <span>{selectedOrder?.network} {selectedOrder?.package_size}</span>
+                            </div>
+                            <div className="flex justify-between mt-1">
+                                <span>Price:</span>
+                                <span>{formatCurrency(selectedOrder?.selling_price || 0)}</span>
+                            </div>
+                        </div>
+                        <div className="space-y-2">
+                            <Label>Issue Description</Label>
+                            <Textarea
+                                placeholder="Describe the problem your customer is facing..."
+                                value={complaintDescription}
+                                onChange={(e) => setComplaintDescription(e.target.value)}
+                                rows={4}
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setSelectedOrder(null)}>
+                            Cancel
+                        </Button>
+                        <Button onClick={submitComplaint} disabled={isSubmitting || !complaintDescription}>
+                            {isSubmitting ? (
+                                <>
+                                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                    Submitting...
+                                </>
+                            ) : (
+                                'Submit Complaint'
+                            )}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }

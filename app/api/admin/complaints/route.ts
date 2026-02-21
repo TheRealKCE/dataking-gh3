@@ -12,7 +12,7 @@ export async function GET() {
             .select(`
                 *,
                 users (first_name, last_name, email),
-                orders (reference_code, phone_number, network, size, created_at)
+                orders (reference_code, phone_number, network, size, shop_name, created_at)
             `)
             .gte('created_at', new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString())
             .order('created_at', { ascending: false })

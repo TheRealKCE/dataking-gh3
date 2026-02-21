@@ -137,14 +137,17 @@ export default function ShopOverviewPage() {
             const processing = orders.filter((o: any) => o.status === 'processing')
             const failed = orders.filter((o: any) => o.status === 'failed')
 
+            const earningStatuses = ['pending', 'processing', 'completed']
+            const earningsOrders = orders.filter((o: any) => earningStatuses.includes(o.status))
+
             setStats({
                 total_orders: orders.length,
                 completed_orders: completed.length,
                 pending_orders: pending.length,
                 processing_orders: processing.length,
                 failed_orders: failed.length,
-                total_revenue: completed.reduce((sum: number, o: any) => sum + (o.selling_price || 0), 0),
-                total_profit: completed.reduce((sum: number, o: any) => sum + (o.profit || 0), 0),
+                total_revenue: earningsOrders.reduce((sum: number, o: any) => sum + (o.selling_price || 0), 0),
+                total_profit: earningsOrders.reduce((sum: number, o: any) => sum + (o.profit || 0), 0),
             })
         } catch (err) {
             console.error('Error fetching shop data:', err)
