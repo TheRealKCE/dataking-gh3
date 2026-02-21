@@ -340,14 +340,15 @@ export default function ShopOrdersPage() {
                 ))}
             </div>
 
-            {/* Table */}
+            {/* Orders List & Table */}
             <Card>
                 <CardHeader className="p-4 border-b">
                     <CardTitle className="text-base">Order History</CardTitle>
                 </CardHeader>
 
                 <CardContent className="p-0">
-                    <div className="overflow-x-auto">
+                    {/* Desktop Table View */}
+                    <div className="hidden md:block overflow-x-auto">
                         <table className="w-full text-sm">
                             <thead>
                                 <tr className="border-b text-xs text-muted-foreground bg-gray-50/50 dark:bg-gray-900/50">
@@ -430,6 +431,89 @@ export default function ShopOrdersPage() {
                                 )}
                             </tbody>
                         </table>
+                    </div>
+
+                    {/* Mobile Card View */}
+                    <div className="md:hidden divide-y">
+                        {filteredOrders.length === 0 ? (
+                            <div className="text-center py-10 text-muted-foreground">
+                                No orders found matching your filters.
+                            </div>
+                        ) : (
+                            filteredOrders.map((order) => {
+                                const StatusIcon = statusConfig[order.status]?.icon || Clock
+                                return (
+                                    <div key={order.id} className="p-4 space-y-4 hover:bg-muted/30 transition-colors">
+                                        <div className="flex justify-between items-start">
+                                            <div>
+                                                <p className="font-bold text-sm">{order.network} {order.package_size}</p>
+                                                <p className="text-xs font-mono text-muted-foreground mt-0.5">{order.guest_phone}</p>
+                                            </div>
+                                            <div className="flex flex-col items-end gap-2">
+                                                <span className={cn(
+                                                    'inline-flex items-center gap-1 text-[10px] uppercase font-bold px-2 py-0.5 rounded-full',
+                                                    statusConfig[order.status]?.color || 'bg-gray-100 text-gray-600'
+                                                )}>
+                                                    <StatusIcon className="w-3 h-3" />
+                                                    {statusConfig[order.status]?.label || order.status}
+                                                </span>
+                                            </div>
+                                        </div>
+
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-1">
+                                                <p className="text-[10px] uppercase text-muted-foreground font-medium">Date & Time</p>
+                                                <p className="text-xs">
+                                                    {new Date(order.created_at).toLocaleDateString()} at {new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                                                </p>
+                                            </div>
+                                            <div className="space-y-1 text-right">
+                                                <p className="text-[10px] uppercase text-muted-foreground font-medium">Earnings</p>
+                                                <div className="flex items-center justify-end gap-2">
+                                                    <span className="text-xs font-medium">{formatCurrency(order.selling_price)}</span>
+                                                    <span className="text-xs font-bold text-emerald-600">({formatCurrency(order.profit)})</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        {/* Action Area for Mobile */}
+                                        <div className="pt-2">
+                                            {(() => {
+                                                const orderComplaints = order.orders?.[0]?.complaints || []
+                                                if (orderComplaints.length > 0) {
+                                                    const complaintStatus = orderComplaints[0].status
+                                                    return (
+                                                        <div className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 border border-blue-100 dark:border-blue-800 w-full">
+                                                            <MessageSquare className="w-3.5 h-3.5" />
+                                                            <span className="text-[11px] font-bold uppercase tracking-wide">
+                                                                Complaint: {complaintStatus.replace('_', ' ')}
+                                                            </span>
+                                                        </div>
+                                                    )
+                                                }
+                                                if (order.status === 'completed' && isWithin48Hours(order.created_at)) {
+                                                    return (
+                                                        <Button
+                                                            size="sm"
+                                                            variant="outline"
+                                                            className="w-full h-9 text-xs text-orange-600 hover:text-orange-700 hover:bg-orange-50 border-orange-200 dark:border-orange-900"
+                                                            onClick={() => {
+                                                                setSelectedOrder(order)
+                                                                setComplaintDescription('')
+                                                            }}
+                                                        >
+                                                            <MessageSquare className="w-3.5 h-3.5 mr-2" />
+                                                            File a Complaint
+                                                        </Button>
+                                                    )
+                                                }
+                                                return null
+                                            })()}
+                                        </div>
+                                    </div>
+                                )
+                            })
+                        )}
                     </div>
                 </CardContent>
             </Card>
