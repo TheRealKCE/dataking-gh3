@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -81,7 +80,6 @@ export default function ShopStatusTracker() {
     const [todayLoading, setTodayLoading] = useState(false)
 
     const [hasSearched, setHasSearched] = useState(false)
-    const supabase = createClientComponentClient()
 
     // ─── 1. Auto-load Today's Orders (on mount) ───
     useEffect(() => {
@@ -96,18 +94,14 @@ export default function ShopStatusTracker() {
         const loadTodayOrders = async () => {
             setTodayLoading(true)
             try {
-                const { data, error } = await supabase
-                    .rpc('get_shop_orders_by_phone', {
-                        phone_number: savedPhone,
-                        limit_count: 10
-                    })
-
-                if (error) throw error
+                const res = await fetch(`/api/shop/lookup-orders?phone=${encodeURIComponent(savedPhone!)}&limit=10`)
+                if (!res.ok) throw new Error('Failed to fetch')
+                const json = await res.json()
 
                 // Filter to only show orders from last 24h
                 const yesterday = new Date()
                 yesterday.setHours(yesterday.getHours() - 24)
-                const recent = (data as any[] || []).filter(o => new Date(o.created_at) > yesterday)
+                const recent = (json.orders as any[] || []).filter(o => new Date(o.created_at) > yesterday)
 
                 setTodayOrders(recent)
                 if (recent.length > 0) setPhone(savedPhone!)
@@ -133,15 +127,11 @@ export default function ShopStatusTracker() {
         setSearchOrders([])
 
         try {
-            const { data, error } = await supabase
-                .rpc('get_shop_orders_by_phone', {
-                    phone_number: cleanPhone,
-                    limit_count: 50
-                })
+            const res = await fetch(`/api/shop/lookup-orders?phone=${encodeURIComponent(cleanPhone)}&limit=50`)
+            if (!res.ok) throw new Error('Failed to fetch')
+            const json = await res.json()
 
-            if (error) throw error
-
-            const orders = data as any[] || []
+            const orders = json.orders as any[] || []
             setSearchOrders(orders)
 
             if (orders.length > 0) {

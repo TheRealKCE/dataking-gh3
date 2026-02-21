@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/auth-context'
-import { supabase } from '@/lib/supabase'
 import { formatCurrency, cn } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -55,57 +54,24 @@ export default function ShopOrdersPage() {
         fetchOrders()
     }, [dbUser, filterDate])
 
-    const fetchOrders = async (refreshing = false) => {
+    const fetchOrders = async () => {
         try {
-            // Step 1: get the shop that belongs to this user
-            const { data: shop, error: shopErr } = await (supabase as any)
-                .from('shop_profiles')
-                .select('id')
-                .eq('owner_id', dbUser!.id)
-                .single()
+            const res = await fetch(`/api/shop/my-orders?filterDate=${filterDate}`)
+            const json = await res.json()
 
-            if (shopErr || !shop) {
-                // Not a shop owner — if also not admin, redirect
-                if (!isAdmin && !isSubAdmin) {
+            if (!res.ok) {
+                // If not a shop owner and not admin, redirect
+                if (res.status === 404 && !isAdmin && !isSubAdmin) {
                     router.replace('/dashboard')
                     return
                 }
-                // Admin or shop owner but shop profile not found/accessible
-                // This usually means the RLS policy is missing — run fix_shop_orders_fetch.sql
-                if (shopErr) {
-                    console.error('[ShopOrders] shop_profiles query failed:', shopErr)
-                    toast.error(`Shop lookup failed: ${shopErr.message}`)
-                } else {
-                    toast.error('No shop found for your account')
-                }
+                console.error('[ShopOrders] API error:', json)
+                toast.error(json.error || 'Failed to load orders')
                 setOrders([])
                 return
             }
 
-            // Step 2: fetch orders for this shop
-            let query = (supabase as any)
-                .from('shop_orders')
-                .select('*')
-                .eq('shop_id', shop.id)  // Use shop.id directly — no stale state
-                .neq('status', 'pending') // Exclude unpaid
-
-            // Apply Date Filter
-            const now = new Date()
-            if (filterDate === 'today') {
-                const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
-                query = query.gte('created_at', startOfDay)
-            } else if (filterDate === '7d') {
-                const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
-                query = query.gte('created_at', sevenDaysAgo)
-            } else if (filterDate === '30d') {
-                const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString()
-                query = query.gte('created_at', thirtyDaysAgo)
-            }
-
-            const { data, error } = await query.order('created_at', { ascending: false })
-
-            if (error) throw error
-            setOrders(data || [])
+            setOrders(json.orders || [])
         } catch (err) {
             console.error('Error fetching orders:', err)
             toast.error('Failed to load orders')
