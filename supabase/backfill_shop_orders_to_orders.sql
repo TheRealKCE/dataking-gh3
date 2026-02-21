@@ -5,6 +5,9 @@
 -- Safe to run multiple times (NOT EXISTS guard).
 -- ============================================================
 
+-- Step 0: Relax user_id constraint to allow Guest Shop Orders (NULL user_id)
+ALTER TABLE public.orders ALTER COLUMN user_id DROP NOT NULL;
+
 -- Optional preview: uncomment to see what will be inserted first
 -- SELECT
 --     so.id AS shop_order_id,
