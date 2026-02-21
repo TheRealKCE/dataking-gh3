@@ -37,6 +37,10 @@ interface ShopOrder {
     status: string
     created_at: string
     shop_id: string
+    orders?: {
+        id: string
+        complaints: any[]
+    }[]
 }
 
 const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
@@ -92,7 +96,7 @@ export default function ShopOrdersPage() {
             // Build the orders query — all statuses, filtered by date
             let query = (supabase as any)
                 .from('shop_orders')
-                .select('*')
+                .select('*, orders:orders!shop_order_id(id, complaints(*))')
                 .eq('shop_id', shopData.id)
 
             const now = new Date()
@@ -158,10 +162,26 @@ export default function ShopOrdersPage() {
                 throw new Error(errorData.error || 'Failed to submit complaint')
             }
 
+            const { complaint: newComplaint } = await response.json()
+
             toast.success('Complaint submitted successfully')
+
+            // Optimistic Update: Add the complaint to the local state
+            setOrders(prevOrders => prevOrders.map(o => {
+                if (o.id === selectedOrder.id) {
+                    return {
+                        ...o,
+                        orders: [{
+                            id: mirror.id,
+                            complaints: [newComplaint]
+                        }]
+                    }
+                }
+                return o
+            }))
+
             setSelectedOrder(null)
             setComplaintDescription('')
-            fetchOrders() // Refresh to show complaint status if we add it to UI
         } catch (error: any) {
             console.error('Complaint submission error:', error)
             toast.error(error.message || 'Failed to submit complaint')
@@ -369,20 +389,39 @@ export default function ShopOrdersPage() {
                                                             <StatusIcon className="w-3 h-3" />
                                                             {statusConfig[order.status]?.label || order.status}
                                                         </span>
-                                                        {order.status === 'completed' && isWithin48Hours(order.created_at) && (
-                                                            <Button
-                                                                size="sm"
-                                                                variant="ghost"
-                                                                className="h-6 px-2 text-[10px] text-orange-600 hover:text-orange-700 hover:bg-orange-50"
-                                                                onClick={() => {
-                                                                    setSelectedOrder(order)
-                                                                    setComplaintDescription('')
-                                                                }}
-                                                            >
-                                                                <MessageSquare className="w-3 h-3 mr-1" />
-                                                                Complain
-                                                            </Button>
-                                                        )}
+
+                                                        {/* Complaint Status or Button */}
+                                                        {(() => {
+                                                            const orderComplaints = order.orders?.[0]?.complaints || []
+                                                            if (orderComplaints.length > 0) {
+                                                                const complaintStatus = orderComplaints[0].status
+                                                                return (
+                                                                    <div className="flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400 border border-blue-100 dark:border-blue-800">
+                                                                        <MessageSquare className="w-2.5 h-2.5" />
+                                                                        <span className="text-[9px] font-bold uppercase">
+                                                                            Complaint: {complaintStatus.replace('_', ' ')}
+                                                                        </span>
+                                                                    </div>
+                                                                )
+                                                            }
+                                                            if (order.status === 'completed' && isWithin48Hours(order.created_at)) {
+                                                                return (
+                                                                    <Button
+                                                                        size="sm"
+                                                                        variant="ghost"
+                                                                        className="h-6 px-2 text-[10px] text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+                                                                        onClick={() => {
+                                                                            setSelectedOrder(order)
+                                                                            setComplaintDescription('')
+                                                                        }}
+                                                                    >
+                                                                        <MessageSquare className="w-3 h-3 mr-1" />
+                                                                        Complain
+                                                                    </Button>
+                                                                )
+                                                            }
+                                                            return null
+                                                        })()}
                                                     </div>
                                                 </td>
                                             </tr>
