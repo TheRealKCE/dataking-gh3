@@ -126,44 +126,49 @@ export async function POST(request: NextRequest) {
         const paystackFee = Math.round(sellingPrice * (paystackFeePercent / 100) * 100) / 100
         const totalAmount = Math.round((sellingPrice + paystackFee) * 100) // Paystack uses kobo/pesewas
 
-        // 5. Initialize Paystack — use platform email, guest stays anonymous
-        // NEW: We don't create the shop_orders record until AFTER payment is successful
+        // 5. Initialize Paystack — use owner email for branding, guest stays anonymous
         const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY
         if (!PAYSTACK_SECRET_KEY) {
             return NextResponse.json({ error: 'Payment service unavailable' }, { status: 503 })
         }
 
-        // Fetch support email from admin settings for branding
-        let supportEmail = 'kingflexydatalimited@gmail.com'
-        try {
-            const { data: emailData } = await db
-                .from('admin_settings')
-                .select('value')
-                .eq('key', 'support_email')
-                .maybeSingle()
+        // Determine the branding email (Owner Email > Support Email > Default Gmail)
+        let brandingEmail = 'kingflexydatalimited@gmail.com'
+        const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/
 
-            if (emailData?.value && typeof emailData.value === 'string') {
-                // Path: Extract only the email address part using regex
-                // This handles cases like "email@domain.com or call 055..."
-                const emailMatch = emailData.value.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)
-                if (emailMatch) {
-                    supportEmail = emailMatch[0].toLowerCase().trim()
-                }
+        // A. Try Shop Owner Email
+        if (shop.owner?.email) {
+            const ownerEmailMatch = shop.owner.email.match(emailRegex)
+            if (ownerEmailMatch) {
+                brandingEmail = ownerEmailMatch[0].toLowerCase().trim()
             }
-        } catch (error) {
-            console.error('[Shop Initialize] Error fetching support_email:', error)
+        }
+
+        // B. Try Support Email from settings if owner email failed or for backup
+        if (brandingEmail === 'kingflexydatalimited@gmail.com') {
+            try {
+                const { data: emailData } = await db
+                    .from('admin_settings')
+                    .select('value')
+                    .eq('key', 'support_email')
+                    .maybeSingle()
+
+                if (emailData?.value && typeof emailData.value === 'string') {
+                    const emailMatch = emailData.value.match(emailRegex)
+                    if (emailMatch) {
+                        brandingEmail = emailMatch[0].toLowerCase().trim()
+                    }
+                }
+            } catch (error) {
+                console.error('[Shop Initialize] Error fetching support_email:', error)
+            }
         }
 
         const paystackRef = `SHOP-${shop.id.slice(0, 8)}-${Date.now()}`
         const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://kingflexygh.com'
         const callbackUrl = `${appUrl}/api/shop/verify?ref=${paystackRef}&slug=${shopSlug}`
 
-        // FINAL VALIDATION: Ensure email is a valid string
-        const finalEmail = (supportEmail && typeof supportEmail === 'string' && supportEmail.includes('@'))
-            ? supportEmail.trim()
-            : 'kingflexydatalimited@gmail.com';
-
-        console.log(`[Shop Initialize] Initializing Paystack. Email: ${finalEmail}, Amount: ${totalAmount}, Ref: ${paystackRef}`)
+        console.log(`[Shop Initialize] Initializing Paystack. Email: ${brandingEmail}, Amount: ${totalAmount}, Ref: ${paystackRef}`)
 
         const paystackRes = await fetch('https://api.paystack.co/transaction/initialize', {
             method: 'POST',
@@ -172,7 +177,7 @@ export async function POST(request: NextRequest) {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                email: finalEmail,
+                email: brandingEmail,
                 amount: totalAmount,
                 reference: paystackRef,
                 callback_url: callbackUrl,
