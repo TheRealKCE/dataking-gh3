@@ -190,7 +190,6 @@ export async function GET(request: NextRequest) {
                 cost_price: verifiedCostPrice,
                 status: initialStatus,
                 payment_status: 'paid',
-                payment_method: 'paystack',
                 reference_code: `SHOP-${ref.slice(-10)}`,
                 fulfillment_method: 'auto',
                 shop_name: shopProfile?.shop_name || slug,
