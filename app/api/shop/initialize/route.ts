@@ -134,13 +134,23 @@ export async function POST(request: NextRequest) {
         }
 
         // Fetch support email from admin settings for branding
-        const { data: supportEmailSetting } = await db
-            .from('admin_settings')
-            .select('value')
-            .eq('key', 'support_email')
-            .single()
+        let supportEmail = 'kingflexydatalimited@gmail.com'
+        try {
+            const { data: emailData } = await db
+                .from('admin_settings')
+                .select('value')
+                .eq('key', 'support_email')
+                .maybeSingle()
 
-        const supportEmail = supportEmailSetting?.value || 'kingflexydatalimited@gmail.com'
+            if (emailData?.value && typeof emailData.value === 'string' && emailData.value.includes('@')) {
+                const trimmed = emailData.value.trim()
+                if (trimmed.length > 5) { // Simple check for valid-looking email
+                    supportEmail = trimmed
+                }
+            }
+        } catch (error) {
+            console.error('[Shop Initialize] Error fetching support_email:', error)
+        }
 
         const paystackRef = `SHOP-${shop.id.slice(0, 8)}-${Date.now()}`
         const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://kingflexygh.com'
