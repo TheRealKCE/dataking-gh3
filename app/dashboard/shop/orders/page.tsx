@@ -47,7 +47,7 @@ export default function ShopOrdersPage() {
 
     // Filter state
     const [filterStatus, setFilterStatus] = useState<string>('all')
-    const [filterDate, setFilterDate] = useState<'today' | '7d' | '30d' | 'all'>('all')
+    const [filterDate, setFilterDate] = useState<'today' | '7d' | '30d' | 'all'>('today')
     const [searchPhone, setSearchPhone] = useState('')
 
     useEffect(() => {

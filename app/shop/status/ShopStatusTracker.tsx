@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -81,7 +80,6 @@ export default function ShopStatusTracker() {
     const [todayLoading, setTodayLoading] = useState(false) // Initial load state
 
     const [hasSearched, setHasSearched] = useState(false)
-    const supabase = createClientComponentClient()
 
     // ─── 1. Auto-load Today's Orders (on mount) ───
     useEffect(() => {
@@ -96,27 +94,18 @@ export default function ShopStatusTracker() {
         const loadTodayOrders = async () => {
             setTodayLoading(true)
             try {
-                // Use the RPC for consistent fetching
-                const { data, error } = await supabase
-                    .rpc('get_shop_orders_by_phone', {
-                        phone_number: savedPhone,
-                        limit_count: 10
-                    })
+                const res = await fetch(`/api/shop/orders?phone=${encodeURIComponent(savedPhone!)}&limit=10`)
+                if (!res.ok) throw new Error('Failed to fetch')
+                const json = await res.json()
 
-                if (error) throw error
-
-                // Filter client-side for "today only" logic if needed, 
-                // but showing the last 10 explicit recent orders is actually better UX anyway.
-                // We'll trust the RPC's "order by created_at desc"
-
-                // Let's filter to only show orders from last 24h to keep "Today's Orders" semantic
+                // Filter to only show orders from last 24h to keep "Today's Orders" semantic
                 const yesterday = new Date()
                 yesterday.setHours(yesterday.getHours() - 24)
 
-                const recent = (data as any[] || []).filter(o => new Date(o.created_at) > yesterday)
+                const recent = (json.orders as any[] || []).filter(o => new Date(o.created_at) > yesterday)
 
                 setTodayOrders(recent)
-                if (recent.length > 0) setPhone(savedPhone) // Pre-fill search
+                if (recent.length > 0) setPhone(savedPhone!) // Pre-fill search
             } catch (err) {
                 console.error("Error loading auto orders:", err)
             } finally {
@@ -140,16 +129,11 @@ export default function ShopStatusTracker() {
         setSearchOrders([]) // Clear previous results while loading
 
         try {
-            // Call the secure RPC function
-            const { data, error } = await supabase
-                .rpc('get_shop_orders_by_phone', {
-                    phone_number: cleanPhone,
-                    limit_count: 50 // Fetch more history for manual search
-                })
+            const res = await fetch(`/api/shop/orders?phone=${encodeURIComponent(cleanPhone)}&limit=50`)
+            if (!res.ok) throw new Error('Failed to fetch')
+            const json = await res.json()
 
-            if (error) throw error
-
-            const orders = data as any[] || []
+            const orders = json.orders as any[] || []
             setSearchOrders(orders)
 
             // Save successful search to history for next time
