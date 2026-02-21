@@ -172,9 +172,28 @@ export async function GET(request: NextRequest) {
                     }
                 }
                 console.error('[Shop Verify] Failed to create shop order:', createError)
-                return NextResponse.redirect(new URL(`/shop/${slug}?error=server_error`, request.url))
+                return NextResponse.json({ error: 'Failed to create shop order' }, { status: 500 })
             }
             orderId = newOrder?.id
+
+            // Mirror to main orders table so admin can see it in 'All Orders'
+            // We set user_id to NULL because it's a guest purchase, so it doesn't 
+            // appear in any user's personal order history.
+            await db.from('orders').insert({
+                user_id: null,
+                phone_number: metadata.guest_phone,
+                network: metadata.network,
+                size: metadata.package_size,
+                price: dbSellingPrice,
+                cost_price: verifiedCostPrice,
+                status: initialStatus,
+                payment_status: 'paid',
+                payment_method: 'paystack',
+                reference_code: `SHOP-${ref.slice(-10)}`,
+                fulfillment_method: 'auto',
+                shop_name: shopProfile?.shop_name || slug,
+                shop_order_id: orderId
+            })
         }
 
         // NOTE: Shop orders live only in shop_orders, NOT mirrored to orders.

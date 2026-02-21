@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
         // 2. Fetch package (must be available)
         const { data: pkg, error: pkgError } = await db
             .from('data_packages')
-            .select('id, network, size, cost_price, is_available')
+            .select('id, network, size, price, agent_price, cost_price, is_available')
             .eq('id', packageId)
             .eq('is_available', true)
             .single()
@@ -89,8 +89,11 @@ export async function POST(request: NextRequest) {
         }
 
         const sellingPrice = parseFloat(shopPrice.selling_price)
-        // Correct Logic: Shop's cost is the platform's selling price (pkg.price), not the platform's cost (pkg.cost_price)
-        const costPrice = parseFloat(pkg.price) || 0
+
+        // Correct Logic: Shop's cost is the platform's selling price for the owner.
+        // If owner is agent, use agent_price. Otherwise use regular price.
+        const isAgentOwner = shop.owner?.role === 'agent' && parseFloat(pkg.agent_price) > 0
+        const costPrice = isAgentOwner ? parseFloat(pkg.agent_price) : (parseFloat(pkg.price) || 0)
         const profit = sellingPrice - costPrice
 
         // === SECURITY: Explicit price guards ===
