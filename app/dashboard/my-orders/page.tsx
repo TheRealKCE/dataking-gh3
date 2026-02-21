@@ -84,6 +84,7 @@ export default function MyOrdersPage() {
                 .from('orders')
                 .select('*, complaints(*)')
                 .eq('user_id', dbUser?.id as any)
+                .is('shop_order_id', null)  // Exclude mirrored shop orders from storefront
                 .gte('created_at', thirtyDaysAgo.toISOString())
                 .order('created_at', { ascending: false })
 

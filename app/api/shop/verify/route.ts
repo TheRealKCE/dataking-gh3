@@ -169,25 +169,9 @@ export async function GET(request: NextRequest) {
             orderId = newOrder?.id
         }
 
-        // 4.5 Mirror to main 'orders' table for admin visibility
-        try {
-            await db.from('orders').insert({
-                user_id: shopProfile?.owner_id,
-                shop_order_id: orderId,
-                shop_name: metadata.shop_name,
-                phone_number: metadata.guest_phone,
-                network: metadata.network,
-                size: metadata.package_size,
-                price: dbSellingPrice,             // FROM DATABASE
-                cost_price: verifiedCostPrice,     // FROM DATABASE
-                status: initialStatus,
-                payment_status: 'paid',
-                fulfillment_method: fulfillmentMode,
-                reference_code: `SHOP-${ref.slice(-8)}`,
-            })
-        } catch (mirrorErr) {
-            console.error('[Shop Verify] Mirroring error:', mirrorErr)
-        }
+        // NOTE: Shop orders live only in shop_orders, NOT mirrored to orders.
+        // Mirroring was removed to prevent guest shop orders from appearing
+        // in the shop owner's personal 'My Order History' page.
 
         // 5. Credit profit immediately upon successful payment
         try {
@@ -264,15 +248,7 @@ async function triggerShopFulfillment(
                 updated_at: updatedAt,
             }).eq('id', orderId)
 
-            // Update mirrored main order
-            const { data: sOrder } = await db.from('shop_orders').select('paystack_reference').eq('id', orderId).single()
-            if (sOrder?.paystack_reference) {
-                const mirrorRef = `SHOP-${sOrder.paystack_reference.slice(-8)}`
-                await db.from('orders').update({
-                    status: 'processing',
-                    updated_at: updatedAt,
-                }).eq('reference_code', mirrorRef)
-            }
+            // No mirror record to update — shop orders are self-contained in shop_orders.
         } else {
             console.error(`[Shop Fulfillment] Failed for order ${orderId}:`, result.error)
         }
