@@ -98,6 +98,7 @@ export default function ShopOrdersPage() {
     const completed = filteredOrders.filter(o => o.status === 'completed')
     const stats = {
         total: filteredOrders.length,
+        pending: filteredOrders.filter(o => o.status === 'pending').length,
         processing: filteredOrders.filter(o => o.status === 'processing').length,
         completed: completed.length,
         revenue: completed.reduce((sum, o) => sum + (o.selling_price || 0), 0),
@@ -146,14 +147,66 @@ export default function ShopOrdersPage() {
                 </div>
             </div>
 
+            {/* Filters Section - Moved to Top */}
+            <div className="flex flex-col lg:flex-row gap-4 items-center justify-between bg-muted/30 p-4 rounded-xl border">
+                {/* Search */}
+                <div className="relative w-full lg:w-64">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                    <Input
+                        placeholder="Search phone number..."
+                        value={searchPhone}
+                        onChange={(e) => setSearchPhone(e.target.value)}
+                        className="pl-9 h-9 bg-background"
+                    />
+                </div>
+
+                {/* Filters */}
+                <div className="flex w-full lg:w-auto overflow-x-auto gap-2">
+                    {/* Date Filter */}
+                    <div className="flex bg-muted rounded-lg p-1 shrink-0">
+                        {[
+                            { id: 'today', label: 'Today' },
+                            { id: '7d', label: '7 Days' },
+                            { id: '30d', label: '30 Days' },
+                            { id: 'all', label: 'All' },
+                        ].map((f) => (
+                            <button
+                                key={f.id}
+                                onClick={() => setFilterDate(f.id as any)}
+                                className={cn(
+                                    "px-3 py-1 text-xs font-medium rounded-md transition-all whitespace-nowrap",
+                                    filterDate === f.id ? "bg-white dark:bg-gray-800 shadow-sm text-emerald-600" : "text-muted-foreground hover:text-foreground"
+                                )}
+                            >
+                                {f.label}
+                            </button>
+                        ))}
+                    </div>
+
+                    {/* Status Filter */}
+                    <select
+                        className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                        value={filterStatus}
+                        onChange={(e) => setFilterStatus(e.target.value)}
+                    >
+                        <option value="all">All Status</option>
+                        <option value="pending">Pending</option>
+                        <option value="completed">Completed</option>
+                        <option value="processing">Processing</option>
+                        <option value="failed">Failed</option>
+                        <option value="refunded">Refunded</option>
+                    </select>
+                </div>
+            </div>
+
             {/* Stats Cards */}
-            <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+            <div className="grid grid-cols-2 lg:grid-cols-6 gap-3">
                 {[
                     { label: 'Total Orders', value: stats.total, icon: ShoppingCart, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-900/20' },
+                    { label: 'Pending', value: stats.pending, icon: Clock, color: 'text-yellow-600', bg: 'bg-yellow-50 dark:bg-yellow-900/20' },
                     { label: 'Processing', value: stats.processing, icon: Clock, color: 'text-orange-600', bg: 'bg-orange-50 dark:bg-orange-900/20' },
                     { label: 'Completed', value: stats.completed, icon: CheckCircle2, color: 'text-green-600', bg: 'bg-green-50 dark:bg-green-900/20' },
                     { label: 'Total Revenue', value: formatCurrency(stats.revenue), icon: TrendingUp, color: 'text-purple-600', bg: 'bg-purple-50 dark:bg-purple-900/20' },
-                    // Added Profit Card as requested
                     { label: 'Total Profit', value: formatCurrency(stats.profit), icon: TrendingUp, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-900/20' },
                 ].map((stat) => (
                     <Card key={stat.label} className="border shadow-sm">
@@ -168,58 +221,10 @@ export default function ShopOrdersPage() {
                 ))}
             </div>
 
-            {/* Filters & Table */}
+            {/* Table */}
             <Card>
                 <CardHeader className="p-4 border-b">
-                    <div className="flex flex-col lg:flex-row gap-4 items-center justify-between">
-                        {/* Search */}
-                        <div className="relative w-full lg:w-64">
-                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                            <Input
-                                placeholder="Search phone number..."
-                                value={searchPhone}
-                                onChange={(e) => setSearchPhone(e.target.value)}
-                                className="pl-9 h-9"
-                            />
-                        </div>
-
-                        {/* Filters */}
-                        <div className="flex w-full lg:w-auto overflow-x-auto gap-2">
-                            {/* Date Filter */}
-                            <div className="flex bg-muted rounded-lg p-1 shrink-0">
-                                {[
-                                    { id: 'today', label: 'Today' },
-                                    { id: '7d', label: '7 Days' },
-                                    { id: '30d', label: '30 Days' },
-                                    { id: 'all', label: 'All' },
-                                ].map((f) => (
-                                    <button
-                                        key={f.id}
-                                        onClick={() => setFilterDate(f.id as any)}
-                                        className={cn(
-                                            "px-3 py-1 text-xs font-medium rounded-md transition-all whitespace-nowrap",
-                                            filterDate === f.id ? "bg-white dark:bg-gray-800 shadow-sm text-emerald-600" : "text-muted-foreground hover:text-foreground"
-                                        )}
-                                    >
-                                        {f.label}
-                                    </button>
-                                ))}
-                            </div>
-
-                            {/* Status Filter */}
-                            <select
-                                className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                                value={filterStatus}
-                                onChange={(e) => setFilterStatus(e.target.value)}
-                            >
-                                <option value="all">All Status</option>
-                                <option value="completed">Completed</option>
-                                <option value="processing">Processing</option>
-                                <option value="failed">Failed</option>
-                                <option value="refunded">Refunded</option>
-                            </select>
-                        </div>
-                    </div>
+                    <CardTitle className="text-base">Order History</CardTitle>
                 </CardHeader>
 
                 <CardContent className="p-0">

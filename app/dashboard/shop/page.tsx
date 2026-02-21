@@ -42,6 +42,7 @@ interface ShopWallet {
 interface ShopStats {
     total_orders: number
     completed_orders: number
+    pending_orders: number
     processing_orders: number
     failed_orders: number
     total_revenue: number
@@ -106,7 +107,6 @@ export default function ShopOverviewPage() {
                 .from('shop_orders')
                 .select('*')
                 .eq('shop_id', shopData.id)
-                .neq('status', 'pending') // Always exclude unpaid pending orders
 
             const now = new Date()
             if (filter === 'today') {
@@ -131,7 +131,8 @@ export default function ShopOverviewPage() {
             const orders = ordersRes.data || []
             setRecentOrders(orders)
 
-            // Calculate stats based on non-pending filtered orders
+            // Calculate stats
+            const pending = orders.filter((o: any) => o.status === 'pending')
             const completed = orders.filter((o: any) => o.status === 'completed')
             const processing = orders.filter((o: any) => o.status === 'processing')
             const failed = orders.filter((o: any) => o.status === 'failed')
@@ -139,6 +140,7 @@ export default function ShopOverviewPage() {
             setStats({
                 total_orders: orders.length,
                 completed_orders: completed.length,
+                pending_orders: pending.length,
                 processing_orders: processing.length,
                 failed_orders: failed.length,
                 total_revenue: completed.reduce((sum: number, o: any) => sum + (o.selling_price || 0), 0),
@@ -379,6 +381,7 @@ export default function ShopOverviewPage() {
                 <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
                     {[
                         { label: 'Total Orders', value: stats?.total_orders || 0, icon: ShoppingCart, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-900/20' },
+                        { label: 'Pending', value: stats?.pending_orders || 0, icon: Clock, color: 'text-yellow-600', bg: 'bg-yellow-50 dark:bg-yellow-900/20' },
                         { label: 'Processing', value: stats?.processing_orders || 0, icon: Clock, color: 'text-orange-600', bg: 'bg-orange-50 dark:bg-orange-900/20' },
                         { label: 'Completed', value: stats?.completed_orders || 0, icon: CheckCircle2, color: 'text-green-600', bg: 'bg-green-50 dark:bg-green-900/20' },
                         { label: 'Total Revenue', value: formatCurrency(stats?.total_revenue || 0), icon: TrendingUp, color: 'text-purple-600', bg: 'bg-purple-50 dark:bg-purple-900/20' },

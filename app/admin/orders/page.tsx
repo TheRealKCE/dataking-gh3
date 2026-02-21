@@ -725,8 +725,8 @@ export default function AdminOrdersPage() {
                                         <div className="flex items-center gap-1">
                                             <span className="font-bold text-[10px]">{order.users?.first_name} {order.users?.last_name}</span>
                                             {order.shop_name && (
-                                                <Badge variant="outline" className="text-[8px] h-3 px-1 leading-none bg-blue-50 text-blue-600 border-blue-100">
-                                                    {order.shop_name}
+                                                <Badge variant="secondary" className="text-[9px] h-4 px-1.5 bg-blue-100 text-blue-700 hover:bg-blue-100 border-blue-200">
+                                                    Shop: {order.shop_name}
                                                 </Badge>
                                             )}
                                         </div>
