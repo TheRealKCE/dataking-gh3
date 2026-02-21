@@ -144,9 +144,10 @@ export default function ShopWithdrawPage() {
             })
             if (error) throw error
 
-            // Deduct from balance immediately (pending)
+            // Deduct from balance immediately (pending) AND update total_withdrawn
             await (supabase as any).from('shop_wallets').update({
                 balance: (wallet!.balance - amountNum),
+                total_withdrawn: (wallet!.total_withdrawn || 0) + amountNum,
                 updated_at: new Date().toISOString(),
             }).eq('id', wallet!.id)
 

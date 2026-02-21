@@ -163,19 +163,18 @@ export default function AdminWithdrawalsPage() {
 
             // 2. Update wallet (balance restoration or withdrawal count)
             if (action === 'rejected') {
-                // Restore balance
-                const { data: wallet } = await (supabase as any).from('shop_wallets').select('balance').eq('owner_id', w.shop.owner_id).single()
+                // Restore balance AND decrement total_withdrawn
+                const { data: wallet } = await (supabase as any).from('shop_wallets').select('balance, total_withdrawn').eq('owner_id', w.shop.owner_id).single()
                 await (supabase as any).from('shop_wallets').update({
                     balance: (wallet?.balance || 0) + w.amount,
+                    total_withdrawn: Math.max(0, (wallet?.total_withdrawn || 0) - w.amount),
                     updated_at: new Date().toISOString(),
                 }).eq('owner_id', w.shop.owner_id)
             } else if (action === 'completed') {
-                // Update total withdrawn
-                const { data: wallet } = await (supabase as any).from('shop_wallets').select('total_withdrawn').eq('owner_id', w.shop.owner_id).single()
-                await (supabase as any).from('shop_wallets').update({
-                    total_withdrawn: (wallet?.total_withdrawn || 0) + w.amount,
-                    updated_at: new Date().toISOString(),
-                }).eq('owner_id', w.shop.owner_id)
+                // total_withdrawn was already incremented at request time.
+                // balance was also deducted at request time.
+                // So for 'completed', we don't need to update the wallet numbers further.
+                // We just fire the alert below.
 
                 // Fire alert
                 fetch('/api/shop/alerts', {
