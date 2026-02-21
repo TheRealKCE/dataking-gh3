@@ -44,58 +44,42 @@ export default function ShopOrdersPage() {
     const [orders, setOrders] = useState<ShopOrder[]>([])
     const [loading, setLoading] = useState(true)
     const [isRefreshing, setIsRefreshing] = useState(false)
-    const [shopId, setShopId] = useState<string | null>(null)
-    const [accessChecked, setAccessChecked] = useState(false)
 
     // Filter state
     const [filterStatus, setFilterStatus] = useState<string>('all')
     const [filterDate, setFilterDate] = useState<'today' | '7d' | '30d' | 'all'>('today')
     const [searchPhone, setSearchPhone] = useState('')
 
-    // On mount: verify user has a shop, then fetch orders
     useEffect(() => {
         if (!dbUser) return
+        fetchOrders()
+    }, [dbUser, filterDate])
 
-        const checkAccessAndFetch = async () => {
-            // Admins can see all (they pick a shop later — for now just fetch the first)
-            // Shop owners can see their own shop orders
-            const { data: shop } = await (supabase as any)
+    const fetchOrders = async (refreshing = false) => {
+        try {
+            // Step 1: get the shop that belongs to this user
+            const { data: shop, error: shopErr } = await (supabase as any)
                 .from('shop_profiles')
                 .select('id')
-                .eq('owner_id', dbUser.id)
+                .eq('owner_id', dbUser!.id)
                 .single()
 
-            if (!shop && !isAdmin && !isSubAdmin) {
-                // No shop and not an admin — redirect away
-                router.replace('/dashboard')
-                return
-            }
-
-            setShopId(shop?.id ?? null)
-            setAccessChecked(true)
-        }
-
-        checkAccessAndFetch()
-    }, [dbUser])
-
-    // Fetch orders once we have shopId and whenever filterDate changes
-    useEffect(() => {
-        if (accessChecked) fetchOrders()
-    }, [accessChecked, filterDate])
-
-    const fetchOrders = async () => {
-        try {
-            // Use shopId from state (set during access check)
-            // For admins without a shop, shopId will be null — show empty
-            if (!shopId) {
+            if (shopErr || !shop) {
+                // Not a shop owner — if also not admin, redirect
+                if (!isAdmin && !isSubAdmin) {
+                    router.replace('/dashboard')
+                    return
+                }
+                // Admin without a shop — just show empty
                 setOrders([])
                 return
             }
 
+            // Step 2: fetch orders for this shop
             let query = (supabase as any)
                 .from('shop_orders')
                 .select('*')
-                .eq('shop_id', shopId)
+                .eq('shop_id', shop.id)  // Use shop.id directly — no stale state
                 .neq('status', 'pending') // Exclude unpaid
 
             // Apply Date Filter

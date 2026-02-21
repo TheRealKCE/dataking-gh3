@@ -13,7 +13,14 @@ GRANT USAGE ON SCHEMA public TO anon, authenticated;
 GRANT SELECT ON public.shop_orders TO anon, authenticated;
 GRANT SELECT ON public.shop_profiles TO anon, authenticated;
 
--- 3. RLS: Allow shop owners to read their own shop's orders
+-- 3. RLS: Allow shop owners to read their OWN shop profile
+--    (needed so fetchOrders can find the shopId for the logged-in owner)
+DROP POLICY IF EXISTS "shop_profiles_owner_read" ON public.shop_profiles;
+CREATE POLICY "shop_profiles_owner_read" ON public.shop_profiles
+    FOR SELECT TO authenticated
+    USING (owner_id = auth.uid());
+
+-- 4. RLS: Allow shop owners to read their own shop's orders
 DROP POLICY IF EXISTS "shop_orders_owner_read" ON public.shop_orders;
 CREATE POLICY "shop_orders_owner_read" ON public.shop_orders
     FOR SELECT TO authenticated
