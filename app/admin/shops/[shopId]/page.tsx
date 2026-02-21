@@ -88,6 +88,9 @@ export default function AdminShopDetailPage() {
     const [approvalNote, setApprovalNote] = useState('')
     const [pricingNote, setPricingNote] = useState('')
     const [feeOverride, setFeeOverride] = useState('')
+    const [withdrawFeePercent, setWithdrawFeePercent] = useState('')
+    const [withdrawFeeFlat, setWithdrawFeeFlat] = useState('')
+    const [minWithdrawAmount, setMinWithdrawAmount] = useState('')
     const [fulfillmentMode, setFulfillmentMode] = useState<'auto' | 'manual'>('auto')
     const [isActive, setIsActive] = useState(true)
 
@@ -123,6 +126,9 @@ export default function AdminShopDetailPage() {
                 setApprovalNote(s.approval_note || '')
                 setPricingNote(s.pricing_note || '')
                 setFeeOverride(s.paystack_fee_percent != null ? String(s.paystack_fee_percent) : '')
+                setWithdrawFeePercent(s.withdrawal_fee_percent != null ? String(s.withdrawal_fee_percent) : '')
+                setWithdrawFeeFlat(s.withdrawal_fee_flat != null ? String(s.withdrawal_fee_flat) : '')
+                setMinWithdrawAmount(s.min_withdrawal_amount != null ? String(s.min_withdrawal_amount) : '')
                 setFulfillmentMode(s.fulfillment_mode || 'auto')
                 setIsActive(s.is_active ?? true)
 
@@ -277,6 +283,9 @@ export default function AdminShopDetailPage() {
                 fulfillment_mode: fulfillmentMode,
                 is_active: isActive,
                 paystack_fee_percent: feeOverride ? parseFloat(feeOverride) : null,
+                withdrawal_fee_percent: withdrawFeePercent ? parseFloat(withdrawFeePercent) : null,
+                withdrawal_fee_flat: withdrawFeeFlat ? parseFloat(withdrawFeeFlat) : null,
+                min_withdrawal_amount: minWithdrawAmount ? parseFloat(minWithdrawAmount) : null,
                 updated_at: new Date().toISOString(),
             }).eq('id', shopId)
             if (error) throw error
@@ -421,12 +430,12 @@ export default function AdminShopDetailPage() {
                 </CardContent>
             </Card>
 
-            {/* Shop Wallet */}
+            {/* Profit Wallet */}
             <Card className="overflow-hidden border-0 shadow-md">
                 <div className="bg-gradient-to-br from-emerald-600 to-emerald-800 p-5 text-white">
                     <div className="flex items-center gap-2 mb-2">
                         <Wallet className="w-4 h-4 text-emerald-200" />
-                        <p className="text-emerald-100 text-sm font-medium">Shop Wallet</p>
+                        <p className="text-emerald-100 text-sm font-medium">Profit Wallet</p>
                     </div>
                     <p className="text-3xl font-black">{formatCurrency(wallet?.balance || 0)}</p>
                     <div className="flex gap-4 mt-2 text-xs text-emerald-200">
@@ -600,6 +609,49 @@ export default function AdminShopDetailPage() {
                         />
                     </div>
 
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                            <Label htmlFor="withdraw_fee_percent">Withdrawal Fee (%) Override</Label>
+                            <Input
+                                id="withdraw_fee_percent"
+                                type="number"
+                                min="0"
+                                max="50"
+                                step="0.1"
+                                value={withdrawFeePercent}
+                                onChange={(e) => setWithdrawFeePercent(e.target.value)}
+                                placeholder="e.g. 5.0"
+                                className="mt-1"
+                            />
+                        </div>
+                        <div>
+                            <Label htmlFor="withdraw_fee_flat">Withdrawal Flat Fee (GHS) Override</Label>
+                            <Input
+                                id="withdraw_fee_flat"
+                                type="number"
+                                min="0"
+                                step="0.01"
+                                value={withdrawFeeFlat}
+                                onChange={(e) => setWithdrawFeeFlat(e.target.value)}
+                                placeholder="e.g. 1.00"
+                                className="mt-1"
+                            />
+                        </div>
+                        <div>
+                            <Label htmlFor="min_withdraw">Min Withdrawal (GHS) Override</Label>
+                            <Input
+                                id="min_withdraw"
+                                type="number"
+                                min="1"
+                                step="0.01"
+                                value={minWithdrawAmount}
+                                onChange={(e) => setMinWithdrawAmount(e.target.value)}
+                                placeholder="e.g. 10.00"
+                                className="mt-1"
+                            />
+                        </div>
+                    </div>
+
                     <Button onClick={saveSettings} disabled={saving} className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2">
                         {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                         Save Settings
@@ -622,8 +674,9 @@ export default function AdminShopDetailPage() {
                                 <thead>
                                     <tr className="border-b text-xs text-muted-foreground">
                                         <th className="text-left px-4 py-2 font-medium">Date</th>
-                                        <th className="text-right px-4 py-2 font-medium">Amount</th>
-                                        <th className="text-right px-4 py-2 font-medium">Net</th>
+                                        <th className="text-right px-4 py-2 font-medium">Gross</th>
+                                        <th className="text-right px-4 py-2 font-medium">Fees</th>
+                                        <th className="text-right px-4 py-2 font-medium">Net to Send</th>
                                         <th className="text-left px-4 py-2 font-medium">MoMo</th>
                                         <th className="text-left px-4 py-2 font-medium">Status</th>
                                         <th className="text-left px-4 py-2 font-medium">Action</th>
@@ -631,10 +684,11 @@ export default function AdminShopDetailPage() {
                                 </thead>
                                 <tbody>
                                     {withdrawals.map((w) => (
-                                        <tr key={w.id} className="border-b last:border-0">
+                                        <tr key={w.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
                                             <td className="px-4 py-3 text-xs text-muted-foreground">{new Date(w.created_at).toLocaleDateString()}</td>
                                             <td className="px-4 py-3 text-right font-medium">{formatCurrency(w.amount)}</td>
-                                            <td className="px-4 py-3 text-right text-emerald-600 font-semibold">{formatCurrency(w.net_amount)}</td>
+                                            <td className="px-4 py-3 text-right text-red-500 text-xs">-{formatCurrency(w.fee)}</td>
+                                            <td className="px-4 py-3 text-right text-emerald-600 font-bold">{formatCurrency(w.net_amount)}</td>
                                             <td className="px-4 py-3 font-mono text-xs">{w.momo_number}</td>
                                             <td className="px-4 py-3">
                                                 <span className={cn(

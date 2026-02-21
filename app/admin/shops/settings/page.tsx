@@ -53,10 +53,10 @@ export default function AdminShopSettingsPage() {
             }
             setSettings({
                 shop_feature_enabled: map.shop_feature_enabled !== false && map.shop_feature_enabled !== 'false',
-                withdrawal_fee_percent: parseFloat(map.withdrawal_fee_percent) || DEFAULTS.withdrawal_fee_percent,
-                withdrawal_fee_flat: parseFloat(map.withdrawal_fee_flat) || DEFAULTS.withdrawal_fee_flat,
-                min_withdrawal_amount: parseFloat(map.min_withdrawal_amount) || DEFAULTS.min_withdrawal_amount,
-                shop_paystack_fee_percent: parseFloat(map.shop_paystack_fee_percent) || DEFAULTS.shop_paystack_fee_percent,
+                withdrawal_fee_percent: map.withdrawal_fee_percent != null ? parseFloat(map.withdrawal_fee_percent) : DEFAULTS.withdrawal_fee_percent,
+                withdrawal_fee_flat: map.withdrawal_fee_flat != null ? parseFloat(map.withdrawal_fee_flat) : DEFAULTS.withdrawal_fee_flat,
+                min_withdrawal_amount: map.min_withdrawal_amount != null ? parseFloat(map.min_withdrawal_amount) : DEFAULTS.min_withdrawal_amount,
+                shop_paystack_fee_percent: map.shop_paystack_fee_percent != null ? parseFloat(map.shop_paystack_fee_percent) : DEFAULTS.shop_paystack_fee_percent,
                 default_fulfillment_mode: map.default_fulfillment_mode || DEFAULTS.default_fulfillment_mode,
             })
         }
@@ -67,20 +67,16 @@ export default function AdminShopSettingsPage() {
         setSaving(true)
         try {
             const rows = [
-                { key: 'shop_feature_enabled', value: settings.shop_feature_enabled },
-                { key: 'withdrawal_fee_percent', value: settings.withdrawal_fee_percent },
-                { key: 'withdrawal_fee_flat', value: settings.withdrawal_fee_flat },
-                { key: 'min_withdrawal_amount', value: settings.min_withdrawal_amount },
-                { key: 'shop_paystack_fee_percent', value: settings.shop_paystack_fee_percent },
-                { key: 'default_fulfillment_mode', value: settings.default_fulfillment_mode },
+                { key: 'shop_feature_enabled', value: settings.shop_feature_enabled, updated_at: new Date().toISOString() },
+                { key: 'withdrawal_fee_percent', value: settings.withdrawal_fee_percent, updated_at: new Date().toISOString() },
+                { key: 'withdrawal_fee_flat', value: settings.withdrawal_fee_flat, updated_at: new Date().toISOString() },
+                { key: 'min_withdrawal_amount', value: settings.min_withdrawal_amount, updated_at: new Date().toISOString() },
+                { key: 'shop_paystack_fee_percent', value: settings.shop_paystack_fee_percent, updated_at: new Date().toISOString() },
+                { key: 'default_fulfillment_mode', value: settings.default_fulfillment_mode, updated_at: new Date().toISOString() },
             ]
 
-            for (const row of rows) {
-                await (supabase as any).from('shop_global_settings').upsert(
-                    { key: row.key, value: row.value, updated_at: new Date().toISOString() },
-                    { onConflict: 'key' }
-                )
-            }
+            const { error } = await (supabase as any).from('shop_global_settings').upsert(rows, { onConflict: 'key' })
+            if (error) throw error
 
             toast.success('Global settings saved!')
         } catch (err: any) {
