@@ -19,7 +19,7 @@ apiInstance.setApiKey(SibApiV3Sdk.TransactionalEmailsApiApiKeys.apiKey, process.
 // Sender configuration
 const DEFAULT_SENDER = {
     name: process.env.BREVO_SENDER_NAME || 'KING FLEXY DATA LTD',
-    email: process.env.BREVO_SENDER_EMAIL || 'noreply@kingflexydata.com'
+    email: process.env.BREVO_SENDER_EMAIL || 'noreply@kingflexygh.com'
 }
 
 interface SendEmailOptions {

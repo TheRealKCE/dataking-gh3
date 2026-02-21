@@ -133,6 +133,15 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Payment service unavailable' }, { status: 503 })
         }
 
+        // Fetch support email from admin settings for branding
+        const { data: supportEmailSetting } = await db
+            .from('admin_settings')
+            .select('value')
+            .eq('key', 'support_email')
+            .single()
+
+        const supportEmail = supportEmailSetting?.value || 'kingflexydatalimited@gmail.com'
+
         const paystackRef = `SHOP-${shop.id.slice(0, 8)}-${Date.now()}`
         const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://kingflexygh.com'
         const callbackUrl = `${appUrl}/api/shop/verify?ref=${paystackRef}&slug=${shopSlug}`
@@ -144,7 +153,7 @@ export async function POST(request: NextRequest) {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                email: 'shop@kingflexydata.com',
+                email: supportEmail,
                 amount: totalAmount,
                 reference: paystackRef,
                 callback_url: callbackUrl,
