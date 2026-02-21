@@ -89,7 +89,7 @@ export async function GET(request: NextRequest) {
         // Fetch Paystack fee settings to calculate the expected total
         const { data: shopProfile } = await db
             .from('shop_profiles')
-            .select('owner_id, paystack_fee_percent, fulfillment_mode')
+            .select('owner_id, shop_name, paystack_fee_percent, fulfillment_mode')
             .eq('id', metadata.shop_id)
             .single()
 
@@ -176,10 +176,10 @@ export async function GET(request: NextRequest) {
             }
             orderId = newOrder?.id
 
-            // Mirror to main orders table so admin can see it in 'All Orders'
-            // We set user_id to NULL because it's a guest purchase, so it doesn't 
-            // appear in any user's personal order history.
-            await db.from('orders').insert({
+            // Mirror to main orders table so admin can see it in 'All Orders'.
+            // user_id is NULL because it's a guest purchase — it won't appear in
+            // any user's personal order history but WILL show up in admin panels.
+            const { error: mirrorError } = await db.from('orders').insert({
                 user_id: null,
                 phone_number: metadata.guest_phone,
                 network: metadata.network,
@@ -194,6 +194,12 @@ export async function GET(request: NextRequest) {
                 shop_name: shopProfile?.shop_name || slug,
                 shop_order_id: orderId
             })
+            if (mirrorError) {
+                // Non-fatal — shop order is created, but admin won't see it until fixed
+                console.error(`[Shop Verify] ⚠️ Failed to mirror shop order ${orderId} to orders table:`, mirrorError)
+            } else {
+                console.log(`[Shop Verify] ✅ Mirrored shop order ${orderId} to orders table (status: ${initialStatus}, shop: ${shopProfile?.shop_name || slug})`)
+            }
         }
 
         // NOTE: Shop orders live only in shop_orders, NOT mirrored to orders.
