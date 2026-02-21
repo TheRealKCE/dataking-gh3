@@ -237,16 +237,22 @@ export default function ShopOverviewPage() {
                                 {statusConfig[shop.approval_status]?.label}
                             </span>
                             {dbUser?.role === 'agent' && (
-                                <div className={cn(
-                                    "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border shadow-sm transition-colors",
-                                    daysLeft <= 3
-                                        ? "bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 animate-pulse"
-                                        : daysLeft <= 7
-                                            ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800"
-                                            : "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800"
-                                )}>
-                                    <Clock className="w-3.5 h-3.5" />
-                                    {daysLeft <= 0 ? 'Subscription Expired' : `${daysLeft} Days Left`}
+                                <div className="space-y-1.5 min-w-[200px]">
+                                    <div className={cn(
+                                        "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border shadow-sm transition-colors w-fit",
+                                        daysLeft <= 3
+                                            ? "bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 animate-pulse"
+                                            : daysLeft <= 7
+                                                ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800"
+                                                : "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800"
+                                    )}>
+                                        <Clock className="w-3.5 h-3.5" />
+                                        {daysLeft <= 0 ? 'Subscription Expired' : `${daysLeft} Days Left`}
+                                    </div>
+                                    <p className="text-[10px] text-muted-foreground leading-tight max-w-[250px] font-medium">
+                                        <AlertCircle className="w-3 h-3 inline mr-1 text-amber-500" />
+                                        When expired, your shop will be <strong>deactivated</strong> and you'll lose access to <strong>wholesale pricing</strong>.
+                                    </p>
                                 </div>
                             )}
                         </div>
