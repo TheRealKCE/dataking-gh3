@@ -44,38 +44,58 @@ export default function ShopOrdersPage() {
     const [orders, setOrders] = useState<ShopOrder[]>([])
     const [loading, setLoading] = useState(true)
     const [isRefreshing, setIsRefreshing] = useState(false)
+    const [shopId, setShopId] = useState<string | null>(null)
+    const [accessChecked, setAccessChecked] = useState(false)
 
     // Filter state
     const [filterStatus, setFilterStatus] = useState<string>('all')
     const [filterDate, setFilterDate] = useState<'today' | '7d' | '30d' | 'all'>('today')
     const [searchPhone, setSearchPhone] = useState('')
 
+    // On mount: verify user has a shop, then fetch orders
     useEffect(() => {
-        if (dbUser && !isAdmin && !isSubAdmin) {
-            router.replace('/dashboard')
-            return
-        }
-        if (dbUser) fetchOrders()
-    }, [dbUser, isAdmin, isSubAdmin, filterDate])
+        if (!dbUser) return
 
-    const fetchOrders = async () => {
-        try {
-            // First get the shop ID
+        const checkAccessAndFetch = async () => {
+            // Admins can see all (they pick a shop later — for now just fetch the first)
+            // Shop owners can see their own shop orders
             const { data: shop } = await (supabase as any)
                 .from('shop_profiles')
                 .select('id')
-                .eq('owner_id', dbUser!.id)
+                .eq('owner_id', dbUser.id)
                 .single()
 
-            if (!shop) {
-                toast.error('Shop not found')
+            if (!shop && !isAdmin && !isSubAdmin) {
+                // No shop and not an admin — redirect away
+                router.replace('/dashboard')
+                return
+            }
+
+            setShopId(shop?.id ?? null)
+            setAccessChecked(true)
+        }
+
+        checkAccessAndFetch()
+    }, [dbUser])
+
+    // Fetch orders once we have shopId and whenever filterDate changes
+    useEffect(() => {
+        if (accessChecked) fetchOrders()
+    }, [accessChecked, filterDate])
+
+    const fetchOrders = async () => {
+        try {
+            // Use shopId from state (set during access check)
+            // For admins without a shop, shopId will be null — show empty
+            if (!shopId) {
+                setOrders([])
                 return
             }
 
             let query = (supabase as any)
                 .from('shop_orders')
                 .select('*')
-                .eq('shop_id', shop.id)
+                .eq('shop_id', shopId)
                 .neq('status', 'pending') // Exclude unpaid
 
             // Apply Date Filter
