@@ -74,7 +74,6 @@ export default function AdminWithdrawalsPage() {
         if (dbUser && !isAdmin) { router.replace('/dashboard'); return }
         if (dbUser) {
             fetchShops()
-            fetchWithdrawals()
         }
     }, [dbUser, isAdmin])
 
@@ -137,19 +136,19 @@ export default function AdminWithdrawalsPage() {
 
             setWithdrawals(enrichedData)
         } catch (err) {
-            console.error(err)
+            console.error('[fetchWithdrawals]', err)
             toast.error('Failed to load withdrawals')
         } finally {
             setLoading(false)
         }
     }
 
-    // Refresh when filters change
+    // Single source of truth for loading withdrawals
     useEffect(() => {
         if (dbUser && shops.length > 0) {
             fetchWithdrawals()
         }
-    }, [statusFilter])
+    }, [dbUser, shops, statusFilter])
 
     const processWithdrawal = async (w: WithdrawalRequest, action: 'completed' | 'rejected', note?: string) => {
         setProcessingId(w.id)
