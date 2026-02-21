@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { creditShopProfit } from '@/lib/shop-service'
+import { sendOrderSuccessSMS } from '@/lib/sms-service'
 
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
@@ -200,6 +201,20 @@ export async function GET(request: NextRequest) {
                 console.error(`[Shop Verify] ⚠️ Failed to mirror shop order ${orderId} to orders table:`, mirrorError)
             } else {
                 console.log(`[Shop Verify] ✅ Mirrored shop order ${orderId} to orders table (status: ${initialStatus}, shop: ${shopProfile?.shop_name || slug})`)
+
+                // 4.5 Send order confirmation SMS to guest customer (async)
+                if (metadata.guest_phone) {
+                    sendOrderSuccessSMS(
+                        metadata.guest_phone,
+                        {
+                            network: metadata.network,
+                            size: metadata.package_size,
+                            price: dbSellingPrice,
+                            recipientNumber: metadata.guest_phone,
+                            currentBalance: 0 // Not applicable for guest/storefront but required by function signature
+                        }
+                    ).catch((err: Error) => console.error('[Shop Verify] SMS confirmation error:', err))
+                }
             }
         }
 
