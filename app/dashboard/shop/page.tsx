@@ -215,49 +215,83 @@ export default function ShopOverviewPage() {
         )
     }
 
-    const StatusIcon = statusConfig[shop.approval_status]?.icon || Clock
-    const isPending = shop.approval_status === 'pending'
+    const daysLeft = dbUser?.agent_expires_at
+        ? Math.ceil((new Date(dbUser.agent_expires_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+        : 0
 
     return (
         <div className="space-y-6">
             {/* Header */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div>
-                    <h1 className="text-2xl font-bold flex items-center gap-2">
-                        <Store className="w-6 h-6 text-emerald-600" />
-                        {shop.shop_name}
-                    </h1>
-                    <div className="flex items-center gap-2 mt-1">
-                        <span className={cn('inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full', statusConfig[shop.approval_status]?.color)}>
-                            <StatusIcon className="w-3.5 h-3.5" />
-                            {statusConfig[shop.approval_status]?.label}
-                        </span>
+                <div className="flex items-start gap-3">
+                    <div className="w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center flex-shrink-0 animate-in fade-in zoom-in duration-500">
+                        <Store className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
+                    </div>
+                    <div>
+                        <h1 className="text-2xl font-bold tracking-tight">
+                            {shop.shop_name}
+                        </h1>
+                        <div className="flex items-center gap-2 mt-1 flex-wrap">
+                            <span className={cn('inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full shadow-sm', statusConfig[shop.approval_status]?.color)}>
+                                <StatusIcon className="w-3.5 h-3.5" />
+                                {statusConfig[shop.approval_status]?.label}
+                            </span>
+                            {dbUser?.role === 'agent' && (
+                                <div className={cn(
+                                    "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border shadow-sm transition-colors",
+                                    daysLeft <= 3
+                                        ? "bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 animate-pulse"
+                                        : daysLeft <= 7
+                                            ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800"
+                                            : "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800"
+                                )}>
+                                    <Clock className="w-3.5 h-3.5" />
+                                    {daysLeft <= 0 ? 'Subscription Expired' : `${daysLeft} Days Left`}
+                                </div>
+                            )}
+                        </div>
                     </div>
                 </div>
-                <div className="flex gap-2 flex-wrap">
+                <div className="flex gap-2 flex-wrap sm:justify-end">
                     <Button
                         variant="outline"
                         size="sm"
-                        className="gap-1.5"
+                        className="gap-1.5 h-9"
                         onClick={handleRefresh}
                         disabled={isRefreshing}
                     >
                         <RefreshCcw className={cn("w-4 h-4", isRefreshing && "animate-spin")} />
                         Refresh
                     </Button>
+
+                    <Link href="/dashboard/upgrade">
+                        <Button
+                            size="sm"
+                            className={cn(
+                                "gap-1.5 h-9 transition-all active:scale-95 shadow-md",
+                                daysLeft <= 7
+                                    ? "bg-amber-500 hover:bg-amber-600 text-white"
+                                    : "bg-blue-600 hover:bg-blue-700 text-white"
+                            )}
+                        >
+                            <RefreshCcw className="w-4 h-4" />
+                            Renew Subscription
+                        </Button>
+                    </Link>
+
                     <Link href="/dashboard/shop/setup">
-                        <Button variant="outline" size="sm" className="gap-1.5">
+                        <Button variant="outline" size="sm" className="gap-1.5 h-9">
                             <Settings className="w-4 h-4" /> Edit Shop
                         </Button>
                     </Link>
                     <div className={cn("flex gap-2", isPending && "opacity-40 pointer-events-none grayscale")}>
                         <Link href="/dashboard/shop/pricing">
-                            <Button variant="outline" size="sm" className="gap-1.5">
+                            <Button variant="outline" size="sm" className="gap-1.5 h-9">
                                 <Tag className="w-4 h-4" /> Pricing
                             </Button>
                         </Link>
                         <Link href="/dashboard/shop/withdraw">
-                            <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5">
+                            <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 h-9">
                                 <Banknote className="w-4 h-4" /> Withdraw
                             </Button>
                         </Link>
@@ -265,7 +299,7 @@ export default function ShopOverviewPage() {
 
                     {/* Pricing Status Indicators */}
                     {shop.pricing_status === 'pending_review' && (
-                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border border-orange-200 dark:border-orange-800">
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border border-orange-200 dark:border-orange-800 shadow-sm">
                             <Clock className="w-3.5 h-3.5" />
                             <span className="text-xs font-bold whitespace-nowrap">Review Pricing</span>
                         </div>
@@ -273,7 +307,7 @@ export default function ShopOverviewPage() {
 
                     {shop.pricing_status === 'approved' && (
                         <div className="flex flex-col items-start md:items-end -my-1">
-                            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 mb-0.5">
+                            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 mb-0.5 shadow-sm">
                                 <CheckCircle2 className="w-3.5 h-3.5" />
                                 <span className="text-xs font-black uppercase tracking-wider whitespace-nowrap">Pricing Approved</span>
                             </div>
