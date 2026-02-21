@@ -139,11 +139,18 @@ export default function AdminShopsPage() {
                     </h1>
                     <p className="text-muted-foreground text-sm mt-1">{shops.length} shops total</p>
                 </div>
-                <Link href="/admin/shops/settings">
-                    <Button variant="outline" size="sm" className="gap-1.5">
-                        <Settings className="w-4 h-4" /> Global Settings
-                    </Button>
-                </Link>
+                <div className="flex items-center gap-2">
+                    <Link href="/admin/shops/withdrawals">
+                        <Button variant="outline" size="sm" className="gap-1.5 border-emerald-200 text-emerald-700 hover:bg-emerald-50">
+                            <Banknote className="w-4 h-4" /> Manage Withdrawals
+                        </Button>
+                    </Link>
+                    <Link href="/admin/shops/settings">
+                        <Button variant="outline" size="sm" className="gap-1.5">
+                            <Settings className="w-4 h-4" /> Global Settings
+                        </Button>
+                    </Link>
+                </div>
             </div>
 
             {/* Filter tabs */}

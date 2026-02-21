@@ -55,6 +55,7 @@ const adminNavItems = [
     { href: '/admin/orders', label: 'Orders', icon: ShoppingCart },
     { href: '/admin/fulfillment', label: 'Fulfillment', icon: Activity },
     { href: '/admin/shops', label: 'Shops', icon: Store },
+    { href: '/admin/shops/withdrawals', label: 'Shop Withdrawals', icon: Banknote },
     { href: '/admin/afa-management', label: 'AFA Management', icon: BadgeCheck },
     { href: '/admin/memberships', label: 'Agent Members', icon: Crown },
     { href: '/admin/users', label: 'Users', icon: Users },

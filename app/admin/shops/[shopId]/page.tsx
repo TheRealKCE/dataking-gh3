@@ -15,7 +15,7 @@ import { Switch } from '@/components/ui/switch'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
     Store, ArrowLeft, CheckCircle2, XCircle, AlertCircle, Clock,
-    Banknote, ExternalLink, Loader2, Save, Wallet, Tag, MessageCircle
+    ExternalLink, Loader2, Save, Wallet, Tag, MessageCircle
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -45,17 +45,6 @@ interface ShopWallet {
     total_withdrawn: number
 }
 
-interface WithdrawalRequest {
-    id: string
-    amount: number
-    fee: number
-    net_amount: number
-    account_name: string
-    momo_number: string
-    status: 'pending' | 'completed' | 'rejected'
-    created_at: string
-    admin_note: string | null
-}
 
 interface PendingPrice {
     package_id: string
@@ -79,7 +68,6 @@ export default function AdminShopDetailPage() {
 
     const [shop, setShop] = useState<ShopDetail | null>(null)
     const [wallet, setWallet] = useState<ShopWallet | null>(null)
-    const [withdrawals, setWithdrawals] = useState<WithdrawalRequest[]>([])
     const [pendingPrices, setPendingPrices] = useState<PendingPrice[]>([])
     const [orderCount, setOrderCount] = useState(0)
     const [loading, setLoading] = useState(true)
@@ -137,7 +125,6 @@ export default function AdminShopDetailPage() {
                 const walletRes2 = await (supabase as any).from('shop_wallets').select('*').eq('owner_id', s.owner_id).single()
                 if (walletRes2.data) setWallet(walletRes2.data)
             }
-            setWithdrawals(withdrawalRes.data || [])
             setOrderCount(ordersRes.count || 0)
             setPendingPrices(pendingRes.data || [])
         } catch (err) {
@@ -299,58 +286,6 @@ export default function AdminShopDetailPage() {
         }
     }
 
-    const processWithdrawal = async (withdrawalId: string, action: 'completed' | 'rejected', note?: string) => {
-        try {
-            const { error } = await (supabase as any).from('shop_wallet_transactions').update({
-                status: action,
-                admin_note: note || null,
-                updated_at: new Date().toISOString(),
-            }).eq('id', withdrawalId)
-            if (error) throw error
-
-            const w = withdrawals.find(w => w.id === withdrawalId)
-
-            if (action === 'rejected') {
-                if (w && wallet) {
-                    await (supabase as any).from('shop_wallets').update({
-                        balance: (wallet.balance || 0) + w.amount,
-                        updated_at: new Date().toISOString(),
-                    }).eq('owner_id', shop?.owner_id)
-                }
-            } else if (action === 'completed') {
-                if (w && wallet) {
-                    await (supabase as any).from('shop_wallets').update({
-                        total_withdrawn: (wallet.total_withdrawn || 0) + w.amount,
-                        updated_at: new Date().toISOString(),
-                    }).eq('owner_id', shop?.owner_id)
-                }
-
-                // Alert 7 — Withdrawal processed SMS + Email to owner (non-blocking)
-                if (w && shop && owner) {
-                    fetch('/api/shop/alerts', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            type: 'withdrawal_processed',
-                            payload: {
-                                phone: shop.owner_phone,
-                                firstName: owner.first_name,
-                                email: owner.email,
-                                shopName: shop.shop_name,
-                                amount: w.amount,
-                                momoNumber: w.momo_number,
-                            },
-                        }),
-                    }).catch(err => console.warn('[ShopAlert]', err))
-                }
-            }
-
-            toast.success(`Withdrawal ${action}`)
-            fetchData()
-        } catch (err: any) {
-            toast.error(err.message || 'Failed to process withdrawal')
-        }
-    }
 
     if (loading) {
         return (
@@ -660,140 +595,6 @@ export default function AdminShopDetailPage() {
                 </CardContent>
             </Card>
 
-            {/* Withdrawal Requests */}
-            <Card>
-                <CardHeader><CardTitle className="text-sm">Withdrawal Requests</CardTitle></CardHeader>
-                <CardContent className="p-0">
-                    {withdrawals.length === 0 ? (
-                        <div className="text-center py-8 text-muted-foreground">
-                            <Banknote className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                            <p className="text-sm">No withdrawal requests.</p>
-                        </div>
-                    ) : (
-                        <>
-                            {/* Desktop Table */}
-                            <div className="hidden md:block overflow-x-auto">
-                                <table className="w-full text-sm">
-                                    <thead>
-                                        <tr className="border-b text-xs text-muted-foreground">
-                                            <th className="text-left px-4 py-2 font-medium">Date</th>
-                                            <th className="text-right px-4 py-2 font-medium">Gross</th>
-                                            <th className="text-right px-4 py-2 font-medium">Fees</th>
-                                            <th className="text-right px-4 py-2 font-medium">Net to Send</th>
-                                            <th className="text-left px-4 py-2 font-medium">Account</th>
-                                            <th className="text-left px-4 py-2 font-medium">MoMo</th>
-                                            <th className="text-left px-4 py-2 font-medium">Status</th>
-                                            <th className="text-left px-4 py-2 font-medium">Action</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {withdrawals.map((w) => (
-                                            <tr key={w.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
-                                                <td className="px-4 py-3 text-xs text-muted-foreground">{new Date(w.created_at).toLocaleDateString()}</td>
-                                                <td className="px-4 py-3 text-right font-medium">{formatCurrency(w.amount)}</td>
-                                                <td className="px-4 py-3 text-right text-red-500 text-xs">-{formatCurrency(w.fee)}</td>
-                                                <td className="px-4 py-3 text-right text-emerald-600 font-bold">{formatCurrency(w.net_amount)}</td>
-                                                <td className="px-4 py-3 text-xs">{w.account_name}</td>
-                                                <td className="px-4 py-3 font-mono text-xs">{w.momo_number}</td>
-                                                <td className="px-4 py-3">
-                                                    <span className={cn(
-                                                        'text-xs font-semibold px-2 py-0.5 rounded-full',
-                                                        w.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                                                            w.status === 'completed' ? 'bg-green-100 text-green-700' :
-                                                                'bg-red-100 text-red-700'
-                                                    )}>
-                                                        {w.status}
-                                                    </span>
-                                                </td>
-                                                <td className="px-4 py-3">
-                                                    {w.status === 'pending' && (
-                                                        <div className="flex gap-1">
-                                                            <Button
-                                                                size="sm"
-                                                                className="h-7 px-2 text-xs bg-green-600 hover:bg-green-700 text-white"
-                                                                onClick={() => processWithdrawal(w.id, 'completed')}
-                                                            >
-                                                                Pay
-                                                            </Button>
-                                                            <Button
-                                                                size="sm"
-                                                                variant="outline"
-                                                                className="h-7 px-2 text-xs border-red-500 text-red-600"
-                                                                onClick={() => processWithdrawal(w.id, 'rejected', 'Rejected by admin')}
-                                                            >
-                                                                Reject
-                                                            </Button>
-                                                        </div>
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            </div>
-
-                            {/* Mobile Cards */}
-                            <div className="md:hidden divide-y">
-                                {withdrawals.map((w) => (
-                                    <div key={w.id} className="p-4 space-y-3">
-                                        <div className="flex justify-between items-start">
-                                            <div className="space-y-0.5">
-                                                <p className="text-xs text-muted-foreground">{new Date(w.created_at).toLocaleDateString()}</p>
-                                                <p className="text-lg font-bold text-emerald-600 px-0">{formatCurrency(w.net_amount)}</p>
-                                                <p className="text-[10px] text-muted-foreground">Gross: {formatCurrency(w.amount)} (Fees: {formatCurrency(w.fee)})</p>
-                                            </div>
-                                            <span className={cn(
-                                                'text-[10px] font-bold px-2 py-0.5 rounded-full uppercase',
-                                                w.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                                                    w.status === 'completed' ? 'bg-green-100 text-green-700' :
-                                                        'bg-red-100 text-red-700'
-                                            )}>
-                                                {w.status}
-                                            </span>
-                                        </div>
-
-                                        <div className="bg-muted/40 p-3 rounded-lg space-y-2 text-xs">
-                                            <div className="flex justify-between">
-                                                <span className="text-muted-foreground uppercase tracking-tight text-[10px]">Account</span>
-                                                <span className="font-semibold text-right max-w-[150px] truncate">{w.account_name}</span>
-                                            </div>
-                                            <div className="flex justify-between">
-                                                <span className="text-muted-foreground uppercase tracking-tight text-[10px]">MoMo Number</span>
-                                                <span className="font-mono font-medium">{w.momo_number}</span>
-                                            </div>
-                                        </div>
-
-                                        {w.status === 'pending' && (
-                                            <div className="flex gap-2 pt-1">
-                                                <Button
-                                                    size="sm"
-                                                    className="flex-1 h-9 bg-green-600 hover:bg-green-700 text-white font-bold"
-                                                    onClick={() => processWithdrawal(w.id, 'completed')}
-                                                >
-                                                    Pay Now
-                                                </Button>
-                                                <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    className="flex-1 h-9 border-red-500 text-red-600 font-semibold"
-                                                    onClick={() => processWithdrawal(w.id, 'rejected', 'Rejected by admin')}
-                                                >
-                                                    Reject
-                                                </Button>
-                                            </div>
-                                        )}
-                                        {w.admin_note && (
-                                            <p className="text-[10px] text-muted-foreground bg-gray-50 p-2 rounded border italic">
-                                                Admin Note: {w.admin_note}
-                                            </p>
-                                        )}
-                                    </div>
-                                ))}
-                            </div>
-                        </>
-                    )}
-                </CardContent>
-            </Card>
         </div>
     )
 }
