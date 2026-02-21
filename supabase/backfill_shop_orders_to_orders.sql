@@ -2,10 +2,10 @@
 -- Backfill: Mirror unmirrored shop_orders into the orders table
 -- 
 -- Run ONCE in Supabase SQL Editor.
--- Safe to run multiple times (ON CONFLICT DO NOTHING).
+-- Safe to run multiple times (NOT EXISTS guard).
 -- ============================================================
 
--- Step 1: Show a preview of what will be inserted (run this first to verify)
+-- Optional preview: uncomment to see what will be inserted first
 -- SELECT
 --     so.id AS shop_order_id,
 --     sp.shop_name,
@@ -22,7 +22,7 @@
 -- )
 -- ORDER BY so.created_at DESC;
 
--- Step 2: Insert the missing mirror rows
+-- Insert missing mirror rows into orders
 INSERT INTO public.orders (
     user_id,
     phone_number,
@@ -32,7 +32,6 @@ INSERT INTO public.orders (
     cost_price,
     status,
     payment_status,
-    payment_method,
     reference_code,
     fulfillment_method,
     shop_name,
@@ -41,20 +40,18 @@ INSERT INTO public.orders (
     updated_at
 )
 SELECT
-    NULL AS user_id,                          -- guest purchase, no user account
+    NULL AS user_id,                          -- guest purchase, no linked user
     so.guest_phone AS phone_number,
     so.network,
     so.package_size AS size,
     so.selling_price AS price,
     so.cost_price,
-    so.status,                                -- preserve original status
-    'paid' AS payment_status,                 -- payment was verified by Paystack
-    'paystack' AS payment_method,
-    -- Generate a reference code from paystack_reference (same pattern as verify route)
+    so.status,                                -- preserve the original status
+    'paid' AS payment_status,                 -- payment was verified via Paystack
     CASE
         WHEN so.paystack_reference IS NOT NULL
         THEN 'SHOP-' || RIGHT(so.paystack_reference, 10)
-        ELSE 'SHOP-BACKFILL-' || LEFT(so.id::text, 8)
+        ELSE 'SHOP-BF-' || LEFT(so.id::text, 8)
     END AS reference_code,
     'auto' AS fulfillment_method,
     sp.shop_name,
@@ -63,15 +60,23 @@ SELECT
     so.updated_at
 FROM public.shop_orders so
 JOIN public.shop_profiles sp ON sp.id = so.shop_id
--- Only insert rows that don't already have a mirror in orders
+-- Only insert rows that don't already have a mirror row
 WHERE NOT EXISTS (
     SELECT 1 FROM public.orders o WHERE o.shop_order_id = so.id
 )
--- Only backfill orders that were actually paid (not pending/failed with no payment)
+-- Only backfill paid orders (excludes abandoned unpaid sessions)
 AND so.status IN ('pending', 'processing', 'completed', 'refunded');
 
--- Show how many rows were inserted
-SELECT 'Backfill complete. Rows inserted:' AS message, COUNT(*) AS count
-FROM public.orders
-WHERE shop_order_id IS NOT NULL
-  AND created_at >= NOW() - INTERVAL '1 minute';
+-- Confirm: show the mirrored rows just inserted
+SELECT
+    o.id,
+    o.shop_name,
+    o.phone_number,
+    o.network,
+    o.size,
+    o.status,
+    o.created_at
+FROM public.orders o
+WHERE o.shop_order_id IS NOT NULL
+ORDER BY o.created_at DESC
+LIMIT 20;
