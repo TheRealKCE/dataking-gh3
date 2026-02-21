@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { Card, CardContent } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
@@ -77,9 +78,10 @@ export default function ShopStatusTracker() {
 
     // Loading states
     const [searchLoading, setSearchLoading] = useState(false)
-    const [todayLoading, setTodayLoading] = useState(false) // Initial load state
+    const [todayLoading, setTodayLoading] = useState(false)
 
     const [hasSearched, setHasSearched] = useState(false)
+    const supabase = createClientComponentClient()
 
     // ─── 1. Auto-load Today's Orders (on mount) ───
     useEffect(() => {
@@ -94,20 +96,23 @@ export default function ShopStatusTracker() {
         const loadTodayOrders = async () => {
             setTodayLoading(true)
             try {
-                const res = await fetch(`/api/shop/orders?phone=${encodeURIComponent(savedPhone!)}&limit=10`)
-                if (!res.ok) throw new Error('Failed to fetch')
-                const json = await res.json()
+                const { data, error } = await supabase
+                    .rpc('get_shop_orders_by_phone', {
+                        phone_number: savedPhone,
+                        limit_count: 10
+                    })
 
-                // Filter to only show orders from last 24h to keep "Today's Orders" semantic
+                if (error) throw error
+
+                // Filter to only show orders from last 24h
                 const yesterday = new Date()
                 yesterday.setHours(yesterday.getHours() - 24)
-
-                const recent = (json.orders as any[] || []).filter(o => new Date(o.created_at) > yesterday)
+                const recent = (data as any[] || []).filter(o => new Date(o.created_at) > yesterday)
 
                 setTodayOrders(recent)
-                if (recent.length > 0) setPhone(savedPhone!) // Pre-fill search
+                if (recent.length > 0) setPhone(savedPhone!)
             } catch (err) {
-                console.error("Error loading auto orders:", err)
+                console.error('Error loading auto orders:', err)
             } finally {
                 setTodayLoading(false)
             }
@@ -123,24 +128,25 @@ export default function ShopStatusTracker() {
 
         const cleanPhone = phone.replace(/\s+/g, '')
 
-        // Optimistic UI updates
         setSearchLoading(true)
         setHasSearched(true)
-        setSearchOrders([]) // Clear previous results while loading
+        setSearchOrders([])
 
         try {
-            const res = await fetch(`/api/shop/orders?phone=${encodeURIComponent(cleanPhone)}&limit=50`)
-            if (!res.ok) throw new Error('Failed to fetch')
-            const json = await res.json()
+            const { data, error } = await supabase
+                .rpc('get_shop_orders_by_phone', {
+                    phone_number: cleanPhone,
+                    limit_count: 50
+                })
 
-            const orders = json.orders as any[] || []
+            if (error) throw error
+
+            const orders = data as any[] || []
             setSearchOrders(orders)
 
-            // Save successful search to history for next time
             if (orders.length > 0) {
                 try { localStorage.setItem('shop_last_phone', cleanPhone) } catch (_) { }
             }
-
         } catch (err) {
             console.error(err)
             toast.error('Failed to fetch orders. Please try again.')
