@@ -70,7 +70,14 @@ export default function ShopOrdersPage() {
                     router.replace('/dashboard')
                     return
                 }
-                // Admin without a shop — just show empty
+                // Admin or shop owner but shop profile not found/accessible
+                // This usually means the RLS policy is missing — run fix_shop_orders_fetch.sql
+                if (shopErr) {
+                    console.error('[ShopOrders] shop_profiles query failed:', shopErr)
+                    toast.error(`Shop lookup failed: ${shopErr.message}`)
+                } else {
+                    toast.error('No shop found for your account')
+                }
                 setOrders([])
                 return
             }
