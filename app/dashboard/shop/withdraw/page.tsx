@@ -308,48 +308,89 @@ export default function ShopWithdrawPage() {
                                 <p className="text-sm">No withdrawal requests yet.</p>
                             </div>
                         ) : (
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-sm">
-                                    <thead>
-                                        <tr className="border-b text-xs text-muted-foreground">
-                                            <th className="text-left px-4 py-2 font-medium">Date</th>
-                                            <th className="text-right px-4 py-2 font-medium">Amount</th>
-                                            <th className="text-right px-4 py-2 font-medium">Fee</th>
-                                            <th className="text-right px-4 py-2 font-medium">Net</th>
-                                            <th className="text-left px-4 py-2 font-medium">Account</th>
-                                            <th className="text-left px-4 py-2 font-medium">MoMo</th>
-                                            <th className="text-left px-4 py-2 font-medium">Status</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {history.map((row) => {
-                                            const cfg = statusConfig[row.status]
-                                            const Icon = cfg.icon
-                                            return (
-                                                <tr key={row.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
-                                                    <td className="px-4 py-3 text-xs text-muted-foreground">
-                                                        {new Date(row.created_at).toLocaleDateString()}
-                                                    </td>
-                                                    <td className="px-4 py-3 text-right font-medium">{formatCurrency(row.amount)}</td>
-                                                    <td className="px-4 py-3 text-right text-red-500 text-xs">-{formatCurrency(row.fee)}</td>
-                                                    <td className="px-4 py-3 text-right font-semibold text-emerald-600">{formatCurrency(row.net_amount)}</td>
-                                                    <td className="px-4 py-3 text-xs">{row.account_name}</td>
-                                                    <td className="px-4 py-3 font-mono text-xs">{row.momo_number}</td>
-                                                    <td className="px-4 py-3">
-                                                        <span className={cn('inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full', cfg.color)}>
-                                                            <Icon className="w-3 h-3" />
-                                                            {cfg.label}
-                                                        </span>
-                                                        {row.admin_note && row.status === 'rejected' && (
-                                                            <p className="text-xs text-red-500 mt-0.5">{row.admin_note}</p>
-                                                        )}
-                                                    </td>
-                                                </tr>
-                                            )
-                                        })}
-                                    </tbody>
-                                </table>
-                            </div>
+                            <>
+                                {/* Desktop Table */}
+                                <div className="hidden md:block overflow-x-auto">
+                                    <table className="w-full text-sm">
+                                        <thead>
+                                            <tr className="border-b text-xs text-muted-foreground">
+                                                <th className="text-left px-4 py-2 font-medium">Date</th>
+                                                <th className="text-right px-4 py-2 font-medium">Amount</th>
+                                                <th className="text-right px-4 py-2 font-medium">Fee</th>
+                                                <th className="text-right px-4 py-2 font-medium">Net</th>
+                                                <th className="text-left px-4 py-2 font-medium">Account</th>
+                                                <th className="text-left px-4 py-2 font-medium">MoMo</th>
+                                                <th className="text-left px-4 py-2 font-medium">Status</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            {history.map((row) => {
+                                                const cfg = statusConfig[row.status]
+                                                const Icon = cfg.icon
+                                                return (
+                                                    <tr key={row.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
+                                                        <td className="px-4 py-3 text-xs text-muted-foreground">
+                                                            {new Date(row.created_at).toLocaleDateString()}
+                                                        </td>
+                                                        <td className="px-4 py-3 text-right font-medium">{formatCurrency(row.amount)}</td>
+                                                        <td className="px-4 py-3 text-right text-red-500 text-xs">-{formatCurrency(row.fee)}</td>
+                                                        <td className="px-4 py-3 text-right font-semibold text-emerald-600">{formatCurrency(row.net_amount)}</td>
+                                                        <td className="px-4 py-3 text-xs">{row.account_name}</td>
+                                                        <td className="px-4 py-3 font-mono text-xs">{row.momo_number}</td>
+                                                        <td className="px-4 py-3">
+                                                            <span className={cn('inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full', cfg.color)}>
+                                                                <Icon className="w-3 h-3" />
+                                                                {cfg.label}
+                                                            </span>
+                                                            {row.admin_note && row.status === 'rejected' && (
+                                                                <p className="text-xs text-red-500 mt-0.5">{row.admin_note}</p>
+                                                            )}
+                                                        </td>
+                                                    </tr>
+                                                )
+                                            })}
+                                        </tbody>
+                                    </table>
+                                </div>
+
+                                {/* Mobile Cards */}
+                                <div className="md:hidden divide-y">
+                                    {history.map((row) => {
+                                        const cfg = statusConfig[row.status]
+                                        const Icon = cfg.icon
+                                        return (
+                                            <div key={row.id} className="p-4 space-y-3">
+                                                <div className="flex justify-between items-start">
+                                                    <div className="space-y-0.5">
+                                                        <p className="text-xs text-muted-foreground">{new Date(row.created_at).toLocaleDateString()}</p>
+                                                        <p className="font-semibold text-emerald-600">{formatCurrency(row.net_amount)}</p>
+                                                        <p className="text-[10px] text-muted-foreground">Original: {formatCurrency(row.amount)} (Fee: {formatCurrency(row.fee)})</p>
+                                                    </div>
+                                                    <span className={cn('inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full', cfg.color)}>
+                                                        <Icon className="w-2.5 h-2.5" />
+                                                        {cfg.label.toUpperCase()}
+                                                    </span>
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-2 text-xs bg-muted/30 p-2 rounded-lg">
+                                                    <div>
+                                                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Account</p>
+                                                        <p className="font-medium truncate">{row.account_name}</p>
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">MoMo Number</p>
+                                                        <p className="font-mono">{row.momo_number}</p>
+                                                    </div>
+                                                </div>
+                                                {row.admin_note && row.status === 'rejected' && (
+                                                    <div className="p-2 bg-red-50 border border-red-100 rounded text-[10px] text-red-600">
+                                                        <strong>Admin Note:</strong> {row.admin_note}
+                                                    </div>
+                                                )}
+                                            </div>
+                                        )
+                                    })}
+                                </div>
+                            </>
                         )}
                     </CardContent>
                 </Card>

@@ -670,65 +670,127 @@ export default function AdminShopDetailPage() {
                             <p className="text-sm">No withdrawal requests.</p>
                         </div>
                     ) : (
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
-                                <thead>
-                                    <tr className="border-b text-xs text-muted-foreground">
-                                        <th className="text-left px-4 py-2 font-medium">Date</th>
-                                        <th className="text-right px-4 py-2 font-medium">Gross</th>
-                                        <th className="text-right px-4 py-2 font-medium">Fees</th>
-                                        <th className="text-right px-4 py-2 font-medium">Net to Send</th>
-                                        <th className="text-left px-4 py-2 font-medium">Account</th>
-                                        <th className="text-left px-4 py-2 font-medium">MoMo</th>
-                                        <th className="text-left px-4 py-2 font-medium">Status</th>
-                                        <th className="text-left px-4 py-2 font-medium">Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    {withdrawals.map((w) => (
-                                        <tr key={w.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
-                                            <td className="px-4 py-3 text-xs text-muted-foreground">{new Date(w.created_at).toLocaleDateString()}</td>
-                                            <td className="px-4 py-3 text-right font-medium">{formatCurrency(w.amount)}</td>
-                                            <td className="px-4 py-3 text-right text-red-500 text-xs">-{formatCurrency(w.fee)}</td>
-                                            <td className="px-4 py-3 text-right text-emerald-600 font-bold">{formatCurrency(w.net_amount)}</td>
-                                            <td className="px-4 py-3 text-xs">{w.account_name}</td>
-                                            <td className="px-4 py-3 font-mono text-xs">{w.momo_number}</td>
-                                            <td className="px-4 py-3">
-                                                <span className={cn(
-                                                    'text-xs font-semibold px-2 py-0.5 rounded-full',
-                                                    w.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                                                        w.status === 'completed' ? 'bg-green-100 text-green-700' :
-                                                            'bg-red-100 text-red-700'
-                                                )}>
-                                                    {w.status}
-                                                </span>
-                                            </td>
-                                            <td className="px-4 py-3">
-                                                {w.status === 'pending' && (
-                                                    <div className="flex gap-1">
-                                                        <Button
-                                                            size="sm"
-                                                            className="h-7 px-2 text-xs bg-green-600 hover:bg-green-700 text-white"
-                                                            onClick={() => processWithdrawal(w.id, 'completed')}
-                                                        >
-                                                            Pay
-                                                        </Button>
-                                                        <Button
-                                                            size="sm"
-                                                            variant="outline"
-                                                            className="h-7 px-2 text-xs border-red-500 text-red-600"
-                                                            onClick={() => processWithdrawal(w.id, 'rejected', 'Rejected by admin')}
-                                                        >
-                                                            Reject
-                                                        </Button>
-                                                    </div>
-                                                )}
-                                            </td>
+                        <>
+                            {/* Desktop Table */}
+                            <div className="hidden md:block overflow-x-auto">
+                                <table className="w-full text-sm">
+                                    <thead>
+                                        <tr className="border-b text-xs text-muted-foreground">
+                                            <th className="text-left px-4 py-2 font-medium">Date</th>
+                                            <th className="text-right px-4 py-2 font-medium">Gross</th>
+                                            <th className="text-right px-4 py-2 font-medium">Fees</th>
+                                            <th className="text-right px-4 py-2 font-medium">Net to Send</th>
+                                            <th className="text-left px-4 py-2 font-medium">Account</th>
+                                            <th className="text-left px-4 py-2 font-medium">MoMo</th>
+                                            <th className="text-left px-4 py-2 font-medium">Status</th>
+                                            <th className="text-left px-4 py-2 font-medium">Action</th>
                                         </tr>
-                                    ))}
-                                </tbody>
-                            </table>
-                        </div>
+                                    </thead>
+                                    <tbody>
+                                        {withdrawals.map((w) => (
+                                            <tr key={w.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
+                                                <td className="px-4 py-3 text-xs text-muted-foreground">{new Date(w.created_at).toLocaleDateString()}</td>
+                                                <td className="px-4 py-3 text-right font-medium">{formatCurrency(w.amount)}</td>
+                                                <td className="px-4 py-3 text-right text-red-500 text-xs">-{formatCurrency(w.fee)}</td>
+                                                <td className="px-4 py-3 text-right text-emerald-600 font-bold">{formatCurrency(w.net_amount)}</td>
+                                                <td className="px-4 py-3 text-xs">{w.account_name}</td>
+                                                <td className="px-4 py-3 font-mono text-xs">{w.momo_number}</td>
+                                                <td className="px-4 py-3">
+                                                    <span className={cn(
+                                                        'text-xs font-semibold px-2 py-0.5 rounded-full',
+                                                        w.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                                                            w.status === 'completed' ? 'bg-green-100 text-green-700' :
+                                                                'bg-red-100 text-red-700'
+                                                    )}>
+                                                        {w.status}
+                                                    </span>
+                                                </td>
+                                                <td className="px-4 py-3">
+                                                    {w.status === 'pending' && (
+                                                        <div className="flex gap-1">
+                                                            <Button
+                                                                size="sm"
+                                                                className="h-7 px-2 text-xs bg-green-600 hover:bg-green-700 text-white"
+                                                                onClick={() => processWithdrawal(w.id, 'completed')}
+                                                            >
+                                                                Pay
+                                                            </Button>
+                                                            <Button
+                                                                size="sm"
+                                                                variant="outline"
+                                                                className="h-7 px-2 text-xs border-red-500 text-red-600"
+                                                                onClick={() => processWithdrawal(w.id, 'rejected', 'Rejected by admin')}
+                                                            >
+                                                                Reject
+                                                            </Button>
+                                                        </div>
+                                                    )}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            {/* Mobile Cards */}
+                            <div className="md:hidden divide-y">
+                                {withdrawals.map((w) => (
+                                    <div key={w.id} className="p-4 space-y-3">
+                                        <div className="flex justify-between items-start">
+                                            <div className="space-y-0.5">
+                                                <p className="text-xs text-muted-foreground">{new Date(w.created_at).toLocaleDateString()}</p>
+                                                <p className="text-lg font-bold text-emerald-600 px-0">{formatCurrency(w.net_amount)}</p>
+                                                <p className="text-[10px] text-muted-foreground">Gross: {formatCurrency(w.amount)} (Fees: {formatCurrency(w.fee)})</p>
+                                            </div>
+                                            <span className={cn(
+                                                'text-[10px] font-bold px-2 py-0.5 rounded-full uppercase',
+                                                w.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
+                                                    w.status === 'completed' ? 'bg-green-100 text-green-700' :
+                                                        'bg-red-100 text-red-700'
+                                            )}>
+                                                {w.status}
+                                            </span>
+                                        </div>
+
+                                        <div className="bg-muted/40 p-3 rounded-lg space-y-2 text-xs">
+                                            <div className="flex justify-between">
+                                                <span className="text-muted-foreground uppercase tracking-tight text-[10px]">Account</span>
+                                                <span className="font-semibold text-right max-w-[150px] truncate">{w.account_name}</span>
+                                            </div>
+                                            <div className="flex justify-between">
+                                                <span className="text-muted-foreground uppercase tracking-tight text-[10px]">MoMo Number</span>
+                                                <span className="font-mono font-medium">{w.momo_number}</span>
+                                            </div>
+                                        </div>
+
+                                        {w.status === 'pending' && (
+                                            <div className="flex gap-2 pt-1">
+                                                <Button
+                                                    size="sm"
+                                                    className="flex-1 h-9 bg-green-600 hover:bg-green-700 text-white font-bold"
+                                                    onClick={() => processWithdrawal(w.id, 'completed')}
+                                                >
+                                                    Pay Now
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    className="flex-1 h-9 border-red-500 text-red-600 font-semibold"
+                                                    onClick={() => processWithdrawal(w.id, 'rejected', 'Rejected by admin')}
+                                                >
+                                                    Reject
+                                                </Button>
+                                            </div>
+                                        )}
+                                        {w.admin_note && (
+                                            <p className="text-[10px] text-muted-foreground bg-gray-50 p-2 rounded border italic">
+                                                Admin Note: {w.admin_note}
+                                            </p>
+                                        )}
+                                    </div>
+                                ))}
+                            </div>
+                        </>
                     )}
                 </CardContent>
             </Card>
