@@ -27,6 +27,7 @@ interface WithdrawalRequest {
     amount: number
     fee: number
     net_amount: number
+    account_name: string
     momo_number: string
     status: 'pending' | 'completed' | 'rejected'
     admin_note: string | null
@@ -54,6 +55,7 @@ export default function ShopWithdrawPage() {
     const [loading, setLoading] = useState(true)
     const [submitting, setSubmitting] = useState(false)
     const [amount, setAmount] = useState('')
+    const [accountName, setAccountName] = useState('')
     const [momoNumber, setMomoNumber] = useState('')
     const [shopName, setShopName] = useState('')
 
@@ -124,6 +126,7 @@ export default function ShopWithdrawPage() {
         if (!amount || amountNum <= 0) { toast.error('Enter a valid amount'); return }
         if (amountNum < settings.min_withdrawal_amount) { toast.error(`Minimum withdrawal is ${formatCurrency(settings.min_withdrawal_amount)}`); return }
         if (amountNum > (wallet?.balance || 0)) { toast.error('Insufficient shop wallet balance'); return }
+        if (!accountName.trim()) { toast.error('Enter the account holder name'); return }
         if (!momoNumber.trim()) { toast.error('Enter your MoMo number'); return }
 
         setSubmitting(true)
@@ -134,8 +137,9 @@ export default function ShopWithdrawPage() {
                 amount: amountNum,
                 fee: totalFee,
                 net_amount: netAmount,
+                account_name: accountName.trim(),
                 momo_number: momoNumber.trim(),
-                description: `Withdrawal request — MoMo: ${momoNumber.trim()}`,
+                description: `Withdrawal request for ${accountName.trim()} — MoMo: ${momoNumber.trim()}`,
                 status: 'pending',
             })
             if (error) throw error
@@ -148,6 +152,7 @@ export default function ShopWithdrawPage() {
 
             toast.success('Withdrawal request submitted! Admin will process within 24 hours.')
             setAmount('')
+            setAccountName('')
             setMomoNumber('')
             fetchData()
 
@@ -161,6 +166,7 @@ export default function ShopWithdrawPage() {
                         shopName: shopName || 'Unknown Shop',
                         shopId: wallet?.id || '',
                         ownerName: `${dbUser?.first_name || ''} ${dbUser?.last_name || ''}`.trim(),
+                        accountName: accountName.trim(),
                         amount: amountNum,
                         momoNumber: momoNumber.trim(),
                         date: new Date().toLocaleString('en-GB'),
@@ -237,6 +243,17 @@ export default function ShopWithdrawPage() {
                         </div>
 
                         <div>
+                            <Label htmlFor="accountName">Account Holder Name</Label>
+                            <Input
+                                id="accountName"
+                                value={accountName}
+                                onChange={(e) => setAccountName(e.target.value)}
+                                placeholder="e.g. John Doe"
+                                className="mt-1"
+                            />
+                        </div>
+
+                        <div>
                             <Label htmlFor="momo">MoMo Number</Label>
                             <Input
                                 id="momo"
@@ -299,6 +316,7 @@ export default function ShopWithdrawPage() {
                                             <th className="text-right px-4 py-2 font-medium">Amount</th>
                                             <th className="text-right px-4 py-2 font-medium">Fee</th>
                                             <th className="text-right px-4 py-2 font-medium">Net</th>
+                                            <th className="text-left px-4 py-2 font-medium">Account</th>
                                             <th className="text-left px-4 py-2 font-medium">MoMo</th>
                                             <th className="text-left px-4 py-2 font-medium">Status</th>
                                         </tr>
@@ -315,6 +333,7 @@ export default function ShopWithdrawPage() {
                                                     <td className="px-4 py-3 text-right font-medium">{formatCurrency(row.amount)}</td>
                                                     <td className="px-4 py-3 text-right text-red-500 text-xs">-{formatCurrency(row.fee)}</td>
                                                     <td className="px-4 py-3 text-right font-semibold text-emerald-600">{formatCurrency(row.net_amount)}</td>
+                                                    <td className="px-4 py-3 text-xs">{row.account_name}</td>
                                                     <td className="px-4 py-3 font-mono text-xs">{row.momo_number}</td>
                                                     <td className="px-4 py-3">
                                                         <span className={cn('inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full', cfg.color)}>

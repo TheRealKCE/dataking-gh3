@@ -50,6 +50,7 @@ interface WithdrawalRequest {
     amount: number
     fee: number
     net_amount: number
+    account_name: string
     momo_number: string
     status: 'pending' | 'completed' | 'rejected'
     created_at: string
@@ -677,6 +678,7 @@ export default function AdminShopDetailPage() {
                                         <th className="text-right px-4 py-2 font-medium">Gross</th>
                                         <th className="text-right px-4 py-2 font-medium">Fees</th>
                                         <th className="text-right px-4 py-2 font-medium">Net to Send</th>
+                                        <th className="text-left px-4 py-2 font-medium">Account</th>
                                         <th className="text-left px-4 py-2 font-medium">MoMo</th>
                                         <th className="text-left px-4 py-2 font-medium">Status</th>
                                         <th className="text-left px-4 py-2 font-medium">Action</th>
@@ -689,6 +691,7 @@ export default function AdminShopDetailPage() {
                                             <td className="px-4 py-3 text-right font-medium">{formatCurrency(w.amount)}</td>
                                             <td className="px-4 py-3 text-right text-red-500 text-xs">-{formatCurrency(w.fee)}</td>
                                             <td className="px-4 py-3 text-right text-emerald-600 font-bold">{formatCurrency(w.net_amount)}</td>
+                                            <td className="px-4 py-3 text-xs">{w.account_name}</td>
                                             <td className="px-4 py-3 font-mono text-xs">{w.momo_number}</td>
                                             <td className="px-4 py-3">
                                                 <span className={cn(
