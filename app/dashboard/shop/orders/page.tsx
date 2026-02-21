@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/auth-context'
+import { supabase } from '@/lib/supabase'
 import { formatCurrency, cn } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -10,7 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
     ShoppingCart, Clock, CheckCircle2, XCircle, TrendingUp,
-    Search, Filter, Calendar, ArrowLeft, AlertCircle, RefreshCcw
+    Search, ArrowLeft, AlertCircle, RefreshCcw
 } from 'lucide-react'
 import { toast } from 'sonner'
 import Link from 'next/link'
@@ -56,22 +57,51 @@ export default function ShopOrdersPage() {
 
     const fetchOrders = async () => {
         try {
-            const res = await fetch(`/api/shop/my-orders?filterDate=${filterDate}`)
-            const json = await res.json()
+            // Fetch this user's shop profile first
+            const { data: shopData, error: shopErr } = await (supabase as any)
+                .from('shop_profiles')
+                .select('id')
+                .eq('owner_id', dbUser!.id)
+                .single()
 
-            if (!res.ok) {
-                // If not a shop owner and not admin, redirect
-                if (res.status === 404 && !isAdmin && !isSubAdmin && dbUser?.role !== 'agent') {
+            if (shopErr || !shopData) {
+                if (!isAdmin && !isSubAdmin && dbUser?.role !== 'agent') {
                     router.replace('/dashboard')
                     return
                 }
-                console.error('[ShopOrders] API error:', json)
-                toast.error(json.error || 'Failed to load orders')
                 setOrders([])
                 return
             }
 
-            setOrders(json.orders || [])
+            // Build the orders query — all statuses, filtered by date
+            let query = (supabase as any)
+                .from('shop_orders')
+                .select('*')
+                .eq('shop_id', shopData.id)
+
+            const now = new Date()
+            if (filterDate === 'today') {
+                const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
+                query = query.gte('created_at', startOfDay)
+            } else if (filterDate === '7d') {
+                const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
+                query = query.gte('created_at', sevenDaysAgo)
+            } else if (filterDate === '30d') {
+                const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString()
+                query = query.gte('created_at', thirtyDaysAgo)
+            }
+            // 'all' = no date filter
+
+            const { data, error } = await query.order('created_at', { ascending: false })
+
+            if (error) {
+                console.error('[ShopOrders] Query error:', error)
+                toast.error('Failed to load orders')
+                setOrders([])
+                return
+            }
+
+            setOrders(data || [])
         } catch (err) {
             console.error('Error fetching orders:', err)
             toast.error('Failed to load orders')

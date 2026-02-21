@@ -35,12 +35,11 @@ export async function GET(req: NextRequest) {
         const { searchParams } = new URL(req.url)
         const filterDate = searchParams.get('filterDate') || 'today'
 
-        // Build query
+        // Build query — include ALL statuses (pending, processing, completed, failed, refunded)
         let query = supabaseAdmin
             .from('shop_orders')
             .select('*')
             .eq('shop_id', shop.id)
-            .neq('status', 'pending') // Exclude unpaid
 
         // Apply date filter
         const now = new Date()
