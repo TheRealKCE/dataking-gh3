@@ -142,10 +142,12 @@ export async function POST(request: NextRequest) {
                 .eq('key', 'support_email')
                 .maybeSingle()
 
-            if (emailData?.value && typeof emailData.value === 'string' && emailData.value.includes('@')) {
-                const trimmed = emailData.value.trim()
-                if (trimmed.length > 5) { // Simple check for valid-looking email
-                    supportEmail = trimmed
+            if (emailData?.value && typeof emailData.value === 'string') {
+                // Path: Extract only the email address part using regex
+                // This handles cases like "email@domain.com or call 055..."
+                const emailMatch = emailData.value.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/)
+                if (emailMatch) {
+                    supportEmail = emailMatch[0].toLowerCase().trim()
                 }
             }
         } catch (error) {
