@@ -124,40 +124,31 @@ export default function DashboardPage() {
 
     const fetchDashboardData = async () => {
         try {
-            const [ordersRes, walletRes] = await Promise.all([
-                // Fetch orders stats
-                supabase
-                    .from('orders')
-                    .select('status, price')
-                    .eq('user_id', dbUser?.id as any)
-                    .is('shop_order_id', null),
-
-                // Fetch wallet balance
-                supabase
-                    .from('wallets')
-                    .select('balance')
-                    .eq('user_id', dbUser?.id as any)
-                    .single()
+            // Optimization: Use Supabase count functions to avoid fetching all rows
+            // 1. Fetch orders stats counts (parallel to save time)
+            const [
+                totalRes,
+                completedRes,
+                processingRes,
+                failedRes,
+                pendingRes,
+                walletRes
+            ] = await Promise.all([
+                supabase.from('orders').select('*', { count: 'exact', head: true }).eq('user_id', dbUser?.id as any).is('shop_order_id', null),
+                supabase.from('orders').select('*', { count: 'exact', head: true }).eq('user_id', dbUser?.id as any).eq('status', 'completed').is('shop_order_id', null),
+                supabase.from('orders').select('*', { count: 'exact', head: true }).eq('user_id', dbUser?.id as any).eq('status', 'processing').is('shop_order_id', null),
+                supabase.from('orders').select('*', { count: 'exact', head: true }).eq('user_id', dbUser?.id as any).eq('status', 'failed').is('shop_order_id', null),
+                supabase.from('orders').select('*', { count: 'exact', head: true }).eq('user_id', dbUser?.id as any).eq('status', 'pending').is('shop_order_id', null),
+                supabase.from('wallets').select('balance').eq('user_id', dbUser?.id as any).single()
             ])
 
-            const orders = ordersRes.data
-            const wallet = walletRes.data
-
-            const totalOrders = orders?.length || 0
-            const completedOrders = (orders as any)?.filter((o: any) => o.status === 'completed').length || 0
-            const processingOrders = (orders as any)?.filter((o: any) => o.status === 'processing').length || 0
-            const failedOrders = (orders as any)?.filter((o: any) => o.status === 'failed').length || 0
-            const pendingOrders = (orders as any)?.filter((o: any) => o.status === 'pending').length || 0
-            const successRate = totalOrders > 0 ? Math.round((completedOrders / totalOrders) * 100) : 0
-            const totalSpent = (orders as any)?.filter((o: any) => o.status === 'completed').reduce((acc: number, curr: any) => acc + (curr.price || 0), 0) || 0
-
             setStats({
-                totalOrders,
-                completedOrders,
-                processingOrders,
-                failedOrders,
-                pendingOrders,
-                walletBalance: (wallet as any)?.balance || 0
+                totalOrders: totalRes.count || 0,
+                completedOrders: completedRes.count || 0,
+                processingOrders: processingRes.count || 0,
+                failedOrders: failedRes.count || 0,
+                pendingOrders: pendingRes.count || 0,
+                walletBalance: (walletRes.data as any)?.balance || 0
             })
         } catch (error) {
             console.error('Error fetching dashboard data:', error)

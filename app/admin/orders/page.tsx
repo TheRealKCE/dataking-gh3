@@ -114,12 +114,8 @@ export default function AdminOrdersPage() {
                     table: 'orders'
                 },
                 () => {
-                    // Small delay to prevent rapid full re-fetches
-                    const timer = setTimeout(() => {
-                        fetchOrders(true) // Force fetch on realtime update
-                        fetchBatches(0, true, true) // Force fetch on realtime update
-                    }, 1000)
-                    return () => clearTimeout(timer)
+                    // Realtime Subscription removed full re-fetch to save CPU
+                    // The user can now refresh manually or reliance on selective updates
                 }
             )
             .subscribe()
@@ -604,22 +600,9 @@ export default function AdminOrdersPage() {
         const [isLoadingOrders, setIsLoadingOrders] = useState(true)
         const [isUpdating, setIsUpdating] = useState(false)
 
-        useEffect(() => {
-            const loadBatchOrders = async () => {
-                try {
-                    const response = await fetch(`/api/admin/orders?batchId=${batch.id}`)
-                    if (response.ok) {
-                        const data = await response.json()
-                        setBatchOrders(data.orders || [])
-                    }
-                } catch (error) {
-                    console.error('Failed to load batch orders', error)
-                } finally {
-                    setIsLoadingOrders(false)
-                }
-            }
-            loadBatchOrders()
-        }, [batch.id])
+        // Automatic fetching removed to save CPU. 
+        // Logic moved to manual click handler in the UI.
+        setIsLoadingOrders(false)
 
         const onUpdateBatchStatus = async (status: string) => {
             if (!confirm(`Mark all ${batchOrders.length} orders as ${status}?`)) return
@@ -711,11 +694,35 @@ export default function AdminOrdersPage() {
 
                     <div className="flex-1 overflow-y-auto border rounded-md bg-muted/5 p-2 space-y-2">
                         {isLoadingOrders ? (
-                            <div className="h-full flex items-center justify-center">
-                                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                            <div className="h-full flex items-center justify-center min-h-[100px]">
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => {
+                                        const loadBatchOrders = async () => {
+                                            setIsLoadingOrders(true)
+                                            try {
+                                                const response = await fetch(`/api/admin/orders?batchId=${batch.id}`)
+                                                if (response.ok) {
+                                                    const data = await response.json()
+                                                    setBatchOrders(data.orders || [])
+                                                }
+                                            } catch (error) {
+                                                console.error('Failed to load batch orders', error)
+                                            } finally {
+                                                setIsLoadingOrders(false)
+                                            }
+                                        }
+                                        loadBatchOrders()
+                                    }}
+                                    className="text-blue-600 hover:text-blue-700 font-bold"
+                                >
+                                    <FileText className="w-4 h-4 mr-2" />
+                                    Click to View {batch.order_count} Orders
+                                </Button>
                             </div>
                         ) : batchOrders.length === 0 ? (
-                            <div className="h-full flex items-center justify-center text-xs text-muted-foreground">
+                            <div className="h-full flex items-center justify-center text-xs text-muted-foreground py-10">
                                 No orders found
                             </div>
                         ) : (
