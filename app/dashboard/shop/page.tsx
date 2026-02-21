@@ -219,6 +219,10 @@ export default function ShopOverviewPage() {
         ? Math.ceil((new Date(dbUser.agent_expires_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
         : 0
 
+    const cfg = statusConfig[shop.approval_status]
+    const StatusIcon = cfg?.icon || Clock
+    const isPending = shop.approval_status === 'pending'
+
     return (
         <div className="space-y-6">
             {/* Header */}
