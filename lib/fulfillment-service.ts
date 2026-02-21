@@ -133,6 +133,19 @@ export async function fulfillOrder(
             }
         }
 
+        // --- NEW DATA VOLUME FIX ---
+        // DataKazina API expects the ACTUAL VOLUME (e.g. 15) in shared_bundle, 
+        // not the internal package ID. We extract the digits from the size string.
+        const sizeMatch = dataSize.match(/\d+/)
+        const volumeValue = sizeMatch ? sizeMatch[0] : null
+
+        if (!volumeValue) {
+            return { success: false, error: `Invalid data size format: ${dataSize}. Whole number expected.` }
+        }
+
+        console.log(`[DataKazina] Fulfillment Fix: Sending volume ${volumeValue} for package ${dataSize} (ID: ${bundleId})`)
+        // ---------------------------
+
         // Normalize phone number
         let normalizedPhone = phoneNumber
         if (normalizedPhone.startsWith('233')) normalizedPhone = '0' + normalizedPhone.slice(3)
@@ -141,7 +154,7 @@ export async function fulfillOrder(
         const requestBody = {
             recipient_msisdn: normalizedPhone,
             network_id: networkId,
-            shared_bundle: bundleId,
+            shared_bundle: volumeValue, // Send volume (e.g. "15") instead of ID (e.g. 12)
             incoming_api_ref: orderId,
         }
 
