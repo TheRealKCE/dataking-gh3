@@ -118,11 +118,19 @@ export async function GET(request: NextRequest) {
         // === SECURITY: Use DB-verified prices, NOT metadata ===
         const { data: pkg } = await db
             .from('data_packages')
-            .select('price')
+            .select('price, agent_price')
             .eq('id', metadata.package_id)
             .single()
 
-        const verifiedCostPrice = parseFloat(pkg?.price) || 0
+        // Check if shop owner is an agent — agents get the lower agent cost price
+        const { data: ownerProfile } = await db
+            .from('users')
+            .select('role')
+            .eq('id', shopProfile?.owner_id)
+            .single()
+
+        const isAgentOwner = ownerProfile?.role === 'agent' && parseFloat(pkg?.agent_price) > 0
+        const verifiedCostPrice = isAgentOwner ? parseFloat(pkg?.agent_price) : (parseFloat(pkg?.price) || 0)
         const verifiedProfit = dbSellingPrice - verifiedCostPrice
 
         // ========================================================

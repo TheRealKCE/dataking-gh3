@@ -59,7 +59,7 @@ export default function ShopPricingPage() {
     const [manualMargin, setManualMargin] = useState<string>('0.50')
 
     useEffect(() => {
-        if (dbUser && !isAdmin && !isSubAdmin) {
+        if (dbUser && !isAdmin && !isSubAdmin && dbUser?.role !== 'agent') {
             router.replace('/dashboard')
             return
         }

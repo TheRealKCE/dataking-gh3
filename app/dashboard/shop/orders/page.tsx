@@ -61,7 +61,7 @@ export default function ShopOrdersPage() {
 
             if (!res.ok) {
                 // If not a shop owner and not admin, redirect
-                if (res.status === 404 && !isAdmin && !isSubAdmin) {
+                if (res.status === 404 && !isAdmin && !isSubAdmin && dbUser?.role !== 'agent') {
                     router.replace('/dashboard')
                     return
                 }

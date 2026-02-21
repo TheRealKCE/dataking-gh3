@@ -159,7 +159,7 @@ export default function ShopOverviewPage() {
     }
 
     useEffect(() => {
-        if (dbUser && !isAdmin && !isSubAdmin) {
+        if (dbUser && !isAdmin && !isSubAdmin && dbUser?.role !== 'agent') {
             router.replace('/dashboard')
             return
         }

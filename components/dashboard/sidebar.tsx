@@ -381,8 +381,8 @@ export function DashboardSidebar() {
                             )
                         })}
 
-                    {/* My Shop link — admin/sub-admin only, but shown in main list */}
-                    {(isAdmin || isSubAdmin) && (() => {
+                    {/* My Shop link — admin/sub-admin/agent, shown in main list */}
+                    {(isAdmin || isSubAdmin || dbUser?.role === 'agent') && (() => {
                         const isActive = isLinkActive('/dashboard/shop')
                         return (
                             <Link href="/dashboard/shop" onClick={() => {
