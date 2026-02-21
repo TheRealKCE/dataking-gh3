@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
     Store, Search, CheckCircle2, Clock, XCircle, AlertCircle,
-    Settings, ChevronRight, Loader2, Tag
+    Settings, ChevronRight, Loader2, Tag, Banknote
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
