@@ -3,7 +3,7 @@ ALTER TABLE public.shop_wallet_transactions
 ADD COLUMN IF NOT EXISTS account_name TEXT;
 
 -- 2. Fixed RLS for Shop Wallets (Owners need to deduct balance during withdrawal)
--- Drop existing owner read policy if we want to be clean, but adding UPDATE is the priority
+DROP POLICY IF EXISTS "Owners can update their own shop wallet" ON public.shop_wallets;
 CREATE POLICY "Owners can update their own shop wallet"
 ON public.shop_wallets
 FOR UPDATE
@@ -11,7 +11,7 @@ USING (auth.uid() = owner_id)
 WITH CHECK (auth.uid() = owner_id);
 
 -- 3. Fixed RLS for Shop Wallet Transactions (Owners need to insert withdrawal requests)
--- Allow shop owners to insert their own transactions
+DROP POLICY IF EXISTS "Owners can insert their own shop transactions" ON public.shop_wallet_transactions;
 CREATE POLICY "Owners can insert their own shop transactions"
 ON public.shop_wallet_transactions
 FOR INSERT
