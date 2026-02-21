@@ -156,6 +156,13 @@ export async function POST(request: NextRequest) {
         const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://kingflexygh.com'
         const callbackUrl = `${appUrl}/api/shop/verify?ref=${paystackRef}&slug=${shopSlug}`
 
+        // FINAL VALIDATION: Ensure email is a valid string
+        const finalEmail = (supportEmail && typeof supportEmail === 'string' && supportEmail.includes('@'))
+            ? supportEmail.trim()
+            : 'kingflexydatalimited@gmail.com';
+
+        console.log(`[Shop Initialize] Initializing Paystack. Email: ${finalEmail}, Amount: ${totalAmount}, Ref: ${paystackRef}`)
+
         const paystackRes = await fetch('https://api.paystack.co/transaction/initialize', {
             method: 'POST',
             headers: {
@@ -163,7 +170,7 @@ export async function POST(request: NextRequest) {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                email: supportEmail,
+                email: finalEmail,
                 amount: totalAmount,
                 reference: paystackRef,
                 callback_url: callbackUrl,
