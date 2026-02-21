@@ -177,10 +177,12 @@ export async function GET(request: NextRequest) {
             orderId = newOrder?.id
 
             // Mirror to main orders table so admin can see it in 'All Orders'.
-            // user_id is NULL because it's a guest purchase — it won't appear in
-            // any user's personal order history but WILL show up in admin panels.
+            // We set user_id to the shop owner's ID (shopProfile.owner_id) so that
+            // admins can see CLEARLY who the shop owner/purchaser is.
+            // NOTE: These orders are filtered OUT of the shop owner's personal
+            // 'My Orders' and 'Dashboard Stats' pages using the shop_order_id filter.
             const { error: mirrorError } = await db.from('orders').insert({
-                user_id: null,
+                user_id: shopProfile?.owner_id,
                 phone_number: metadata.guest_phone,
                 network: metadata.network,
                 size: metadata.package_size,

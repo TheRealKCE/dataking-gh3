@@ -129,7 +129,8 @@ export default function DashboardPage() {
                 supabase
                     .from('orders')
                     .select('status, price')
-                    .eq('user_id', dbUser?.id as any),
+                    .eq('user_id', dbUser?.id as any)
+                    .is('shop_order_id', null),
 
                 // Fetch wallet balance
                 supabase
