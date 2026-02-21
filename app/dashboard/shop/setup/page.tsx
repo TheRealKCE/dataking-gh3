@@ -149,7 +149,8 @@ export default function ShopSetupPage() {
         setUploading(true)
         try {
             const ext = file.name.split('.').pop()
-            const path = `${dbUser!.id}/logo.${ext}`
+            // Use a unique name to bust cache
+            const path = `${dbUser!.id}/logo_${Date.now()}.${ext}`
             const { error } = await (supabase.storage.from('shop-logos').upload(path, file, { upsert: true }))
             if (error) throw error
             const { data: urlData } = (supabase.storage.from('shop-logos').getPublicUrl(path))
