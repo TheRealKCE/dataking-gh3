@@ -55,39 +55,21 @@ export async function GET(request: NextRequest) {
         }
 
         // Idempotency: if already processed, redirect to success
-        if (existingOrder && existingOrder.status !== 'pending') {
+        // Idempotency: if already processed, redirect to success
+        if (existingOrder && existingOrder.status !== 'pending' && existingOrder.status !== 'failed') {
             return NextResponse.redirect(new URL(`/shop/${slug}/success?ref=${ref}`, request.url))
         }
 
         // ========================================================
-        // === SECURITY: STRICT AMOUNT VERIFICATION (Zero-Trust) ===
+        // 1. SECURITY PRE-CHECKS (Basic validation)
         // ========================================================
-        // NEVER trust metadata for pricing. Re-query the database
-        // to get the REAL selling price and compare against what
-        // Paystack actually charged.
-
-        const paystackAmountPesewas = verifyData.data?.amount // Paystack returns amount in pesewas
+        const paystackAmountPesewas = verifyData.data?.amount
         if (!paystackAmountPesewas || paystackAmountPesewas <= 0) {
-            console.error(`[Shop Verify] FRAUD ALERT: Invalid Paystack amount. Ref: ${ref}, Amount: ${paystackAmountPesewas}`)
+            console.error(`[Shop Verify] ERROR: Invalid Paystack amount. Ref: ${ref}, Amount: ${paystackAmountPesewas}`)
             return NextResponse.redirect(new URL(`/shop/${slug}?error=payment_error`, request.url))
         }
 
-        // Re-query the REAL selling price from the database (single source of truth)
-        const { data: shopPrice } = await db
-            .from('shop_pricing')
-            .select('selling_price')
-            .eq('shop_id', metadata.shop_id)
-            .eq('package_id', metadata.package_id)
-            .single()
-
-        if (!shopPrice) {
-            console.error(`[Shop Verify] SECURITY: Package ${metadata.package_id} not found in shop ${metadata.shop_id} pricing. Ref: ${ref}`)
-            return NextResponse.redirect(new URL(`/shop/${slug}?error=payment_error`, request.url))
-        }
-
-        const dbSellingPrice = parseFloat(shopPrice.selling_price)
-
-        // Fetch Paystack fee settings to calculate the expected total
+        // Fetch Paystack fee settings and shop profile
         const { data: shopProfile } = await db
             .from('shop_profiles')
             .select('owner_id, shop_name, paystack_fee_percent, fulfillment_mode')
@@ -101,29 +83,32 @@ export async function GET(request: NextRequest) {
 
         const globalFeePercent = settingsRows?.find((r: any) => r.key === 'shop_paystack_fee_percent')?.value
         const paystackFeePercent = shopProfile?.paystack_fee_percent ?? parseFloat(globalFeePercent) ?? 1.95
-        const paystackFee = Math.round(dbSellingPrice * (paystackFeePercent / 100) * 100) / 100
-        const expectedTotalPesewas = Math.round((dbSellingPrice + paystackFee) * 100)
 
-        // Allow a tiny tolerance (1 pesewa) for rounding differences
-        const amountDifference = Math.abs(paystackAmountPesewas - expectedTotalPesewas)
-        if (amountDifference > 1) {
-            console.error(
-                `[Shop Verify] 🚨 FRAUD DETECTED: Amount mismatch! ` +
-                `Ref: ${ref}, Paid: ${paystackAmountPesewas} pesewas, Expected: ${expectedTotalPesewas} pesewas, ` +
-                `DB Price: ${dbSellingPrice}, Fee%: ${paystackFeePercent}%, Diff: ${amountDifference} pesewas`
-            )
-            // Do NOT process this order — redirect with error
-            return NextResponse.redirect(new URL(`/shop/${slug}?error=payment_mismatch`, request.url))
-        }
-
-        // === SECURITY: Use DB-verified prices, NOT metadata ===
+        // Fetch package to calculate cost prices
         const { data: pkg } = await db
             .from('data_packages')
             .select('price, agent_price')
             .eq('id', metadata.package_id)
             .single()
 
-        // Check if shop owner is an agent — agents get the lower agent cost price
+        // Fetch shop's REAL price (single source of truth)
+        const { data: shopPrice } = await db
+            .from('shop_pricing')
+            .select('selling_price')
+            .eq('shop_id', metadata.shop_id)
+            .eq('package_id', metadata.package_id)
+            .single()
+
+        if (!shopPrice || !pkg) {
+            console.error(`[Shop Verify] SECURITY: Pricing/Package not found for Ref: ${ref}`)
+            return NextResponse.redirect(new URL(`/shop/${slug}?error=payment_error`, request.url))
+        }
+
+        const dbSellingPrice = parseFloat(shopPrice.selling_price)
+        const paystackFee = Math.round(dbSellingPrice * (paystackFeePercent / 100) * 100) / 100
+        const expectedTotalPesewas = Math.round((dbSellingPrice + paystackFee) * 100)
+
+        // Cost price calculation
         const { data: ownerProfile } = await db
             .from('users')
             .select('role')
@@ -135,12 +120,12 @@ export async function GET(request: NextRequest) {
         const verifiedProfit = dbSellingPrice - verifiedCostPrice
 
         // ========================================================
-
+        // 2. CREATE ORDER RECORDS (Before Amount Validation)
+        // ========================================================
+        // This ensures the order is NEVER lost, even if it fails the amount check.
         let orderId = existingOrder?.id
         const fulfillmentMode = shopProfile?.fulfillment_mode || metadata.fulfillment_mode || 'auto'
-        const initialStatus = fulfillmentMode === 'auto' ? 'processing' : 'pending'
 
-        // 4. Create shop_orders record IF it doesn't exist (with DB-verified prices)
         if (!existingOrder) {
             const { data: newOrder, error: createError } = await db
                 .from('shop_orders')
@@ -150,93 +135,94 @@ export async function GET(request: NextRequest) {
                     guest_phone: metadata.guest_phone,
                     network: metadata.network,
                     package_size: metadata.package_size,
-                    selling_price: dbSellingPrice,        // FROM DATABASE, not metadata
-                    cost_price: verifiedCostPrice,        // FROM DATABASE, not metadata
-                    profit: verifiedProfit,                // CALCULATED from DB values
+                    selling_price: dbSellingPrice,
+                    cost_price: verifiedCostPrice,
+                    profit: verifiedProfit,
                     paystack_reference: ref,
-                    status: initialStatus,
+                    status: 'pending', // Always start as pending
                 })
                 .select('id')
                 .single()
 
             if (createError) {
-                // Race condition guard: if duplicate insert, try to fetch the existing one
-                if (createError.code === '23505') { // unique_violation
-                    console.log(`[Shop Verify] Duplicate insert caught for ref: ${ref}. Fetching existing.`)
-                    const { data: raceOrder } = await db
-                        .from('shop_orders')
-                        .select('id, status')
-                        .eq('paystack_reference', ref)
-                        .single()
-                    if (raceOrder) {
-                        return NextResponse.redirect(new URL(`/shop/${slug}/success?ref=${ref}`, request.url))
-                    }
+                // Duplicate check
+                if (createError.code === '23505') {
+                    const { data: raceOrder } = await db.from('shop_orders').select('id').eq('paystack_reference', ref).single()
+                    if (raceOrder) return NextResponse.redirect(new URL(`/shop/${slug}/success?ref=${ref}`, request.url))
                 }
                 console.error('[Shop Verify] Failed to create shop order:', createError)
-                return NextResponse.json({ error: 'Failed to create shop order' }, { status: 500 })
+                return NextResponse.json({ error: 'Failed' }, { status: 500 })
             }
             orderId = newOrder?.id
 
-            // Mirror to main orders table so admin can see it in 'All Orders'.
-            // We set user_id to the shop owner's ID (shopProfile.owner_id) so that
-            // admins can see CLEARLY who the shop owner/purchaser is.
-            // NOTE: These orders are filtered OUT of the shop owner's personal
-            // 'My Orders' and 'Dashboard Stats' pages using the shop_order_id filter.
-            const { error: mirrorError } = await db.from('orders').insert({
+            // Mirror to main orders table
+            await db.from('orders').insert({
                 user_id: shopProfile?.owner_id,
                 phone_number: metadata.guest_phone,
                 network: metadata.network,
                 size: metadata.package_size,
                 price: dbSellingPrice,
                 cost_price: verifiedCostPrice,
-                status: initialStatus,
+                status: 'pending',
                 payment_status: 'paid',
                 reference_code: `SHOP-${ref.slice(-10)}`,
                 fulfillment_method: 'auto',
                 shop_name: shopProfile?.shop_name || slug,
                 shop_order_id: orderId
             })
-            if (mirrorError) {
-                // Non-fatal — shop order is created, but admin won't see it until fixed
-                console.error(`[Shop Verify] ⚠️ Failed to mirror shop order ${orderId} to orders table:`, mirrorError)
-            } else {
-                console.log(`[Shop Verify] ✅ Mirrored shop order ${orderId} to orders table (status: ${initialStatus}, shop: ${shopProfile?.shop_name || slug})`)
-
-                // 4.5 Send order confirmation SMS to guest customer (async)
-                if (metadata.guest_phone) {
-                    sendOrderSuccessSMS(
-                        metadata.guest_phone,
-                        {
-                            network: metadata.network,
-                            size: metadata.package_size,
-                            price: dbSellingPrice,
-                            recipientNumber: metadata.guest_phone,
-                            currentBalance: 0 // Not applicable for guest/storefront but required by function signature
-                        }
-                    ).catch((err: Error) => console.error('[Shop Verify] SMS confirmation error:', err))
-                }
-            }
         }
 
-        // NOTE: Shop orders live only in shop_orders, NOT mirrored to orders.
-        // Mirroring was removed to prevent guest shop orders from appearing
-        // in the shop owner's personal 'My Order History' page.
+        // ========================================================
+        // 3. SECURITY: STRICT AMOUNT VERIFICATION
+        // ========================================================
+        // Higher tolerance (5 pesewas) to absorb rounding differences
+        const amountDifference = Math.abs(paystackAmountPesewas - expectedTotalPesewas)
+        if (amountDifference > 5) {
+            console.error(`[Shop Verify] 🚨 AMOUNT MISMATCH: Ref: ${ref}, Paid: ${paystackAmountPesewas}, Expected: ${expectedTotalPesewas}`)
 
-        // 5. Credit profit immediately upon successful payment
+            // Mark orders as failed but keep the record for tracing
+            await db.from('shop_orders').update({ status: 'failed' }).eq('id', orderId)
+            await db.from('orders').update({ status: 'failed' }).eq('shop_order_id', orderId)
+
+            return NextResponse.redirect(new URL(`/shop/${slug}?error=payment_mismatch`, request.url))
+        }
+
+        // ========================================================
+        // 4. PROCESS VALID ORDER (Profit & Fulfillment)
+        // ========================================================
+        const initialStatus = fulfillmentMode === 'auto' ? 'processing' : 'pending'
+
+        // Update status from pending to initial status (e.g. processing)
+        if (initialStatus !== 'pending') {
+            await db.from('shop_orders').update({ status: initialStatus }).eq('id', orderId)
+            await db.from('orders').update({ status: initialStatus }).eq('shop_order_id', orderId)
+        }
+
+        // 4.5 Send order confirmation SMS (Async)
+        if (metadata.guest_phone) {
+            sendOrderSuccessSMS(metadata.guest_phone, {
+                network: metadata.network,
+                size: metadata.package_size,
+                price: dbSellingPrice,
+                recipientNumber: metadata.guest_phone,
+                currentBalance: 0
+            }).catch((err: Error) => console.error('[Shop Verify] SMS error:', err))
+        }
+
+        // 5. Credit profit (Gated by successful security check)
         try {
             await creditShopProfit(orderId!)
         } catch (profitErr) {
-            console.error('[Shop Verify] Profit credit error (non-fatal):', profitErr)
+            console.error('[Shop Verify] Profit credit error:', profitErr)
         }
 
         // 6. Trigger fulfillment
         try {
             if (fulfillmentMode === 'auto') {
-                await triggerShopFulfillment(orderId, metadata.network, metadata.guest_phone, metadata.package_size, db)
+                await triggerShopFulfillment(orderId!, metadata.network, metadata.guest_phone, metadata.package_size, db)
             }
         } catch (fulfillErr) {
             console.error('[Shop Verify] Fulfillment error:', fulfillErr)
-            // Don't fail the redirect — order is paid, fulfillment can be retried
         }
 
         return NextResponse.redirect(new URL(`/shop/${slug}/success?ref=${ref}`, request.url))
