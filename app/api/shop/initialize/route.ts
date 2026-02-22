@@ -4,10 +4,19 @@ import { createServerClient } from '@/lib/supabase'
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json()
-        const { shopSlug, packageId, guestPhone } = body
+        const { shopSlug, packageId, guestPhone, guestEmail } = body
 
         if (!shopSlug || !packageId || !guestPhone) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
+        }
+
+        // Validate guestEmail if provided
+        let validatedGuestEmail: string | null = null
+        if (guestEmail && typeof guestEmail === 'string' && guestEmail.trim()) {
+            const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/
+            if (emailRegex.test(guestEmail.trim()) && guestEmail.trim().length <= 254) {
+                validatedGuestEmail = guestEmail.trim().toLowerCase()
+            }
         }
 
         // === SECURITY: Strict input validation ===
@@ -126,49 +135,28 @@ export async function POST(request: NextRequest) {
         const paystackFee = Math.round(sellingPrice * (paystackFeePercent / 100) * 100) / 100
         const totalAmount = Math.round((sellingPrice + paystackFee) * 100) // Paystack uses kobo/pesewas
 
-        // 5. Initialize Paystack — use owner email for branding, guest stays anonymous
+        // 5. Initialize Paystack — use unique email for identity
         const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY
         if (!PAYSTACK_SECRET_KEY) {
             return NextResponse.json({ error: 'Payment service unavailable' }, { status: 503 })
         }
 
-        // Determine the branding email (Owner Email > Support Email > Default Gmail)
-        let brandingEmail = 'kingflexydatalimited@gmail.com'
-        const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/
-
-        // A. Try Shop Owner Email
-        if (shop.owner?.email) {
-            const ownerEmailMatch = shop.owner.email.match(emailRegex)
-            if (ownerEmailMatch) {
-                brandingEmail = ownerEmailMatch[0].toLowerCase().trim()
-            }
-        }
-
-        // B. Try Support Email from settings if owner email failed or for backup
-        if (brandingEmail === 'kingflexydatalimited@gmail.com') {
-            try {
-                const { data: emailData } = await db
-                    .from('admin_settings')
-                    .select('value')
-                    .eq('key', 'support_email')
-                    .maybeSingle()
-
-                if (emailData?.value && typeof emailData.value === 'string') {
-                    const emailMatch = emailData.value.match(emailRegex)
-                    if (emailMatch) {
-                        brandingEmail = emailMatch[0].toLowerCase().trim()
-                    }
-                }
-            } catch (error) {
-                console.error('[Shop Initialize] Error fetching support_email:', error)
-            }
+        // RESOLVE PAYSTACK EMAIL:
+        // Priority: 1. Valid Guest Email, 2. Unique Synthetic Email
+        let paystackEmail = ''
+        if (validatedGuestEmail) {
+            paystackEmail = validatedGuestEmail
+        } else {
+            // Synthetic email ensures EVERY transaction has a unique identity to prevent Paystack blocking.
+            // Format: guest-{phone}-{timestamp}@shop.kingflexygh.com
+            paystackEmail = `guest-${cleanPhone}-${Date.now()}@shop.kingflexygh.com`
         }
 
         const paystackRef = `SHOP-${shop.id.slice(0, 8)}-${Date.now()}`
         const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://kingflexygh.com'
         const callbackUrl = `${appUrl}/api/shop/verify?ref=${paystackRef}&slug=${shopSlug}`
 
-        console.log(`[Shop Initialize] Initializing Paystack. Email: ${brandingEmail}, Amount: ${totalAmount}, Ref: ${paystackRef}`)
+        console.log(`[Shop Initialize] Initializing Paystack. Email: ${paystackEmail}, Amount: ${totalAmount}, Ref: ${paystackRef}`)
 
         const paystackRes = await fetch('https://api.paystack.co/transaction/initialize', {
             method: 'POST',
@@ -177,7 +165,7 @@ export async function POST(request: NextRequest) {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                email: brandingEmail,
+                email: paystackEmail,
                 amount: totalAmount,
                 reference: paystackRef,
                 callback_url: callbackUrl,
@@ -186,6 +174,7 @@ export async function POST(request: NextRequest) {
                     shop_name: shop.shop_name,
                     shop_slug: shopSlug,
                     guest_phone: cleanPhone,
+                    guest_email: validatedGuestEmail, // Store the real email if provided
                     package_id: packageId,
                     network: pkg.network,
                     package_size: pkg.size,
@@ -197,6 +186,7 @@ export async function POST(request: NextRequest) {
                         { display_name: 'Shop', variable_name: 'shop', value: shop.shop_name },
                         { display_name: 'Phone', variable_name: 'phone', value: cleanPhone },
                         { display_name: 'Package', variable_name: 'package', value: `${pkg.network} ${pkg.size}` },
+                        ...(validatedGuestEmail ? [{ display_name: 'Email', variable_name: 'email', value: validatedGuestEmail }] : []),
                     ],
                 },
             }),

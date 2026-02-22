@@ -53,6 +53,7 @@ export default function ShopStorefront({ shop, packages }: Props) {
     const searchParams = useSearchParams()
     const [selectedPackage, setSelectedPackage] = useState<Package | null>(null)
     const [phone, setPhone] = useState('')
+    const [email, setEmail] = useState('')
     const [loading, setLoading] = useState(false)
     const [pageLoading, setPageLoading] = useState(true)
     const [errorMsg, setErrorMsg] = useState<string | null>(null)
@@ -93,6 +94,11 @@ export default function ShopStorefront({ shop, packages }: Props) {
         if (!selectedPackage) { toast.error('Select a package first'); return }
         if (!phone.trim()) { toast.error('Enter your phone number'); return }
 
+        // Soft email validation
+        if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+            toast.warning('Invalid email format. Proceeding anyway, but you might not receive a receipt.')
+        }
+
         const cleanPhone = phone.replace(/\s+/g, '')
         const ghanaPhoneRegex = /^(0\d{9}|233\d{9})$/
         if (!ghanaPhoneRegex.test(cleanPhone)) {
@@ -109,6 +115,7 @@ export default function ShopStorefront({ shop, packages }: Props) {
                     shopSlug: shop.shop_slug,
                     packageId: selectedPackage.id,
                     guestPhone: cleanPhone,
+                    guestEmail: email.trim() || undefined,
                 }),
             })
             const data = await res.json()
@@ -412,6 +419,18 @@ export default function ShopStorefront({ shop, packages }: Props) {
                                 value={phone}
                                 onChange={(e) => setPhone(e.target.value)}
                                 placeholder="Recipient phone: 0244123456"
+                                className="w-full pl-9 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 transition-all"
+                                style={{ '--tw-ring-color': brandColor } as any}
+                            />
+                        </div>
+
+                        <div className="relative">
+                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                            <input
+                                type="email"
+                                value={email}
+                                onChange={(e) => setEmail(e.target.value)}
+                                placeholder="Your email to receive transaction receipt (Optional)"
                                 className="w-full pl-9 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 transition-all"
                                 style={{ '--tw-ring-color': brandColor } as any}
                             />
