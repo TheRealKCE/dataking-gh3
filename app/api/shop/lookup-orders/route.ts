@@ -33,7 +33,11 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ error: 'Failed to fetch orders', details: error.message }, { status: 500 })
         }
 
-        return NextResponse.json({ orders: data || [] })
+        return NextResponse.json({ orders: data || [] }, {
+            headers: {
+                'Cache-Control': 'private, max-age=600'
+            }
+        })
     } catch (err: any) {
         console.error('[ShopOrdersLookup] Error:', err)
         return NextResponse.json({ error: 'Server error' }, { status: 500 })

@@ -6,11 +6,12 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import {
     Search, Loader2, CheckCircle2, XCircle, Clock,
-    Package, CalendarDays, History, Info, ShoppingCart
+    Package, CalendarDays, History, Info, ShoppingCart, Phone
 } from 'lucide-react'
 import { formatCurrency, cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import Link from 'next/link'
+import { useSearchParams } from 'next/navigation'
 
 interface Order {
     id: string
@@ -53,14 +54,20 @@ function OrderCard({ order }: { order: Order }) {
                         </div>
                         <p className="font-black text-sm text-gray-800 dark:text-gray-200">{formatCurrency(order.selling_price)}</p>
                     </div>
-                    <div className="flex justify-between items-center mt-2">
-                        <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-                            <Clock className="w-3 h-3" />
-                            {new Date(order.created_at).toLocaleDateString()} {new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    <div className="flex flex-col gap-1 mt-2">
+                        <p className="text-[10px] text-muted-foreground flex items-center gap-1 font-mono">
+                            <Phone className="w-3 h-3 text-emerald-500" />
+                            {order.guest_phone || 'N/A'}
                         </p>
-                        <span className={cn('text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full', cfg.color)}>
-                            {cfg.label}
-                        </span>
+                        <div className="flex justify-between items-center">
+                            <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                <Clock className="w-3 h-3" />
+                                {new Date(order.created_at).toLocaleDateString()} {new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                            <span className={cn('text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full', cfg.color)}>
+                                {cfg.label}
+                            </span>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -70,49 +77,25 @@ function OrderCard({ order }: { order: Order }) {
 
 
 export default function ShopStatusTracker() {
+    const searchParams = useSearchParams()
+    const shopParam = searchParams.get('shop')
+    const nameParam = searchParams.get('name')
+
     const [phone, setPhone] = useState('')
     const [searchOrders, setSearchOrders] = useState<Order[]>([])
-    const [todayOrders, setTodayOrders] = useState<Order[]>([])
     const [lastShopSlug, setLastShopSlug] = useState<string | null>(null)
 
     // Loading states
     const [searchLoading, setSearchLoading] = useState(false)
-    const [todayLoading, setTodayLoading] = useState(false)
-
     const [hasSearched, setHasSearched] = useState(false)
 
-    // ─── 1. Auto-load Today's Orders (on mount) ───
+    // ─── 1. Load Phone & Slug from Storage (No auto-fetch) ───
     useEffect(() => {
-        let savedPhone: string | null = null
         try {
-            savedPhone = localStorage.getItem('shop_last_phone')
-            setLastShopSlug(localStorage.getItem('shop_last_slug'))
+            const savedPhone = localStorage.getItem('shop_last_phone')
+            if (savedPhone) setPhone(savedPhone)
+            setLastShopSlug(sessionStorage.getItem('shop_sticky_slug'))
         } catch (_) { }
-
-        if (!savedPhone) return
-
-        const loadTodayOrders = async () => {
-            setTodayLoading(true)
-            try {
-                const res = await fetch(`/api/shop/lookup-orders?phone=${encodeURIComponent(savedPhone!)}&limit=10`)
-                if (!res.ok) throw new Error('Failed to fetch')
-                const json = await res.json()
-
-                // Filter to only show orders from last 24h
-                const yesterday = new Date()
-                yesterday.setHours(yesterday.getHours() - 24)
-                const recent = (json.orders as any[] || []).filter(o => new Date(o.created_at) > yesterday)
-
-                setTodayOrders(recent)
-                if (recent.length > 0) setPhone(savedPhone!)
-            } catch (err) {
-                console.error('Error loading auto orders:', err)
-            } finally {
-                setTodayLoading(false)
-            }
-        }
-
-        loadTodayOrders()
     }, [])
 
     // ─── 2. Handle Manual Search ───
@@ -121,6 +104,11 @@ export default function ShopStatusTracker() {
         if (!phone.trim()) { toast.error('Enter a phone number'); return }
 
         const cleanPhone = phone.replace(/\s+/g, '')
+        const ghanaPhoneRegex = /^(0\d{9}|233\d{9})$/
+        if (!ghanaPhoneRegex.test(cleanPhone)) {
+            toast.error('Enter a valid Ghana phone number (e.g. 0244123456)')
+            return
+        }
 
         setSearchLoading(true)
         setHasSearched(true)
@@ -131,7 +119,13 @@ export default function ShopStatusTracker() {
             if (!res.ok) throw new Error('Failed to fetch')
             const json = await res.json()
 
-            const orders = json.orders as any[] || []
+            let orders = (json.orders as Order[] || [])
+
+            // Filter by shop if param exists
+            if (shopParam) {
+                orders = orders.filter(o => o.shop_slug === shopParam)
+            }
+
             setSearchOrders(orders)
 
             if (orders.length > 0) {
@@ -149,15 +143,17 @@ export default function ShopStatusTracker() {
         <div className="max-w-md mx-auto p-4 space-y-8 pb-20">
             {/* Page header */}
             <div className="text-center space-y-2">
-                <h1 className="text-2xl font-black text-gray-900 dark:text-white">Track Your Order</h1>
+                <h1 className="text-2xl font-black text-gray-900 dark:text-white">
+                    {nameParam ? `Track Your ${nameParam} Orders` : 'Track Your Order'}
+                </h1>
                 <p className="text-muted-foreground text-sm max-w-xs mx-auto">
                     Enter your phone number to see the status of your data bundles.
                 </p>
-                {/* Buy More Data Button - Visible if we know the last shop visited */}
-                {(todayOrders.length > 0 || searchOrders.length > 0 || lastShopSlug) && (
+                {/* Buy More Data Button */}
+                {(searchOrders.length > 0 || lastShopSlug || shopParam) && (
                     <div className="pt-2">
                         <Link
-                            href={`/shop/${(todayOrders[0] || searchOrders[0])?.shop_slug || lastShopSlug}`}
+                            href={`/shop/${shopParam || searchOrders[0]?.shop_slug || lastShopSlug}`}
                             className="inline-flex items-center gap-2 text-sm font-bold text-emerald-600 hover:text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-4 py-2 rounded-full transition-colors"
                         >
                             <ShoppingCart className="w-4 h-4" />
@@ -167,26 +163,6 @@ export default function ShopStatusTracker() {
                 )}
             </div>
 
-            {/* ── Today/Recent Auto-Load Section ── */}
-            {(todayLoading || todayOrders.length > 0) && (
-                <div className="space-y-3 animate-in fade-in slide-in-from-bottom-4 duration-500">
-                    <div className="flex items-center gap-2 px-1">
-                        <History className="w-4 h-4 text-emerald-600" />
-                        <h2 className="font-bold text-sm text-gray-800 dark:text-gray-200">Recent Activity</h2>
-                        {todayLoading && <Loader2 className="w-3.5 h-3.5 animate-spin text-muted-foreground" />}
-                    </div>
-
-                    <div className="space-y-3">
-                        {todayOrders.map(order => <OrderCard key={order.id} order={order} />)}
-                    </div>
-
-                    {/* Divider */}
-                    <div className="relative py-2">
-                        <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-gray-200 dark:border-gray-800"></span></div>
-                        <div className="relative flex justify-center text-xs uppercase"><span className="bg-gray-50 dark:bg-gray-950 px-2 text-muted-foreground">Or Search History</span></div>
-                    </div>
-                </div>
-            )}
 
             {/* ── Search Section ── */}
             <Card className="border-none shadow-lg bg-white dark:bg-gray-900">

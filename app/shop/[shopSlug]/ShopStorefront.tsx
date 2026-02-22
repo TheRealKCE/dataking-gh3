@@ -8,7 +8,7 @@ import { formatCurrency } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import {
     Phone, Mail, MessageCircle, ShoppingCart, Loader2,
-    CheckCircle2, AlertCircle, X, ClipboardList, Zap
+    CheckCircle2, AlertCircle, X, Search, Zap
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
@@ -242,11 +242,14 @@ export default function ShopStorefront({ shop, packages }: Props) {
                     </div>
                     {/* Track Order button */}
                     <Link
-                        href="/shop/status"
-                        className="flex-shrink-0 flex flex-col items-center gap-1 px-3 py-2 rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors text-center"
+                        href={`/shop/status?shop=${shop.shop_slug}&name=${encodeURIComponent(shop.shop_name)}`}
+                        className="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-all shadow-sm group"
                     >
-                        <ClipboardList className="w-5 h-5 text-gray-500 dark:text-gray-300" />
-                        <span className="text-[10px] font-bold text-gray-500 dark:text-gray-300 leading-tight">Track<br />Order</span>
+                        <Search className="w-5 h-5 text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform" />
+                        <div className="text-left">
+                            <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-tight leading-none mb-0.5">My Orders</p>
+                            <span className="text-sm font-black text-emerald-700 dark:text-emerald-300 leading-tight">Track Now</span>
+                        </div>
                     </Link>
                 </div>
 
