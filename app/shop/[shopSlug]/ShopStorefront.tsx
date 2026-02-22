@@ -70,7 +70,7 @@ export default function ShopStorefront({ shop, packages }: Props) {
     // Instant loader animation & save shop visit
     useEffect(() => {
         const timer = setTimeout(() => setPageLoading(false), 400)
-        try { localStorage.setItem('shop_last_slug', shop.shop_slug) } catch (_) { }
+        try { sessionStorage.setItem('shop_sticky_slug', shop.shop_slug) } catch (_) { }
         return () => clearTimeout(timer)
     }, [shop.shop_slug])
 

@@ -1,3 +1,7 @@
+'use client'
+
+import { useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import {
@@ -15,6 +19,17 @@ import { NetworkIcon } from '@/components/network-icon'
 import Image from 'next/image'
 
 export default function HomePage() {
+    const router = useRouter()
+
+    useEffect(() => {
+        try {
+            const slug = sessionStorage.getItem('shop_sticky_slug')
+            if (slug) {
+                router.replace(`/shop/${slug}`)
+            }
+        } catch (_) { }
+    }, [router])
+
     return (
         <div className="min-h-screen bg-[#E5E7EB] overflow-x-hidden">
             {/* Navigation */}
