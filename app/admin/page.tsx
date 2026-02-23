@@ -14,8 +14,17 @@ import {
     TrendingUp,
     Clock,
     DollarSign,
-    AlertTriangle
+    AlertTriangle,
+    Bell,
+    MessageSquare,
+    Store,
+    Banknote,
+    BadgeCheck,
+    Crown,
+    ArrowRight
 } from 'lucide-react'
+import { useAdminCounts } from '@/hooks/use-admin-counts'
+import Link from 'next/link'
 
 interface AdminStats {
     totalUsers: number
@@ -31,6 +40,10 @@ interface AdminStats {
 export default function AdminDashboardPage() {
     const [stats, setStats] = useState<AdminStats | null>(null)
     const [isLoading, setIsLoading] = useState(true)
+    const { counts: adminCounts } = useAdminCounts()
+
+    // Calculate total actions required
+    const totalActions = Object.values(adminCounts).reduce((a, b) => a + b, 0)
 
     useEffect(() => {
         fetchStats()
@@ -66,10 +79,139 @@ export default function AdminDashboardPage() {
 
     return (
         <div className="space-y-6">
-            <div className="text-center">
-                <h1 className="text-2xl font-bold">Admin Dashboard</h1>
-                <p className="text-muted-foreground">Overview of your platform statistics</p>
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                <div>
+                    <h1 className="text-3xl font-black text-slate-900">Admin Dashboard</h1>
+                    <p className="text-muted-foreground font-medium text-sm">Overview of platform performance and required actions.</p>
+                </div>
+                {totalActions > 0 && (
+                    <div className="flex items-center gap-2 bg-red-50 dark:bg-red-900/10 px-4 py-2 rounded-full border border-red-100 dark:border-red-900/20 animate-pulse">
+                        <AlertTriangle className="w-4 h-4 text-red-600" />
+                        <span className="text-sm font-black text-red-700 dark:text-red-400">
+                            {totalActions} Action{totalActions > 1 ? 's' : ''} Required
+                        </span>
+                    </div>
+                )}
             </div>
+
+            {/* Action Required Banner */}
+            {totalActions > 0 && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-in fade-in slide-in-from-top-4 duration-500">
+                    {adminCounts.pendingOrders > 0 && (
+                        <Link href="/admin/orders">
+                            <Card className="hover:shadow-md transition-all border-l-4 border-l-orange-500 group cursor-pointer h-full">
+                                <CardContent className="p-4 flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="bg-orange-100 dark:bg-orange-900/30 p-2 rounded-lg text-orange-600">
+                                            <ShoppingCart className="w-5 h-5" />
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Orders</p>
+                                            <p className="text-lg font-black">{adminCounts.pendingOrders} Pending</p>
+                                        </div>
+                                    </div>
+                                    <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-orange-500 translate-x-0 group-hover:translate-x-1 transition-all" />
+                                </CardContent>
+                            </Card>
+                        </Link>
+                    )}
+
+                    {adminCounts.pendingShops > 0 && (
+                        <Link href="/admin/shops">
+                            <Card className="hover:shadow-md transition-all border-l-4 border-l-blue-500 group cursor-pointer h-full">
+                                <CardContent className="p-4 flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="bg-blue-100 dark:bg-blue-900/30 p-2 rounded-lg text-blue-600">
+                                            <Store className="w-5 h-5" />
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Shops</p>
+                                            <p className="text-lg font-black">{adminCounts.pendingShops} Review</p>
+                                        </div>
+                                    </div>
+                                    <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-blue-500 translate-x-0 group-hover:translate-x-1 transition-all" />
+                                </CardContent>
+                            </Card>
+                        </Link>
+                    )}
+
+                    {adminCounts.pendingWithdrawals > 0 && (
+                        <Link href="/admin/shops/withdrawals">
+                            <Card className="hover:shadow-md transition-all border-l-4 border-l-emerald-500 group cursor-pointer h-full">
+                                <CardContent className="p-4 flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="bg-emerald-100 dark:bg-emerald-900/30 p-2 rounded-lg text-emerald-600">
+                                            <Banknote className="w-5 h-5" />
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Withdrawals</p>
+                                            <p className="text-lg font-black">{adminCounts.pendingWithdrawals} Pending</p>
+                                        </div>
+                                    </div>
+                                    <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-emerald-500 translate-x-0 group-hover:translate-x-1 transition-all" />
+                                </CardContent>
+                            </Card>
+                        </Link>
+                    )}
+
+                    {adminCounts.pendingComplaints > 0 && (
+                        <Link href="/admin/complaints">
+                            <Card className="hover:shadow-md transition-all border-l-4 border-l-red-500 group cursor-pointer h-full">
+                                <CardContent className="p-4 flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="bg-red-100 dark:bg-red-900/30 p-2 rounded-lg text-red-600">
+                                            <MessageSquare className="w-5 h-5" />
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Complaints</p>
+                                            <p className="text-lg font-black">{adminCounts.pendingComplaints} Issues</p>
+                                        </div>
+                                    </div>
+                                    <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-red-500 translate-x-0 group-hover:translate-x-1 transition-all" />
+                                </CardContent>
+                            </Card>
+                        </Link>
+                    )}
+
+                    {adminCounts.pendingAfa > 0 && (
+                        <Link href="/admin/afa-management">
+                            <Card className="hover:shadow-md transition-all border-l-4 border-l-amber-500 group cursor-pointer h-full">
+                                <CardContent className="p-4 flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="bg-amber-100 dark:bg-amber-900/30 p-2 rounded-lg text-amber-600">
+                                            <BadgeCheck className="w-5 h-5" />
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] font-black uppercase text-slate-500 tracking-wider">AFA Apps</p>
+                                            <p className="text-lg font-black">{adminCounts.pendingAfa} Pending</p>
+                                        </div>
+                                    </div>
+                                    <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-amber-500 translate-x-0 group-hover:translate-x-1 transition-all" />
+                                </CardContent>
+                            </Card>
+                        </Link>
+                    )}
+
+                    {adminCounts.expiringAgents > 0 && (
+                        <Link href="/admin/memberships">
+                            <Card className="hover:shadow-md transition-all border-l-4 border-l-purple-500 group cursor-pointer h-full">
+                                <CardContent className="p-4 flex items-center justify-between">
+                                    <div className="flex items-center gap-3">
+                                        <div className="bg-purple-100 dark:bg-purple-900/30 p-2 rounded-lg text-purple-600">
+                                            <Crown className="w-5 h-5" />
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Expired Agents</p>
+                                            <p className="text-lg font-black">{adminCounts.expiringAgents} Soon</p>
+                                        </div>
+                                    </div>
+                                    <ArrowRight className="w-4 h-4 text-slate-300 group-hover:text-purple-500 translate-x-0 group-hover:translate-x-1 transition-all" />
+                                </CardContent>
+                            </Card>
+                        </Link>
+                    )}
+                </div>
+            )}
 
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

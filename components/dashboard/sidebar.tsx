@@ -37,6 +37,7 @@ import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { usePageAccess } from '@/hooks/use-page-access'
 import { differenceInDays } from 'date-fns'
+import { useAdminCounts } from '@/hooks/use-admin-counts'
 
 const userNavItems = [
     { href: '/dashboard', label: 'Home', icon: LayoutDashboard },
@@ -77,6 +78,7 @@ export function DashboardSidebar() {
     const { isPageAccessible, loading: pageAccessLoading } = usePageAccess()
     const [isCollapsed, setIsCollapsed] = useState(false)
     const [walletBalance, setWalletBalance] = useState(0)
+    const { counts: adminCounts } = useAdminCounts()
 
     // Calculate days remaining for agents
     const calculateDaysRemaining = () => {
@@ -458,21 +460,49 @@ export function DashboardSidebar() {
                                 return false
                             }).map((item) => {
                                 const isActive = isLinkActive(item.href)
+
+                                // Get badge count for this item
+                                let badgeCount = 0
+                                if (item.href === '/admin/orders') badgeCount = adminCounts.pendingOrders
+                                else if (item.href === '/admin/fulfillment') badgeCount = adminCounts.pendingFulfillment
+                                else if (item.href === '/admin/shops') badgeCount = adminCounts.pendingShops
+                                else if (item.href === '/admin/shops/withdrawals') badgeCount = adminCounts.pendingWithdrawals
+                                else if (item.href === '/admin/afa-management') badgeCount = adminCounts.pendingAfa
+                                else if (item.href === '/admin/memberships') badgeCount = adminCounts.expiringAgents
+                                else if (item.href === '/admin/complaints') badgeCount = adminCounts.pendingComplaints
+
                                 return (
                                     <Link key={item.href} href={item.href} onClick={() => {
                                         if (window.innerWidth < 1024) closeSidebar()
                                     }}>
                                         <div
                                             className={cn(
-                                                "flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-all duration-200",
+                                                "flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-all duration-200 relative",
                                                 isActive
                                                     ? "bg-red-500/20 dark:bg-red-500/10 text-red-600 dark:text-red-400"
                                                     : "text-gray-600 dark:text-gray-400 hover:bg-gray-300/60 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-gray-200",
                                                 isCollapsed && "justify-center px-2"
                                             )}
                                         >
-                                            <item.icon className={cn("w-5 h-5 flex-shrink-0", isActive && "text-red-600 dark:text-red-400")} />
-                                            {!isCollapsed && <span className="text-base font-medium">{item.label}</span>}
+                                            <div className="relative">
+                                                <item.icon className={cn("w-5 h-5 flex-shrink-0", isActive && "text-red-600 dark:text-red-400")} />
+                                                {isCollapsed && badgeCount > 0 && (
+                                                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-slate-200 dark:border-slate-900 animate-pulse" />
+                                                )}
+                                            </div>
+                                            {!isCollapsed && (
+                                                <>
+                                                    <span className="text-base font-medium flex-1">{item.label}</span>
+                                                    {badgeCount > 0 && (
+                                                        <div className="flex items-center justify-center min-w-[20px] h-5 px-1.5 bg-red-500 rounded-full animate-in zoom-in duration-300 relative">
+                                                            <div className="absolute inset-0 bg-red-500 rounded-full animate-ping opacity-20" />
+                                                            <span className="text-[10px] font-black text-white relative z-10">
+                                                                {badgeCount > 9 ? '9+' : badgeCount}
+                                                            </span>
+                                                        </div>
+                                                    )}
+                                                </>
+                                            )}
                                         </div>
                                     </Link>
                                 )

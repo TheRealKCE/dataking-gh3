@@ -597,12 +597,11 @@ export default function AdminOrdersPage() {
     // Batch Card Component defined locally to access props/state needs
     function BatchCard({ batch, onRefund, onFail }: { batch: any, onRefund?: any, onFail?: any }) {
         const [batchOrders, setBatchOrders] = useState<any[]>([])
-        const [isLoadingOrders, setIsLoadingOrders] = useState(true)
+        const [isLoadingOrders, setIsLoadingOrders] = useState(false)
         const [isUpdating, setIsUpdating] = useState(false)
 
         // Automatic fetching removed to save CPU. 
         // Logic moved to manual click handler in the UI.
-        setIsLoadingOrders(false)
 
         const onUpdateBatchStatus = async (status: string) => {
             if (!confirm(`Mark all ${batchOrders.length} orders as ${status}?`)) return
