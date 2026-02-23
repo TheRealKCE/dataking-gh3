@@ -32,6 +32,7 @@ interface WithdrawalRequest {
     net_amount: number
     account_name: string
     momo_number: string
+    description: string
     status: 'pending' | 'completed' | 'rejected'
     type: 'profit' | 'withdrawal'
     created_at: string
