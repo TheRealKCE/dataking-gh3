@@ -246,7 +246,7 @@ export default function FulfillmentPage() {
         }
     }
 
-    const bulkUpdateStatus = async (newStatus: 'completed' | 'failed' | 'processing') => {
+    const bulkUpdateStatus = async (newStatus: 'completed' | 'failed' | 'processing' | 'pending') => {
         if (selectedOrders.size === 0) {
             toast.error('No orders selected')
             return
@@ -483,6 +483,12 @@ export default function FulfillmentPage() {
                                         <p className="text-[9px] md:text-[10px] text-blue-700 dark:text-blue-400 font-bold uppercase">Selected</p>
                                         <p className="text-lg md:text-xl font-black text-blue-600 dark:text-blue-500">{selectedOrders.size}</p>
                                     </div>
+                                    <div className="p-2 md:p-2.5 bg-emerald-50 dark:bg-emerald-900/10 rounded-lg border border-emerald-100 dark:border-emerald-900/20">
+                                        <p className="text-[9px] md:text-[10px] text-emerald-700 dark:text-emerald-400 font-bold uppercase">Total Cost</p>
+                                        <p className="text-sm md:text-base font-black text-emerald-600 dark:text-emerald-500 truncate">
+                                            GHS {orders.reduce((acc, curr) => acc + (curr.price || 0), 0).toFixed(2)}
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
                         </CardContent>
@@ -510,6 +516,9 @@ export default function FulfillmentPage() {
                                 <span className="text-[10px] md:text-xs font-bold uppercase">Selected</span>
                             </div>
                             <div className="flex gap-1.5 md:gap-2 flex-wrap justify-end">
+                                <Button size="sm" onClick={() => bulkUpdateStatus('pending')} className="h-7 md:h-8 text-[9px] md:text-xs bg-amber-500 hover:bg-amber-600 text-black font-bold shadow-sm" disabled={isUpdating}>
+                                    <Clock className="w-3 h-3 mr-1" /> Pending
+                                </Button>
                                 <Button size="sm" onClick={() => bulkUpdateStatus('processing')} className="h-7 md:h-8 text-[9px] md:text-xs bg-yellow-500 hover:bg-yellow-600 text-black font-bold shadow-sm" disabled={isUpdating}>
                                     <RotateCcw className="w-3 h-3 mr-1" /> Reprocess
                                 </Button>

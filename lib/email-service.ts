@@ -956,7 +956,7 @@ export async function sendAdminNewComplaintAlert(
 // ==========================================
 
 /**
- * Send new order alert to admin and all sub-admins
+ * Send new order alert to admin when fulfillment is skipped or fails
  */
 export async function sendAdminNewOrderAlert(
     orderDetails: {
@@ -967,18 +967,23 @@ export async function sendAdminNewOrderAlert(
         price: number
         customerName: string
         customerEmail: string
+        source: 'main_site' | 'shop_storefront'
+        shopName?: string
+        reason: string
     }
 ): Promise<EmailResult> {
-    // DISABLED AS REQUESTED TO SAVE API COSTS
-    return { success: true, messageId: 'disabled' }
-
-    /*
     const adminEmail = process.env.ADMIN_EMAIL || 'kingflexydatalimited@gmail.com'
 
     const content = `
-        <h1 class="greeting">New Order Received! 🔔</h1>
-        <p class="subtitle">A new order has been placed on the platform</p>
+        <h1 class="greeting">⚠️ Action Required</h1>
+        <p class="subtitle">A new order requires manual fulfillment</p>
         
+        <div class="highlight-box" style="background: rgba(239, 68, 68, 0.1); border-left-color: #ef4444;">
+            <p class="highlight-text">
+                <strong>Reason:</strong> ${orderDetails.reason}
+            </p>
+        </div>
+
         <div class="info-card">
             <div class="info-card-header">
                 <div class="info-card-icon">📦</div>
@@ -989,11 +994,15 @@ export async function sendAdminNewOrderAlert(
                 <span class="info-value">${orderDetails.referenceCode}</span>
             </div>
             <div class="info-row">
+                <span class="info-label">Source</span>
+                <span class="info-value">${orderDetails.source === 'shop_storefront' ? `Shop Storefront (${orderDetails.shopName || 'Unknown'})` : 'Main Site'}</span>
+            </div>
+            <div class="info-row">
                 <span class="info-label">Customer</span>
                 <span class="info-value">${orderDetails.customerName} (${orderDetails.customerEmail})</span>
             </div>
             <div class="info-row">
-                <span class="info-label">Phone Number</span>
+                <span class="info-label">Recipient</span>
                 <span class="info-value">${orderDetails.phoneNumber}</span>
             </div>
             <div class="info-row">
@@ -1001,7 +1010,7 @@ export async function sendAdminNewOrderAlert(
                 <span class="info-value">${orderDetails.network}</span>
             </div>
             <div class="info-row">
-                <span class="info-label">Data Size</span>
+                <span class="info-label">Package</span>
                 <span class="info-value">${orderDetails.size}</span>
             </div>
             <div class="info-row">
@@ -1015,93 +1024,20 @@ export async function sendAdminNewOrderAlert(
         </div>
         
         <div class="cta-container">
-            <a href="${process.env.NEXT_PUBLIC_APP_URL}/admin/orders" class="cta-button">
-                View Order
+            <a href="${process.env.NEXT_PUBLIC_APP_URL}/admin/fulfillment" class="cta-button" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: #ffffff !important;">
+                Go to Fulfillment Center
             </a>
         </div>
     `
 
-    // Send to main admin
-    const adminResult = await sendEmail({
+    return sendEmail({
         to: adminEmail,
         toName: 'Admin',
-        subject: `🔔 New Order: ${orderDetails.size} for ${orderDetails.phoneNumber}`,
-        htmlContent: generatePremiumTemplate('New Order Alert', content)
+        subject: `[ACTION REQUIRED] New Order - ${orderDetails.referenceCode} (${orderDetails.network})`,
+        htmlContent: generatePremiumTemplate('Manual Action Required', content, '#ef4444')
     })
-
-    // Send to sub-admins (hardcoded list + database lookup)
-    try {
-        // Hardcoded sub-admin emails (excluding main admin to avoid duplicates)
-        const hardcodedSubAdmins = [
-            { email: 'dcosei164@gmail.com', first_name: 'Sub-Admin' },
-            { email: 'boahenjoycelyn677@gmail.com', first_name: 'Sub-Admin' }
-        ]
-
-        // Also try to fetch from database
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-        const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-        let dbSubAdmins: Array<{ email: string, first_name: string }> = []
-
-        if (supabaseUrl && supabaseServiceKey) {
-            const supabase = createClient(supabaseUrl, supabaseServiceKey)
-
-            const { data, error } = await supabase
-                .from('users')
-                .select('email, first_name')
-                .eq('role', 'sub-admin')
-
-            if (!error && data) {
-                dbSubAdmins = data as Array<{ email: string, first_name: string }>
-            }
-        }
-
-        // Combine hardcoded and database sub-admins, remove duplicates and main admin email
-        const allEmails = new Set<string>()
-        const allSubAdmins: Array<{ email: string, first_name: string }> = []
-
-        // Add hardcoded first
-        hardcodedSubAdmins.forEach(sa => {
-            const emailLower = sa.email.toLowerCase()
-            // Skip if already added or if it's the main admin email
-            if (!allEmails.has(emailLower) && emailLower !== adminEmail.toLowerCase()) {
-                allEmails.add(emailLower)
-                allSubAdmins.push(sa)
-            }
-        })
-
-        // Add from database (if not already in hardcoded list and not main admin)
-        dbSubAdmins.forEach(sa => {
-            const emailLower = sa.email.toLowerCase()
-            // Skip if already added or if it's the main admin email
-            if (!allEmails.has(emailLower) && emailLower !== adminEmail.toLowerCase()) {
-                allEmails.add(emailLower)
-                allSubAdmins.push(sa)
-            }
-        })
-
-        if (allSubAdmins.length > 0) {
-            // Send email to each sub-admin in parallel
-            const subAdminPromises = allSubAdmins.map(subAdmin =>
-                sendEmail({
-                    to: subAdmin.email,
-                    toName: subAdmin.first_name || 'Sub-Admin',
-                    subject: `🔔 New Order: ${orderDetails.size} for ${orderDetails.phoneNumber}`,
-                    htmlContent: generatePremiumTemplate('New Order Alert', content)
-                })
-            )
-
-            await Promise.allSettled(subAdminPromises)
-            console.log(`Order notification sent to ${allSubAdmins.length} sub-admin(s): ${allSubAdmins.map(s => s.email).join(', ')}`)
-        }
-    } catch (error) {
-        console.error('Error sending to sub-admins:', error)
-        // Don't fail the main function if sub-admin emails fail
-    }
-
-    return adminResult
-    */
 }
+
 
 /**
  * Send welcome notification to admin when new user signs up

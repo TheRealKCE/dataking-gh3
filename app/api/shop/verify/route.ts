@@ -190,13 +190,8 @@ export async function GET(request: NextRequest) {
         // ========================================================
         // 4. PROCESS VALID ORDER (Profit & Fulfillment)
         // ========================================================
-        const initialStatus = fulfillmentMode === 'auto' ? 'processing' : 'pending'
-
-        // Update status from pending to initial status (e.g. processing)
-        if (initialStatus !== 'pending') {
-            await db.from('shop_orders').update({ status: initialStatus }).eq('id', orderId)
-            await db.from('orders').update({ status: initialStatus }).eq('shop_order_id', orderId)
-        }
+        // ISSUE 1 FIX: Removed premature status update. 
+        // We stay 'pending' and only update to 'processing' if fulfillment actually triggers and succeeds.
 
         // 4.5 Send order confirmation SMS (Async)
         if (metadata.guest_phone) {
@@ -218,11 +213,34 @@ export async function GET(request: NextRequest) {
 
         // 6. Trigger fulfillment
         try {
+            const { sendAdminNewOrderAlert } = await import('@/lib/email-service')
+
             if (fulfillmentMode === 'auto') {
-                await triggerShopFulfillment(orderId!, metadata.network, metadata.guest_phone, metadata.package_size, db)
+                await triggerShopFulfillment(orderId!, metadata.network, metadata.guest_phone, metadata.package_size, db, {
+                    referenceCode: `SHOP-${ref.slice(-10)}`,
+                    price: dbSellingPrice,
+                    customerName: 'Shop Guest',
+                    customerEmail: 'N/A',
+                    shopName: shopProfile?.shop_name || slug,
+                })
+            } else {
+                // Manual mode: Alert admin immediately
+                console.log(`[Shop Verify] Manual fulfillment mode - sending alert`)
+                sendAdminNewOrderAlert({
+                    referenceCode: `SHOP-${ref.slice(-10)}`,
+                    phoneNumber: metadata.guest_phone,
+                    network: metadata.network,
+                    size: metadata.package_size,
+                    price: dbSellingPrice,
+                    customerName: 'Shop Guest',
+                    customerEmail: 'N/A',
+                    source: 'shop_storefront',
+                    shopName: shopProfile?.shop_name || slug,
+                    reason: 'Manual fulfillment mode enabled for this shop'
+                }).catch(e => console.error('[Shop Verify] Admin Alert Error:', e))
             }
         } catch (fulfillErr) {
-            console.error('[Shop Verify] Fulfillment error:', fulfillErr)
+            console.error('[Shop Verify] Fulfillment/Alert error:', fulfillErr)
         }
 
         return NextResponse.redirect(new URL(`/shop/${slug}/success?ref=${ref}`, request.url))
@@ -238,8 +256,29 @@ async function triggerShopFulfillment(
     network: string,
     phone: string,
     size: string,
-    db: any
+    db: any,
+    extra: {
+        referenceCode: string
+        price: number
+        customerName: string
+        customerEmail: string
+        shopName: string
+    }
 ) {
+    const { sendAdminNewOrderAlert } = await import('@/lib/email-service')
+
+    const alertDetails = {
+        referenceCode: extra.referenceCode,
+        phoneNumber: phone,
+        network: network,
+        size: size,
+        price: extra.price,
+        customerName: extra.customerName,
+        customerEmail: extra.customerEmail,
+        source: 'shop_storefront' as const,
+        shopName: extra.shopName
+    }
+
     try {
         const { fulfillOrder } = await import('@/lib/fulfillment-service')
 
@@ -256,6 +295,7 @@ async function triggerShopFulfillment(
 
         if (settingsMap.auto_fulfillment_enabled === 'false') {
             console.log(`[Shop Fulfillment] Auto-fulfillment globally disabled`)
+            sendAdminNewOrderAlert({ ...alertDetails, reason: 'Global auto-fulfillment is disabled' })
             return
         }
 
@@ -271,6 +311,7 @@ async function triggerShopFulfillment(
         const isNetworkEnabled = fulfillmentSettings.networks[network] !== false
         if (!isNetworkEnabled) {
             console.log(`[Shop Fulfillment] Auto-fulfillment disabled for ${network}`)
+            sendAdminNewOrderAlert({ ...alertDetails, reason: `Auto-fulfillment is disabled for network: ${network}` })
             return
         }
 
@@ -278,16 +319,24 @@ async function triggerShopFulfillment(
 
         if (result.success) {
             const updatedAt = new Date().toISOString()
+            // Success: Update status to processing
             await db.from('shop_orders').update({
                 status: 'processing',
                 updated_at: updatedAt,
             }).eq('id', orderId)
 
-            // No mirror record to update — shop orders are self-contained in shop_orders.
+            await db.from('orders').update({
+                status: 'processing'
+            }).eq('shop_order_id', orderId)
+
+            // NO EMAIL ALERT SENT ON SUCCESS
+            console.log(`[Shop Fulfillment] Success for order ${orderId} - no alert sent`)
         } else {
             console.error(`[Shop Fulfillment] Failed for order ${orderId}:`, result.error)
+            sendAdminNewOrderAlert({ ...alertDetails, reason: `Auto-fulfillment API error: ${result.error || 'Unknown error'}` })
         }
     } catch (err) {
         console.error(`[Shop Fulfillment] Exception for order ${orderId}:`, err)
+        sendAdminNewOrderAlert({ ...alertDetails, reason: `System Exception during fulfillment: ${err instanceof Error ? err.message : 'Unknown exception'}` })
     }
 }

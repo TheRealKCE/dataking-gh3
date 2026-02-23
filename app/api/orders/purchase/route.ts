@@ -244,24 +244,14 @@ export async function POST(request: NextRequest) {
                     ).catch((err: Error) => console.error('[Order] SMS error:', err))
                 }
 
-                // Send new order alert to admin
-                // Check if user is agent for SMS alert
-                // We already checked userRoleData earlier
+                // ISSUE 3: REMOVED UNCONDITIONAL ADMIN EMAIL ALERT HERE.
+                // It is now handled inside triggerFulfillment (only sent if NOT unfulfilled).
+
+                // Check if user is agent for SMS alert 
                 if (isAgent) {
                     sendAdminAgentOrderAlert()
                         .catch((err: Error) => console.error('[Order] Agent Admin SMS alert error:', err))
                 }
-
-                // Send new order alert to admin
-                sendAdminNewOrderAlert({
-                    referenceCode,
-                    phoneNumber,
-                    network: (pkg as any).network,
-                    size: (pkg as any).size,
-                    price: priceToCharge,
-                    customerName: `${firstName} ${lastName}`.trim(),
-                    customerEmail: userEmail
-                }).catch((err: Error) => console.error('[Order] Admin email error:', err))
             }
         } catch (emailError) {
             console.error('[Order] Failed to send email notification:', emailError)
@@ -269,7 +259,17 @@ export async function POST(request: NextRequest) {
 
         // Trigger auto-fulfillment (async) - Awaited to ensure Vercel execution
         try {
-            await triggerFulfillment((order as any).id, (pkg as any).network)
+            const { data: userData } = await supabase
+                .from('users')
+                .select('email, first_name, last_name')
+                .eq('id', userId)
+                .single()
+
+            const traveler = userData as any;
+            await triggerFulfillment((order as any).id, (pkg as any).network, {
+                email: traveler?.email || 'Unknown',
+                name: `${traveler?.first_name || ''} ${traveler?.last_name || ''}`.trim() || 'Customer'
+            })
         } catch (fulfillmentError) {
             console.error('[Purchase API] Fulfillment trigger error:', fulfillmentError)
         }
@@ -322,9 +322,10 @@ async function updateCustomerPurchases(
     }
 }
 
-async function triggerFulfillment(orderId: string, network: string) {
+async function triggerFulfillment(orderId: string, network: string, user: { email: string, name: string }) {
     try {
         const { fulfillOrder } = await import('@/lib/fulfillment-service')
+        const { sendAdminNewOrderAlert } = await import('@/lib/email-service')
         const supabase = createServerClient()
 
         // 1. Get fulfillment settings from database
@@ -338,9 +339,34 @@ async function triggerFulfillment(orderId: string, network: string) {
             return acc
         }, {})
 
+        // 2. Get order details
+        const { data: order } = await supabase
+            .from('orders')
+            .select('*')
+            .eq('id', orderId)
+            .single()
+
+        if (!order) {
+            console.error(`[Fulfillment] Order ${orderId} not found`)
+            return
+        }
+
+        const alertDetails = {
+            referenceCode: (order as any).reference_code,
+            phoneNumber: (order as any).phone_number,
+            network: (order as any).network,
+            size: (order as any).size,
+            price: (order as any).price,
+            customerName: user.name,
+            customerEmail: user.email,
+            source: 'main_site' as const,
+            reason: ''
+        }
+
         // Check global toggle
         if (settingsMap.auto_fulfillment_enabled === 'false') {
             console.log(`[Fulfillment] Auto-fulfillment globally disabled via database settings`)
+            sendAdminNewOrderAlert({ ...alertDetails, reason: 'Global auto-fulfillment is disabled' })
             return
         }
 
@@ -359,18 +385,7 @@ async function triggerFulfillment(orderId: string, network: string) {
         const isNetworkEnabled = fulfillmentSettings.networks[network] !== false // Default to true if not specified
         if (!isNetworkEnabled) {
             console.log(`[Fulfillment] Auto-fulfillment disabled for ${network} via database settings`)
-            return
-        }
-
-        // 2. Get order details
-        const { data: order } = await supabase
-            .from('orders')
-            .select('*')
-            .eq('id', orderId)
-            .single()
-
-        if (!order) {
-            console.error(`[Fulfillment] Order ${orderId} not found`)
+            sendAdminNewOrderAlert({ ...alertDetails, reason: `Auto-fulfillment is disabled for network: ${network}` })
             return
         }
 
@@ -400,9 +415,6 @@ async function triggerFulfillment(orderId: string, network: string) {
             console.log(`[Fulfillment] Order ${orderId} (${network}) submitted successfully`)
 
             // Create tracking record
-            // We'll keep using mtn_fulfillment_tracking for now or handle per network if needed
-            // For now, let's assume all go into this table or we should have a generic one
-            // The schema has mtn_fulfillment_tracking specifically.
             await (supabase.from('mtn_fulfillment_tracking') as any).insert({
                 order_id: orderId,
                 status: 'processing',
@@ -416,8 +428,12 @@ async function triggerFulfillment(orderId: string, network: string) {
                     updated_at: new Date().toISOString(),
                 })
                 .eq('id', orderId)
+
+            // NO ALERT SENT ON SUCCESS
         } else {
             console.error(`[Fulfillment] Order ${orderId} (${network}) failed:`, result.error)
+
+            sendAdminNewOrderAlert({ ...alertDetails, reason: `Auto-fulfillment API error: ${result.error || 'Unknown error'}` })
 
             // Create tracking record with error
             await (supabase.from('mtn_fulfillment_tracking') as any).insert({

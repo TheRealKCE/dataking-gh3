@@ -120,30 +120,48 @@ export async function fulfillOrder(
         const mappings = await fetchAllBundleMappings()
         const networkId = NETWORK_IDS[network]
 
-        if (!networkId) return { success: false, error: `Unsupported network: ${network}` }
+        if (!networkId) {
+            console.log(`[DataKazina] Skip: Unsupported network ${network}`)
+            return { success: false, error: `Unsupported network: ${network}` }
+        }
 
         const networkMappings = mappings[networkId]
-        if (!networkMappings) return { success: false, error: `No packages found for network: ${network}` }
+        if (!networkMappings) {
+            console.log(`[DataKazina] Skip: No mappings found for network ${network} (ID: ${networkId})`)
+            return { success: false, error: `No packages found for network: ${network}` }
+        }
 
-        const bundleId = networkMappings[dataSize]
+        // --- SIZE NORMALIZATION ---
+        // Try exact match first, then normalized numeric match
+        let bundleId = networkMappings[dataSize]
+
         if (!bundleId) {
-            return {
-                success: false,
-                error: `Unsupported data size: ${dataSize} for ${network}. Available: ${Object.keys(networkMappings).join(', ')}`
+            const numericSize = dataSize.replace(/[^0-9]/g, '')
+            bundleId = networkMappings[numericSize] || networkMappings[numericSize + 'GB'] || networkMappings[numericSize + ' GB']
+
+            if (bundleId) {
+                console.log(`[DataKazina] Normalized size "${dataSize}" to "${numericSize}" (Found ID: ${bundleId})`)
             }
         }
 
-        // --- NEW DATA VOLUME FIX ---
-        // DataKazina API expects the ACTUAL VOLUME (e.g. 15) in shared_bundle, 
-        // not the internal package ID. We extract the digits from the size string.
+        if (!bundleId) {
+            console.log(`[DataKazina] Skip: Unsupported size "${dataSize}" for ${network}. Available: ${Object.keys(networkMappings).join(', ')}`)
+            return {
+                success: false,
+                error: `Unsupported data size: ${dataSize} for ${network}.`
+            }
+        }
+
+        // Extract volume value for payload
         const sizeMatch = dataSize.match(/\d+/)
         const volumeValue = sizeMatch ? sizeMatch[0] : null
 
         if (!volumeValue) {
+            console.log(`[DataKazina] Skip: Could not extract numeric volume from "${dataSize}"`)
             return { success: false, error: `Invalid data size format: ${dataSize}. Whole number expected.` }
         }
 
-        console.log(`[DataKazina] Fulfillment Fix: Sending volume ${volumeValue} for package ${dataSize} (ID: ${bundleId})`)
+        console.log(`[DataKazina] Fulfillment Start: Order ${orderId} | Network: ${network} (${networkId}) | Package: ${dataSize} (Vol: ${volumeValue})`)
         // ---------------------------
 
         // Normalize phone number
