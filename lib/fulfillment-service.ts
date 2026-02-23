@@ -86,11 +86,11 @@ export async function fetchAllBundleMappings(): Promise<Record<number, Record<st
 
     try {
         // 2. Persistent Cache Check (Supabase - cross-instance)
-        const { data: storedSettings } = await supabase
-            .from('admin_settings')
+        const { data: storedSettings } = await (supabase
+            .from('admin_settings') as any)
             .select('value')
             .eq('key', BUNDLE_MAP_KEY)
-            .single()
+            .maybeSingle()
 
         let storedMap: any = null
         if (storedSettings?.value) {
@@ -146,7 +146,7 @@ export async function fetchAllBundleMappings(): Promise<Record<number, Record<st
         bundleMappingCache = newMappings
         lastBundleFetch = now
 
-        await supabase.from('admin_settings').upsert({
+        await (supabase.from('admin_settings') as any).upsert({
             key: BUNDLE_MAP_KEY,
             value: {
                 mappings: newMappings,
