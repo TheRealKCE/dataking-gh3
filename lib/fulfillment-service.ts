@@ -254,10 +254,10 @@ function mapStatus(status: string): 'pending' | 'processing' | 'completed' | 'fa
 
 export async function fetchSupplierBalance(): Promise<{ success: boolean; balance?: number; currency?: string; error?: string }> {
     try {
-        // Note: Per API docs, check-console-balance requires NO authentication headers
+        // Note: API key is required even though the docs example shows empty headers
         const response = await fetch(`${DATAKAZINA_API_BASE_URL}/check-console-balance`, {
             method: 'GET',
-            headers: {},
+            headers: { 'x-api-key': DATAKAZINA_API_KEY },
         })
 
         // Safety check: if the response is HTML (e.g. redirect/error page), handle gracefully
