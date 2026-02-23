@@ -19,6 +19,7 @@ import {
     Server,
     Filter,
     RotateCcw,
+    Clock,
     Search,
     Calendar as CalendarIcon,
     ChevronLeft,
