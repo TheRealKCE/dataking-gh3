@@ -1,0 +1,286 @@
+import { createServerClient } from './supabase'
+import { creditShopProfit } from './shop-service'
+import { sendOrderSuccessSMS } from './sms-service'
+
+/**
+ * Shared logic for processing a successful shop storefront payment.
+ * Handles idempotency, security amount validation, order creation, profit credit, and fulfillment.
+ */
+export async function processShopOrder(
+    reference: string,
+    metadata: {
+        shop_id: string;
+        package_id: string;
+        guest_phone: string;
+        network: string;
+        package_size: string;
+        fulfillment_mode?: string;
+    },
+    paidAmountPesewas: number,
+    slug?: string
+): Promise<{ success: boolean; error?: string; orderId?: string; isDuplicate?: boolean }> {
+    const supabase = createServerClient()
+    const db = supabase as any
+
+    try {
+        console.log(`[Shop Order Processor] Processing Ref: ${reference}, Amount: ${paidAmountPesewas} pesewas`)
+
+        // 1. Idempotency Check
+        const { data: existingOrder } = await db
+            .from('shop_orders')
+            .select('id, status')
+            .eq('paystack_reference', reference)
+            .single()
+
+        if (existingOrder) {
+            if (existingOrder.status !== 'pending' && existingOrder.status !== 'failed') {
+                console.log(`[Shop Order Processor] Idempotency: Order already processed (Status: ${existingOrder.status})`)
+                return { success: true, orderId: existingOrder.id, isDuplicate: true }
+            }
+            // If it's pending or failed, we might want to let the process continue (e.g. if it failed security check once but now we have a good record, 
+            // though usually paystack ref is unique to success).
+        }
+
+        // 2. Security: Verify Amount Against DB Prices (0.01 Attacker Protection)
+        const { data: shopProfile } = await db
+            .from('shop_profiles')
+            .select('owner_id, shop_name, paystack_fee_percent, fulfillment_mode')
+            .eq('id', metadata.shop_id)
+            .single()
+
+        if (!shopProfile) return { success: false, error: 'Shop profile not found' }
+
+        const { data: settingsRows } = await db
+            .from('shop_global_settings')
+            .select('key, value')
+            .in('key', ['shop_paystack_fee_percent'])
+
+        const globalFeePercent = settingsRows?.find((r: any) => r.key === 'shop_paystack_fee_percent')?.value
+        const paystackFeePercent = shopProfile?.paystack_fee_percent ?? parseFloat(globalFeePercent) ?? 1.95
+
+        const { data: pkg } = await db
+            .from('data_packages')
+            .select('price, agent_price')
+            .eq('id', metadata.package_id)
+            .single()
+
+        const { data: shopPrice } = await db
+            .from('shop_pricing')
+            .select('selling_price')
+            .eq('shop_id', metadata.shop_id)
+            .eq('package_id', metadata.package_id)
+            .single()
+
+        if (!shopPrice || !pkg) {
+            console.error(`[Shop Order Processor] SECURITY: Pricing/Package not found for Ref: ${reference}`)
+            return { success: false, error: 'Price configuration missing' }
+        }
+
+        const dbSellingPrice = parseFloat(shopPrice.selling_price)
+        const paystackFee = Math.round(dbSellingPrice * (paystackFeePercent / 100) * 100) / 100
+        const expectedTotalPesewas = Math.round((dbSellingPrice + paystackFee) * 100)
+
+        const amountDifference = Math.abs(paidAmountPesewas - expectedTotalPesewas)
+
+        // 3. Create/Update Order Records
+        let orderId = existingOrder?.id
+        const fulfillmentMode = shopProfile?.fulfillment_mode || metadata.fulfillment_mode || 'auto'
+
+        // Cost price calculation
+        const { data: ownerProfile } = await db
+            .from('users')
+            .select('role')
+            .eq('id', shopProfile?.owner_id)
+            .single()
+
+        const isAgentOwner = ownerProfile?.role === 'agent' && parseFloat(pkg?.agent_price) > 0
+        const verifiedCostPrice = isAgentOwner ? parseFloat(pkg?.agent_price) : (parseFloat(pkg?.price) || 0)
+        const verifiedProfit = dbSellingPrice - verifiedCostPrice
+
+        if (!existingOrder) {
+            const { data: newOrder, error: createError } = await db
+                .from('shop_orders')
+                .insert({
+                    shop_id: metadata.shop_id,
+                    package_id: metadata.package_id,
+                    guest_phone: metadata.guest_phone,
+                    network: metadata.network,
+                    package_size: metadata.package_size,
+                    selling_price: dbSellingPrice,
+                    cost_price: verifiedCostPrice,
+                    profit: verifiedProfit,
+                    paystack_reference: reference,
+                    status: 'pending',
+                })
+                .select('id')
+                .single()
+
+            if (createError) {
+                console.error('[Shop Order Processor] Failed to create shop order:', createError)
+                return { success: false, error: 'Order creation failed' }
+            }
+            orderId = newOrder?.id
+
+            // Mirror to main orders table
+            await db.from('orders').insert({
+                user_id: shopProfile?.owner_id,
+                phone_number: metadata.guest_phone,
+                network: metadata.network,
+                size: metadata.package_size,
+                price: dbSellingPrice,
+                cost_price: verifiedCostPrice,
+                status: 'pending',
+                payment_status: 'paid',
+                reference_code: `SHOP-${reference.slice(-10)}`,
+                fulfillment_method: 'auto',
+                shop_name: shopProfile?.shop_name || slug,
+                shop_order_id: orderId
+            })
+        }
+
+        // 4. Security Enforcement: Amount Validation
+        if (amountDifference > 5) {
+            console.error(`[Shop Order Processor] 🚨 AMOUNT MISMATCH: Ref: ${reference}, Paid: ${paidAmountPesewas}, Expected: ${expectedTotalPesewas}`)
+            await db.from('shop_orders').update({ status: 'failed' }).eq('id', orderId)
+            await db.from('orders').update({ status: 'failed' }).eq('shop_order_id', orderId)
+            return { success: false, error: 'Payment amount mismatch' }
+        }
+
+        // 5. Process Valid Order
+        // 5.1 Send SMS (Async)
+        if (metadata.guest_phone) {
+            sendOrderSuccessSMS(metadata.guest_phone, {
+                network: metadata.network,
+                size: metadata.package_size,
+                price: dbSellingPrice,
+                recipientNumber: metadata.guest_phone,
+                currentBalance: 0
+            }).catch((err: Error) => console.error('[Shop Order Processor] SMS error:', err))
+        }
+
+        // 5.2 Credit Profit
+        try {
+            await creditShopProfit(orderId!)
+        } catch (profitErr) {
+            console.error('[Shop Order Processor] Profit credit error:', profitErr)
+        }
+
+        // 5.3 Trigger Fulfillment
+        try {
+            await triggerShopFulfillment(orderId!, metadata.network, metadata.guest_phone, metadata.package_size, db, {
+                referenceCode: `SHOP-${reference.slice(-10)}`,
+                price: dbSellingPrice,
+                customerName: 'Shop Guest',
+                customerEmail: 'N/A',
+                shopName: shopProfile?.shop_name || slug || shopProfile?.shop_name,
+                fulfillmentMode
+            })
+        } catch (fulfillErr) {
+            console.error('[Shop Order Processor] Fulfillment error:', fulfillErr)
+        }
+
+        return { success: true, orderId }
+
+    } catch (error) {
+        console.error('[Shop Order Processor] Critical error:', error)
+        return { success: false, error: 'Internal processor error' }
+    }
+}
+
+async function triggerShopFulfillment(
+    orderId: string,
+    network: string,
+    phone: string,
+    size: string,
+    db: any,
+    extra: {
+        referenceCode: string
+        price: number
+        customerName: string
+        customerEmail: string
+        shopName: string
+        fulfillmentMode: string
+    }
+) {
+    const { sendAdminNewOrderAlert } = await import('./email-service')
+
+    const alertDetails = {
+        referenceCode: extra.referenceCode,
+        phoneNumber: phone,
+        network: network,
+        size: size,
+        price: extra.price,
+        customerName: extra.customerName,
+        customerEmail: extra.customerEmail,
+        source: 'shop_storefront' as const,
+        shopName: extra.shopName
+    }
+
+    if (extra.fulfillmentMode !== 'auto') {
+        console.log(`[Shop Order Processor] Manual fulfillment mode - sending alert`)
+        await sendAdminNewOrderAlert({
+            ...alertDetails,
+            reason: 'Manual fulfillment mode enabled for this shop'
+        }).catch(e => console.error('[Shop Order Processor] Admin Alert Error:', e))
+        return
+    }
+
+    try {
+        const { fulfillOrder } = await import('./fulfillment-service')
+
+        // Check global auto-fulfillment toggle
+        const { data: settingsData } = await db
+            .from('admin_settings')
+            .select('key, value')
+            .in('key', ['auto_fulfillment_enabled', 'fulfillment_settings'])
+
+        const settingsMap = (settingsData || []).reduce((acc: any, curr: any) => {
+            acc[curr.key] = curr.value
+            return acc
+        }, {})
+
+        if (settingsMap.auto_fulfillment_enabled === 'false') {
+            console.log(`[Shop Order Processor] Auto-fulfillment globally disabled`)
+            await sendAdminNewOrderAlert({ ...alertDetails, reason: 'Global auto-fulfillment is disabled' })
+            return
+        }
+
+        let fulfillmentSettings = { networks: {} as Record<string, boolean> }
+        try {
+            if (settingsMap.fulfillment_settings) {
+                fulfillmentSettings = typeof settingsMap.fulfillment_settings === 'string'
+                    ? JSON.parse(settingsMap.fulfillment_settings)
+                    : settingsMap.fulfillment_settings
+            }
+        } catch (e) { /* ignore */ }
+
+        const isNetworkEnabled = fulfillmentSettings.networks[network] !== false
+        if (!isNetworkEnabled) {
+            console.log(`[Shop Order Processor] Auto-fulfillment disabled for ${network}`)
+            await sendAdminNewOrderAlert({ ...alertDetails, reason: `Auto-fulfillment is disabled for network: ${network}` })
+            return
+        }
+
+        const result = await fulfillOrder(network, phone, size, orderId)
+
+        if (result.success) {
+            const updatedAt = new Date().toISOString()
+            await db.from('shop_orders').update({
+                status: 'processing',
+                updated_at: updatedAt,
+            }).eq('id', orderId)
+
+            await db.from('orders').update({
+                status: 'processing'
+            }).eq('shop_order_id', orderId)
+
+            console.log(`[Shop Order Processor] Fulfillment success for order ${orderId}`)
+        } else {
+            console.error(`[Shop Order Processor] Fulfillment failed for order ${orderId}:`, result.error)
+            await sendAdminNewOrderAlert({ ...alertDetails, reason: `Auto-fulfillment API error: ${result.error || 'Unknown error'}` })
+        }
+    } catch (err) {
+        console.error(`[Shop Order Processor] Fulfillment exception for order ${orderId}:`, err)
+        await sendAdminNewOrderAlert({ ...alertDetails, reason: `System Exception during fulfillment: ${err instanceof Error ? err.message : 'Unknown exception'}` })
+    }
+}

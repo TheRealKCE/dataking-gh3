@@ -55,7 +55,12 @@ export async function POST(request: NextRequest) {
 
             // Process the payment based on metadata
             const metadata = event.data.metadata
-            if (metadata?.upgrade_type === 'agent') {
+            if (metadata?.shop_id) {
+                // ── NEW: Shop storefront orders ──
+                const { processShopOrder } = await import('@/lib/shop-order-processor')
+                console.log(`[PaystackWebhook] Processing shop order for Ref: ${reference}`)
+                await processShopOrder(reference, metadata, paidAmountKobo, metadata.slug)
+            } else if (metadata?.upgrade_type === 'agent') {
                 const { processCompletedUpgradePayment } = await import('@/lib/payments')
                 await processCompletedUpgradePayment(reference, event.data)
             } else {
