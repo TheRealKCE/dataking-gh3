@@ -253,17 +253,24 @@ function mapStatus(status: string): 'pending' | 'processing' | 'completed' | 'fa
 }
 
 export async function fetchSupplierBalance(): Promise<{ success: boolean; balance?: number; currency?: string; error?: string }> {
-    if (!DATAKAZINA_API_KEY) return { success: false, error: 'API key not configured' }
     try {
+        // Note: Per API docs, check-console-balance requires NO authentication headers
         const response = await fetch(`${DATAKAZINA_API_BASE_URL}/check-console-balance`, {
             method: 'GET',
-            headers: { 'x-api-key': DATAKAZINA_API_KEY },
+            headers: {},
         })
-        const data = await response.json()
 
+        // Safety check: if the response is HTML (e.g. redirect/error page), handle gracefully
+        const contentType = response.headers.get('content-type') || ''
+        if (!contentType.includes('application/json')) {
+            const rawText = await response.text()
+            console.error('[DataKazina Balance] Non-JSON response (HTTP', response.status, '):', rawText.slice(0, 300))
+            return { success: false, error: `Supplier returned unexpected response (HTTP ${response.status})` }
+        }
+
+        const data = await response.json()
         console.log('[DataKazina Balance] API Response:', JSON.stringify(data))
 
-        // Handle successful response
         if (response.ok) {
             let balance = 0
             let currency = 'GHS'
