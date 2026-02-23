@@ -132,6 +132,18 @@ export async function fetchAllBundleMappings(): Promise<Record<number, Record<st
             throw new Error(`Failed to fetch packages and no cache available (Status: ${response.status})`)
         }
 
+        // Safety check: if the response is HTML (e.g. redirect/error page), handle gracefully
+        const contentType = response.headers.get('content-type') || ''
+        if (!contentType.includes('application/json')) {
+            console.error(`[DataKazina] Non-JSON response (HTTP ${response.status}) from fetch-data-packages.`)
+            if (storedMap?.mappings) {
+                bundleMappingCache = storedMap.mappings
+                lastBundleFetch = now
+                return bundleMappingCache
+            }
+            throw new Error(`Supplier returned unexpected response format (HTTP ${response.status})`)
+        }
+
         const data = await response.json()
         const newMappings: Record<number, Record<string, number>> = {}
 
@@ -244,6 +256,15 @@ export async function fulfillOrder(
             body: JSON.stringify(requestBody),
         })
 
+        // Safety check: if the response is HTML (e.g. redirect/error page), handle gracefully
+        const contentType = response.headers.get('content-type') || ''
+        if (!contentType.includes('application/json')) {
+            const rawText = await response.text()
+            console.error(`[DataKazina Fulfillment] Non-JSON response (HTTP ${response.status}):`, rawText.slice(0, 300))
+            recordFailure()
+            return { success: false, error: `Supplier returned unexpected response (HTTP ${response.status})` }
+        }
+
         const data = await response.json()
 
         if (response.ok && data.success) {
@@ -282,6 +303,14 @@ export async function checkOrderStatus(transactionId: string): Promise<StatusRes
             },
             body: JSON.stringify({ transaction_id: transactionId }),
         })
+
+        // Safety check: if the response is HTML (e.g. redirect/error page), handle gracefully
+        const contentType = response.headers.get('content-type') || ''
+        if (!contentType.includes('application/json')) {
+            console.error(`[DataKazina Status] Non-JSON response (HTTP ${response.status})`)
+            recordFailure()
+            return { success: false, status: 'pending', message: `Supplier returned unexpected response (HTTP ${response.status})` }
+        }
 
         const data = await response.json()
 
