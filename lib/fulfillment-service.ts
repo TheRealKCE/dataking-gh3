@@ -1,3 +1,5 @@
+import { createServerClient } from '@/lib/supabase'
+
 // Universal Fulfillment Service with DataKazina API Integration
 
 const DATAKAZINA_API_KEY = process.env.DATAKAZINA_API_KEY || ''
@@ -31,10 +33,10 @@ const NETWORK_IDS: Record<string, number> = {
     'MTN': 3,
     'Telecel': 2,
     'AT-iShare': 1,
-    'AT-BigTime': 1, // Usually same provider ID in DataKazina, or close enough. Will verify via dynamic fetch.
+    'AT-BigTime': 1, // Usually same provider ID in DataKazina, or close enough.
 }
 
-// Cache for bundle mappings (will be populated from API)
+// Cache for bundle mappings (will be populated from API or Supabase)
 // Structure: { [networkId]: { [volume]: packageId } }
 let bundleMappingCache: Record<number, Record<string, number>> = {}
 let lastBundleFetch: number | null = null
@@ -68,38 +70,94 @@ function recordFailure() {
 }
 
 /**
- * Fetch available data packages from DataKazina and build bundle mapping for all networks
+ * Fetch available data packages from DataKazina and build bundle mapping for all networks.
+ * Uses Supabase as a persistent shared cache to prevent 429s during cold starts.
  */
 export async function fetchAllBundleMappings(): Promise<Record<number, Record<string, number>>> {
     const now = Date.now()
+    const BUNDLE_MAP_KEY = 'datakazina_bundle_map'
+
+    // 1. Memory Cache Check (Fastest Path - same container)
     if (Object.keys(bundleMappingCache).length > 0 && lastBundleFetch && (now - lastBundleFetch) < BUNDLE_CACHE_DURATION) {
         return bundleMappingCache
     }
 
+    const supabase = createServerClient()
+
     try {
+        // 2. Persistent Cache Check (Supabase - cross-instance)
+        const { data: storedSettings } = await supabase
+            .from('admin_settings')
+            .select('value')
+            .eq('key', BUNDLE_MAP_KEY)
+            .single()
+
+        let storedMap: any = null
+        if (storedSettings?.value) {
+            try {
+                storedMap = typeof storedSettings.value === 'string'
+                    ? JSON.parse(storedSettings.value)
+                    : storedSettings.value
+            } catch (e) {
+                console.error('[DataKazina] Failed to parse stored bundle map')
+            }
+        }
+
+        // Use stored map if fresh (< 1 hour)
+        if (storedMap?.mappings && storedMap?.fetched_at) {
+            const fetchedAt = new Date(storedMap.fetched_at).getTime()
+            if (now - fetchedAt < BUNDLE_CACHE_DURATION) {
+                console.log('[DataKazina] Using fresh persistent cache from Supabase')
+                bundleMappingCache = storedMap.mappings
+                lastBundleFetch = fetchedAt
+                return bundleMappingCache
+            }
+        }
+
+        // 3. API Fetch (Slow Path)
+        console.log('[DataKazina] Persistent cache stale or missing. Fetching from API...')
         const response = await fetch(`${DATAKAZINA_API_BASE_URL}/fetch-data-packages`, {
             method: 'GET',
             headers: { 'x-api-key': DATAKAZINA_API_KEY },
         })
 
-        if (!response.ok) throw new Error(`Failed to fetch packages: ${response.status}`)
+        // If 429 or other API error, fallback to STALE persistent cache
+        if (!response.ok) {
+            console.warn(`[DataKazina] API Error ${response.status}. Falling back to stale persistent cache.`)
+            if (storedMap?.mappings) {
+                bundleMappingCache = storedMap.mappings
+                lastBundleFetch = now // Temporarily treat as fresh to prevent immediate loops
+                return bundleMappingCache
+            }
+            throw new Error(`Failed to fetch packages and no cache available (Status: ${response.status})`)
+        }
 
         const data = await response.json()
-        const newCache: Record<number, Record<string, number>> = {}
+        const newMappings: Record<number, Record<string, number>> = {}
 
         if (Array.isArray(data)) {
             data.forEach((pkg: any) => {
-                if (!newCache[pkg.network_id]) newCache[pkg.network_id] = {}
-                // Mapping volume string to package ID
-                newCache[pkg.network_id][pkg.volumeGB] = pkg.id
+                if (!newMappings[pkg.network_id]) newMappings[pkg.network_id] = {}
+                newMappings[pkg.network_id][pkg.volumeGB] = pkg.id
             })
         }
 
-        bundleMappingCache = newCache
+        // 4. Update Both Caches
+        bundleMappingCache = newMappings
         lastBundleFetch = now
-        return newCache
+
+        await supabase.from('admin_settings').upsert({
+            key: BUNDLE_MAP_KEY,
+            value: {
+                mappings: newMappings,
+                fetched_at: new Date().toISOString()
+            }
+        }, { onConflict: 'key' })
+
+        console.log('[DataKazina] Persistent bundle cache updated successfully')
+        return newMappings
     } catch (error) {
-        console.error('[DataKazina] Error fetching bundle mappings:', error)
+        console.error('[DataKazina] Error in fetchAllBundleMappings:', error)
         return bundleMappingCache
     }
 }

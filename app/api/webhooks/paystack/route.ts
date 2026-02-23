@@ -28,6 +28,17 @@ export async function POST(request: NextRequest) {
         if (event.event === 'charge.success') {
             const { reference, amount: paidAmountKobo } = event.data
 
+            // ✅ SHOP ORDERS FALLBACK: If reference starts with SHOP-, process as shop order
+            // Shop orders are not in wallet_payments, so we must handle them separately
+            // before the DB lookup to avoid "Payment not found" errors.
+            if (reference && reference.startsWith('SHOP-')) {
+                const metadata = event.data.metadata
+                const { processShopOrder } = await import('@/lib/shop-order-processor')
+                console.log(`[PaystackWebhook] Routing shop order: ${reference}`)
+                await processShopOrder(reference, metadata, paidAmountKobo, metadata?.slug)
+                return NextResponse.json({ received: true })
+            }
+
             // Get payment record for verification
             const { data: payment } = await supabase
                 .from('wallet_payments')
