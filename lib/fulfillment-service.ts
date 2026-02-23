@@ -222,7 +222,7 @@ export async function fulfillOrder(
             }
         }
 
-        // Extract volume value for payload
+        // Extract volume value for logging only
         const sizeMatch = dataSize.match(/\d+/)
         const volumeValue = sizeMatch ? sizeMatch[0] : null
 
@@ -231,7 +231,7 @@ export async function fulfillOrder(
             return { success: false, error: `Invalid data size format: ${dataSize}. Whole number expected.` }
         }
 
-        console.log(`[DataKazina] Fulfillment Start: Order ${orderId} | Network: ${network} (${networkId}) | Package: ${dataSize} (Vol: ${volumeValue})`)
+        console.log(`[DataKazina] Fulfillment Start: Order ${orderId} | Network: ${network} (${networkId}) | Package: ${dataSize} (ID: ${bundleId}, Vol: ${volumeValue})`)
         // ---------------------------
 
         // Normalize phone number
@@ -242,9 +242,11 @@ export async function fulfillOrder(
         const requestBody = {
             recipient_msisdn: normalizedPhone,
             network_id: networkId,
-            shared_bundle: volumeValue, // Send volume (e.g. "15") instead of ID (e.g. 12)
+            shared_bundle: bundleId, // ✅ FIXED: Send the DataKazina package ID, not the raw volume number
             incoming_api_ref: orderId,
         }
+
+        console.log(`[DataKazina] Request payload:`, JSON.stringify(requestBody))
 
         const response = await fetch(`${DATAKAZINA_API_BASE_URL}/buy-data-package`, {
             method: 'POST',
@@ -266,6 +268,7 @@ export async function fulfillOrder(
         }
 
         const data = await response.json()
+        console.log(`[DataKazina] Full API response (HTTP ${response.status}):`, JSON.stringify(data))
 
         if (response.ok && data.success) {
             recordSuccess()
