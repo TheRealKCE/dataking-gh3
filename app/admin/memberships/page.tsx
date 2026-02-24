@@ -447,12 +447,12 @@ export default function AdminMembershipsPage() {
                                                                                 Reduce Days
                                                                             </DropdownMenuItem>
                                                                             <div className="h-px bg-slate-100 my-1" />
+                                                                            <DropdownMenuItem className="text-indigo-600 focus:bg-indigo-50 focus:text-indigo-700" onClick={() => handleMakePermanent(agent)}>
+                                                                                <ShieldCheck className="w-4 h-4 mr-2" />
+                                                                                Make Permanent
+                                                                            </DropdownMenuItem>
                                                                         </>
                                                                     )}
-                                                                    <DropdownMenuItem className="text-indigo-600 focus:bg-indigo-50 focus:text-indigo-700" onClick={() => handleMakePermanent(agent)}>
-                                                                        <ShieldCheck className="w-4 h-4 mr-2" />
-                                                                        Make Permanent
-                                                                    </DropdownMenuItem>
                                                                 </DropdownMenuContent>
                                                             </DropdownMenu>
                                                         </td>
@@ -500,32 +500,45 @@ export default function AdminMembershipsPage() {
                                                     </div>
                                                 </div>
 
-                                                <div className="flex gap-2">
-                                                    <Button
-                                                        size="sm"
-                                                        variant="outline"
-                                                        className="flex-1 text-blue-600 border-blue-200 hover:bg-blue-50"
-                                                        onClick={() => {
-                                                            setExtendUser(agent)
-                                                            setExtendDays('30')
-                                                        }}
-                                                    >
-                                                        <Plus className="w-4 h-4 mr-2" />
-                                                        Extend
-                                                    </Button>
-                                                    <Button
-                                                        size="sm"
-                                                        variant="outline"
-                                                        className="flex-1 text-orange-600 border-orange-200 hover:bg-orange-50"
-                                                        onClick={() => {
-                                                            setReduceUser(agent)
-                                                            setReduceDays('3')
-                                                        }}
-                                                    >
-                                                        <History className="w-4 h-4 mr-2" />
-                                                        Reduce
-                                                    </Button>
-                                                </div>
+                                                {agent.agent_expires_at !== null && (
+                                                    <div className="flex flex-col gap-2">
+                                                        <div className="flex gap-2">
+                                                            <Button
+                                                                size="sm"
+                                                                variant="outline"
+                                                                className="flex-1 text-blue-600 border-blue-200 hover:bg-blue-50"
+                                                                onClick={() => {
+                                                                    setExtendUser(agent)
+                                                                    setExtendDays('30')
+                                                                }}
+                                                            >
+                                                                <Plus className="w-4 h-4 mr-2" />
+                                                                Extend
+                                                            </Button>
+                                                            <Button
+                                                                size="sm"
+                                                                variant="outline"
+                                                                className="flex-1 text-orange-600 border-orange-200 hover:bg-orange-50"
+                                                                onClick={() => {
+                                                                    setReduceUser(agent)
+                                                                    setReduceDays('3')
+                                                                }}
+                                                            >
+                                                                <History className="w-4 h-4 mr-2" />
+                                                                Reduce
+                                                            </Button>
+                                                        </div>
+                                                        <Button
+                                                            size="sm"
+                                                            variant="outline"
+                                                            className="w-full text-indigo-600 border-indigo-200 hover:bg-indigo-50"
+                                                            onClick={() => handleMakePermanent(agent)}
+                                                        >
+                                                            <ShieldCheck className="w-4 h-4 mr-2" />
+                                                            Make Permanent
+                                                        </Button>
+                                                    </div>
+                                                )}
                                             </div>
                                         )
                                     })}
