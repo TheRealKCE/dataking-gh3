@@ -235,7 +235,7 @@ export default function UpgradePage() {
         'Faster Order Processing',
         'Bulk Order Import Feature',
         'New Exclusive UI Design Features',
-        'The Awaited “Shop” Feature (Coming Soon)'
+        'Shop Storefront Feature (Live)'
     ]
 
     if (isLoading || isVerifying) {

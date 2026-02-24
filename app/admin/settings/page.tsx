@@ -24,6 +24,7 @@ export default function AdminSettingsPage() {
     const [afaPriceCustomer, setAfaPriceCustomer] = useState('15')
     const [afaPriceAgent, setAfaPriceAgent] = useState('15')
     const [supportEmail, setSupportEmail] = useState('')
+    const [guestStorefrontUrl, setGuestStorefrontUrl] = useState('')
     const [autoFulfillment, setAutoFulfillment] = useState(true)
 
     // Page access states
@@ -64,6 +65,7 @@ export default function AdminSettingsPage() {
             setAfaPriceCustomer(settingsMap.afa_price_customer || '15')
             setAfaPriceAgent(settingsMap.afa_price_agent || '15')
             setSupportEmail(settingsMap.support_email || '')
+            setGuestStorefrontUrl(settingsMap.guest_storefront_url || 'https://kingflexygh.com/shop/felix-s-shop')
             setAutoFulfillment(settingsMap.auto_fulfillment_enabled === 'true')
 
             // Initialize page access values
@@ -96,6 +98,7 @@ export default function AdminSettingsPage() {
                 { key: 'afa_price_customer', value: afaPriceCustomer },
                 { key: 'afa_price_agent', value: afaPriceAgent },
                 { key: 'support_email', value: supportEmail },
+                { key: 'guest_storefront_url', value: guestStorefrontUrl },
                 { key: 'auto_fulfillment_enabled', value: String(autoFulfillment) },
                 // Page access settings
                 { key: 'page_access_dashboard', value: String(pageAccessDashboard) },
@@ -163,6 +166,24 @@ export default function AdminSettingsPage() {
                                     onChange={(e) => setSupportEmail(e.target.value)}
                                     placeholder="support@kingflexydataltd.com"
                                 />
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Guest Storefront Configuration</CardTitle>
+                            <CardDescription>Default shop users are directed to when buying as a guest without creating an account.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="space-y-2">
+                                <Label>Guest Store URL</Label>
+                                <Input
+                                    value={guestStorefrontUrl}
+                                    onChange={(e) => setGuestStorefrontUrl(e.target.value)}
+                                    placeholder="https://kingflexygh.com/shop/your-shop"
+                                />
+                                <p className="text-xs text-muted-foreground">Changes to this link will instantly update the unauthenticated app pages.</p>
                             </div>
                         </CardContent>
                     </Card>

@@ -13,7 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import {
     Store, Wallet, TrendingUp, ShoppingCart, ArrowRight,
     Settings, Tag, Banknote, Clock, CheckCircle2, XCircle,
-    AlertCircle, ExternalLink, Copy, Check, Lightbulb, Filter, RefreshCcw
+    AlertCircle, ExternalLink, Copy, Check, Lightbulb, Filter, RefreshCcw, Crown
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -219,6 +219,8 @@ export default function ShopOverviewPage() {
         ? Math.ceil((new Date(dbUser.agent_expires_at).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
         : 0
 
+    const isPermanentAgent = dbUser?.role === 'agent' && dbUser?.agent_expires_at === null
+
     const cfg = statusConfig[shop.approval_status]
     const StatusIcon = cfg?.icon || Clock
     const isPending = shop.approval_status === 'pending'
@@ -241,23 +243,35 @@ export default function ShopOverviewPage() {
                                 {statusConfig[shop.approval_status]?.label}
                             </span>
                             {dbUser?.role === 'agent' && (
-                                <div className="space-y-1.5 min-w-[200px]">
-                                    <div className={cn(
-                                        "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border shadow-sm transition-colors w-fit",
-                                        daysLeft <= 3
-                                            ? "bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 animate-pulse"
-                                            : daysLeft <= 7
-                                                ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800"
-                                                : "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800"
-                                    )}>
-                                        <Clock className="w-3.5 h-3.5" />
-                                        {daysLeft <= 0 ? 'Subscription Expired' : `${daysLeft} Days Left`}
+                                isPermanentAgent ? (
+                                    <div className="space-y-1.5 min-w-[200px]">
+                                        <div className="flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-slate-900 to-black text-yellow-400 rounded-full text-[11px] font-black shadow-[0_2px_10px_-3px_rgba(0,0,0,0.5)] border border-slate-700 transition-all hover:scale-105 active:scale-95 cursor-default w-fit">
+                                            <Crown className="w-3.5 h-3.5 fill-yellow-500 text-yellow-600" />
+                                            LIFETIME ACTIVE
+                                        </div>
+                                        <p className="text-[10px] text-muted-foreground leading-tight max-w-[250px] font-medium">
+                                            You have permanent access to the agent role. Your shop will never expire.
+                                        </p>
                                     </div>
-                                    <p className="text-[10px] text-muted-foreground leading-tight max-w-[250px] font-medium">
-                                        <AlertCircle className="w-3 h-3 inline mr-1 text-amber-500" />
-                                        When expired, your shop will be <strong>deactivated</strong> and you'll lose access to <strong>wholesale pricing</strong>.
-                                    </p>
-                                </div>
+                                ) : (
+                                    <div className="space-y-1.5 min-w-[200px]">
+                                        <div className={cn(
+                                            "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border shadow-sm transition-colors w-fit",
+                                            daysLeft <= 3
+                                                ? "bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 animate-pulse"
+                                                : daysLeft <= 7
+                                                    ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800"
+                                                    : "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800"
+                                        )}>
+                                            <Clock className="w-3.5 h-3.5" />
+                                            {daysLeft <= 0 ? 'Subscription Expired' : `${daysLeft} Days Left`}
+                                        </div>
+                                        <p className="text-[10px] text-muted-foreground leading-tight max-w-[250px] font-medium">
+                                            <AlertCircle className="w-3 h-3 inline mr-1 text-amber-500" />
+                                            When expired, your shop will be <strong>deactivated</strong> and you'll lose access to <strong>wholesale pricing</strong>.
+                                        </p>
+                                    </div>
+                                )
                             )}
                         </div>
                     </div>
@@ -274,20 +288,22 @@ export default function ShopOverviewPage() {
                         Refresh
                     </Button>
 
-                    <Link href="/dashboard/upgrade">
-                        <Button
-                            size="sm"
-                            className={cn(
-                                "gap-1.5 h-9 transition-all active:scale-95 shadow-md",
-                                daysLeft <= 7
-                                    ? "bg-amber-500 hover:bg-amber-600 text-white"
-                                    : "bg-blue-600 hover:bg-blue-700 text-white"
-                            )}
-                        >
-                            <RefreshCcw className="w-4 h-4" />
-                            Renew Subscription
-                        </Button>
-                    </Link>
+                    {!isPermanentAgent && (
+                        <Link href="/dashboard/upgrade">
+                            <Button
+                                size="sm"
+                                className={cn(
+                                    "gap-1.5 h-9 transition-all active:scale-95 shadow-md",
+                                    daysLeft <= 7
+                                        ? "bg-amber-500 hover:bg-amber-600 text-white"
+                                        : "bg-blue-600 hover:bg-blue-700 text-white"
+                                )}
+                            >
+                                <RefreshCcw className="w-4 h-4" />
+                                Renew Subscription
+                            </Button>
+                        </Link>
+                    )}
 
                     <Link href="/dashboard/shop/setup">
                         <Button variant="outline" size="sm" className="gap-1.5 h-9">

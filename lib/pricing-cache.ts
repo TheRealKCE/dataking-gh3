@@ -21,6 +21,7 @@ export interface PricingData {
         'permanent': number
     }
     showStrikethrough: boolean
+    guestStorefrontUrl: string
 }
 
 interface CachedData extends PricingData {
@@ -51,7 +52,8 @@ export async function getCachedPricing(): Promise<PricingData> {
                 return {
                     prices: data.prices,
                     oldPrices: data.oldPrices,
-                    showStrikethrough: data.showStrikethrough
+                    showStrikethrough: data.showStrikethrough,
+                    guestStorefrontUrl: data.guestStorefrontUrl
                 }
             }
         }

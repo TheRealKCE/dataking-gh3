@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
@@ -10,12 +10,12 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Eye, EyeOff, Loader2, UserPlus, Mail, Lock, User, Phone } from 'lucide-react'
+import { Eye, EyeOff, Loader2, UserPlus, Mail, Lock, User, Phone, Store, ExternalLink } from 'lucide-react'
 import { toast } from 'sonner'
 import { validateGhanaianPhone } from '@/lib/phone-validation'
 import { BackgroundBubbles } from '@/components/background-bubbles'
 import { FloatingWhatsApp } from '@/components/floating-whatsapp'
-import { WhatsAppCommunityButtons } from '@/components/whatsapp-community-buttons'
+import { getCachedPricing } from '@/lib/pricing-cache'
 
 export default function SignupPage() {
     const [formData, setFormData] = useState({
@@ -32,6 +32,15 @@ export default function SignupPage() {
     const [success, setSuccess] = useState(false)
     const { signUp } = useAuth()
     const router = useRouter()
+    const [guestUrl, setGuestUrl] = useState('https://kingflexygh.com/shop/felix-s-shop')
+
+    useEffect(() => {
+        getCachedPricing().then(data => {
+            if (data?.guestStorefrontUrl) {
+                setGuestUrl(data.guestStorefrontUrl)
+            }
+        }).catch(console.error)
+    }, [])
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setFormData(prev => ({
@@ -302,6 +311,23 @@ export default function SignupPage() {
                             <div className="flex-1 h-px bg-slate-300/60"></div>
                             <span className="px-3 text-sm text-slate-500">OR</span>
                             <div className="flex-1 h-px bg-slate-300/60"></div>
+                        </div>
+
+                        <div className="text-center space-y-3 mt-4">
+                            <p className="text-slate-600 text-sm">
+                                Just want to buy data quickly?
+                            </p>
+                            <Button
+                                asChild
+                                variant="outline"
+                                className="w-full sm:w-auto sm:min-w-[200px] sm:mx-auto h-12 text-base font-bold text-emerald-600 border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 shadow-sm rounded-xl flex items-center justify-center gap-2"
+                            >
+                                <a href={guestUrl}>
+                                    <Store className="w-5 h-5" />
+                                    Buy as Guest (No Account)
+                                    <ExternalLink className="w-4 h-4 ml-1 opacity-70" />
+                                </a>
+                            </Button>
                         </div>
 
                         <div className="text-center space-y-3 mt-4">

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
@@ -10,11 +10,11 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Eye, EyeOff, Loader2, LogIn, Mail, Lock } from 'lucide-react'
+import { Eye, EyeOff, Loader2, LogIn, Mail, Lock, Store, ExternalLink } from 'lucide-react'
 import { toast } from 'sonner'
 import { BackgroundBubbles } from '@/components/background-bubbles'
 import { FloatingWhatsApp } from '@/components/floating-whatsapp'
-import { WhatsAppCommunityButtons } from '@/components/whatsapp-community-buttons'
+import { getCachedPricing } from '@/lib/pricing-cache'
 
 export default function LoginPage() {
     const [email, setEmail] = useState('')
@@ -24,6 +24,15 @@ export default function LoginPage() {
     const [error, setError] = useState('')
     const { signIn } = useAuth()
     const router = useRouter()
+    const [guestUrl, setGuestUrl] = useState('https://kingflexygh.com/shop/felix-s-shop')
+
+    useEffect(() => {
+        getCachedPricing().then(data => {
+            if (data?.guestStorefrontUrl) {
+                setGuestUrl(data.guestStorefrontUrl)
+            }
+        }).catch(console.error)
+    }, [])
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -163,6 +172,23 @@ export default function LoginPage() {
                                 <Link href="/auth/signup">
                                     Create New Account
                                 </Link>
+                            </Button>
+                        </div>
+
+                        <div className="text-center space-y-3 mt-4">
+                            <p className="text-slate-600 text-sm">
+                                Just want to buy data quickly?
+                            </p>
+                            <Button
+                                asChild
+                                variant="outline"
+                                className="w-full sm:w-auto sm:min-w-[200px] sm:mx-auto h-12 text-base font-bold text-emerald-600 border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 shadow-sm rounded-xl flex items-center justify-center gap-2"
+                            >
+                                <a href={guestUrl}>
+                                    <Store className="w-5 h-5" />
+                                    Buy as Guest (No Account)
+                                    <ExternalLink className="w-4 h-4 ml-1 opacity-70" />
+                                </a>
                             </Button>
                         </div>
 

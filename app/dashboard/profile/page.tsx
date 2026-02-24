@@ -29,7 +29,8 @@ import {
     AlertCircle,
     CheckCircle2,
     Trash2,
-    Crown
+    Crown,
+    MonitorX
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatDate, cn } from '@/lib/utils'
@@ -71,6 +72,9 @@ export default function ProfilePage() {
         confirmPassword: '',
     })
     const [passwordSaving, setPasswordSaving] = useState(false)
+
+    // Terminate sessions
+    const [isTerminatingSessions, setIsTerminatingSessions] = useState(false)
 
     // Delete account
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
@@ -157,6 +161,27 @@ export default function ProfilePage() {
             toast.error('Failed to change password')
         } finally {
             setPasswordSaving(false)
+        }
+    }
+
+    const handleTerminateSessions = async () => {
+        setIsTerminatingSessions(true)
+        try {
+            const { error } = await supabase.auth.signOut({ scope: 'others' })
+            if (error) throw error
+
+            toast.success('All other active sessions have been terminated.')
+            toast.warning('Please change your password immediately for security reasons.', {
+                duration: 10000,
+            })
+
+            // Open password change form dynamically
+            setIsChangingPassword(true)
+        } catch (error) {
+            console.error('Error terminating sessions:', error)
+            toast.error('Failed to terminate sessions. Please try logging out completely.')
+        } finally {
+            setIsTerminatingSessions(false)
         }
     }
 
@@ -460,9 +485,20 @@ export default function ProfilePage() {
                             </div>
                         </div>
                     ) : (
-                        <Button variant="outline" onClick={() => setIsChangingPassword(true)}>
-                            Change Password
-                        </Button>
+                        <div className="flex flex-col sm:flex-row gap-3">
+                            <Button variant="outline" onClick={() => setIsChangingPassword(true)} className="flex-1">
+                                Change Password
+                            </Button>
+                            <Button
+                                variant="outline"
+                                onClick={handleTerminateSessions}
+                                disabled={isTerminatingSessions}
+                                className="flex-1 border-amber-200 text-amber-700 hover:bg-amber-50 hover:text-amber-800"
+                            >
+                                {isTerminatingSessions ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <MonitorX className="w-4 h-4 mr-2" />}
+                                Terminate Other Sessions
+                            </Button>
+                        </div>
                     )}
                 </CardContent>
             </Card>

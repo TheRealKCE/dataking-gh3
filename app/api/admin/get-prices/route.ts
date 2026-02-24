@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
             .in('key', [
                 'agent_upgrade_price_3d', 'agent_upgrade_price_14d', 'agent_upgrade_price_30d', 'agent_upgrade_price_permanent',
                 'agent_upgrade_price_3d_old', 'agent_upgrade_price_14d_old', 'agent_upgrade_price_30d_old', 'agent_upgrade_price_permanent_old',
-                'show_price_strikethrough'
+                'show_price_strikethrough', 'guest_storefront_url'
             ])
 
         if (error) {
@@ -61,8 +61,9 @@ export async function GET(request: NextRequest) {
         }
 
         const showStrikethrough = data?.find(s => s.key === 'show_price_strikethrough')?.value === 'true'
+        const guestStorefrontUrl = data?.find(s => s.key === 'guest_storefront_url')?.value || 'https://kingflexygh.com/shop/felix-s-shop'
 
-        return NextResponse.json({ prices, oldPrices, showStrikethrough })
+        return NextResponse.json({ prices, oldPrices, showStrikethrough, guestStorefrontUrl })
 
     } catch (error: any) {
         console.error('Error in get-prices API:', error)

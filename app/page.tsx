@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
@@ -12,14 +12,18 @@ import {
     ArrowRight,
     Wifi,
     CreditCard,
-    CheckCircle2
+    CheckCircle2,
+    Store,
+    ExternalLink
 } from 'lucide-react'
 import { WhatsAppCommunityButtons } from '@/components/whatsapp-community-buttons'
 import { NetworkIcon } from '@/components/network-icon'
 import Image from 'next/image'
+import { getCachedPricing } from '@/lib/pricing-cache'
 
 export default function HomePage() {
     const router = useRouter()
+    const [guestUrl, setGuestUrl] = useState('https://kingflexygh.com/shop/felix-s-shop')
 
     useEffect(() => {
         try {
@@ -28,6 +32,12 @@ export default function HomePage() {
                 router.replace(`/shop/${slug}`)
             }
         } catch (_) { }
+
+        getCachedPricing().then(data => {
+            if (data?.guestStorefrontUrl) {
+                setGuestUrl(data.guestStorefrontUrl)
+            }
+        }).catch(console.error)
     }, [router])
 
     return (
@@ -103,18 +113,25 @@ export default function HomePage() {
                             Purchase data bundles for MTN, Telecel, AT-iShare, and AT-BigTime networks.
                             Ultra fast, reliable, and affordable with instant automatic delivery.
                         </p>
-                        <div className="flex flex-col sm:flex-row gap-4 justify-center px-4">
-                            <Link href="/auth/signup">
-                                <Button size="xl" className="bg-[#0056B3] hover:bg-[#004494] text-white text-lg px-8 font-bold shadow-md lg:shadow-lg">
+                        <div className="flex flex-col sm:flex-row flex-wrap gap-4 justify-center px-4">
+                            <Link href="/auth/signup" className="flex-1 sm:flex-none">
+                                <Button size="xl" className="w-full bg-[#0056B3] hover:bg-[#004494] text-white text-lg px-8 font-bold shadow-md lg:shadow-lg">
                                     Start Buying Now
                                     <ArrowRight className="ml-2 w-5 h-5" />
                                 </Button>
                             </Link>
-                            <Link href="/auth/login">
-                                <Button size="xl" className="bg-[#FACC15] text-slate-900 hover:bg-[#FACC15]/90 border-0 text-lg px-8 font-bold shadow-lg">
+                            <Link href="/auth/login" className="flex-1 sm:flex-none">
+                                <Button size="xl" className="w-full bg-[#FACC15] text-slate-900 hover:bg-[#FACC15]/90 border-0 text-lg px-8 font-bold shadow-lg">
                                     Login to Dashboard
                                 </Button>
                             </Link>
+                            <a href={guestUrl} className="flex-1 sm:flex-none">
+                                <Button size="xl" variant="outline" className="w-full text-emerald-600 border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700 hover:border-emerald-300 text-lg px-8 font-bold shadow-sm">
+                                    <Store className="w-5 h-5 mr-2" />
+                                    Buy as Guest (No Account)
+                                    <ExternalLink className="w-4 h-4 ml-2 opacity-70" />
+                                </Button>
+                            </a>
                         </div>
                     </div>
 
