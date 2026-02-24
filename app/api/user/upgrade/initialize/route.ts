@@ -51,7 +51,7 @@ export async function POST(request: Request) {
         const { data: settings } = await supabaseAdmin
             .from('admin_settings')
             .select('key, value')
-            .in('key', ['agent_upgrade_price_3d', 'agent_upgrade_price_14d', 'agent_upgrade_price_30d'])
+            .in('key', ['agent_upgrade_price_3d', 'agent_upgrade_price_14d', 'agent_upgrade_price_30d', 'agent_upgrade_price_permanent'])
 
         const getPrice = (key: string, def: number) => {
             const s = settings?.find((s: any) => s.key === key);
@@ -67,6 +67,9 @@ export async function POST(request: Request) {
         } else if (plan === '14d') {
             upgradePrice = getPrice('agent_upgrade_price_14d', 49.99);
             planLabel = '14 Days Agent Pass';
+        } else if (plan === 'permanent') {
+            upgradePrice = getPrice('agent_upgrade_price_permanent', 149.99);
+            planLabel = 'Permanent Agent Pass';
         } else {
             upgradePrice = getPrice('agent_upgrade_price_30d', 99.99);
             planLabel = '30 Days Agent Pass';
@@ -91,7 +94,7 @@ export async function POST(request: Request) {
             throw new Error('User wallet not found')
         }
 
-        const planDays = plan === '3d' ? 3 : (plan === '14d' ? 14 : 30)
+        const planDays = plan === 'permanent' ? null : (plan === '3d' ? 3 : (plan === '14d' ? 14 : 30))
 
         const { error: paymentError } = await (supabaseAdmin
             .from('wallet_payments') as any)

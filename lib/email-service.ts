@@ -951,6 +951,51 @@ export async function sendAdminNewComplaintAlert(
     })
 }
 
+/**
+ * Send permanent agent upgrade success email
+ */
+export async function sendPermanentAgentUpgradeSuccessEmail(
+    email: string,
+    firstName: string
+): Promise<EmailResult> {
+    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.kingflexygh.com'
+    const content = `
+        <h1 class="greeting">Permanent Agent Unlocked! 💎</h1>
+        <p class="subtitle">Lifetime access to premium data rates</p>
+        
+        <p class="message-text">
+            Hi ${firstName}, congratulations on upgrading to the <strong>Permanent Agent</strong> membership!
+        </p>
+        
+        <div class="highlight-box">
+            <p class="highlight-text">
+                👑 You now have <strong>unlimited, lifetime access</strong> to King Flexy Data's lowest agent pricing. Your account will never expire, and you will never need to renew your subscription again.
+            </p>
+        </div>
+        
+        <p class="message-text">
+            Enjoy permanent premium benefits and start maximizing your profits today.
+        </p>
+        
+        <div style="text-align: center; margin: 25px 0;">
+            <span class="status-badge status-success" style="background: linear-gradient(135deg, #4f46e5 0%, #3730a3 100%);">Lifetime Active</span>
+        </div>
+        
+        <div class="cta-container">
+            <a href="${siteUrl}/dashboard/data-packages" class="cta-button" style="background: linear-gradient(135deg, #4f46e5 0%, #312e81 100%); color: #ffffff !important;">
+                Buy Partner Data
+            </a>
+        </div>
+    `
+
+    return sendEmail({
+        to: email,
+        toName: firstName,
+        subject: `Welcome to the Lifetime Elite – Permanent Agent Status 👑`,
+        htmlContent: generatePremiumTemplate('Permanent Agent', content, '#4f46e5')
+    })
+}
+
 // ==========================================
 // ADMIN EMAIL FUNCTIONS
 // ==========================================

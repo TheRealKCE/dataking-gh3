@@ -2,12 +2,22 @@ import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { processCompletedWalletPayment } from '@/lib/payments'
 import { createServerClient } from '@/lib/supabase'
-import { sendAgentUpgradeSuccessSMS, sendAgentExtensionSuccessSMS } from '@/lib/sms-service'
+import { createClient } from '@supabase/supabase-js'
+import {
+    sendAgentUpgradeSuccessSMS,
+    sendAgentExtensionSuccessSMS,
+    sendPermanentAgentUpgradeSuccessSMS
+} from '@/lib/sms-service'
+import {
+    sendWalletTopupSuccessEmail,
+    sendWalletTopupFailedEmail,
+    sendPermanentAgentUpgradeSuccessEmail
+} from '@/lib/email-service'
 
 export async function POST(request: NextRequest) {
     try {
-        const secret = process.env.PAYSTACK_SECRET_KEY
-        if (!secret) {
+        const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY!
+        if (!PAYSTACK_SECRET_KEY) {
             console.error('PAYSTACK_SECRET_KEY is not defined')
             return NextResponse.json({ message: 'Server configuration error' }, { status: 500 })
         }
@@ -16,7 +26,7 @@ export async function POST(request: NextRequest) {
         const bodyValue = await request.text()
 
         // Verify signature
-        const hash = crypto.createHmac('sha512', secret)
+        const hash = crypto.createHmac('sha512', PAYSTACK_SECRET_KEY)
             .update(bodyValue)
             .digest('hex')
 
@@ -39,26 +49,32 @@ export async function POST(request: NextRequest) {
             // Check if this is an agent upgrade payment
             if (metadata?.upgrade_type === 'agent') {
                 // === SECURITY: Verify amount against database, NOT metadata ===
-                // Fetch the expected upgrade price from admin_settings
-                const { data: priceSettings } = await supabase
+                // Verify amount against actual database price
+                // Service role to bypass RLS
+                const supabaseAdmin = createClient(
+                    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+                    process.env.SUPABASE_SERVICE_ROLE_KEY!
+                )
+
+                const { data: settings } = await supabaseAdmin
                     .from('admin_settings')
                     .select('key, value')
-                    .in('key', ['agent_upgrade_prices'])
+                    .in('key', ['agent_upgrade_price_3d', 'agent_upgrade_price_14d', 'agent_upgrade_price_30d', 'agent_upgrade_price_permanent'])
 
-                let expectedPrice = 0
-                if (priceSettings?.length) {
-                    try {
-                        const prices = typeof (priceSettings[0] as any).value === 'string'
-                            ? JSON.parse((priceSettings[0] as any).value)
-                            : (priceSettings[0] as any).value
-                        const planKey = metadata.plan_type || '30d'
-                        expectedPrice = prices[planKey] || 0
-                    } catch { /* fallback below */ }
-                }
+                const getPrice = (key: string, def: number) => {
+                    const s = settings?.find((s: any) => s.key === key);
+                    return s ? Number(s.value) : def;
+                };
 
-                // Fallback: if DB price not configured, trust metadata (backward compat)
-                if (expectedPrice <= 0) {
-                    expectedPrice = (metadata.base_amount || 0) + (metadata.fee || 0)
+                let expectedPrice = 100;
+                if (metadata.plan_type === '3d') {
+                    expectedPrice = getPrice('agent_upgrade_price_3d', 9.99);
+                } else if (metadata.plan_type === '14d') {
+                    expectedPrice = getPrice('agent_upgrade_price_14d', 49.99);
+                } else if (metadata.plan_type === 'permanent') {
+                    expectedPrice = getPrice('agent_upgrade_price_permanent', 149.99);
+                } else {
+                    expectedPrice = getPrice('agent_upgrade_price_30d', 99.99);
                 }
 
                 const expectedAmountKobo = Math.round(expectedPrice * 100)
@@ -71,7 +87,7 @@ export async function POST(request: NextRequest) {
                 // Fetch user details for SMS and extension logic
                 const { data: userData, error: userError } = await supabase
                     .from('users')
-                    .select('first_name, phone_number, role, agent_expires_at')
+                    .select('first_name, phone_number, email, role, agent_expires_at')
                     .eq('id', metadata.user_id)
                     .single()
 
@@ -82,28 +98,35 @@ export async function POST(request: NextRequest) {
 
                 const user = userData as any
 
-                // Calculate base plan days
-                const planDaysCount = metadata.plan_days || (metadata.plan_type === '3d' ? 3 : metadata.plan_type === '14d' ? 14 : 30)
+                let expirationDateString = null;
+                let remainingDays = 0;
+                const isPermanent = metadata.plan_type === 'permanent';
 
-                // Calculate expiration date
-                let expirationDate = new Date()
+                if (!isPermanent) {
+                    const planDays = parseInt(metadata.plan_days) || (metadata.plan_type === '3d' ? 3 : metadata.plan_type === '14d' ? 14 : 30)
+                    let expirationDate = new Date()
 
-                // Extension logic: If already an agent and not expired, start from current expiry
-                if (user.role === 'agent' && user.agent_expires_at) {
-                    const currentExpiry = new Date(user.agent_expires_at)
-                    if (currentExpiry > new Date()) {
-                        expirationDate = currentExpiry
+                    if (user.role === 'agent' && user.agent_expires_at) {
+                        const currentExpiry = new Date(user.agent_expires_at)
+                        if (currentExpiry > new Date()) {
+                            expirationDate = currentExpiry
+                        }
                     }
-                }
 
-                expirationDate.setDate(expirationDate.getDate() + planDaysCount)
+                    expirationDate.setDate(expirationDate.getDate() + planDays)
+                    expirationDateString = expirationDate.toISOString()
+
+                    const now = new Date()
+                    const diffMs = expirationDate.getTime() - now.getTime()
+                    remainingDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
+                }
 
                 // Update user role to agent and set expiration
                 const { error: updateError } = await (supabase as any)
                     .from('users')
                     .update({
                         role: 'agent',
-                        agent_expires_at: expirationDate.toISOString(),
+                        agent_expires_at: expirationDateString,
                         updated_at: new Date().toISOString()
                     })
                     .eq('id', metadata.user_id)
@@ -113,31 +136,34 @@ export async function POST(request: NextRequest) {
                     return NextResponse.json({ received: true }, { status: 200 })
                 }
 
-                // Calculate total remaining days for SMS
-                const now = new Date()
-                const diffMs = expirationDate.getTime() - now.getTime()
-                const remainingDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
+                // Send SMS/Email notifications
+                if (isPermanent) {
+                    // Send Permanent notifications
+                    if (user.phone_number) {
+                        await sendPermanentAgentUpgradeSuccessSMS(user.phone_number).catch(console.error)
+                    }
+                    if (user.email) {
+                        await sendPermanentAgentUpgradeSuccessEmail(user.email, user.first_name || 'User').catch(console.error)
+                    }
+                } else {
+                    if (user.phone_number) {
+                        const planLabelText = metadata.plan_type === '3d' ? '3days' : metadata.plan_type === '14d' ? '14days' : '30days'
+                        const wasExtension = user.role === 'agent' && user.agent_expires_at && new Date(user.agent_expires_at) > new Date()
 
-                // Send SMS notification
-                if (user.phone_number) {
-                    const planLabelText = metadata.plan_type === '3d' ? '3days' : metadata.plan_type === '14d' ? '14days' : '30days'
-
-                    // Check if it was an extension (based on logic above, expirationDate was calculated from currentExpiry if valid)
-                    const wasExtension = user.role === 'agent' && user.agent_expires_at && new Date(user.agent_expires_at) > new Date()
-
-                    if (wasExtension) {
-                        await sendAgentExtensionSuccessSMS(
-                            user.phone_number,
-                            expirationDate
-                        )
-                    } else {
-                        await sendAgentUpgradeSuccessSMS(
-                            user.phone_number,
-                            user.first_name || 'User',
-                            planLabelText,
-                            remainingDays,
-                            expirationDate.toISOString() // Pass expiry date
-                        )
+                        if (wasExtension) {
+                            await sendAgentExtensionSuccessSMS(
+                                user.phone_number,
+                                new Date(expirationDateString as string)
+                            ).catch(console.error)
+                        } else {
+                            await sendAgentUpgradeSuccessSMS(
+                                user.phone_number,
+                                user.first_name || 'User',
+                                planLabelText,
+                                remainingDays,
+                                expirationDateString as string
+                            ).catch(console.error)
+                        }
                     }
                 }
 
@@ -146,12 +172,14 @@ export async function POST(request: NextRequest) {
                     .from('notifications')
                     .insert({
                         user_id: metadata.user_id,
-                        title: 'Upgrade Successful! 👑',
-                        message: `Congratulations! Your Agent status is now valid for ${remainingDays} days.`,
+                        title: isPermanent ? 'Permanent Agent Unlocked! 💎' : 'Upgrade Successful! 👑',
+                        message: isPermanent
+                            ? 'Congratulations! You now have lifetime access to premium agent benefits.'
+                            : `Congratulations! Your Agent status is now valid for ${remainingDays} days.`,
                         type: 'system',
                     })
 
-                console.log(`Successfully upgraded user ${metadata.user_id} to agent. Remaining days: ${remainingDays}`)
+                console.log(`Successfully upgraded user ${metadata.user_id} to agent. Permanent: ${isPermanent}`)
                 return NextResponse.json({ received: true }, { status: 200 })
             }
 

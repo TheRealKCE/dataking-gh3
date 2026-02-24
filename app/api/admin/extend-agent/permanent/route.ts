@@ -1,0 +1,104 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createServerClient } from '@/lib/supabase'
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { cookies } from 'next/headers'
+import { sendPermanentAgentUpgradeSuccessSMS } from '@/lib/sms-service'
+import { sendPermanentAgentUpgradeSuccessEmail } from '@/lib/email-service'
+
+export async function POST(request: NextRequest) {
+    try {
+        const cookieStore = await cookies()
+        const supabaseUserClient = createRouteHandlerClient({
+            // @ts-expect-error - auth-helpers types expect Promise but runtime needs synchronous object
+            cookies: () => cookieStore
+        })
+        const { data: { session }, error: sessionError } = await supabaseUserClient.auth.getSession()
+
+        if (sessionError || !session?.user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+
+        // Check if requester is admin
+        const { data: userData } = await supabaseUserClient
+            .from('users')
+            .select('role')
+            .eq('id', session.user.id)
+            .single()
+
+        if (userData?.role !== 'admin') {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        }
+
+        const body = await request.json()
+        const { userId } = body
+
+        if (!userId) {
+            return NextResponse.json({ error: 'userId is required' }, { status: 400 })
+        }
+
+        // Service role client to bypass RLS
+        const supabase = createServerClient()
+
+        // Fetch user data for alerts
+        const { data: userDetails, error: userError } = await (supabase
+            .from('users') as any)
+            .select('email, phone_number, first_name')
+            .eq('id', userId)
+            .single()
+
+        if (userError || !userDetails) {
+            console.error('[AdminRoleUpdate] User fetch error:', userError)
+            return NextResponse.json({ error: 'User not found' }, { status: 404 })
+        }
+
+        // Set role to agent and agent_expires_at to null for permanent status
+        const { error: updateError } = await (supabase
+            .from('users') as any)
+            .update({
+                role: 'agent',
+                agent_expires_at: null,
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', userId)
+
+        if (updateError) {
+            console.error('[AdminPermanentRoleUpdate] Update error:', updateError)
+            throw updateError
+        }
+
+        // Send SMS notification
+        if (userDetails?.phone_number) {
+            try {
+                await sendPermanentAgentUpgradeSuccessSMS(
+                    userDetails.phone_number
+                )
+                console.log(`[AdminRoleUpdate] Permanent SMS sent to ${userDetails.phone_number}`)
+            } catch (smsError) {
+                console.error('[AdminRoleUpdate] SMS error:', smsError)
+            }
+        }
+
+        // Send Email notification
+        if (userDetails?.email) {
+            try {
+                await sendPermanentAgentUpgradeSuccessEmail(
+                    userDetails.email,
+                    userDetails.first_name || 'User'
+                )
+                console.log(`[AdminRoleUpdate] Permanent Email sent to ${userDetails.email}`)
+            } catch (emailError) {
+                console.error('[AdminRoleUpdate] Email error:', emailError)
+            }
+        }
+
+        return NextResponse.json({
+            success: true,
+            userId,
+            newRole: 'agent',
+            isPermanent: true
+        })
+    } catch (error: any) {
+        console.error('Admin Permanent Role Update Error:', error)
+        return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 })
+    }
+}

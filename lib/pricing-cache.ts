@@ -12,11 +12,13 @@ export interface PricingData {
         '3d': number
         '14d': number
         '30d': number
+        'permanent': number
     }
     oldPrices: {
         '3d': number
         '14d': number
         '30d': number
+        'permanent': number
     }
     showStrikethrough: boolean
 }

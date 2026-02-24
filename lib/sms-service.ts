@@ -275,40 +275,22 @@ export async function sendAgentUpgradeSuccessSMS(
     firstName: string,
     planDays: string,
     remainingDays: number,
-    expiryDate?: string | Date // Optional for compatibility, but preferred
+    expiryDate: string
 ) {
-    let formattedDate = ''
+    const message = `Congratulation ${firstName}! Your Agent membership has been activated for ${planDays}. You now have access to our cheapest Agent prices. Login to enjoy! \n\nKingFlexyGh`
 
-    if (expiryDate) {
-        const date = new Date(expiryDate)
-        // Format: "February 10th, 2026"
-        const day = date.getDate()
-        const month = date.toLocaleString('default', { month: 'long' })
-        const year = date.getFullYear()
+    return sendSMS({ recipient: phoneNumber, message })
+}
 
-        // Add ordinal suffix (st, nd, rd, th)
-        const suffix = ["th", "st", "nd", "rd"][((day % 100) > 10 && (day % 100) < 20) ? 0 : (day % 10 < 4) ? day % 10 : 0]
+/**
+ * Send SMS notification when an agent upgrades to the permanent plan
+ */
+export async function sendPermanentAgentUpgradeSuccessSMS(
+    phoneNumber: string
+) {
+    const message = `Congratulations! Your Agent membership is now PERMANENT 👑. You have lifetime access to premium agent benefits. Thank you for choosing KingFlexyGh.`
 
-        formattedDate = `${month} ${day}${suffix}, ${year}`
-    } else {
-        // Fallback if no specific date provided
-        const date = new Date()
-        date.setDate(date.getDate() + remainingDays)
-        const day = date.getDate()
-        const month = date.toLocaleString('default', { month: 'long' })
-        const year = date.getFullYear()
-        const suffix = ["th", "st", "nd", "rd"][((day % 100) > 10 && (day % 100) < 20) ? 0 : (day % 10 < 4) ? day % 10 : 0]
-        formattedDate = `${month} ${day}${suffix}, ${year}`
-    }
-
-    const message = `Congratulations! Your Agent membership has been upgraded until ${formattedDate}
-
-KingFlexyGh`
-
-    return sendSMS({
-        recipient: phoneNumber,
-        message
-    })
+    return sendSMS({ recipient: phoneNumber, message })
 }
 
 /**

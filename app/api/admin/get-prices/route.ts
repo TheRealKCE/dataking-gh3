@@ -36,8 +36,8 @@ export async function GET(request: NextRequest) {
             .from('admin_settings')
             .select('key, value')
             .in('key', [
-                'agent_upgrade_price_3d', 'agent_upgrade_price_14d', 'agent_upgrade_price_30d',
-                'agent_upgrade_price_3d_old', 'agent_upgrade_price_14d_old', 'agent_upgrade_price_30d_old',
+                'agent_upgrade_price_3d', 'agent_upgrade_price_14d', 'agent_upgrade_price_30d', 'agent_upgrade_price_permanent',
+                'agent_upgrade_price_3d_old', 'agent_upgrade_price_14d_old', 'agent_upgrade_price_30d_old', 'agent_upgrade_price_permanent_old',
                 'show_price_strikethrough'
             ])
 
@@ -49,13 +49,15 @@ export async function GET(request: NextRequest) {
         const prices = {
             '3d': parseFloat(data?.find(s => s.key === 'agent_upgrade_price_3d')?.value || '9.99'),
             '14d': parseFloat(data?.find(s => s.key === 'agent_upgrade_price_14d')?.value || '49.99'),
-            '30d': parseFloat(data?.find(s => s.key === 'agent_upgrade_price_30d')?.value || '99.99')
+            '30d': parseFloat(data?.find(s => s.key === 'agent_upgrade_price_30d')?.value || '99.99'),
+            'permanent': parseFloat(data?.find(s => s.key === 'agent_upgrade_price_permanent')?.value || '149.99')
         }
 
         const oldPrices = {
             '3d': parseFloat(data?.find(s => s.key === 'agent_upgrade_price_3d_old')?.value || '0'),
             '14d': parseFloat(data?.find(s => s.key === 'agent_upgrade_price_14d_old')?.value || '0'),
-            '30d': parseFloat(data?.find(s => s.key === 'agent_upgrade_price_30d_old')?.value || '0')
+            '30d': parseFloat(data?.find(s => s.key === 'agent_upgrade_price_30d_old')?.value || '0'),
+            'permanent': parseFloat(data?.find(s => s.key === 'agent_upgrade_price_permanent_old')?.value || '0')
         }
 
         const showStrikethrough = data?.find(s => s.key === 'show_price_strikethrough')?.value === 'true'

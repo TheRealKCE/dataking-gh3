@@ -60,7 +60,8 @@ export default function AdminMembershipsPage() {
     const [prices, setPrices] = useState({
         '3d': '9.99',
         '14d': '49.99',
-        '30d': '99.99'
+        '30d': '99.99',
+        'permanent': '149.99'
     })
     const [showStrikethrough, setShowStrikethrough] = useState(false)
 
@@ -80,11 +81,13 @@ export default function AdminMembershipsPage() {
                 const p3 = settingsData.find((s: any) => s.key === 'agent_upgrade_price_3d')?.value || '9.99'
                 const p14 = settingsData.find((s: any) => s.key === 'agent_upgrade_price_14d')?.value || '49.99'
                 const p30 = settingsData.find((s: any) => s.key === 'agent_upgrade_price_30d')?.value || '99.99'
+                const pPerm = settingsData.find((s: any) => s.key === 'agent_upgrade_price_permanent')?.value || '149.99'
                 const showStrike = settingsData.find((s: any) => s.key === 'show_price_strikethrough')?.value === 'true'
                 setPrices({
                     '3d': String(p3),
                     '14d': String(p14),
-                    '30d': String(p30)
+                    '30d': String(p30),
+                    'permanent': String(pPerm)
                 })
                 setShowStrikethrough(showStrike)
             }
@@ -209,6 +212,29 @@ export default function AdminMembershipsPage() {
         }
     }
 
+    const handleMakePermanent = async (agent: any) => {
+        if (!confirm(`Are you sure you want to make ${agent.first_name} a Permanent Agent? This will give them lifetime access.`)) return
+
+        try {
+            const response = await fetch('/api/admin/extend-agent/permanent', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: agent.id })
+            })
+
+            const result = await response.json()
+            if (!response.ok) throw new Error(result.error || 'Failed to assign permanent status')
+
+            // Update local state
+            setAgents(agents.map(a => a.id === agent.id ? { ...a, agent_expires_at: null } : a))
+
+            toast.success(`✅ ${agent.first_name} is now a Permanent Agent`)
+        } catch (error: any) {
+            console.error('Error assigning permanent status:', error)
+            toast.error(error.message || 'Failed to assign permanent status')
+        }
+    }
+
     const calculateDaysLeft = (expiry: string | null) => {
         if (!expiry) return 0
         const now = new Date()
@@ -272,6 +298,15 @@ export default function AdminMembershipsPage() {
                                     value={prices['30d']}
                                     onChange={(e) => setPrices({ ...prices, '30d': e.target.value })}
                                     className="font-bold text-lg"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label className="flex items-center gap-1"><ShieldCheck className="w-4 h-4 text-indigo-500" /> Permanent Access (GHS)</Label>
+                                <Input
+                                    type="number"
+                                    value={prices['permanent']}
+                                    onChange={(e) => setPrices({ ...prices, 'permanent': e.target.value })}
+                                    className="font-bold text-lg border-indigo-200"
                                 />
                             </div>
                         </div>
@@ -366,18 +401,26 @@ export default function AdminMembershipsPage() {
                                                             )}
                                                         </td>
                                                         <td className="px-6 py-4 text-center">
-                                                            <div className="flex flex-col items-center gap-1">
-                                                                <span className={cn(
-                                                                    "text-xl font-black",
-                                                                    daysLeft < 5 ? "text-red-600" : "text-slate-900"
-                                                                )}>{daysLeft}</span>
-                                                                <div className="w-16 h-1 bg-slate-100 rounded-full overflow-hidden">
-                                                                    <div
-                                                                        className={cn("h-full", daysLeft < 5 ? "bg-red-500" : "bg-blue-500")}
-                                                                        style={{ width: `${Math.min((daysLeft / 30) * 100, 100)}%` }}
-                                                                    />
+                                                            {agent.agent_expires_at === null ? (
+                                                                <div className="flex flex-col items-center justify-center bg-indigo-50 py-1.5 px-3 rounded-md border border-indigo-100">
+                                                                    <span className="text-xs font-black tracking-widest text-indigo-700 uppercase flex items-center gap-1">
+                                                                        <ShieldCheck className="w-3.5 h-3.5" /> Lifetime
+                                                                    </span>
                                                                 </div>
-                                                            </div>
+                                                            ) : (
+                                                                <div className="flex flex-col items-center gap-1">
+                                                                    <span className={cn(
+                                                                        "text-xl font-black",
+                                                                        daysLeft < 5 ? "text-red-600" : "text-slate-900"
+                                                                    )}>{daysLeft}</span>
+                                                                    <div className="w-16 h-1 bg-slate-100 rounded-full overflow-hidden">
+                                                                        <div
+                                                                            className={cn("h-full", daysLeft < 5 ? "bg-red-500" : "bg-blue-500")}
+                                                                            style={{ width: `${Math.min((daysLeft / 30) * 100, 100)}%` }}
+                                                                        />
+                                                                    </div>
+                                                                </div>
+                                                            )}
                                                         </td>
                                                         <td className="px-6 py-4 text-right">
                                                             <DropdownMenu>
@@ -387,19 +430,28 @@ export default function AdminMembershipsPage() {
                                                                     </Button>
                                                                 </DropdownMenuTrigger>
                                                                 <DropdownMenuContent align="end">
-                                                                    <DropdownMenuItem onClick={() => {
-                                                                        setExtendUser(agent)
-                                                                        setExtendDays('30')
-                                                                    }}>
-                                                                        <Plus className="w-4 h-4 mr-2" />
-                                                                        Extend Days
-                                                                    </DropdownMenuItem>
-                                                                    <DropdownMenuItem onClick={() => {
-                                                                        setReduceUser(agent)
-                                                                        setReduceDays('3')
-                                                                    }}>
-                                                                        <History className="w-4 h-4 mr-2" />
-                                                                        Reduce Days
+                                                                    {agent.agent_expires_at !== null && (
+                                                                        <>
+                                                                            <DropdownMenuItem onClick={() => {
+                                                                                setExtendUser(agent)
+                                                                                setExtendDays('30')
+                                                                            }}>
+                                                                                <Plus className="w-4 h-4 mr-2" />
+                                                                                Extend Days
+                                                                            </DropdownMenuItem>
+                                                                            <DropdownMenuItem onClick={() => {
+                                                                                setReduceUser(agent)
+                                                                                setReduceDays('3')
+                                                                            }}>
+                                                                                <History className="w-4 h-4 mr-2" />
+                                                                                Reduce Days
+                                                                            </DropdownMenuItem>
+                                                                            <div className="h-px bg-slate-100 my-1" />
+                                                                        </>
+                                                                    )}
+                                                                    <DropdownMenuItem className="text-indigo-600 focus:bg-indigo-50 focus:text-indigo-700" onClick={() => handleMakePermanent(agent)}>
+                                                                        <ShieldCheck className="w-4 h-4 mr-2" />
+                                                                        Make Permanent
                                                                     </DropdownMenuItem>
                                                                 </DropdownMenuContent>
                                                             </DropdownMenu>
@@ -422,7 +474,9 @@ export default function AdminMembershipsPage() {
                                                         <h3 className="font-black text-slate-900">{agent.first_name} {agent.last_name}</h3>
                                                         <p className="text-xs text-muted-foreground">{agent.email}</p>
                                                     </div>
-                                                    {daysLeft > 0 ? (
+                                                    {agent.agent_expires_at === null ? (
+                                                        <Badge className="bg-indigo-100 text-indigo-700 hover:bg-indigo-200 border-indigo-200 uppercase text-[10px] font-black tracking-widest">Permanent</Badge>
+                                                    ) : daysLeft > 0 ? (
                                                         <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border-emerald-200 uppercase text-[10px] font-black">Active</Badge>
                                                     ) : (
                                                         <Badge variant="destructive" className="uppercase text-[10px] font-black">Expired</Badge>
@@ -432,11 +486,17 @@ export default function AdminMembershipsPage() {
                                                 <div className="flex items-center justify-between bg-slate-50 p-3 rounded-lg">
                                                     <span className="text-xs font-bold text-slate-500">Days Remaining</span>
                                                     <div className="flex items-center gap-2">
-                                                        <Clock className="w-3.5 h-3.5 text-slate-400" />
-                                                        <span className={cn(
-                                                            "text-lg font-black",
-                                                            daysLeft < 5 ? "text-red-600" : "text-slate-900"
-                                                        )}>{daysLeft}</span>
+                                                        {agent.agent_expires_at === null ? (
+                                                            <span className="text-sm font-black text-indigo-600 uppercase tracking-widest flex items-center gap-1"><ShieldCheck className="w-3.5 h-3.5" /> Lifetime</span>
+                                                        ) : (
+                                                            <>
+                                                                <Clock className="w-3.5 h-3.5 text-slate-400" />
+                                                                <span className={cn(
+                                                                    "text-lg font-black",
+                                                                    daysLeft < 5 ? "text-red-600" : "text-slate-900"
+                                                                )}>{daysLeft}</span>
+                                                            </>
+                                                        )}
                                                     </div>
                                                 </div>
 
