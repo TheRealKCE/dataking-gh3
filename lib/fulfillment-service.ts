@@ -242,19 +242,15 @@ export async function fulfillOrder(
         else if (!normalizedPhone.startsWith('0')) normalizedPhone = '0' + normalizedPhone
 
         const requestBody = {
-            orders: [
-                {
-                    recipient_msisdn: normalizedPhone,
-                    network_id: networkId,
-                    shared_bundle: volumeNumber, // ✅ CRITICAL FIX: Send the literal data volume, NOT the package ID
-                    incoming_api_ref: orderId,
-                }
-            ]
+            recipient_msisdn: normalizedPhone,
+            network_id: networkId,
+            shared_bundle: bundleId, // Reverting to package ID for single endpoint
+            incoming_api_ref: orderId,
         }
 
         console.log(`[DataKazina] Request payload:`, JSON.stringify(requestBody))
 
-        const response = await fetch(`${DATAKAZINA_API_BASE_URL}/buy-bulk-data-packages`, {
+        const response = await fetch(`${DATAKAZINA_API_BASE_URL}/buy-data-package`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -276,7 +272,13 @@ export async function fulfillOrder(
         const data = await response.json()
         console.log(`[DataKazina] Full API response (HTTP ${response.status}):`, JSON.stringify(data))
 
-        if (response.ok && data.success) {
+        // Ensure we catch false positives where success is true but it's an error message
+        const isFalsePositive = data.success && data.message &&
+            (data.message.toLowerCase().includes('not available') ||
+                data.message.toLowerCase().includes('failed') ||
+                data.message.toLowerCase().includes('error'))
+
+        if (response.ok && data.success && !isFalsePositive) {
             recordSuccess()
             const responseData = Array.isArray(data.data) ? data.data[0] : data.data
             return {
