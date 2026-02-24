@@ -39,25 +39,9 @@ export function usePageAccess() {
 
     const fetchPageAccess = async () => {
         try {
-            const { data, error } = await (supabase
-                .from('admin_settings') as any)
-                .select('*')
-                .in('key', [
-                    'page_access_dashboard',
-                    'page_access_data_packages',
-                    'page_access_orders',
-                    'page_access_wallet',
-                    'page_access_complaints',
-                    'page_access_notifications',
-                    'page_access_profile'
-                ])
-
-            if (error) throw error
-
-            const settingsMap = data.reduce((acc: any, curr: any) => {
-                acc[curr.key] = curr.value
-                return acc
-            }, {})
+            const response = await fetch('/api/settings/page-access')
+            if (!response.ok) throw new Error('Failed to fetch settings')
+            const settingsMap = await response.json()
 
             setPageAccess({
                 dashboard: settingsMap.page_access_dashboard !== 'false',

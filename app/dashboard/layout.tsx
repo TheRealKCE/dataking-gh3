@@ -8,6 +8,7 @@ import { useAuth } from '@/contexts/auth-context'
 import { UIProvider } from '@/contexts/ui-context'
 import { DashboardSidebar } from '@/components/dashboard/sidebar'
 import { DashboardHeader } from '@/components/dashboard/header'
+import { PageAccessGuard } from '@/components/dashboard/page-access-guard'
 import { Skeleton } from '@/components/ui/skeleton'
 import { WhatsAppButton } from '@/components/whatsapp-button'
 import { SuspendedAccount } from '@/components/dashboard/SuspendedAccount'
@@ -71,7 +72,9 @@ export default function DashboardLayout({
                 <div className="lg:pl-80">
                     <DashboardHeader />
                     <main className="p-4 lg:p-6">
-                        {children}
+                        <PageAccessGuard>
+                            {children}
+                        </PageAccessGuard>
                     </main>
                 </div>
                 <WhatsAppButton />
