@@ -2,6 +2,9 @@ import { createServerClient } from './supabase'
 import { creditShopProfit } from './shop-service'
 import { sendOrderSuccessSMS } from './sms-service'
 
+// In-memory lock to prevent race conditions between frontend verification and Paystack webhooks
+const processingLocks = new Set<string>();
+
 /**
  * Shared logic for processing a successful shop storefront payment.
  * Handles idempotency, security amount validation, order creation, profit credit, and fulfillment.
@@ -25,6 +28,13 @@ export async function processShopOrder(
     try {
         console.log(`[Shop Order Processor] Processing Ref: ${reference}, Amount: ${paidAmountPesewas} pesewas`)
 
+        // 0. High-Speed Memory Lock (prevents exact-millisecond race conditions on same Vercel lambda)
+        if (processingLocks.has(reference)) {
+            console.log(`[Shop Order Processor] Active lock found for ${reference}. Skipping duplicate execution.`);
+            return { success: true, isDuplicate: true }
+        }
+        processingLocks.add(reference);
+
         // 1. Idempotency Check
         const { data: existingOrder } = await db
             .from('shop_orders')
@@ -33,12 +43,13 @@ export async function processShopOrder(
             .single()
 
         if (existingOrder) {
-            if (existingOrder.status !== 'pending' && existingOrder.status !== 'failed') {
-                console.log(`[Shop Order Processor] Idempotency: Order already processed (Status: ${existingOrder.status})`)
+            // STRICT IDEMPOTENCY: If the order exists, another process handles/handled it.
+            // Do NOT re-trigger fulfillment if it's pending to prevent double-charging DataKazina.
+            if (['pending', 'processing', 'completed', 'delivered'].includes(existingOrder.status)) {
+                console.log(`[Shop Order Processor] Idempotency: Order exists with status: ${existingOrder.status}. Skipping duplicate fulfillment.`)
+                processingLocks.delete(reference);
                 return { success: true, orderId: existingOrder.id, isDuplicate: true }
             }
-            // If it's pending or failed, we might want to let the process continue (e.g. if it failed security check once but now we have a good record, 
-            // though usually paystack ref is unique to success).
         }
 
         // 2. Security: Verify Amount Against DB Prices (0.01 Attacker Protection)
@@ -184,6 +195,9 @@ export async function processShopOrder(
     } catch (error) {
         console.error('[Shop Order Processor] Critical error:', error)
         return { success: false, error: 'Internal processor error' }
+    } finally {
+        // Clear lock after processing completes or fails
+        processingLocks.delete(reference);
     }
 }
 

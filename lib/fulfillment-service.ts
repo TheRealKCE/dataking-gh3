@@ -250,7 +250,7 @@ export async function fulfillOrder(
 
         console.log(`[DataKazina] Request payload:`, JSON.stringify(requestBody))
 
-        const response = await fetch(`${DATAKAZINA_API_BASE_URL}/buy-data-package`, {
+        let response = await fetch(`${DATAKAZINA_API_BASE_URL}/buy-data-package`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -259,6 +259,21 @@ export async function fulfillOrder(
             },
             body: JSON.stringify(requestBody),
         })
+
+        // Handle WAF 429 Too Many Requests (Cloudflare/Nginx limits)
+        if (response.status === 429) {
+            console.warn(`[DataKazina Fulfillment] Rate limited (HTTP 429). Retrying in 3 seconds...`)
+            await new Promise(res => setTimeout(res, 3000))
+            response = await fetch(`${DATAKAZINA_API_BASE_URL}/buy-data-package`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json',
+                    'x-api-key': DATAKAZINA_API_KEY,
+                },
+                body: JSON.stringify(requestBody),
+            })
+        }
 
         // Safety check: if the response is HTML (e.g. redirect/error page), handle gracefully
         const contentType = response.headers.get('content-type') || ''
