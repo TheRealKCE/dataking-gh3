@@ -9,6 +9,8 @@ export interface PageAccessSettings {
     complaints: boolean
     notifications: boolean
     profile: boolean
+    shop: boolean
+    storefront: boolean
 }
 
 const PAGE_ROUTE_MAP: Record<string, keyof PageAccessSettings> = {
@@ -19,6 +21,7 @@ const PAGE_ROUTE_MAP: Record<string, keyof PageAccessSettings> = {
     '/dashboard/complaints': 'complaints',
     '/dashboard/notifications': 'notifications',
     '/dashboard/profile': 'profile',
+    '/dashboard/shop': 'shop',
 }
 
 export function usePageAccess() {
@@ -30,6 +33,8 @@ export function usePageAccess() {
         complaints: true,
         notifications: true,
         profile: true,
+        shop: true,
+        storefront: true,
     })
     const [loading, setLoading] = useState(true)
 
@@ -51,6 +56,8 @@ export function usePageAccess() {
                 complaints: settingsMap.page_access_complaints !== 'false',
                 notifications: settingsMap.page_access_notifications !== 'false',
                 profile: settingsMap.page_access_profile !== 'false',
+                shop: settingsMap.page_access_shop !== 'false',
+                storefront: settingsMap.page_access_storefront !== 'false',
             })
         } catch (error) {
             console.error('Error fetching page access settings:', error)
@@ -61,6 +68,11 @@ export function usePageAccess() {
     }
 
     const isPageAccessible = (route: string): boolean => {
+        // Find best match allowing prefixes for shop routes
+        if (route.startsWith('/dashboard/shop')) {
+            return pageAccess.shop
+        }
+
         const pageKey = PAGE_ROUTE_MAP[route]
         return pageKey ? pageAccess[pageKey] : true
     }

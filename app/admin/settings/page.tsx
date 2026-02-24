@@ -34,6 +34,8 @@ export default function AdminSettingsPage() {
     const [pageAccessComplaints, setPageAccessComplaints] = useState(true)
     const [pageAccessNotifications, setPageAccessNotifications] = useState(true)
     const [pageAccessProfile, setPageAccessProfile] = useState(true)
+    const [pageAccessShop, setPageAccessShop] = useState(true)
+    const [pageAccessStorefront, setPageAccessStorefront] = useState(true)
 
     useEffect(() => {
         fetchSettings()
@@ -72,6 +74,8 @@ export default function AdminSettingsPage() {
             setPageAccessComplaints(settingsMap.page_access_complaints !== 'false')
             setPageAccessNotifications(settingsMap.page_access_notifications !== 'false')
             setPageAccessProfile(settingsMap.page_access_profile !== 'false')
+            setPageAccessShop(settingsMap.page_access_shop !== 'false')
+            setPageAccessStorefront(settingsMap.page_access_storefront !== 'false')
 
         } catch (error) {
             console.error('Error fetching settings:', error)
@@ -100,7 +104,9 @@ export default function AdminSettingsPage() {
                 { key: 'page_access_wallet', value: String(pageAccessWallet) },
                 { key: 'page_access_complaints', value: String(pageAccessComplaints) },
                 { key: 'page_access_notifications', value: String(pageAccessNotifications) },
-                { key: 'page_access_profile', value: String(pageAccessProfile) }
+                { key: 'page_access_profile', value: String(pageAccessProfile) },
+                { key: 'page_access_shop', value: String(pageAccessShop) },
+                { key: 'page_access_storefront', value: String(pageAccessStorefront) }
             ]
 
             const { error } = await (supabase
@@ -355,6 +361,39 @@ export default function AdminSettingsPage() {
                                 <Switch
                                     checked={pageAccessProfile}
                                     onCheckedChange={setPageAccessProfile}
+                                />
+                            </div>
+
+                            <div className="flex items-center justify-between p-4 border rounded-lg">
+                                <div className="space-y-0.5">
+                                    <Label className="text-base text-emerald-600 dark:text-emerald-500 font-bold flex items-center gap-2">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-store"><path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7" /><path d="M4 12v8a2 2 0 0 0 2 2h2" /><path d="M20 12v8a2 2 0 0 1-2 2h-2" /><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4" /><path d="M2 7h20" /><path d="M22 7v3a2 2 0 0 1-2 2v0a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 16 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 12 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 8 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 4 12v0a2 2 0 0 1-2-2V7" /></svg>
+                                        Dashboard Shop Management
+                                    </Label>
+                                    <p className="text-sm text-muted-foreground">
+                                        Agent access to their shop settings, pricing, and orders dashboard
+                                    </p>
+                                </div>
+                                <Switch
+                                    checked={pageAccessShop}
+                                    onCheckedChange={setPageAccessShop}
+                                />
+                            </div>
+
+                            <div className="flex items-center justify-between p-4 border rounded-lg border-emerald-100 dark:border-emerald-900 bg-emerald-50/50 dark:bg-emerald-900/10">
+                                <div className="space-y-0.5">
+                                    <Label className="text-base text-emerald-600 dark:text-emerald-500 font-bold flex items-center gap-2">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-store"><path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7" /><path d="M4 12v8a2 2 0 0 0 2 2h2" /><path d="M20 12v8a2 2 0 0 1-2 2h-2" /><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4" /><path d="M2 7h20" /><path d="M22 7v3a2 2 0 0 1-2 2v0a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 16 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 12 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 8 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 4 12v0a2 2 0 0 1-2-2V7" /></svg>
+                                        Public Shop Storefront
+                                    </Label>
+                                    <p className="text-sm text-emerald-700/70 dark:text-emerald-300/70 font-medium">
+                                        Public access to visit shop links and purchase data (disabling this takes shops offline)
+                                    </p>
+                                </div>
+                                <Switch
+                                    checked={pageAccessStorefront}
+                                    onCheckedChange={setPageAccessStorefront}
+                                    className="data-[state=checked]:bg-emerald-500"
                                 />
                             </div>
                         </CardContent>

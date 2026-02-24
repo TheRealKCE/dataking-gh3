@@ -24,7 +24,9 @@ export async function GET() {
                 'page_access_wallet',
                 'page_access_complaints',
                 'page_access_notifications',
-                'page_access_profile'
+                'page_access_profile',
+                'page_access_shop',
+                'page_access_storefront'
             ])
 
         if (error) {
