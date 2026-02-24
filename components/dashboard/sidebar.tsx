@@ -348,13 +348,6 @@ export function DashboardSidebar() {
 
 
                     {userNavItems
-                        .filter(item => {
-                            // Admins see everything
-                            if (isAdmin) return true
-
-                            // For non-admin users, check page access settings
-                            return isPageAccessible(item.href)
-                        })
                         .map((item) => {
                             const isActive = isLinkActive(item.href)
                             return (
