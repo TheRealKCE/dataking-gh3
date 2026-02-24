@@ -33,7 +33,7 @@ const NETWORK_IDS: Record<string, number> = {
     'MTN': 3,
     'Telecel': 2,
     'AT-iShare': 1,
-    'AT-BigTime': 1, // Usually same provider ID in DataKazina, or close enough.
+    'AT-BigTime': 4,
 }
 
 // Cache for bundle mappings (will be populated from API or Supabase)
@@ -222,16 +222,18 @@ export async function fulfillOrder(
             }
         }
 
-        // Extract volume value for logging only
-        const sizeMatch = dataSize.match(/\d+/)
+        // Extract volume value to send as the actual shared_bundle (as requested by supplier)
+        const sizeMatch = dataSize.match(/[\d.]+/)
         const volumeValue = sizeMatch ? sizeMatch[0] : null
 
-        if (!volumeValue) {
+        if (!volumeValue || isNaN(Number(volumeValue))) {
             console.log(`[DataKazina] Skip: Could not extract numeric volume from "${dataSize}"`)
-            return { success: false, error: `Invalid data size format: ${dataSize}. Whole number expected.` }
+            return { success: false, error: `Invalid data size format: ${dataSize}. Number expected.` }
         }
 
-        console.log(`[DataKazina] Fulfillment Start: Order ${orderId} | Network: ${network} (${networkId}) | Package: ${dataSize} (ID: ${bundleId}, Vol: ${volumeValue})`)
+        const volumeNumber = Number(volumeValue)
+
+        console.log(`[DataKazina] Fulfillment Start: Order ${orderId} | Network: ${network} (${networkId}) | Package: ${dataSize} (ID: ${bundleId}, Vol: ${volumeNumber})`)
         // ---------------------------
 
         // Normalize phone number
@@ -240,15 +242,19 @@ export async function fulfillOrder(
         else if (!normalizedPhone.startsWith('0')) normalizedPhone = '0' + normalizedPhone
 
         const requestBody = {
-            recipient_msisdn: normalizedPhone,
-            network_id: networkId,
-            shared_bundle: bundleId, // ✅ FIXED: Send the DataKazina package ID, not the raw volume number
-            incoming_api_ref: orderId,
+            orders: [
+                {
+                    recipient_msisdn: normalizedPhone,
+                    network_id: networkId,
+                    shared_bundle: volumeNumber, // ✅ CRITICAL FIX: Send the literal data volume, NOT the package ID
+                    incoming_api_ref: orderId,
+                }
+            ]
         }
 
         console.log(`[DataKazina] Request payload:`, JSON.stringify(requestBody))
 
-        const response = await fetch(`${DATAKAZINA_API_BASE_URL}/buy-data-package`, {
+        const response = await fetch(`${DATAKAZINA_API_BASE_URL}/buy-bulk-data-packages`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -272,10 +278,11 @@ export async function fulfillOrder(
 
         if (response.ok && data.success) {
             recordSuccess()
+            const responseData = Array.isArray(data.data) ? data.data[0] : data.data
             return {
                 success: true,
-                reference: data.data?.reference || orderId,
-                transactionId: data.data?.transaction_id,
+                reference: responseData?.reference || orderId,
+                transactionId: responseData?.transaction_id,
                 message: data.message || 'Order submitted successfully',
                 apiResponse: data,
             }
