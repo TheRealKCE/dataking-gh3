@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
         // Get pending/processing orders for Telecel, AT-iShare, AT-BigTime
         const { data: orders, error } = await supabase
             .from('orders')
-            .select('*, fulfillment_logs(*)')
+            .select('*, mtn_fulfillment_tracking(*)')
             .in('network', ['Telecel', 'AT-iShare', 'AT-BigTime'])
             .in('status', ['pending', 'processing'])
             .not('codecraft_reference', 'is', null)
@@ -49,9 +49,9 @@ export async function GET(request: NextRequest) {
                             })
                             .eq('id', (order as any).id)
 
-                        // Update fulfillment log
+                        // Update fulfillment tracking
                         await (supabase
-                            .from('fulfillment_logs') as any)
+                            .from('mtn_fulfillment_tracking') as any)
                             .update({
                                 status: newStatus,
                                 updated_at: new Date().toISOString(),

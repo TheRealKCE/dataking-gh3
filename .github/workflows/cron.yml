@@ -1,0 +1,66 @@
+name: Scheduled API Pings
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'    # Every 5 min → verify-pending-payments
+    - cron: '*/10 * * * *'   # Every 10 min → sync-codecraft-status
+    - cron: '0 7 * * *'      # Daily 7AM UTC (8AM Ghana) → agent-renewal-reminder
+    - cron: '0 0 * * *'      # Daily midnight UTC → delete-old-notifications
+    - cron: '0 1 * * 0'      # Sundays at 1AM UTC → delete-old-orders + delete-old-complaints
+  workflow_dispatch:
+
+jobs:
+  verify-pending-payments:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '*/5 * * * *'
+    steps:
+      - name: Ping verify-pending-payments
+        run: |
+          curl -sf -X GET "https://www.kingflexygh.com/api/cron/verify-pending-payments" \
+          -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+          -H "User-Agent: GitHub-Actions-Cron"
+
+  sync-codecraft-status:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '*/10 * * * *'
+    steps:
+      - name: Ping sync-codecraft-status
+        run: |
+          curl -sf -X GET "https://www.kingflexygh.com/api/cron/sync-codecraft-status" \
+          -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+          -H "User-Agent: GitHub-Actions-Cron"
+
+  agent-renewal-reminder:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 7 * * *'
+    steps:
+      - name: Ping agent-renewal-reminder
+        run: |
+          curl -sf -X GET "https://www.kingflexygh.com/api/cron/agent-renewal-reminder" \
+          -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+          -H "User-Agent: GitHub-Actions-Cron"
+
+  delete-old-notifications:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 0 * * *'
+    steps:
+      - name: Ping delete-old-notifications
+        run: |
+          curl -sf -X GET "https://www.kingflexygh.com/api/cron/delete-old-notifications" \
+          -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+          -H "User-Agent: GitHub-Actions-Cron"
+
+  weekly-cleanup:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 1 * * 0'
+    steps:
+      - name: Delete old orders
+        run: |
+          curl -sf -X GET "https://www.kingflexygh.com/api/cron/delete-old-orders" \
+          -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+          -H "User-Agent: GitHub-Actions-Cron"
+      - name: Delete old complaints
+        run: |
+          curl -sf -X GET "https://www.kingflexygh.com/api/cron/delete-old-complaints" \
+          -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+          -H "User-Agent: GitHub-Actions-Cron"

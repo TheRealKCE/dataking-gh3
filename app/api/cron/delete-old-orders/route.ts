@@ -11,25 +11,25 @@ export async function GET(request: NextRequest) {
     const supabase = createServerClient()
 
     try {
-        // Calculate date 14 days ago
-        const fourteenDaysAgo = new Date()
-        fourteenDaysAgo.setDate(fourteenDaysAgo.getDate() - 14)
+        // Calculate date 90 days ago
+        const ninetyDaysAgo = new Date()
+        ninetyDaysAgo.setDate(ninetyDaysAgo.getDate() - 90)
 
-        // Delete orders older than 14 days
+        // Delete orders older than 90 days
         const { data, error, count } = await (supabase
             .from('orders') as any)
             .delete()
-            .lt('created_at', fourteenDaysAgo.toISOString())
+            .lt('created_at', ninetyDaysAgo.toISOString())
             .select('id', { count: 'exact' })
 
         if (error) throw error
 
-        console.log(`Deleted ${count || 0} orders older than 14 days`)
+        console.log(`Deleted ${count || 0} orders older than 90 days`)
 
         return NextResponse.json({
             success: true,
             deleted: count || 0,
-            cutoffDate: fourteenDaysAgo.toISOString()
+            cutoffDate: ninetyDaysAgo.toISOString()
         })
     } catch (error) {
         console.error('Cron delete-old-orders error:', error)
