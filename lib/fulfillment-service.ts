@@ -324,7 +324,6 @@ export async function fulfillOrder(
                 success: true,
                 reference: responseData?.reference || orderId,
                 transactionId: responseData?.transaction_id,
-                message: data.message || 'Order submitted successfully',
                 apiResponse: data,
             }
         }
