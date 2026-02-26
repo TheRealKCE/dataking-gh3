@@ -15,13 +15,13 @@ jobs:
     steps:
       - name: Ping process-queue
         run: |
-          curl -X GET "https://kingflexygh.com/api/cron/process-queue" \
+          curl -X GET "https://www.kingflexygh.com/api/cron/process-queue" \
           -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
           -H "User-Agent: GitHub-Actions-Cron"
 
       - name: Ping verify-pending-payments
         if: github.event.schedule == '*/5 * * * *' || github.event_name == 'workflow_dispatch'
         run: |
-          curl -X GET "https://kingflexygh.com/api/cron/verify-pending-payments" \
+          curl -X GET "https://www.kingflexygh.com/api/cron/verify-pending-payments" \
           -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
           -H "User-Agent: GitHub-Actions-Cron"
