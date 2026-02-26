@@ -1,5 +1,10 @@
 {
-    "crons": [],
+    "crons": [
+        {
+            "path": "/api/cron/process-queue",
+            "schedule": "* * * * *"
+        }
+    ],
     "headers": [
         {
             "source": "/(.*)",

@@ -59,7 +59,7 @@ export async function GET(request: NextRequest) {
         if (status && status !== 'All') {
             query = query.eq('status', status)
         } else {
-            query = query.in('status', ['processing', 'failed', 'completed', 'pending'])
+            query = query.in('status', ['processing', 'failed', 'completed', 'pending', 'queued'])
         }
 
         if (network && network !== 'All') {

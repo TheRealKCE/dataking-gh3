@@ -16,9 +16,9 @@ interface FulfillmentResponse {
     success: boolean
     reference?: string
     transactionId?: string
-    message?: string
     error?: string
     apiResponse?: any
+    isRateLimited?: boolean
 }
 
 interface StatusResponse {
@@ -270,12 +270,9 @@ export async function fulfillOrder(
 
                 // Handle WAF 429 Too Many Requests (Cloudflare/Nginx limits)
                 if (response.status === 429) {
-                    console.warn(`[DataKazina Fulfillment] Rate limited (HTTP 429) on attempt ${attempt}. Retrying in 3 seconds...`);
-                    // If it's the last attempt, don't wait, just break and let it fail
-                    if (attempt < maxAttempts) {
-                        await new Promise(res => setTimeout(res, 3000));
-                        continue;
-                    }
+                    console.warn(`[DataKazina Fulfillment] Rate limited (HTTP 429). Queueing order...`);
+                    // IMPORTANT: Do not retry here. Immediately return so the caller can queue it asynchronously.
+                    return { success: false, error: 'Supplier Rate Limited (429)', isRateLimited: true };
                 }
 
                 // If we get here and it's not a 429, we break out of the retry loop.
