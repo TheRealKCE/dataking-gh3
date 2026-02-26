@@ -250,29 +250,56 @@ export async function fulfillOrder(
 
         console.log(`[DataKazina] Request payload:`, JSON.stringify(requestBody))
 
-        let response = await fetch(`${DATAKAZINA_API_BASE_URL}/buy-data-package`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
-                'x-api-key': DATAKAZINA_API_KEY,
-            },
-            body: JSON.stringify(requestBody),
-        })
+        let response: Response | null = null;
+        let attempt = 0;
+        const maxAttempts = 3;
+        let lastError: Error | null = null;
 
-        // Handle WAF 429 Too Many Requests (Cloudflare/Nginx limits)
-        if (response.status === 429) {
-            console.warn(`[DataKazina Fulfillment] Rate limited (HTTP 429). Retrying in 3 seconds...`)
-            await new Promise(res => setTimeout(res, 3000))
-            response = await fetch(`${DATAKAZINA_API_BASE_URL}/buy-data-package`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json',
-                    'x-api-key': DATAKAZINA_API_KEY,
-                },
-                body: JSON.stringify(requestBody),
-            })
+        while (attempt < maxAttempts) {
+            attempt++;
+            try {
+                response = await fetch(`${DATAKAZINA_API_BASE_URL}/buy-data-package`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json',
+                        'x-api-key': DATAKAZINA_API_KEY,
+                    },
+                    body: JSON.stringify(requestBody),
+                });
+
+                // Handle WAF 429 Too Many Requests (Cloudflare/Nginx limits)
+                if (response.status === 429) {
+                    console.warn(`[DataKazina Fulfillment] Rate limited (HTTP 429) on attempt ${attempt}. Retrying in 3 seconds...`);
+                    // If it's the last attempt, don't wait, just break and let it fail
+                    if (attempt < maxAttempts) {
+                        await new Promise(res => setTimeout(res, 3000));
+                        continue;
+                    }
+                }
+
+                // If we get here and it's not a 429, we break out of the retry loop.
+                // We'll handle the response (success or failure) outside the loop.
+                break;
+
+            } catch (err: any) {
+                lastError = err;
+                console.error(`[DataKazina Fulfillment] Network/Fetch error on attempt ${attempt}:`, err.message);
+
+                if (attempt < maxAttempts) {
+                    // Wait a bit before retrying network failures
+                    const delay = 2000 * attempt; // Exponential-ish backoff: 2s, 4s
+                    console.log(`[DataKazina Fulfillment] Retrying in ${delay}ms...`);
+                    await new Promise(res => setTimeout(res, delay));
+                }
+            }
+        }
+
+        if (!response) {
+            // All attempts failed due to network errors
+            console.error(`[DataKazina Fulfillment] All ${maxAttempts} fetch attempts failed.`);
+            recordFailure();
+            return { success: false, error: lastError?.message || 'Persistent network error connecting to supplier' };
         }
 
         // Safety check: if the response is HTML (e.g. redirect/error page), handle gracefully
