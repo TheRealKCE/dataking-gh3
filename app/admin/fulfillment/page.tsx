@@ -46,7 +46,9 @@ interface Order {
         role: string
     }
     mtn_fulfillment_tracking: Array<{
-        transaction_id: string
+        transaction_id: string | null
+        api_response?: any
+        retry_count?: number
     }>
 }
 
