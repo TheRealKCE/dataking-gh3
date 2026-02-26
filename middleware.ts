@@ -89,8 +89,8 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-    // Exclude static files to prevent unnecessary middleware execution
+    // Exclude static files and api routes to prevent unnecessary middleware execution
     matcher: [
-        '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2)$).*)'
+        '/((?!api/|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2)$).*)'
     ],
 }
