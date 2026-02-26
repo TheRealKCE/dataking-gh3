@@ -1,0 +1,27 @@
+name: Scheduled API Pings
+
+on:
+  schedule:
+    # Run process-queue every minute
+    - cron: '* * * * *'
+    # Run verify-pending-payments every 5 minutes
+    - cron: '*/5 * * * *'
+  # Allow manual trigger for testing
+  workflow_dispatch:
+
+jobs:
+  ping-endpoints:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping process-queue
+        run: |
+          curl -X GET "https://kingflexygh.com/api/cron/process-queue" \
+          -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+          -H "User-Agent: GitHub-Actions-Cron"
+
+      - name: Ping verify-pending-payments
+        if: github.event.schedule == '*/5 * * * *' || github.event_name == 'workflow_dispatch'
+        run: |
+          curl -X GET "https://kingflexygh.com/api/cron/verify-pending-payments" \
+          -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+          -H "User-Agent: GitHub-Actions-Cron"
