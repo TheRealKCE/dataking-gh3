@@ -1,4 +1,14 @@
 {
+    "crons": [
+        {
+            "path": "/api/cron/agent-renewal-reminder",
+            "schedule": "* * * * *"
+        },
+        {
+            "path": "/api/cron/verify-pending-payments",
+            "schedule": "*/5 * * * *"
+        }
+    ],
     "headers": [
         {
             "source": "/(.*)",
