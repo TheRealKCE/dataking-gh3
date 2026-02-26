@@ -1,0 +1,15 @@
+3005107 feat(cron): register process-queue as Vercel built-in cron job (every minute)
+48162fe fix(cron): exclude api routes from middleware to prevent 307 redirects
+b014062 fix(cron): remove vercel cron config to allow hobby deployment
+3c74ae2 fix(types): update Order interface to include mtn_fulfillment_tracking props
+c735d99 fix(types): remove obsolete message prop from fulfillment response
+f7e14bd feat: implement background queue processor for 429 datakazina rate limits
+f8bcdcf fix(fulfillment): Add retry wrapper for network fetch errors to prevent intermittent failures
+63cf664 fix: resolve DataKazina 429 rate limit via memory locks and strict idempotency on shop orders
+31e8bc7 fix: revert datakazina api to single order endpoint and handle false positives
+939a7ec feat: implement guest storefront configuration, session control, and shop dashboard UI updates
+a606b11 fix: add missing make permanent button to mobile card view
+c87684f feat: implement permanent agent lifetime upgrade tier, premium UI, and custom notifications
+6c647f0 fix(sidebar): always show navigation items regardless of page access state
+b0fbeb7 feat(shop-access): implement global access controls for dashboard shop management and public storefronts
+b4c00e1 fix(page-access): implement secure page toggle bypassing RLS with a unified maintenance guard

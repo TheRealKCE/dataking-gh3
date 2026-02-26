@@ -289,17 +289,6 @@ async function triggerShopFulfillment(
             }).eq('shop_order_id', orderId)
 
             console.log(`[Shop Order Processor] Fulfillment success for order ${orderId}`)
-        } else if (result.isRateLimited) {
-            console.warn(`[Shop Order Processor] Rate limited, queueing order ${orderId}`)
-            const updatedAt = new Date().toISOString()
-            await db.from('shop_orders').update({
-                status: 'queued',
-                updated_at: updatedAt,
-            }).eq('id', orderId)
-
-            await db.from('orders').update({
-                status: 'queued'
-            }).eq('shop_order_id', orderId)
         } else {
             console.error(`[Shop Order Processor] Fulfillment failed for order ${orderId}:`, result.error)
             await sendAdminNewOrderAlert({ ...alertDetails, reason: `Auto-fulfillment API error: ${result.error || 'Unknown error'}` })

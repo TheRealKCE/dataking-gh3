@@ -430,23 +430,6 @@ async function triggerFulfillment(orderId: string, network: string, user: { emai
                 .eq('id', orderId)
 
             // NO ALERT SENT ON SUCCESS
-        } else if (result.isRateLimited) {
-            console.warn(`[Fulfillment] Order ${orderId} (${network}) rate limited. Moving to queue.`)
-
-            // Create tracking record for queue
-            await (supabase.from('mtn_fulfillment_tracking') as any).insert({
-                order_id: orderId,
-                status: 'queued',
-                api_response: { error: 'Rate Limit (429)', network },
-            })
-
-            // Update order status to queued
-            await (supabase.from('orders') as any)
-                .update({
-                    status: 'queued',
-                    updated_at: new Date().toISOString(),
-                })
-                .eq('id', orderId)
         } else {
             console.error(`[Fulfillment] Order ${orderId} (${network}) failed:`, result.error)
 

@@ -432,7 +432,7 @@ export default function FulfillmentPage() {
                             <div className="space-y-1.5">
                                 <label className="text-[10px] uppercase font-bold text-muted-foreground">Status</label>
                                 <div className="flex flex-wrap gap-1.5">
-                                    {['All', 'Pending', 'Processing', 'Queued', 'Completed', 'Failed'].map(s => (
+                                    {['All', 'Pending', 'Processing', 'Completed', 'Failed'].map(s => (
                                         <Button
                                             key={s}
                                             variant={statusFilter === (s === 'All' ? 'All' : s.toLowerCase()) ? "default" : "outline"}
@@ -466,10 +466,7 @@ export default function FulfillmentPage() {
 
                             <div className="pt-4 border-t">
                                 <div className="grid grid-cols-2 gap-2">
-                                    <div className="p-2 md:p-2.5 bg-purple-50 dark:bg-purple-900/10 rounded-lg border border-purple-100 dark:border-purple-900/20 italic">
-                                        <p className="text-[9px] md:text-[10px] text-purple-700 dark:text-purple-400 font-bold uppercase">Queued</p>
-                                        <p className="text-lg md:text-xl font-black text-purple-600 dark:text-purple-500">{orders.filter(o => o.status === 'queued').length}</p>
-                                    </div>
+
                                     <div className="p-2 md:p-2.5 bg-amber-50 dark:bg-amber-900/10 rounded-lg border border-amber-100 dark:border-amber-900/20 italic">
                                         <p className="text-[9px] md:text-[10px] text-amber-700 dark:text-amber-400 font-bold uppercase">Pending</p>
                                         <p className="text-lg md:text-xl font-black text-amber-600 dark:text-amber-500">{orders.filter(o => o.status === 'pending').length}</p>
@@ -616,7 +613,6 @@ export default function FulfillmentPage() {
                                                             className={cn(
                                                                 "text-[10px] md:text-[11px] font-black uppercase tracking-wider h-5 px-2",
                                                                 order.status === 'pending' && "border-amber-500 text-amber-600 bg-amber-50 dark:bg-amber-900/20",
-                                                                order.status === 'queued' && "border-purple-500 text-purple-600 bg-purple-50 dark:bg-purple-900/20",
                                                                 order.status === 'processing' && order.mtn_fulfillment_tracking?.some((t: any) => t.api_response?.note === 'Background Queue Fulfillment Success') && "border-yellow-500 text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 after:content-['_(QUEUED)'] after:text-[8px] after:ml-1"
                                                             )}
                                                         >
