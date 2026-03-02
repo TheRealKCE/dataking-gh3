@@ -244,7 +244,7 @@ export async function fulfillOrder(
         const requestBody = {
             recipient_msisdn: normalizedPhone,
             network_id: networkId,
-            shared_bundle: bundleId, // Reverting to package ID for single endpoint
+            shared_bundle: volumeNumber, // ✅ FIX: send the numeric volume, e.g. 15 for "15GB"
             incoming_api_ref: orderId,
         }
 
