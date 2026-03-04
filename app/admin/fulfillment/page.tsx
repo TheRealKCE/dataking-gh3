@@ -68,6 +68,7 @@ export default function FulfillmentPage() {
     const [selectedOrders, setSelectedOrders] = useState<Set<string>>(new Set())
     const [isLoadingOrders, setIsLoadingOrders] = useState(true)
     const [isUpdating, setIsUpdating] = useState(false)
+    const [isRefulfilling, setIsRefulfilling] = useState(false)
 
     // Filter State
     const [networkFilter, setNetworkFilter] = useState('All')
@@ -279,6 +280,34 @@ export default function FulfillmentPage() {
         }
     }
 
+    const refulfillPending = async (useSelection = false) => {
+        setIsRefulfilling(true)
+        try {
+            const payload = useSelection && selectedOrders.size > 0
+                ? { orderIds: Array.from(selectedOrders) }
+                : {}
+
+            const response = await fetch('/api/admin/fulfillment/refulfill', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload),
+            })
+
+            const data = await response.json()
+            if (!response.ok) throw new Error(data.error || 'Refulfillment failed')
+
+            toast.success(`Refulfillment complete: ${data.fulfilled} processing, ${data.skipped} skipped, ${data.failed} failed/reverted`)
+            if (useSelection) setSelectedOrders(new Set())
+
+            // Re-fetch current view
+            await fetchOrders(true)
+        } catch (error: any) {
+            toast.error('Refulfillment failed: ' + error.message)
+        } finally {
+            setIsRefulfilling(false)
+        }
+    }
+
     if (dbUser?.role !== 'admin') {
         return (
             <div className="flex flex-col items-center justify-center h-[60vh]">
@@ -297,12 +326,24 @@ export default function FulfillmentPage() {
                     <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight">Fulfillment Center</h1>
                     <p className="text-xs md:text-sm text-muted-foreground">Manage multi-network automated and manual order processing</p>
                 </div>
-                <div className="flex items-center gap-3">
-                    <Button onClick={() => fetchOrders(true)} disabled={isLoadingOrders} variant="outline" size="sm">
-                        <RefreshCw className={`w-3.5 h-3.5 mr-2 ${isLoadingOrders ? 'animate-spin' : ''}`} />
+                <div className="flex flex-wrap items-center gap-3">
+                    <Button
+                        onClick={() => refulfillPending(false)}
+                        disabled={isRefulfilling || orders.filter(o => o.status === 'pending').length === 0}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-9 md:h-10 text-xs md:text-sm px-3 md:px-4"
+                    >
+                        {isRefulfilling ? (
+                            <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                        ) : (
+                            <RotateCcw className="w-4 h-4 mr-2" />
+                        )}
+                        Refulfill All Pending
+                    </Button>
+                    <Button onClick={() => fetchOrders(true)} disabled={isLoadingOrders} variant="outline" size="sm" className="h-9 md:h-10 text-xs md:text-sm">
+                        <RefreshCw className={`w-4 h-4 mr-2 ${isLoadingOrders ? 'animate-spin' : ''}`} />
                         Refresh
                     </Button>
-                    <div className="flex items-center gap-2 bg-background border px-3 py-1.5 rounded-full shadow-sm">
+                    <div className="flex items-center gap-2 bg-background border px-3 h-9 md:h-10 rounded-full shadow-sm">
                         <span className="text-[10px] md:text-xs font-semibold">Auto-Fulfillment</span>
                         <Switch checked={settings.is_global_enabled} onCheckedChange={toggleGlobal} disabled={isSavingSettings} className="scale-75 md:scale-90" />
                     </div>
@@ -519,18 +560,33 @@ export default function FulfillmentPage() {
                                 <Badge variant="default" className="rounded-full px-2 text-[10px]">{selectedOrders.size}</Badge>
                                 <span className="text-[10px] md:text-xs font-bold uppercase">Selected</span>
                             </div>
-                            <div className="flex gap-1.5 md:gap-2 flex-wrap justify-end">
-                                <Button size="sm" onClick={() => bulkUpdateStatus('pending')} className="h-7 md:h-8 text-[9px] md:text-xs bg-amber-500 hover:bg-amber-600 text-black font-bold shadow-sm" disabled={isUpdating}>
-                                    <Clock className="w-3 h-3 mr-1" /> Pending
+                            <div className="flex gap-2 md:gap-3 flex-wrap justify-end">
+                                <Button
+                                    size="sm"
+                                    onClick={() => refulfillPending(true)}
+                                    className="h-9 md:h-10 text-xs md:text-sm px-3 md:px-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold shadow-sm"
+                                    disabled={isRefulfilling || isUpdating}
+                                >
+                                    {isRefulfilling ? <RefreshCw className="w-3.5 h-3.5 mr-1.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5 mr-1.5" />}
+                                    {isRefulfilling ? 'Refulfilling...' : 'Refulfill Pending'}
                                 </Button>
-                                <Button size="sm" onClick={() => bulkUpdateStatus('processing')} className="h-7 md:h-8 text-[9px] md:text-xs bg-yellow-500 hover:bg-yellow-600 text-black font-bold shadow-sm" disabled={isUpdating}>
-                                    <RotateCcw className="w-3 h-3 mr-1" /> Reprocess
+                                <Button
+                                    size="sm"
+                                    onClick={() => bulkUpdateStatus('pending')}
+                                    className="h-9 md:h-10 text-xs md:text-sm px-3 md:px-4 bg-amber-500 hover:bg-amber-600 text-black font-bold shadow-sm disabled:opacity-50"
+                                    disabled={isUpdating || isRefulfilling || orders.some(o => selectedOrders.has(o.id) && o.status === 'processing')}
+                                    title={orders.some(o => selectedOrders.has(o.id) && o.status === 'processing') ? "Cannot revert processing orders to pending" : ""}
+                                >
+                                    <Clock className="w-3.5 h-3.5 mr-1.5" /> Pending
                                 </Button>
-                                <Button size="sm" onClick={() => bulkUpdateStatus('completed')} className="h-7 md:h-8 text-[9px] md:text-xs bg-green-600 hover:bg-green-700 font-bold shadow-sm" disabled={isUpdating}>
-                                    <CheckCircle2 className="w-3 h-3 mr-1" /> Complete
+                                <Button size="sm" onClick={() => bulkUpdateStatus('processing')} className="h-9 md:h-10 text-xs md:text-sm px-3 md:px-4 bg-yellow-500 hover:bg-yellow-600 text-black font-bold shadow-sm" disabled={isUpdating || isRefulfilling}>
+                                    <RotateCcw className="w-3.5 h-3.5 mr-1.5" /> Reprocess
                                 </Button>
-                                <Button size="sm" onClick={() => bulkUpdateStatus('failed')} variant="destructive" className="h-7 md:h-8 text-[9px] md:text-xs font-bold shadow-sm" disabled={isUpdating}>
-                                    <XCircle className="w-3 h-3 mr-1" /> Fail
+                                <Button size="sm" onClick={() => bulkUpdateStatus('completed')} className="h-9 md:h-10 text-xs md:text-sm px-3 md:px-4 bg-green-600 hover:bg-green-700 font-bold shadow-sm" disabled={isUpdating || isRefulfilling}>
+                                    <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> Complete
+                                </Button>
+                                <Button size="sm" onClick={() => bulkUpdateStatus('failed')} variant="destructive" className="h-9 md:h-10 text-xs md:text-sm px-3 md:px-4 font-bold shadow-sm" disabled={isUpdating || isRefulfilling}>
+                                    <XCircle className="w-3.5 h-3.5 mr-1.5" /> Fail
                                 </Button>
                             </div>
                         </div>
