@@ -5,6 +5,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { formatCurrency } from '@/lib/utils'
+import { supabase } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
 import {
     Phone, Mail, MessageCircle, ShoppingCart, Loader2,
@@ -58,6 +59,8 @@ export default function ShopStorefront({ shop, packages }: Props) {
     const [pageLoading, setPageLoading] = useState(true)
     const [errorMsg, setErrorMsg] = useState<string | null>(null)
     const [contactInfo, setContactInfo] = useState<{ phone?: string; whatsapp?: string; email?: string } | null>(null)
+    const [announcement, setAnnouncement] = useState<{ type: 'admin' | 'shop'; message: string; title?: string } | null>(null)
+    const [announcementDismissed, setAnnouncementDismissed] = useState(false)
 
     // Derive available networks in fixed order
     const availableNetworks = NETWORK_ORDER.filter(n => packages.some(p => p.network === n))
@@ -73,6 +76,52 @@ export default function ShopStorefront({ shop, packages }: Props) {
         try { sessionStorage.setItem('shop_sticky_slug', shop.shop_slug) } catch (_) { }
         return () => clearTimeout(timer)
     }, [shop.shop_slug])
+
+    useEffect(() => {
+        const fetchAnnouncements = async () => {
+            try {
+                // 1. Check for Admin Announcement first (Priority)
+                const { data: adminAnn, error: adminErr } = await (supabase as any)
+                    .from('system_announcements')
+                    .select('title, message')
+                    .eq('is_active', true)
+                    .in('visible_on', ['storefronts', 'both'])
+                    .order('created_at', { ascending: false })
+                    .limit(1)
+                    .maybeSingle()
+
+                if (adminAnn) {
+                    setAnnouncement({
+                        type: 'admin',
+                        title: (adminAnn as any).title,
+                        message: (adminAnn as any).message
+                    })
+                    return
+                }
+
+                // 2. Check for Shop Announcement if no admin announcement
+                const { data: shopAnn, error: shopErr } = await (supabase as any)
+                    .from('shop_announcements')
+                    .select('message')
+                    .eq('shop_id', shop.id)
+                    .eq('is_active', true)
+                    .order('created_at', { ascending: false })
+                    .limit(1)
+                    .maybeSingle()
+
+                if (shopAnn) {
+                    setAnnouncement({
+                        type: 'shop',
+                        message: (shopAnn as any).message
+                    })
+                }
+            } catch (err) {
+                console.error('Error fetching announcements:', err)
+            }
+        }
+
+        fetchAnnouncements()
+    }, [shop.id])
 
     // Show error from URL params (e.g. payment_failed)
     useEffect(() => {
@@ -205,6 +254,61 @@ export default function ShopStorefront({ shop, packages }: Props) {
             </div>
 
             <div className="max-w-2xl mx-auto px-4 pb-40 -mt-2">
+                {/* ── Announcement Banner ── */}
+                {announcement && !announcementDismissed && (
+                    <div className={cn(
+                        "mb-5 -mt-4 relative overflow-hidden rounded-2xl border shadow-lg animate-in fade-in slide-in-from-top-4 duration-500",
+                        announcement.type === 'admin'
+                            ? "bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-900/50"
+                            : "bg-blue-50 border-blue-200 dark:bg-blue-950/30 dark:border-blue-900/50"
+                    )}>
+                        {/* Decorative background element */}
+                        <div className={cn(
+                            "absolute -right-4 -top-4 w-24 h-24 opacity-10 rounded-full",
+                            announcement.type === 'admin' ? "bg-amber-500" : "bg-blue-500"
+                        )} />
+
+                        <div className="p-4 relative z-10">
+                            <div className="flex items-start gap-3">
+                                <div className={cn(
+                                    "p-2 rounded-xl shrink-0",
+                                    announcement.type === 'admin' ? "bg-amber-100 dark:bg-amber-900/50" : "bg-blue-100 dark:bg-blue-900/50"
+                                )}>
+                                    {announcement.type === 'admin' ? (
+                                        <Zap className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                                    ) : (
+                                        <MessageCircle className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                                    )}
+                                </div>
+                                <div className="flex-1 pt-0.5">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <span className={cn(
+                                            "text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full",
+                                            announcement.type === 'admin' ? "bg-amber-500 text-white" : "bg-blue-500 text-white"
+                                        )}>
+                                            {announcement.type === 'admin' ? 'Official Notice' : 'Shop Announcement'}
+                                        </span>
+                                        {announcement.title && (
+                                            <span className="text-xs font-bold text-gray-500">{announcement.title}</span>
+                                        )}
+                                    </div>
+                                    <p className={cn(
+                                        "text-sm font-semibold leading-relaxed",
+                                        announcement.type === 'admin' ? "text-amber-900 dark:text-amber-200" : "text-blue-900 dark:text-blue-200"
+                                    )}>
+                                        {announcement.message}
+                                    </p>
+                                </div>
+                                <button
+                                    onClick={() => setAnnouncementDismissed(true)}
+                                    className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded-full transition-colors shrink-0"
+                                >
+                                    <X className="w-4 h-4 text-gray-400" />
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* ── Need Help? Contact Card ── */}
                 <div className="mb-5 rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm px-4 py-3 flex items-center justify-between gap-3">

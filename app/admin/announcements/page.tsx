@@ -27,12 +27,14 @@ export default function AdminAnnouncementsPage() {
     const [loading, setLoading] = useState(true)
     const [title, setTitle] = useState('')
     const [message, setMessage] = useState('')
+    const [visibleOn, setVisibleOn] = useState<'main_site' | 'storefronts' | 'both'>('main_site')
     const [isSubmitting, setIsSubmitting] = useState(false)
 
     // Edit state
     const [editingId, setEditingId] = useState<string | null>(null)
     const [editTitle, setEditTitle] = useState('')
     const [editMessage, setEditMessage] = useState('')
+    const [editVisibleOn, setEditVisibleOn] = useState<'main_site' | 'storefronts' | 'both'>('main_site')
     const [isUpdating, setIsUpdating] = useState(false)
 
     useEffect(() => {
@@ -71,12 +73,21 @@ export default function AdminAnnouncementsPage() {
                 .insert({
                     title,
                     message,
+                    visible_on: visibleOn,
                     is_active: true
                 })
                 .select()
                 .single()
 
             if (error) throw error
+
+            // Feature 3 Hierarchy: If storefronts involved, we might want to auto-clear shop-level notices
+            if (visibleOn !== 'main_site') {
+                await (supabase as any)
+                    .from('shop_announcements')
+                    .update({ is_active: false })
+                    .eq('is_active', true)
+            }
 
             setAnnouncements([data, ...announcements])
             setTitle('')
@@ -102,6 +113,16 @@ export default function AdminAnnouncementsPage() {
             setAnnouncements(announcements.map(a =>
                 a.id === id ? { ...a, is_active: !currentStatus } : a
             ))
+
+            // Feature 3 Hierarchy: If activating for storefronts, auto-deactivate shop ones
+            const activated = !currentStatus
+            const announcement = announcements.find(a => a.id === id)
+            if (activated && announcement && announcement.visible_on !== 'main_site') {
+                await (supabase as any)
+                    .from('shop_announcements')
+                    .update({ is_active: false })
+                    .eq('is_active', true)
+            }
             toast.success(`Announcement ${!currentStatus ? 'activated' : 'deactivated'}`)
         } catch (error) {
             toast.error('Failed to update status')
@@ -127,10 +148,11 @@ export default function AdminAnnouncementsPage() {
     }
 
     // Start editing an announcement
-    const handleStartEdit = (announcement: SystemAnnouncement) => {
+    const handleStartEdit = (announcement: any) => {
         setEditingId(announcement.id)
         setEditTitle(announcement.title)
         setEditMessage(announcement.message)
+        setEditVisibleOn(announcement.visible_on || 'main_site')
     }
 
     // Cancel editing
@@ -138,6 +160,7 @@ export default function AdminAnnouncementsPage() {
         setEditingId(null)
         setEditTitle('')
         setEditMessage('')
+        setEditVisibleOn('main_site')
     }
 
     // Save edited announcement and repost
@@ -151,6 +174,7 @@ export default function AdminAnnouncementsPage() {
                 .update({
                     title: editTitle.trim(),
                     message: editMessage.trim(),
+                    visible_on: editVisibleOn,
                     is_active: true,
                     created_at: new Date().toISOString() // Update timestamp for repost
                 })
@@ -161,13 +185,22 @@ export default function AdminAnnouncementsPage() {
             // Update local state
             setAnnouncements(announcements.map(a =>
                 a.id === editingId
-                    ? { ...a, title: editTitle.trim(), message: editMessage.trim(), is_active: true, created_at: new Date().toISOString() }
+                    ? { ...a, title: editTitle.trim(), message: editMessage.trim(), visible_on: editVisibleOn, is_active: true, created_at: new Date().toISOString() }
                     : a
             ).sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()))
+
+            // Feature 3 Hierarchy: If reposting for storefronts, auto-deactivate shop ones
+            if (editVisibleOn !== 'main_site') {
+                await (supabase as any)
+                    .from('shop_announcements')
+                    .update({ is_active: false })
+                    .eq('is_active', true)
+            }
 
             setEditingId(null)
             setEditTitle('')
             setEditMessage('')
+            setEditVisibleOn('main_site')
             toast.success('Announcement updated and reposted!')
         } catch (error) {
             console.error('Error updating announcement:', error)
@@ -219,6 +252,38 @@ export default function AdminAnnouncementsPage() {
                                     onChange={(e) => setMessage(e.target.value)}
                                     required
                                 />
+                            </div>
+                            <div className="space-y-1.5 sm:space-y-2">
+                                <Label className="text-sm text-gray-700 dark:text-gray-300">Visible On</Label>
+                                <div className="grid grid-cols-3 gap-2">
+                                    <Button
+                                        type="button"
+                                        variant={visibleOn === 'main_site' ? 'default' : 'outline'}
+                                        size="sm"
+                                        onClick={() => setVisibleOn('main_site')}
+                                        className="text-[10px] sm:text-xs h-8"
+                                    >
+                                        Main Site
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant={visibleOn === 'storefronts' ? 'default' : 'outline'}
+                                        size="sm"
+                                        onClick={() => setVisibleOn('storefronts')}
+                                        className="text-[10px] sm:text-xs h-8"
+                                    >
+                                        Storefronts
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant={visibleOn === 'both' ? 'default' : 'outline'}
+                                        size="sm"
+                                        onClick={() => setVisibleOn('both')}
+                                        className="text-[10px] sm:text-xs h-8"
+                                    >
+                                        Both
+                                    </Button>
+                                </div>
                             </div>
                             <Button type="submit" className="w-full text-sm" disabled={isSubmitting}>
                                 {isSubmitting ? (
@@ -273,6 +338,38 @@ export default function AdminAnnouncementsPage() {
                                                     placeholder="Message"
                                                     className="text-sm min-h-[60px]"
                                                 />
+                                                <div className="space-y-1.5">
+                                                    <Label className="text-[10px] uppercase font-bold text-muted-foreground">Targeting</Label>
+                                                    <div className="grid grid-cols-3 gap-1">
+                                                        <Button
+                                                            type="button"
+                                                            variant={editVisibleOn === 'main_site' ? 'default' : 'outline'}
+                                                            size="sm"
+                                                            onClick={() => setEditVisibleOn('main_site')}
+                                                            className="text-[10px] h-7 px-1"
+                                                        >
+                                                            Main Site
+                                                        </Button>
+                                                        <Button
+                                                            type="button"
+                                                            variant={editVisibleOn === 'storefronts' ? 'default' : 'outline'}
+                                                            size="sm"
+                                                            onClick={() => setEditVisibleOn('storefronts')}
+                                                            className="text-[10px] h-7 px-1"
+                                                        >
+                                                            Storefronts
+                                                        </Button>
+                                                        <Button
+                                                            type="button"
+                                                            variant={editVisibleOn === 'both' ? 'default' : 'outline'}
+                                                            size="sm"
+                                                            onClick={() => setEditVisibleOn('both')}
+                                                            className="text-[10px] h-7 px-1"
+                                                        >
+                                                            Both
+                                                        </Button>
+                                                    </div>
+                                                </div>
                                                 <div className="flex items-center justify-end gap-2">
                                                     <Button
                                                         variant="outline"
@@ -313,12 +410,17 @@ export default function AdminAnnouncementsPage() {
                                                             {formatDate(announcement.created_at)}
                                                         </p>
                                                     </div>
-                                                    <Badge
-                                                        variant={announcement.is_active ? 'default' : 'secondary'}
-                                                        className="text-[10px] shrink-0"
-                                                    >
-                                                        {announcement.is_active ? 'Active' : 'Inactive'}
-                                                    </Badge>
+                                                    <div className="flex flex-col items-end gap-1 shrink-0">
+                                                        <Badge
+                                                            variant={announcement.is_active ? 'default' : 'secondary'}
+                                                            className="text-[10px]"
+                                                        >
+                                                            {announcement.is_active ? 'Active' : 'Inactive'}
+                                                        </Badge>
+                                                        <Badge variant="outline" className="text-[9px] uppercase hover:bg-transparent capitalize">
+                                                            {announcement.visible_on?.replace('_', ' ') || 'Main site'}
+                                                        </Badge>
+                                                    </div>
                                                 </div>
                                                 <div className="flex items-center justify-between pt-2 border-t border-gray-200 dark:border-gray-700">
                                                     <div className="flex items-center gap-2">

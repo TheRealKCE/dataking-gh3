@@ -13,7 +13,8 @@ import { Skeleton } from '@/components/ui/skeleton'
 import {
     Store, Wallet, TrendingUp, ShoppingCart, ArrowRight,
     Settings, Tag, Banknote, Clock, CheckCircle2, XCircle,
-    AlertCircle, ExternalLink, Copy, Check, Lightbulb, Filter, RefreshCcw, Crown
+    AlertCircle, ExternalLink, Copy, Check, Lightbulb, Filter, RefreshCcw, Crown,
+    MessageCircle, Loader2, X
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -87,6 +88,12 @@ export default function ShopOverviewPage() {
     const [isRefreshing, setIsRefreshing] = useState(false)
     const [copied, setCopied] = useState(false)
 
+    // Announcement state
+    const [shopAnnouncement, setShopAnnouncement] = useState<{ id: string; message: string; is_active: boolean } | null>(null)
+    const [annMsg, setAnnMsg] = useState('')
+    const [isSavingAnn, setIsSavingAnn] = useState(false)
+    const [adminAnnActive, setAdminAnnActive] = useState(false)
+
     const fetchShopData = async () => {
         try {
             // Fetch shop profile
@@ -156,6 +163,30 @@ export default function ShopOverviewPage() {
         }
     }
 
+    const fetchShopAnnouncement = async () => {
+        try {
+            const res = await fetch('/api/shop/announcements')
+            const data = await res.json()
+            if (data.announcement) {
+                setShopAnnouncement(data.announcement)
+                setAnnMsg(data.announcement.message)
+            }
+
+            // Also check if admin has one active to show "Locked" state
+            const { data: adminAnn } = await supabase
+                .from('system_announcements')
+                .select('id')
+                .eq('is_active', true)
+                .in('visible_on', ['storefronts', 'both'])
+                .limit(1)
+                .maybeSingle()
+
+            setAdminAnnActive(!!adminAnn)
+        } catch (err) {
+            console.error('Error fetching announcement:', err)
+        }
+    }
+
     const handleRefresh = async () => {
         setIsRefreshing(true)
         await fetchShopData()
@@ -168,7 +199,10 @@ export default function ShopOverviewPage() {
             router.replace('/dashboard')
             return
         }
-        if (dbUser) fetchShopData()
+        if (dbUser) {
+            fetchShopData()
+            fetchShopAnnouncement()
+        }
     }, [dbUser, isAdmin, isSubAdmin, filter])
 
     const shopUrl = shop ? `https://kingflexygh.com/shop/${shop.shop_slug}` : ''
@@ -178,6 +212,51 @@ export default function ShopOverviewPage() {
         setCopied(true)
         toast.success('Shop link copied!')
         setTimeout(() => setCopied(false), 2000)
+    }
+
+    const handleSaveAnnouncement = async () => {
+        if (!annMsg.trim()) {
+            toast.error('Message cannot be empty')
+            return
+        }
+        setIsSavingAnn(true)
+        try {
+            const res = await fetch('/api/shop/announcements', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ message: annMsg })
+            })
+            const data = await res.json()
+            if (res.ok) {
+                setShopAnnouncement(data.announcement)
+                toast.success('Storefront announcement updated!')
+            } else {
+                toast.error(data.message || 'Failed to update announcement')
+            }
+        } catch (err) {
+            toast.error('Failed to update announcement')
+        } finally {
+            setIsSavingAnn(false)
+        }
+    }
+
+    const handleToggleAnnouncement = async () => {
+        setIsSavingAnn(true)
+        try {
+            const res = await fetch('/api/shop/announcements', {
+                method: 'DELETE'
+            })
+            if (res.ok) {
+                setShopAnnouncement(prev => prev ? { ...prev, is_active: false } : null)
+                toast.success('Announcement deactivated')
+            } else {
+                toast.error('Failed to deactivate')
+            }
+        } catch (err) {
+            toast.error('Failed to deactivate')
+        } finally {
+            setIsSavingAnn(false)
+        }
     }
 
     if (loading) {
@@ -395,23 +474,86 @@ export default function ShopOverviewPage() {
                 </div>
             </div>
 
-            {/* Shop Wallet */}
-            <Card className={cn("overflow-hidden border-0 shadow-md", isPending && "opacity-40 grayscale pointer-events-none")}>
-                <div className="bg-gradient-to-br from-emerald-600 to-emerald-800 p-6 text-white">
-                    <p className="text-emerald-100 text-sm font-medium mb-1">Profit Balance</p>
-                    <p className="text-4xl font-black mb-4">{formatCurrency(wallet?.balance || 0)}</p>
-                    <div className="grid grid-cols-2 gap-4">
-                        <div className="bg-white/10 rounded-xl p-3">
-                            <p className="text-emerald-100 text-xs mb-0.5">Total Earned</p>
-                            <p className="text-white font-bold">{formatCurrency(wallet?.total_earned || 0)}</p>
+            {/* Shop Wallet & Announcement */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <Card className={cn("overflow-hidden border-0 shadow-md h-full", isPending && "opacity-40 grayscale pointer-events-none")}>
+                    <div className="bg-gradient-to-br from-emerald-600 to-emerald-800 p-6 text-white h-full flex flex-col justify-between">
+                        <div>
+                            <p className="text-emerald-100 text-sm font-medium mb-1">Profit Balance</p>
+                            <p className="text-4xl font-black mb-4">{formatCurrency(wallet?.balance || 0)}</p>
                         </div>
-                        <div className="bg-white/10 rounded-xl p-3">
-                            <p className="text-emerald-100 text-xs mb-0.5">Total Withdrawn</p>
-                            <p className="text-white font-bold">{formatCurrency(wallet?.total_withdrawn || 0)}</p>
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="bg-white/10 rounded-xl p-3">
+                                <p className="text-emerald-100 text-xs mb-0.5">Total Earned</p>
+                                <p className="text-white font-bold">{formatCurrency(wallet?.total_earned || 0)}</p>
+                            </div>
+                            <div className="bg-white/10 rounded-xl p-3">
+                                <p className="text-emerald-100 text-xs mb-0.5">Total Withdrawn</p>
+                                <p className="text-white font-bold">{formatCurrency(wallet?.total_withdrawn || 0)}</p>
+                            </div>
                         </div>
                     </div>
-                </div>
-            </Card>
+                </Card>
+
+                <Card className={cn("overflow-hidden border shadow-sm h-full", isPending && "opacity-40 grayscale pointer-events-none")}>
+                    <CardHeader className="pb-3 flex flex-row items-center justify-between">
+                        <div className="flex items-center gap-2">
+                            <MessageCircle className="w-5 h-5 text-emerald-600" />
+                            <CardTitle className="text-base">Storefront Announcement</CardTitle>
+                        </div>
+                        {shopAnnouncement?.is_active && !adminAnnActive && (
+                            <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border-none text-[10px]">Active</Badge>
+                        )}
+                        {adminAnnActive && (
+                            <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50 text-[10px] animate-pulse">Paused by Admin</Badge>
+                        )}
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                        <div className="relative">
+                            <textarea
+                                className={cn(
+                                    "w-full min-h-[100px] p-3 text-sm rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-zinc-900 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all resize-none",
+                                    adminAnnActive && "opacity-60 grayscale cursor-not-allowed"
+                                )}
+                                placeholder="E.g. We are open for bulk orders! Fast delivery guaranteed."
+                                value={annMsg}
+                                onChange={(e) => setAnnMsg(e.target.value)}
+                                disabled={adminAnnActive || isSavingAnn}
+                            />
+                            {adminAnnActive && (
+                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                                    <div className="bg-white/90 dark:bg-black/80 px-4 py-2 rounded-lg border border-amber-100 dark:border-amber-900 shadow-sm">
+                                        <p className="text-[10px] font-bold text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
+                                            <AlertCircle className="w-3.5 h-3.5" />
+                                            Admin announcement active
+                                        </p>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                        <div className="flex gap-2">
+                            <Button
+                                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
+                                onClick={handleSaveAnnouncement}
+                                disabled={adminAnnActive || isSavingAnn || !annMsg.trim()}
+                            >
+                                {isSavingAnn ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <RefreshCcw className="w-4 h-4 mr-2" />}
+                                {shopAnnouncement ? 'Update Announcement' : 'Set Announcement'}
+                            </Button>
+                            {shopAnnouncement?.is_active && !adminAnnActive && (
+                                <Button
+                                    variant="outline"
+                                    className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 font-bold"
+                                    onClick={handleToggleAnnouncement}
+                                    disabled={isSavingAnn}
+                                >
+                                    <X className="w-4 h-4" />
+                                </Button>
+                            )}
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
 
             {/* Stats */}
             <div className={cn("space-y-4", isPending && "opacity-40 grayscale pointer-events-none")}>
