@@ -106,6 +106,15 @@ CREATE TABLE IF NOT EXISTS public.shop_orders (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Shop Announcements
+CREATE TABLE IF NOT EXISTS public.shop_announcements (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  shop_id UUID REFERENCES public.shop_profiles(id) ON DELETE CASCADE NOT NULL,
+  message TEXT NOT NULL,
+  is_active BOOLEAN DEFAULT true,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- ============================================================
 -- Indexes
 -- ============================================================
@@ -119,6 +128,7 @@ CREATE INDEX IF NOT EXISTS idx_shop_orders_reference ON public.shop_orders(payst
 CREATE INDEX IF NOT EXISTS idx_shop_orders_status ON public.shop_orders(status);
 CREATE INDEX IF NOT EXISTS idx_shop_orders_created ON public.shop_orders(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_shop_wallet_transactions_wallet ON public.shop_wallet_transactions(shop_wallet_id);
+CREATE INDEX IF NOT EXISTS idx_shop_announcements_shop ON public.shop_announcements(shop_id);
 
 -- ============================================================
 -- Row Level Security (RLS)
@@ -129,6 +139,7 @@ ALTER TABLE public.shop_wallets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.shop_wallet_transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.shop_orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.shop_global_settings ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.shop_announcements ENABLE ROW LEVEL SECURITY;
 
 -- Shop profiles: owners can read/update their own; public can read approved shops
 CREATE POLICY "shop_profiles_owner_all" ON public.shop_profiles
@@ -163,6 +174,15 @@ CREATE POLICY "shop_orders_owner_read" ON public.shop_orders
   FOR SELECT USING (
     shop_id IN (SELECT id FROM public.shop_profiles WHERE owner_id = auth.uid())
   );
+
+-- Shop announcements: owners manage all; public read only active
+CREATE POLICY "shop_announcements_owner_all" ON public.shop_announcements
+  FOR ALL USING (
+    shop_id IN (SELECT id FROM public.shop_profiles WHERE owner_id = auth.uid())
+  );
+
+CREATE POLICY "shop_announcements_public_read" ON public.shop_announcements
+  FOR SELECT USING (is_active = true);
 
 -- Global settings: authenticated users can read
 CREATE POLICY "shop_global_settings_read" ON public.shop_global_settings

@@ -115,7 +115,7 @@ export default function DataPackagesPage() {
     useEffect(() => {
         if (textareaRef.current) {
             textareaRef.current.style.height = 'auto'
-            textareaRef.current.style.height = `${Math.max(100, textareaRef.current.scrollHeight)}px`
+            textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`
         }
     }, [bulkText])
 
@@ -473,50 +473,37 @@ export default function DataPackagesPage() {
         }
 
         setIsSubmittingBulk(true)
-        let successCount = 0
-        let failCount = 0
 
         try {
-            // Process sequentially to be safe with wallet balance and order creation
-            for (const order of validOrders) {
-                try {
-                    const response = await fetch('/api/orders/purchase', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Authorization': `Bearer ${session?.access_token}`
-                        },
-                        body: JSON.stringify({
-                            packageId: order.packageId,
-                            phoneNumber: validateGhanaianPhone(order.phoneNumber).normalizedNumber,
-                        }),
-                    })
+            const response = await fetch('/api/orders/bulk-purchase', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session?.access_token}`
+                },
+                body: JSON.stringify({
+                    orders: validOrders.map(order => ({
+                        packageId: order.packageId,
+                        phoneNumber: validateGhanaianPhone(order.phoneNumber).normalizedNumber,
+                        packagePrice: order.packagePrice,
+                    }))
+                }),
+            })
 
-                    if (response.ok) {
-                        successCount++
-                    } else {
-                        failCount++
-                    }
-                } catch (e) {
-                    failCount++
-                }
+            const data = await response.json()
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Bulk order failed')
             }
 
-            // Update stats
+            toast.success(`${data.ordersPlaced} orders placed successfully!`)
+            setValidationResults([])
+            setBulkText('')
             fetchWalletBalance()
             fetchOrdersToday()
 
-            if (successCount > 0) {
-                toast.success(`Submitted ${successCount} orders successfully`)
-                setValidationResults([])
-                setBulkText('')
-            }
-            if (failCount > 0) {
-                toast.error(`${failCount} orders failed to process`)
-            }
-
-        } catch (error) {
-            toast.error('Error submitting bulk orders')
+        } catch (error: any) {
+            toast.error(error.message || 'Error submitting bulk orders')
         } finally {
             setIsSubmittingBulk(false)
         }
@@ -659,15 +646,10 @@ export default function DataPackagesPage() {
                                                     </div>
 
                                                     <div className="relative group">
-                                                        <div className="absolute left-3 top-3 flex flex-col items-center gap-[6.5px] pointer-events-none select-none">
-                                                            {[...Array(Math.max(5, bulkText.split('\n').length))].map((_, i) => (
-                                                                <span key={i} className="text-[10px] font-bold text-blue-400/50 h-[14px] flex items-center">{i + 1}</span>
-                                                            ))}
-                                                        </div>
                                                         <textarea
                                                             ref={textareaRef}
                                                             wrap="off"
-                                                            className="w-full min-h-[120px] rounded-2xl border-2 border-gray-50 dark:border-zinc-800 bg-gray-50/50 dark:bg-zinc-800/50 pl-10 pr-4 py-3 text-[11px] leading-tight text-black dark:text-white placeholder:text-gray-300 dark:placeholder:text-zinc-600 focus:outline-none focus:border-[#FFCE00] transition-colors font-mono font-bold resize-none overflow-x-auto whitespace-pre"
+                                                            className="w-full rounded-2xl border-2 border-gray-50 dark:border-zinc-800 bg-gray-50/50 dark:bg-zinc-800/50 px-4 py-3 text-[11px] leading-[1.6] text-black dark:text-white placeholder:text-gray-300 dark:placeholder:text-zinc-600 focus:outline-none focus:border-[#FFCE00] transition-colors font-mono font-bold overflow-x-auto whitespace-pre"
                                                             placeholder={`0246677889 2\n0546627266 3`}
                                                             value={bulkText}
                                                             onChange={(e) => setBulkText(e.target.value)}

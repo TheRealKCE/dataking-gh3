@@ -321,6 +321,7 @@ create table public.system_announcements (
   title text not null,
   message text not null,
   is_active boolean default true,
+  visible_on text default 'main_site' check (visible_on in ('main_site', 'storefronts', 'both')),
   created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
