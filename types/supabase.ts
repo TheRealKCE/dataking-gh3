@@ -451,6 +451,7 @@ export interface Database {
                     title: string
                     message: string
                     is_active: boolean
+                    visible_on: 'main_site' | 'storefronts' | 'both'
                     created_at: string
                     updated_at: string
                 }
@@ -459,6 +460,7 @@ export interface Database {
                     title: string
                     message: string
                     is_active?: boolean
+                    visible_on?: 'main_site' | 'storefronts' | 'both'
                     created_at?: string
                     updated_at?: string
                 }
@@ -466,7 +468,28 @@ export interface Database {
                     title?: string
                     message?: string
                     is_active?: boolean
+                    visible_on?: 'main_site' | 'storefronts' | 'both'
                     updated_at?: string
+                }
+            }
+            shop_announcements: {
+                Row: {
+                    id: string
+                    shop_id: string
+                    message: string
+                    is_active: boolean
+                    created_at: string
+                }
+                Insert: {
+                    id?: string
+                    shop_id: string
+                    message: string
+                    is_active?: boolean
+                    created_at?: string
+                }
+                Update: {
+                    message?: string
+                    is_active?: boolean
                 }
             }
         }
@@ -486,3 +509,4 @@ export type AFAOrder = Database['public']['Tables']['afa_orders']['Row']
 export type CustomerPurchase = Database['public']['Tables']['customer_purchases']['Row']
 export type DownloadBatch = Database['public']['Tables']['download_batches']['Row']
 export type SystemAnnouncement = Database['public']['Tables']['system_announcements']['Row']
+export type ShopAnnouncement = Database['public']['Tables']['shop_announcements']['Row']
