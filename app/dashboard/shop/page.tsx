@@ -300,355 +300,166 @@ export default function ShopOverviewPage() {
     const cfg = statusConfig[shop.approval_status]
     const StatusIcon = cfg?.icon || Clock
     const isPending = shop.approval_status === 'pending'
+    const shopIsLive = shop.approval_status === 'approved' && shop.pricing_status === 'approved'
 
     return (
-        <div className="space-y-6">
-            {/* Header */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div className="flex items-start gap-3">
-                    <div className="w-12 h-12 rounded-2xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center flex-shrink-0 animate-in fade-in zoom-in duration-500">
-                        <Store className="w-6 h-6 text-emerald-600 dark:text-emerald-400" />
-                    </div>
-                    <div>
-                        <h1 className="text-2xl font-bold tracking-tight">
-                            {shop.shop_name}
-                        </h1>
-                        <div className="flex items-center gap-2 mt-1 flex-wrap">
-                            <span className={cn('inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full shadow-sm', statusConfig[shop.approval_status]?.color)}>
-                                <StatusIcon className="w-3.5 h-3.5" />
-                                {statusConfig[shop.approval_status]?.label}
-                            </span>
-                            {dbUser?.role === 'agent' && (
-                                isPermanentAgent ? (
-                                    <div className="space-y-1.5 min-w-[200px]">
-                                        <div className="flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-slate-900 to-black text-yellow-400 rounded-full text-[11px] font-black shadow-[0_2px_10px_-3px_rgba(0,0,0,0.5)] border border-slate-700 transition-all hover:scale-105 active:scale-95 cursor-default w-fit">
-                                            <Crown className="w-3.5 h-3.5 fill-yellow-500 text-yellow-600" />
-                                            LIFETIME ACTIVE
-                                        </div>
-                                        <p className="text-[10px] text-muted-foreground leading-tight max-w-[250px] font-medium">
-                                            You have permanent access to the agent role. Your shop will never expire.
-                                        </p>
-                                    </div>
-                                ) : (
-                                    <div className="space-y-1.5 min-w-[200px]">
-                                        <div className={cn(
-                                            "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border shadow-sm transition-colors w-fit",
-                                            daysLeft <= 3
-                                                ? "bg-red-50 text-red-700 border-red-200 dark:bg-red-900/20 dark:text-red-400 dark:border-red-800 animate-pulse"
-                                                : daysLeft <= 7
-                                                    ? "bg-amber-50 text-amber-700 border-amber-200 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-800"
-                                                    : "bg-blue-50 text-blue-700 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-800"
-                                        )}>
-                                            <Clock className="w-3.5 h-3.5" />
-                                            {daysLeft <= 0 ? 'Subscription Expired' : `${daysLeft} Days Left`}
-                                        </div>
-                                        <p className="text-[10px] text-muted-foreground leading-tight max-w-[250px] font-medium">
-                                            <AlertCircle className="w-3 h-3 inline mr-1 text-amber-500" />
-                                            When expired, your shop selling prices will <strong>auto-adjust</strong> to the customer cost tier. Your shop stays running.
-                                        </p>
-                                    </div>
-                                )
-                            )}
-                        </div>
-                    </div>
-                </div>
-                <div className="flex gap-2 flex-wrap sm:justify-end">
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        className="gap-1.5 h-9"
-                        onClick={handleRefresh}
-                        disabled={isRefreshing}
-                    >
-                        <RefreshCcw className={cn("w-4 h-4", isRefreshing && "animate-spin")} />
-                        Refresh
-                    </Button>
-
-                    {!isPermanentAgent && (
-                        <Link href="/dashboard/upgrade">
-                            <Button
-                                size="sm"
-                                className={cn(
-                                    "gap-1.5 h-9 transition-all active:scale-95 shadow-md",
-                                    daysLeft <= 7
-                                        ? "bg-amber-500 hover:bg-amber-600 text-white"
-                                        : "bg-blue-600 hover:bg-blue-700 text-white"
-                                )}
-                            >
-                                <RefreshCcw className="w-4 h-4" />
-                                Renew Subscription
-                            </Button>
-                        </Link>
-                    )}
-
-                    <Link href="/dashboard/shop/setup">
-                        <Button variant="outline" size="sm" className="gap-1.5 h-9">
-                            <Settings className="w-4 h-4" /> Edit Shop
-                        </Button>
-                    </Link>
-                    <div className={cn("flex gap-2", isPending && "opacity-40 pointer-events-none grayscale")}>
-                        <Link href="/dashboard/shop/pricing">
-                            <Button variant="outline" size="sm" className="gap-1.5 h-9">
-                                <Tag className="w-4 h-4" /> Pricing
-                            </Button>
-                        </Link>
-                        <Link href="/dashboard/shop/withdraw">
-                            <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 text-white gap-1.5 h-9">
-                                <Banknote className="w-4 h-4" /> Withdraw
-                            </Button>
-                        </Link>
-                    </div>
-
-                    {/* Pricing Status Indicators */}
-                    {shop.pricing_status === 'pending_review' && (
-                        <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-400 border border-orange-200 dark:border-orange-800 shadow-sm">
-                            <Clock className="w-3.5 h-3.5" />
-                            <span className="text-xs font-bold whitespace-nowrap">Review Pricing</span>
-                        </div>
-                    )}
-
-                    {shop.pricing_status === 'approved' && (
-                        <div className="flex flex-col items-start md:items-end -my-1">
-                            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400 border border-emerald-200 dark:border-emerald-800 mb-0.5 shadow-sm">
-                                <CheckCircle2 className="w-3.5 h-3.5" />
-                                <span className="text-xs font-black uppercase tracking-wider whitespace-nowrap">Pricing Approved</span>
+        <div className="space-y-6 pb-20 md:pb-6">
+            {/* --- PREMIUM HERO HEADER --- */}
+            <div className="relative overflow-hidden rounded-3xl border border-gray-200 dark:border-gray-800 bg-white dark:bg-zinc-950 shadow-sm">
+                <div className="absolute top-0 left-0 w-full h-32 bg-gradient-to-br from-emerald-500/20 via-emerald-400/5 to-transparent dark:from-emerald-900/40 dark:via-emerald-900/10 pointer-events-none" />
+                <div className="absolute top-[-50px] right-[-50px] w-40 h-40 bg-emerald-400/10 blur-3xl rounded-full pointer-events-none" />
+                
+                <div className="p-6 sm:p-8 relative z-10 w-full">
+                    <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-6">
+                        <div className="flex items-start gap-4">
+                            <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-gradient-to-br from-emerald-50 to-emerald-100 dark:from-emerald-900/40 dark:to-emerald-800/20 flex items-center justify-center flex-shrink-0 border border-emerald-200/50 dark:border-emerald-800/50 shadow-inner">
+                                <Store className="w-7 h-7 sm:w-8 sm:h-8 text-emerald-600 dark:text-emerald-400" />
                             </div>
-                            <span className="text-[10px] text-muted-foreground font-medium hidden sm:inline-block animate-pulse">
-                                Share link to earn profit 🚀
-                            </span>
-                        </div>
-                    )}
-                </div>
-            </div>
-
-            {/* Approval notice */}
-            {shop.approval_status === 'pending' && (
-                <div className="p-4 rounded-xl bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 flex gap-3">
-                    <Clock className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
-                    <div>
-                        <p className="font-semibold text-yellow-800 dark:text-yellow-300 text-sm">Awaiting Admin Approval</p>
-                        <p className="text-xs text-yellow-700 dark:text-yellow-400 mt-0.5">Your shop is under review. You'll be notified once it's approved and live.</p>
-                    </div>
-                </div>
-            )}
-            {(shop.approval_status === 'rejected' || shop.approval_status === 'suspended') && shop.approval_note && (
-                <div className="p-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 flex gap-3">
-                    <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                    <div>
-                        <p className="font-semibold text-red-800 dark:text-red-300 text-sm">
-                            {shop.approval_status === 'suspended' ? 'Shop Suspended' : 'Shop Rejected'}
-                        </p>
-                        <p className="text-xs text-red-700 dark:text-red-400 mt-0.5">{shop.approval_note}</p>
-                    </div>
-                </div>
-            )}
-
-            {/* Shop link */}
-            {shop.approval_status === 'approved' && (
-                <div className="flex items-center gap-2 p-3 rounded-xl bg-gray-100 dark:bg-gray-800/60 border border-gray-200 dark:border-gray-700">
-                    <span className="text-xs text-muted-foreground flex-1 truncate font-mono">{shopUrl}</span>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0" onClick={copyLink}>
-                        {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />}
-                    </Button>
-                    <a href={shopUrl} target="_blank" rel="noopener noreferrer">
-                        <Button variant="ghost" size="icon" className="h-7 w-7 flex-shrink-0">
-                            <ExternalLink className="w-4 h-4" />
-                        </Button>
-                    </a>
-                </div>
-            )}
-
-            {/* Profit Tip */}
-            <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 p-4 rounded-xl flex gap-3">
-                <Lightbulb className="w-5 h-5 text-blue-600 dark:text-blue-400 flex-shrink-0 mt-0.5" />
-                <div className="text-sm text-blue-800 dark:text-blue-300">
-                    <p className="font-semibold mb-1">How Profit Works</p>
-                    <p className="text-blue-700 dark:text-blue-400 leading-relaxed">
-                        You earn profit on every <strong>completed</strong> order made through your shop link.
-                        Profit is calculated as: <code>Selling Price - Cost Price</code>.
-                        Funds are credited to your Profit Balance instantly upon order completion.
-                    </p>
-                </div>
-            </div>
-
-            {/* Shop Wallet & Announcement */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <Card className={cn("overflow-hidden border-0 shadow-md h-full", isPending && "opacity-40 grayscale pointer-events-none")}>
-                    <div className="bg-gradient-to-br from-emerald-600 to-emerald-800 p-6 text-white h-full flex flex-col justify-between">
-                        <div>
-                            <p className="text-emerald-100 text-sm font-medium mb-1">Profit Balance</p>
-                            <p className="text-4xl font-black mb-4">{formatCurrency(wallet?.balance || 0)}</p>
-                        </div>
-                        <div className="grid grid-cols-2 gap-4">
-                            <div className="bg-white/10 rounded-xl p-3">
-                                <p className="text-emerald-100 text-xs mb-0.5">Total Earned</p>
-                                <p className="text-white font-bold">{formatCurrency(wallet?.total_earned || 0)}</p>
-                            </div>
-                            <div className="bg-white/10 rounded-xl p-3">
-                                <p className="text-emerald-100 text-xs mb-0.5">Total Withdrawn</p>
-                                <p className="text-white font-bold">{formatCurrency(wallet?.total_withdrawn || 0)}</p>
-                            </div>
-                        </div>
-                    </div>
-                </Card>
-
-                <Card className={cn("overflow-hidden border shadow-sm h-full", isPending && "opacity-40 grayscale pointer-events-none")}>
-                    <CardHeader className="pb-3 flex flex-row items-center justify-between">
-                        <div className="flex items-center gap-2">
-                            <MessageCircle className="w-5 h-5 text-emerald-600" />
-                            <CardTitle className="text-base">Storefront Announcement</CardTitle>
-                        </div>
-                        {shopAnnouncement?.is_active && !adminAnnActive && (
-                            <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-200 border-none text-[10px]">Active</Badge>
-                        )}
-                        {adminAnnActive && (
-                            <Badge variant="outline" className="text-amber-600 border-amber-200 bg-amber-50 text-[10px] animate-pulse">Paused by Admin</Badge>
-                        )}
-                    </CardHeader>
-                    <CardContent className="space-y-4">
-                        <div className="relative">
-                            <textarea
-                                className={cn(
-                                    "w-full min-h-[100px] p-3 text-sm rounded-xl border border-gray-200 dark:border-gray-800 bg-gray-50/50 dark:bg-zinc-900 focus:outline-none focus:ring-1 focus:ring-emerald-500 transition-all resize-none",
-                                    adminAnnActive && "opacity-60 grayscale cursor-not-allowed"
-                                )}
-                                placeholder="E.g. We are open for bulk orders! Fast delivery guaranteed."
-                                value={annMsg}
-                                onChange={(e) => setAnnMsg(e.target.value)}
-                                disabled={adminAnnActive || isSavingAnn}
-                            />
-                            {adminAnnActive && (
-                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                    <div className="bg-white/90 dark:bg-black/80 px-4 py-2 rounded-lg border border-amber-100 dark:border-amber-900 shadow-sm">
-                                        <p className="text-[10px] font-bold text-amber-700 dark:text-amber-400 flex items-center gap-1.5">
-                                            <AlertCircle className="w-3.5 h-3.5" />
-                                            Admin announcement active
-                                        </p>
-                                    </div>
+                            <div className="space-y-1">
+                                <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-gray-900 dark:text-white">{shop.shop_name}</h1>
+                                <div className="flex items-center gap-2 flex-wrap pt-0.5">
+                                    <span className={cn('inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full shadow-sm', statusConfig[shop.approval_status]?.color)}>
+                                        <StatusIcon className="w-3.5 h-3.5" />
+                                        {statusConfig[shop.approval_status]?.label}
+                                    </span>
+                                    {dbUser?.role === 'agent' && (
+                                        isPermanentAgent ? (
+                                            <div className="flex items-center gap-1.5 px-3 py-1 bg-gradient-to-r from-slate-900 to-black text-yellow-400 rounded-full text-xs font-black border border-slate-800">
+                                                <Crown className="w-3.5 h-3.5 fill-yellow-500" /> LIFETIME
+                                            </div>
+                                        ) : (
+                                            <div className={cn("flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border shadow-sm", daysLeft <= 3 ? "bg-red-50 text-red-700 border-red-200" : "bg-blue-50 text-blue-700 border-blue-200")}>
+                                                <Clock className="w-3.5 h-3.5" /> {daysLeft <= 0 ? 'Expired' : `${daysLeft} Days Left`}
+                                            </div>
+                                        )
+                                    )}
                                 </div>
-                            )}
+                            </div>
                         </div>
-                        <div className="flex gap-2">
-                            <Button
-                                className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white font-bold"
-                                onClick={handleSaveAnnouncement}
-                                disabled={adminAnnActive || isSavingAnn || !annMsg.trim()}
-                            >
-                                {isSavingAnn ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <RefreshCcw className="w-4 h-4 mr-2" />}
-                                {shopAnnouncement ? 'Update Announcement' : 'Set Announcement'}
+
+                        <div className="hidden md:flex flex-wrap items-center gap-3 bg-gray-50/50 dark:bg-white/5 backdrop-blur-md p-1.5 rounded-2xl border border-gray-200/50 dark:border-gray-800/50">
+                            <Button variant="ghost" size="sm" onClick={handleRefresh} disabled={isRefreshing} className="h-9 gap-2 rounded-xl">
+                                <RefreshCcw className={cn("w-4 h-4 text-emerald-600", isRefreshing && "animate-spin")} /> Sync
                             </Button>
-                            {shopAnnouncement?.is_active && !adminAnnActive && (
-                                <Button
-                                    variant="outline"
-                                    className="border-red-200 text-red-600 hover:bg-red-50 hover:text-red-700 font-bold"
-                                    onClick={handleToggleAnnouncement}
-                                    disabled={isSavingAnn}
-                                >
-                                    <X className="w-4 h-4" />
-                                </Button>
-                            )}
+                            <Link href="/dashboard/shop/setup"><Button variant="ghost" size="sm" className="h-9 gap-2 rounded-xl"><Settings className="w-4 h-4 text-blue-600" /> Edit</Button></Link>
+                            <div className={cn("flex items-center gap-2", isPending && "opacity-40 pointer-events-none")}>
+                                <div className="h-5 w-px bg-gray-300 dark:bg-gray-700 mx-1" />
+                                <Link href="/dashboard/shop/pricing"><Button variant="ghost" size="sm" className="h-9 gap-2 rounded-xl"><Tag className="w-4 h-4 text-purple-600" /> Pricing</Button></Link>
+                                <Link href="/dashboard/shop/withdraw"><Button size="sm" className="h-9 gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold">Withdraw</Button></Link>
+                            </div>
                         </div>
-                    </CardContent>
-                </Card>
+                    </div>
+
+                    {shopIsLive && (
+                         <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row items-center gap-3 w-full max-w-2xl bg-emerald-50/50 dark:bg-emerald-950/20 p-2 sm:pl-4 rounded-2xl border border-emerald-100/50 dark:border-emerald-900/50 backdrop-blur-sm">
+                            <span className="text-sm font-mono text-emerald-800 dark:text-emerald-300 truncate w-full px-2 text-center sm:text-left">{shopUrl}</span>
+                            <div className="flex items-center gap-2 w-full sm:w-auto">
+                                <Button onClick={copyLink} variant="secondary" className="flex-1 sm:flex-none h-10 sm:h-9 bg-white dark:bg-zinc-900 text-emerald-600 gap-2 rounded-xl font-bold">
+                                    {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />} {copied ? 'Copied!' : 'Copy Link'}
+                                </Button>
+                                <a href={shopUrl} target="_blank" rel="noopener noreferrer"><Button className="w-full sm:w-9 h-10 sm:h-9 bg-emerald-600 text-white rounded-xl"><ExternalLink className="w-4 h-4" /></Button></a>
+                            </div>
+                        </div>
+                    )}
+                </div>
             </div>
 
-            {/* Stats */}
-            <div className={cn("space-y-4", isPending && "opacity-40 grayscale pointer-events-none")}>
-                <div className="flex items-center justify-between">
-                    <h3 className="text-sm font-semibold text-muted-foreground flex items-center gap-2">
-                        <Filter className="w-4 h-4" />
-                        Performance Stats
-                    </h3>
-                    <div className="flex bg-muted rounded-lg p-1">
-                        {[
-                            { id: 'today', label: 'Today' },
-                            { id: '7d', label: '7 Days' },
-                            { id: '30d', label: '30 Days' },
-                            { id: 'all', label: 'All Time' },
-                        ].map((f) => (
-                            <button
-                                key={f.id}
-                                onClick={() => setFilter(f.id as any)}
-                                className={cn(
-                                    "px-3 py-1 text-xs font-medium rounded-md transition-all",
-                                    filter === f.id ? "bg-white dark:bg-gray-800 shadow-sm text-emerald-600" : "text-muted-foreground hover:text-foreground"
-                                )}
-                            >
-                                {f.label}
-                            </button>
+            {/* --- SMART STATS --- */}
+            <div className={cn("space-y-3", isPending && "opacity-50 pointer-events-none")}>
+                <div className="flex items-center justify-between px-1">
+                    <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2"><TrendingUp className="w-4 h-4 text-emerald-500" /> Performance</h3>
+                    <div className="flex bg-gray-100 dark:bg-zinc-900 rounded-xl p-1">
+                        {['today', '7d', '30d', 'all'].map((f) => (
+                            <button key={f} onClick={() => setFilter(f)} className={cn("px-3 py-1 text-[11px] font-bold rounded-lg", filter === f ? "bg-white shadow-sm text-emerald-600" : "text-gray-500")}>{f.toUpperCase()}</button>
                         ))}
                     </div>
                 </div>
-
-                <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
-                    {[
-                        { label: 'Total Orders', value: stats?.total_orders || 0, icon: ShoppingCart, color: 'text-blue-600', bg: 'bg-blue-50 dark:bg-blue-900/20' },
-                        { label: 'Pending', value: stats?.pending_orders || 0, icon: Clock, color: 'text-yellow-600', bg: 'bg-yellow-50 dark:bg-yellow-900/20' },
-                        { label: 'Processing', value: stats?.processing_orders || 0, icon: Clock, color: 'text-orange-600', bg: 'bg-orange-50 dark:bg-orange-900/20' },
-                        { label: 'Completed', value: stats?.completed_orders || 0, icon: CheckCircle2, color: 'text-green-600', bg: 'bg-green-50 dark:bg-green-900/20' },
-                        { label: 'Total Revenue', value: formatCurrency(stats?.total_revenue || 0), icon: TrendingUp, color: 'text-purple-600', bg: 'bg-purple-50 dark:bg-purple-900/20' },
-                    ].map((stat) => (
-                        <Card key={stat.label} className="border shadow-sm">
-                            <CardContent className="p-4">
-                                <div className={cn('w-9 h-9 rounded-lg flex items-center justify-center mb-3', stat.bg)}>
-                                    <stat.icon className={cn('w-5 h-5', stat.color)} />
-                                </div>
-                                <p className="text-xs text-muted-foreground">{stat.label}</p>
-                                <p className="text-lg font-bold mt-0.5">{stat.value}</p>
-                            </CardContent>
-                        </Card>
-                    ))}
+                <div className="flex overflow-x-auto pb-4 gap-4 snap-x">
+                     <div className="min-w-[200px] flex-1 bg-gradient-to-br from-emerald-600 to-emerald-800 p-5 rounded-3xl text-white shadow-md relative overflow-hidden">
+                         <p className="text-emerald-100 text-xs font-bold mb-1 opacity-90">TOTAL SALES</p>
+                         <p className="text-3xl font-black">{formatCurrency(stats?.total_revenue || 0)}</p>
+                     </div>
+                     <div className="min-w-[240px] flex-1 bg-white dark:bg-zinc-950 p-5 rounded-3xl border border-gray-200 dark:border-gray-800 shadow-sm flex items-center gap-4">
+                        <div className="relative w-16 h-16 flex-shrink-0">
+                            <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
+                                <circle cx="18" cy="18" r="16" fill="none" className="stroke-gray-100 dark:stroke-zinc-800" strokeWidth="4" />
+                                {stats?.total_orders > 0 && (
+                                    <circle cx="18" cy="18" r="16" fill="none" className="stroke-emerald-500" strokeWidth="4" strokeDasharray={`${(stats.completed_orders / stats.total_orders) * 100} 100`} />
+                                )}
+                            </svg>
+                            <div className="absolute inset-0 flex items-center justify-center font-black">{stats?.total_orders || 0}</div>
+                        </div>
+                        <div className="flex-1 space-y-1">
+                           <div className="flex justify-between text-[10px] font-bold text-emerald-600"><span>Success</span><span>{stats?.completed_orders || 0}</span></div>
+                           <div className="flex justify-between text-[10px] font-bold text-yellow-600"><span>Pending</span><span>{stats?.pending_orders || 0}</span></div>
+                           <div className="flex justify-between text-[10px] font-bold text-red-500"><span>Failed</span><span>{stats?.failed_orders || 0}</span></div>
+                        </div>
+                     </div>
                 </div>
             </div>
 
-            {/* Recent Orders */}
-            <Card>
-                <CardHeader className="flex flex-row items-center justify-between pb-3">
-                    <CardTitle className="text-base">Order History</CardTitle>
-                    <span className="text-xs text-muted-foreground">
-                        {filter === 'today' ? 'Showing Today' :
-                            filter === '7d' ? 'Last 7 Days' :
-                                filter === '30d' ? 'Last 30 Days' : 'All Time'}
-                    </span>
-                </CardHeader>
-                <CardContent className="p-0">
-                    {recentOrders.length === 0 ? (
-                        <div className="text-center py-10 text-muted-foreground">
-                            <ShoppingCart className="w-10 h-10 mx-auto mb-2 opacity-30" />
-                            <p className="text-sm">No orders yet. Share your shop link to get started!</p>
+            {/* --- CORE CONTENT --- */}
+            <div className={cn("grid grid-cols-1 lg:grid-cols-12 gap-6", isPending && "opacity-50 pointer-events-none")}>
+                <div className="lg:col-span-4 space-y-6">
+                    <div className="relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-zinc-900 to-black p-8 text-white shadow-xl border border-zinc-800">
+                         <div className="absolute top-0 left-[-100%] w-[150%] h-full bg-gradient-to-r from-transparent via-white/5 to-transparent transform -skew-x-12 animate-sheen pointer-events-none" />
+                         <p className="text-zinc-400 text-xs font-bold uppercase tracking-widest mb-1">Available Profit</p>
+                         <p className="text-5xl font-black bg-clip-text text-transparent bg-gradient-to-r from-emerald-300 to-emerald-500">{formatCurrency(wallet?.balance || 0)}</p>
+                         <div className="mt-8">
+                            <Link href="/dashboard/shop/withdraw" className="block w-full">
+                                <Button className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-black rounded-xl h-12 shadow-[0_0_20px_rgba(16,185,129,0.3)] border-0">Withdraw Earnings <ArrowRight className="w-4 h-4 ml-2" /></Button>
+                            </Link>
+                         </div>
+                    </div>
+                    <div className="bg-white dark:bg-zinc-950 rounded-3xl border border-gray-200 dark:border-gray-800 p-5 space-y-4">
+                        <div className="flex items-center gap-2 font-bold text-sm"><MessageCircle className="w-4 h-4 text-emerald-600" /> Storefront Notice</div>
+                        <textarea className="w-full min-h-[100px] p-3 text-sm rounded-xl border border-gray-100 dark:border-zinc-800 bg-gray-50 focus:ring-1 focus:ring-emerald-500" value={annMsg} onChange={(e) => setAnnMsg(e.target.value)} disabled={adminAnnActive} />
+                        <Button className="w-full bg-black text-white rounded-xl h-10 font-bold" onClick={handleSaveAnnouncement} disabled={adminAnnActive || !annMsg.trim()}>Save Notice</Button>
+                    </div>
+                </div>
+
+                <div className="lg:col-span-8">
+                    <div className="bg-white dark:bg-zinc-950 rounded-[2rem] border border-gray-200 dark:border-gray-800 overflow-hidden flex flex-col">
+                        <div className="p-6 border-b border-gray-100 flex items-center justify-between">
+                            <h3 className="font-bold text-lg">Recent Activity</h3>
+                            <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center"><Clock className="w-5 h-5 text-emerald-600" /></div>
                         </div>
-                    ) : (
-                        <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
-                                <thead>
-                                    <tr className="border-b text-xs text-muted-foreground">
-                                        <th className="text-left px-4 py-2 font-medium">Phone</th>
-                                        <th className="text-left px-4 py-2 font-medium">Package</th>
-                                        <th className="text-right px-4 py-2 font-medium">Price</th>
-                                        <th className="text-right px-4 py-2 font-medium">Profit</th>
-                                        <th className="text-left px-4 py-2 font-medium">Status</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
+                        <div className="flex-1 overflow-y-auto max-h-[500px] p-4">
+                            {recentOrders.length === 0 ? (
+                                <div className="h-[300px] flex flex-col items-center justify-center text-center">
+                                    <Tag className="w-12 h-12 text-gray-200 mb-4" />
+                                    <p className="text-gray-500 font-medium">No sales yet. Share your link to start earning!</p>
+                                </div>
+                            ) : (
+                                <div className="space-y-2">
                                     {recentOrders.map((order) => (
-                                        <tr key={order.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
-                                            <td className="px-4 py-3 font-mono text-xs">{order.guest_phone}</td>
-                                            <td className="px-4 py-3 text-xs">{order.network} {order.package_size}</td>
-                                            <td className="px-4 py-3 text-right font-medium">{formatCurrency(order.selling_price)}</td>
-                                            <td className="px-4 py-3 text-right text-emerald-600 font-semibold">{formatCurrency(order.profit)}</td>
-                                            <td className="px-4 py-3">
-                                                <span className={cn('text-xs font-semibold px-2 py-0.5 rounded-full', orderStatusConfig[order.status]?.color)}>
-                                                    {orderStatusConfig[order.status]?.label || order.status}
-                                                </span>
-                                            </td>
-                                        </tr>
+                                        <div key={order.id} className="p-4 rounded-2xl hover:bg-gray-50 border border-transparent hover:border-gray-100 flex items-center justify-between">
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-10 h-10 rounded-full bg-emerald-100 flex items-center justify-center font-bold text-emerald-700">{order.network.charAt(0)}</div>
+                                                <div><p className="font-bold text-sm">{order.network} {order.package_size}</p><p className="text-xs text-gray-500">{order.guest_phone}</p></div>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="font-bold text-sm">{formatCurrency(order.selling_price)}</p>
+                                                <p className="text-[10px] font-bold text-emerald-600">+{formatCurrency(order.profit)} profit</p>
+                                            </div>
+                                        </div>
                                     ))}
-                                </tbody>
-                            </table>
+                                </div>
+                            )}
                         </div>
-                    )}
-                </CardContent>
-            </Card>
+                    </div>
+                </div>
+            </div>
+
+            <div className="md:hidden fixed bottom-14 left-0 right-0 bg-white/90 backdrop-blur-xl border-t p-3 flex gap-2 z-40">
+                 <Link href="/dashboard/shop/setup" className="flex-1"><Button variant="secondary" className="w-full rounded-xl font-bold h-11"><Settings className="w-4 h-4 mr-2" /> Edit</Button></Link>
+                 <Link href="/dashboard/shop/pricing" className="flex-1"><Button variant="secondary" className="w-full rounded-xl font-bold h-11"><Tag className="w-4 h-4 mr-2" /> Prices</Button></Link>
+            </div>
+            
+            <style jsx global>{`
+                @keyframes sheen { 100% { left: 150%; } }
+                .animate-sheen { animation: sheen 3s infinite; }
+            `}</style>
         </div>
     )
 }
