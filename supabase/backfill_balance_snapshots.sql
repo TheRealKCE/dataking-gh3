@@ -49,5 +49,5 @@ BEGIN
                 current_calc_balance := current_calc_balance - trans_record.amount;
             END IF;
         END LOOP;
-    END FOR;
+    END LOOP;
 END $$;
