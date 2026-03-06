@@ -377,8 +377,8 @@ export function DashboardSidebar() {
                             )
                         })}
 
-                    {/* My Shop link — admin/sub-admin/agent, shown in main list */}
-                    {(isAdmin || isSubAdmin || dbUser?.role === 'agent') && (() => {
+                    {/* My Shop link — all authenticated users (customer, agent, admin, sub-admin) */}
+                    {(isAdmin || isSubAdmin || dbUser?.role === 'agent' || dbUser?.role === 'customer') && (() => {
                         const isActive = isLinkActive('/dashboard/shop')
                         return (
                             <Link href="/dashboard/shop" onClick={() => {

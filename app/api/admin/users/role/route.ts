@@ -38,11 +38,23 @@ export async function POST(request: NextRequest) {
         // Service role client to bypass RLS
         const supabase = createServerClient()
 
+        // -----------------------------------------------------------------
+        // Fetch the user's CURRENT role BEFORE changing it so we can pass
+        // the old role to the pricing adjustment RPC below.
+        // -----------------------------------------------------------------
+        const { data: currentUser } = await (supabase
+            .from('users') as any)
+            .select('role')
+            .eq('id', userId)
+            .single()
+
+        const oldRole: string = currentUser?.role ?? 'customer'
+
         // Calculate expiration if role is agent
         const updateData: any = { role }
         if (role === 'agent') {
             const expiresAt = new Date()
-            expiresAt.setDate(expiresAt.getDate() + 3) // Changed from 30 to 3 days per user request
+            expiresAt.setDate(expiresAt.getDate() + 3) // 3-day agent subscription
             updateData.agent_expires_at = expiresAt.toISOString()
         } else {
             updateData.agent_expires_at = null
@@ -58,10 +70,34 @@ export async function POST(request: NextRequest) {
             throw updateError
         }
 
+        // -----------------------------------------------------------------
+        // Auto-adjust shop pricing to preserve the owner's profit margins.
+        // This replaces the old "deactivate shop on role change" behaviour.
+        // The shop stays live; only selling prices are silently recalculated.
+        // -----------------------------------------------------------------
+        if (oldRole !== role) {
+            try {
+                const { data: rpcResult, error: rpcError } = await (supabase as any)
+                    .rpc('adjust_shop_pricing_for_role_change', {
+                        p_user_id: userId,
+                        p_old_role: oldRole,
+                        p_new_role: role,
+                    })
+
+                if (rpcError) {
+                    // Log but don't fail — pricing adjustment is non-blocking
+                    console.error('[AdminRoleUpdate] Pricing RPC error:', rpcError)
+                } else {
+                    console.log('[AdminRoleUpdate] Pricing adjustment result:', rpcResult)
+                }
+            } catch (rpcErr) {
+                console.error('[AdminRoleUpdate] Unexpected RPC error:', rpcErr)
+            }
+        }
+
         // Send SMS notification if user was upgraded to agent
         if (role === 'agent') {
             try {
-                // Fetch user details for SMS
                 const { data: userDetails } = await (supabase
                     .from('users') as any)
                     .select('phone_number, first_name')
@@ -75,8 +111,8 @@ export async function POST(request: NextRequest) {
                     await sendAgentUpgradeSuccessSMS(
                         userDetails.phone_number,
                         userDetails.first_name || 'User',
-                        '3 Days', // Plan days
-                        3, // Remaining days
+                        '3 Days',
+                        3,
                         expiryDate.toISOString()
                     )
                     console.log(`[AdminRoleUpdate] SMS sent to ${userDetails.phone_number}`)

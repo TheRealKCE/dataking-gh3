@@ -70,10 +70,7 @@ export default function ShopSetupPage() {
     })
 
     useEffect(() => {
-        if (dbUser && !isAdmin && !isSubAdmin && dbUser?.role !== 'agent') {
-            router.replace('/dashboard')
-            return
-        }
+        // Shop feature is available to all authenticated users (agent, customer, admin, sub-admin)
         if (dbUser) fetchExistingShop()
     }, [dbUser, isAdmin, isSubAdmin])
 
