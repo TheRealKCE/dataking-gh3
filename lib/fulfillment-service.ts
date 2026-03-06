@@ -183,6 +183,12 @@ export async function fulfillOrder(
     dataSize: string,
     orderId: string
 ): Promise<FulfillmentResponse> {
+    const { isPhoneFlagged } = await import('@/lib/security')
+    if (isPhoneFlagged(phoneNumber)) {
+        console.warn(`[Fulfillment Security] Blocked fulfillment for flagged phone: ${phoneNumber}`)
+        return { success: false, error: 'Security block: Suspicious activity detected' }
+    }
+
     if (!checkCircuit()) return { success: false, error: 'Service temporarily unavailable' }
     if (!DATAKAZINA_API_KEY) return { success: false, error: 'API key not configured' }
 

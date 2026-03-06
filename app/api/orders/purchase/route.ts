@@ -6,26 +6,7 @@ import { cookies } from 'next/headers'
 import { sendOrderSuccessEmail, sendAdminNewOrderAlert } from '@/lib/email-service'
 import { sendOrderSuccessSMS, sendAdminAgentOrderAlert } from '@/lib/sms-service'
 
-// === SECURITY: In-memory rate limiter ===
-const purchaseRateMap = new Map<string, number[]>()
-const RATE_LIMIT_WINDOW_MS = 10_000 // 10 seconds
-const RATE_LIMIT_MAX = 3 // max 3 purchases per window
-
-function isRateLimited(userId: string): boolean {
-    const now = Date.now()
-    const timestamps = purchaseRateMap.get(userId) || []
-    const recent = timestamps.filter(t => now - t < RATE_LIMIT_WINDOW_MS)
-    if (recent.length >= RATE_LIMIT_MAX) return true
-    recent.push(now)
-    purchaseRateMap.set(userId, recent)
-    // Cleanup old entries every 100 users to prevent memory leak
-    if (purchaseRateMap.size > 1000) {
-        for (const [key, val] of purchaseRateMap) {
-            if (val.every(t => now - t > RATE_LIMIT_WINDOW_MS)) purchaseRateMap.delete(key)
-        }
-    }
-    return false
-}
+import { isRateLimited, checkFraudSignals, logSuspiciousActivity } from '@/lib/security'
 
 export async function POST(request: NextRequest) {
     try {
@@ -45,7 +26,7 @@ export async function POST(request: NextRequest) {
         const userId = user.id
 
         // === SECURITY: Rate limit purchases ===
-        if (isRateLimited(userId)) {
+        if (isRateLimited(userId, 'single')) {
             return NextResponse.json({ error: 'Too many requests. Please wait a few seconds.' }, { status: 429 })
         }
 
@@ -115,6 +96,13 @@ export async function POST(request: NextRequest) {
         const priceToCharge = (isAgent && (pkg as any).agent_price > 0)
             ? (pkg as any).agent_price
             : (pkg as any).price
+
+        // === SECURITY: Fraud Check ===
+        const isFraud = await checkFraudSignals(userId, phoneNumber, supabase)
+        if (isFraud) {
+            await logSuspiciousActivity(userId, 'purchase', 'fraud detected', supabase)
+            return NextResponse.json({ error: 'Action blocked due to suspicious activity' }, { status: 403 })
+        }
 
         // === SECURITY: Atomic wallet deduction (prevents double-spend) ===
         // This single RPC call checks balance >= amount AND deducts in one atomic operation.
