@@ -238,6 +238,9 @@ export default function ShopWithdrawPage() {
             setSaveForLater(false)
             fetchData() // Refresh balances and history
 
+            // Success: newBalance comes from the server
+            const finalBalance = data.newBalance ?? (wallet!.balance - amountNum)
+
             // Alert admin (non-blocking)
             fetch('/api/shop/alerts', {
                 method: 'POST',
@@ -253,7 +256,7 @@ export default function ShopWithdrawPage() {
                         amount: amountNum,
                         momoNumber: momoNumber.trim(),
                         network: network,
-                        balanceSnapshot: newBalance,
+                        balanceSnapshot: finalBalance,
                         date: new Date().toLocaleString('en-GB'),
                         isResubmission: false,
                     },
