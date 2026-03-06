@@ -309,14 +309,13 @@ export default function ShopWithdrawPage() {
             const prevNote = resubmitTarget.admin_note
             const newNote = `[RESUBMITTED] Previously rejected: "${prevNote}". New details provided.`
 
-            const { error } = await (supabase as any).from('shop_wallet_transactions').update({
-                status: 'pending',
-                account_name: resubmitAccountName.trim(),
-                momo_number: resubmitMomoNumber.trim(),
-                network: resubmitNetwork,
-                admin_note: newNote,
-                updated_at: new Date().toISOString(),
-            }).eq('id', resubmitTarget.id)
+            const { error } = await (supabase as any).rpc('resubmit_withdrawal', {
+                p_transaction_id: resubmitTarget.id,
+                p_account_name:   resubmitAccountName.trim(),
+                p_momo_number:    resubmitMomoNumber.trim(),
+                p_network:        resubmitNetwork,
+                p_admin_note:     newNote,
+            })
 
             if (error) throw error
 
