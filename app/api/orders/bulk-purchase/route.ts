@@ -3,7 +3,7 @@ import { createServerClient } from '@/lib/supabase'
 import { generateReferenceCode } from '@/lib/utils'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
-import { isRateLimited, checkFraudSignals, logSuspiciousActivity } from '@/lib/security'
+// import { isRateLimited, checkFraudSignals, logSuspiciousActivity } from '@/lib/security'
 
 interface BulkOrderItem {
     packageId: string
@@ -27,9 +27,9 @@ export async function POST(request: NextRequest) {
         const userId = session.user.id
 
         // === SECURITY: Rate limit purchases ===
-        if (isRateLimited(userId, 'bulk')) {
-            return NextResponse.json({ error: 'Too many requests. Please wait a few seconds.' }, { status: 429 })
-        }
+        // if (isRateLimited(userId, 'bulk')) {
+        //     return NextResponse.json({ error: 'Too many requests. Please wait a few seconds.' }, { status: 429 })
+        // }
 
         let body: { orders: BulkOrderItem[] }
         try {
@@ -106,11 +106,11 @@ export async function POST(request: NextRequest) {
 
         // === SECURITY: Fraud Check for Admin/Agent ===
         // Using an empty/generic phone or picking the first one, but primarily flagging the agent
-        const isFraud = await checkFraudSignals(userId, 'bulk_admin', supabase)
-        if (isFraud) {
-            await logSuspiciousActivity(userId, 'bulk_purchase', 'fraud detected', supabase)
-            return NextResponse.json({ error: 'Bulk action blocked due to suspicious activity' }, { status: 403 })
-        }
+        // const isFraud = await checkFraudSignals(userId, 'bulk_admin', supabase)
+        // if (isFraud) {
+        //     await logSuspiciousActivity(userId, 'bulk_purchase', 'fraud detected', supabase)
+        //     return NextResponse.json({ error: 'Bulk action blocked due to suspicious activity' }, { status: 403 })
+        // }
 
         const { data: deductResult, error: deductError } = await (supabase as any)
             .rpc('deduct_wallet_balance', {

@@ -275,23 +275,23 @@ async function triggerShopFulfillment(
             return
         }
 
-        const { checkFraudSignals, logSuspiciousActivity } = await import('./security')
-        const isFraud = await checkFraudSignals(null as unknown as string, phone, db)
-        if (isFraud) {
-            await logSuspiciousActivity('guest', 'shop_order', 'fraud detected', db)
-
-            await db.from('shop_orders').update({
-                status: 'failed_security_check',
-                updated_at: new Date().toISOString()
-            }).eq('id', orderId)
-
-            await db.from('orders').update({
-                status: 'failed_security_check'
-            }).eq('shop_order_id', orderId)
-
-            console.warn(`[Shop Order Processor] Blocked fulfillment for order ${orderId} due to fraud detection`)
-            return
-        }
+        // const { checkFraudSignals, logSuspiciousActivity } = await import('./security')
+        // const isFraud = await checkFraudSignals(null as unknown as string, phone, db)
+        // if (isFraud) {
+        //     await logSuspiciousActivity('guest', 'shop_order', 'fraud detected', db)
+        // 
+        //     await db.from('shop_orders').update({
+        //         status: 'failed_security_check',
+        //         updated_at: new Date().toISOString()
+        //     }).eq('id', orderId)
+        // 
+        //     await db.from('orders').update({
+        //         status: 'failed_security_check'
+        //     }).eq('shop_order_id', orderId)
+        // 
+        //     console.warn(`[Shop Order Processor] Blocked fulfillment for order ${orderId} due to fraud detection`)
+        //     return
+        // }
 
         const result = await fulfillOrder(network, phone, size, orderId)
 

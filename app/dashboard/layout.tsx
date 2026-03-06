@@ -11,7 +11,7 @@ import { DashboardHeader } from '@/components/dashboard/header'
 import { PageAccessGuard } from '@/components/dashboard/page-access-guard'
 import { Skeleton } from '@/components/ui/skeleton'
 import { WhatsAppButton } from '@/components/whatsapp-button'
-import { SupportChatWidget } from '@/components/dashboard/support-chat-widget'
+// import { SupportChatWidget } from '@/components/dashboard/support-chat-widget'
 import { SuspendedAccount } from '@/components/dashboard/SuspendedAccount'
 
 
@@ -59,7 +59,7 @@ export default function DashboardLayout({
                         </main>
                     </div>
                     <WhatsAppButton />
-                    <SupportChatWidget />
+                    {/* <SupportChatWidget /> */}
                 </div>
             </UIProvider>
         )
@@ -80,7 +80,7 @@ export default function DashboardLayout({
                     </main>
                 </div>
                 <WhatsAppButton />
-                <SupportChatWidget />
+                {/* <SupportChatWidget /> */}
             </div>
         </UIProvider>
     )

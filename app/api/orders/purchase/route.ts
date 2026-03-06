@@ -6,7 +6,7 @@ import { cookies } from 'next/headers'
 import { sendOrderSuccessEmail, sendAdminNewOrderAlert } from '@/lib/email-service'
 import { sendOrderSuccessSMS, sendAdminAgentOrderAlert } from '@/lib/sms-service'
 
-import { isRateLimited, checkFraudSignals, logSuspiciousActivity } from '@/lib/security'
+// import { isRateLimited, checkFraudSignals, logSuspiciousActivity } from '@/lib/security'
 
 export async function POST(request: NextRequest) {
     try {
@@ -26,9 +26,9 @@ export async function POST(request: NextRequest) {
         const userId = user.id
 
         // === SECURITY: Rate limit purchases ===
-        if (isRateLimited(userId, 'single')) {
-            return NextResponse.json({ error: 'Too many requests. Please wait a few seconds.' }, { status: 429 })
-        }
+        // if (isRateLimited(userId, 'single')) {
+        //     return NextResponse.json({ error: 'Too many requests. Please wait a few seconds.' }, { status: 429 })
+        // }
 
         let body;
         try {
@@ -98,11 +98,11 @@ export async function POST(request: NextRequest) {
             : (pkg as any).price
 
         // === SECURITY: Fraud Check ===
-        const isFraud = await checkFraudSignals(userId, phoneNumber, supabase)
-        if (isFraud) {
-            await logSuspiciousActivity(userId, 'purchase', 'fraud detected', supabase)
-            return NextResponse.json({ error: 'Action blocked due to suspicious activity' }, { status: 403 })
-        }
+        // const isFraud = await checkFraudSignals(userId, phoneNumber, supabase)
+        // if (isFraud) {
+        //     await logSuspiciousActivity(userId, 'purchase', 'fraud detected', supabase)
+        //     return NextResponse.json({ error: 'Action blocked due to suspicious activity' }, { status: 403 })
+        // }
 
         // === SECURITY: Atomic wallet deduction (prevents double-spend) ===
         // This single RPC call checks balance >= amount AND deducts in one atomic operation.
