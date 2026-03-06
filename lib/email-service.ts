@@ -1235,34 +1235,64 @@ export async function sendShopProfileRejectedEmail(
 }
 
 /**
- * Alert 7 · Withdrawal Processed — Email to shop owner
+ * Alert 7 · Withdrawal Processed (Paid) — Email to shop owner
  */
 export async function sendShopWithdrawalProcessedEmail(
     email: string,
     firstName: string,
     shopName: string,
     amount: number,
-    momoNumber: string
+    momoNumber: string,
+    network: string
 ): Promise<EmailResult> {
     const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.kingflexygh.com'
     const content = `
-        <h1 class="greeting">Withdrawal Processed! 💰</h1>
-        <p class="subtitle">Your funds are on the way</p>
+        <h1 class="greeting">Payout Successful! 💰</h1>
+        <p class="subtitle">Your funds have been sent</p>
         <div class="amount-display">
-            <p class="amount-label">Amount Processed</p>
-            <p class="amount-value"><span class="amount-currency">GHS</span> ${amount.toFixed(2)}</p>
+            <p class="amount-label">Amount Sent</p>
+            <p class="amount-value"><span class="amount-currency">GH</span>${amount.toFixed(2)}</p>
         </div>
-        <p class="message-text">Hi ${firstName}, your withdrawal from <strong>${shopName}</strong> has been processed. Allow 1–2 business days for funds to reflect.</p>
+        <p class="message-text">Hi ${firstName}, your payout from <strong>${shopName}</strong> has been successfully sent to your ${network} number.</p>
         <div class="info-card">
-            <div class="info-card-header"><div class="info-card-icon">🧾</div><span class="info-card-title">Withdrawal Details</span></div>
-            <div class="info-row"><span class="info-label">Amount</span><span class="info-value" style="color: #10b981;">GHS ${amount.toFixed(2)}</span></div>
+            <div class="info-card-header"><div class="info-card-icon">🧾</div><span class="info-card-title">Payout Details</span></div>
+            <div class="info-row"><span class="info-label">Amount</span><span class="info-value" style="color: #10b981;">GH${amount.toFixed(2)}</span></div>
+            <div class="info-row"><span class="info-label">Network</span><span class="info-value">${network}</span></div>
             <div class="info-row"><span class="info-label">MoMo Number</span><span class="info-value">${momoNumber}</span></div>
             <div class="info-row"><span class="info-label">Date</span><span class="info-value">${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span></div>
         </div>
         <div style="text-align: center; margin: 25px 0;"><span class="status-badge status-success">Completed</span></div>
-        <div class="cta-container"><a href="${siteUrl}/dashboard/shop/wallet" class="cta-button">View Transactions</a></div>
+        <p class="message-text">Thank you for selling with KingFlexyGh. Keep growing!</p>
+        <div class="cta-container"><a href="${siteUrl}/dashboard/shop/withdraw" class="cta-button">View Withdrawal History</a></div>
     `
-    return sendEmail({ to: email, toName: firstName, subject: `💰 Withdrawal of GHS ${amount.toFixed(2)} Processed — ${shopName}`, htmlContent: generatePremiumTemplate('Withdrawal Processed', content, '#10b981') })
+    return sendEmail({ to: email, toName: firstName, subject: `💰 Payout of GH${amount.toFixed(2)} Sent — ${shopName}`, htmlContent: generatePremiumTemplate('Payout Successful', content, '#10b981') })
+}
+
+/**
+ * Alert 7b · Withdrawal Rejected — Email to shop owner
+ */
+export async function sendShopWithdrawalRejectedEmail(
+    email: string,
+    firstName: string,
+    shopName: string,
+    amount: number,
+    adminNote: string
+): Promise<EmailResult> {
+    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.kingflexygh.com'
+    const content = `
+        <h1 class="greeting">Withdrawal Request — Action Required ⚠️</h1>
+        <p class="subtitle">Your withdrawal request was not approved</p>
+        <div class="amount-display" style="background: linear-gradient(135deg, #7f1d1d 0%, #991b1b 100%);"> 
+            <p class="amount-label">Requested Amount</p>
+            <p class="amount-value"><span class="amount-currency" style="color: #fca5a5;">GH</span>${amount.toFixed(2)}</p>
+        </div>
+        <p class="message-text">Hi ${firstName}, your withdrawal request from <strong>${shopName}</strong> was not approved at this time.</p>
+        <div class="highlight-box"><p class="highlight-text"><strong>Admin note:</strong> ${adminNote}</p></div>
+        <p class="message-text">Please log in to your dashboard, review the reason, update your payment details, and resubmit your request.</p>
+        <div style="text-align: center; margin: 25px 0;"><span class="status-badge status-failed">Rejected</span></div>
+        <div class="cta-container"><a href="${siteUrl}/dashboard/shop/withdraw" class="cta-button">Update &amp; Resubmit</a></div>
+    `
+    return sendEmail({ to: email, toName: firstName, subject: `⚠️ Withdrawal Request Rejected — ${shopName}`, htmlContent: generatePremiumTemplate('Withdrawal Rejected', content, '#ef4444') })
 }
 
 // ==========================================
@@ -1320,27 +1350,45 @@ export async function sendAdminNewShopRegistrationAlert(details: {
  * Alert 11 · Withdrawal Request — Email to admin only
  */
 export async function sendAdminShopWithdrawalRequestAlert(details: {
-    shopName: string; ownerName: string; amount: number; momoNumber: string; date: string; shopId: string
+    shopName: string
+    ownerName: string
+    ownerPhone?: string
+    amount: number
+    momoNumber: string
+    accountName: string
+    network: string
+    balanceSnapshot: number
+    date: string
+    shopId: string
+    isResubmission?: boolean
 }): Promise<EmailResult> {
     const adminEmail = process.env.ADMIN_EMAIL || 'kingflexydatalimited@gmail.com'
     const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.kingflexygh.com'
+    const badge = details.isResubmission
+        ? `<div style="text-align:center;margin:20px 0;"><span style="background:#7c3aed;color:#fff;padding:6px 16px;border-radius:50px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">♻️ Resubmission</span></div>`
+        : ''
     const content = `
-        <h1 class="greeting">Withdrawal Request 💸</h1>
-        <p class="subtitle">A shop owner has requested a withdrawal</p>
+        <h1 class="greeting">${details.isResubmission ? 'Resubmitted Withdrawal Request ♻️' : 'New Withdrawal Request 💸'}</h1>
+        <p class="subtitle">A shop owner has requested a payout</p>
+        ${badge}
         <div class="amount-display">
             <p class="amount-label">Requested Amount</p>
-            <p class="amount-value"><span class="amount-currency">GHS</span> ${details.amount.toFixed(2)}</p>
+            <p class="amount-value"><span class="amount-currency">GH</span>${details.amount.toFixed(2)}</p>
         </div>
         <div class="info-card">
             <div class="info-card-header"><div class="info-card-icon">🏪</div><span class="info-card-title">Request Details</span></div>
             <div class="info-row"><span class="info-label">Shop</span><span class="info-value">${details.shopName}</span></div>
             <div class="info-row"><span class="info-label">Owner</span><span class="info-value">${details.ownerName}</span></div>
-            <div class="info-row"><span class="info-label">Amount</span><span class="info-value" style="color: #D4AF37; font-size:16px;">GHS ${details.amount.toFixed(2)}</span></div>
+            ${details.ownerPhone ? `<div class="info-row"><span class="info-label">Owner Phone</span><span class="info-value">${details.ownerPhone}</span></div>` : ''}
+            <div class="info-row"><span class="info-label">Gross Amount</span><span class="info-value" style="color: #D4AF37; font-size:16px;">GH${details.amount.toFixed(2)}</span></div>
+            <div class="info-row"><span class="info-label">Network</span><span class="info-value">${details.network}</span></div>
+            <div class="info-row"><span class="info-label">Account Name</span><span class="info-value">${details.accountName}</span></div>
             <div class="info-row"><span class="info-label">MoMo Number</span><span class="info-value">${details.momoNumber}</span></div>
+            <div class="info-row"><span class="info-label">Remaining Balance</span><span class="info-value" style="color:#10b981;">GH${details.balanceSnapshot.toFixed(2)}</span></div>
             <div class="info-row"><span class="info-label">Requested</span><span class="info-value">${details.date}</span></div>
         </div>
         <div style="text-align: center; margin: 25px 0;"><span class="status-badge status-pending">Action Required</span></div>
-        <div class="cta-container"><a href="${siteUrl}/admin/shops/${details.shopId}" class="cta-button">Process Withdrawal</a></div>
+        <div class="cta-container"><a href="${siteUrl}/admin/shops/withdrawals" class="cta-button">Process Withdrawal</a></div>
     `
-    return sendEmail({ to: adminEmail, toName: 'Admin', subject: `💸 Withdrawal Request – GHS ${details.amount.toFixed(2)} from ${details.shopName}`, htmlContent: generatePremiumTemplate('Withdrawal Request', content) })
+    return sendEmail({ to: adminEmail, toName: 'Admin', subject: `${details.isResubmission ? '♻️ Resubmission' : '💸 New Withdrawal'} – GH${details.amount.toFixed(2)} from ${details.shopName}`, htmlContent: generatePremiumTemplate('Withdrawal Request', content) })
 }

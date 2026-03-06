@@ -7,6 +7,7 @@ import {
     sendShopProfileApprovedSMS,
     sendShopProfileRejectedSMS,
     sendShopWithdrawalProcessedSMS,
+    sendShopWithdrawalRejectedSMS,
 } from '@/lib/sms-service'
 import {
     sendShopPricingApprovedEmail,
@@ -14,6 +15,7 @@ import {
     sendShopProfileApprovedEmail,
     sendShopProfileRejectedEmail,
     sendShopWithdrawalProcessedEmail,
+    sendShopWithdrawalRejectedEmail,
     sendAdminShopPricingSubmissionAlert,
     sendAdminNewShopRegistrationAlert,
     sendAdminShopWithdrawalRequestAlert,
@@ -91,10 +93,20 @@ export async function POST(req: NextRequest) {
 
             // ── Alert 7: Withdrawal Processed (owner) ──────────────────
             case 'withdrawal_processed': {
-                const { phone, firstName, email, shopName, amount, momoNumber } = payload
+                const { phone, firstName, email, shopName, amount, momoNumber, network } = payload
                     ;[smsResult, emailResult] = await Promise.allSettled([
-                        sendShopWithdrawalProcessedSMS(phone, firstName, amount),
-                        sendShopWithdrawalProcessedEmail(email, firstName, shopName, amount, momoNumber),
+                        sendShopWithdrawalProcessedSMS(phone, firstName, amount, network, momoNumber),
+                        sendShopWithdrawalProcessedEmail(email, firstName, shopName, amount, momoNumber, network),
+                    ])
+                break
+            }
+
+            // ── Alert 7b: Withdrawal Rejected (owner) ──────────────────
+            case 'withdrawal_rejected': {
+                const { phone, firstName, email, shopName, amount, adminNote } = payload
+                    ;[smsResult, emailResult] = await Promise.allSettled([
+                        sendShopWithdrawalRejectedSMS(phone, firstName),
+                        sendShopWithdrawalRejectedEmail(email, firstName, shopName, amount, adminNote),
                     ])
                 break
             }

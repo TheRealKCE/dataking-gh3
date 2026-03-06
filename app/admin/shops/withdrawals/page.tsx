@@ -32,6 +32,8 @@ interface WithdrawalRequest {
     net_amount: number
     account_name: string
     momo_number: string
+    network: string | null
+    balance_snapshot: number | null
     description: string
     status: 'pending' | 'completed' | 'rejected'
     type: 'profit' | 'withdrawal'
@@ -226,32 +228,42 @@ export default function AdminWithdrawalsPage() {
             }).eq('id', w.id)
             if (error) throw error
 
-            // 2. Update wallet (balance restoration or withdrawal count)
-            if (action === 'rejected') {
-                // Restore balance AND decrement total_withdrawn
-                const { data: wallet } = await (supabase as any).from('shop_wallets').select('balance, total_withdrawn').eq('owner_id', w.shop.owner_id).single()
-                await (supabase as any).from('shop_wallets').update({
-                    balance: (wallet?.balance || 0) + w.amount,
-                    total_withdrawn: Math.max(0, (wallet?.total_withdrawn || 0) - w.amount),
-                    updated_at: new Date().toISOString(),
-                }).eq('owner_id', w.shop.owner_id)
-            } else if (action === 'completed') {
-                // total_withdrawn was already incremented at request time.
-                // balance was also deducted at request time.
-                // So for 'completed', we don't need to update the wallet numbers further.
-                // We just fire the alert below.
-
-                // Fire alert
+            // 2. For completed: wallet was already debited at request time — just notify.
+            //    For rejected:  do NOT restore balance. The amount stays deducted
+            //                   and the shop owner resubmits edited payment details.
+            if (action === 'completed') {
+                // Build the owner's first name for SMS/email
+                const firstName = w.shop.owner_name.split(' ')[0] || w.shop.owner_name
                 fetch('/api/shop/alerts', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
                         type: 'withdrawal_processed',
                         payload: {
-                            ownerId: w.shop.owner_id, // API route should look up user details by ownerId
+                            phone: w.shop.owner_phone,
+                            email: w.shop.owner_email,
+                            firstName,
+                            shopName: w.shop.shop_name,
                             amount: w.amount,
                             momoNumber: w.momo_number,
-                            shopName: w.shop.shop_name
+                            network: w.network || 'MoMo',
+                        },
+                    }),
+                }).catch(err => console.warn('[ShopAlert]', err))
+            } else if (action === 'rejected') {
+                const firstName = w.shop.owner_name.split(' ')[0] || w.shop.owner_name
+                fetch('/api/shop/alerts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        type: 'withdrawal_rejected',
+                        payload: {
+                            phone: w.shop.owner_phone,
+                            email: w.shop.owner_email,
+                            firstName,
+                            shopName: w.shop.shop_name,
+                            amount: w.amount,
+                            adminNote: note || 'Please check your dashboard for the reason.',
                         },
                     }),
                 }).catch(err => console.warn('[ShopAlert]', err))
@@ -404,9 +416,11 @@ export default function AdminWithdrawalsPage() {
                                                     <th className="text-left px-4 py-3 font-medium">Date</th>
                                                     <th className="text-left px-4 py-3 font-medium">Shop</th>
                                                     <th className="text-left px-4 py-3 font-medium">Account Info</th>
+                                                    <th className="text-left px-4 py-3 font-medium">Network</th>
                                                     <th className="text-right px-4 py-3 font-medium">Gross</th>
                                                     <th className="text-right px-4 py-3 font-medium">Fee</th>
                                                     <th className="text-right px-4 py-3 font-medium">Net Payout</th>
+                                                    <th className="text-right px-4 py-3 font-medium">Bal. Snapshot</th>
                                                     <th className="text-center px-4 py-3 font-medium">Status</th>
                                                     <th className="text-right px-4 py-3 font-medium">Actions</th>
                                                 </tr>
@@ -427,9 +441,22 @@ export default function AdminWithdrawalsPage() {
                                                             <p className="font-medium">{w.account_name}</p>
                                                             <p className="font-mono text-xs text-muted-foreground">{w.momo_number}</p>
                                                         </td>
+                                                        <td className="px-4 py-4">
+                                                            {w.network ? (
+                                                                <span className={cn(
+                                                                    'text-[10px] font-bold px-2 py-0.5 rounded-full',
+                                                                    w.network === 'MTN MoMo' ? 'bg-yellow-100 text-yellow-800' :
+                                                                    w.network === 'Telecel Cash' ? 'bg-red-100 text-red-700' :
+                                                                    'bg-blue-100 text-blue-700'
+                                                                )}>{w.network}</span>
+                                                            ) : <span className="text-muted-foreground text-xs">—</span>}
+                                                        </td>
                                                         <td className="px-4 py-4 text-right text-muted-foreground">{formatCurrency(w.amount)}</td>
                                                         <td className="px-4 py-4 text-right text-red-500 text-xs">-{formatCurrency(w.fee)}</td>
                                                         <td className="px-4 py-4 text-right font-bold text-emerald-600 text-base">{formatCurrency(w.net_amount)}</td>
+                                                        <td className="px-4 py-4 text-right text-xs text-muted-foreground">
+                                                            {w.balance_snapshot != null ? formatCurrency(w.balance_snapshot) : '—'}
+                                                        </td>
                                                         <td className="px-4 py-4 text-center">
                                                             <span className={cn(
                                                                 'text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider',
@@ -514,8 +541,23 @@ export default function AdminWithdrawalsPage() {
                                                         <span className="font-bold text-right max-w-[150px] truncate">{w.account_name}</span>
                                                     </div>
                                                     <div className="flex justify-between items-center">
+                                                        <span className="text-muted-foreground uppercase tracking-tight text-[10px] font-bold">Network</span>
+                                                        {w.network ? (
+                                                            <span className={cn(
+                                                                'text-[10px] font-bold px-1.5 py-0.5 rounded-full',
+                                                                w.network === 'MTN MoMo' ? 'bg-yellow-100 text-yellow-800' :
+                                                                w.network === 'Telecel Cash' ? 'bg-red-100 text-red-700' :
+                                                                'bg-blue-100 text-blue-700'
+                                                            )}>{w.network}</span>
+                                                        ) : <span className="text-muted-foreground">—</span>}
+                                                    </div>
+                                                    <div className="flex justify-between items-center">
                                                         <span className="text-muted-foreground uppercase tracking-tight text-[10px] font-bold">MoMo Number</span>
                                                         <span className="font-mono font-medium bg-white/50 dark:bg-black/20 px-1.5 py-0.5 rounded">{w.momo_number}</span>
+                                                    </div>
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-muted-foreground uppercase tracking-tight text-[10px] font-bold">Bal. Snapshot</span>
+                                                        <span className="font-medium text-muted-foreground">{w.balance_snapshot != null ? formatCurrency(w.balance_snapshot) : '—'}</span>
                                                     </div>
                                                 </div>
 

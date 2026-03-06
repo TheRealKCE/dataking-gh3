@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/contexts/auth-context'
@@ -11,9 +11,31 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Banknote, Loader2, Clock, CheckCircle2, XCircle, AlertCircle, Wallet, ArrowLeft } from 'lucide-react'
+import {
+    Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
+import {
+    Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
+} from '@/components/ui/dialog'
+import {
+    Banknote, Loader2, Clock, CheckCircle2, XCircle, AlertCircle,
+    Wallet, ArrowLeft, Star, Trash2, Plus, BookUser, RefreshCcw,
+} from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+
+// ─────────────────────────────────────────────
+// Types
+// ─────────────────────────────────────────────
+
+const NETWORKS = ['MTN MoMo', 'Telecel Cash', 'AirtelTigo Money'] as const
+type Network = typeof NETWORKS[number]
+
+const NETWORK_COLORS: Record<Network, string> = {
+    'MTN MoMo': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
+    'Telecel Cash': 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300',
+    'AirtelTigo Money': 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
+}
 
 interface ShopWallet {
     id: string
@@ -29,9 +51,11 @@ interface WithdrawalRequest {
     net_amount: number
     account_name: string
     momo_number: string
+    network: string | null
     status: 'pending' | 'completed' | 'rejected'
     admin_note: string | null
     created_at: string
+    balance_snapshot: number | null
 }
 
 interface GlobalSettings {
@@ -40,24 +64,58 @@ interface GlobalSettings {
     min_withdrawal_amount: number
 }
 
+interface SavedDetail {
+    id: string
+    account_name: string
+    momo_number: string
+    network: Network
+    is_default: boolean
+}
+
 const statusConfig = {
     pending: { label: 'Pending', color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400', icon: Clock },
     completed: { label: 'Paid', color: 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400', icon: CheckCircle2 },
     rejected: { label: 'Rejected', color: 'bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400', icon: XCircle },
 }
 
+// ─────────────────────────────────────────────
+// Page Component
+// ─────────────────────────────────────────────
+
 export default function ShopWithdrawPage() {
     const { dbUser, isAdmin, isSubAdmin } = useAuth()
     const router = useRouter()
+
     const [wallet, setWallet] = useState<ShopWallet | null>(null)
     const [history, setHistory] = useState<WithdrawalRequest[]>([])
+    const [savedDetails, setSavedDetails] = useState<SavedDetail[]>([])
     const [settings, setSettings] = useState<GlobalSettings>({ withdrawal_fee_percent: 5, withdrawal_fee_flat: 0, min_withdrawal_amount: 10 })
     const [loading, setLoading] = useState(true)
     const [submitting, setSubmitting] = useState(false)
+    const [shopName, setShopName] = useState('')
+
+    // Form state
     const [amount, setAmount] = useState('')
+    const [selectedSavedId, setSelectedSavedId] = useState<string>('manual')
+    const [network, setNetwork] = useState<Network | ''>('')
     const [accountName, setAccountName] = useState('')
     const [momoNumber, setMomoNumber] = useState('')
-    const [shopName, setShopName] = useState('')
+    const [saveForLater, setSaveForLater] = useState(false)
+
+    // Saved Details manager modal
+    const [savedModalOpen, setSavedModalOpen] = useState(false)
+    const [newNetwork, setNewNetwork] = useState<Network | ''>('')
+    const [newAccountName, setNewAccountName] = useState('')
+    const [newMomoNumber, setNewMomoNumber] = useState('')
+    const [addingDetail, setAddingDetail] = useState(false)
+
+    // Resubmit modal
+    const [resubmitTarget, setResubmitTarget] = useState<WithdrawalRequest | null>(null)
+    const [resubmitSelectedId, setResubmitSelectedId] = useState<string>('manual')
+    const [resubmitNetwork, setResubmitNetwork] = useState<Network | ''>('')
+    const [resubmitAccountName, setResubmitAccountName] = useState('')
+    const [resubmitMomoNumber, setResubmitMomoNumber] = useState('')
+    const [resubmitting, setResubmitting] = useState(false)
 
     useEffect(() => {
         if (dbUser && !isAdmin && !isSubAdmin && dbUser?.role !== 'agent') {
@@ -67,10 +125,10 @@ export default function ShopWithdrawPage() {
         if (dbUser) fetchData()
     }, [dbUser, isAdmin, isSubAdmin])
 
-    const fetchData = async () => {
+    const fetchData = useCallback(async () => {
         try {
             const db = supabase as any
-            const [walletRes, historyRes, settingsRes, shopRes] = await Promise.all([
+            const [walletRes, historyRes, settingsRes, shopRes, savedRes] = await Promise.all([
                 db.from('shop_wallets').select('*').eq('owner_id', dbUser!.id).single(),
                 db.from('shop_wallet_transactions')
                     .select('*')
@@ -82,11 +140,16 @@ export default function ShopWithdrawPage() {
                     .select('shop_name, withdrawal_fee_percent, withdrawal_fee_flat, min_withdrawal_amount')
                     .eq('owner_id', dbUser!.id)
                     .single(),
+                db.from('shop_payment_details')
+                    .select('*')
+                    .eq('shop_owner_id', dbUser!.id)
+                    .order('is_default', { ascending: false }),
             ])
 
             if (walletRes.data) setWallet(walletRes.data)
             setHistory(historyRes.data || [])
             if (shopRes.data?.shop_name) setShopName(shopRes.data.shop_name)
+            setSavedDetails(savedRes.data || [])
 
             // Parse global settings
             if (settingsRes.data) {
@@ -110,10 +173,36 @@ export default function ShopWithdrawPage() {
                     }))
                 }
             }
+
+            // Pre-fill with default payment detail if exists
+            const defaultDetail = savedRes.data?.find((d: SavedDetail) => d.is_default)
+            if (defaultDetail) {
+                setSelectedSavedId(defaultDetail.id)
+                setNetwork(defaultDetail.network)
+                setAccountName(defaultDetail.account_name)
+                setMomoNumber(defaultDetail.momo_number)
+            }
         } catch (err) {
             console.error(err)
         } finally {
             setLoading(false)
+        }
+    }, [dbUser])
+
+    // When user picks a saved detail in the form
+    const handleSavedSelect = (id: string) => {
+        setSelectedSavedId(id)
+        if (id === 'manual') {
+            setNetwork('')
+            setAccountName('')
+            setMomoNumber('')
+        } else {
+            const d = savedDetails.find(s => s.id === id)
+            if (d) {
+                setNetwork(d.network)
+                setAccountName(d.account_name)
+                setMomoNumber(d.momo_number)
+            }
         }
     }
 
@@ -126,11 +215,14 @@ export default function ShopWithdrawPage() {
         if (!amount || amountNum <= 0) { toast.error('Enter a valid amount'); return }
         if (amountNum < settings.min_withdrawal_amount) { toast.error(`Minimum withdrawal is ${formatCurrency(settings.min_withdrawal_amount)}`); return }
         if (amountNum > (wallet?.balance || 0)) { toast.error('Insufficient shop wallet balance'); return }
+        if (!network) { toast.error('Select a mobile money network'); return }
         if (!accountName.trim()) { toast.error('Enter the account holder name'); return }
         if (!momoNumber.trim()) { toast.error('Enter your MoMo number'); return }
 
         setSubmitting(true)
         try {
+            const newBalance = (wallet!.balance - amountNum)
+
             const { error } = await (supabase as any).from('shop_wallet_transactions').insert({
                 shop_wallet_id: wallet!.id,
                 type: 'withdrawal',
@@ -139,25 +231,37 @@ export default function ShopWithdrawPage() {
                 net_amount: netAmount,
                 account_name: accountName.trim(),
                 momo_number: momoNumber.trim(),
-                description: `Withdrawal request for ${accountName.trim()} — MoMo: ${momoNumber.trim()}`,
+                network: network,
+                description: `Withdrawal request for ${accountName.trim()} — ${network}: ${momoNumber.trim()}`,
                 status: 'pending',
+                balance_snapshot: newBalance,
             })
             if (error) throw error
 
-            // Deduct from balance immediately (pending) AND update total_withdrawn
+            // Deduct from balance immediately (pending)
             await (supabase as any).from('shop_wallets').update({
-                balance: (wallet!.balance - amountNum),
+                balance: newBalance,
                 total_withdrawn: (wallet!.total_withdrawn || 0) + amountNum,
                 updated_at: new Date().toISOString(),
             }).eq('id', wallet!.id)
 
+            // Save detail for later if checked
+            if (saveForLater && savedDetails.length < 5 && selectedSavedId === 'manual') {
+                await (supabase as any).from('shop_payment_details').insert({
+                    shop_owner_id: dbUser!.id,
+                    account_name: accountName.trim(),
+                    momo_number: momoNumber.trim(),
+                    network: network,
+                    is_default: false,
+                })
+            }
+
             toast.success('Withdrawal request submitted! Admin will process within 24 hours.')
             setAmount('')
-            setAccountName('')
-            setMomoNumber('')
+            setSaveForLater(false)
             fetchData()
 
-            // Alert 11 — notify admin about new withdrawal request (non-blocking)
+            // Alert admin (non-blocking)
             fetch('/api/shop/alerts', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -167,10 +271,14 @@ export default function ShopWithdrawPage() {
                         shopName: shopName || 'Unknown Shop',
                         shopId: wallet?.id || '',
                         ownerName: `${dbUser?.first_name || ''} ${dbUser?.last_name || ''}`.trim(),
+                        ownerPhone: (dbUser as any)?.phone || '',
                         accountName: accountName.trim(),
                         amount: amountNum,
                         momoNumber: momoNumber.trim(),
+                        network: network,
+                        balanceSnapshot: newBalance,
                         date: new Date().toLocaleString('en-GB'),
+                        isResubmission: false,
                     },
                 }),
             }).catch(err => console.warn('[ShopAlert]', err))
@@ -179,6 +287,109 @@ export default function ShopWithdrawPage() {
         } finally {
             setSubmitting(false)
         }
+    }
+
+    // ── Resubmit handler
+    const openResubmit = (item: WithdrawalRequest) => {
+        setResubmitTarget(item)
+        setResubmitSelectedId('manual')
+        setResubmitNetwork('')
+        setResubmitAccountName('')
+        setResubmitMomoNumber('')
+    }
+
+    const handleResubmit = async () => {
+        if (!resubmitTarget) return
+        if (!resubmitNetwork) { toast.error('Select a mobile money network'); return }
+        if (!resubmitAccountName.trim()) { toast.error('Enter the account holder name'); return }
+        if (!resubmitMomoNumber.trim()) { toast.error('Enter the MoMo number'); return }
+
+        setResubmitting(true)
+        try {
+            const prevNote = resubmitTarget.admin_note
+            const newNote = `[RESUBMITTED] Previously rejected: "${prevNote}". New details provided.`
+
+            const { error } = await (supabase as any).from('shop_wallet_transactions').update({
+                status: 'pending',
+                account_name: resubmitAccountName.trim(),
+                momo_number: resubmitMomoNumber.trim(),
+                network: resubmitNetwork,
+                admin_note: newNote,
+                updated_at: new Date().toISOString(),
+            }).eq('id', resubmitTarget.id)
+
+            if (error) throw error
+
+            toast.success('Resubmission sent successfully!')
+            setResubmitTarget(null)
+            fetchData()
+
+            // Alert admin
+            fetch('/api/shop/alerts', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: 'admin_withdrawal_request',
+                    payload: {
+                        shopName: shopName || 'Unknown Shop',
+                        shopId: wallet?.id || '',
+                        ownerName: `${dbUser?.first_name || ''} ${dbUser?.last_name || ''}`.trim(),
+                        ownerPhone: (dbUser as any)?.phone || '',
+                        accountName: resubmitAccountName.trim(),
+                        amount: resubmitTarget.amount,
+                        momoNumber: resubmitMomoNumber.trim(),
+                        network: resubmitNetwork,
+                        balanceSnapshot: resubmitTarget.balance_snapshot ?? 0,
+                        date: new Date().toLocaleString('en-GB'),
+                        isResubmission: true,
+                    },
+                }),
+            }).catch(err => console.warn('[ShopAlert]', err))
+        } catch (err: any) {
+            toast.error(err.message || 'Failed to resubmit')
+        } finally {
+            setResubmitting(false)
+        }
+    }
+
+    // ── Saved details CRUD
+    const handleAddSavedDetail = async () => {
+        if (!newNetwork) { toast.error('Select a network'); return }
+        if (!newAccountName.trim()) { toast.error('Enter account name'); return }
+        if (!newMomoNumber.trim()) { toast.error('Enter MoMo number'); return }
+        if (savedDetails.length >= 5) { toast.error('Maximum of 5 saved details reached'); return }
+
+        setAddingDetail(true)
+        try {
+            const { error } = await (supabase as any).from('shop_payment_details').insert({
+                shop_owner_id: dbUser!.id,
+                account_name: newAccountName.trim(),
+                momo_number: newMomoNumber.trim(),
+                network: newNetwork,
+                is_default: savedDetails.length === 0,
+            })
+            if (error) throw error
+            toast.success('Payment detail saved!')
+            setNewNetwork('')
+            setNewAccountName('')
+            setNewMomoNumber('')
+            fetchData()
+        } catch (err: any) {
+            toast.error(err.message || 'Failed to save')
+        } finally {
+            setAddingDetail(false)
+        }
+    }
+
+    const handleDeleteSavedDetail = async (id: string) => {
+        await (supabase as any).from('shop_payment_details').delete().eq('id', id)
+        fetchData()
+    }
+
+    const handleSetDefault = async (id: string) => {
+        await (supabase as any).from('shop_payment_details').update({ is_default: false }).eq('shop_owner_id', dbUser!.id)
+        await (supabase as any).from('shop_payment_details').update({ is_default: true }).eq('id', id)
+        fetchData()
     }
 
     if (loading) {
@@ -191,6 +402,8 @@ export default function ShopWithdrawPage() {
         )
     }
 
+    const isManual = selectedSavedId === 'manual'
+
     return (
         <div className="space-y-6 max-w-2xl">
             {/* Header */}
@@ -201,12 +414,23 @@ export default function ShopWithdrawPage() {
                         Back to Shop Dashboard
                     </Button>
                 </Link>
-                <div>
-                    <h1 className="text-2xl font-bold flex items-center gap-2">
-                        <Banknote className="w-6 h-6 text-emerald-600" />
-                        Withdraw Earnings
-                    </h1>
-                    <p className="text-muted-foreground text-sm mt-1">Request a payout from your shop wallet to your MoMo number.</p>
+                <div className="flex items-start justify-between">
+                    <div>
+                        <h1 className="text-2xl font-bold flex items-center gap-2">
+                            <Banknote className="w-6 h-6 text-emerald-600" />
+                            Withdraw Earnings
+                        </h1>
+                        <p className="text-muted-foreground text-sm mt-1">Request a payout from your shop wallet to your mobile money account.</p>
+                    </div>
+                    <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setSavedModalOpen(true)}
+                        className="gap-2 text-xs shrink-0"
+                    >
+                        <BookUser className="w-3.5 h-3.5" />
+                        Saved Details ({savedDetails.length}/5)
+                    </Button>
                 </div>
 
                 {/* Wallet Balance */}
@@ -228,6 +452,7 @@ export default function ShopWithdrawPage() {
                 <Card>
                     <CardHeader><CardTitle className="text-base">New Withdrawal Request</CardTitle></CardHeader>
                     <CardContent className="space-y-4">
+                        {/* Amount */}
                         <div>
                             <Label htmlFor="amount">Amount (GHS)</Label>
                             <Input
@@ -243,6 +468,39 @@ export default function ShopWithdrawPage() {
                             />
                         </div>
 
+                        {/* Select saved or manual */}
+                        {savedDetails.length > 0 && (
+                            <div>
+                                <Label>Use Saved Payment Detail</Label>
+                                <Select value={selectedSavedId} onValueChange={handleSavedSelect}>
+                                    <SelectTrigger className="mt-1">
+                                        <SelectValue placeholder="Select a saved detail or enter manually" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="manual">Enter manually</SelectItem>
+                                        {savedDetails.map(d => (
+                                            <SelectItem key={d.id} value={d.id}>
+                                                {d.is_default ? '⭐ ' : ''}{d.account_name} — {d.network} ({d.momo_number})
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                        )}
+
+                        {/* Manual fields */}
+                        <div>
+                            <Label>Mobile Money Network</Label>
+                            <Select value={network} onValueChange={(v) => setNetwork(v as Network)} disabled={!isManual}>
+                                <SelectTrigger className="mt-1">
+                                    <SelectValue placeholder="Select network" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                    {NETWORKS.map(n => <SelectItem key={n} value={n}>{n}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+
                         <div>
                             <Label htmlFor="accountName">Account Holder Name</Label>
                             <Input
@@ -251,6 +509,7 @@ export default function ShopWithdrawPage() {
                                 onChange={(e) => setAccountName(e.target.value)}
                                 placeholder="e.g. John Doe"
                                 className="mt-1"
+                                disabled={!isManual}
                             />
                         </div>
 
@@ -262,8 +521,22 @@ export default function ShopWithdrawPage() {
                                 onChange={(e) => setMomoNumber(e.target.value)}
                                 placeholder="0244123456"
                                 className="mt-1"
+                                disabled={!isManual}
                             />
                         </div>
+
+                        {/* Save for later option */}
+                        {isManual && savedDetails.length < 5 && (
+                            <label className="flex items-center gap-2 cursor-pointer text-sm text-muted-foreground select-none">
+                                <input
+                                    type="checkbox"
+                                    checked={saveForLater}
+                                    onChange={e => setSaveForLater(e.target.checked)}
+                                    className="accent-emerald-600 w-4 h-4"
+                                />
+                                Save these payment details for next time
+                            </label>
+                        )}
 
                         {/* Fee breakdown */}
                         {amountNum > 0 && (
@@ -320,7 +593,7 @@ export default function ShopWithdrawPage() {
                                                 <th className="text-right px-4 py-2 font-medium">Fee</th>
                                                 <th className="text-right px-4 py-2 font-medium">Net</th>
                                                 <th className="text-left px-4 py-2 font-medium">Account</th>
-                                                <th className="text-left px-4 py-2 font-medium">MoMo</th>
+                                                <th className="text-left px-4 py-2 font-medium">Network / MoMo</th>
                                                 <th className="text-left px-4 py-2 font-medium">Status</th>
                                             </tr>
                                         </thead>
@@ -337,14 +610,31 @@ export default function ShopWithdrawPage() {
                                                         <td className="px-4 py-3 text-right text-red-500 text-xs">-{formatCurrency(row.fee)}</td>
                                                         <td className="px-4 py-3 text-right font-semibold text-emerald-600">{formatCurrency(row.net_amount)}</td>
                                                         <td className="px-4 py-3 text-xs">{row.account_name}</td>
-                                                        <td className="px-4 py-3 font-mono text-xs">{row.momo_number}</td>
+                                                        <td className="px-4 py-3">
+                                                            {row.network && (
+                                                                <span className={cn('inline-block text-[10px] font-bold px-1.5 py-0.5 rounded-full mb-0.5', NETWORK_COLORS[row.network as Network] || 'bg-gray-100 text-gray-700')}>
+                                                                    {row.network}
+                                                                </span>
+                                                            )}
+                                                            <p className="font-mono text-xs text-muted-foreground">{row.momo_number}</p>
+                                                        </td>
                                                         <td className="px-4 py-3">
                                                             <span className={cn('inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full', cfg.color)}>
                                                                 <Icon className="w-3 h-3" />
                                                                 {cfg.label}
                                                             </span>
                                                             {row.admin_note && row.status === 'rejected' && (
-                                                                <p className="text-xs text-red-500 mt-0.5">{row.admin_note}</p>
+                                                                <div className="mt-1 space-y-1">
+                                                                    <p className="text-xs text-red-500">{row.admin_note}</p>
+                                                                    <Button
+                                                                        size="sm"
+                                                                        variant="outline"
+                                                                        className="h-7 text-xs border-emerald-500 text-emerald-600 gap-1"
+                                                                        onClick={() => openResubmit(row)}
+                                                                    >
+                                                                        <RefreshCcw className="w-3 h-3" /> Resubmit
+                                                                    </Button>
+                                                                </div>
                                                             )}
                                                         </td>
                                                     </tr>
@@ -378,13 +668,31 @@ export default function ShopWithdrawPage() {
                                                         <p className="font-medium truncate">{row.account_name}</p>
                                                     </div>
                                                     <div>
+                                                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Network</p>
+                                                        {row.network ? (
+                                                            <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded-full', NETWORK_COLORS[row.network as Network] || 'bg-gray-100 text-gray-700')}>
+                                                                {row.network}
+                                                            </span>
+                                                        ) : <p className="text-[10px] text-muted-foreground">—</p>}
+                                                    </div>
+                                                    <div className="col-span-2">
                                                         <p className="text-[10px] text-muted-foreground uppercase tracking-wider">MoMo Number</p>
                                                         <p className="font-mono">{row.momo_number}</p>
                                                     </div>
                                                 </div>
                                                 {row.admin_note && row.status === 'rejected' && (
-                                                    <div className="p-2 bg-red-50 border border-red-100 rounded text-[10px] text-red-600">
-                                                        <strong>Admin Note:</strong> {row.admin_note}
+                                                    <div className="space-y-2">
+                                                        <div className="p-2 bg-red-50 border border-red-100 rounded text-[10px] text-red-600">
+                                                            <strong>Admin Note:</strong> {row.admin_note}
+                                                        </div>
+                                                        <Button
+                                                            size="sm"
+                                                            variant="outline"
+                                                            className="w-full h-9 border-emerald-500 text-emerald-600 gap-2"
+                                                            onClick={() => openResubmit(row)}
+                                                        >
+                                                            <RefreshCcw className="w-3.5 h-3.5" /> Edit Details & Resubmit
+                                                        </Button>
                                                     </div>
                                                 )}
                                             </div>
@@ -396,6 +704,176 @@ export default function ShopWithdrawPage() {
                     </CardContent>
                 </Card>
             </div>
+
+            {/* ── Saved Payment Details Modal */}
+            <Dialog open={savedModalOpen} onOpenChange={setSavedModalOpen}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <BookUser className="w-4 h-4 text-emerald-600" />
+                            Saved Payment Details
+                        </DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
+                        {savedDetails.length === 0 && (
+                            <p className="text-sm text-muted-foreground text-center py-4">No saved details yet.</p>
+                        )}
+                        {savedDetails.map(d => (
+                            <div key={d.id} className="flex items-center justify-between p-3 rounded-xl border bg-muted/30">
+                                <div className="space-y-0.5">
+                                    <p className="font-semibold text-sm">{d.account_name}</p>
+                                    <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded-full', NETWORK_COLORS[d.network])}>{d.network}</span>
+                                    <p className="font-mono text-xs text-muted-foreground mt-0.5">{d.momo_number}</p>
+                                </div>
+                                <div className="flex gap-2 items-center">
+                                    <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        className={cn('h-7 w-7', d.is_default ? 'text-yellow-500' : 'text-muted-foreground')}
+                                        onClick={() => handleSetDefault(d.id)}
+                                        title={d.is_default ? 'Default' : 'Set as default'}
+                                    >
+                                        <Star className="w-4 h-4" fill={d.is_default ? 'currentColor' : 'none'} />
+                                    </Button>
+                                    <Button
+                                        size="icon"
+                                        variant="ghost"
+                                        className="h-7 w-7 text-red-500 hover:text-red-700"
+                                        onClick={() => handleDeleteSavedDetail(d.id)}
+                                    >
+                                        <Trash2 className="w-3.5 h-3.5" />
+                                    </Button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    {savedDetails.length < 5 && (
+                        <div className="border-t pt-4 space-y-3">
+                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Add New Detail</p>
+                            <Select value={newNetwork} onValueChange={v => setNewNetwork(v as Network)}>
+                                <SelectTrigger><SelectValue placeholder="Select network" /></SelectTrigger>
+                                <SelectContent>
+                                    {NETWORKS.map(n => <SelectItem key={n} value={n}>{n}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                            <Input placeholder="Account holder name" value={newAccountName} onChange={e => setNewAccountName(e.target.value)} />
+                            <Input placeholder="MoMo number" value={newMomoNumber} onChange={e => setNewMomoNumber(e.target.value)} />
+                            <Button
+                                className="w-full bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
+                                onClick={handleAddSavedDetail}
+                                disabled={addingDetail}
+                            >
+                                {addingDetail ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
+                                Save Detail
+                            </Button>
+                        </div>
+                    )}
+                    {savedDetails.length >= 5 && (
+                        <p className="text-xs text-muted-foreground text-center pt-2">Maximum of 5 saved details reached. Delete one to add more.</p>
+                    )}
+                    <DialogFooter>
+                        <Button variant="ghost" onClick={() => setSavedModalOpen(false)}>Close</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* ── Resubmit Modal */}
+            <Dialog open={!!resubmitTarget} onOpenChange={open => !open && setResubmitTarget(null)}>
+                <DialogContent className="max-w-md">
+                    <DialogHeader>
+                        <DialogTitle className="flex items-center gap-2">
+                            <RefreshCcw className="w-4 h-4 text-emerald-600" />
+                            Edit Details & Resubmit
+                        </DialogTitle>
+                    </DialogHeader>
+
+                    {resubmitTarget && (
+                        <div className="space-y-4">
+                            {/* Show original rejection reason */}
+                            <div className="p-3 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 rounded-xl text-sm">
+                                <p className="font-semibold text-red-700 dark:text-red-400 text-xs uppercase tracking-wide mb-1">Rejection Reason</p>
+                                <p className="text-red-600 dark:text-red-300">{resubmitTarget.admin_note}</p>
+                            </div>
+
+                            <div className="p-3 bg-muted/40 rounded-xl text-sm space-y-1">
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground text-xs">Amount (locked)</span>
+                                    <span className="font-bold">{formatCurrency(resubmitTarget.amount)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-muted-foreground text-xs">You Receive</span>
+                                    <span className="font-bold text-emerald-600">{formatCurrency(resubmitTarget.net_amount)}</span>
+                                </div>
+                            </div>
+
+                            {/* Saved selector */}
+                            {savedDetails.length > 0 && (
+                                <div>
+                                    <Label>Use Saved Detail</Label>
+                                    <Select value={resubmitSelectedId} onValueChange={id => {
+                                        setResubmitSelectedId(id)
+                                        if (id === 'manual') {
+                                            setResubmitNetwork('')
+                                            setResubmitAccountName('')
+                                            setResubmitMomoNumber('')
+                                        } else {
+                                            const d = savedDetails.find(s => s.id === id)
+                                            if (d) {
+                                                setResubmitNetwork(d.network)
+                                                setResubmitAccountName(d.account_name)
+                                                setResubmitMomoNumber(d.momo_number)
+                                            }
+                                        }
+                                    }}>
+                                        <SelectTrigger className="mt-1">
+                                            <SelectValue placeholder="Select or enter manually" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="manual">Enter manually</SelectItem>
+                                            {savedDetails.map(d => (
+                                                <SelectItem key={d.id} value={d.id}>
+                                                    {d.is_default ? '⭐ ' : ''}{d.account_name} — {d.network}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            )}
+
+                            <div>
+                                <Label>Network</Label>
+                                <Select value={resubmitNetwork} onValueChange={v => setResubmitNetwork(v as Network)} disabled={resubmitSelectedId !== 'manual'}>
+                                    <SelectTrigger className="mt-1"><SelectValue placeholder="Select network" /></SelectTrigger>
+                                    <SelectContent>
+                                        {NETWORKS.map(n => <SelectItem key={n} value={n}>{n}</SelectItem>)}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div>
+                                <Label>Account Holder Name</Label>
+                                <Input className="mt-1" value={resubmitAccountName} onChange={e => setResubmitAccountName(e.target.value)} disabled={resubmitSelectedId !== 'manual'} placeholder="e.g. John Doe" />
+                            </div>
+                            <div>
+                                <Label>MoMo Number</Label>
+                                <Input className="mt-1" value={resubmitMomoNumber} onChange={e => setResubmitMomoNumber(e.target.value)} disabled={resubmitSelectedId !== 'manual'} placeholder="0244123456" />
+                            </div>
+                        </div>
+                    )}
+
+                    <DialogFooter className="gap-2 pt-2">
+                        <Button variant="ghost" onClick={() => setResubmitTarget(null)}>Cancel</Button>
+                        <Button
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
+                            onClick={handleResubmit}
+                            disabled={resubmitting}
+                        >
+                            {resubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCcw className="w-4 h-4" />}
+                            {resubmitting ? 'Resubmitting...' : 'Resubmit Request'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }

@@ -462,16 +462,28 @@ KingFlexyGh`
 }
 
 /**
- * Alert 7 · Withdrawal Processed — SMS to shop owner
+ * Alert 7 · Withdrawal Processed (Paid) — SMS to shop owner
  */
 export async function sendShopWithdrawalProcessedSMS(
     phoneNumber: string,
     firstName: string,
-    amount: number
+    amount: number,
+    network: string,
+    momoNumber: string
 ) {
-    const message = `${firstName} Your withdrawal of GHS${amount.toFixed(2)} has been processed. Check your account for confirmation. - kingflexygh.com
+    const message = `${firstName} Your Payout of GH${amount.toFixed(2)} has been successfully sent to your ${network} number ${momoNumber}. Thank you for selling with KingFlexyGh.`
 
-KingFlexyGh`
+    return sendSMS({ recipient: phoneNumber, message })
+}
+
+/**
+ * Alert 7b · Withdrawal Rejected — SMS to shop owner
+ */
+export async function sendShopWithdrawalRejectedSMS(
+    phoneNumber: string,
+    firstName: string
+) {
+    const message = `${firstName} Your withdrawal request was rejected. You can find out the reason from your withdrawal history. Please log in to your dashboard to update your payment details and resubmit. KingFlexyGh`
 
     return sendSMS({ recipient: phoneNumber, message })
 }
