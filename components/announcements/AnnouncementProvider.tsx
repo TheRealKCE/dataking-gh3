@@ -1,0 +1,122 @@
+'use client'
+
+import React, { createContext, useCallback, useContext, useEffect, useState } from 'react'
+import { createClient } from '@supabase/supabase-js'
+import type { SystemAnnouncement } from '@/types/supabase'
+
+// ---------------------------------------------------------------------------
+// Client-side Supabase (uses the public anon key — read-only operations only)
+// ---------------------------------------------------------------------------
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+const supabase = createClient(supabaseUrl, supabaseAnonKey)
+
+// ---------------------------------------------------------------------------
+// Context
+// ---------------------------------------------------------------------------
+interface AnnouncementContextValue {
+    announcements: SystemAnnouncement[]
+    unreadCount: number
+    isLoading: boolean
+    markAllRead: () => void
+    markRead: (id: string) => void
+}
+
+const AnnouncementContext = createContext<AnnouncementContextValue>({
+    announcements: [],
+    unreadCount: 0,
+    isLoading: true,
+    markAllRead: () => { },
+    markRead: () => { },
+})
+
+export function useAnnouncements() {
+    return useContext(AnnouncementContext)
+}
+
+// ---------------------------------------------------------------------------
+// Helper: sessionStorage keys
+// ---------------------------------------------------------------------------
+const SESSION_KEY = (id: string) => `announcement_read_${id}`
+
+function isRead(id: string): boolean {
+    if (typeof window === 'undefined') return false
+    return sessionStorage.getItem(SESSION_KEY(id)) === 'true'
+}
+
+function markReadInSession(id: string) {
+    if (typeof window === 'undefined') return
+    sessionStorage.setItem(SESSION_KEY(id), 'true')
+}
+
+// ---------------------------------------------------------------------------
+// Provider
+// ---------------------------------------------------------------------------
+export function AnnouncementProvider({ children }: { children: React.ReactNode }) {
+    const [announcements, setAnnouncements] = useState<SystemAnnouncement[]>([])
+    const [unreadIds, setUnreadIds] = useState<Set<string>>(new Set())
+    const [isLoading, setIsLoading] = useState(true)
+
+    useEffect(() => {
+        async function fetchAnnouncements() {
+            try {
+                const { data, error } = await supabase
+                    .from('system_announcements')
+                    .select('*')
+                    .eq('is_active', true)
+                    .in('visible_on', ['main_site', 'both'])
+                    .order('created_at', { ascending: false })
+                    .limit(20)
+
+                if (error) {
+                    console.error('[Announcements] Fetch error:', error)
+                    return
+                }
+
+                const list = (data ?? []) as SystemAnnouncement[]
+                setAnnouncements(list)
+
+                // Compute unread set by comparing against sessionStorage
+                const unread = new Set<string>()
+                list.forEach((a) => {
+                    if (!isRead(a.id)) unread.add(a.id)
+                })
+                setUnreadIds(unread)
+            } catch (err) {
+                console.error('[Announcements] Unexpected error:', err)
+            } finally {
+                setIsLoading(false)
+            }
+        }
+
+        fetchAnnouncements()
+    }, [])
+
+    const markRead = useCallback((id: string) => {
+        markReadInSession(id)
+        setUnreadIds((prev) => {
+            const next = new Set(prev)
+            next.delete(id)
+            return next
+        })
+    }, [])
+
+    const markAllRead = useCallback(() => {
+        announcements.forEach((a) => markReadInSession(a.id))
+        setUnreadIds(new Set())
+    }, [announcements])
+
+    return (
+        <AnnouncementContext.Provider
+            value={{
+                announcements,
+                unreadCount: unreadIds.size,
+                isLoading,
+                markAllRead,
+                markRead,
+            }}
+        >
+            {children}
+        </AnnouncementContext.Provider>
+    )
+}

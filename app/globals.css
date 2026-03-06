@@ -210,6 +210,28 @@
   .animate-spin-pause {
     animation: spin-pause 3s ease-in-out infinite;
   }
+
+  /* ── Elastic Bell Ring ── */
+  /* Physics-inspired rotation: fast shake → elastic overshoot → settle */
+  @keyframes elastic-ring {
+    0%   { transform: rotate(0deg);    transform-origin: top center; }
+    5%   { transform: rotate(18deg);   transform-origin: top center; }
+    10%  { transform: rotate(-16deg);  transform-origin: top center; }
+    15%  { transform: rotate(14deg);   transform-origin: top center; }
+    20%  { transform: rotate(-12deg);  transform-origin: top center; }
+    25%  { transform: rotate(9deg);    transform-origin: top center; }
+    30%  { transform: rotate(-6deg);   transform-origin: top center; }
+    35%  { transform: rotate(4deg);    transform-origin: top center; }
+    40%  { transform: rotate(-2deg);   transform-origin: top center; }
+    45%  { transform: rotate(1deg);    transform-origin: top center; }
+    50%  { transform: rotate(0deg);    transform-origin: top center; }
+    100% { transform: rotate(0deg);    transform-origin: top center; }
+  }
+
+  .animate-elastic-ring {
+    animation: elastic-ring 2.4s cubic-bezier(0.36, 0.07, 0.19, 0.97) infinite;
+    animation-delay: 0.5s;
+  }
 }
 
 @layer utilities {
