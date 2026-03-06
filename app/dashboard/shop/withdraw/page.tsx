@@ -207,11 +207,8 @@ export default function ShopWithdrawPage() {
     }
 
     const amountNum = parseFloat(amount) || 0
-    const feePercent = (amountNum * settings.withdrawal_fee_percent) / 100
-    const totalFee = feePercent + settings.withdrawal_fee_flat
-    const netAmount = amountNum - totalFee
-
     const handleSubmit = async () => {
+        const amountNum = parseFloat(amount) || 0
         if (!amount || amountNum <= 0) { toast.error('Enter a valid amount'); return }
         if (amountNum < settings.min_withdrawal_amount) { toast.error(`Minimum withdrawal is ${formatCurrency(settings.min_withdrawal_amount)}`); return }
         if (amountNum > (wallet?.balance || 0)) { toast.error('Insufficient shop wallet balance'); return }
@@ -221,45 +218,25 @@ export default function ShopWithdrawPage() {
 
         setSubmitting(true)
         try {
-            const newBalance = (wallet!.balance - amountNum)
-
-            const { error } = await (supabase as any).from('shop_wallet_transactions').insert({
-                shop_wallet_id: wallet!.id,
-                type: 'withdrawal',
-                amount: amountNum,
-                fee: totalFee,
-                net_amount: netAmount,
-                account_name: accountName.trim(),
-                momo_number: momoNumber.trim(),
-                network: network,
-                description: `Withdrawal request for ${accountName.trim()} — ${network}: ${momoNumber.trim()}`,
-                status: 'pending',
-                balance_snapshot: newBalance,
-            })
-            if (error) throw error
-
-            // Deduct from balance immediately (pending)
-            await (supabase as any).from('shop_wallets').update({
-                balance: newBalance,
-                total_withdrawn: (wallet!.total_withdrawn || 0) + amountNum,
-                updated_at: new Date().toISOString(),
-            }).eq('id', wallet!.id)
-
-            // Save detail for later if checked
-            if (saveForLater && savedDetails.length < 5 && selectedSavedId === 'manual') {
-                await (supabase as any).from('shop_payment_details').insert({
-                    shop_owner_id: dbUser!.id,
-                    account_name: accountName.trim(),
-                    momo_number: momoNumber.trim(),
+            const res = await fetch('/api/shop/withdraw', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    amount: amountNum,
+                    accountName: accountName.trim(),
+                    momoNumber: momoNumber.trim(),
                     network: network,
-                    is_default: false,
+                    saveForLater: saveForLater && selectedSavedId === 'manual'
                 })
-            }
+            })
+
+            const data = await res.json()
+            if (!res.ok) throw new Error(data.error || 'Failed to submit request')
 
             toast.success('Withdrawal request submitted! Admin will process within 24 hours.')
             setAmount('')
             setSaveForLater(false)
-            fetchData()
+            fetchData() // Refresh balances and history
 
             // Alert admin (non-blocking)
             fetch('/api/shop/alerts', {
@@ -306,15 +283,11 @@ export default function ShopWithdrawPage() {
 
         setResubmitting(true)
         try {
-            const prevNote = resubmitTarget.admin_note
-            const newNote = `[RESUBMITTED] Previously rejected: "${prevNote}". New details provided.`
-
             const { error } = await (supabase as any).rpc('resubmit_withdrawal', {
                 p_transaction_id: resubmitTarget.id,
                 p_account_name:   resubmitAccountName.trim(),
                 p_momo_number:    resubmitMomoNumber.trim(),
                 p_network:        resubmitNetwork,
-                p_admin_note:     newNote,
             })
 
             if (error) throw error
