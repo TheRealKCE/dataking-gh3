@@ -1,7 +1,7 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
-import { Bell, Info, Megaphone } from 'lucide-react'
+import { Bell, Info, Megaphone, CheckCircle2 } from 'lucide-react'
 import { cn, formatDate } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
 
@@ -14,11 +14,13 @@ interface Announcement {
 }
 
 const STORAGE_KEY = 'kingflexy_last_viewed_announcements'
+const HIDE_KEY = 'kingflexy_bell_dismissed_at'
 
 export function AnnouncementBell() {
     const [isOpen, setIsOpen] = useState(false)
     const [announcements, setAnnouncements] = useState<Announcement[]>([])
     const [lastViewed, setLastViewed] = useState<string | null>(null)
+    const [dismissedAt, setDismissedAt] = useState<string | null>(null)
     const containerRef = useRef<HTMLDivElement>(null)
 
     // Fetch logic
@@ -34,7 +36,6 @@ export function AnnouncementBell() {
 
             if (error) throw error
             if (data) {
-                // Only update if there's a change or if it's the initial load
                 if (isInitial || JSON.stringify(data) !== JSON.stringify(announcements)) {
                     setAnnouncements(data)
                 }
@@ -44,19 +45,32 @@ export function AnnouncementBell() {
         }
     }
 
-    // Load last viewed timestamp and initial fetch
+    // Load states and initial fetch
     useEffect(() => {
-        const saved = localStorage.getItem(STORAGE_KEY)
-        if (saved) setLastViewed(saved)
+        const savedViewed = localStorage.getItem(STORAGE_KEY)
+        const savedDismissed = localStorage.getItem(HIDE_KEY)
+        
+        if (savedViewed) setLastViewed(savedViewed)
+        if (savedDismissed) setDismissedAt(savedDismissed)
+        
         fetchAnnouncements(true)
 
-        // Periodic refresh every 3 minutes
         const interval = setInterval(() => {
             fetchAnnouncements()
         }, 3 * 60 * 1000)
 
         return () => clearInterval(interval)
     }, [])
+
+    const latestCreatedAt = announcements.length > 0 ? announcements[0].created_at : null
+    
+    // Determine if the bell should be visible
+    // Visible if: 
+    // 1. Not dismissed OR
+    // 2. New announcement arrived AFTER dismissal
+    const isVisible = announcements.length > 0 && (
+        !dismissedAt || (latestCreatedAt && new Date(latestCreatedAt) > new Date(dismissedAt))
+    )
 
     const hasUnread = announcements.some(a => {
         if (!lastViewed) return true
@@ -77,13 +91,21 @@ export function AnnouncementBell() {
     const toggleOpen = () => {
         const nextState = !isOpen
         if (nextState) {
-            // When opening, mark as read by updating the timestamp
             const now = new Date().toISOString()
             setLastViewed(now)
             localStorage.setItem(STORAGE_KEY, now)
         }
         setIsOpen(nextState)
     }
+
+    const dismissBell = () => {
+        const now = new Date().toISOString()
+        setDismissedAt(now)
+        localStorage.setItem(HIDE_KEY, now)
+        setIsOpen(false)
+    }
+
+    if (!isVisible) return null
 
     return (
         <div ref={containerRef} className="fixed top-20 right-4 z-[100] lg:right-8">
@@ -102,7 +124,7 @@ export function AnnouncementBell() {
             <button
                 onClick={toggleOpen}
                 className={cn(
-                    "relative w-12 h-12 flex items-center justify-center rounded-2xl bg-white/95 dark:bg-gray-950/95 border border-gray-200 dark:border-gray-800 shadow-xl backdrop-blur-xl transition-all duration-300",
+                    "relative w-12 h-12 flex items-center justify-center rounded-2xl bg-white/95 dark:bg-gray-900/95 border border-gray-200 dark:border-gray-800 shadow-xl backdrop-blur-xl transition-all duration-300",
                     "hover:scale-110 active:scale-95 group",
                     isOpen ? "ring-2 ring-amber-400 ring-offset-2 dark:ring-offset-black" : ""
                 )}
@@ -111,7 +133,6 @@ export function AnnouncementBell() {
                     "relative transition-transform duration-300 group-hover:rotate-12",
                     hasUnread && "animate-elastic-ring"
                 )}>
-                    {/* Gold Bell Icon */}
                     <Bell className={cn(
                         "w-6 h-6 transition-colors duration-300",
                         hasUnread 
@@ -120,7 +141,7 @@ export function AnnouncementBell() {
                     )} />
                 </div>
 
-                {/* Notification Dot (Pure Red) */}
+                {/* Notification Dot */}
                 {hasUnread && (
                     <span className="absolute -top-1 -right-1 flex h-4 w-4">
                         <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-500 opacity-75"></span>
@@ -133,21 +154,28 @@ export function AnnouncementBell() {
 
             {/* --- Announcements Popover --- */}
             <div className={cn(
-                "absolute top-16 right-0 w-80 max-h-[480px] overflow-hidden bg-white/98 dark:bg-gray-900/98 border border-gray-200 dark:border-gray-800 rounded-[2rem] shadow-2xl backdrop-blur-2xl transition-all duration-500 origin-top-right",
+                "absolute top-16 right-0 w-[340px] max-h-[550px] overflow-hidden bg-white/98 dark:bg-gray-950/98 border border-gray-200 dark:border-gray-800 rounded-[2rem] shadow-2xl backdrop-blur-2xl transition-all duration-500 origin-top-right",
                 isOpen ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-95 -translate-y-4 pointer-events-none"
             )}>
                 {/* Header */}
-                <div className="p-5 border-b border-gray-100 dark:border-gray-800/50 flex items-center justify-between bg-gray-50/50 dark:bg-gray-800/20">
+                <div className="p-5 border-b border-gray-100 dark:border-gray-800/50 flex items-center justify-between bg-gray-50/50 dark:bg-gray-900/40">
                     <div className="flex items-center gap-2.5">
                         <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
                             <Megaphone className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                         </div>
-                        <h2 className="text-sm font-black tracking-tight uppercase text-gray-800 dark:text-gray-200">Announcements</h2>
+                        <h2 className="text-sm font-black tracking-tight uppercase text-gray-800 dark:text-gray-100">Announcements</h2>
                     </div>
+                    <button 
+                        onClick={dismissBell}
+                        className="text-[11px] font-bold text-gray-400 hover:text-primary dark:hover:text-primary-foreground transition-colors flex items-center gap-1"
+                    >
+                        <CheckCircle2 className="w-3 h-3" />
+                        Got it, thanks
+                    </button>
                 </div>
 
                 {/* Content */}
-                <div className="overflow-y-auto max-h-[320px] p-3 space-y-2.5 custom-scrollbar">
+                <div className="overflow-y-auto max-h-[380px] p-4 space-y-4 custom-scrollbar">
                     {announcements.length > 0 ? (
                         announcements.map((announcement) => {
                             const isNew = !lastViewed || new Date(announcement.created_at) > new Date(lastViewed);
@@ -155,24 +183,26 @@ export function AnnouncementBell() {
                                 <div
                                     key={announcement.id}
                                     className={cn(
-                                        "p-4 rounded-2xl transition-all duration-300 relative group",
+                                        "p-5 rounded-3xl transition-all duration-300 relative group border",
                                         isNew
-                                            ? "bg-amber-50/50 dark:bg-amber-900/10 border border-amber-200/50 dark:border-amber-800/30 shadow-sm"
-                                            : "bg-transparent text-gray-500 opacity-60 hover:opacity-100 hover:bg-gray-50 dark:hover:bg-gray-800/30"
+                                            ? "bg-amber-50/40 dark:bg-amber-900/10 border-amber-200/50 dark:border-amber-800/30 shadow-sm"
+                                            : "bg-white dark:bg-gray-900 border-gray-100 dark:border-gray-800/50 text-gray-500 opacity-80"
                                     )}
                                 >
-                                    <div className="flex items-start justify-between mb-1.5 gap-2">
-                                        <h3 className={cn(
-                                            "text-[13px] font-bold leading-tight",
-                                            isNew ? "text-gray-900 dark:text-white" : "text-gray-600 dark:text-gray-400"
-                                        )}>
-                                            {announcement.title}
-                                        </h3>
-                                        <span className="text-[10px] opacity-60 font-semibold whitespace-nowrap shrink-0 mt-0.5">
-                                            {formatDate(announcement.created_at)}
-                                        </span>
+                                    <div className="flex flex-col gap-2 mb-3">
+                                        <div className="flex items-start justify-between gap-3">
+                                            <h3 className={cn(
+                                                "text-[14px] font-extrabold leading-tight",
+                                                isNew ? "text-gray-900 dark:text-white" : "text-gray-700 dark:text-gray-300"
+                                            )}>
+                                                {announcement.title}
+                                            </h3>
+                                            <span className="text-[10px] bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full font-bold whitespace-nowrap shrink-0">
+                                                {formatDate(announcement.created_at)}
+                                            </span>
+                                        </div>
                                     </div>
-                                    <p className="text-[12px] leading-relaxed line-clamp-4">
+                                    <p className="text-[13px] leading-relaxed break-words whitespace-pre-wrap text-gray-600 dark:text-gray-400">
                                         {announcement.message}
                                     </p>
                                 </div>
@@ -189,16 +219,18 @@ export function AnnouncementBell() {
                 </div>
 
                 {/* Footer */}
-                <div className="p-4 bg-gray-50/80 dark:bg-gray-800/50 text-center border-t border-gray-100 dark:border-gray-800/50">
-                    <p className="text-[10px] text-gray-400 dark:text-gray-500 font-bold tracking-wider uppercase">
+                <div className="p-4 bg-gray-50/80 dark:bg-gray-900/50 text-center border-t border-gray-100 dark:border-gray-800/50">
+                    <p className="text-[10px] text-gray-400 dark:text-gray-500 font-bold tracking-wider uppercase flex items-center justify-center gap-2">
+                        <span className="w-1 h-1 bg-primary rounded-full"></span>
                         Stay Connected • KingFlexy
+                        <span className="w-1 h-1 bg-primary rounded-full"></span>
                     </p>
                 </div>
             </div>
 
             <style jsx>{`
                 .custom-scrollbar::-webkit-scrollbar {
-                    width: 4px;
+                    width: 5px;
                 }
                 .custom-scrollbar::-webkit-scrollbar-track {
                     background: transparent;
