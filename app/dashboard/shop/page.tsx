@@ -195,10 +195,7 @@ export default function ShopOverviewPage() {
     }
 
     useEffect(() => {
-        if (dbUser && !isAdmin && !isSubAdmin && dbUser?.role !== 'agent') {
-            router.replace('/dashboard')
-            return
-        }
+        // Shop feature is available to all authenticated users
         if (dbUser) {
             fetchShopData()
             fetchShopAnnouncement()
@@ -347,7 +344,7 @@ export default function ShopOverviewPage() {
                                         </div>
                                         <p className="text-[10px] text-muted-foreground leading-tight max-w-[250px] font-medium">
                                             <AlertCircle className="w-3 h-3 inline mr-1 text-amber-500" />
-                                            When expired, your shop will be <strong>deactivated</strong> and you'll lose access to <strong>wholesale pricing</strong>.
+                                            When expired, your shop selling prices will <strong>auto-adjust</strong> to the customer cost tier. Your shop stays running.
                                         </p>
                                     </div>
                                 )

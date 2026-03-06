@@ -85,10 +85,6 @@ export default function ShopOrdersPage() {
                 .single()
 
             if (shopErr || !shopData) {
-                if (!isAdmin && !isSubAdmin && dbUser?.role !== 'agent') {
-                    router.replace('/dashboard')
-                    return
-                }
                 setOrders([])
                 return
             }
