@@ -59,7 +59,7 @@ export function DashboardHeader() {
                 ? "bg-gradient-to-b from-yellow-400 via-amber-500 to-amber-600 border-amber-600/20 shadow-sm"
                 : "bg-white/80 dark:bg-gray-900/80 border-gray-200 dark:border-gray-800"
         )}>
-            <div className="h-full px-4 lg:px-8 flex items-center justify-between">
+            <div className="h-full px-4 lg:px-8 pl-14 lg:pl-16 flex items-center justify-between">
                 {/* Mobile Menu Button */}
                 <Button
                     variant="ghost"

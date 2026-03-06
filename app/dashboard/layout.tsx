@@ -13,6 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { WhatsAppButton } from '@/components/whatsapp-button'
 // import { SupportChatWidget } from '@/components/dashboard/support-chat-widget'
 import { SuspendedAccount } from '@/components/dashboard/SuspendedAccount'
+import { AnnouncementBell } from '@/components/dashboard/AnnouncementBell'
 
 
 export default function DashboardLayout({
@@ -52,7 +53,8 @@ export default function DashboardLayout({
             <UIProvider>
                 <div className="min-h-screen bg-[#E5E7EB] dark:bg-[#000000] relative">
                     <DashboardSidebar />
-                    <div className="lg:pl-80">
+                    <div className="lg:pl-80 relative">
+                        <AnnouncementBell />
                         <DashboardHeader />
                         <main className="p-4 lg:p-6">
                             <SuspendedAccount />
@@ -71,7 +73,8 @@ export default function DashboardLayout({
                 <SystemAnnouncementModal />
                 <AgentExpiryModal />
                 <DashboardSidebar />
-                <div className="lg:pl-80">
+                <div className="lg:pl-80 relative">
+                    <AnnouncementBell />
                     <DashboardHeader />
                     <main className="p-4 lg:p-6">
                         <PageAccessGuard>

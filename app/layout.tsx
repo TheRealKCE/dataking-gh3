@@ -15,8 +15,6 @@ import { AuthProvider } from '@/contexts/auth-context'
 import { Toaster } from '@/components/ui/sonner'
 import { ThemeProvider } from '@/components/theme-provider'
 import { GlobalLoader } from '@/components/ui/global-loader'
-import { AnnouncementProvider } from '@/components/announcements/AnnouncementProvider'
-import { FloatingBell } from '@/components/announcements/FloatingBell'
 
 const firaSans = Fira_Sans({
     weight: ['300', '400', '500', '600', '700'],
@@ -51,14 +49,11 @@ export default function RootLayout({
                     disableTransitionOnChange
                 >
                     <AuthProvider>
-                        <AnnouncementProvider>
-                            <Suspense fallback={null}>
-                                <GlobalLoader />
-                            </Suspense>
-                            {children}
-                            <FloatingBell />
-                            <Toaster position="top-right" richColors />
-                        </AnnouncementProvider>
+                        <Suspense fallback={null}>
+                            <GlobalLoader />
+                        </Suspense>
+                        {children}
+                        <Toaster position="top-right" richColors />
                     </AuthProvider>
                 </ThemeProvider>
             </body>
