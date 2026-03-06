@@ -383,7 +383,7 @@ export default function ShopOverviewPage() {
                         <div className="relative w-16 h-16 flex-shrink-0">
                             <svg className="w-full h-full transform -rotate-90" viewBox="0 0 36 36">
                                 <circle cx="18" cy="18" r="16" fill="none" className="stroke-gray-100 dark:stroke-zinc-800" strokeWidth="4" />
-                                {stats?.total_orders > 0 && (
+                                {stats && stats.total_orders > 0 && (
                                     <circle cx="18" cy="18" r="16" fill="none" className="stroke-emerald-500" strokeWidth="4" strokeDasharray={`${(stats.completed_orders / stats.total_orders) * 100} 100`} />
                                 )}
                             </svg>
