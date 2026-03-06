@@ -370,7 +370,7 @@ export default function ShopOverviewPage() {
                     <h3 className="text-sm font-bold text-gray-900 dark:text-gray-100 flex items-center gap-2"><TrendingUp className="w-4 h-4 text-emerald-500" /> Performance</h3>
                     <div className="flex bg-gray-100 dark:bg-zinc-900 rounded-xl p-1">
                         {['today', '7d', '30d', 'all'].map((f) => (
-                            <button key={f} onClick={() => setFilter(f)} className={cn("px-3 py-1 text-[11px] font-bold rounded-lg", filter === f ? "bg-white shadow-sm text-emerald-600" : "text-gray-500")}>{f.toUpperCase()}</button>
+                            <button key={f} onClick={() => setFilter(f as any)} className={cn("px-3 py-1 text-[11px] font-bold rounded-lg", filter === f ? "bg-white shadow-sm text-emerald-600" : "text-gray-500")}>{f.toUpperCase()}</button>
                         ))}
                     </div>
                 </div>
