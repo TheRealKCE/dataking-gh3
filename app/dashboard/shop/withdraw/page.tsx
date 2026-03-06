@@ -207,6 +207,10 @@ export default function ShopWithdrawPage() {
     }
 
     const amountNum = parseFloat(amount) || 0
+    const feePercent = (amountNum * settings.withdrawal_fee_percent) / 100
+    const totalFee = feePercent + settings.withdrawal_fee_flat
+    const netAmount = amountNum - totalFee
+
     const handleSubmit = async () => {
         const amountNum = parseFloat(amount) || 0
         if (!amount || amountNum <= 0) { toast.error('Enter a valid amount'); return }
