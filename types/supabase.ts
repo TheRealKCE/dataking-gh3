@@ -189,6 +189,7 @@ export interface Database {
                     codecraft_reference: string | null
                     error_message: string | null
                     download_batch_id: string | null
+                    shop_order_id: string | null
                     created_at: string
                     updated_at: string
                 }
@@ -206,6 +207,7 @@ export interface Database {
                     codecraft_reference?: string | null
                     error_message?: string | null
                     download_batch_id?: string | null
+                    shop_order_id?: string | null
                     created_at?: string
                     updated_at?: string
                 }
@@ -215,6 +217,7 @@ export interface Database {
                     codecraft_reference?: string | null
                     error_message?: string | null
                     download_batch_id?: string | null
+                    shop_order_id?: string | null
                     updated_at?: string
                 }
             }
