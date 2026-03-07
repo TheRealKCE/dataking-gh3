@@ -9,6 +9,7 @@
 -- Amount, fee, net_amount, and balance_snapshot are LOCKED.
 -- ============================================================
 
+-- First, create the new secure function with 4 parameters
 CREATE OR REPLACE FUNCTION public.resubmit_withdrawal(
     p_transaction_id UUID,
     p_account_name   TEXT,
@@ -52,6 +53,9 @@ BEGIN
     WHERE id = p_transaction_id;
 END;
 $$;
+
+-- Force the API cache to reload so the new function signature is recognized immediately
+NOTIFY pgrst, 'reload schema';
 
 -- Grant execute to authenticated users only (not anon)
 REVOKE ALL ON FUNCTION public.resubmit_withdrawal(UUID, TEXT, TEXT, TEXT, TEXT) FROM PUBLIC;

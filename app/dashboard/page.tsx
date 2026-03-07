@@ -26,6 +26,12 @@ import { cn } from '@/lib/utils'
 import { useTutorial } from '@/hooks/useTutorial'
 import { HelpButton } from '@/components/tutorial/HelpButton'
 
+
+import { WhatsAppCommunityButtons } from '@/components/whatsapp-community-buttons'
+import { RoleGreetingBox } from '@/components/dashboard/RoleGreetingBox'
+import { RecentOrdersWidget } from '@/components/dashboard/RecentOrdersWidget'
+import { BusinessPerformanceWidget } from '@/components/dashboard/BusinessPerformanceWidget'
+
 interface DashboardStats {
     totalOrders: number
     completedOrders: number
@@ -36,25 +42,14 @@ interface DashboardStats {
 }
 
 
-import { WhatsAppCommunityButtons } from '@/components/whatsapp-community-buttons'
-
 export default function DashboardPage() {
     const { dbUser } = useAuth()
     const [stats, setStats] = useState<DashboardStats | null>(null)
     const [isLoading, setIsLoading] = useState(true)
-    const [currentTime, setCurrentTime] = useState(new Date())
-
     // Tutorial hook - page-specific
     const userRole = dbUser?.role === 'agent' ? 'agent' : 'customer'
     const { hasSeenTutorial, startTutorial } = useTutorial(userRole as 'customer' | 'agent', '/dashboard')
 
-    // Real-time clock updater
-    useEffect(() => {
-        const timer = setInterval(() => {
-            setCurrentTime(new Date())
-        }, 1000)
-        return () => clearInterval(timer)
-    }, [])
 
     useEffect(() => {
         if (dbUser) {
@@ -73,54 +68,7 @@ export default function DashboardPage() {
         }
     }, [isLoading, hasSeenTutorial, dbUser, startTutorial])
 
-    // Helper functions for greeting box
-    const getGreeting = () => {
-        const hour = currentTime.getHours()
-        if (hour >= 5 && hour < 12) return 'Good Morning'
-        if (hour >= 12 && hour < 17) return 'Good Afternoon'
-        if (hour >= 17 && hour < 21) return 'Good Evening'
-        return 'Good Night'
-    }
 
-    const formatDateTime = () => {
-        const dateStr = currentTime.toLocaleDateString('en-US', {
-            weekday: 'long',
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-        })
-        const timeStr = currentTime.toLocaleTimeString('en-US', {
-            hour: 'numeric',
-            minute: '2-digit',
-            second: '2-digit',
-            hour12: true
-        })
-        return { dateStr, timeStr }
-    }
-
-    const calculateDaysRemaining = () => {
-        if (!dbUser?.agent_expires_at || dbUser?.role !== 'agent') return null
-        const now = new Date()
-        const expires = new Date(dbUser.agent_expires_at)
-        const days = Math.ceil((expires.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-        return days > 0 ? days : 0
-    }
-
-    const getTimeSinceJoined = () => {
-        if (!dbUser?.created_at) return 'Recently'
-        const now = new Date()
-        const joined = new Date(dbUser.created_at)
-        const diffMs = now.getTime() - joined.getTime()
-        const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
-
-        if (diffDays < 30) return `${diffDays} ${diffDays === 1 ? 'day' : 'days'} ago`
-        if (diffDays < 365) {
-            const months = Math.floor(diffDays / 30)
-            return `${months} ${months === 1 ? 'month' : 'months'} ago`
-        }
-        const years = Math.floor(diffDays / 365)
-        return `${years} ${years === 1 ? 'year' : 'years'} ago`
-    }
 
     const fetchDashboardData = async () => {
         try {
@@ -174,8 +122,7 @@ export default function DashboardPage() {
         )
     }
 
-    const { dateStr, timeStr } = formatDateTime()
-    const daysRemaining = calculateDaysRemaining()
+
 
     return (
         <div className="space-y-6">
@@ -184,149 +131,72 @@ export default function DashboardPage() {
                 <HelpButton onClick={startTutorial} />
             </div>
 
-            {/* Golden Greeting Box - Agent Only */}
-            {dbUser?.role === 'agent' && (
-                <div className="bg-[#FFCE00] rounded-2xl p-4 sm:p-6 border-2 border-yellow-600/30 shadow-md lg:shadow-xl">
-                    {/* Greeting and Date/Time Row */}
-                    <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
-                        <div className="flex items-center gap-2">
-                            <Sparkles className="w-6 h-6 sm:w-8 sm:h-8 text-black fill-black" />
-                            <h2 className="text-xl sm:text-2xl font-black text-black">
-                                {getGreeting()}, {dbUser?.first_name}!
-                            </h2>
-                        </div>
-                        <div className="flex flex-row sm:flex-col items-center sm:items-end gap-2 sm:gap-0 text-black">
-                            <p className="text-xs sm:text-base font-bold">{dateStr}</p>
-                            <p className="text-sm sm:text-xl font-black">{timeStr}</p>
-                        </div>
-                    </div>
+            {/* Dynamic Role Greeting Box */}
+            <RoleGreetingBox stats={stats!} />
 
-                    {/* Three Information Rows (Single Column) */}
-                    <div className="flex flex-col gap-3">
-                        {/* Row 1: Role */}
-                        <div className="bg-black rounded-xl p-3 sm:p-4 flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <Shield className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-                                <p className="text-xs sm:text-sm text-white/70 font-semibold">Your Role</p>
-                            </div>
-                            <p className="text-sm sm:text-lg font-black" style={{ color: '#25D366' }}>
-                                Authorized Agent
-                            </p>
-                        </div>
-
-                        {/* Row 2: Status & Countdown */}
-                        <div className="bg-black rounded-xl p-3 sm:p-4 flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <Clock className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-                                <div className="flex flex-col">
-                                    <p className="text-xs sm:text-sm text-white/70 font-semibold">Membership</p>
-                                    <div className={cn(
-                                        "inline-block px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-bold w-fit",
-                                        daysRemaining !== null && daysRemaining <= 3
-                                            ? "bg-red-500 text-white"
-                                            : daysRemaining !== null && daysRemaining <= 7
-                                                ? "bg-yellow-500 text-black"
-                                                : "bg-green-500 text-white"
-                                    )}>
-                                        Active
-                                    </div>
-                                </div>
-                            </div>
-                            <div className="flex flex-col items-end gap-1">
-                                {daysRemaining !== null && (
-                                    <p className={cn(
-                                        "text-sm sm:text-lg font-black",
-                                        daysRemaining <= 3
-                                            ? "text-red-500"
-                                            : daysRemaining <= 7
-                                                ? "text-yellow-500"
-                                                : "text-green-500"
-                                    )}>
-                                        {daysRemaining} {daysRemaining === 1 ? 'day' : 'days'} left
-                                    </p>
-                                )}
-                                {daysRemaining !== null && daysRemaining <= 3 && (
-                                    <Link href="/dashboard/upgrade">
-                                        <Button size="sm" className="h-7 px-3 text-[10px] sm:text-xs bg-red-600 hover:bg-red-700 text-white border-0">
-                                            Renew Now
-                                        </Button>
-                                    </Link>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Row 3: Member Since */}
-                        <div className="bg-black rounded-xl p-3 sm:p-4 flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <Star className="w-5 h-5 sm:w-6 sm:h-6 text-yellow-400 fill-yellow-400" />
-                                <p className="text-xs sm:text-sm text-white/70 font-semibold">Member Since</p>
-                            </div>
-                            <p className="text-sm sm:text-lg font-black text-white">
-                                {getTimeSinceJoined()}
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            )}
 
             {/* Stats Cards */}
             <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                <Card className="bg-[#0056B3] text-white border-0">
+                <Card className="bg-gradient-to-br from-blue-600 to-blue-800 text-white border-0 shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
                     <CardContent className="p-4 sm:p-6">
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-white/80 text-xs sm:text-sm font-medium">Total Orders</p>
                                 <p className="text-xl md:text-2xl lg:text-3xl font-bold mt-1">{stats?.totalOrders}</p>
                             </div>
-                            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-white/20 flex items-center justify-center">
+                            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center group-hover:scale-110 transition-transform">
                                 <ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6" />
                             </div>
                         </div>
                     </CardContent>
                 </Card>
 
-                <Card className="bg-[#25D366] text-black border-0">
+                <Card className="bg-gradient-to-br from-emerald-500 to-emerald-600 text-white border-0 shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
                     <CardContent className="p-4 sm:p-6">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-black/70 text-xs sm:text-sm font-medium">Completed</p>
+                                <p className="text-white/90 text-xs sm:text-sm font-medium">Completed</p>
                                 <p className="text-xl md:text-2xl lg:text-3xl font-bold mt-1">{stats?.completedOrders}</p>
                             </div>
-                            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-black/10 flex items-center justify-center">
+                            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-black/10 backdrop-blur-sm flex items-center justify-center group-hover:scale-110 transition-transform">
                                 <CheckCircle2 className="w-5 h-5 sm:w-6 sm:h-6" />
                             </div>
                         </div>
                     </CardContent>
                 </Card>
 
-                <Card className="bg-[#FFCE00] text-black border-0">
+                <Card className="bg-gradient-to-br from-amber-400 to-amber-500 text-black border-0 shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
                     <CardContent className="p-4 sm:p-6">
                         <div className="flex items-center justify-between">
                             <div>
-                                <p className="text-black/70 text-xs sm:text-sm font-medium">Processing</p>
+                                <p className="text-black/80 text-xs sm:text-sm font-medium">Processing</p>
                                 <p className="text-xl md:text-2xl lg:text-3xl font-bold mt-1">{stats?.processingOrders}</p>
                             </div>
-                            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-black/10 flex items-center justify-center">
+                            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-white/30 backdrop-blur-sm flex items-center justify-center group-hover:scale-110 transition-transform">
                                 <Clock className="w-5 h-5 sm:w-6 sm:h-6" />
                             </div>
                         </div>
                     </CardContent>
                 </Card>
 
-                <Card className="bg-[#E60000] text-white border-0">
+                <Card className="bg-gradient-to-br from-red-600 to-red-800 text-white border-0 shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
                     <CardContent className="p-4 sm:p-6">
                         <div className="flex items-center justify-between">
                             <div>
                                 <p className="text-white/80 text-xs sm:text-sm font-medium">Failed</p>
                                 <p className="text-xl md:text-2xl lg:text-3xl font-bold mt-1">{stats?.failedOrders}</p>
                             </div>
-                            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-white/20 flex items-center justify-center">
+                            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center group-hover:scale-110 transition-transform">
                                 <XCircle className="w-5 h-5 sm:w-6 sm:h-6" />
                             </div>
                         </div>
                     </CardContent>
                 </Card>
             </div>
+
+            {/* Premium Business Analytics Widget */}
+            <BusinessPerformanceWidget />
+
 
             {/* Wallet & Quick Actions */}
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -355,7 +225,7 @@ export default function DashboardPage() {
                     <CardContent>
                         <div id="data-packages" className="grid grid-cols-2 md:grid-cols-4 gap-4">
                             <Link href="/dashboard/data-packages">
-                                <div className="p-4 rounded-xl bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-900/20 dark:to-yellow-800/20 border border-yellow-200 dark:border-yellow-800 lg:hover:shadow-lg transition-all cursor-pointer group">
+                                <div className="p-4 rounded-xl bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-900/20 dark:to-yellow-800/20 border border-yellow-200 dark:border-yellow-800 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer group">
                                     <div className="w-10 h-10 rounded-lg bg-yellow-500 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
                                         <Package className="w-5 h-5 text-white" />
                                     </div>
@@ -364,7 +234,7 @@ export default function DashboardPage() {
                                 </div>
                             </Link>
                             <Link href="/dashboard/my-orders">
-                                <div id="order-history" className="p-4 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border border-blue-200 dark:border-blue-800 lg:hover:shadow-lg transition-all cursor-pointer group">
+                                <div id="order-history" className="p-4 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border border-blue-200 dark:border-blue-800 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer group">
                                     <div className="w-10 h-10 rounded-lg bg-blue-500 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
                                         <ShoppingCart className="w-5 h-5 text-white" />
                                     </div>
@@ -373,7 +243,7 @@ export default function DashboardPage() {
                                 </div>
                             </Link>
                             <Link href="/dashboard/wallet">
-                                <div className="p-4 rounded-xl bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 border border-green-200 dark:border-green-800 hover:shadow-lg transition-all cursor-pointer group">
+                                <div className="p-4 rounded-xl bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 border border-green-200 dark:border-green-800 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer group">
                                     <div className="w-10 h-10 rounded-lg bg-green-500 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
                                         <Wallet className="w-5 h-5 text-white" />
                                     </div>
@@ -381,8 +251,9 @@ export default function DashboardPage() {
                                     <p className="text-xs text-muted-foreground">Add funds</p>
                                 </div>
                             </Link>
+
                             <Link href="/dashboard/complaints">
-                                <div id="complaint-button" className="p-4 rounded-xl bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20 border border-red-200 dark:border-red-800 hover:shadow-lg transition-all cursor-pointer group">
+                                <div id="complaint-button" className="p-4 rounded-xl bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20 border border-red-200 dark:border-red-800 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer group">
                                     <div className="w-10 h-10 rounded-lg bg-red-500 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
                                         <AlertCircle className="w-5 h-5 text-white" />
                                     </div>
@@ -393,6 +264,11 @@ export default function DashboardPage() {
                         </div>
                     </CardContent>
                 </Card>
+            </div>
+
+            {/* Recent Orders Widget */}
+            <div className="lg:col-span-3">
+                <RecentOrdersWidget />
             </div>
 
             {/* Community Section */}

@@ -1,0 +1,16 @@
+{
+  "extends": [
+    "next/core-web-vitals",
+    "plugin:jsx-a11y/recommended",
+    "plugin:compat/recommended",
+    "plugin:security/recommended"
+  ],
+  "plugins": [
+    "jsx-a11y",
+    "compat",
+    "security"
+  ],
+  "rules": {
+    "security/detect-object-injection": "off"
+  }
+}
