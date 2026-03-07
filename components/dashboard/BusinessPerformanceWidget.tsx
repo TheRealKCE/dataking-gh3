@@ -56,13 +56,14 @@ export function BusinessPerformanceWidget() {
                 .is('shop_order_id', null)
 
             // 3. Get completed orders from the last 14 days for revenue and trendy sparkline
-            const { data: recentOrders } = await supabase
+            const { data: recentOrdersRaw } = await supabase
                 .from('orders')
                 .select('price, created_at')
                 .eq('user_id', dbUser!.id)
                 .eq('status', 'completed')
-                .is('shop_order_id', null)
                 .gte('created_at', fourteenDaysAgo)
+
+            const recentOrders = (recentOrdersRaw ?? []) as { price: number; created_at: string }[]
 
             // Process recent orders
             let todayRev = 0
