@@ -78,7 +78,7 @@ export function BusinessPerformanceWidget() {
             }
 
             if (recentOrders) {
-                recentOrders.forEach(order => {
+                (recentOrders as any[]).forEach(order => {
                     const price = Number(order.price) || 0
                     const orderDate = order.created_at
 
