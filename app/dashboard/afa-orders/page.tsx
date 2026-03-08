@@ -99,21 +99,41 @@ export default function AFAOrdersPage() {
 
     const fetchApplicationPrice = async () => {
         try {
-            const { data } = await supabase
-                .from('admin_settings')
-                .select('key, value')
-                .in('key', ['afa_price_customer', 'afa_price_agent'])
-            const settings = (data || []).reduce((acc: any, curr: any) => {
-                acc[curr.key] = curr.value
-                return acc
-            }, {})
-            const userRole = dbUser?.role || 'customer'
-            const price = userRole === 'agent'
-                ? parseFloat(settings?.afa_price_agent || '10')
-                : parseFloat(settings?.afa_price_customer || '10')
-            setApplicationPrice(price)
+            // Use fetch directly with cache: 'no-store' so admin price changes are picked
+            // up immediately without needing a page reload or Next.js revalidation
+            const res = await fetch(
+                `/api/admin-settings?keys=afa_price_customer,afa_price_agent&t=${Date.now()}`,
+                { cache: 'no-store' }
+            )
+            if (res.ok) {
+                const json = await res.json()
+                const userRole = dbUser?.role || 'customer'
+                const price = userRole === 'agent'
+                    ? parseFloat(json?.afa_price_agent || '10')
+                    : parseFloat(json?.afa_price_customer || '10')
+                setApplicationPrice(isNaN(price) ? 15 : price)
+            } else {
+                throw new Error('Failed to load price')
+            }
         } catch {
-            setApplicationPrice(15)
+            // Fallback: query supabase directly
+            try {
+                const { data } = await (supabase
+                    .from('admin_settings') as any)
+                    .select('key, value')
+                    .in('key', ['afa_price_customer', 'afa_price_agent'])
+                const settings = (data || []).reduce((acc: any, curr: any) => {
+                    acc[curr.key] = curr.value
+                    return acc
+                }, {})
+                const userRole = dbUser?.role || 'customer'
+                const price = userRole === 'agent'
+                    ? parseFloat(settings?.afa_price_agent || '10')
+                    : parseFloat(settings?.afa_price_customer || '10')
+                setApplicationPrice(isNaN(price) ? 15 : price)
+            } catch {
+                setApplicationPrice(15)
+            }
         } finally {
             setLoadingPrice(false)
         }

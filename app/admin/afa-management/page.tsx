@@ -275,7 +275,7 @@ export default function AdminAfaManagementPage() {
                                                         {app.location}, {app.region}
                                                     </TableCell>
                                                     <TableCell className="text-sm font-medium">
-                                                        {app.payment_amount ? `GHS ${app.payment_amount.toFixed(2)}` : '—'}
+                                                        {app.payment_amount != null ? `GHS ${app.payment_amount.toFixed(2)}` : '—'}
                                                     </TableCell>
                                                     <TableCell className="text-xs text-muted-foreground whitespace-nowrap">
                                                         {format(new Date(app.created_at), 'dd MMM yyyy')}
@@ -360,7 +360,7 @@ export default function AdminAfaManagementPage() {
                                         <StatusIcon className="w-3.5 h-3.5" />
                                         {cfg.label}
                                     </span>
-                                    {selectedApp.payment_amount && (
+                                    {selectedApp.payment_amount != null && (
                                         <span className="text-sm font-semibold text-muted-foreground">
                                             Fee Paid: GHS {selectedApp.payment_amount.toFixed(2)}
                                         </span>
