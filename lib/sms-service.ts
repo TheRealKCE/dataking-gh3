@@ -19,7 +19,7 @@ interface SMSResult {
 const MOOLRE_BASE_URL = 'https://api.moolre.com'
 const MOOLRE_SMS_ENDPOINT = '/open/sms/send' // Correct endpoint from Moolre documentation
 
-const MNOTIFY_BASE_URL = 'https://apps.mnotify.net/smsapi'
+const MNOTIFY_BASE_URL = 'https://api.mnotify.com/api/sms/quick'
 
 /**
  * Validate SMS configuration on module load
@@ -194,10 +194,23 @@ export async function sendMnotifySMS(options: SMSOptions): Promise<SMSResult> {
             normalizedPhone = '0' + normalizedPhone.slice(3)
         }
 
-        const url = `${MNOTIFY_BASE_URL}?key=${apiKey}&to=${normalizedPhone}&msg=${encodeURIComponent(options.message)}&sender_id=${encodeURIComponent(options.sender || defaultSender)}`
+        const url = `${MNOTIFY_BASE_URL}?key=${apiKey}`
+        
+        const payload = {
+            recipient: [normalizedPhone],
+            sender: options.sender || defaultSender,
+            message: options.message,
+            is_schedule: false,
+            schedule_date: ''
+        }
 
         const response = await fetch(url, {
-            method: 'GET'
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(payload)
         })
 
         const responseText = await response.text()
@@ -209,11 +222,11 @@ export async function sendMnotifySMS(options: SMSOptions): Promise<SMSResult> {
             return { success: false, error: 'Invalid mNotify response' }
         }
 
-        if (data.status === "1000" || data.code === "1000") {
-            return { success: true, messageId: 'mNotify_sent' }
+        if (data.status === "success" || data.code === "2000") {
+            return { success: true, messageId: data.summary?._id || 'mNotify_sent' }
         } else {
-            console.error('[SMS Service] mNotify API Error:', data.message || responseText)
-            return { success: false, error: data.message || 'mNotify API Error' }
+            console.error('[SMS Service] mNotify API Error:', data.message || data.error || responseText)
+            return { success: false, error: data.message || data.error || 'mNotify API Error' }
         }
     } catch (error: any) {
         console.error('[SMS Service] mNotify Exception:', error.message)
