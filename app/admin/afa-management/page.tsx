@@ -94,7 +94,7 @@ export default function AdminAfaManagementPage() {
                 (payload: any) => {
                     if (payload.eventType === 'INSERT') {
                         setApplications(prev => [payload.new as AfarOrder, ...prev])
-                        toast.info('New AFAR registration received!')
+                        toast.info('New AFA registration received!')
                     } else if (payload.eventType === 'UPDATE') {
                         setApplications(prev =>
                             prev.map(a => a.id === payload.new.id ? payload.new as AfarOrder : a)
@@ -134,7 +134,7 @@ export default function AdminAfaManagementPage() {
             const idType = app.id_type || 'Ghana Card'
             const lines = [
                 '============================================',
-                '     MTN AFAR REGISTRATION — APPLICATION    ',
+                '     MTN AFA REGISTRATION — APPLICATION    ',
                 '============================================',
                 '',
                 `Full Name        : ${app.full_name}`,
@@ -159,7 +159,7 @@ export default function AdminAfaManagementPage() {
             const url = URL.createObjectURL(blob)
             const link = document.createElement('a')
             link.href = url
-            link.download = `AFAR_${app.full_name.replace(/\s+/g, '_')}_${app.id.slice(0, 8)}.txt`
+            link.download = `AFA_${app.full_name.replace(/\s+/g, '_')}_${app.id.slice(0, 8)}.txt`
             document.body.appendChild(link)
             link.click()
             document.body.removeChild(link)
@@ -202,7 +202,7 @@ export default function AdminAfaManagementPage() {
                         <ShieldCheck className="w-3.5 h-3.5" />
                         <span>Admin Console</span>
                     </div>
-                    <h1 className="text-2xl font-bold">MTN AFAR Applications</h1>
+                    <h1 className="text-2xl font-bold">MTN AFA Applications</h1>
                     <p className="text-sm text-muted-foreground">Manage and process incoming 30-day registration applications.</p>
                 </div>
             </div>
@@ -350,7 +350,7 @@ export default function AdminAfaManagementPage() {
                                         Application Details
                                     </DialogTitle>
                                     <DialogDescription>
-                                        MTN AFAR 30-Day Registration — Submitted {format(new Date(selectedApp.created_at), 'dd MMM yyyy, hh:mm a')}
+                                        MTN AFA 30-Day Registration — Submitted {format(new Date(selectedApp.created_at), 'dd MMM yyyy, hh:mm a')}
                                     </DialogDescription>
                                 </DialogHeader>
 

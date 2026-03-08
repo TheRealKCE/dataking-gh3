@@ -241,7 +241,7 @@ export default function AFAOrdersPage() {
                 user_id: dbUser?.id,
                 type: 'debit',
                 amount: applicationPrice,
-                description: `MTN AFAR Registration Fee`,
+                description: `MTN AFA Registration Fee`,
                 source: 'afa_application',
                 status: 'completed'
             })
@@ -298,9 +298,9 @@ export default function AFAOrdersPage() {
                         <ShieldCheck className="w-5 h-5 opacity-80" />
                         <span className="text-xs font-semibold uppercase tracking-widest opacity-80">Official Registration</span>
                     </div>
-                    <h1 className="text-3xl font-extrabold tracking-tight">MTN AFAR REGISTRATION</h1>
+                    <h1 className="text-3xl font-extrabold tracking-tight">MTN AFA REGISTRATION</h1>
                     <p className="mt-2 text-yellow-100 text-sm max-w-lg">
-                        Enroll in the MTN Authorized Field Agent Registration (AFAR) — a 30-day active registration package.
+                        Enroll in the MTN Authorized Field Agent Registration (AFA) — a 30-day active registration package.
                         Your data will be securely submitted and processed by our team within 24 hours.
                     </p>
                 </div>
@@ -356,7 +356,7 @@ export default function AFAOrdersPage() {
                         <Card className="border-dashed">
                             <CardContent className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-2">
                                 <ShieldCheck className="w-10 h-10 opacity-20" />
-                                <p className="text-sm">No registrations yet. Start your first AFAR application.</p>
+                                <p className="text-sm">No registrations yet. Start your first AFA application.</p>
                             </CardContent>
                         </Card>
                     ) : (
@@ -405,11 +405,11 @@ export default function AFAOrdersPage() {
             {showForm && (
                 <Card>
                     <CardHeader>
-                        <CardTitle>{editingId ? 'Edit Registration' : 'New AFAR Registration'}</CardTitle>
+                        <CardTitle>{editingId ? 'Edit Registration' : 'New AFA Registration'}</CardTitle>
                         <CardDescription>
                             {editingId
                                 ? 'Update your details below. You can only edit while the application is pending.'
-                                : 'Complete all fields to submit your 30-day AFAR registration package.'}
+                                : 'Complete all fields to submit your 30-day AFA registration package.'}
                         </CardDescription>
                     </CardHeader>
                     <CardContent>

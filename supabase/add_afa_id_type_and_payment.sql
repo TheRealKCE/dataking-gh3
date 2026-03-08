@@ -1,4 +1,4 @@
--- Migration: MTN AFAR Registration Enhancements
+-- Migration: MTN AFA Registration Enhancements
 -- Adds id_type, id_number, and payment_amount columns to afa_orders
 -- Run this in your Supabase SQL Editor
 
