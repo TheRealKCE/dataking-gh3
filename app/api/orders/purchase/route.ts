@@ -186,69 +186,63 @@ export async function POST(request: NextRequest) {
             action_url: `/dashboard/my-orders`,
         }).then(() => {}).catch((e: any) => console.error('[Purchase] Notification error:', e))
 
-        // === PERFORMANCE: All external notifications — fire-and-forget ===
+        // === PERFORMANCE: Notifications & Auto-Fulfillment — Consolidated fire-and-forget block ===
         ;(async () => {
             try {
-                const { data: userData } = await supabase
+                // Fetch user data once for both notifications and fulfillment
+                const { data: userData, error: userFetchError } = await supabase
                     .from('users')
                     .select('email, first_name, last_name, phone_number, role')
                     .eq('id', userId)
                     .single()
 
-                if (userData) {
-                    const userEmail = (userData as any).email
-                    const firstName = (userData as any).first_name || 'Customer'
-                    const lastName = (userData as any).last_name || ''
-                    const userRole = (userData as any).role
-                    const isAdminUser = userRole === 'admin' || userRole === 'sub-admin'
-
-                    if (!isAdminUser) {
-                        sendOrderSuccessEmail(userEmail, firstName, {
-                            referenceCode,
-                            phoneNumber,
-                            network: (pkg as any).network,
-                            size: (pkg as any).size,
-                            price: priceToCharge
-                        }).catch((err: Error) => console.error('[Purchase] User email error:', err))
-                    }
-
-                    const accountHolderPhone = (userData as any).phone_number
-                    if (accountHolderPhone) {
-                        sendOrderSuccessSMS(accountHolderPhone, {
-                            network: (pkg as any).network,
-                            size: (pkg as any).size,
-                            price: priceToCharge,
-                            recipientNumber: phoneNumber,
-                            currentBalance: newBalance
-                        }).catch((err: Error) => console.error('[Purchase] SMS error:', err))
-                    }
-
-                    if (isAgent) {
-                        sendAdminAgentOrderAlert()
-                            .catch((err: Error) => console.error('[Purchase] Agent Admin SMS alert error:', err))
-                    }
+                if (userFetchError || !userData) {
+                    console.error('[Purchase] Post-purchase user fetch failed:', userFetchError)
+                    return
                 }
-            } catch (e) {
-                console.error('[Purchase] Notification dispatch error:', e)
-            }
-        })()
 
-        // === PERFORMANCE: Trigger auto-fulfillment — fire-and-forget ===
-        ;(async () => {
-            try {
-                const { data: userData } = await supabase
-                    .from('users')
-                    .select('email, first_name, last_name')
-                    .eq('id', userId)
-                    .single()
+                const userEmail = (userData as any).email
+                const firstName = (userData as any).first_name || 'Customer'
+                const userRole = (userData as any).role
+                const isAdminUser = userRole === 'admin' || userRole === 'sub-admin'
+                const accountHolderPhone = (userData as any).phone_number
 
-                const traveler = userData as any;
+                // 1. Send User Email Confirmation
+                if (!isAdminUser && userEmail) {
+                    sendOrderSuccessEmail(userEmail, firstName, {
+                        referenceCode,
+                        phoneNumber,
+                        network: (pkg as any).network,
+                        size: (pkg as any).size,
+                        price: priceToCharge
+                    }).catch((err: Error) => console.error('[Purchase] Confirmation email failed:', err))
+                }
+
+                // 2. Send User SMS Confirmation (To data recipient as requested)
+                if (accountHolderPhone) {
+                    sendOrderSuccessSMS(accountHolderPhone, {
+                        network: (pkg as any).network,
+                        size: (pkg as any).size,
+                        price: priceToCharge,
+                        recipientNumber: phoneNumber, // Keeping as data recipient per user request
+                        currentBalance: newBalance
+                    }).catch((err: Error) => console.error('[Purchase] Confirmation SMS failed:', err))
+                }
+
+                // 3. Send Admin Agent Alert
+                if (isAgent) {
+                    sendAdminAgentOrderAlert()
+                        .catch((err: Error) => console.error('[Purchase] Admin agent alert failed:', err))
+                }
+
+                // 4. Trigger Auto-Fulfillment
                 await triggerFulfillment((order as any).id, (pkg as any).network, {
-                    email: traveler?.email || 'Unknown',
-                    name: `${traveler?.first_name || ''} ${traveler?.last_name || ''}`.trim() || 'Customer'
+                    email: userEmail || 'Unknown',
+                    name: `${firstName} ${(userData as any).last_name || ''}`.trim() || 'Customer'
                 })
-            } catch (fulfillmentError) {
-                console.error('[Purchase] Fulfillment trigger error:', fulfillmentError)
+
+            } catch (e) {
+                console.error('[Purchase] Consolidated post-purchase logic failed:', e)
             }
         })()
 
@@ -346,7 +340,8 @@ async function triggerFulfillment(orderId: string, network: string, user: { emai
         }
 
         if (settingsMap.auto_fulfillment_enabled === 'false') {
-            sendAdminNewOrderAlert({ ...alertDetails, reason: 'Global auto-fulfillment is disabled' })
+            await sendAdminNewOrderAlert({ ...alertDetails, reason: 'Global auto-fulfillment is disabled' })
+                .catch(err => console.error('[Fulfillment] Admin alert (global disabled) failed:', err))
             return
         }
 
@@ -363,7 +358,8 @@ async function triggerFulfillment(orderId: string, network: string, user: { emai
 
         const isNetworkEnabled = fulfillmentSettings.networks[network] !== false
         if (!isNetworkEnabled) {
-            sendAdminNewOrderAlert({ ...alertDetails, reason: `Auto-fulfillment is disabled for network: ${network}` })
+            await sendAdminNewOrderAlert({ ...alertDetails, reason: `Auto-fulfillment is disabled for network: ${network}` })
+                .catch(err => console.error('[Fulfillment] Admin alert (network disabled) failed:', err))
             return
         }
 
@@ -391,7 +387,9 @@ async function triggerFulfillment(orderId: string, network: string, user: { emai
                 .update({ status: 'processing', updated_at: new Date().toISOString() })
                 .eq('id', orderId)
         } else {
-            sendAdminNewOrderAlert({ ...alertDetails, reason: `Auto-fulfillment API error: ${result.error || 'Unknown error'}` })
+            await sendAdminNewOrderAlert({ ...alertDetails, reason: `Auto-fulfillment API error: ${result.error || 'Unknown error'}` })
+                .catch(err => console.error('[Fulfillment] Admin alert (API failed) failed:', err))
+
             await (supabase.from('mtn_fulfillment_tracking') as any).insert({
                 order_id: orderId,
                 status: 'failed',

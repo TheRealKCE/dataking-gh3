@@ -1,5 +1,7 @@
 'use client'
 
+import * as XLSX from 'xlsx'
+
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency, formatDate } from '@/lib/utils'
@@ -259,9 +261,9 @@ export default function AdminUsersPage() {
 
     // Server-side filtered data is directly in 'users' state
 
-    const exportToCSV = () => {
+    const exportForMNotify = () => {
         try {
-            // Filter users with phone numbers
+            // mNotify requires: firstname, lastname, phone, email, date_of_birth (in this exact order)
             const usersWithPhones = (Array.isArray(users) ? users : []).filter(user => user.phone_number)
 
             if (usersWithPhones.length === 0) {
@@ -269,30 +271,26 @@ export default function AdminUsersPage() {
                 return
             }
 
-            // Create CSV content with name and phone columns for Moolre
-            const csvHeaders = 'Name,Phone'
-            const csvRows = usersWithPhones.map(user => {
-                const fullName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'N/A'
-                const phone = user.phone_number
-                return `"${fullName}",${phone}`
+            // Build rows in mNotify's required column order
+            const rows = usersWithPhones.map(user => ({
+                firstname: user.first_name || 'Unknown',
+                lastname: user.last_name || '',
+                phone: user.phone_number,
+                email: user.email || '',
+                date_of_birth: '', // Not collected — mNotify accepts blank
+            }))
+
+            // Generate XLSX workbook
+            const worksheet = XLSX.utils.json_to_sheet(rows, {
+                header: ['firstname', 'lastname', 'phone', 'email', 'date_of_birth']
             })
-
-            const csvContent = [csvHeaders, ...csvRows].join('\n')
-
-            // Create and download file
-            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' })
-            const link = document.createElement('a')
-            const url = URL.createObjectURL(blob)
+            const workbook = XLSX.utils.book_new()
+            XLSX.utils.book_append_sheet(workbook, worksheet, 'Contacts')
 
             const timestamp = new Date().toISOString().split('T')[0]
-            link.setAttribute('href', url)
-            link.setAttribute('download', `moolre_contacts_${timestamp}.csv`)
-            link.style.visibility = 'hidden'
-            document.body.appendChild(link)
-            link.click()
-            document.body.removeChild(link)
+            XLSX.writeFile(workbook, `mnotify_contacts_${timestamp}.xlsx`)
 
-            toast.success(`Exported ${usersWithPhones.length} contacts for Moolre`)
+            toast.success(`Exported ${rows.length} contacts for mNotify`)
         } catch (error) {
             console.error('Export error:', error)
             toast.error('Failed to export contacts')
@@ -336,12 +334,12 @@ export default function AdminUsersPage() {
                         </Select>
                     </div>
                     <Button
-                        onClick={exportToCSV}
+                        onClick={exportForMNotify}
                         variant="outline"
-                        className="w-full sm:w-auto gap-2 bg-green-50 hover:bg-green-100 text-green-700 border-green-300 hover:border-green-400 rounded-xl"
+                        className="w-full sm:w-auto gap-2 bg-blue-50 hover:bg-blue-100 text-blue-700 border-blue-300 hover:border-blue-400 rounded-xl"
                     >
                         <Download className="w-4 h-4" />
-                        Export for Moolre
+                        Export for mNotify
                     </Button>
                 </div>
             </div>
