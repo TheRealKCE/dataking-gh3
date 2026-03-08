@@ -186,52 +186,49 @@ export async function POST(request: NextRequest) {
             action_url: `/dashboard/my-orders`,
         }).then(() => {}).catch((e: any) => console.error('[Purchase] Notification error:', e))
 
-        // === PERFORMANCE: Notifications & Auto-Fulfillment — Consolidated fire-and-forget block ===
-        ;(async () => {
-            try {
-                // Fetch user data once for both notifications and fulfillment
-                const { data: userData, error: userFetchError } = await supabase
-                    .from('users')
-                    .select('email, first_name, last_name, phone_number, role')
-                    .eq('id', userId)
-                    .single()
+        // === NOTIFICATIONS & AUTO-FULFILLMENT: Awaited to ensure Vercel doesn't kill process ===
+        try {
+            // Fetch user data once for both notifications and fulfillment
+            const { data: userData, error: userFetchError } = await supabase
+                .from('users')
+                .select('email, first_name, last_name, phone_number, role')
+                .eq('id', userId)
+                .single()
 
-                if (userFetchError || !userData) {
-                    console.error('[Purchase] Post-purchase user fetch failed:', userFetchError)
-                    return
-                }
-
+            if (userFetchError || !userData) {
+                console.error('[Purchase] Post-purchase user fetch failed:', userFetchError)
+            } else {
                 const userEmail = (userData as any).email
                 const firstName = (userData as any).first_name || 'Customer'
-                const userRole = (userData as any).role
-                const isAdminUser = userRole === 'admin' || userRole === 'sub-admin'
                 const accountHolderPhone = (userData as any).phone_number
 
-                // 1. Send User Email Confirmation
-                if (!isAdminUser && userEmail) {
-                    sendOrderSuccessEmail(userEmail, firstName, {
+                // 1. Send User Email Confirmation (Enabled for all, including Admins)
+                if (userEmail) {
+                    await sendOrderSuccessEmail(userEmail, firstName, {
                         referenceCode,
                         phoneNumber,
                         network: (pkg as any).network,
                         size: (pkg as any).size,
                         price: priceToCharge
-                    }).catch((err: Error) => console.error('[Purchase] Confirmation email failed:', err))
+                    }).then(() => console.log('[Purchase] Confirmation email sent successfully'))
+                      .catch((err: Error) => console.error('[Purchase] Confirmation email failed:', err))
                 }
 
                 // 2. Send User SMS Confirmation (To data recipient as requested)
                 if (accountHolderPhone) {
-                    sendOrderSuccessSMS(accountHolderPhone, {
+                    await sendOrderSuccessSMS(accountHolderPhone, {
                         network: (pkg as any).network,
                         size: (pkg as any).size,
                         price: priceToCharge,
-                        recipientNumber: phoneNumber, // Keeping as data recipient per user request
+                        recipientNumber: phoneNumber,
                         currentBalance: newBalance
-                    }).catch((err: Error) => console.error('[Purchase] Confirmation SMS failed:', err))
+                    }).then(() => console.log('[Purchase] Confirmation SMS sent successfully'))
+                      .catch((err: Error) => console.error('[Purchase] Confirmation SMS failed:', err))
                 }
 
                 // 3. Send Admin Agent Alert
                 if (isAgent) {
-                    sendAdminAgentOrderAlert()
+                    await sendAdminAgentOrderAlert()
                         .catch((err: Error) => console.error('[Purchase] Admin agent alert failed:', err))
                 }
 
@@ -240,11 +237,10 @@ export async function POST(request: NextRequest) {
                     email: userEmail || 'Unknown',
                     name: `${firstName} ${(userData as any).last_name || ''}`.trim() || 'Customer'
                 })
-
-            } catch (e) {
-                console.error('[Purchase] Consolidated post-purchase logic failed:', e)
             }
-        })()
+        } catch (postPurchaseError) {
+            console.error('[Purchase] Post-purchase notification/fulfillment failed:', postPurchaseError)
+        }
 
         // Return immediately — don't wait for fulfillment/emails/SMS
         return NextResponse.json({
