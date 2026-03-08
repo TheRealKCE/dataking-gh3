@@ -6,6 +6,7 @@ import { useAuth } from '@/contexts/auth-context'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { formatCurrency, getNetworkGradient, cn } from '@/lib/utils'
+import { generateReferenceCode } from '@/lib/utils'
 import { validateGhanaianPhone, detectNetwork } from '@/lib/phone-validation'
 import { NetworkIcon } from '@/components/network-icon'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -39,7 +40,9 @@ import {
     X,
     FileSpreadsheet,
     FileText,
-    CloudUpload
+    CloudUpload,
+    ExternalLink,
+    Receipt
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
@@ -87,6 +90,25 @@ export default function DataPackagesPage() {
     const [phoneError, setPhoneError] = useState('')
     const [isPurchasing, setIsPurchasing] = useState(false)
     const [purchaseSuccess, setPurchaseSuccess] = useState(false)
+    const [purchaseDetails, setPurchaseDetails] = useState<{
+        referenceCode: string
+        network: string
+        size: string
+        phoneNumber: string
+        price: number
+        newBalance: number
+    } | null>(null)
+    // Idempotency: Generate a new referenceCode each time the modal opens
+    const [currentReferenceCode, setCurrentReferenceCode] = useState('')
+
+    // Bulk success modal state
+    const [bulkSuccess, setBulkSuccess] = useState(false)
+    const [bulkSuccessDetails, setBulkSuccessDetails] = useState<{
+        ordersPlaced: number
+        totalCost: number
+        newBalance: number
+        orders: { phoneNumber: string; volume: number; packagePrice: number }[]
+    } | null>(null)
 
     // Bulk Order State
     const [bulkInputType, setBulkInputType] = useState<'text' | 'excel' | null>(null)
@@ -199,6 +221,9 @@ export default function DataPackagesPage() {
         setPhoneNumber('')
         setPhoneError('')
         setPurchaseSuccess(false)
+        setPurchaseDetails(null)
+        // Generate a fresh idempotency key each time the modal opens
+        setCurrentReferenceCode(generateReferenceCode())
     }
 
     const handlePhoneChange = (value: string) => {
@@ -248,6 +273,7 @@ export default function DataPackagesPage() {
                 body: JSON.stringify({
                     packageId: selectedPackage.id,
                     phoneNumber: validation.normalizedNumber,
+                    referenceCode: currentReferenceCode, // idempotency key
                 }),
             })
 
@@ -258,7 +284,15 @@ export default function DataPackagesPage() {
             }
 
             setPurchaseSuccess(true)
-            setWalletBalance(prev => prev - effectivePrice)
+            setPurchaseDetails({
+                referenceCode: data.order.reference_code,
+                network: data.order.network,
+                size: data.order.size,
+                phoneNumber: data.order.phone_number,
+                price: data.order.price,
+                newBalance: data.order.new_balance,
+            })
+            setWalletBalance(typeof data.order?.new_balance === 'number' ? data.order.new_balance : (prev: number) => prev - effectivePrice)
             setOrdersToday(prev => prev + 1)
             toast.success('Order placed successfully!')
         } catch (error: any) {
@@ -496,7 +530,17 @@ export default function DataPackagesPage() {
                 throw new Error(data.error || 'Bulk order failed')
             }
 
-            toast.success(`${data.ordersPlaced} orders placed successfully!`)
+            setBulkSuccessDetails({
+                ordersPlaced: data.ordersPlaced,
+                totalCost: data.totalCost,
+                newBalance: data.newBalance,
+                orders: validOrders.map(o => ({
+                    phoneNumber: o.phoneNumber,
+                    volume: o.volume,
+                    packagePrice: o.packagePrice,
+                })),
+            })
+            setBulkSuccess(true)
             setValidationResults([])
             setBulkText('')
             fetchWalletBalance()
@@ -1052,18 +1096,55 @@ export default function DataPackagesPage() {
             <Dialog open={!!selectedPackage} onOpenChange={() => setSelectedPackage(null)}>
                 <DialogContent className="w-[95%] max-w-sm sm:max-w-md rounded-2xl p-4 sm:p-6">
                     {purchaseSuccess ? (
-                        <div className="text-center py-6">
-                            <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mx-auto mb-4">
-                                <CheckCircle2 className="w-8 h-8 text-green-600" />
+                        <div className="py-4 space-y-5">
+                            {/* Success Icon */}
+                            <div className="flex flex-col items-center gap-2">
+                                <div className="w-14 h-14 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                                    <CheckCircle2 className="w-7 h-7 text-green-600" />
+                                </div>
+                                <DialogTitle className="text-lg font-black">Order Placed!</DialogTitle>
+                                <p className="text-xs text-muted-foreground text-center">Your data bundle is being processed</p>
                             </div>
-                            <DialogTitle className="text-xl mb-2">Order Placed Successfully!</DialogTitle>
-                            <DialogDescription>
-                                {selectedPackage?.size} has been ordered for {phoneNumber}.
-                                Your data will be delivered shortly.
-                            </DialogDescription>
-                            <Button className="mt-6" onClick={() => setSelectedPackage(null)}>
-                                Done
-                            </Button>
+
+                            {/* Order Summary */}
+                            {purchaseDetails && (
+                                <div className="bg-muted/50 rounded-2xl p-4 space-y-3">
+                                    <div className="flex items-center justify-between text-sm">
+                                        <span className="text-muted-foreground">Recipient</span>
+                                        <span className="font-bold">{purchaseDetails.phoneNumber}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between text-sm">
+                                        <span className="text-muted-foreground">Package</span>
+                                        <span className="font-bold">{purchaseDetails.network} {purchaseDetails.size}</span>
+                                    </div>
+                                    <div className="flex items-center justify-between text-sm">
+                                        <span className="text-muted-foreground">Amount Paid</span>
+                                        <span className="font-black text-primary">{formatCurrency(purchaseDetails.price)}</span>
+                                    </div>
+                                    <div className="border-t border-border/50 pt-2 flex items-center justify-between text-sm">
+                                        <span className="text-muted-foreground">Ref</span>
+                                        <span className="font-mono text-xs text-muted-foreground">{purchaseDetails.referenceCode}</span>
+                                    </div>
+                                </div>
+                            )}
+
+                            {/* Actions */}
+                            <div className="flex gap-3">
+                                <Button
+                                    variant="outline"
+                                    className="flex-1"
+                                    onClick={() => setSelectedPackage(null)}
+                                >
+                                    Done
+                                </Button>
+                                <Button
+                                    className="flex-1 bg-primary text-primary-foreground"
+                                    onClick={() => { setSelectedPackage(null); router.push('/dashboard/my-orders') }}
+                                >
+                                    <ExternalLink className="w-4 h-4 mr-2" />
+                                    View Orders
+                                </Button>
+                            </div>
                         </div>
                     ) : (
                         <>
@@ -1145,6 +1226,79 @@ export default function DataPackagesPage() {
                             </DialogFooter>
                         </>
                     )}
+                </DialogContent>
+            </Dialog>
+
+            {/* Bulk Order Success Modal */}
+            <Dialog open={bulkSuccess} onOpenChange={() => setBulkSuccess(false)}>
+                <DialogContent className="w-[95%] max-w-sm sm:max-w-md rounded-2xl p-4 sm:p-6">
+                    <div className="space-y-5">
+                        {/* Success header */}
+                        <div className="flex flex-col items-center gap-2 pt-2">
+                            <div className="w-14 h-14 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
+                                <CheckCircle2 className="w-7 h-7 text-green-600" />
+                            </div>
+                            <DialogTitle className="text-lg font-black text-center">
+                                {bulkSuccessDetails?.ordersPlaced} Orders Placed!
+                            </DialogTitle>
+                            <p className="text-xs text-muted-foreground text-center">All your data bundles are being processed</p>
+                        </div>
+
+                        {/* Summary stats */}
+                        {bulkSuccessDetails && (
+                            <div className="grid grid-cols-2 gap-3">
+                                <div className="bg-muted/50 rounded-xl p-3 text-center">
+                                    <p className="text-xs text-muted-foreground mb-1">Total Cost</p>
+                                    <p className="font-black text-base">{formatCurrency(bulkSuccessDetails.totalCost)}</p>
+                                </div>
+                                <div className="bg-muted/50 rounded-xl p-3 text-center">
+                                    <p className="text-xs text-muted-foreground mb-1">New Balance</p>
+                                    <p className="font-black text-base">{formatCurrency(bulkSuccessDetails.newBalance)}</p>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Scrollable order list */}
+                        {bulkSuccessDetails && bulkSuccessDetails.orders.length > 0 && (
+                            <div className="rounded-xl border border-border/50 overflow-hidden">
+                                <div className="bg-muted/30 px-4 py-2 border-b border-border/50">
+                                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-wide">Order Summary</p>
+                                </div>
+                                <div className="overflow-y-auto max-h-[40vh]">
+                                    {bulkSuccessDetails.orders.map((o, i) => (
+                                        <div key={i} className="flex items-center justify-between px-4 py-2.5 border-b border-border/30 last:border-0 hover:bg-muted/20 transition-colors">
+                                            <div className="flex items-center gap-2">
+                                                <div className="w-1.5 h-1.5 rounded-full bg-green-500 flex-shrink-0" />
+                                                <span className="text-sm font-medium">{o.phoneNumber}</span>
+                                            </div>
+                                            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+                                                <span className="font-semibold">{o.volume}GB</span>
+                                                <span className="font-black text-foreground">{formatCurrency(o.packagePrice)}</span>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Actions */}
+                        <div className="flex gap-3">
+                            <Button
+                                variant="outline"
+                                className="flex-1"
+                                onClick={() => setBulkSuccess(false)}
+                            >
+                                Done
+                            </Button>
+                            <Button
+                                className="flex-1 bg-primary text-primary-foreground"
+                                onClick={() => { setBulkSuccess(false); router.push('/dashboard/my-orders') }}
+                            >
+                                <ExternalLink className="w-4 h-4 mr-2" />
+                                View Orders
+                            </Button>
+                        </div>
+                    </div>
                 </DialogContent>
             </Dialog>
         </div>

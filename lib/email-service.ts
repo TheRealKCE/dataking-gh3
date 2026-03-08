@@ -1241,7 +1241,7 @@ export async function sendShopWithdrawalProcessedEmail(
     email: string,
     firstName: string,
     shopName: string,
-    amount: number,
+    netAmount: number,
     momoNumber: string,
     network: string
 ): Promise<EmailResult> {
@@ -1250,13 +1250,13 @@ export async function sendShopWithdrawalProcessedEmail(
         <h1 class="greeting">Payout Successful! 💰</h1>
         <p class="subtitle">Your funds have been sent</p>
         <div class="amount-display">
-            <p class="amount-label">Amount Sent</p>
-            <p class="amount-value"><span class="amount-currency">GH</span>${amount.toFixed(2)}</p>
+            <p class="amount-label">Net Payout Sent</p>
+            <p class="amount-value"><span class="amount-currency">GH</span>${netAmount.toFixed(2)}</p>
         </div>
-        <p class="message-text">Hi ${firstName}, your payout from <strong>${shopName}</strong> has been successfully sent to your ${network} number.</p>
+        <p class="message-text">Hi ${firstName}, your net payout from <strong>${shopName}</strong> has been successfully sent to your ${network} number.</p>
         <div class="info-card">
             <div class="info-card-header"><div class="info-card-icon">🧾</div><span class="info-card-title">Payout Details</span></div>
-            <div class="info-row"><span class="info-label">Amount</span><span class="info-value" style="color: #10b981;">GH${amount.toFixed(2)}</span></div>
+            <div class="info-row"><span class="info-label">Net Amount</span><span class="info-value" style="color: #10b981;">GH${netAmount.toFixed(2)}</span></div>
             <div class="info-row"><span class="info-label">Network</span><span class="info-value">${network}</span></div>
             <div class="info-row"><span class="info-label">MoMo Number</span><span class="info-value">${momoNumber}</span></div>
             <div class="info-row"><span class="info-label">Date</span><span class="info-value">${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span></div>
@@ -1265,7 +1265,7 @@ export async function sendShopWithdrawalProcessedEmail(
         <p class="message-text">Thank you for selling with KingFlexyGh. Keep growing!</p>
         <div class="cta-container"><a href="${siteUrl}/dashboard/shop/withdraw" class="cta-button">View Withdrawal History</a></div>
     `
-    return sendEmail({ to: email, toName: firstName, subject: `💰 Payout of GH${amount.toFixed(2)} Sent — ${shopName}`, htmlContent: generatePremiumTemplate('Payout Successful', content, '#10b981') })
+    return sendEmail({ to: email, toName: firstName, subject: `💰 Net Payout of GH${netAmount.toFixed(2)} Sent — ${shopName}`, htmlContent: generatePremiumTemplate('Payout Successful', content, '#10b981') })
 }
 
 /**

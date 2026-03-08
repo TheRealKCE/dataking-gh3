@@ -244,7 +244,7 @@ export default function AdminWithdrawalsPage() {
                             email: w.shop.owner_email,
                             firstName,
                             shopName: w.shop.shop_name,
-                            amount: w.amount,
+                            amount: w.net_amount,
                             momoNumber: w.momo_number,
                             network: w.network || 'MoMo',
                         },

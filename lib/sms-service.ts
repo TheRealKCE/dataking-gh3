@@ -19,19 +19,20 @@ interface SMSResult {
 const MOOLRE_BASE_URL = 'https://api.moolre.com'
 const MOOLRE_SMS_ENDPOINT = '/open/sms/send' // Correct endpoint from Moolre documentation
 
+const MNOTIFY_BASE_URL = 'https://apps.mnotify.net/smsapi'
+
 /**
  * Validate SMS configuration on module load
  */
 function validateSMSConfig() {
-    const apiKey = process.env.MOOLRE_API_KEY
-    const senderId = process.env.MOOLRE_SENDER_ID
+    const moolreApiKey = process.env.MOOLRE_API_KEY
+    const mnotifyApiKey = process.env.MNOTIFY_API_KEY
 
-    if (!apiKey) {
-        console.error('[SMS Config] CRITICAL: MOOLRE_API_KEY is not set in environment variables!')
-        console.error('[SMS Config] Get your API key from: https://app.moolre.com → Profile → Security → API Key')
+    if (!moolreApiKey) {
+        console.warn('[SMS Config] WARNING: MOOLRE_API_KEY is not set. Moolre SMS features will fail.')
     }
-    if (!senderId) {
-        console.warn('[SMS Config] WARNING: MOOLRE_SENDER_ID is not set, will use default')
+    if (!mnotifyApiKey) {
+        console.warn('[SMS Config] WARNING: MNOTIFY_API_KEY is not set. mNotify SMS features will fail.')
     }
 
     // SMS service initialized
@@ -170,7 +171,58 @@ export async function sendSMS(options: SMSOptions): Promise<SMSResult> {
     }
 }
 
+/**
+ * Send a quick SMS via mNotify
+ */
+export async function sendMnotifySMS(options: SMSOptions): Promise<SMSResult> {
+    const apiKey = process.env.MNOTIFY_API_KEY
+    const defaultSender = process.env.MNOTIFY_SENDER_ID || 'KingFlexyGh'
+
+    if (!apiKey) {
+        const error = 'MNOTIFY_API_KEY not configured in environment variables.'
+        console.error('[SMS Service] ERROR:', error)
+        return { success: false, error }
+    }
+
+    try {
+        let normalizedPhone = options.recipient
+            .replace(/\s+/g, '')
+            .replace(/-/g, '')
+            .replace(/\+/g, '')
+
+        if (normalizedPhone.startsWith('233')) {
+            normalizedPhone = '0' + normalizedPhone.slice(3)
+        }
+
+        const url = `${MNOTIFY_BASE_URL}?key=${apiKey}&to=${normalizedPhone}&msg=${encodeURIComponent(options.message)}&sender_id=${encodeURIComponent(options.sender || defaultSender)}`
+
+        const response = await fetch(url, {
+            method: 'GET'
+        })
+
+        const responseText = await response.text()
+        let data: any
+        try {
+            data = JSON.parse(responseText)
+        } catch (e) {
+            console.error('[SMS Service] mNotify JSON parse error:', responseText)
+            return { success: false, error: 'Invalid mNotify response' }
+        }
+
+        if (data.status === "1000" || data.code === "1000") {
+            return { success: true, messageId: 'mNotify_sent' }
+        } else {
+            console.error('[SMS Service] mNotify API Error:', data.message || responseText)
+            return { success: false, error: data.message || 'mNotify API Error' }
+        }
+    } catch (error: any) {
+        console.error('[SMS Service] mNotify Exception:', error.message)
+        return { success: false, error: `System error: ${error.message}` }
+    }
+}
+
 // ==========================================
+
 // SPECIFIC SMS FUNCTIONS
 // ==========================================
 
@@ -193,7 +245,8 @@ export async function sendOrderSuccessSMS(
 
 KingFlexyGh`
 
-    return sendSMS({
+    // ROUTE: mNotify
+    return sendMnotifySMS({
         recipient: details.recipientNumber,
         message
     })
@@ -237,6 +290,7 @@ export async function sendWalletTopupSuccessSMS(
 
 KingFlexyGh`
 
+    // ROUTE: Moolre
     return sendSMS({
         recipient: phoneNumber,
         message
@@ -279,7 +333,8 @@ export async function sendAgentUpgradeSuccessSMS(
 ) {
     const message = `Congratulation ${firstName}! Your Agent membership has been activated for ${planDays}. You now have access to our cheapest Agent prices. Login to enjoy! \n\nKingFlexyGh`
 
-    return sendSMS({ recipient: phoneNumber, message })
+    // ROUTE: mNotify
+    return sendMnotifySMS({ recipient: phoneNumber, message })
 }
 
 /**
@@ -290,7 +345,8 @@ export async function sendPermanentAgentUpgradeSuccessSMS(
 ) {
     const message = `Congratulations! Your Agent membership is now PERMANENT 👑. You have lifetime access to premium agent benefits. Thank you for choosing KingFlexyGh.`
 
-    return sendSMS({ recipient: phoneNumber, message })
+    // ROUTE: mNotify
+    return sendMnotifySMS({ recipient: phoneNumber, message })
 }
 
 /**
@@ -314,7 +370,8 @@ export async function sendAgentExtensionSuccessSMS(
 
 KingFlexyGh`
 
-    return sendSMS({
+    // ROUTE: mNotify
+    return sendMnotifySMS({
         recipient: phoneNumber,
         message
     })
@@ -371,6 +428,7 @@ export async function sendAgentExpiryNotificationSMS(
 
 KingFlexyGh`
 
+    // ROUTE: Moolre
     return sendSMS({
         recipient: phoneNumber,
         message
@@ -393,7 +451,8 @@ export async function sendOrderRefundSMS(
 
 KingFlexyGh`
 
-    return sendSMS({
+    // ROUTE: mNotify
+    return sendMnotifySMS({
         recipient: phoneNumber,
         message
     })
@@ -467,11 +526,11 @@ KingFlexyGh`
 export async function sendShopWithdrawalProcessedSMS(
     phoneNumber: string,
     firstName: string,
-    amount: number,
+    netAmount: number,
     network: string,
     momoNumber: string
 ) {
-    const message = `${firstName} Your Payout of GH${amount.toFixed(2)} has been successfully sent to your ${network} number ${momoNumber}. Thank you for selling with KingFlexyGh.`
+    const message = `${firstName} Your Net Payout of GH${netAmount.toFixed(2)} has been successfully sent to your ${network} number ${momoNumber}. Thank you for selling with KingFlexyGh.`
 
     return sendSMS({ recipient: phoneNumber, message })
 }
