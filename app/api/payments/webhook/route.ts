@@ -126,7 +126,7 @@ export async function POST(request: NextRequest) {
                     .from('users')
                     .update({
                         role: 'agent',
-                        agent_expires_at: expirationDateString,
+                        agent_expires_at: isPermanent ? null : expirationDateString,
                         updated_at: new Date().toISOString()
                     })
                     .eq('id', metadata.user_id)

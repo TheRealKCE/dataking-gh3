@@ -215,17 +215,20 @@ export async function processCompletedUpgradePayment(reference: string, provider
     }
 
     // 4. Calculate new expiry
+    const isPermanent = (payment.metadata as any)?.plan_type === 'permanent';
     const planDays = (payment.metadata as any)?.plan_days || 30
     const now = new Date()
     let currentExpiry = user.agent_expires_at ? new Date(user.agent_expires_at) : null
-    let newExpiry: Date
+    let newExpiry: Date | null = null;
 
-    if (currentExpiry && currentExpiry > now) {
-        // Extend existing
-        newExpiry = new Date(currentExpiry.getTime() + (planDays * 24 * 60 * 60 * 1000))
-    } else {
-        // Start fresh
-        newExpiry = new Date(now.getTime() + (planDays * 24 * 60 * 60 * 1000))
+    if (!isPermanent) {
+        if (currentExpiry && currentExpiry > now) {
+            // Extend existing
+            newExpiry = new Date(currentExpiry.getTime() + (planDays * 24 * 60 * 60 * 1000))
+        } else {
+            // Start fresh
+            newExpiry = new Date(now.getTime() + (planDays * 24 * 60 * 60 * 1000))
+        }
     }
 
     // 5. Update user role and expiry
@@ -233,7 +236,7 @@ export async function processCompletedUpgradePayment(reference: string, provider
         .from('users') as any)
         .update({
             role: 'agent',
-            agent_expires_at: newExpiry.toISOString(),
+            agent_expires_at: isPermanent ? null : newExpiry?.toISOString(),
             updated_at: new Date().toISOString(),
         })
         .eq('id', payment.user_id)
@@ -246,8 +249,10 @@ export async function processCompletedUpgradePayment(reference: string, provider
     // 6. Create notification
     await (supabase.from('notifications') as any).insert({
         user_id: payment.user_id,
-        title: 'Upgrade Successful',
-        message: `Congratulations! Your Agent membership has been ${currentExpiry && currentExpiry > now ? 'extended' : 'activated'} until ${newExpiry.toLocaleDateString()}.`,
+        title: isPermanent ? 'Permanent Agent Unlocked! 💎' : 'Upgrade Successful',
+        message: isPermanent 
+            ? 'Congratulations! You now have lifetime access to premium agent benefits.' 
+            : `Congratulations! Your Agent membership has been ${currentExpiry && currentExpiry > now ? 'extended' : 'activated'} until ${newExpiry?.toLocaleDateString()}.`,
         type: 'system',
         action_url: '/dashboard',
     })
@@ -255,29 +260,35 @@ export async function processCompletedUpgradePayment(reference: string, provider
     // 7. Send SMS notification
     try {
         if (user.phone_number) {
-            const planLabelText = (payment.metadata as any)?.plan_label ||
-                (planDays === 3 ? '3 Days' : planDays === 14 ? '14 Days' : '30 Days')
+            if (isPermanent) {
+                // Send Permanent/Lifetime notification
+                const { sendPermanentAgentUpgradeSuccessSMS } = await import('./sms-service')
+                await sendPermanentAgentUpgradeSuccessSMS(user.phone_number)
+            } else if (newExpiry) {
+                const planLabelText = (payment.metadata as any)?.plan_label ||
+                    (planDays === 3 ? '3 Days' : planDays === 14 ? '14 Days' : '30 Days')
 
-            // Calculate remaining days from now
-            const diffMs = newExpiry.getTime() - now.getTime()
-            const remainingDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
+                // Calculate remaining days from now
+                const diffMs = newExpiry.getTime() - now.getTime()
+                const remainingDays = Math.ceil(diffMs / (1000 * 60 * 60 * 24))
 
-            // Check if it was an extension (user was already agent and didn't expire)
-            if (currentExpiry && currentExpiry > now) {
-                // Extension
-                await sendAgentExtensionSuccessSMS(
-                    user.phone_number,
-                    newExpiry
-                )
-            } else {
-                // New Upgrade
-                await sendAgentUpgradeSuccessSMS(
-                    user.phone_number,
-                    user.first_name || 'Agent',
-                    planLabelText,
-                    remainingDays,
-                    newExpiry.toISOString() // Pass the expiry date
-                )
+                // Check if it was an extension (user was already agent and didn't expire)
+                if (currentExpiry && currentExpiry > now) {
+                    // Extension
+                    await sendAgentExtensionSuccessSMS(
+                        user.phone_number,
+                        newExpiry
+                    )
+                } else {
+                    // New Upgrade
+                    await sendAgentUpgradeSuccessSMS(
+                        user.phone_number,
+                        user.first_name || 'Agent',
+                        planLabelText,
+                        remainingDays,
+                        newExpiry.toISOString() // Pass the expiry date
+                    )
+                }
             }
         }
     } catch (smsError) {
