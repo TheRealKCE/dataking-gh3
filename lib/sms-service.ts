@@ -258,8 +258,8 @@ export async function sendOrderSuccessSMS(
 
 KingFlexyGh`
 
-    // ROUTE: mNotify
-    return sendMnotifySMS({
+    // ROUTE: Moolre (Temporary fallback)
+    return sendSMS({
         recipient: details.recipientNumber,
         message
     })
@@ -346,8 +346,8 @@ export async function sendAgentUpgradeSuccessSMS(
 ) {
     const message = `Congratulation ${firstName}! Your Agent membership has been activated for ${planDays}. You now have access to our cheapest Agent prices. Login to enjoy! \n\nKingFlexyGh`
 
-    // ROUTE: mNotify
-    return sendMnotifySMS({ recipient: phoneNumber, message })
+    // ROUTE: Moolre (Temporary fallback)
+    return sendSMS({ recipient: phoneNumber, message })
 }
 
 /**
@@ -358,8 +358,8 @@ export async function sendPermanentAgentUpgradeSuccessSMS(
 ) {
     const message = `Congratulations! Your Agent membership is now PERMANENT 👑. You have lifetime access to premium agent benefits. Thank you for choosing KingFlexyGh.`
 
-    // ROUTE: mNotify
-    return sendMnotifySMS({ recipient: phoneNumber, message })
+    // ROUTE: Moolre (Temporary fallback)
+    return sendSMS({ recipient: phoneNumber, message })
 }
 
 /**
@@ -383,8 +383,8 @@ export async function sendAgentExtensionSuccessSMS(
 
 KingFlexyGh`
 
-    // ROUTE: mNotify
-    return sendMnotifySMS({
+    // ROUTE: Moolre (Temporary fallback)
+    return sendSMS({
         recipient: phoneNumber,
         message
     })
@@ -464,8 +464,8 @@ export async function sendOrderRefundSMS(
 
 KingFlexyGh`
 
-    // ROUTE: mNotify
-    return sendMnotifySMS({
+    // ROUTE: Moolre (Temporary fallback)
+    return sendSMS({
         recipient: phoneNumber,
         message
     })
