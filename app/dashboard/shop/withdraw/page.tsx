@@ -20,6 +20,7 @@ import {
 import {
     Banknote, Loader2, Clock, CheckCircle2, XCircle, AlertCircle,
     Wallet, ArrowLeft, Star, Trash2, Plus, BookUser, RefreshCcw,
+    CreditCard, Shield, Info,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -35,6 +36,18 @@ const NETWORK_COLORS: Record<Network, string> = {
     'MTN MoMo': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300',
     'Telecel Cash': 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-300',
     'AirtelTigo Money': 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300',
+}
+
+const NETWORK_BG: Record<Network, string> = {
+    'MTN MoMo': 'bg-yellow-500',
+    'Telecel Cash': 'bg-red-500',
+    'AirtelTigo Money': 'bg-blue-500',
+}
+
+const NETWORK_SHORT: Record<Network, string> = {
+    'MTN MoMo': 'MTN',
+    'Telecel Cash': 'TC',
+    'AirtelTigo Money': 'AT',
 }
 
 interface ShopWallet {
@@ -240,12 +253,10 @@ export default function ShopWithdrawPage() {
             toast.success('Withdrawal request submitted! Admin will process within 24 hours.')
             setAmount('')
             setSaveForLater(false)
-            fetchData() // Refresh balances and history
+            fetchData()
 
-            // Success: newBalance comes from the server
             const finalBalance = data.newBalance ?? (wallet!.balance - amountNum)
 
-            // Alert admin (non-blocking)
             fetch('/api/shop/alerts', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -273,7 +284,6 @@ export default function ShopWithdrawPage() {
         }
     }
 
-    // ── Resubmit handler
     const openResubmit = (item: WithdrawalRequest) => {
         setResubmitTarget(item)
         setResubmitSelectedId('manual')
@@ -303,7 +313,6 @@ export default function ShopWithdrawPage() {
             setResubmitTarget(null)
             fetchData()
 
-            // Alert admin
             fetch('/api/shop/alerts', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -331,7 +340,6 @@ export default function ShopWithdrawPage() {
         }
     }
 
-    // ── Saved details CRUD
     const handleAddSavedDetail = async () => {
         if (!newNetwork) { toast.error('Select a network'); return }
         if (!newAccountName.trim()) { toast.error('Enter account name'); return }
@@ -348,7 +356,7 @@ export default function ShopWithdrawPage() {
                 is_default: savedDetails.length === 0,
             })
             if (error) throw error
-            toast.success('Payment detail saved!')
+            toast.success('Payment method saved!')
             setNewNetwork('')
             setNewAccountName('')
             setNewMomoNumber('')
@@ -383,341 +391,548 @@ export default function ShopWithdrawPage() {
 
     const isManual = selectedSavedId === 'manual'
 
+    // ─────────────────────────────────────────────
+    // Render
+    // ─────────────────────────────────────────────
+
     return (
         <div className="space-y-6 max-w-2xl">
-            {/* Header */}
-            <div className="space-y-4">
+
+            {/* ── Header ── */}
+            <div>
                 <Link href="/dashboard/shop">
                     <Button variant="ghost" size="sm" className="w-fit gap-2 -ml-2 text-muted-foreground hover:text-emerald-600 transition-colors">
                         <ArrowLeft className="w-4 h-4" />
                         Back to Shop Dashboard
                     </Button>
                 </Link>
-                <div className="flex items-start justify-between">
-                    <div>
-                        <h1 className="text-2xl font-bold flex items-center gap-2">
-                            <Banknote className="w-6 h-6 text-emerald-600" />
-                            Withdraw Earnings
-                        </h1>
-                        <p className="text-muted-foreground text-sm mt-1">Request a payout from your shop wallet to your mobile money account.</p>
-                    </div>
-                    <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => setSavedModalOpen(true)}
-                        className="gap-2 text-xs shrink-0"
-                    >
-                        <BookUser className="w-3.5 h-3.5" />
-                        Saved Details ({savedDetails.length}/5)
-                    </Button>
+                <div className="mt-2">
+                    <h1 className="text-2xl font-bold flex items-center gap-2">
+                        <Banknote className="w-6 h-6 text-emerald-600" />
+                        Withdraw Earnings
+                    </h1>
+                    <p className="text-muted-foreground text-sm mt-1">
+                        Request a payout from your shop wallet to your mobile money account.
+                    </p>
                 </div>
-
-                {/* Wallet Balance */}
-                <Card className="overflow-hidden border-0 shadow-md">
-                    <div className="bg-gradient-to-br from-emerald-600 to-emerald-800 p-5 text-white">
-                        <div className="flex items-center gap-3 mb-3">
-                            <Wallet className="w-5 h-5 text-emerald-200" />
-                            <p className="text-emerald-100 text-sm font-medium">Available Balance</p>
-                        </div>
-                        <p className="text-4xl font-black">{formatCurrency(wallet?.balance || 0)}</p>
-                        <div className="flex gap-4 mt-3 text-xs text-emerald-200">
-                            <span>Earned: {formatCurrency(wallet?.total_earned || 0)}</span>
-                            <span>Withdrawn: {formatCurrency(wallet?.total_withdrawn || 0)}</span>
-                        </div>
-                    </div>
-                </Card>
-
-                {/* Withdrawal Form */}
-                <Card>
-                    <CardHeader><CardTitle className="text-base">New Withdrawal Request</CardTitle></CardHeader>
-                    <CardContent className="space-y-4">
-                        {/* Amount */}
-                        <div>
-                            <Label htmlFor="amount">Amount (GHS)</Label>
-                            <Input
-                                id="amount"
-                                type="number"
-                                min={settings.min_withdrawal_amount}
-                                max={wallet?.balance || 0}
-                                step="0.01"
-                                value={amount}
-                                onChange={(e) => setAmount(e.target.value)}
-                                placeholder={`Min: ${formatCurrency(settings.min_withdrawal_amount)}`}
-                                className="mt-1"
-                            />
-                        </div>
-
-                        {/* Select saved or manual */}
-                        {savedDetails.length > 0 && (
-                            <div>
-                                <Label>Use Saved Payment Detail</Label>
-                                <Select value={selectedSavedId} onValueChange={handleSavedSelect}>
-                                    <SelectTrigger className="mt-1">
-                                        <SelectValue placeholder="Select a saved detail or enter manually" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="manual">Enter manually</SelectItem>
-                                        {savedDetails.map(d => (
-                                            <SelectItem key={d.id} value={d.id}>
-                                                {d.is_default ? '⭐ ' : ''}{d.account_name} — {d.network} ({d.momo_number})
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                        )}
-
-                        {/* Manual fields */}
-                        <div>
-                            <Label>Mobile Money Network</Label>
-                            <Select value={network} onValueChange={(v) => setNetwork(v as Network)} disabled={!isManual}>
-                                <SelectTrigger className="mt-1">
-                                    <SelectValue placeholder="Select network" />
-                                </SelectTrigger>
-                                <SelectContent>
-                                    {NETWORKS.map(n => <SelectItem key={n} value={n}>{n}</SelectItem>)}
-                                </SelectContent>
-                            </Select>
-                        </div>
-
-                        <div>
-                            <Label htmlFor="accountName">Account Holder Name</Label>
-                            <Input
-                                id="accountName"
-                                value={accountName}
-                                onChange={(e) => setAccountName(e.target.value)}
-                                placeholder="e.g. John Doe"
-                                className="mt-1"
-                                disabled={!isManual}
-                            />
-                        </div>
-
-                        <div>
-                            <Label htmlFor="momo">MoMo Number</Label>
-                            <Input
-                                id="momo"
-                                value={momoNumber}
-                                onChange={(e) => setMomoNumber(e.target.value)}
-                                placeholder="0244123456"
-                                className="mt-1"
-                                disabled={!isManual}
-                            />
-                        </div>
-
-                        {/* Save for later option */}
-                        {isManual && savedDetails.length < 5 && (
-                            <label className="flex items-center gap-2 cursor-pointer text-sm text-muted-foreground select-none">
-                                <input
-                                    type="checkbox"
-                                    checked={saveForLater}
-                                    onChange={e => setSaveForLater(e.target.checked)}
-                                    className="accent-emerald-600 w-4 h-4"
-                                />
-                                Save these payment details for next time
-                            </label>
-                        )}
-
-                        {/* Fee breakdown */}
-                        {amountNum > 0 && (
-                            <div className="p-3 rounded-xl bg-gray-50 dark:bg-gray-800/60 border space-y-1.5 text-sm">
-                                <div className="flex justify-between">
-                                    <span className="text-muted-foreground">Amount Requested</span>
-                                    <span className="font-medium">{formatCurrency(amountNum)}</span>
-                                </div>
-                                <div className="flex justify-between text-red-600 dark:text-red-400">
-                                    <span>Fee ({settings.withdrawal_fee_percent}%{settings.withdrawal_fee_flat > 0 ? ` + ${formatCurrency(settings.withdrawal_fee_flat)}` : ''})</span>
-                                    <span>- {formatCurrency(totalFee)}</span>
-                                </div>
-                                <div className="flex justify-between font-bold border-t pt-1.5 mt-1">
-                                    <span>You Receive</span>
-                                    <span className="text-emerald-600">{formatCurrency(Math.max(0, netAmount))}</span>
-                                </div>
-                            </div>
-                        )}
-
-                        <div className="flex items-start gap-2 text-xs text-muted-foreground">
-                            <AlertCircle className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
-                            <span>Withdrawals are processed manually within 24 hours. A fee is deducted from your requested amount.</span>
-                        </div>
-
-                        <Button
-                            onClick={handleSubmit}
-                            disabled={submitting || !amount || amountNum <= 0 || amountNum > (wallet?.balance || 0)}
-                            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white h-11 font-semibold gap-2"
-                        >
-                            {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Banknote className="w-4 h-4" />}
-                            {submitting ? 'Submitting...' : 'Request Withdrawal'}
-                        </Button>
-                    </CardContent>
-                </Card>
-
-                {/* History */}
-                <Card>
-                    <CardHeader><CardTitle className="text-base">Withdrawal History</CardTitle></CardHeader>
-                    <CardContent className="p-0">
-                        {history.length === 0 ? (
-                            <div className="text-center py-8 text-muted-foreground">
-                                <Banknote className="w-8 h-8 mx-auto mb-2 opacity-30" />
-                                <p className="text-sm">No withdrawal requests yet.</p>
-                            </div>
-                        ) : (
-                            <>
-                                {/* Desktop Table */}
-                                <div className="hidden md:block overflow-x-auto">
-                                    <table className="w-full text-sm">
-                                        <thead>
-                                            <tr className="border-b text-xs text-muted-foreground">
-                                                <th className="text-left px-4 py-2 font-medium">Date</th>
-                                                <th className="text-right px-4 py-2 font-medium">Amount</th>
-                                                <th className="text-right px-4 py-2 font-medium">Fee</th>
-                                                <th className="text-right px-4 py-2 font-medium">Net</th>
-                                                <th className="text-left px-4 py-2 font-medium">Account</th>
-                                                <th className="text-left px-4 py-2 font-medium">Network / MoMo</th>
-                                                <th className="text-left px-4 py-2 font-medium">Status</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {history.map((row) => {
-                                                const cfg = statusConfig[row.status]
-                                                const Icon = cfg.icon
-                                                return (
-                                                    <tr key={row.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
-                                                        <td className="px-4 py-3 text-xs text-muted-foreground">
-                                                            {new Date(row.created_at).toLocaleDateString()}
-                                                        </td>
-                                                        <td className="px-4 py-3 text-right font-medium">{formatCurrency(row.amount)}</td>
-                                                        <td className="px-4 py-3 text-right text-red-500 text-xs">-{formatCurrency(row.fee)}</td>
-                                                        <td className="px-4 py-3 text-right font-semibold text-emerald-600">{formatCurrency(row.net_amount)}</td>
-                                                        <td className="px-4 py-3 text-xs">{row.account_name}</td>
-                                                        <td className="px-4 py-3">
-                                                            {row.network && (
-                                                                <span className={cn('inline-block text-[10px] font-bold px-1.5 py-0.5 rounded-full mb-0.5', NETWORK_COLORS[row.network as Network] || 'bg-gray-100 text-gray-700')}>
-                                                                    {row.network}
-                                                                </span>
-                                                            )}
-                                                            <p className="font-mono text-xs text-muted-foreground">{row.momo_number}</p>
-                                                        </td>
-                                                        <td className="px-4 py-3">
-                                                            <span className={cn('inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full', cfg.color)}>
-                                                                <Icon className="w-3 h-3" />
-                                                                {cfg.label}
-                                                            </span>
-                                                            {row.admin_note && row.status === 'rejected' && (
-                                                                <div className="mt-1 space-y-1">
-                                                                    <p className="text-xs text-red-500">{row.admin_note}</p>
-                                                                    <Button
-                                                                        size="sm"
-                                                                        variant="outline"
-                                                                        className="h-7 text-xs border-emerald-500 text-emerald-600 gap-1"
-                                                                        onClick={() => openResubmit(row)}
-                                                                    >
-                                                                        <RefreshCcw className="w-3 h-3" /> Resubmit
-                                                                    </Button>
-                                                                </div>
-                                                            )}
-                                                        </td>
-                                                    </tr>
-                                                )
-                                            })}
-                                        </tbody>
-                                    </table>
-                                </div>
-
-                                {/* Mobile Cards */}
-                                <div className="md:hidden divide-y">
-                                    {history.map((row) => {
-                                        const cfg = statusConfig[row.status]
-                                        const Icon = cfg.icon
-                                        return (
-                                            <div key={row.id} className="p-4 space-y-3">
-                                                <div className="flex justify-between items-start">
-                                                    <div className="space-y-0.5">
-                                                        <p className="text-xs text-muted-foreground">{new Date(row.created_at).toLocaleDateString()}</p>
-                                                        <p className="font-semibold text-emerald-600">{formatCurrency(row.net_amount)}</p>
-                                                        <p className="text-[10px] text-muted-foreground">Original: {formatCurrency(row.amount)} (Fee: {formatCurrency(row.fee)})</p>
-                                                    </div>
-                                                    <span className={cn('inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full', cfg.color)}>
-                                                        <Icon className="w-2.5 h-2.5" />
-                                                        {cfg.label.toUpperCase()}
-                                                    </span>
-                                                </div>
-                                                <div className="grid grid-cols-2 gap-2 text-xs bg-muted/30 p-2 rounded-lg">
-                                                    <div>
-                                                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Account</p>
-                                                        <p className="font-medium truncate">{row.account_name}</p>
-                                                    </div>
-                                                    <div>
-                                                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">Network</p>
-                                                        {row.network ? (
-                                                            <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded-full', NETWORK_COLORS[row.network as Network] || 'bg-gray-100 text-gray-700')}>
-                                                                {row.network}
-                                                            </span>
-                                                        ) : <p className="text-[10px] text-muted-foreground">—</p>}
-                                                    </div>
-                                                    <div className="col-span-2">
-                                                        <p className="text-[10px] text-muted-foreground uppercase tracking-wider">MoMo Number</p>
-                                                        <p className="font-mono">{row.momo_number}</p>
-                                                    </div>
-                                                </div>
-                                                {row.admin_note && row.status === 'rejected' && (
-                                                    <div className="space-y-2">
-                                                        <div className="p-2 bg-red-50 border border-red-100 rounded text-[10px] text-red-600">
-                                                            <strong>Admin Note:</strong> {row.admin_note}
-                                                        </div>
-                                                        <Button
-                                                            size="sm"
-                                                            variant="outline"
-                                                            className="w-full h-9 border-emerald-500 text-emerald-600 gap-2"
-                                                            onClick={() => openResubmit(row)}
-                                                        >
-                                                            <RefreshCcw className="w-3.5 h-3.5" /> Edit Details & Resubmit
-                                                        </Button>
-                                                    </div>
-                                                )}
-                                            </div>
-                                        )
-                                    })}
-                                </div>
-                            </>
-                        )}
-                    </CardContent>
-                </Card>
             </div>
 
-            {/* ── Saved Payment Details Modal */}
+            {/* ── Wallet Balance Card ── */}
+            <Card className="overflow-hidden border-0 shadow-md">
+                <div className="bg-gradient-to-br from-emerald-600 to-emerald-800 p-5 text-white">
+                    <div className="flex items-center gap-3 mb-3">
+                        <Wallet className="w-5 h-5 text-emerald-200" />
+                        <p className="text-emerald-100 text-sm font-medium">Available Balance</p>
+                    </div>
+                    <p className="text-4xl font-black">{formatCurrency(wallet?.balance || 0)}</p>
+                    <div className="flex flex-wrap gap-4 mt-3 text-xs text-emerald-200">
+                        <span>Total Earned: {formatCurrency(wallet?.total_earned || 0)}</span>
+                        <span>Total Withdrawn: {formatCurrency(wallet?.total_withdrawn || 0)}</span>
+                    </div>
+                </div>
+            </Card>
+
+            {/* ── Withdrawal Form ── */}
+            <Card>
+                <CardHeader className="pb-3">
+                    <CardTitle className="text-base">New Withdrawal Request</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-6">
+
+                    {/* STEP 1 — Amount */}
+                    <div className="space-y-2">
+                        <div className="flex items-center gap-2">
+                            <span className="w-5 h-5 rounded-full bg-emerald-600 text-white text-[10px] font-black flex items-center justify-center flex-shrink-0">1</span>
+                            <Label htmlFor="amount" className="text-sm font-semibold">Enter Withdrawal Amount (GHS)</Label>
+                        </div>
+                        <Input
+                            id="amount"
+                            type="number"
+                            min={settings.min_withdrawal_amount}
+                            max={wallet?.balance || 0}
+                            step="0.01"
+                            value={amount}
+                            onChange={(e) => setAmount(e.target.value)}
+                            placeholder={`Min: ${formatCurrency(settings.min_withdrawal_amount)}`}
+                            className="h-12 text-lg font-semibold"
+                        />
+                        {amountNum > (wallet?.balance || 0) && amountNum > 0 && (
+                            <p className="text-xs text-red-500 flex items-center gap-1">
+                                <AlertCircle className="w-3 h-3" /> Amount exceeds your available balance
+                            </p>
+                        )}
+                        {amountNum > 0 && amountNum < settings.min_withdrawal_amount && (
+                            <p className="text-xs text-amber-600 flex items-center gap-1">
+                                <AlertCircle className="w-3 h-3" /> Minimum withdrawal is {formatCurrency(settings.min_withdrawal_amount)}
+                            </p>
+                        )}
+                    </div>
+
+                    {/* ── Payout Summary (always visible, reacts live to amount) */}
+                    <div className={cn(
+                        'rounded-xl border-2 overflow-hidden transition-all duration-300',
+                        amountNum > 0
+                            ? 'border-emerald-200 dark:border-emerald-800'
+                            : 'border-dashed border-muted'
+                    )}>
+                        {/* Header row */}
+                        <div className="bg-emerald-50 dark:bg-emerald-950/40 px-4 py-2.5 flex items-center gap-2 border-b border-emerald-100 dark:border-emerald-900">
+                            <Shield className="w-4 h-4 text-emerald-600" />
+                            <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">
+                                Payout Breakdown
+                            </p>
+                        </div>
+                        {/* Breakdown rows */}
+                        <div className="p-4 bg-white dark:bg-card space-y-3 text-sm">
+                            {/* Withdrawal Amount */}
+                            <div className="flex justify-between items-center">
+                                <span className="text-muted-foreground">Withdrawal Amount</span>
+                                <span className="font-semibold tabular-nums">
+                                    {amountNum > 0 ? formatCurrency(amountNum) : '—'}
+                                </span>
+                            </div>
+                            {/* Processing Fee */}
+                            <div className="flex justify-between items-center">
+                                <span className="flex items-center gap-2 text-red-500 dark:text-red-400">
+                                    Processing Fee
+                                    <span className="text-[10px] bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-300 px-1.5 py-0.5 rounded-full font-bold">
+                                        {settings.withdrawal_fee_percent}%
+                                    </span>
+                                </span>
+                                <span className="text-red-500 dark:text-red-400 tabular-nums">
+                                    {amountNum > 0 ? `− ${formatCurrency(feePercent)}` : '—'}
+                                </span>
+                            </div>
+                            {/* Flat Fee — only shown if > 0 */}
+                            {settings.withdrawal_fee_flat > 0 && (
+                                <div className="flex justify-between items-center">
+                                    <span className="text-red-500 dark:text-red-400">Flat Processing Fee</span>
+                                    <span className="text-red-500 dark:text-red-400 tabular-nums">
+                                        {amountNum > 0 ? `− ${formatCurrency(settings.withdrawal_fee_flat)}` : '—'}
+                                    </span>
+                                </div>
+                            )}
+                            {/* Divider */}
+                            <div className="border-t border-dashed" />
+                            {/* Final Payout — hero row */}
+                            <div className="flex justify-between items-center pt-0.5">
+                                <div>
+                                    <p className="font-bold">You Receive</p>
+                                    <p className="text-[11px] text-muted-foreground">Sent directly to your MoMo account</p>
+                                </div>
+                                <span className={cn(
+                                    'text-3xl font-black tabular-nums leading-none',
+                                    amountNum > 0 && netAmount > 0 ? 'text-emerald-600' : 'text-muted-foreground'
+                                )}>
+                                    {amountNum > 0 ? formatCurrency(Math.max(0, netAmount)) : 'GHS 0.00'}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* STEP 2 — Payment Method */}
+                    <div className="space-y-3">
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-2">
+                                <span className="w-5 h-5 rounded-full bg-emerald-600 text-white text-[10px] font-black flex items-center justify-center flex-shrink-0">2</span>
+                                <Label className="text-sm font-semibold">Payment Method</Label>
+                            </div>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-7 gap-1.5 text-xs text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 px-2"
+                                onClick={() => setSavedModalOpen(true)}
+                            >
+                                <Plus className="w-3.5 h-3.5" />
+                                {savedDetails.length === 0 ? 'Add Payment Method' : 'Manage Saved Methods'}
+                            </Button>
+                        </div>
+
+                        {/* Saved detail cards — clickable radio-style */}
+                        {savedDetails.length > 0 && (
+                            <div className="space-y-2.5">
+                                {savedDetails.map(d => (
+                                    <button
+                                        key={d.id}
+                                        type="button"
+                                        onClick={() => handleSavedSelect(d.id)}
+                                        className={cn(
+                                            'w-full flex items-center gap-3 p-3.5 rounded-xl border-2 text-left transition-all duration-200',
+                                            selectedSavedId === d.id
+                                                ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30'
+                                                : 'border-border hover:border-emerald-300 hover:bg-muted/30'
+                                        )}
+                                    >
+                                        {/* Network avatar */}
+                                        <div className={cn(
+                                            'w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-white font-extrabold text-xs',
+                                            NETWORK_BG[d.network]
+                                        )}>
+                                            {NETWORK_SHORT[d.network]}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-1.5 flex-wrap">
+                                                <p className="font-semibold text-sm">{d.account_name}</p>
+                                                {d.is_default && (
+                                                    <span className="text-[10px] bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-300 px-1.5 py-0.5 rounded-full font-bold uppercase shrink-0">
+                                                        Default
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <p className="text-xs text-muted-foreground font-mono mt-0.5">{d.momo_number} · {d.network}</p>
+                                        </div>
+                                        {/* Radio dot */}
+                                        <div className={cn(
+                                            'w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors',
+                                            selectedSavedId === d.id
+                                                ? 'border-emerald-500 bg-emerald-500'
+                                                : 'border-muted-foreground/30'
+                                        )}>
+                                            {selectedSavedId === d.id && <div className="w-2 h-2 rounded-full bg-white" />}
+                                        </div>
+                                    </button>
+                                ))}
+
+                                {/* Manual entry option card */}
+                                <button
+                                    type="button"
+                                    onClick={() => handleSavedSelect('manual')}
+                                    className={cn(
+                                        'w-full flex items-center gap-3 p-3.5 rounded-xl border-2 text-left transition-all duration-200',
+                                        selectedSavedId === 'manual'
+                                            ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30'
+                                            : 'border-border hover:border-emerald-300 hover:bg-muted/30'
+                                    )}
+                                >
+                                    <div className="w-10 h-10 rounded-xl bg-muted flex items-center justify-center flex-shrink-0">
+                                        <CreditCard className="w-5 h-5 text-muted-foreground" />
+                                    </div>
+                                    <div className="flex-1">
+                                        <p className="font-semibold text-sm">Use a Different Account</p>
+                                        <p className="text-xs text-muted-foreground">Enter account details manually</p>
+                                    </div>
+                                    <div className={cn(
+                                        'w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors',
+                                        selectedSavedId === 'manual'
+                                            ? 'border-emerald-500 bg-emerald-500'
+                                            : 'border-muted-foreground/30'
+                                    )}>
+                                        {selectedSavedId === 'manual' && <div className="w-2 h-2 rounded-full bg-white" />}
+                                    </div>
+                                </button>
+                            </div>
+                        )}
+
+                        {/* ── Manual entry fields (shown when manual or no saved details) */}
+                        {isManual && (
+                            <div className="space-y-3 p-4 rounded-xl bg-muted/30 border border-dashed">
+                                <p className="text-xs font-semibold text-muted-foreground">
+                                    {savedDetails.length === 0
+                                        ? 'Enter your mobile money account details below.'
+                                        : 'Enter an alternate mobile money account below.'}
+                                </p>
+                                <div>
+                                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                                        Mobile Money Network
+                                    </Label>
+                                    <Select value={network} onValueChange={(v) => setNetwork(v as Network)}>
+                                        <SelectTrigger className="mt-1.5 h-11">
+                                            <SelectValue placeholder="Select network (MTN MoMo, Telecel...)" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {NETWORKS.map(n => <SelectItem key={n} value={n}>{n}</SelectItem>)}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                                <div>
+                                    <Label htmlFor="accountName" className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                                        Account Holder Name
+                                    </Label>
+                                    <Input
+                                        id="accountName"
+                                        value={accountName}
+                                        onChange={(e) => setAccountName(e.target.value)}
+                                        placeholder="e.g. Kwame Mensah"
+                                        className="mt-1.5 h-11"
+                                    />
+                                </div>
+                                <div>
+                                    <Label htmlFor="momo" className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                                        MoMo Number
+                                    </Label>
+                                    <Input
+                                        id="momo"
+                                        value={momoNumber}
+                                        onChange={(e) => setMomoNumber(e.target.value)}
+                                        placeholder="0244123456"
+                                        className="mt-1.5 h-11 font-mono"
+                                    />
+                                </div>
+                                {savedDetails.length < 5 && (
+                                    <label className="flex items-center gap-2 cursor-pointer text-sm text-muted-foreground select-none">
+                                        <input
+                                            type="checkbox"
+                                            checked={saveForLater}
+                                            onChange={e => setSaveForLater(e.target.checked)}
+                                            className="accent-emerald-600 w-4 h-4"
+                                        />
+                                        Save these details for future withdrawals
+                                    </label>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Selected saved detail — read-only display strip */}
+                        {!isManual && (() => {
+                            const d = savedDetails.find(s => s.id === selectedSavedId)
+                            if (!d) return null
+                            return (
+                                <div className="grid grid-cols-3 gap-2 p-3 rounded-xl bg-muted/30 border text-xs">
+                                    <div>
+                                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Network</p>
+                                        <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded-full', NETWORK_COLORS[d.network])}>
+                                            {d.network}
+                                        </span>
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Account</p>
+                                        <p className="font-medium truncate">{d.account_name}</p>
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Number</p>
+                                        <p className="font-mono">{d.momo_number}</p>
+                                    </div>
+                                </div>
+                            )
+                        })()}
+                    </div>
+
+                    {/* ── Notice */}
+                    <div className="flex items-start gap-2 p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-300">
+                        <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                        <span>
+                            Withdrawals are processed manually by our team within 24 hours.
+                            The <strong>Payout Breakdown</strong> above shows exactly what will be sent to your MoMo account.
+                        </span>
+                    </div>
+
+                    {/* ── Submit Button */}
+                    <Button
+                        onClick={handleSubmit}
+                        disabled={submitting || !amount || amountNum <= 0 || amountNum > (wallet?.balance || 0)}
+                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white h-12 font-bold gap-2 text-base shadow-lg shadow-emerald-600/20"
+                    >
+                        {submitting ? (
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                            <Banknote className="w-5 h-5" />
+                        )}
+                        {submitting
+                            ? 'Submitting...'
+                            : amountNum > 0 && netAmount > 0
+                                ? `Request ${formatCurrency(Math.max(0, netAmount))} Payout`
+                                : 'Request Withdrawal'}
+                    </Button>
+
+                </CardContent>
+            </Card>
+
+            {/* ── Withdrawal History ── */}
+            <Card>
+                <CardHeader>
+                    <CardTitle className="text-base">Withdrawal History</CardTitle>
+                </CardHeader>
+                <CardContent className="p-0">
+                    {history.length === 0 ? (
+                        <div className="text-center py-10 text-muted-foreground">
+                            <Banknote className="w-8 h-8 mx-auto mb-2 opacity-30" />
+                            <p className="text-sm">No withdrawal requests yet.</p>
+                        </div>
+                    ) : (
+                        <>
+                            {/* Desktop Table */}
+                            <div className="hidden md:block overflow-x-auto">
+                                <table className="w-full text-sm">
+                                    <thead>
+                                        <tr className="border-b text-xs text-muted-foreground">
+                                            <th className="text-left px-4 py-2.5 font-medium">Date</th>
+                                            <th className="text-right px-4 py-2.5 font-medium">Requested</th>
+                                            <th className="text-right px-4 py-2.5 font-medium">Fee</th>
+                                            <th className="text-right px-4 py-2.5 font-medium">Payout</th>
+                                            <th className="text-left px-4 py-2.5 font-medium">Account</th>
+                                            <th className="text-left px-4 py-2.5 font-medium">Network</th>
+                                            <th className="text-left px-4 py-2.5 font-medium">Status</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {history.map((row) => {
+                                            const cfg = statusConfig[row.status]
+                                            const Icon = cfg.icon
+                                            return (
+                                                <tr key={row.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
+                                                    <td className="px-4 py-3 text-xs text-muted-foreground">
+                                                        {new Date(row.created_at).toLocaleDateString()}
+                                                    </td>
+                                                    <td className="px-4 py-3 text-right font-medium">{formatCurrency(row.amount)}</td>
+                                                    <td className="px-4 py-3 text-right text-red-500 text-xs">−{formatCurrency(row.fee)}</td>
+                                                    <td className="px-4 py-3 text-right font-semibold text-emerald-600">{formatCurrency(row.net_amount)}</td>
+                                                    <td className="px-4 py-3 text-xs">{row.account_name}</td>
+                                                    <td className="px-4 py-3">
+                                                        {row.network && (
+                                                            <span className={cn('inline-block text-[10px] font-bold px-1.5 py-0.5 rounded-full', NETWORK_COLORS[row.network as Network] || 'bg-gray-100 text-gray-700')}>
+                                                                {row.network}
+                                                            </span>
+                                                        )}
+                                                        <p className="font-mono text-xs text-muted-foreground mt-0.5">{row.momo_number}</p>
+                                                    </td>
+                                                    <td className="px-4 py-3">
+                                                        <span className={cn('inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full', cfg.color)}>
+                                                            <Icon className="w-3 h-3" />
+                                                            {cfg.label}
+                                                        </span>
+                                                        {row.admin_note && row.status === 'rejected' && (
+                                                            <div className="mt-1.5 space-y-1">
+                                                                <p className="text-xs text-red-500">{row.admin_note}</p>
+                                                                <Button
+                                                                    size="sm"
+                                                                    variant="outline"
+                                                                    className="h-7 text-xs border-emerald-500 text-emerald-600 gap-1"
+                                                                    onClick={() => openResubmit(row)}
+                                                                >
+                                                                    <RefreshCcw className="w-3 h-3" /> Resubmit
+                                                                </Button>
+                                                            </div>
+                                                        )}
+                                                    </td>
+                                                </tr>
+                                            )
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            {/* Mobile Cards */}
+                            <div className="md:hidden divide-y">
+                                {history.map((row) => {
+                                    const cfg = statusConfig[row.status]
+                                    const Icon = cfg.icon
+                                    return (
+                                        <div key={row.id} className="p-4 space-y-3">
+                                            {/* Top row — payout amount + status */}
+                                            <div className="flex justify-between items-start">
+                                                <div>
+                                                    <p className="text-xs text-muted-foreground mb-0.5">
+                                                        {new Date(row.created_at).toLocaleDateString()}
+                                                    </p>
+                                                    <p className="text-2xl font-black text-emerald-600 leading-none">
+                                                        {formatCurrency(row.net_amount)}
+                                                    </p>
+                                                    <p className="text-[11px] text-muted-foreground mt-1">
+                                                        Requested: {formatCurrency(row.amount)} · Fee: {formatCurrency(row.fee)}
+                                                    </p>
+                                                </div>
+                                                <span className={cn('inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full shrink-0', cfg.color)}>
+                                                    <Icon className="w-2.5 h-2.5" />
+                                                    {cfg.label.toUpperCase()}
+                                                </span>
+                                            </div>
+                                            {/* Detail grid */}
+                                            <div className="grid grid-cols-2 gap-2 bg-muted/30 p-3 rounded-xl text-xs">
+                                                <div>
+                                                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Account Name</p>
+                                                    <p className="font-medium mt-0.5 truncate">{row.account_name}</p>
+                                                </div>
+                                                <div>
+                                                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Network</p>
+                                                    {row.network ? (
+                                                        <span className={cn(
+                                                            'text-[10px] font-bold px-1.5 py-0.5 rounded-full mt-0.5 inline-block',
+                                                            NETWORK_COLORS[row.network as Network] || 'bg-gray-100 text-gray-700'
+                                                        )}>
+                                                            {row.network}
+                                                        </span>
+                                                    ) : (
+                                                        <p className="text-[10px] text-muted-foreground mt-0.5">—</p>
+                                                    )}
+                                                </div>
+                                                <div className="col-span-2">
+                                                    <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">MoMo Number</p>
+                                                    <p className="font-mono mt-0.5">{row.momo_number}</p>
+                                                </div>
+                                            </div>
+                                            {/* Rejection section */}
+                                            {row.admin_note && row.status === 'rejected' && (
+                                                <div className="space-y-2">
+                                                    <div className="p-2.5 bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-900 rounded-lg text-xs text-red-600 dark:text-red-300">
+                                                        <strong>Admin Note:</strong> {row.admin_note}
+                                                    </div>
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        className="w-full h-10 border-emerald-500 text-emerald-600 gap-2"
+                                                        onClick={() => openResubmit(row)}
+                                                    >
+                                                        <RefreshCcw className="w-3.5 h-3.5" /> Edit Details &amp; Resubmit
+                                                    </Button>
+                                                </div>
+                                            )}
+                                        </div>
+                                    )
+                                })}
+                            </div>
+                        </>
+                    )}
+                </CardContent>
+            </Card>
+
+            {/* ──────────────────────────────────────────
+                Saved Payment Details Modal
+            ────────────────────────────────────────── */}
             <Dialog open={savedModalOpen} onOpenChange={setSavedModalOpen}>
                 <DialogContent className="max-w-md">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
                             <BookUser className="w-4 h-4 text-emerald-600" />
-                            Saved Payment Details
+                            Saved Payment Methods
                         </DialogTitle>
                     </DialogHeader>
-                    <div className="space-y-3 max-h-64 overflow-y-auto pr-1">
+
+                    <div className="space-y-2.5 max-h-64 overflow-y-auto pr-0.5">
                         {savedDetails.length === 0 && (
-                            <p className="text-sm text-muted-foreground text-center py-4">No saved details yet.</p>
+                            <p className="text-sm text-muted-foreground text-center py-6">
+                                No saved payment methods yet. Add one below.
+                            </p>
                         )}
                         {savedDetails.map(d => (
-                            <div key={d.id} className="flex items-center justify-between p-3 rounded-xl border bg-muted/30">
-                                <div className="space-y-0.5">
-                                    <p className="font-semibold text-sm">{d.account_name}</p>
-                                    <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded-full', NETWORK_COLORS[d.network])}>{d.network}</span>
-                                    <p className="font-mono text-xs text-muted-foreground mt-0.5">{d.momo_number}</p>
+                            <div key={d.id} className="flex items-center gap-3 p-3 rounded-xl border bg-muted/30">
+                                {/* Network avatar */}
+                                <div className={cn(
+                                    'w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 text-white font-bold text-xs',
+                                    NETWORK_BG[d.network]
+                                )}>
+                                    {NETWORK_SHORT[d.network]}
                                 </div>
-                                <div className="flex gap-2 items-center">
+                                <div className="flex-1 min-w-0 space-y-0">
+                                    <p className="font-semibold text-sm truncate">{d.account_name}</p>
+                                    <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded-full inline-block', NETWORK_COLORS[d.network])}>
+                                        {d.network}
+                                    </span>
+                                    <p className="font-mono text-xs text-muted-foreground">{d.momo_number}</p>
+                                </div>
+                                <div className="flex gap-1 items-center flex-shrink-0">
                                     <Button
                                         size="icon"
                                         variant="ghost"
-                                        className={cn('h-7 w-7', d.is_default ? 'text-yellow-500' : 'text-muted-foreground')}
+                                        className={cn('h-8 w-8', d.is_default ? 'text-yellow-500' : 'text-muted-foreground')}
                                         onClick={() => handleSetDefault(d.id)}
-                                        title={d.is_default ? 'Default' : 'Set as default'}
+                                        title={d.is_default ? 'Default method' : 'Set as default'}
                                     >
                                         <Star className="w-4 h-4" fill={d.is_default ? 'currentColor' : 'none'} />
                                     </Button>
                                     <Button
                                         size="icon"
                                         variant="ghost"
-                                        className="h-7 w-7 text-red-500 hover:text-red-700"
+                                        className="h-8 w-8 text-red-500 hover:text-red-700"
                                         onClick={() => handleDeleteSavedDetail(d.id)}
                                     >
                                         <Trash2 className="w-3.5 h-3.5" />
@@ -727,69 +942,92 @@ export default function ShopWithdrawPage() {
                         ))}
                     </div>
 
-                    {savedDetails.length < 5 && (
+                    {savedDetails.length < 5 ? (
                         <div className="border-t pt-4 space-y-3">
-                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Add New Detail</p>
+                            <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                                Add New Payment Method ({savedDetails.length}/5)
+                            </p>
                             <Select value={newNetwork} onValueChange={v => setNewNetwork(v as Network)}>
-                                <SelectTrigger><SelectValue placeholder="Select network" /></SelectTrigger>
+                                <SelectTrigger className="h-10">
+                                    <SelectValue placeholder="Select network" />
+                                </SelectTrigger>
                                 <SelectContent>
                                     {NETWORKS.map(n => <SelectItem key={n} value={n}>{n}</SelectItem>)}
                                 </SelectContent>
                             </Select>
-                            <Input placeholder="Account holder name" value={newAccountName} onChange={e => setNewAccountName(e.target.value)} />
-                            <Input placeholder="MoMo number" value={newMomoNumber} onChange={e => setNewMomoNumber(e.target.value)} />
+                            <Input
+                                placeholder="Account holder name"
+                                value={newAccountName}
+                                onChange={e => setNewAccountName(e.target.value)}
+                                className="h-10"
+                            />
+                            <Input
+                                placeholder="MoMo number (e.g. 0244123456)"
+                                value={newMomoNumber}
+                                onChange={e => setNewMomoNumber(e.target.value)}
+                                className="h-10 font-mono"
+                            />
                             <Button
                                 className="w-full bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
                                 onClick={handleAddSavedDetail}
                                 disabled={addingDetail}
                             >
                                 {addingDetail ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                                Save Detail
+                                Save Payment Method
                             </Button>
                         </div>
+                    ) : (
+                        <p className="text-xs text-muted-foreground text-center pt-2 border-t">
+                            Maximum of 5 saved methods reached. Delete one to add more.
+                        </p>
                     )}
-                    {savedDetails.length >= 5 && (
-                        <p className="text-xs text-muted-foreground text-center pt-2">Maximum of 5 saved details reached. Delete one to add more.</p>
-                    )}
+
                     <DialogFooter>
-                        <Button variant="ghost" onClick={() => setSavedModalOpen(false)}>Close</Button>
+                        <Button variant="ghost" onClick={() => setSavedModalOpen(false)}>Done</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
 
-            {/* ── Resubmit Modal */}
+            {/* ──────────────────────────────────────────
+                Resubmit Modal
+            ────────────────────────────────────────── */}
             <Dialog open={!!resubmitTarget} onOpenChange={open => !open && setResubmitTarget(null)}>
                 <DialogContent className="max-w-md">
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
                             <RefreshCcw className="w-4 h-4 text-emerald-600" />
-                            Edit Details & Resubmit
+                            Edit Details &amp; Resubmit
                         </DialogTitle>
                     </DialogHeader>
 
                     {resubmitTarget && (
                         <div className="space-y-4">
-                            {/* Show original rejection reason */}
-                            <div className="p-3 bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-800 rounded-xl text-sm">
+                            {/* Rejection reason */}
+                            <div className="p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900 rounded-xl text-sm">
                                 <p className="font-semibold text-red-700 dark:text-red-400 text-xs uppercase tracking-wide mb-1">Rejection Reason</p>
                                 <p className="text-red-600 dark:text-red-300">{resubmitTarget.admin_note}</p>
                             </div>
 
-                            <div className="p-3 bg-muted/40 rounded-xl text-sm space-y-1">
+                            {/* Locked amount + payout */}
+                            <div className="p-3.5 bg-muted/40 rounded-xl text-sm space-y-2">
                                 <div className="flex justify-between">
-                                    <span className="text-muted-foreground text-xs">Amount (locked)</span>
+                                    <span className="text-muted-foreground text-xs">Withdrawal Amount (locked)</span>
                                     <span className="font-bold">{formatCurrency(resubmitTarget.amount)}</span>
                                 </div>
                                 <div className="flex justify-between">
-                                    <span className="text-muted-foreground text-xs">You Receive</span>
-                                    <span className="font-bold text-emerald-600">{formatCurrency(resubmitTarget.net_amount)}</span>
+                                    <span className="text-muted-foreground text-xs">Fee</span>
+                                    <span className="text-red-500 text-xs">−{formatCurrency(resubmitTarget.fee)}</span>
+                                </div>
+                                <div className="border-t pt-2 flex justify-between">
+                                    <span className="font-bold text-sm">You Receive</span>
+                                    <span className="font-black text-emerald-600 text-lg">{formatCurrency(resubmitTarget.net_amount)}</span>
                                 </div>
                             </div>
 
                             {/* Saved selector */}
                             {savedDetails.length > 0 && (
                                 <div>
-                                    <Label>Use Saved Detail</Label>
+                                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Select Payment Method</Label>
                                     <Select value={resubmitSelectedId} onValueChange={id => {
                                         setResubmitSelectedId(id)
                                         if (id === 'manual') {
@@ -805,7 +1043,7 @@ export default function ShopWithdrawPage() {
                                             }
                                         }
                                     }}>
-                                        <SelectTrigger className="mt-1">
+                                        <SelectTrigger className="mt-1.5 h-10">
                                             <SelectValue placeholder="Select or enter manually" />
                                         </SelectTrigger>
                                         <SelectContent>
@@ -821,21 +1059,33 @@ export default function ShopWithdrawPage() {
                             )}
 
                             <div>
-                                <Label>Network</Label>
+                                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Network</Label>
                                 <Select value={resubmitNetwork} onValueChange={v => setResubmitNetwork(v as Network)} disabled={resubmitSelectedId !== 'manual'}>
-                                    <SelectTrigger className="mt-1"><SelectValue placeholder="Select network" /></SelectTrigger>
+                                    <SelectTrigger className="mt-1.5 h-10"><SelectValue placeholder="Select network" /></SelectTrigger>
                                     <SelectContent>
                                         {NETWORKS.map(n => <SelectItem key={n} value={n}>{n}</SelectItem>)}
                                     </SelectContent>
                                 </Select>
                             </div>
                             <div>
-                                <Label>Account Holder Name</Label>
-                                <Input className="mt-1" value={resubmitAccountName} onChange={e => setResubmitAccountName(e.target.value)} disabled={resubmitSelectedId !== 'manual'} placeholder="e.g. John Doe" />
+                                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Account Holder Name</Label>
+                                <Input
+                                    className="mt-1.5 h-10"
+                                    value={resubmitAccountName}
+                                    onChange={e => setResubmitAccountName(e.target.value)}
+                                    disabled={resubmitSelectedId !== 'manual'}
+                                    placeholder="e.g. Kwame Mensah"
+                                />
                             </div>
                             <div>
-                                <Label>MoMo Number</Label>
-                                <Input className="mt-1" value={resubmitMomoNumber} onChange={e => setResubmitMomoNumber(e.target.value)} disabled={resubmitSelectedId !== 'manual'} placeholder="0244123456" />
+                                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">MoMo Number</Label>
+                                <Input
+                                    className="mt-1.5 h-10 font-mono"
+                                    value={resubmitMomoNumber}
+                                    onChange={e => setResubmitMomoNumber(e.target.value)}
+                                    disabled={resubmitSelectedId !== 'manual'}
+                                    placeholder="0244123456"
+                                />
                             </div>
                         </div>
                     )}
@@ -853,6 +1103,7 @@ export default function ShopWithdrawPage() {
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+
         </div>
     )
 }

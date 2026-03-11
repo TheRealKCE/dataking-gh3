@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/auth-context'
@@ -21,27 +21,24 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Order } from '@/types/supabase'
-import { ArrowRight, Clock, CheckCircle2, XCircle, AlertCircle, ShoppingCart } from 'lucide-react'
+import { ArrowRight, Clock, CheckCircle2, XCircle, AlertCircle, ShoppingCart, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export function RecentOrdersWidget() {
     const { dbUser } = useAuth()
     const [orders, setOrders] = useState<Order[]>([])
-    const [isLoading, setIsLoading] = useState(true)
+    const [isExpanded, setIsExpanded] = useState(false)
+    const [isLoading, setIsLoading] = useState(false)
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
 
-    useEffect(() => {
-        if (dbUser) {
-            fetchRecentOrders()
-        }
-    }, [dbUser])
-
     const fetchRecentOrders = async () => {
+        if (!dbUser || isLoading) return
+        setIsLoading(true)
         try {
             const { data, error } = await supabase
                 .from('orders')
                 .select('*')
-                .eq('user_id', dbUser!.id)
+                .eq('user_id', dbUser.id)
                 .is('shop_order_id', null)
                 .order('created_at', { ascending: false })
                 .limit(10)
@@ -53,6 +50,11 @@ export function RecentOrdersWidget() {
         } finally {
             setIsLoading(false)
         }
+    }
+
+    const handleShowOrders = () => {
+        setIsExpanded(true)
+        fetchRecentOrders()
     }
 
     const getStatusConfig = (status: Order['status']) => {
@@ -100,94 +102,117 @@ export function RecentOrdersWidget() {
                 </Link>
             </CardHeader>
             <CardContent className="p-0">
-                {hasRecentFailedOrder && (
-                    <div className="px-4 py-2.5 bg-red-50 dark:bg-red-900/10 border-b border-red-100 dark:border-red-900/30 flex items-center justify-between">
-                        <div className="flex items-center gap-2 text-red-600 dark:text-red-400 text-sm font-medium">
-                            <AlertCircle className="w-4 h-4" />
-                            <span>One of your recent orders failed.</span>
+                {/* Collapsed state: show button to load orders */}
+                {!isExpanded ? (
+                    <div className="flex flex-col items-center justify-center py-8 gap-3 text-center">
+                        <div className="w-12 h-12 bg-blue-50 dark:bg-blue-900/20 rounded-full flex items-center justify-center">
+                            <ShoppingCart className="w-6 h-6 text-blue-500" />
                         </div>
-                        <Link href="/dashboard/complaints" className="text-xs font-bold underline text-red-700 dark:text-red-300">
-                            Get Support
-                        </Link>
+                        <div>
+                            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Your recent orders are hidden</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">Click below to load your last 10 transactions</p>
+                        </div>
+                        <Button
+                            onClick={handleShowOrders}
+                            size="sm"
+                            className="w-full sm:w-auto mt-1 gap-2"
+                        >
+                            <ShoppingCart className="w-4 h-4" />
+                            Show Recent Orders
+                        </Button>
                     </div>
-                )}
-
-                <div className="divide-y divide-gray-100 dark:divide-gray-800">
-                    {isLoading ? (
-                        [...Array(3)].map((_, i) => (
-                            <div key={i} className="p-4 flex items-center justify-between animate-pulse">
-                                <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-800" />
-                                    <div className="space-y-2">
-                                        <div className="h-4 w-24 bg-gray-200 dark:bg-gray-800 rounded" />
-                                        <div className="h-3 w-16 bg-gray-200 dark:bg-gray-800 rounded" />
-                                    </div>
+                ) : (
+                    <>
+                        {hasRecentFailedOrder && (
+                            <div className="px-4 py-2.5 bg-red-50 dark:bg-red-900/10 border-b border-red-100 dark:border-red-900/30 flex items-center justify-between">
+                                <div className="flex items-center gap-2 text-red-600 dark:text-red-400 text-sm font-medium">
+                                    <AlertCircle className="w-4 h-4" />
+                                    <span>One of your recent orders failed.</span>
                                 </div>
-                                <div className="h-6 w-20 bg-gray-200 dark:bg-gray-800 rounded-full" />
+                                <Link href="/dashboard/complaints" className="text-xs font-bold underline text-red-700 dark:text-red-300">
+                                    Get Support
+                                </Link>
                             </div>
-                        ))
-                    ) : orders.length === 0 ? (
-                        <div className="p-8 text-center flex flex-col items-center justify-center">
-                            <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-3">
-                                <ShoppingCart className="w-8 h-8 text-gray-400" />
-                            </div>
-                            <p className="text-gray-500 dark:text-gray-400 font-medium">No recent orders found</p>
-                            <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">When you buy data, it will appear here.</p>
-                            <Link href="/dashboard/data-packages" className="mt-4">
-                                <Button size="sm">Buy Data Now</Button>
-                            </Link>
-                        </div>
-                    ) : (
-                        orders.map((order) => {
-                            const StatusIcon = getStatusConfig(order.status).icon
-                            return (
-                                <div
-                                    key={order.id}
-                                    onClick={() => setSelectedOrder(order)}
-                                    className="p-3 sm:p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors cursor-pointer flex items-center justify-between group"
-                                >
-                                    <div className="flex items-center gap-3 sm:gap-4">
-                                        <div className={cn(
-                                            "w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center flex-shrink-0 text-xs sm:text-sm font-black shadow-sm",
-                                            getNetworkColor(order.network)
-                                        )}>
-                                            {order.network.substring(0, 3).toUpperCase()}
-                                        </div>
-                                        <div>
-                                            <p className="font-bold text-sm sm:text-base text-gray-900 dark:text-gray-100">
-                                                {order.size} Data
-                                            </p>
-                                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
-                                                <span>{order.phone_number}</span>
-                                                <span>•</span>
-                                                <span>{format(new Date(order.created_at), 'MMM d, h:mm a')}</span>
+                        )}
+
+                        <div className="divide-y divide-gray-100 dark:divide-gray-800">
+                            {isLoading ? (
+                                [...Array(3)].map((_, i) => (
+                                    <div key={i} className="p-4 flex items-center justify-between animate-pulse">
+                                        <div className="flex items-center gap-3">
+                                            <div className="w-10 h-10 rounded-full bg-gray-200 dark:bg-gray-800" />
+                                            <div className="space-y-2">
+                                                <div className="h-4 w-24 bg-gray-200 dark:bg-gray-800 rounded" />
+                                                <div className="h-3 w-16 bg-gray-200 dark:bg-gray-800 rounded" />
                                             </div>
                                         </div>
+                                        <div className="h-6 w-20 bg-gray-200 dark:bg-gray-800 rounded-full" />
                                     </div>
-                                    
-                                    <div className="flex flex-col items-end gap-1.5">
-                                        <p className="font-bold text-sm sm:text-base">
-                                            {formatCurrency(order.price)}
-                                        </p>
-                                        <Badge variant="outline" className={cn("px-1.5 py-0 sm:px-2.5 sm:py-0.5 text-[10px] sm:text-xs capitalize flex items-center gap-1 font-semibold", getStatusConfig(order.status).color)}>
-                                            <StatusIcon className="w-3 h-3 hidden sm:inline-block" />
-                                            {order.status}
-                                        </Badge>
+                                ))
+                            ) : orders.length === 0 ? (
+                                <div className="p-8 text-center flex flex-col items-center justify-center">
+                                    <div className="w-16 h-16 bg-gray-100 dark:bg-gray-800 rounded-full flex items-center justify-center mb-3">
+                                        <ShoppingCart className="w-8 h-8 text-gray-400" />
                                     </div>
+                                    <p className="text-gray-500 dark:text-gray-400 font-medium">No recent orders found</p>
+                                    <p className="text-sm text-gray-400 dark:text-gray-500 mt-1">When you buy data, it will appear here.</p>
+                                    <Link href="/dashboard/data-packages" className="mt-4">
+                                        <Button size="sm">Buy Data Now</Button>
+                                    </Link>
                                 </div>
-                            )
-                        })
-                    )}
-                </div>
-                
-                {orders.length > 0 && (
-                    <div className="p-3 bg-gray-50/50 dark:bg-gray-900/20 border-t sm:hidden">
-                        <Link href="/dashboard/my-orders">
-                            <Button variant="outline" className="w-full text-sm h-9">
-                                View All Orders
-                            </Button>
-                        </Link>
-                    </div>
+                            ) : (
+                                orders.map((order) => {
+                                    const StatusIcon = getStatusConfig(order.status).icon
+                                    return (
+                                        <div
+                                            key={order.id}
+                                            onClick={() => setSelectedOrder(order)}
+                                            className="p-3 sm:p-4 hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors cursor-pointer flex items-center justify-between group"
+                                        >
+                                            <div className="flex items-center gap-3 sm:gap-4">
+                                                <div className={cn(
+                                                    "w-10 h-10 sm:w-12 sm:h-12 rounded-xl flex items-center justify-center flex-shrink-0 text-xs sm:text-sm font-black shadow-sm",
+                                                    getNetworkColor(order.network)
+                                                )}>
+                                                    {order.network.substring(0, 3).toUpperCase()}
+                                                </div>
+                                                <div>
+                                                    <p className="font-bold text-sm sm:text-base text-gray-900 dark:text-gray-100">
+                                                        {order.size} Data
+                                                    </p>
+                                                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
+                                                        <span>{order.phone_number}</span>
+                                                        <span>•</span>
+                                                        <span>{format(new Date(order.created_at), 'MMM d, h:mm a')}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="flex flex-col items-end gap-1.5">
+                                                <p className="font-bold text-sm sm:text-base">
+                                                    {formatCurrency(order.price)}
+                                                </p>
+                                                <Badge variant="outline" className={cn("px-1.5 py-0 sm:px-2.5 sm:py-0.5 text-[10px] sm:text-xs capitalize flex items-center gap-1 font-semibold", getStatusConfig(order.status).color)}>
+                                                    <StatusIcon className="w-3 h-3 hidden sm:inline-block" />
+                                                    {order.status}
+                                                </Badge>
+                                            </div>
+                                        </div>
+                                    )
+                                })
+                            )}
+                        </div>
+
+                        {orders.length > 0 && (
+                            <div className="p-3 bg-gray-50/50 dark:bg-gray-900/20 border-t sm:hidden">
+                                <Link href="/dashboard/my-orders">
+                                    <Button variant="outline" className="w-full text-sm h-9">
+                                        View All Orders
+                                    </Button>
+                                </Link>
+                            </div>
+                        )}
+                    </>
                 )}
             </CardContent>
 
