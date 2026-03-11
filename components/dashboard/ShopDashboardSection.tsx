@@ -85,8 +85,11 @@ export function ShopDashboardSection({
         )
     }
 
-    // Case 2: Shop exists but no pricing configured
-    if (!hasPricingConfigured) {
+    // Case 2: Shop exists but no pricing configured AND shop is not yet approved.
+    // NOTE: Skip this check if already approved — old shop owners approved before the
+    // pricing system was introduced won't have shop_pricing rows, but they should still
+    // see the full dashboard. An approved shop is always fully activated.
+    if (!hasPricingConfigured && !isApproved) {
         return (
             <ShopGuidanceCard
                 icon={Settings}
@@ -100,7 +103,7 @@ export function ShopDashboardSection({
         )
     }
 
-    // Case 3: Pricing configured but awaiting admin approval
+    // Case 3: Pricing configured (or already approved) but awaiting admin approval
     if (!isApproved) {
         return (
             <ShopGuidanceCard
