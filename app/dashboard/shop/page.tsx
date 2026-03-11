@@ -101,7 +101,9 @@ export default function ShopOverviewPage() {
                 .from('shop_profiles')
                 .select('*')
                 .eq('owner_id', dbUser!.id)
-                .single())
+                .order('created_at', { ascending: false })
+                .limit(1)
+                .maybeSingle())
 
             if (!shopData) {
                 setLoading(false)

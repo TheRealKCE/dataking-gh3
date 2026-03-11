@@ -128,6 +128,8 @@ export default function DashboardPage() {
                 .from('shop_profiles')
                 .select('id, approval_status, announcement, shop_slug')
                 .eq('owner_id', dbUser?.id)
+                .order('created_at', { ascending: false })
+                .limit(1)
                 .maybeSingle()
 
             const isApproved = shop?.approval_status === 'approved'
