@@ -225,7 +225,10 @@ export default function AFAOrdersPage() {
         fetchApplicationPrice()
         fetchWalletBalance()
 
-        // Live status updates: mirrors the admin panel listener pattern
+        // Live status updates
+        // NOTE: No filter here — filtering by user_id on UPDATE events can cause them
+        // to be dropped when user_id isn't included in the changed columns of the event.
+        // RLS + the ID check below ensures we only process our own orders.
         const channel = supabase
             .channel(`afa_orders_user_${dbUser.id}`)
             .on(
@@ -234,7 +237,6 @@ export default function AFAOrdersPage() {
                     event: 'UPDATE',
                     schema: 'public',
                     table: 'afa_orders',
-                    filter: `user_id=eq.${dbUser.id}`,
                 },
                 (payload: any) => {
                     setApplications(prev =>
@@ -347,6 +349,8 @@ export default function AFAOrdersPage() {
                 user_id: dbUser?.id,
                 full_name: formData.full_name,
                 phone: formData.phone,
+                // Backward-compat: ghana_card may be NOT NULL in the original schema
+                ghana_card: formData.id_number,
                 id_type: formData.id_type,
                 id_number: formData.id_number,
                 location: formData.location,

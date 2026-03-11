@@ -126,9 +126,11 @@ export default function DashboardPage() {
         try {
             const { data: shop } = await (supabase as any)
                 .from('shop_profiles')
-                .select('id, is_approved, announcement')
+                .select('id, approval_status, announcement')
                 .eq('owner_id', dbUser?.id)
                 .maybeSingle()
+
+            const isApproved = shop?.approval_status === 'approved'
 
             if (!shop) {
                 setShopStatus({ isLoading: false, hasShop: false, hasPricingConfigured: false, isApproved: false })
@@ -140,10 +142,10 @@ export default function DashboardPage() {
 
             const [pricingRes, graphRes, orderStatsRes] = await Promise.all([
                 (supabase as any).from('shop_pricing').select('id', { count: 'exact', head: true }).eq('shop_id', shop.id),
-                shop.is_approved
+                isApproved
                     ? (supabase as any).from('shop_orders').select('created_at, selling_price, profit').eq('shop_id', shop.id).gte('created_at', thirtyDaysAgo.toISOString())
                     : Promise.resolve({ data: [] }),
-                shop.is_approved
+                isApproved
                     ? Promise.all([
                         (supabase as any).from('shop_orders').select('*', { count: 'exact', head: true }).eq('shop_id', shop.id),
                         (supabase as any).from('shop_orders').select('*', { count: 'exact', head: true }).eq('shop_id', shop.id).eq('status', 'completed'),
@@ -176,7 +178,7 @@ export default function DashboardPage() {
                 isLoading: false,
                 hasShop: true,
                 hasPricingConfigured: hasPricing,
-                isApproved: !!shop.is_approved,
+                isApproved,
                 shopId: shop.id,
                 currentAnnouncement: shop.announcement,
                 graphData: graphRes?.data || [],
