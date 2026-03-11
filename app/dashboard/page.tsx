@@ -126,7 +126,7 @@ export default function DashboardPage() {
         try {
             const { data: shop } = await (supabase as any)
                 .from('shop_profiles')
-                .select('id, approval_status, announcement')
+                .select('id, approval_status, announcement, shop_slug')
                 .eq('owner_id', dbUser?.id)
                 .maybeSingle()
 
@@ -183,6 +183,7 @@ export default function DashboardPage() {
                 currentAnnouncement: shop.announcement,
                 graphData: graphRes?.data || [],
                 orderStats,
+                ...(shop.shop_slug && { shopSlug: shop.shop_slug })
             })
         } catch (error) {
             console.error('Error fetching shop status:', error)
@@ -375,6 +376,7 @@ export default function DashboardPage() {
                 hasPricingConfigured={shopStatus.hasPricingConfigured}
                 isApproved={shopStatus.isApproved}
                 shopId={shopStatus.shopId}
+                shopSlug={(shopStatus as any).shopSlug}
                 currentAnnouncement={shopStatus.currentAnnouncement}
                 graphData={shopStatus.graphData}
                 orderStats={shopStatus.orderStats}

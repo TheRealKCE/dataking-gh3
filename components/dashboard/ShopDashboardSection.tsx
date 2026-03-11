@@ -5,6 +5,7 @@ import { ShopGuidanceCard } from './ShopGuidanceCard'
 import { ShopGrowthGraph } from './ShopGrowthGraph'
 import { ShopAnnouncementBox } from './ShopAnnouncementBox'
 import { ShopOrdersOverview } from './ShopOrdersOverview'
+import { ShopQuickShare } from './ShopQuickShare'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent } from '@/components/ui/card'
 
@@ -30,6 +31,7 @@ interface ShopDashboardSectionProps {
     hasPricingConfigured: boolean
     isApproved: boolean
     shopId?: string
+    shopSlug?: string
     currentAnnouncement?: string | null
     graphData?: ShopOrderDataPoint[]
     orderStats?: ShopOrderStats
@@ -62,6 +64,7 @@ export function ShopDashboardSection({
     hasPricingConfigured,
     isApproved,
     shopId,
+    shopSlug,
     currentAnnouncement,
     graphData = [],
     orderStats = { total: 0, completed: 0, pending: 0, processing: 0, failed: 0, revenue: 0, profit: 0 },
@@ -104,6 +107,7 @@ export function ShopDashboardSection({
     }
 
     // Case 3: Pricing configured (or already approved) but awaiting admin approval
+    // Note: If an old shop is approved, it skips case 2 and case 3, rendering case 4.
     if (!isApproved) {
         return (
             <ShopGuidanceCard
@@ -118,7 +122,10 @@ export function ShopDashboardSection({
 
     // Case 4: Fully set up — show the complete shop dashboard
     return (
-        <div className="space-y-4">
+        <div className="space-y-4 pt-2">
+            {/* Quick Share Widget for Easy Promotion */}
+            {shopSlug && <ShopQuickShare shopSlug={shopSlug} />}
+
             {/* Shop Orders Overview */}
             <ShopOrdersOverview stats={orderStats} />
 
