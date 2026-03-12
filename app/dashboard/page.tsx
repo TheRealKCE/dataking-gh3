@@ -42,7 +42,6 @@ interface ShopStatus {
     hasPricingConfigured: boolean
     isApproved: boolean
     shopId?: string
-    currentAnnouncement?: string | null
     graphData?: { created_at: string; selling_price: number; profit: number }[]
     orderStats?: {
         total: number
@@ -130,16 +129,20 @@ export default function DashboardPage() {
         try {
             const { data, error } = await (supabase as any)
                 .from('shop_profiles')
-                .select('id, approval_status, announcement, shop_slug')
+                .select('id, approval_status, shop_slug') // Removed 'announcement' which doesn't exist on shop_profiles
                 .eq('owner_id', dbUser?.id)
-                .order('created_at', { ascending: false })
-                .limit(1)
                 .maybeSingle()
 
-            if (error) throw error
+            if (error) {
+                if (error.code !== 'PGRST116') {
+                    console.error('[ShopStatus] Database query error:', error)
+                }
+                setShopStatus({ isLoading: false, hasShop: false, hasPricingConfigured: false, isApproved: false })
+                return
+            }
             shop = data
         } catch (profileError) {
-            console.error('[ShopStatus] Failed to fetch shop profile:', profileError)
+            console.error('[ShopStatus] Unexpected error fetching shop profile:', profileError)
             setShopStatus({ isLoading: false, hasShop: false, hasPricingConfigured: false, isApproved: false })
             return
         }
@@ -159,7 +162,6 @@ export default function DashboardPage() {
             hasPricingConfigured: false,
             isApproved,
             shopId: shop.id,
-            currentAnnouncement: shop.announcement,
             graphData: [],
             orderStats: { total: 0, completed: 0, pending: 0, processing: 0, failed: 0, revenue: 0, profit: 0 },
             ...(shop.shop_slug && { shopSlug: shop.shop_slug })
@@ -214,7 +216,6 @@ export default function DashboardPage() {
             hasPricingConfigured: hasPricing,
             isApproved,
             shopId: shop.id,
-            currentAnnouncement: shop.announcement,
             graphData: graphRes?.data || [],
             orderStats,
             ...(shop.shop_slug && { shopSlug: shop.shop_slug })
@@ -407,7 +408,6 @@ export default function DashboardPage() {
                 isApproved={shopStatus.isApproved}
                 shopId={shopStatus.shopId}
                 shopSlug={(shopStatus as any).shopSlug}
-                currentAnnouncement={shopStatus.currentAnnouncement}
                 graphData={shopStatus.graphData}
                 orderStats={shopStatus.orderStats}
             />

@@ -32,7 +32,6 @@ interface ShopDashboardSectionProps {
     isApproved: boolean
     shopId?: string
     shopSlug?: string
-    currentAnnouncement?: string | null
     graphData?: ShopOrderDataPoint[]
     orderStats?: ShopOrderStats
 }
@@ -65,7 +64,6 @@ export function ShopDashboardSection({
     isApproved,
     shopId,
     shopSlug,
-    currentAnnouncement,
     graphData = [],
     orderStats = { total: 0, completed: 0, pending: 0, processing: 0, failed: 0, revenue: 0, profit: 0 },
 }: ShopDashboardSectionProps) {
@@ -135,7 +133,7 @@ export function ShopDashboardSection({
                 {shopId && (
                     <ShopAnnouncementBox
                         shopId={shopId}
-                        currentAnnouncement={currentAnnouncement ?? null}
+                        currentAnnouncement={null} // Box will manage its own state or fetch if we update it later
                     />
                 )}
             </div>
