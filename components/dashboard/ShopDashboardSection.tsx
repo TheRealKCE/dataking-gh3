@@ -6,6 +6,7 @@ import { ShopGrowthGraph } from './ShopGrowthGraph'
 import { ShopAnnouncementBox } from './ShopAnnouncementBox'
 import { ShopOrdersOverview } from './ShopOrdersOverview'
 import { ShopQuickShare } from './ShopQuickShare'
+import { ShopWalletWidget } from './ShopWalletWidget'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Card, CardContent } from '@/components/ui/card'
 
@@ -32,6 +33,7 @@ interface ShopDashboardSectionProps {
     isApproved: boolean
     shopId?: string
     shopSlug?: string
+    wallet?: { balance: number; total_earned: number; total_withdrawn: number } | null
     graphData?: ShopOrderDataPoint[]
     orderStats?: ShopOrderStats
 }
@@ -64,6 +66,7 @@ export function ShopDashboardSection({
     isApproved,
     shopId,
     shopSlug,
+    wallet = null,
     graphData = [],
     orderStats = { total: 0, completed: 0, pending: 0, processing: 0, failed: 0, revenue: 0, profit: 0 },
 }: ShopDashboardSectionProps) {
@@ -123,6 +126,9 @@ export function ShopDashboardSection({
         <div className="space-y-4 pt-2">
             {/* Quick Share Widget for Easy Promotion */}
             {shopSlug && <ShopQuickShare shopSlug={shopSlug} />}
+
+            {/* Profit Wallet Action Center */}
+            <ShopWalletWidget wallet={wallet} />
 
             {/* Shop Orders Overview */}
             <ShopOrdersOverview stats={orderStats} />

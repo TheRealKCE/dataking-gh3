@@ -42,6 +42,7 @@ interface ShopStatus {
     hasPricingConfigured: boolean
     isApproved: boolean
     shopId?: string
+    wallet?: { balance: number; total_earned: number; total_withdrawn: number } | null
     graphData?: { created_at: string; selling_price: number; profit: number }[]
     orderStats?: {
         total: number
@@ -162,6 +163,7 @@ export default function DashboardPage() {
             hasPricingConfigured: false,
             isApproved,
             shopId: shop.id,
+            wallet: null,
             graphData: [],
             orderStats: { total: 0, completed: 0, pending: 0, processing: 0, failed: 0, revenue: 0, profit: 0 },
             ...(shop.shop_slug && { shopSlug: shop.shop_slug })
@@ -171,7 +173,7 @@ export default function DashboardPage() {
         const thirtyDaysAgo = new Date()
         thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
 
-        const [pricingSettled, graphSettled, statsSettled] = await Promise.allSettled([
+        const [pricingSettled, graphSettled, statsSettled, walletSettled] = await Promise.allSettled([
             (supabase as any).from('shop_pricing').select('id', { count: 'exact', head: true }).eq('shop_id', shop.id),
             isApproved
                 ? (supabase as any).from('shop_orders').select('created_at, selling_price, profit').eq('shop_id', shop.id).gte('created_at', thirtyDaysAgo.toISOString())
@@ -185,12 +187,16 @@ export default function DashboardPage() {
                     (supabase as any).from('shop_orders').select('*', { count: 'exact', head: true }).eq('shop_id', shop.id).eq('status', 'failed'),
                     (supabase as any).from('shop_orders').select('selling_price, profit').eq('shop_id', shop.id).eq('status', 'completed'),
                 ])
-                : Promise.resolve(null)
+                : Promise.resolve(null),
+            isApproved
+                ? (supabase as any).from('shop_wallets').select('*').eq('owner_id', dbUser?.id).single()
+                : Promise.resolve({ data: null })
         ])
 
         const pricingRes = pricingSettled.status === 'fulfilled' ? pricingSettled.value : null
         const graphRes = graphSettled.status === 'fulfilled' ? graphSettled.value : null
         const orderStatsRes = statsSettled.status === 'fulfilled' ? statsSettled.value : null
+        const walletRes = walletSettled.status === 'fulfilled' ? walletSettled.value : null
 
         const hasPricing = (pricingRes?.count || 0) > 0
 
@@ -216,6 +222,7 @@ export default function DashboardPage() {
             hasPricingConfigured: hasPricing,
             isApproved,
             shopId: shop.id,
+            wallet: walletRes?.data || null,
             graphData: graphRes?.data || [],
             orderStats,
             ...(shop.shop_slug && { shopSlug: shop.shop_slug })
@@ -408,6 +415,7 @@ export default function DashboardPage() {
                 isApproved={shopStatus.isApproved}
                 shopId={shopStatus.shopId}
                 shopSlug={(shopStatus as any).shopSlug}
+                wallet={shopStatus.wallet}
                 graphData={shopStatus.graphData}
                 orderStats={shopStatus.orderStats}
             />

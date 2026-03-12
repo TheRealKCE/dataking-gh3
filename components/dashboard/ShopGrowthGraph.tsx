@@ -133,19 +133,20 @@ export function ShopGrowthGraph({ data }: ShopGrowthGraphProps) {
                                     >
                                         <div
                                             className={cn(
-                                                'w-full rounded-t-sm transition-all duration-300',
+                                                'w-full rounded-t-lg transition-all duration-500 ease-out',
                                                 bucket.orders > 0
-                                                    ? 'bg-emerald-500 dark:bg-emerald-600 group-hover:bg-emerald-600 dark:group-hover:bg-emerald-500'
-                                                    : 'bg-muted'
+                                                    ? 'bg-gradient-to-t from-emerald-600 to-teal-400 dark:from-emerald-700 dark:to-teal-400 group-hover:brightness-110 shadow-sm'
+                                                    : 'bg-muted/50 dark:bg-muted/20'
                                             )}
                                             style={{ height: `${Math.max(heightPct, bucket.orders > 0 ? 8 : 4)}%` }}
                                         />
                                         {/* Tooltip on hover */}
-                                        <div className="absolute bottom-full mb-1 hidden group-hover:flex flex-col items-center z-10 pointer-events-none">
-                                            <div className="bg-gray-900 text-white text-[10px] font-medium px-2 py-1 rounded whitespace-nowrap shadow-lg">
-                                                {bucket.label}: {bucket.orders}
+                                        <div className="absolute bottom-full mb-1.5 hidden group-hover:flex flex-col items-center z-10 pointer-events-none animate-in fade-in zoom-in-95 duration-200">
+                                            <div className="bg-gray-900/95 backdrop-blur-md text-white text-[10px] sm:text-xs px-2.5 py-1.5 rounded-lg whitespace-nowrap shadow-xl border border-gray-800/60 ring-1 ring-white/10">
+                                                <span className="text-gray-400 font-medium mr-1.5">{bucket.label}</span>
+                                                <span className="font-bold">{bucket.orders}</span>
                                             </div>
-                                            <div className="w-1.5 h-1.5 bg-gray-900 rotate-45 -mt-0.5" />
+                                            <div className="w-2 h-2 bg-gray-900/95 border-r border-b border-gray-800/60 rotate-45 -mt-1.5" />
                                         </div>
                                     </div>
                                 )

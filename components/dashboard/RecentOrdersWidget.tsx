@@ -21,7 +21,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Order } from '@/types/supabase'
-import { ArrowRight, Clock, CheckCircle2, XCircle, AlertCircle, ShoppingCart, Loader2 } from 'lucide-react'
+import { ArrowRight, Clock, CheckCircle2, XCircle, AlertCircle, ShoppingCart, Loader2, Eye, EyeOff } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export function RecentOrdersWidget() {
@@ -102,27 +102,30 @@ export function RecentOrdersWidget() {
                 </Link>
             </CardHeader>
             <CardContent className="p-0">
-                {/* Collapsed state: show button to load orders */}
+                {/* Collapsed state: sleek full-width button */}
                 {!isExpanded ? (
-                    <div className="flex flex-col items-center justify-center py-8 gap-3 text-center">
-                        <div className="w-12 h-12 bg-blue-50 dark:bg-blue-900/20 rounded-full flex items-center justify-center">
-                            <ShoppingCart className="w-6 h-6 text-blue-500" />
-                        </div>
-                        <div>
-                            <p className="text-sm font-medium text-gray-700 dark:text-gray-300">Your recent orders are hidden</p>
-                            <p className="text-xs text-muted-foreground mt-0.5">Click below to load your last 10 transactions</p>
-                        </div>
-                        <Button
+                    <div className="p-3">
+                        <button
                             onClick={handleShowOrders}
-                            size="sm"
-                            className="w-full sm:w-auto mt-1 gap-2"
+                            className="w-full py-2.5 rounded-lg bg-gray-100 hover:bg-gray-200 dark:bg-gray-800 dark:hover:bg-gray-700 transition-colors flex items-center justify-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300"
                         >
-                            <ShoppingCart className="w-4 h-4" />
-                            Show Recent Orders
-                        </Button>
+                            <Eye className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                            View Recent Orders
+                        </button>
                     </div>
                 ) : (
-                    <>
+                    <div className="animate-in fade-in slide-in-from-top-2 duration-300">
+                        {/* Hide Button at top of expanded view */}
+                        <div className="p-3 border-b border-gray-50 dark:border-gray-800/50">
+                            <button
+                                onClick={() => setIsExpanded(false)}
+                                className="w-full py-2.5 rounded-lg bg-gray-100/80 hover:bg-gray-200 dark:bg-gray-800/80 dark:hover:bg-gray-700 transition-colors flex items-center justify-center gap-2 text-sm font-medium text-gray-700 dark:text-gray-300"
+                            >
+                                <EyeOff className="w-4 h-4 text-gray-500 dark:text-gray-400" />
+                                Hide Recent Orders
+                            </button>
+                        </div>
+
                         {hasRecentFailedOrder && (
                             <div className="px-4 py-2.5 bg-red-50 dark:bg-red-900/10 border-b border-red-100 dark:border-red-900/30 flex items-center justify-between">
                                 <div className="flex items-center gap-2 text-red-600 dark:text-red-400 text-sm font-medium">
@@ -212,7 +215,7 @@ export function RecentOrdersWidget() {
                                 </Link>
                             </div>
                         )}
-                    </>
+                    </div>
                 )}
             </CardContent>
 
