@@ -360,11 +360,11 @@ export default function DashboardPage() {
                 orderStats={shopStatus.orderStats}
             />
 
-            {/* Today's Orders Summary */}
-            <TodaysOrdersSummary />
-
             {/* Recent Orders Widget */}
             <RecentOrdersWidget />
+
+            {/* Today's Orders Summary */}
+            <TodaysOrdersSummary />
 
             {/* Quick Actions (Moved to bottom) */}
             <Card className="border-0 shadow-sm mt-8">
