@@ -95,9 +95,11 @@ export default function ShopOverviewPage() {
     const [adminAnnActive, setAdminAnnActive] = useState(false)
 
     const fetchShopData = async () => {
+        // --- Stage 1: Fetch the shop profile in isolation ---
+        // Once a profile is found, we set the shop immediately so user sees shop UI.
+        let shopData: any = null
         try {
-            // Fetch shop profile
-            const { data: shopData } = await ((supabase as any)
+            const { data, error } = await ((supabase as any)
                 .from('shop_profiles')
                 .select('*')
                 .eq('owner_id', dbUser!.id)
@@ -105,64 +107,73 @@ export default function ShopOverviewPage() {
                 .limit(1)
                 .maybeSingle())
 
-            if (!shopData) {
-                setLoading(false)
-                return
-            }
-            setShop(shopData)
-
-            // Determine date range for stats and orders
-            let query = (supabase as any)
-                .from('shop_orders')
-                .select('*')
-                .eq('shop_id', shopData.id)
-
-            const now = new Date()
-            if (filter === 'today') {
-                const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
-                query = query.gte('created_at', startOfDay)
-            } else if (filter === '7d') {
-                const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
-                query = query.gte('created_at', sevenDaysAgo)
-            } else if (filter === '30d') {
-                const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString()
-                query = query.gte('created_at', thirtyDaysAgo)
-            }
-
-            // Fetch wallet, stats, and filtered orders in parallel
-            const [walletRes, ordersRes] = await Promise.all([
-                ((supabase as any).from('shop_wallets').select('*').eq('owner_id', dbUser!.id).single()),
-                query.order('created_at', { ascending: false }),
-            ])
-
-            if (walletRes.data) setWallet(walletRes.data)
-
-            const orders = ordersRes.data || []
-            setRecentOrders(orders)
-
-            // Calculate stats
-            const pending = orders.filter((o: any) => o.status === 'pending')
-            const completed = orders.filter((o: any) => o.status === 'completed')
-            const processing = orders.filter((o: any) => o.status === 'processing')
-            const failed = orders.filter((o: any) => o.status === 'failed')
-
-            const earningStatuses = ['pending', 'processing', 'completed']
-            const earningsOrders = orders.filter((o: any) => earningStatuses.includes(o.status))
-
-            setStats({
-                total_orders: orders.length,
-                completed_orders: completed.length,
-                pending_orders: pending.length,
-                processing_orders: processing.length,
-                failed_orders: failed.length,
-                total_revenue: earningsOrders.reduce((sum: number, o: any) => sum + (o.selling_price || 0), 0),
-                total_profit: earningsOrders.reduce((sum: number, o: any) => sum + (o.profit || 0), 0),
-            })
-        } catch (err) {
-            console.error('Error fetching shop data:', err)
-        } finally {
+            if (error) throw error
+            shopData = data
+        } catch (profileErr) {
+            console.error('[ShopPage] Failed to fetch shop profile:', profileErr)
             setLoading(false)
+            return
         }
+
+        if (!shopData) {
+            setLoading(false)
+            return
+        }
+
+        // --- Stage 2: Shop found — render it immediately ---
+        setShop(shopData)
+
+        // --- Stage 3: Fetch secondary data (wallet, orders) with allSettled ---
+        // Failures here never hide the shop dashboard.
+        let query = (supabase as any)
+            .from('shop_orders')
+            .select('*')
+            .eq('shop_id', shopData.id)
+
+        const now = new Date()
+        if (filter === 'today') {
+            const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
+            query = query.gte('created_at', startOfDay)
+        } else if (filter === '7d') {
+            const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
+            query = query.gte('created_at', sevenDaysAgo)
+        } else if (filter === '30d') {
+            const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString()
+            query = query.gte('created_at', thirtyDaysAgo)
+        }
+
+        const [walletSettled, ordersSettled] = await Promise.allSettled([
+            (supabase as any).from('shop_wallets').select('*').eq('owner_id', dbUser!.id).single(),
+            query.order('created_at', { ascending: false }),
+        ])
+
+        if (walletSettled.status === 'fulfilled' && walletSettled.value?.data) {
+            setWallet(walletSettled.value.data)
+        }
+
+        const orders = (ordersSettled.status === 'fulfilled' ? ordersSettled.value?.data : null) || []
+        setRecentOrders(orders)
+
+        // Calculate stats
+        const pending = orders.filter((o: any) => o.status === 'pending')
+        const completed = orders.filter((o: any) => o.status === 'completed')
+        const processing = orders.filter((o: any) => o.status === 'processing')
+        const failed = orders.filter((o: any) => o.status === 'failed')
+
+        const earningStatuses = ['pending', 'processing', 'completed']
+        const earningsOrders = orders.filter((o: any) => earningStatuses.includes(o.status))
+
+        setStats({
+            total_orders: orders.length,
+            completed_orders: completed.length,
+            pending_orders: pending.length,
+            processing_orders: processing.length,
+            failed_orders: failed.length,
+            total_revenue: earningsOrders.reduce((sum: number, o: any) => sum + (o.selling_price || 0), 0),
+            total_profit: earningsOrders.reduce((sum: number, o: any) => sum + (o.profit || 0), 0),
+        })
+
+        setLoading(false)
     }
 
     const fetchShopAnnouncement = async () => {

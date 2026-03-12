@@ -123,8 +123,12 @@ export default function DashboardPage() {
     }
 
     const fetchShopStatus = async () => {
+        // --- Stage 1: Fetch the shop profile in isolation ---
+        // If this fails, we have no shop. If it succeeds, we lock in hasShop:true
+        // so no secondary failure can ever hide the dashboard again.
+        let shop: any = null
         try {
-            const { data: shop } = await (supabase as any)
+            const { data, error } = await (supabase as any)
                 .from('shop_profiles')
                 .select('id, approval_status, announcement, shop_slug')
                 .eq('owner_id', dbUser?.id)
@@ -132,65 +136,89 @@ export default function DashboardPage() {
                 .limit(1)
                 .maybeSingle()
 
-            const isApproved = shop?.approval_status === 'approved'
-
-            if (!shop) {
-                setShopStatus({ isLoading: false, hasShop: false, hasPricingConfigured: false, isApproved: false })
-                return
-            }
-
-            const thirtyDaysAgo = new Date()
-            thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
-
-            const [pricingRes, graphRes, orderStatsRes] = await Promise.all([
-                (supabase as any).from('shop_pricing').select('id', { count: 'exact', head: true }).eq('shop_id', shop.id),
-                isApproved
-                    ? (supabase as any).from('shop_orders').select('created_at, selling_price, profit').eq('shop_id', shop.id).gte('created_at', thirtyDaysAgo.toISOString())
-                    : Promise.resolve({ data: [] }),
-                isApproved
-                    ? Promise.all([
-                        (supabase as any).from('shop_orders').select('*', { count: 'exact', head: true }).eq('shop_id', shop.id),
-                        (supabase as any).from('shop_orders').select('*', { count: 'exact', head: true }).eq('shop_id', shop.id).eq('status', 'completed'),
-                        (supabase as any).from('shop_orders').select('*', { count: 'exact', head: true }).eq('shop_id', shop.id).eq('status', 'pending'),
-                        (supabase as any).from('shop_orders').select('*', { count: 'exact', head: true }).eq('shop_id', shop.id).eq('status', 'processing'),
-                        (supabase as any).from('shop_orders').select('*', { count: 'exact', head: true }).eq('shop_id', shop.id).eq('status', 'failed'),
-                        (supabase as any).from('shop_orders').select('selling_price, profit').eq('shop_id', shop.id).eq('status', 'completed'),
-                    ])
-                    : Promise.resolve(null)
-            ])
-
-            const hasPricing = (pricingRes.count || 0) > 0
-
-            let orderStats = { total: 0, completed: 0, pending: 0, processing: 0, failed: 0, revenue: 0, profit: 0 }
-            if (orderStatsRes) {
-                const [totalR, completedR, pendingR, processingR, failedR, revenueR] = orderStatsRes as any[]
-                const revenueRows: { selling_price: number; profit: number }[] = revenueR?.data || []
-                orderStats = {
-                    total: totalR.count || 0,
-                    completed: completedR.count || 0,
-                    pending: pendingR.count || 0,
-                    processing: processingR.count || 0,
-                    failed: failedR.count || 0,
-                    revenue: revenueRows.reduce((s: number, r: any) => s + (r.selling_price || 0), 0),
-                    profit: revenueRows.reduce((s: number, r: any) => s + (r.profit || 0), 0),
-                }
-            }
-
-            setShopStatus({
-                isLoading: false,
-                hasShop: true,
-                hasPricingConfigured: hasPricing,
-                isApproved,
-                shopId: shop.id,
-                currentAnnouncement: shop.announcement,
-                graphData: graphRes?.data || [],
-                orderStats,
-                ...(shop.shop_slug && { shopSlug: shop.shop_slug })
-            })
-        } catch (error) {
-            console.error('Error fetching shop status:', error)
+            if (error) throw error
+            shop = data
+        } catch (profileError) {
+            console.error('[ShopStatus] Failed to fetch shop profile:', profileError)
             setShopStatus({ isLoading: false, hasShop: false, hasPricingConfigured: false, isApproved: false })
+            return
         }
+
+        if (!shop) {
+            setShopStatus({ isLoading: false, hasShop: false, hasPricingConfigured: false, isApproved: false })
+            return
+        }
+
+        // --- Stage 2: Shop exists — lock in hasShop:true with defaults ---
+        const isApproved = shop.approval_status === 'approved'
+
+        // Show dashboard immediately so users see it even if stats take time
+        setShopStatus({
+            isLoading: false,
+            hasShop: true,
+            hasPricingConfigured: false,
+            isApproved,
+            shopId: shop.id,
+            currentAnnouncement: shop.announcement,
+            graphData: [],
+            orderStats: { total: 0, completed: 0, pending: 0, processing: 0, failed: 0, revenue: 0, profit: 0 },
+            ...(shop.shop_slug && { shopSlug: shop.shop_slug })
+        })
+
+        // --- Stage 3: Fetch secondary data with allSettled so failures don't affect visibility ---
+        const thirtyDaysAgo = new Date()
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+
+        const [pricingSettled, graphSettled, statsSettled] = await Promise.allSettled([
+            (supabase as any).from('shop_pricing').select('id', { count: 'exact', head: true }).eq('shop_id', shop.id),
+            isApproved
+                ? (supabase as any).from('shop_orders').select('created_at, selling_price, profit').eq('shop_id', shop.id).gte('created_at', thirtyDaysAgo.toISOString())
+                : Promise.resolve({ data: [] }),
+            isApproved
+                ? Promise.all([
+                    (supabase as any).from('shop_orders').select('*', { count: 'exact', head: true }).eq('shop_id', shop.id),
+                    (supabase as any).from('shop_orders').select('*', { count: 'exact', head: true }).eq('shop_id', shop.id).eq('status', 'completed'),
+                    (supabase as any).from('shop_orders').select('*', { count: 'exact', head: true }).eq('shop_id', shop.id).eq('status', 'pending'),
+                    (supabase as any).from('shop_orders').select('*', { count: 'exact', head: true }).eq('shop_id', shop.id).eq('status', 'processing'),
+                    (supabase as any).from('shop_orders').select('*', { count: 'exact', head: true }).eq('shop_id', shop.id).eq('status', 'failed'),
+                    (supabase as any).from('shop_orders').select('selling_price, profit').eq('shop_id', shop.id).eq('status', 'completed'),
+                ])
+                : Promise.resolve(null)
+        ])
+
+        const pricingRes = pricingSettled.status === 'fulfilled' ? pricingSettled.value : null
+        const graphRes = graphSettled.status === 'fulfilled' ? graphSettled.value : null
+        const orderStatsRes = statsSettled.status === 'fulfilled' ? statsSettled.value : null
+
+        const hasPricing = (pricingRes?.count || 0) > 0
+
+        let orderStats = { total: 0, completed: 0, pending: 0, processing: 0, failed: 0, revenue: 0, profit: 0 }
+        if (orderStatsRes) {
+            const [totalR, completedR, pendingR, processingR, failedR, revenueR] = orderStatsRes as any[]
+            const revenueRows: { selling_price: number; profit: number }[] = revenueR?.data || []
+            orderStats = {
+                total: totalR?.count || 0,
+                completed: completedR?.count || 0,
+                pending: pendingR?.count || 0,
+                processing: processingR?.count || 0,
+                failed: failedR?.count || 0,
+                revenue: revenueRows.reduce((s: number, r: any) => s + (r.selling_price || 0), 0),
+                profit: revenueRows.reduce((s: number, r: any) => s + (r.profit || 0), 0),
+            }
+        }
+
+        // Update with enriched data
+        setShopStatus({
+            isLoading: false,
+            hasShop: true,
+            hasPricingConfigured: hasPricing,
+            isApproved,
+            shopId: shop.id,
+            currentAnnouncement: shop.announcement,
+            graphData: graphRes?.data || [],
+            orderStats,
+            ...(shop.shop_slug && { shopSlug: shop.shop_slug })
+        })
     }
 
     if (isLoading) {
