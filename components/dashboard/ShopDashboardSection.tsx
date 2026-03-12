@@ -32,6 +32,7 @@ interface ShopDashboardSectionProps {
     hasPricingConfigured: boolean
     isApproved: boolean
     shopId?: string
+    shopName?: string
     shopSlug?: string
     wallet?: { balance: number; total_earned: number; total_withdrawn: number } | null
     graphData?: ShopOrderDataPoint[]
@@ -65,6 +66,7 @@ export function ShopDashboardSection({
     hasPricingConfigured,
     isApproved,
     shopId,
+    shopName,
     shopSlug,
     wallet = null,
     graphData = [],
@@ -124,6 +126,19 @@ export function ShopDashboardSection({
     // Case 4: Fully set up — show the complete shop dashboard
     return (
         <div className="space-y-4 pt-2">
+            {/* Shop Branding Header */}
+            {shopName && (
+                <div className="flex items-center gap-3 bg-gradient-to-r from-gray-900 to-gray-800 dark:from-white/10 dark:to-white/5 rounded-2xl p-6 text-white border border-gray-800/50 shadow-md">
+                    <div className="p-3 bg-white/10 rounded-xl backdrop-blur-md">
+                        <Store className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                        <p className="text-white/70 text-sm font-medium uppercase tracking-wider mb-0.5">Shop Dashboard</p>
+                        <h2 className="text-2xl font-black">Welcome to {shopName}</h2>
+                    </div>
+                </div>
+            )}
+
             {/* Quick Share Widget for Easy Promotion */}
             {shopSlug && <ShopQuickShare shopSlug={shopSlug} />}
 

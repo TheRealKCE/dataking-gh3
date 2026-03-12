@@ -26,6 +26,7 @@ import { RoleGreetingBox } from '@/components/dashboard/RoleGreetingBox'
 import { RecentOrdersWidget } from '@/components/dashboard/RecentOrdersWidget'
 import { BusinessPerformanceWidget } from '@/components/dashboard/BusinessPerformanceWidget'
 import { ShopDashboardSection } from '@/components/dashboard/ShopDashboardSection'
+import { TodaysOrdersSummary } from '@/components/dashboard/TodaysOrdersSummary'
 
 interface DashboardStats {
     totalOrders: number
@@ -42,6 +43,7 @@ interface ShopStatus {
     hasPricingConfigured: boolean
     isApproved: boolean
     shopId?: string
+    shopName?: string
     wallet?: { balance: number; total_earned: number; total_withdrawn: number } | null
     graphData?: { created_at: string; selling_price: number; profit: number }[]
     orderStats?: {
@@ -130,7 +132,7 @@ export default function DashboardPage() {
         try {
             const { data, error } = await (supabase as any)
                 .from('shop_profiles')
-                .select('id, approval_status, shop_slug') // Removed 'announcement' which doesn't exist on shop_profiles
+                .select('id, approval_status, shop_slug, shop_name')
                 .eq('owner_id', dbUser?.id)
                 .maybeSingle()
 
@@ -163,6 +165,7 @@ export default function DashboardPage() {
             hasPricingConfigured: false,
             isApproved,
             shopId: shop.id,
+            shopName: shop.shop_name,
             wallet: null,
             graphData: [],
             orderStats: { total: 0, completed: 0, pending: 0, processing: 0, failed: 0, revenue: 0, profit: 0 },
@@ -222,6 +225,7 @@ export default function DashboardPage() {
             hasPricingConfigured: hasPricing,
             isApproved,
             shopId: shop.id,
+            shopName: shop.shop_name,
             wallet: walletRes?.data || null,
             graphData: graphRes?.data || [],
             orderStats,
@@ -258,7 +262,24 @@ export default function DashboardPage() {
             {/* Dynamic Role Greeting Box */}
             <RoleGreetingBox stats={stats!} />
 
-
+            {/* Main Wallet Balance Card moved to top as requested */}
+            <Card id="wallet-card" className="overflow-hidden shadow-lg border-0 hover:shadow-xl transition-all duration-300">
+                <div className="bg-[#FACC15] p-6 text-[#1A1A1A] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+                    <div>
+                        <div className="flex items-center gap-2 mb-2">
+                            <Wallet className="w-5 h-5 text-[#1A1A1A]/80" />
+                            <p className="text-[#1A1A1A]/80 font-medium">Wallet Balance</p>
+                        </div>
+                        <p className="text-4xl md:text-5xl font-black tracking-tight">{formatCurrency(stats?.walletBalance || 0)}</p>
+                    </div>
+                    <Link href="/dashboard/wallet" className="w-full sm:w-auto">
+                        <Button size="lg" className="w-full sm:w-auto bg-[#1A1A1A] hover:bg-black text-white border-0 shadow-lg rounded-xl font-bold h-12 px-8">
+                            <Plus className="w-5 h-5 mr-2" />
+                            Top Up Wallet
+                        </Button>
+                    </Link>
+                </div>
+            </Card>
             {/* Stats Cards */}
             <div className="grid grid-cols-2 gap-3 sm:gap-4">
                 <Card className="bg-gradient-to-br from-blue-600 to-blue-800 text-white border-0 shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
@@ -321,92 +342,6 @@ export default function DashboardPage() {
             {/* Premium Business Analytics Widget */}
             <BusinessPerformanceWidget />
 
-
-            {/* Wallet & Quick Actions */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-                {/* Wallet Card */}
-                <Card id="wallet-card" className="lg:col-span-1 overflow-hidden">
-                    <div className="bg-[#FACC15] p-6 text-[#1A1A1A]">
-                        <div className="flex items-center justify-between mb-4">
-                            <p className="text-[#1A1A1A]/80 font-medium">Wallet Balance</p>
-                            <Wallet className="w-6 h-6 text-[#1A1A1A]/60" />
-                        </div>
-                        <p className="text-4xl font-bold mb-6">{formatCurrency(stats?.walletBalance || 0)}</p>
-                        <Link href="/dashboard/wallet">
-                            <Button className="w-full bg-[#1A1A1A]/10 hover:bg-[#1A1A1A]/20 text-[#1A1A1A] border-0">
-                                <Plus className="w-4 h-4 mr-2" />
-                                Top Up Wallet
-                            </Button>
-                        </Link>
-                    </div>
-                </Card>
-
-                {/* Quick Actions */}
-                <Card className="lg:col-span-2">
-                    <CardHeader>
-                        <CardTitle className="text-lg">Quick Actions</CardTitle>
-                    </CardHeader>
-                    <CardContent>
-                        <div id="data-packages" className="grid grid-cols-3 gap-3">
-                            <Link href="/dashboard/data-packages">
-                                <div className="p-4 rounded-xl bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-900/20 dark:to-yellow-800/20 border border-yellow-200 dark:border-yellow-800 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer group">
-                                    <div className="w-10 h-10 rounded-lg bg-yellow-500 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                                        <Package className="w-5 h-5 text-white" />
-                                    </div>
-                                    <p className="font-medium text-sm">Buy Data</p>
-                                    <p className="text-xs text-muted-foreground">MTN, Telecel...</p>
-                                </div>
-                            </Link>
-                            <Link href="/dashboard/my-orders">
-                                <div id="order-history" className="p-4 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border border-blue-200 dark:border-blue-800 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer group">
-                                    <div className="w-10 h-10 rounded-lg bg-blue-500 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                                        <ShoppingCart className="w-5 h-5 text-white" />
-                                    </div>
-                                    <p className="font-medium text-sm">My Orders</p>
-                                    <p className="text-xs text-muted-foreground">Track orders</p>
-                                </div>
-                            </Link>
-                            <Link href="/dashboard/wallet">
-                                <div className="p-4 rounded-xl bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 border border-green-200 dark:border-green-800 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer group">
-                                    <div className="w-10 h-10 rounded-lg bg-green-500 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                                        <Wallet className="w-5 h-5 text-white" />
-                                    </div>
-                                    <p className="font-medium text-sm">Top Up</p>
-                                    <p className="text-xs text-muted-foreground">Add funds</p>
-                                </div>
-                            </Link>
-                            <Link href="/dashboard/complaints">
-                                <div id="complaint-button" className="p-4 rounded-xl bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20 border border-red-200 dark:border-red-800 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer group">
-                                    <div className="w-10 h-10 rounded-lg bg-red-500 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                                        <AlertCircle className="w-5 h-5 text-white" />
-                                    </div>
-                                    <p className="font-medium text-sm">Complaints</p>
-                                    <p className="text-xs text-muted-foreground">Get support</p>
-                                </div>
-                            </Link>
-                            <Link href="/dashboard/afa-orders">
-                                <div className="p-4 rounded-xl bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 border border-purple-200 dark:border-purple-800 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer group">
-                                    <div className="w-10 h-10 rounded-lg bg-purple-500 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                                        <Star className="w-5 h-5 text-white" />
-                                    </div>
-                                    <p className="font-medium text-sm">AFA Orders</p>
-                                    <p className="text-xs text-muted-foreground">AFA packages</p>
-                                </div>
-                            </Link>
-                            <Link href="/dashboard/shop">
-                                <div className="p-4 rounded-xl bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-800/20 border border-indigo-200 dark:border-indigo-800 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 cursor-pointer group">
-                                    <div className="w-10 h-10 rounded-lg bg-indigo-500 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
-                                        <Store className="w-5 h-5 text-white" />
-                                    </div>
-                                    <p className="font-medium text-sm">Shop</p>
-                                    <p className="text-xs text-muted-foreground">Manage store</p>
-                                </div>
-                            </Link>
-                        </div>
-                    </CardContent>
-                </Card>
-            </div>
-
             {/* Shop Dashboard Section */}
             <ShopDashboardSection
                 isLoading={shopStatus.isLoading}
@@ -414,14 +349,77 @@ export default function DashboardPage() {
                 hasPricingConfigured={shopStatus.hasPricingConfigured}
                 isApproved={shopStatus.isApproved}
                 shopId={shopStatus.shopId}
+                shopName={shopStatus.shopName}
                 shopSlug={(shopStatus as any).shopSlug}
                 wallet={shopStatus.wallet}
                 graphData={shopStatus.graphData}
                 orderStats={shopStatus.orderStats}
             />
 
+            {/* Today's Orders Summary */}
+            <TodaysOrdersSummary />
+
             {/* Recent Orders Widget */}
             <RecentOrdersWidget />
+
+            {/* Quick Actions (Moved to bottom) */}
+            <Card className="border-0 shadow-sm mt-8">
+                <CardHeader className="pb-3 border-b border-gray-100 dark:border-gray-800">
+                    <CardTitle className="text-lg font-bold">Quick Links</CardTitle>
+                </CardHeader>
+                <CardContent className="pt-4">
+                    <div id="data-packages" className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
+                        <Link href="/dashboard/data-packages">
+                            <div className="p-4 rounded-xl bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-900/20 dark:to-yellow-800/20 border border-yellow-200 dark:border-yellow-800 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer group text-center flex flex-col items-center">
+                                <div className="w-10 h-10 rounded-lg bg-yellow-500 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                                    <Package className="w-5 h-5 text-white" />
+                                </div>
+                                <p className="font-bold text-xs sm:text-sm">Buy Data</p>
+                            </div>
+                        </Link>
+                        <Link href="/dashboard/my-orders">
+                            <div id="order-history" className="p-4 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border border-blue-200 dark:border-blue-800 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer group text-center flex flex-col items-center">
+                                <div className="w-10 h-10 rounded-lg bg-blue-500 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                                    <ShoppingCart className="w-5 h-5 text-white" />
+                                </div>
+                                <p className="font-bold text-xs sm:text-sm">Orders</p>
+                            </div>
+                        </Link>
+                        <Link href="/dashboard/wallet">
+                            <div className="p-4 rounded-xl bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 border border-green-200 dark:border-green-800 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer group text-center flex flex-col items-center">
+                                <div className="w-10 h-10 rounded-lg bg-green-500 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                                    <Wallet className="w-5 h-5 text-white" />
+                                </div>
+                                <p className="font-bold text-xs sm:text-sm">Top Up</p>
+                            </div>
+                        </Link>
+                        <Link href="/dashboard/complaints">
+                            <div id="complaint-button" className="p-4 rounded-xl bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20 border border-red-200 dark:border-red-800 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer group text-center flex flex-col items-center">
+                                <div className="w-10 h-10 rounded-lg bg-red-500 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                                    <AlertCircle className="w-5 h-5 text-white" />
+                                </div>
+                                <p className="font-bold text-xs sm:text-sm">Support</p>
+                            </div>
+                        </Link>
+                        <Link href="/dashboard/afa-orders">
+                            <div className="p-4 rounded-xl bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 border border-purple-200 dark:border-purple-800 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer group text-center flex flex-col items-center">
+                                <div className="w-10 h-10 rounded-lg bg-purple-500 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                                    <Star className="w-5 h-5 text-white" />
+                                </div>
+                                <p className="font-bold text-xs sm:text-sm">AFA Orders</p>
+                            </div>
+                        </Link>
+                        <Link href="/dashboard/shop">
+                            <div className="p-4 rounded-xl bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-800/20 border border-indigo-200 dark:border-indigo-800 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer group text-center flex flex-col items-center">
+                                <div className="w-10 h-10 rounded-lg bg-indigo-500 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
+                                    <Store className="w-5 h-5 text-white" />
+                                </div>
+                                <p className="font-bold text-xs sm:text-sm">My Shop</p>
+                            </div>
+                        </Link>
+                    </div>
+                </CardContent>
+            </Card>
 
         </div>
     )

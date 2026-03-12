@@ -128,11 +128,16 @@ export function RoleGreetingBox({ stats }: RoleGreetingBoxProps) {
 
             {/* Greeting and Date/Time Row */}
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6 relative z-10">
-                <div className="flex items-center gap-2">
-                    <Icon className={cn("w-6 h-6 sm:w-8 sm:h-8", textColor, dbUser.role === 'agent' ? "fill-black" : "fill-white/20")} />
-                    <h2 className={cn("text-xl sm:text-2xl font-black", textColor)}>
-                        {getGreeting()}, {dbUser.first_name}!
-                    </h2>
+                <div className="flex flex-col gap-1">
+                    <div className="flex items-center gap-2">
+                        <Icon className={cn("w-6 h-6 sm:w-8 sm:h-8", textColor, dbUser.role === 'agent' ? "fill-black" : "fill-white/20")} />
+                        <h2 className={cn("text-xl sm:text-2xl font-black", textColor)}>
+                            {getGreeting()}, {dbUser.first_name}!
+                        </h2>
+                    </div>
+                    <p className={cn("text-xs sm:text-sm font-medium opacity-90 pl-1", textColor)}>
+                        Here's an overview of your transactions, shop performance, and recent activity.
+                    </p>
                 </div>
                 <div className={cn("flex flex-row sm:flex-col items-center sm:items-end gap-2 sm:gap-0", textColor)}>
                     <p className="text-xs sm:text-base font-bold opacity-90">{dateStr}</p>
