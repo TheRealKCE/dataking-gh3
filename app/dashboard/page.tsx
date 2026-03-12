@@ -44,6 +44,7 @@ interface ShopStatus {
     isApproved: boolean
     shopId?: string
     shopName?: string
+    brandColor?: string
     wallet?: { balance: number; total_earned: number; total_withdrawn: number } | null
     graphData?: { created_at: string; selling_price: number; profit: number }[]
     orderStats?: {
@@ -132,7 +133,7 @@ export default function DashboardPage() {
         try {
             const { data, error } = await (supabase as any)
                 .from('shop_profiles')
-                .select('id, approval_status, shop_slug, shop_name')
+                .select('id, approval_status, shop_slug, shop_name, brand_color')
                 .eq('owner_id', dbUser?.id)
                 .maybeSingle()
 
@@ -166,6 +167,7 @@ export default function DashboardPage() {
             isApproved,
             shopId: shop.id,
             shopName: shop.shop_name,
+            brandColor: shop.brand_color,
             wallet: null,
             graphData: [],
             orderStats: { total: 0, completed: 0, pending: 0, processing: 0, failed: 0, revenue: 0, profit: 0 },
@@ -226,6 +228,7 @@ export default function DashboardPage() {
             isApproved,
             shopId: shop.id,
             shopName: shop.shop_name,
+            brandColor: shop.brand_color,
             wallet: walletRes?.data || null,
             graphData: graphRes?.data || [],
             orderStats,
@@ -350,6 +353,7 @@ export default function DashboardPage() {
                 isApproved={shopStatus.isApproved}
                 shopId={shopStatus.shopId}
                 shopName={shopStatus.shopName}
+                brandColor={shopStatus.brandColor}
                 shopSlug={(shopStatus as any).shopSlug}
                 wallet={shopStatus.wallet}
                 graphData={shopStatus.graphData}
@@ -421,6 +425,13 @@ export default function DashboardPage() {
                 </CardContent>
             </Card>
 
+            {/* Dashboard Footer */}
+            <footer className="mt-12 py-8 border-t border-gray-100 dark:border-gray-800 text-center space-y-2">
+                <p className="text-sm font-bold text-gray-500 dark:text-gray-400">KingFlexyGh</p>
+                <p className="text-xs text-muted-foreground">
+                    © {new Date().getFullYear()} KingFlexyGh. All rights reserved.
+                </p>
+            </footer>
         </div>
     )
 }

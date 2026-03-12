@@ -53,14 +53,15 @@ export function ShopAnnouncementBox({ shopId, currentAnnouncement }: ShopAnnounc
                     <div>
                         <CardTitle className="text-base font-bold">Shop Announcement</CardTitle>
                         <p className="text-xs text-muted-foreground mt-0.5">
-                            Shown to customers visiting your storefront
+                            {announcement
+                                ? "Shown to customers visiting your storefront"
+                                : "No current announcement—share an update with your customers"}
                         </p>
                     </div>
                 </div>
             </CardHeader>
             <CardContent className="space-y-3">
                 <Textarea
-                    placeholder="e.g. 🎉 Flash sale today! MTN 5GB for just GHS 12. Order now!"
                     value={announcement}
                     onChange={e => {
                         if (e.target.value.length <= MAX_CHARS) setAnnouncement(e.target.value)
