@@ -1026,7 +1026,7 @@ export async function sendAdminNewOrderAlert(
     const { data: admins } = await supabase
         .from('users')
         .select('email')
-        .in('role', ['admin', 'sub_admin'])
+        .in('role', ['admin', 'sub-admin'])
 
     const adminEmails = new Set<string>()
     if (process.env.ADMIN_EMAIL) {
@@ -1122,6 +1122,126 @@ export async function sendAdminNewOrderAlert(
     } catch (error: any) {
         console.error('Failed to send admin order alerts:', error)
         return { success: false, error: 'Failed to broadcast admin alerts' }
+    }
+}
+
+
+/**
+ * Send aggregated bulk order fulfillment alert to all admins/sub-admins
+ */
+export async function sendAdminBulkOrderAlert(
+    details: {
+        totalOrders: number
+        failureCount: number
+        failures: Array<{ referenceCode: string; network: string; reason: string; type: 'error' | 'skipped' }>
+        customerName: string
+        customerEmail: string
+    }
+): Promise<EmailResult> {
+    const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+        process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+    )
+
+    const { data: admins } = await supabase
+        .from('users')
+        .select('email')
+        .in('role', ['admin', 'sub-admin'])
+
+    const adminEmails = new Set<string>()
+    if (process.env.ADMIN_EMAIL) adminEmails.add(process.env.ADMIN_EMAIL)
+    if (admins) admins.forEach(a => { if (a.email) adminEmails.add(a.email) })
+
+    if (adminEmails.size === 0) {
+        console.warn('[BulkAlert] No admin emails found.')
+        return { success: false, error: 'No admin emails configured' }
+    }
+
+    const hasErrors = details.failures.some(f => f.type === 'error')
+    const hasSkips = details.failures.some(f => f.type === 'skipped')
+    const subject = hasErrors
+        ? `[BULK FULFILLMENT FAILED] ${details.failureCount}/${details.totalOrders} orders need attention`
+        : `[BULK ORDER] Manual Fulfillment Required - ${details.failureCount}/${details.totalOrders} orders skipped`
+
+    const failureRows = details.failures.map(f => `
+        <tr style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+            <td style="padding: 8px 12px; font-size: 13px; color: #e2e8f0;">${f.referenceCode}</td>
+            <td style="padding: 8px 12px; font-size: 13px; color: #e2e8f0;">${f.network}</td>
+            <td style="padding: 8px 12px; font-size: 13px; color: ${f.type === 'error' ? '#f87171' : '#fbbf24'};">${f.type === 'error' ? '❌ Failed' : '⏸️ Skipped'}</td>
+            <td style="padding: 8px 12px; font-size: 13px; color: #94a3b8;">${f.reason}</td>
+        </tr>`).join('')
+
+    const content = `
+        <h1 class="greeting">${hasErrors ? '⚠️ Bulk Fulfillment Issues Detected' : '⏸️ Bulk Order — Manual Fulfillment Required'}</h1>
+        <p class="subtitle">Some orders in this bulk batch require your attention</p>
+
+        <div class="info-card">
+            <div class="info-card-header">
+                <div class="info-card-icon">📊</div>
+                <span class="info-card-title">Batch Summary</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Customer</span>
+                <span class="info-value">${details.customerName} (${details.customerEmail})</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Total Orders</span>
+                <span class="info-value">${details.totalOrders}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Successful Fulfillments</span>
+                <span class="info-value" style="color: #4ade80;">${details.totalOrders - details.failureCount}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Require Manual Action</span>
+                <span class="info-value" style="color: #f87171;">${details.failureCount}</span>
+            </div>
+            <div class="info-row">
+                <span class="info-label">Date</span>
+                <span class="info-value">${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span>
+            </div>
+        </div>
+
+        <div class="info-card" style="margin-top: 20px;">
+            <div class="info-card-header">
+                <div class="info-card-icon">📋</div>
+                <span class="info-card-title">Orders Requiring Attention</span>
+            </div>
+            <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
+                <thead>
+                    <tr style="border-bottom: 1px solid rgba(255,255,255,0.1);">
+                        <th style="padding: 8px 12px; text-align: left; font-size: 12px; color: #64748b; font-weight: 600;">Reference</th>
+                        <th style="padding: 8px 12px; text-align: left; font-size: 12px; color: #64748b; font-weight: 600;">Network</th>
+                        <th style="padding: 8px 12px; text-align: left; font-size: 12px; color: #64748b; font-weight: 600;">Status</th>
+                        <th style="padding: 8px 12px; text-align: left; font-size: 12px; color: #64748b; font-weight: 600;">Reason</th>
+                    </tr>
+                </thead>
+                <tbody>${failureRows}</tbody>
+            </table>
+        </div>
+
+        <div class="cta-container">
+            <a href="${process.env.NEXT_PUBLIC_APP_URL}/admin/fulfillment" class="cta-button" style="background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%); color: #ffffff !important;">
+                Go to Fulfillment Center
+            </a>
+        </div>
+    `
+
+    const htmlContent = generatePremiumTemplate(
+        hasErrors ? 'Bulk Fulfillment Failed' : 'Manual Fulfillment Required',
+        content,
+        '#ef4444'
+    )
+
+    try {
+        const emailPromises = Array.from(adminEmails).map(email =>
+            sendEmail({ to: email, toName: 'Admin', subject, htmlContent })
+        )
+        await Promise.allSettled(emailPromises)
+        return { success: true }
+    } catch (error: any) {
+        console.error('[BulkAlert] Failed to send bulk order alerts:', error)
+        return { success: false, error: 'Failed to broadcast bulk alerts' }
     }
 }
 

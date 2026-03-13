@@ -3,12 +3,21 @@ import { createServerClient } from '@/lib/supabase'
 import { generateReferenceCode } from '@/lib/utils'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
+import { waitUntil } from '@vercel/functions'
 // import { isRateLimited, checkFraudSignals, logSuspiciousActivity } from '@/lib/security'
 
 interface BulkOrderItem {
     packageId: string
     phoneNumber: string
     packagePrice: number
+}
+
+interface FulfillmentOutcome {
+    failed: boolean
+    type: 'error' | 'skipped' | 'success'
+    reason?: string
+    referenceCode: string
+    network: string
 }
 
 export async function POST(request: NextRequest) {
@@ -105,7 +114,6 @@ export async function POST(request: NextRequest) {
         const totalCost = validatedOrders.reduce((sum, o: any) => sum + o.packagePrice, 0)
 
         // === SECURITY: Fraud Check for Admin/Agent ===
-        // Using an empty/generic phone or picking the first one, but primarily flagging the agent
         // const isFraud = await checkFraudSignals(userId, 'bulk_admin', supabase)
         // if (isFraud) {
         //     await logSuspiciousActivity(userId, 'bulk_purchase', 'fraud detected', supabase)
@@ -190,17 +198,41 @@ export async function POST(request: NextRequest) {
             action_url: `/dashboard/my-orders`,
         })
 
-        // === 7. Trigger fulfillment concurrently for all orders ===
+        // === 7. Background: SMS + Fulfillment + Aggregated Admin Alert ===
         if (createdOrders && createdOrders.length > 0) {
             const userName = `${(userRoleData as any)?.first_name || ''} ${(userRoleData as any)?.last_name || ''}`.trim() || 'Customer'
             const userEmail = (userRoleData as any)?.email || 'Unknown'
 
-            // Fire and forget — do not await fulfillment so response is fast
-            Promise.allSettled(
-                (createdOrders as any[]).map((order) =>
-                    triggerFulfillment(order.id, order.network, { email: userEmail, name: userName })
+            // Use waitUntil so the lambda stays alive after returning the response
+            waitUntil((async () => {
+                const allResults = await Promise.allSettled(
+                    (createdOrders as any[]).map((order) =>
+                        processOrderNotifications(order, { email: userEmail, name: userName })
+                    )
                 )
-            ).catch((err) => console.error('[BulkPurchase] Fulfillment error:', err))
+
+                // Collect all failures (API errors) and skips (disabled fulfillment)
+                const exceptions: FulfillmentOutcome[] = allResults
+                    .filter(r => r.status === 'fulfilled' && (r as PromiseFulfilledResult<FulfillmentOutcome>).value?.failed)
+                    .map(r => (r as PromiseFulfilledResult<FulfillmentOutcome>).value)
+
+                // Send ONE aggregated summary email to all admins if any exceptions
+                if (exceptions.length > 0) {
+                    const { sendAdminBulkOrderAlert } = await import('@/lib/email-service')
+                    await sendAdminBulkOrderAlert({
+                        totalOrders: createdOrders.length,
+                        failureCount: exceptions.length,
+                        failures: exceptions.map(e => ({
+                            referenceCode: e.referenceCode,
+                            network: e.network,
+                            reason: e.reason || 'Unknown',
+                            type: e.type as 'error' | 'skipped',
+                        })),
+                        customerName: userName,
+                        customerEmail: userEmail,
+                    }).catch(err => console.error('[BulkPurchase] Admin alert error:', err))
+                }
+            })())
         }
 
         return NextResponse.json({
@@ -216,10 +248,43 @@ export async function POST(request: NextRequest) {
     }
 }
 
-async function triggerFulfillment(orderId: string, network: string, user: { email: string, name: string }) {
+/**
+ * Handle per-order notifications: SMS to beneficiary first, then fulfillment.
+ * Returns outcome so caller can aggregate for admin alert.
+ */
+async function processOrderNotifications(
+    order: { id: string; reference_code: string; network: string; phone_number: string; size: string },
+    user: { email: string; name: string }
+): Promise<FulfillmentOutcome> {
+    // Step 1: SMS to beneficiary (non-blocking — errors don't prevent fulfillment)
+    const { sendOrderSuccessSMS } = await import('@/lib/sms-service')
+    await sendOrderSuccessSMS(order.phone_number, {
+        recipientNumber: order.phone_number,
+        network: order.network,
+        size: order.size,
+        price: 0,
+        currentBalance: 0,
+    }).catch(err => console.error(`[BulkOrder] SMS error for ${order.phone_number}:`, err))
+
+    // Step 2: Trigger fulfillment and return the outcome
+    return triggerFulfillment(order, user)
+}
+
+/**
+ * Trigger fulfillment for a single order and return an outcome object.
+ * Does NOT send any admin emails — caller aggregates outcomes.
+ */
+async function triggerFulfillment(
+    order: { id: string; reference_code: string; network: string; phone_number: string; size: string },
+    user: { email: string; name: string }
+): Promise<FulfillmentOutcome> {
+    const base: Omit<FulfillmentOutcome, 'failed' | 'type' | 'reason'> = {
+        referenceCode: order.reference_code,
+        network: order.network,
+    }
+
     try {
         const { fulfillOrder } = await import('@/lib/fulfillment-service')
-        const { sendAdminNewOrderAlert } = await import('@/lib/email-service')
         const supabase = createServerClient()
 
         const { data: settingsData } = await supabase
@@ -232,26 +297,12 @@ async function triggerFulfillment(orderId: string, network: string, user: { emai
             return acc
         }, {})
 
-        const { data: order } = await supabase.from('orders').select('*').eq('id', orderId).single()
-        if (!order) return
-
-        const alertDetails = {
-            referenceCode: (order as any).reference_code,
-            phoneNumber: (order as any).phone_number,
-            network: (order as any).network,
-            size: (order as any).size,
-            price: (order as any).price,
-            customerName: user.name,
-            customerEmail: user.email,
-            source: 'main_site' as const,
-            reason: ''
-        }
-
+        // Check global fulfillment switch
         if (settingsMap.auto_fulfillment_enabled === 'false') {
-            sendAdminNewOrderAlert({ ...alertDetails, reason: 'Global auto-fulfillment is disabled' })
-            return
+            return { ...base, failed: true, type: 'skipped', reason: 'Global auto-fulfillment is disabled' }
         }
 
+        // Check per-network fulfillment switch
         let fulfillmentSettings = { networks: {} as Record<string, boolean> }
         try {
             if (settingsMap.fulfillment_settings) {
@@ -259,37 +310,46 @@ async function triggerFulfillment(orderId: string, network: string, user: { emai
                     ? JSON.parse(settingsMap.fulfillment_settings)
                     : settingsMap.fulfillment_settings
             }
-        } catch { /* ignore */ }
+        } catch { /* ignore parse errors */ }
 
-        if (fulfillmentSettings.networks[network] === false) {
-            sendAdminNewOrderAlert({ ...alertDetails, reason: `Auto-fulfillment is disabled for network: ${network}` })
-            return
+        if (fulfillmentSettings.networks[order.network] === false) {
+            return { ...base, failed: true, type: 'skipped', reason: `Auto-fulfillment is disabled for network: ${order.network}` }
         }
 
+        // Avoid double-fulfilling
         const { data: existingTracking } = await supabase
-            .from('mtn_fulfillment_tracking').select('status').eq('order_id', orderId).single()
-        if (existingTracking) return
+            .from('mtn_fulfillment_tracking').select('status').eq('order_id', order.id).single()
+        if (existingTracking) return { ...base, failed: false, type: 'success' }
 
-        const result = await fulfillOrder(network, (order as any).phone_number, (order as any).size, orderId)
+        // Call fulfillment API
+        const result = await fulfillOrder(order.network, order.phone_number, '', order.id)
 
         if (result.success) {
             await (supabase.from('mtn_fulfillment_tracking') as any).insert({
-                order_id: orderId,
+                order_id: order.id,
                 status: 'processing',
-                api_response: result.apiResponse || { reference: result.reference, network },
+                api_response: result.apiResponse || { reference: result.reference, network: order.network },
             })
             await (supabase.from('orders') as any)
                 .update({ status: 'processing', updated_at: new Date().toISOString() })
-                .eq('id', orderId)
+                .eq('id', order.id)
+            return { ...base, failed: false, type: 'success' }
         } else {
-            sendAdminNewOrderAlert({ ...alertDetails, reason: `Auto-fulfillment API error: ${result.error || 'Unknown error'}` })
             await (supabase.from('mtn_fulfillment_tracking') as any).insert({
-                order_id: orderId,
+                order_id: order.id,
                 status: 'failed',
-                api_response: { error: result.error, network, ...result.apiResponse },
+                api_response: { error: result.error, network: order.network, ...result.apiResponse },
             })
+            return {
+                ...base,
+                failed: true,
+                type: 'error',
+                reason: `Auto-fulfillment API error: ${result.error || 'Unknown error'}`
+            }
         }
-    } catch (error) {
-        console.error(`[BulkFulfillment] Error processing order ${orderId}:`, error)
+    } catch (error: any) {
+        console.error(`[BulkFulfillment] Error processing order ${order.id}:`, error)
+        return { ...base, failed: true, type: 'error', reason: `Exception: ${error?.message || 'Unknown'}` }
     }
 }
+
