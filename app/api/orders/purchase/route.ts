@@ -202,17 +202,17 @@ export async function POST(request: NextRequest) {
                 const firstName = (userData as any).first_name || 'Customer'
                 const accountHolderPhone = (userData as any).phone_number
 
-                // 1. Send User Email Confirmation (Enabled for all, including Admins)
-                if (userEmail) {
-                    await sendOrderSuccessEmail(userEmail, firstName, {
-                        referenceCode,
-                        phoneNumber,
-                        network: (pkg as any).network,
-                        size: (pkg as any).size,
-                        price: priceToCharge
-                    }).then(() => console.log('[Purchase] Confirmation email sent successfully'))
-                      .catch((err: Error) => console.error('[Purchase] Confirmation email failed:', err))
-                }
+                // 1. Send User Email Confirmation (Removed as requested)
+                // if (userEmail) {
+                //     await sendOrderSuccessEmail(userEmail, firstName, {
+                //         referenceCode,
+                //         phoneNumber,
+                //         network: (pkg as any).network,
+                //         size: (pkg as any).size,
+                //         price: priceToCharge
+                //     }).then(() => console.log('[Purchase] Confirmation email sent successfully'))
+                //       .catch((err: Error) => console.error('[Purchase] Confirmation email failed:', err))
+                // }
 
                 // 2. Send User SMS Confirmation (To data recipient as requested)
                 if (accountHolderPhone) {

@@ -1017,10 +1017,40 @@ export async function sendAdminNewOrderAlert(
         reason: string
     }
 ): Promise<EmailResult> {
-    const adminEmail = process.env.ADMIN_EMAIL || 'kingflexydatalimited@gmail.com'
+    const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+        process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+    )
+    
+    // Fetch all admins and sub-admins
+    const { data: admins } = await supabase
+        .from('users')
+        .select('email')
+        .in('role', ['admin', 'sub_admin'])
+
+    const adminEmails = new Set<string>()
+    if (process.env.ADMIN_EMAIL) {
+        adminEmails.add(process.env.ADMIN_EMAIL)
+    }
+    
+    if (admins) {
+        admins.forEach(admin => {
+            if (admin.email) adminEmails.add(admin.email)
+        })
+    }
+
+    if (adminEmails.size === 0) {
+        console.warn('No admin emails found to send new order alert.')
+        return { success: false, error: 'No admin emails configured' }
+    }
+
+    const isFailure = orderDetails.reason.toLowerCase().includes('error') || orderDetails.reason.toLowerCase().includes('fail')
+    const subjectPrefix = isFailure ? '[FULFILLMENT FAILED] Action Required' : '[NEW ORDER] Manual Fulfillment Required'
+    const subject = `${subjectPrefix} - ${orderDetails.referenceCode} (${orderDetails.network})`
+    const headerTitle = isFailure ? 'Fulfillment Failed ❌' : '⚠️ Action Required'
 
     const content = `
-        <h1 class="greeting">⚠️ Action Required</h1>
+        <h1 class="greeting">${headerTitle}</h1>
         <p class="subtitle">A new order requires manual fulfillment</p>
         
         <div class="highlight-box" style="background: rgba(239, 68, 68, 0.1); border-left-color: #ef4444;">
@@ -1075,12 +1105,24 @@ export async function sendAdminNewOrderAlert(
         </div>
     `
 
-    return sendEmail({
-        to: adminEmail,
-        toName: 'Admin',
-        subject: `[ACTION REQUIRED] New Order - ${orderDetails.referenceCode} (${orderDetails.network})`,
-        htmlContent: generatePremiumTemplate('Manual Action Required', content, '#ef4444')
-    })
+    const htmlContent = generatePremiumTemplate(isFailure ? 'Fulfillment Failed' : 'Manual Action Required', content, '#ef4444')
+
+    try {
+        const emailPromises = Array.from(adminEmails).map(email => 
+            sendEmail({
+                to: email,
+                toName: 'Admin',
+                subject,
+                htmlContent
+            })
+        )
+        
+        await Promise.allSettled(emailPromises)
+        return { success: true }
+    } catch (error: any) {
+        console.error('Failed to send admin order alerts:', error)
+        return { success: false, error: 'Failed to broadcast admin alerts' }
+    }
 }
 
 
