@@ -112,15 +112,25 @@ export default function AdminAfaManagementPage() {
     const updateStatus = async (id: string, status: string) => {
         setUpdatingId(id)
         try {
-            const { error } = await (supabase.from('afa_orders') as any)
+            // Add .select().single() to ensure we get the updated row back.
+            // If RLS blocks the update silently, data will be null/empty, allowing us to catch the error.
+            const { data, error } = await (supabase.from('afa_orders') as any)
                 .update({ status, updated_at: new Date().toISOString() })
                 .eq('id', id)
+                .select()
+                .single()
 
-            if (error) {
-                toast.error('Failed to update status')
+            if (error || !data) {
+                console.error('Update error or silent failure:', error)
+                toast.error('Failed to update status. Please check your permissions.')
             } else {
                 toast.success(`Status updated to "${status}"`)
+                // Update local state explicitly with the confirmed returned data
+                setApplications(prev => prev.map(a => a.id === id ? { ...a, status: status as any } : a))
             }
+        } catch (err) {
+            console.error('Unexpected error updating status:', err)
+            toast.error('An unexpected error occurred while updating.')
         } finally {
             setUpdatingId(null)
         }
