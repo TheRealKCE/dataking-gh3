@@ -322,7 +322,7 @@ async function triggerFulfillment(
         if (existingTracking) return { ...base, failed: false, type: 'success' }
 
         // Call fulfillment API
-        const result = await fulfillOrder(order.network, order.phone_number, '', order.id)
+        const result = await fulfillOrder(order.network, order.phone_number, order.size, order.id)
 
         if (result.success) {
             await (supabase.from('mtn_fulfillment_tracking') as any).insert({
