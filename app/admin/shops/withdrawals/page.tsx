@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/contexts/auth-context'
@@ -13,7 +13,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import {
     Store, ArrowLeft, CheckCircle2, XCircle, Clock,
     Banknote, Filter, Search, Calendar, Loader2,
-    Receipt, History
+    Receipt, History, TrendingUp, AlertCircle
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -297,6 +297,17 @@ export default function AdminWithdrawalsPage() {
         return matchesShop && matchesSearch
     })
 
+    const stats = useMemo(() => ({
+        totalProfit: filteredCredits.reduce((sum, c) => sum + (c.amount || 0), 0),
+        totalWithdrawn: filteredWithdrawals
+            .filter(w => w.status === 'completed')
+            .reduce((sum, w) => sum + (w.net_amount || 0), 0),
+        pendingCount: filteredWithdrawals.filter(w => w.status === 'pending').length,
+        pendingAmount: filteredWithdrawals
+            .filter(w => w.status === 'pending')
+            .reduce((sum, w) => sum + (w.net_amount || 0), 0),
+    }), [filteredWithdrawals, filteredCredits])
+
     return (
         <div className="space-y-6 pb-20">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -390,6 +401,34 @@ export default function AdminWithdrawalsPage() {
                 </CardContent>
             </Card>
 
+            {/* Stats Panel */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                <div className="rounded-xl shadow-lg bg-gradient-to-br from-emerald-600 to-emerald-800 p-4 relative overflow-hidden text-white border border-white/10">
+                    <TrendingUp className="w-5 h-5 absolute top-4 right-4 opacity-50" />
+                    <p className="text-[10px] uppercase tracking-wider text-white/70 font-bold">Total Shop Profit</p>
+                    <p className="text-2xl font-black mt-1">{formatCurrency(stats.totalProfit)}</p>
+                    <p className="text-xs text-white/60 mt-1">From {filteredCredits.length} credits</p>
+                </div>
+                <div className="rounded-xl shadow-lg bg-gradient-to-br from-blue-600 to-blue-800 p-4 relative overflow-hidden text-white border border-white/10">
+                    <Banknote className="w-5 h-5 absolute top-4 right-4 opacity-50" />
+                    <p className="text-[10px] uppercase tracking-wider text-white/70 font-bold">Total Withdrawn</p>
+                    <p className="text-2xl font-black mt-1">{formatCurrency(stats.totalWithdrawn)}</p>
+                    <p className="text-xs text-white/60 mt-1">From completed withdrawals</p>
+                </div>
+                <div className="rounded-xl shadow-lg bg-gradient-to-br from-yellow-500 to-amber-600 p-4 relative overflow-hidden text-white border border-white/10">
+                    <Clock className="w-5 h-5 absolute top-4 right-4 opacity-50" />
+                    <p className="text-[10px] uppercase tracking-wider text-white/70 font-bold">Pending Requests</p>
+                    <p className="text-2xl font-black mt-1">{stats.pendingCount}</p>
+                    <p className="text-xs text-white/60 mt-1">Awaiting approval</p>
+                </div>
+                <div className="rounded-xl shadow-lg bg-gradient-to-br from-orange-500 to-red-600 p-4 relative overflow-hidden text-white border border-white/10">
+                    <AlertCircle className="w-5 h-5 absolute top-4 right-4 opacity-50" />
+                    <p className="text-[10px] uppercase tracking-wider text-white/70 font-bold">Pending Amount</p>
+                    <p className="text-2xl font-black mt-1">{formatCurrency(stats.pendingAmount)}</p>
+                    <p className="text-xs text-white/60 mt-1">Total pending payout</p>
+                </div>
+            </div>
+
             {/* Content Area */}
             <Card>
                 <CardContent className="p-0">
@@ -411,8 +450,8 @@ export default function AdminWithdrawalsPage() {
                                     {/* Withdrawals Desktop Table */}
                                     <div className="hidden lg:block overflow-x-auto">
                                         <table className="w-full text-sm">
-                                            <thead>
-                                                <tr className="border-b bg-muted/30 text-xs text-muted-foreground">
+                                            <thead className="bg-gray-900 dark:bg-black text-white">
+                                                <tr className="border-b-0 text-xs uppercase tracking-wider">
                                                     <th className="text-left px-4 py-3 font-medium">Date</th>
                                                     <th className="text-left px-4 py-3 font-medium">Shop</th>
                                                     <th className="text-left px-4 py-3 font-medium">Account Info</th>
@@ -425,9 +464,14 @@ export default function AdminWithdrawalsPage() {
                                                     <th className="text-right px-4 py-3 font-medium">Actions</th>
                                                 </tr>
                                             </thead>
-                                            <tbody className="divide-y">
+                                            <tbody className="divide-y relative">
                                                 {filteredWithdrawals.map((w) => (
-                                                    <tr key={w.id} className="hover:bg-muted/30 transition-colors">
+                                                    <tr key={w.id} className={cn(
+                                                        "hover:bg-muted/30 transition-colors border-l-4 border-b",
+                                                        w.status === 'pending' ? 'border-l-yellow-500' :
+                                                            w.status === 'completed' ? 'border-l-emerald-500' :
+                                                                'border-l-red-500'
+                                                    )}>
                                                         <td className="px-4 py-4 text-xs text-muted-foreground">
                                                             {new Date(w.created_at).toLocaleDateString()}<br />
                                                             {new Date(w.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -453,16 +497,16 @@ export default function AdminWithdrawalsPage() {
                                                         </td>
                                                         <td className="px-4 py-4 text-right text-muted-foreground">{formatCurrency(w.amount)}</td>
                                                         <td className="px-4 py-4 text-right text-red-500 text-xs">-{formatCurrency(w.fee)}</td>
-                                                        <td className="px-4 py-4 text-right font-bold text-emerald-600 text-base">{formatCurrency(w.net_amount)}</td>
+                                                        <td className="px-4 py-4 text-right font-black text-emerald-500 text-lg">{formatCurrency(w.net_amount)}</td>
                                                         <td className="px-4 py-4 text-right text-xs text-muted-foreground">
                                                             {w.balance_snapshot != null ? formatCurrency(w.balance_snapshot) : '—'}
                                                         </td>
                                                         <td className="px-4 py-4 text-center">
                                                             <span className={cn(
-                                                                'text-[10px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider',
-                                                                w.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                                                                    w.status === 'completed' ? 'bg-green-100 text-green-700' :
-                                                                        'bg-red-100 text-red-700'
+                                                                'text-[10px] font-bold px-2.5 py-1 rounded-full uppercase tracking-wider',
+                                                                w.status === 'pending' ? 'bg-yellow-500/10 text-yellow-600 dark:text-yellow-500 border border-yellow-500/20 animate-pulse' :
+                                                                    w.status === 'completed' ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-500 border border-emerald-500/20' :
+                                                                        'bg-red-500/10 text-red-600 dark:text-red-500 border border-red-500/20'
                                                             )}>
                                                                 {w.status}
                                                             </span>
@@ -509,63 +553,65 @@ export default function AdminWithdrawalsPage() {
                                     </div>
 
                                     {/* Withdrawals Mobile Cards */}
-                                    <div className="lg:hidden divide-y">
+                                    <div className="lg:hidden space-y-4 p-4">
                                         {filteredWithdrawals.map((w) => (
-                                            <div key={w.id} className="p-4 space-y-3">
-                                                <div className="flex justify-between items-start">
-                                                    <div className="space-y-0.5">
-                                                        <div className="flex items-center gap-2">
-                                                            <Store className="w-3 h-3 text-emerald-600" />
-                                                            <div>
-                                                                <p className="font-bold text-sm leading-none">{w.shop.shop_name}</p>
-                                                                <p className="text-[10px] text-muted-foreground mt-1 font-medium">{w.shop.owner_name} · {w.shop.owner_phone}</p>
-                                                            </div>
+                                            <div key={w.id} className={cn(
+                                                "bg-[#111827] dark:bg-[#0f0f0f] rounded-xl overflow-hidden border-l-4 shadow-xl",
+                                                w.status === 'pending' ? 'border-l-yellow-500' :
+                                                    w.status === 'completed' ? 'border-l-emerald-500' :
+                                                        'border-l-red-500'
+                                            )}>
+                                                <div className="p-4 space-y-4">
+                                                    <div className="flex justify-between items-start">
+                                                        <div className="space-y-1">
+                                                            <h3 className="font-bold text-white text-base leading-none">{w.shop.shop_name}</h3>
+                                                            <p className="text-xs text-gray-400 font-medium">{w.shop.owner_name}</p>
                                                         </div>
-                                                        <p className="text-xs text-muted-foreground">{new Date(w.created_at).toLocaleDateString()}</p>
-                                                        <p className="text-lg font-black text-emerald-600">{formatCurrency(w.net_amount)}</p>
-                                                        <p className="text-[10px] text-muted-foreground">Gross: {formatCurrency(w.amount)} (Fees: {formatCurrency(w.fee)})</p>
+                                                        <span className={cn(
+                                                            'text-[10px] font-bold px-2 py-0.5 rounded-full uppercase',
+                                                            w.status === 'pending' ? 'bg-yellow-500/20 text-yellow-500 border border-yellow-500/30 animate-pulse' :
+                                                                w.status === 'completed' ? 'bg-emerald-500/20 text-emerald-500 border border-emerald-500/30' :
+                                                                    'bg-red-500/20 text-red-500 border border-red-500/30'
+                                                        )}>
+                                                            {w.status}
+                                                        </span>
                                                     </div>
-                                                    <span className={cn(
-                                                        'text-[10px] font-bold px-2 py-0.5 rounded-full uppercase',
-                                                        w.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                                                            w.status === 'completed' ? 'bg-green-100 text-green-700' :
-                                                                'bg-red-100 text-red-700'
-                                                    )}>
-                                                        {w.status}
-                                                    </span>
-                                                </div>
 
-                                                <div className="bg-muted/50 p-3 rounded-xl space-y-2 text-xs border border-muted-foreground/10">
-                                                    <div className="flex justify-between items-center">
-                                                        <span className="text-muted-foreground uppercase tracking-tight text-[10px] font-bold">Account</span>
-                                                        <span className="font-bold text-right max-w-[150px] truncate">{w.account_name}</span>
+                                                    <div>
+                                                        <p className="text-3xl font-black text-emerald-400 font-display tracking-tight">{formatCurrency(w.net_amount)}</p>
+                                                        <p className="text-[10px] text-gray-500 font-medium uppercase mt-0.5">Gross: {formatCurrency(w.amount)} • Fee: {formatCurrency(w.fee)}</p>
                                                     </div>
-                                                    <div className="flex justify-between items-center">
-                                                        <span className="text-muted-foreground uppercase tracking-tight text-[10px] font-bold">Network</span>
-                                                        {w.network ? (
-                                                            <span className={cn(
-                                                                'text-[10px] font-bold px-1.5 py-0.5 rounded-full',
-                                                                w.network === 'MTN MoMo' ? 'bg-yellow-100 text-yellow-800' :
-                                                                w.network === 'Telecel Cash' ? 'bg-red-100 text-red-700' :
-                                                                'bg-blue-100 text-blue-700'
-                                                            )}>{w.network}</span>
-                                                        ) : <span className="text-muted-foreground">—</span>}
+
+                                                    <div className="bg-white/5 border border-white/10 rounded-xl p-3 space-y-2 text-xs">
+                                                        <div className="flex justify-between items-center text-gray-300">
+                                                            <span className="uppercase tracking-wider text-[10px] font-bold text-gray-500">Account</span>
+                                                            <span className="font-bold truncate max-w-[150px]">{w.account_name}</span>
+                                                        </div>
+                                                        <div className="flex justify-between items-center text-gray-300">
+                                                            <span className="uppercase tracking-wider text-[10px] font-bold text-gray-500">Network</span>
+                                                            <span>{w.network || '—'}</span>
+                                                        </div>
+                                                        <div className="flex justify-between items-center text-gray-300">
+                                                            <span className="uppercase tracking-wider text-[10px] font-bold text-gray-500">MoMo Number</span>
+                                                            <span className="font-mono text-emerald-400">{w.momo_number}</span>
+                                                        </div>
                                                     </div>
-                                                    <div className="flex justify-between items-center">
-                                                        <span className="text-muted-foreground uppercase tracking-tight text-[10px] font-bold">MoMo Number</span>
-                                                        <span className="font-mono font-medium bg-white/50 dark:bg-black/20 px-1.5 py-0.5 rounded">{w.momo_number}</span>
+
+                                                    <div className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold">
+                                                        {new Date(w.created_at).toLocaleString()}
                                                     </div>
-                                                    <div className="flex justify-between items-center">
-                                                        <span className="text-muted-foreground uppercase tracking-tight text-[10px] font-bold">Bal. Snapshot</span>
-                                                        <span className="font-medium text-muted-foreground">{w.balance_snapshot != null ? formatCurrency(w.balance_snapshot) : '—'}</span>
-                                                    </div>
+
+                                                    {w.admin_note && (
+                                                        <div className="p-2.5 bg-red-900/20 border border-red-900/50 rounded-lg text-xs text-red-400 italic">
+                                                            <strong>Note:</strong> {w.admin_note}
+                                                        </div>
+                                                    )}
                                                 </div>
 
                                                 {w.status === 'pending' && (
-                                                    <div className="flex gap-2 pt-1 font-display">
-                                                        <Button
-                                                            size="sm"
-                                                            className="flex-1 h-10 bg-green-600 hover:bg-green-700 text-white font-black shadow-md shadow-green-600/20 active:scale-95 transition-all"
+                                                    <div className="flex border-t border-white/5">
+                                                        <button
+                                                            className="flex-1 py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-black text-sm transition-colors flex items-center justify-center gap-2"
                                                             onClick={() => {
                                                                 if (confirm(`Confirm payout of ${formatCurrency(w.net_amount)} to ${w.account_name}?`)) {
                                                                     processWithdrawal(w, 'completed')
@@ -574,11 +620,9 @@ export default function AdminWithdrawalsPage() {
                                                             disabled={!!processingId}
                                                         >
                                                             {processingId === w.id ? <Loader2 className="w-4 h-4 animate-spin" /> : 'PAY NOW'}
-                                                        </Button>
-                                                        <Button
-                                                            size="sm"
-                                                            variant="outline"
-                                                            className="flex-1 h-10 border-red-500 text-red-600 font-bold active:scale-95 transition-all"
+                                                        </button>
+                                                        <button
+                                                            className="flex-1 py-3 bg-transparent hover:bg-red-950 text-red-500 font-bold text-sm transition-colors"
                                                             onClick={() => {
                                                                 const note = prompt('REJECTION REASON (REQUIRED):')
                                                                 if (note === null) return
@@ -591,12 +635,7 @@ export default function AdminWithdrawalsPage() {
                                                             disabled={!!processingId}
                                                         >
                                                             REJECT
-                                                        </Button>
-                                                    </div>
-                                                )}
-                                                {w.admin_note && (
-                                                    <div className="p-2.5 bg-red-50 dark:bg-red-900/10 border border-red-100 dark:border-red-900/20 rounded-lg text-[10px] text-red-600 dark:text-red-400 italic">
-                                                        <strong>Admin Note:</strong> {w.admin_note}
+                                                        </button>
                                                     </div>
                                                 )}
                                             </div>
@@ -617,8 +656,8 @@ export default function AdminWithdrawalsPage() {
                                     {/* Profits Desktop Table */}
                                     <div className="hidden lg:block overflow-x-auto">
                                         <table className="w-full text-sm">
-                                            <thead>
-                                                <tr className="border-b bg-muted/30 text-xs text-muted-foreground">
+                                            <thead className="bg-gray-900 dark:bg-black text-white">
+                                                <tr className="border-b-0 text-xs uppercase tracking-wider">
                                                     <th className="text-left px-4 py-3 font-medium">Date</th>
                                                     <th className="text-left px-4 py-3 font-medium">Shop / Owner</th>
                                                     <th className="text-left px-4 py-3 font-medium">Order Details</th>
@@ -626,9 +665,9 @@ export default function AdminWithdrawalsPage() {
                                                     <th className="text-right px-4 py-3 font-medium">Profit Credited</th>
                                                 </tr>
                                             </thead>
-                                            <tbody className="divide-y">
+                                            <tbody className="divide-y relative">
                                                 {filteredCredits.map((c) => (
-                                                    <tr key={c.id} className="hover:bg-muted/30 transition-colors">
+                                                    <tr key={c.id} className="hover:bg-muted/30 transition-colors border-l-4 border-l-emerald-500 border-b">
                                                         <td className="px-4 py-4 text-xs text-muted-foreground">
                                                             {new Date(c.created_at).toLocaleDateString()}<br />
                                                             {new Date(c.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
@@ -661,36 +700,36 @@ export default function AdminWithdrawalsPage() {
                                     </div>
 
                                     {/* Profits Mobile Cards */}
-                                    <div className="lg:hidden divide-y">
+                                    <div className="lg:hidden space-y-4 p-4">
                                         {filteredCredits.map((c) => (
-                                            <div key={c.id} className="p-4 space-y-3">
-                                                <div className="flex justify-between items-start">
-                                                    <div className="space-y-1">
-                                                        <div className="flex items-center gap-2">
-                                                            <Store className="w-3 h-3 text-emerald-600" />
-                                                            <p className="font-bold text-sm leading-none">{c.shop.shop_name}</p>
+                                            <div key={c.id} className="bg-white dark:bg-[#111827] rounded-xl overflow-hidden border border-border shadow-sm border-l-4 border-l-emerald-500">
+                                                <div className="p-4 space-y-4">
+                                                    <div className="flex justify-between items-start">
+                                                        <div className="space-y-1">
+                                                            <div className="flex items-center gap-2">
+                                                                <span className="text-[10px] uppercase font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400">
+                                                                    {c.order?.network}
+                                                                </span>
+                                                                <span className="text-xs font-bold text-muted-foreground">{c.order?.package_size}</span>
+                                                            </div>
+                                                            <h3 className="font-bold text-sm mt-2">{c.shop.shop_name}</h3>
                                                         </div>
-                                                        <p className="text-[10px] text-muted-foreground font-medium">{c.shop.owner_name}</p>
+                                                        <p className="font-black text-emerald-600 dark:text-emerald-500 text-xl font-display">{formatCurrency(c.amount)}</p>
                                                     </div>
-                                                    <p className="font-black text-emerald-600 text-xl">{formatCurrency(c.amount)}</p>
-                                                </div>
 
-                                                <div className="bg-muted/50 p-3 rounded-xl space-y-2 border border-muted-foreground/10 text-xs">
-                                                    <div className="flex justify-between items-center">
-                                                        <span className="text-[10px] uppercase font-bold text-muted-foreground">Order</span>
-                                                        <span className="font-bold">{c.order?.network} {c.order?.package_size}</span>
+                                                    <div className="bg-muted/50 dark:bg-white/5 rounded-xl p-3 space-y-2 text-xs border border-muted-foreground/10">
+                                                        <div className="flex justify-between items-center">
+                                                            <span className="text-[10px] uppercase font-bold text-muted-foreground">Guest Contact</span>
+                                                            <span className="font-medium">{c.order?.guest_phone}</span>
+                                                        </div>
+                                                        <div className="flex justify-between items-center text-muted-foreground">
+                                                            <span className="text-[10px] uppercase font-bold">Reference</span>
+                                                            <span className="font-mono text-[10px] truncate max-w-[120px] uppercase">{c.order?.paystack_reference}</span>
+                                                        </div>
                                                     </div>
-                                                    <div className="flex justify-between items-center">
-                                                        <span className="text-[10px] uppercase font-bold text-muted-foreground">Guest Contact</span>
-                                                        <span className="font-medium">{c.order?.guest_phone}</span>
-                                                    </div>
-                                                    <div className="flex justify-between items-center">
-                                                        <span className="text-[10px] uppercase font-bold text-muted-foreground">Reference</span>
-                                                        <span className="font-mono text-[10px] truncate max-w-[120px] uppercase">{c.order?.paystack_reference}</span>
-                                                    </div>
-                                                    <div className="flex justify-between items-center pt-1 border-t border-muted-foreground/10">
-                                                        <span className="text-[10px] uppercase font-bold text-muted-foreground">Date</span>
-                                                        <span className="text-muted-foreground">{new Date(c.created_at).toLocaleString()}</span>
+                                                    
+                                                    <div className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
+                                                        {new Date(c.created_at).toLocaleString()}
                                                     </div>
                                                 </div>
                                             </div>

@@ -1,0 +1,2 @@
+﻿app/admin/shops/withdrawals/page.tsx(16,1): error TS1128: Declaration or statement expected.
+app/admin/shops/withdrawals/page.tsx(16,3): error TS1434: Unexpected keyword or identifier.

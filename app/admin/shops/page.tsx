@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
     Store, Search, CheckCircle2, Clock, XCircle, AlertCircle,
-    Settings, ChevronRight, Loader2, Tag, Banknote
+    Settings, ChevronRight, Loader2, Tag, Banknote, Crown
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -26,7 +26,7 @@ interface Shop {
     is_active: boolean
     created_at: string
     owner_phone: string
-    owner?: { first_name: string; last_name: string; email: string }
+    owner?: { first_name: string; last_name: string; email: string; role: string }
 }
 
 const statusConfig = {
@@ -34,6 +34,13 @@ const statusConfig = {
     approved: { label: 'Active', color: 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400', icon: CheckCircle2 },
     rejected: { label: 'Rejected', color: 'bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400', icon: XCircle },
     suspended: { label: 'Suspended', color: 'bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400', icon: AlertCircle },
+}
+
+const roleColors: Record<string, string> = {
+    admin: 'bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400',
+    'sub-admin': 'bg-orange-100 text-orange-700 dark:bg-orange-900/20 dark:text-orange-400',
+    agent: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/20 dark:text-yellow-400',
+    customer: 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-400',
 }
 
 export default function AdminShopsPage() {
@@ -53,7 +60,7 @@ export default function AdminShopsPage() {
     const fetchShops = async () => {
         const { data } = await (supabase
             .from('shop_profiles')
-            .select('*, owner:users!shop_profiles_owner_id_fkey(first_name, last_name, email)')
+            .select('*, owner:users!shop_profiles_owner_id_fkey(first_name, last_name, email, role)')
             .order('created_at', { ascending: false }) as any)
         setShops(data || [])
         setLoading(false)
@@ -232,9 +239,17 @@ export default function AdminShopsPage() {
                                                     </span>
                                                 )}
                                             </div>
-                                            <p className="text-xs text-muted-foreground mt-0.5">
-                                                /shop/{shop.shop_slug} · {owner?.first_name} {owner?.last_name} · {shop.owner_phone}
-                                            </p>
+                                            <div className="flex items-center flex-wrap gap-2 mt-1">
+                                                <p className="text-xs text-muted-foreground">
+                                                    /shop/{shop.shop_slug} · {owner?.first_name} {owner?.last_name} · {shop.owner_phone}
+                                                </p>
+                                                {owner?.role && (
+                                                    <span className={cn('inline-flex items-center text-[10px] font-bold px-2 py-0.5 rounded-full capitalize', roleColors[owner.role] || roleColors.customer)}>
+                                                        <Crown className="w-2.5 h-2.5 mr-1" />
+                                                        {owner.role}
+                                                    </span>
+                                                )}
+                                            </div>
                                             <p className="text-xs text-muted-foreground">
                                                 Created {new Date(shop.created_at).toLocaleDateString()}
                                             </p>
@@ -278,7 +293,7 @@ export default function AdminShopsPage() {
                                             )}
 
                                             {/* Active shop — Manage link */}
-                                            {shop.approval_status === 'approved' && shop.pricing_status === 'approved' && (
+                                            {shop.approval_status === 'approved' && (
                                                 <Link href={`/admin/shops/${shop.id}`}>
                                                     <Button size="sm" variant="outline" className="h-8 text-xs gap-1">
                                                         Manage <ChevronRight className="w-3 h-3" />
@@ -286,19 +301,8 @@ export default function AdminShopsPage() {
                                                 </Link>
                                             )}
 
-                                            {/* Other approved states — View details */}
-                                            {shop.approval_status === 'approved' &&
-                                                shop.pricing_status !== 'pending_review' &&
-                                                shop.pricing_status !== 'approved' && (
-                                                    <Link href={`/admin/shops/${shop.id}`}>
-                                                        <Button size="sm" variant="ghost" className="h-8 text-xs">
-                                                            <ChevronRight className="w-4 h-4" />
-                                                        </Button>
-                                                    </Link>
-                                                )}
-
-                                            {/* Rejected shop — View details */}
-                                            {shop.approval_status === 'rejected' && (
+                                            {/* Non-approved statess — View details */}
+                                            {shop.approval_status !== 'approved' && (
                                                 <Link href={`/admin/shops/${shop.id}`}>
                                                     <Button size="sm" variant="ghost" className="h-8 text-xs">
                                                         <ChevronRight className="w-4 h-4" />
