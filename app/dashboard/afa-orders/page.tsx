@@ -310,73 +310,48 @@ export default function AFAOrdersPage() {
         setShowConfirmDialog(false)
         setIsSubmitting(true)
 
+        // Generate idempotency key once per attempt — prevents double-charge on retry
+        const referenceCode = crypto.randomUUID()
+
         try {
-            if (walletBalance < applicationPrice) {
-                toast.error(`Insufficient balance. You need GHS ${applicationPrice.toFixed(2)} but have GHS ${walletBalance.toFixed(2)}`)
-                return
-            }
-
-            const { data: wallet, error: walletError } = await (supabase
-                .from('wallets')
-                .select('*')
-                .eq('user_id', dbUser!.id)
-                .single() as any)
-
-            if (walletError || !wallet) { toast.error('Failed to access wallet'); return }
-
-            const newBalance = (wallet as any).balance - applicationPrice
-            const { error: debitError } = await (supabase.from('wallets') as any)
-                .update({
-                    balance: newBalance,
-                    total_spent: ((wallet as any).total_spent || 0) + applicationPrice,
-                    updated_at: new Date().toISOString(),
-                })
-                .eq('id', (wallet as any).id)
-
-            if (debitError) { toast.error('Failed to process payment'); return }
-
-            await (supabase.from('wallet_transactions') as any).insert({
-                wallet_id: (wallet as any).id,
-                user_id: dbUser?.id,
-                type: 'debit',
-                amount: applicationPrice,
-                description: 'MTN AFA Registration Fee',
-                source: 'afa_application',
-                status: 'completed',
+            const res = await fetch('/api/user/afa-registration', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    referenceCode,
+                    formData: {
+                        full_name:  formData.full_name,
+                        phone:      formData.phone,
+                        id_type:    formData.id_type,
+                        id_number:  formData.id_number,
+                        location:   formData.location,
+                        region:     formData.region,
+                        notes:      formData.notes,
+                    },
+                }),
             })
 
-            const { error } = await (supabase.from('afa_orders') as any).insert({
-                user_id: dbUser?.id,
-                full_name: formData.full_name,
-                phone: formData.phone,
-                // Backward-compat: ghana_card may be NOT NULL in the original schema
-                ghana_card: formData.id_number,
-                id_type: formData.id_type,
-                id_number: formData.id_number,
-                location: formData.location,
-                region: formData.region,
-                occupation: 'Farmer',
-                notes: formData.notes,
-                status: 'pending',
-                payment_amount: applicationPrice,
-            })
+            const json = await res.json()
 
-            if (error) {
-                // Rollback
-                await (supabase.from('wallets') as any)
-                    .update({ balance: (wallet as any).balance, total_spent: (wallet as any).total_spent, updated_at: new Date().toISOString() })
-                    .eq('id', (wallet as any).id)
-                throw error
+            if (!res.ok) {
+                if (json?.error === 'INSUFFICIENT_BALANCE') {
+                    toast.error(
+                        `Insufficient balance. You need GHS ${applicationPrice.toFixed(2)} but have GHS ${walletBalance.toFixed(2)}`
+                    )
+                    return
+                }
+                throw new Error(json?.error || 'Registration failed')
             }
 
             toast.success('Registration submitted successfully!', {
                 description: 'Our team will process your application within 24 hours.',
             })
-            setWalletBalance(newBalance)
+
+            // Refresh wallet balance and application list from source of truth
+            await Promise.all([fetchWalletBalance(), fetchApplications()])
             cancelForm()
-            fetchApplications()
         } catch (err) {
-            console.error(err)
+            console.error('[AFA] Submission error:', err)
             toast.error('Failed to submit registration')
         } finally {
             setIsSubmitting(false)
@@ -568,6 +543,7 @@ export default function AFAOrdersPage() {
                                     <Label>Full Name <span className="text-red-500">*</span></Label>
                                     <Input
                                         required
+                                        disabled={isSubmitting}
                                         value={formData.full_name}
                                         onChange={e => setFormData(p => ({ ...p, full_name: e.target.value }))}
                                         placeholder="John Kwame Mensah"
@@ -579,6 +555,7 @@ export default function AFAOrdersPage() {
                                     <Input
                                         required
                                         type="tel"
+                                        disabled={isSubmitting}
                                         value={formData.phone}
                                         onChange={e => setFormData(p => ({ ...p, phone: e.target.value }))}
                                         placeholder="024xxxxxxx"
@@ -593,6 +570,7 @@ export default function AFAOrdersPage() {
                                     <Label>ID Type <span className="text-red-500">*</span></Label>
                                     <Select
                                         required
+                                        disabled={isSubmitting}
                                         value={formData.id_type}
                                         onValueChange={handleIdTypeChange}
                                     >
@@ -610,6 +588,7 @@ export default function AFAOrdersPage() {
                                     <Label>ID Number <span className="text-red-500">*</span></Label>
                                     <Input
                                         required
+                                        disabled={isSubmitting}
                                         value={formData.id_number}
                                         onChange={e => handleIdNumberChange(e.target.value)}
                                         placeholder={idMeta?.placeholder ?? 'Enter ID number'}
@@ -635,6 +614,7 @@ export default function AFAOrdersPage() {
                                 <div className="space-y-1.5">
                                     <Label>Region <span className="text-red-500">*</span></Label>
                                     <Select
+                                        disabled={isSubmitting}
                                         value={formData.region}
                                         onValueChange={v => setFormData(p => ({ ...p, region: v }))}
                                     >
@@ -652,6 +632,7 @@ export default function AFAOrdersPage() {
                                     <Label>City / Town <span className="text-red-500">*</span></Label>
                                     <Input
                                         required
+                                        disabled={isSubmitting}
                                         value={formData.location}
                                         onChange={e => setFormData(p => ({ ...p, location: e.target.value }))}
                                         placeholder="e.g. Kumasi"
@@ -674,6 +655,7 @@ export default function AFAOrdersPage() {
                             <div className="space-y-1.5">
                                 <Label>Additional Notes <span className="text-xs text-muted-foreground">(optional)</span></Label>
                                 <Input
+                                    disabled={isSubmitting}
                                     value={formData.notes}
                                     onChange={e => setFormData(p => ({ ...p, notes: e.target.value }))}
                                     placeholder="Any extra information..."
