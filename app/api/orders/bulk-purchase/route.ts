@@ -286,6 +286,7 @@ async function triggerFulfillment(
 
     try {
         const { fulfillOrder } = await import('@/lib/fulfillment-service')
+        const { syncShopOrderStatus } = await import('@/lib/shop-service')
         const supabase = createServerClient()
 
         const { data: settingsData } = await supabase
@@ -334,6 +335,12 @@ async function triggerFulfillment(
             await (supabase.from('orders') as any)
                 .update({ status: 'processing', updated_at: new Date().toISOString() })
                 .eq('id', order.id)
+
+            // Sync status to healing wrapper so shop owners see it
+            await syncShopOrderStatus(order.id, 'processing').catch(err => 
+                console.error(`[BulkFulfillment] syncShopOrderStatus failed for ${order.id}:`, err)
+            )
+
             return { ...base, failed: false, type: 'success' }
         } else {
             await (supabase.from('mtn_fulfillment_tracking') as any).insert({

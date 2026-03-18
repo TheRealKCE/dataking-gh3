@@ -301,6 +301,7 @@ async function triggerFulfillment(orderId: string, network: string, user: { emai
     try {
         const { fulfillOrder } = await import('@/lib/fulfillment-service')
         const { sendAdminNewOrderAlert } = await import('@/lib/email-service')
+        const { syncShopOrderStatus } = await import('@/lib/shop-service')
         const supabase = createServerClient()
 
         const { data: settingsData } = await supabase
@@ -383,6 +384,11 @@ async function triggerFulfillment(orderId: string, network: string, user: { emai
             await (supabase.from('orders') as any)
                 .update({ status: 'processing', updated_at: new Date().toISOString() })
                 .eq('id', orderId)
+                
+            // Sync status to healing wrapper so shop owners see it
+            await syncShopOrderStatus(orderId, 'processing').catch(err => 
+                console.error(`[Fulfillment] syncShopOrderStatus failed for ${orderId}:`, err)
+            )
         } else {
             await sendAdminNewOrderAlert({ ...alertDetails, reason: `Auto-fulfillment API error: ${result.error || 'Unknown error'}` })
                 .catch(err => console.error('[Fulfillment] Admin alert (API failed) failed:', err))

@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { fulfillOrder } from '@/lib/fulfillment-service'
+import { syncShopOrderStatus } from '@/lib/shop-service'
 
 // Create a service role client to bypass RLS for administrative fulfillment
 const supabaseAdmin = createClient(
@@ -129,6 +130,11 @@ export async function POST(request: Request) {
                     api_response: { ...result.apiResponse, note: 'Manual Admin Refill Success' }
                 })
 
+                // Sync status to the healing wrapper so shop owners see the transition to processing
+                await syncShopOrderStatus(order.id, 'processing').catch(err => 
+                    console.error(`[ManualRefulfill] syncShopOrderStatus failed for ${order.id}:`, err)
+                )
+
                 // Note: We DO NOT update the order status to completed here!
                 // As per user refinement, success leaves it processing.
                 fulfilled++
@@ -146,6 +152,11 @@ export async function POST(request: Request) {
                 await supabaseAdmin.from('orders')
                     .update({ status: 'pending' })
                     .eq('id', order.id)
+
+                // Sync the reversion back to pending
+                await syncShopOrderStatus(order.id, 'pending').catch(err => 
+                    console.error(`[ManualRefulfill] syncShopOrderStatus revert failed for ${order.id}:`, err)
+                )
 
                 failed++
             }

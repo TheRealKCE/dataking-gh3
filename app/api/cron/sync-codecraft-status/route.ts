@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { checkRegularOrderStatus, checkBigTimeOrderStatus } from '@/lib/at-ishare-service'
+import { syncShopOrderStatus } from '@/lib/shop-service'
 import { createNotification, orderUpdateNotification } from '@/lib/notification-service'
 
 export async function GET(request: NextRequest) {
@@ -48,6 +49,11 @@ export async function GET(request: NextRequest) {
                                 updated_at: new Date().toISOString(),
                             })
                             .eq('id', (order as any).id)
+
+                        // Sync shop order status
+                        await syncShopOrderStatus((order as any).id, newStatus).catch(err => 
+                            console.error(`[CronSync] syncShopOrderStatus failed for ${(order as any).id}:`, err)
+                        )
 
                         // Update fulfillment tracking
                         await (supabase
