@@ -35,18 +35,9 @@ BEGIN
         RAISE EXCEPTION 'profit_margin cannot be changed after creation';
     END IF;
 
-    -- Protect cost_price from manual overrides (unless system trigger flag is set)
-    -- E.g., check current_setting('app.system_pricing_update', true)
-    IF current_setting('app.system_pricing_update', true) IS NULL OR current_setting('app.system_pricing_update', true) != 'true' THEN
-        IF NEW.cost_price != OLD.cost_price THEN
-            NEW.cost_price := OLD.cost_price;
-        END IF;
-    END IF;
-
-    -- Protect selling_price (force formula strictly)
-    IF NEW.selling_price != OLD.selling_price THEN
-        NEW.selling_price := NEW.cost_price + NEW.profit_margin;
-    END IF;
+    -- Note: cost_price and selling_price protection is removed 
+    -- as cost_price does not exist on this table and selling_price 
+    -- calculation is managed by the data_packages trigger.
 
     RETURN NEW;
 END;
@@ -83,15 +74,18 @@ BEGIN
                 sp.id,
                 sp.shop_id,
                 sp.package_id,
-                sp.cost_price AS old_cost,
+                CASE 
+                    WHEN u.role = 'agent' AND OLD.agent_price IS NOT NULL THEN OLD.agent_price 
+                    ELSE OLD.price 
+                END AS old_cost,
                 sp.selling_price AS old_selling,
                 CASE 
-                    WHEN spf.owner_role = 'agent' AND NEW.agent_price IS NOT NULL THEN NEW.agent_price 
+                    WHEN u.role = 'agent' AND NEW.agent_price IS NOT NULL THEN NEW.agent_price 
                     ELSE NEW.price 
                 END AS new_cost,
                 (
                     CASE 
-                        WHEN spf.owner_role = 'agent' AND NEW.agent_price IS NOT NULL THEN NEW.agent_price 
+                        WHEN u.role = 'agent' AND NEW.agent_price IS NOT NULL THEN NEW.agent_price 
                         ELSE NEW.price 
                     END
                 ) + (
@@ -103,12 +97,12 @@ BEGIN
                 ) AS new_selling
             FROM public.shop_pricing sp
             JOIN public.shop_profiles spf ON sp.shop_id = spf.id
+            JOIN public.users u ON u.id = spf.owner_id
             WHERE sp.package_id = NEW.id
         ),
         applied_update AS (
             UPDATE public.shop_pricing sp
             SET 
-                cost_price = up.new_cost,
                 selling_price = up.new_selling,
                 last_auto_updated_at = NOW()
             FROM updated_pricing up

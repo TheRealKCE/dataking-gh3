@@ -68,9 +68,14 @@ export default function ShopPricingPage() {
         try {
             const { data: shopData } = await ((supabase as any)
                 .from('shop_profiles')
-                .select('id, shop_name, owner_role, approval_status, pricing_status, pricing_note, pricing_rejection_acknowledged')
+                .select('id, shop_name, owner_id, approval_status, pricing_status, pricing_note, pricing_rejection_acknowledged')
                 .eq('owner_id', dbUser!.id)
                 .single())
+
+            if (shopData && shopData.owner_id) {
+                const { data: uData } = await supabase.from('users').select('role').eq('id', shopData.owner_id).single();
+                shopData.owner_role = uData?.role || 'customer';
+            }
 
             if (!shopData) {
                 toast.error('Please create your shop first')

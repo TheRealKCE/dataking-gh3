@@ -22,15 +22,16 @@ export async function POST(req: Request) {
         // Verify shop ownership
         const { data: shopProfile, error: shopError } = await supabase
             .from('shop_profiles')
-            .select('user_id, owner_role')
+            .select('owner_id')
             .eq('id', shopId)
             .single()
 
-        if (shopError || !shopProfile || shopProfile.user_id !== session.user.id) {
+        if (shopError || !shopProfile || shopProfile.owner_id !== session.user.id) {
             return NextResponse.json({ error: 'Unauthorized to modify this shop' }, { status: 403 })
         }
 
-        const maxProfit = shopProfile.owner_role === 'agent' ? 10 : 5
+        const { data: userData } = await supabase.from('users').select('role').eq('id', shopProfile.owner_id).single()
+        const maxProfit = userData?.role === 'agent' ? 10 : 5
 
         // Strict Backend Validation
         for (const item of items) {
