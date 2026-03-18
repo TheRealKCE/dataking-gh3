@@ -71,7 +71,7 @@ export async function processShopOrder(
 
         const { data: pkg } = await db
             .from('data_packages')
-            .select('price, agent_price')
+            .select('price, agent_price, cost_price')
             .eq('id', metadata.package_id)
             .single()
 
@@ -120,6 +120,8 @@ export async function processShopOrder(
                     selling_price: dbSellingPrice,
                     cost_price: verifiedCostPrice,
                     profit: verifiedProfit,
+                    admin_cost_at_time: parseFloat(pkg?.cost_price) || 0,
+                    owner_role_at_time: ownerProfile?.role || 'customer',
                     paystack_reference: reference,
                     status: 'pending',
                 })
@@ -139,7 +141,8 @@ export async function processShopOrder(
                 network: metadata.network,
                 size: metadata.package_size,
                 price: dbSellingPrice,
-                cost_price: verifiedCostPrice,
+                cost_price_at_time: verifiedCostPrice,
+                role_at_time: ownerProfile?.role || 'customer',
                 status: 'pending',
                 payment_status: 'paid',
                 reference_code: `SHOP-${reference.slice(-10)}`,

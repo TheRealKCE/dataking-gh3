@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
         // Fetch ALL orders except failed from ALL users
         let orderQuery = supabase
             .from('orders')
-            .select('created_at, price, cost_price, network, size, status')
+            .select('created_at, price, cost_price_at_time, network, size, status')
             .neq('status', 'failed')
             .order('created_at', { ascending: true })
 
