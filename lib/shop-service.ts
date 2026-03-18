@@ -15,7 +15,7 @@ export async function syncShopOrderStatus(mainOrderId: string, status: string) {
         // NOTE: Including reference_code for fallback mapping
         const { data: order, error: orderError } = await db
             .from('orders')
-            .select('id, shop_name, shop_order_id, reference_code, price, cost_price, status')
+            .select('id, shop_name, shop_order_id, reference_code, price, cost_price_at_time, status, phone_number')
             .eq('id', mainOrderId)
             .single()
 
@@ -57,6 +57,29 @@ export async function syncShopOrderStatus(mainOrderId: string, status: string) {
             if (sOrder) {
                 shopOrderId = sOrder.id
                 console.log(`[ShopSync] Found matching shop order ${shopOrderId} via reference ${order.reference_code}`)
+                // Self-heal: update the main order with the missing ID
+                await db.from('orders').update({ shop_order_id: shopOrderId }).eq('id', mainOrderId)
+            }
+        }
+
+        // Fallback 3: Try to find shop order by shop_name + phone_number match
+        if (!shopOrderId && order.shop_name && order.phone_number) {
+            console.log(`[ShopSync DEBUG] Attempting fallback lookup via shop_name/phone_number...`)
+            const { data: sOrder, error: lookupError } = await db
+                .from('shop_orders')
+                .select('id')
+                .eq('shop_name', order.shop_name)
+                .eq('phone_number', order.phone_number)
+                .limit(1)
+                .single()
+
+            if (lookupError && lookupError.code !== 'PGRST116') {
+                console.error(`[ShopSync DEBUG] Fallback 3 lookup failed:`, lookupError)
+            }
+
+            if (sOrder) {
+                shopOrderId = sOrder.id
+                console.log(`[ShopSync] Found matching shop order ${shopOrderId} via shop_name/phone_number fallback`)
                 // Self-heal: update the main order with the missing ID
                 await db.from('orders').update({ shop_order_id: shopOrderId }).eq('id', mainOrderId)
             }

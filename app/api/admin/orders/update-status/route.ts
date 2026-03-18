@@ -67,7 +67,12 @@ export async function POST(request: Request) {
         }
 
         // Sync with shop_orders
-        await Promise.all(orderIds.map(id => syncShopOrderStatus(id, status)))
+        const results = await Promise.allSettled(orderIds.map(id => syncShopOrderStatus(id, status)))
+        results.forEach((r, i) => {
+            if (r.status === 'rejected') {
+                console.error(`[UpdateStatus] syncShopOrderStatus failed for order ${orderIds[i]}:`, r.reason)
+            }
+        })
 
         return NextResponse.json({ success: true, count: orderIds.length })
     } catch (error: any) {
