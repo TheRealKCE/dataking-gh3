@@ -73,7 +73,7 @@ export default function ShopPricingPage() {
                 .single())
 
             if (shopData && shopData.owner_id) {
-                const { data: uData } = await supabase.from('users').select('role').eq('id', shopData.owner_id).single();
+                const { data: uData } = await (supabase as any).from('users').select('role').eq('id', shopData.owner_id).single();
                 shopData.owner_role = uData?.role || 'customer';
             }
 
