@@ -514,9 +514,9 @@ export default function ShopPricingPage() {
                                                 <div className="mt-auto space-y-4">
                                                     <div>
                                                         <label className="text-sm font-semibold flex items-center justify-between mb-1.5 text-foreground">
-                                                            Enter Profit
+                                                            Enter Selling Price
                                                             {valStr && valid === false && (
-                                                                <span className="text-xs text-red-600 dark:text-red-400 font-medium">GHS 0.01 - {shop?.owner_role === 'agent' ? '10.00' : '5.00'}</span>
+                                                                <span className="text-xs text-red-600 dark:text-red-400 font-medium">Max Profit: GHS {shop?.owner_role === 'agent' ? '10.00' : '5.00'}</span>
                                                             )}
                                                         </label>
                                                         <div className="relative">
@@ -524,16 +524,11 @@ export default function ShopPricingPage() {
                                                             <Input
                                                                 type="number"
                                                                 inputMode="decimal"
-                                                                value={profitStr}
+                                                                value={valStr}
                                                                 onChange={(e) => {
-                                                                    const parsedProfit = parseFloat(e.target.value)
-                                                                    if (isNaN(parsedProfit)) {
-                                                                        setPricing(prev => ({ ...prev, [pkg.id]: '' }))
-                                                                    } else {
-                                                                        setPricing(prev => ({ ...prev, [pkg.id]: (cost + parsedProfit).toFixed(2) }))
-                                                                    }
+                                                                    setPricing(prev => ({ ...prev, [pkg.id]: e.target.value }))
                                                                 }}
-                                                                placeholder="0.00"
+                                                                placeholder={cost.toFixed(2)}
                                                                 className={cn(
                                                                     'h-12 pl-12 text-lg font-medium',
                                                                     valStr && valid === false && 'border-red-500 focus-visible:ring-red-500 bg-white dark:bg-gray-900',
@@ -544,15 +539,31 @@ export default function ShopPricingPage() {
                                                     </div>
 
                                                     {/* Selling Price Display */}
-                                                    <div className="flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-gray-900 border">
-                                                        <span className="text-sm font-medium text-muted-foreground">You Sell At:</span>
-                                                        {valStr && valid !== null ? (
-                                                            <span className="text-lg font-black text-foreground">
-                                                                {formatCurrency(finalSelling)}
-                                                            </span>
-                                                        ) : (
-                                                            <span className="text-lg font-bold text-muted-foreground">—</span>
-                                                        )}
+                                                    <div className="flex flex-col gap-2 p-3 rounded-xl bg-gray-50 dark:bg-gray-900 border">
+                                                        <div className="flex items-center justify-between">
+                                                            <span className="text-sm font-medium text-muted-foreground">You Sell At:</span>
+                                                            {valStr && valid !== null ? (
+                                                                <span className="text-lg font-black text-foreground">
+                                                                    {formatCurrency(finalSelling)}
+                                                                </span>
+                                                            ) : (
+                                                                <span className="text-lg font-bold text-muted-foreground">—</span>
+                                                            )}
+                                                        </div>
+                                                        
+                                                        <div className="flex items-center justify-between border-t border-gray-200 dark:border-gray-800 pt-2">
+                                                            <span className="text-sm font-medium text-muted-foreground">Your Profit:</span>
+                                                            {valStr && valid !== null ? (
+                                                                <span className={cn(
+                                                                    "text-sm font-bold",
+                                                                    valid ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
+                                                                )}>
+                                                                    {parseFloat(profitStr) > 0 ? '+' : ''} {formatCurrency(parseFloat(profitStr) || 0)}
+                                                                </span>
+                                                            ) : (
+                                                                <span className="text-sm font-bold text-muted-foreground">—</span>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 </div>
                                             </div>
