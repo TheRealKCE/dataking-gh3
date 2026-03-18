@@ -45,6 +45,10 @@ export async function GET(request: NextRequest) {
                     first_name,
                     last_name,
                     email
+                ),
+                shop_orders (
+                    cost_price,
+                    admin_cost_at_time
                 )
             `, { count: 'exact' })
 
@@ -65,12 +69,31 @@ export async function GET(request: NextRequest) {
             throw fetchError
         }
 
-        // Since cost_price is now saved during purchase, most records will have it.
         // We remove the expensive server-side O(N^2) loop that was matching packages to orders.
         // This significantly reduces Fluid Active CPU usage.
+        
+        // Robust Conditional Mapping for Admin True Costs
+        const mappedOrders = (orders || []).map((order: any) => {
+            const isShopOrder = order.shop_order_id && order.shop_orders
+            
+            const adminRevenue = isShopOrder 
+                ? order.shop_orders.cost_price         // What the shop owner paid the admin
+                : order.price                          // What the direct customer paid the admin
+
+            const adminTrueCost = isShopOrder
+                ? order.shop_orders.admin_cost_at_time // Admin's supplier cost for the shop order
+                : order.cost_price_at_time             // Admin's supplier cost for the direct order
+
+            return {
+                ...order,
+                original_shop_price: order.price,      // Retain original frontend price if needed
+                price: adminRevenue,                   // Override so frontend uses this for Revenue / "Cost" displays
+                cost_price: adminTrueCost              // Override so frontend uses this for Base Cost
+            }
+        })
 
         return NextResponse.json({
-            orders: orders || [],
+            orders: mappedOrders,
             totalCount: count || 0
         })
     } catch (error: any) {

@@ -31,6 +31,7 @@ interface Package {
 interface ShopProfile {
     id: string
     shop_name: string
+    owner_role: string
     approval_status: string
     pricing_status: 'not_submitted' | 'pending_review' | 'approved' | 'rejected'
     pricing_note: string | null
@@ -67,7 +68,7 @@ export default function ShopPricingPage() {
         try {
             const { data: shopData } = await ((supabase as any)
                 .from('shop_profiles')
-                .select('id, shop_name, approval_status, pricing_status, pricing_note, pricing_rejection_acknowledged')
+                .select('id, shop_name, owner_role, approval_status, pricing_status, pricing_note, pricing_rejection_acknowledged')
                 .eq('owner_id', dbUser!.id)
                 .single())
 
@@ -113,7 +114,8 @@ export default function ShopPricingPage() {
     const isValidPrice = (pkg: Package, sellingStr: string) => {
         const profit = getProfit(pkg, sellingStr)
         if (profit === null) return null
-        return profit > 0
+        const maxProfit = shop?.owner_role === 'agent' ? 10 : 5
+        return profit > 0 && profit <= maxProfit
     }
 
     const handleAcknowledge = async () => {
@@ -136,13 +138,26 @@ export default function ShopPricingPage() {
     const handleSubmit = async () => {
         if (!shop) return
 
+        const maxProfit = shop.owner_role === 'agent' ? 10 : 5
+        let invalidReason = ''
         const invalid = packages.filter(pkg => {
             const val = pricing[pkg.id]
-            if (!val) return false
-            return !isValidPrice(pkg, val)
+            if (!val || parseFloat(val) <= 0) return false
+            const profit = getProfit(pkg, val)
+            if (profit === null) return false
+            if (profit <= 0) {
+                invalidReason = 'Profit must be more than 0'
+                return true
+            }
+            if (profit > maxProfit) {
+                invalidReason = `Profit cannot exceed GHS ${maxProfit.toFixed(2)}`
+                return true
+            }
+            return false
         })
+
         if (invalid.length > 0) {
-            toast.error(`Price must be above cost for: ${invalid.map(p => `${p.network} ${p.size}`).join(', ')}`)
+            toast.error(`${invalidReason} for: ${invalid.map(p => `${p.network} ${p.size}`).join(', ')}`)
             return
         }
 
@@ -151,8 +166,8 @@ export default function ShopPricingPage() {
             .map(pkg => ({
                 shop_id: shop.id,
                 package_id: pkg.id,
-                selling_price: parseFloat(pricing[pkg.id]),
-                submitted_at: new Date().toISOString(),
+                profit_margin: getProfit(pkg, pricing[pkg.id]),
+                selling_price: parseFloat(pricing[pkg.id])
             }))
 
         if (rows.length === 0) {
@@ -162,37 +177,17 @@ export default function ShopPricingPage() {
 
         setSaving(true)
         try {
-            // Save to pending table (not live table)
-            await (supabase as any).from('shop_pricing_pending').delete().eq('shop_id', shop.id)
-            const { error: insertErr } = await (supabase as any).from('shop_pricing_pending').insert(rows)
-            if (insertErr) throw insertErr
-
-            // Update pricing status
-            const { error } = await (supabase as any).from('shop_profiles').update({
-                pricing_status: 'pending_review',
-                pricing_submitted_at: new Date().toISOString(),
-                updated_at: new Date().toISOString(),
-            }).eq('id', shop.id)
-            if (error) throw error
-
-            toast.success('Pricing submitted for admin review!')
-            setShop(prev => prev ? { ...prev, pricing_status: 'pending_review' } : null)
-
-            // Alert 9 — notify admin about new pricing submission (non-blocking)
-            fetch('/api/shop/alerts', {
+            const res = await fetch('/api/shop/pricing', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    type: 'admin_pricing_submission',
-                    payload: {
-                        shopName: shop?.shop_name || 'Unknown Shop',
-                        shopId: shop?.id || '',
-                        ownerName: `${dbUser?.first_name || ''} ${dbUser?.last_name || ''}`.trim(),
-                        ownerEmail: dbUser?.email || '',
-                        date: new Date().toLocaleString('en-GB'),
-                    },
-                }),
-            }).catch(err => console.warn('[ShopAlert]', err))
+                body: JSON.stringify({ shopId: shop.id, items: rows })
+            })
+
+            const data = await res.json()
+            if (!res.ok) throw new Error(data.error || 'Failed to submit pricing')
+
+            toast.success('Your shop is now live! Customers can start buying.')
+            setShop(prev => prev ? { ...prev, pricing_status: 'approved', approval_status: 'approved' } : null)
         } catch (err: any) {
             toast.error(err.message || 'Failed to submit pricing')
         } finally {
@@ -265,52 +260,23 @@ export default function ShopPricingPage() {
         )
     }
 
-    // ── State: Pricing submitted, awaiting admin review ──
-    if (shop?.pricing_status === 'pending_review') {
-        return (
-            <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
-                <div className="w-16 h-16 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center">
-                    <Clock className="w-8 h-8 text-purple-600 animate-pulse" />
-                </div>
-                <h2 className="text-xl font-bold">Pricing Under Review</h2>
-                <p className="text-muted-foreground text-sm max-w-sm">
-                    Your prices have been submitted and are awaiting admin approval. Your current live prices remain active in the meantime.
-                </p>
-                <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 text-sm text-blue-700 dark:text-blue-300 max-w-sm">
-                    <AlertCircle className="w-4 h-4 inline mr-1.5" />
-                    You'll be notified once the admin reviews your submission.
-                </div>
-            </div>
-        )
-    }
-
-    // ── Editable state (not_submitted or approved) ──
+    // ── Editable state (approved or rejected/acknowledged) ──
     const filteredPackages = packages.filter(p => p.network === activeNetwork)
     const setPricedCount = Object.values(pricing).filter(v => v && parseFloat(v) > 0).length
     const isResubmission = shop?.pricing_status === 'approved'
 
-    const handleAutoGenerate = () => {
-        if (!packages.length) return
-        const newPricing: Record<string, string> = { ...pricing }
-        let count = 0
-        packages.forEach(pkg => {
-            if (!pkg.is_available) return
-            const selling = getCostPrice(pkg) + 0.50
-            newPricing[pkg.id] = selling.toFixed(2)
-            count++
-        })
-        setPricing(newPricing)
-        toast.success(`Auto-generated prices for ${count} packages (Cost + GHS 0.50)`, {
-            description: 'Review below then click Submit for Approval when ready.'
-        })
-    }
-
     const handleApplyManualMargin = () => {
         const margin = parseFloat(manualMargin)
         if (isNaN(margin) || margin <= 0) {
-            toast.error('Enter a valid profit amount greater than 0')
+            toast.error('Profit must be more than 0')
             return
         }
+        const maxProfit = shop?.owner_role === 'agent' ? 10 : 5
+        if (margin > maxProfit) {
+            toast.error(`Profit cannot exceed GHS ${maxProfit.toFixed(2)}`)
+            return
+        }
+        
         const newPricing: Record<string, string> = { ...pricing }
         let count = 0
         packages.forEach(pkg => {
@@ -321,7 +287,7 @@ export default function ShopPricingPage() {
         })
         setPricing(newPricing)
         toast.success(`Applied GHS ${margin.toFixed(2)} profit to ${count} packages`, {
-            description: 'Review below then click Submit for Approval when ready.'
+            description: 'Review below then click Save & Go Live when ready.'
         })
     }
 
@@ -353,7 +319,7 @@ export default function ShopPricingPage() {
                             className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
                         >
                             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                            {saving ? 'Submitting...' : 'Submit for Approval'}
+                            {saving ? 'Saving...' : 'Save & Go Live'}
                         </Button>
                     </div>
                 </div>
@@ -363,7 +329,7 @@ export default function ShopPricingPage() {
                     <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 flex gap-2 text-sm text-amber-700 dark:text-amber-300">
                         <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
                         <span>
-                            <strong>Heads up!</strong> Your current live prices will remain active until the admin approves your new submission. Customers will continue to see your old prices in the meantime.
+                            <strong>Heads up!</strong> Your new prices will go live automatically, but admins reserve the right to review and reject them later.
                         </span>
                     </div>
                 )}
@@ -439,53 +405,59 @@ export default function ShopPricingPage() {
                     })}
                 </div>
 
-                {/* ── Pricing Tools ── */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                    {/* Auto Generate */}
-                    <div className="flex flex-col gap-2 p-4 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/60 dark:bg-emerald-900/10">
-                        <div className="flex items-center gap-2 mb-1">
-                            <Sparkles className="w-4 h-4 text-emerald-600" />
-                            <span className="font-semibold text-sm text-emerald-800 dark:text-emerald-300">Auto Generate Prices</span>
+                {/* ── User Education & Pricing Tools ── */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* How to Set Your Price (Education block) */}
+                    <div className="flex flex-col gap-2 p-5 rounded-2xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/60 dark:bg-emerald-900/10">
+                        <div className="flex items-center gap-2 mb-2">
+                            <Lightbulb className="w-5 h-5 text-emerald-600" />
+                            <span className="font-bold text-base text-emerald-800 dark:text-emerald-300">How to Set Your Price</span>
                         </div>
-                        <p className="text-xs text-emerald-700 dark:text-emerald-400">
-                            Instantly sets all package prices at <strong>Cost + GHS 0.50</strong>. You can still edit individual prices after.
-                        </p>
-                        <Button
-                            onClick={handleAutoGenerate}
-                            className="mt-1 w-full gap-2 bg-emerald-600 hover:bg-emerald-700 text-white"
-                        >
-                            <Sparkles className="w-4 h-4" />
-                            Auto Generate (+GHS 0.50)
-                        </Button>
+                        <div className="text-sm text-emerald-800 dark:text-emerald-200 space-y-3">
+                            <p>Your cost price is what you pay us.<br/>Your profit is what you add on top.</p>
+                            <div className="p-3 bg-white dark:bg-black/20 rounded-xl border border-emerald-100 dark:border-emerald-800/50 shadow-sm">
+                                <strong>Example:</strong><br/>If your cost is GHS 10 and you add GHS {shop?.owner_role === 'agent' ? '3' : '2'},<br/>you will sell at <strong>GHS {shop?.owner_role === 'agent' ? '13' : '12'}</strong>.
+                            </div>
+                            <ul className="space-y-1.5 pt-1 font-medium">
+                                <li>✅ <strong>Max profit:</strong> GHS {shop?.owner_role === 'agent' ? '10.00' : '5.00'}</li>
+                                <li>❌ You cannot sell below your cost</li>
+                            </ul>
+                            <div className="pt-2 text-emerald-700 dark:text-emerald-400 font-medium pb-1">
+                                {shop?.owner_role === 'agent' 
+                                    ? '💡 Tip: Agents can set higher profit to cover subscription costs.' 
+                                    : '💡 Tip: Start with GHS 1–2 profit.'}
+                            </div>
+                        </div>
                     </div>
 
-                    {/* Manual Profit */}
-                    <div className="flex flex-col gap-2 p-4 rounded-xl border border-blue-200 dark:border-blue-800 bg-blue-50/60 dark:bg-blue-900/10">
+                    {/* Manual Profit Block */}
+                    <div className="flex flex-col gap-3 p-5 rounded-2xl border border-blue-200 dark:border-blue-800 bg-blue-50/60 dark:bg-blue-900/10 justify-center">
                         <div className="flex items-center gap-2 mb-1">
-                            <TrendingUp className="w-4 h-4 text-blue-600" />
-                            <span className="font-semibold text-sm text-blue-800 dark:text-blue-300">Manual Profit Margin</span>
+                            <TrendingUp className="w-5 h-5 text-blue-600" />
+                            <span className="font-bold text-base text-blue-800 dark:text-blue-300">Set Bulk Profit Margin</span>
                         </div>
-                        <p className="text-xs text-blue-700 dark:text-blue-400">
-                            Enter your desired profit amount, then click <strong>Apply</strong> to set all prices at Cost + your amount.
+                        <p className="text-sm text-blue-700 dark:text-blue-400">
+                            Enter your desired profit amount, then click <strong>Apply</strong> to quickly set all {activeNetwork} items to Cost + your profit.
                         </p>
-                        <div className="flex gap-2 mt-1">
+                        <div className="flex gap-3 mt-2">
                             <div className="relative flex-1">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-xs font-medium">GHS</span>
+                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-medium">GHS</span>
                                 <Input
                                     type="number"
                                     min="0.01"
+                                    max={shop?.owner_role === 'agent' ? "10.00" : "5.00"}
                                     step="0.01"
                                     value={manualMargin}
                                     onChange={(e) => setManualMargin(e.target.value)}
-                                    className="pl-10 h-10 bg-white dark:bg-gray-800"
+                                    className="pl-12 h-12 bg-white dark:bg-gray-800 text-lg shadow-sm"
                                     placeholder="e.g. 1.00"
                                 />
                             </div>
                             <Button
                                 onClick={handleApplyManualMargin}
-                                className="gap-2 bg-blue-600 hover:bg-blue-700 text-white px-4"
+                                className="bg-blue-600 hover:bg-blue-700 text-white px-5 h-12 font-semibold shadow-sm gap-2"
                             >
-                                <CheckCircle2 className="w-4 h-4" />
+                                <CheckCircle2 className="w-5 h-5" />
                                 Apply
                             </Button>
                         </div>
@@ -507,105 +479,74 @@ export default function ShopPricingPage() {
                             </div>
                         ) : (
                             <>
-                                {/* Desktop Table */}
-                                <div className="hidden md:block overflow-x-auto">
-                                    <table className="w-full text-sm">
-                                        <thead>
-                                            <tr className="bg-muted/40 text-xs text-muted-foreground">
-                                                <th className="text-left px-4 py-3 font-medium">Package</th>
-                                                <th className="text-right px-4 py-3 font-medium">Your Cost</th>
-                                                <th className="text-right px-4 py-3 font-medium w-40">Your Price (GHS)</th>
-                                                <th className="text-right px-4 py-3 font-medium">Profit</th>
-                                            </tr>
-                                        </thead>
-                                        <tbody>
-                                            {filteredPackages.map((pkg) => {
-                                                const val = pricing[pkg.id] || ''
-                                                const cost = getCostPrice(pkg)
-                                                const profit = getProfit(pkg, val)
-                                                const valid = isValidPrice(pkg, val)
-                                                return (
-                                                    <tr key={pkg.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
-                                                        <td className="px-4 py-3 font-medium">{pkg.size}</td>
-                                                        <td className="px-4 py-3 text-right text-muted-foreground font-mono">{formatCurrency(cost)}</td>
-                                                        <td className="px-4 py-3">
-                                                            <div className="relative max-w-[120px] ml-auto">
-                                                                <Input
-                                                                    type="number"
-                                                                    min="0"
-                                                                    step="0.01"
-                                                                    value={val}
-                                                                    onChange={(e) => setPricing(prev => ({ ...prev, [pkg.id]: e.target.value }))}
-                                                                    placeholder="—"
-                                                                    className={cn(
-                                                                        'text-right pr-2',
-                                                                        val && valid === false && 'border-red-500 focus-visible:ring-red-500',
-                                                                        val && valid === true && 'border-green-500 focus-visible:ring-green-500',
-                                                                    )}
-                                                                />
-                                                            </div>
-                                                        </td>
-                                                        <td className="px-4 py-3 text-right">
-                                                            {profit !== null ? (
-                                                                <span className={cn(
-                                                                    'font-bold inline-flex items-center gap-1',
-                                                                    profit > 0 ? 'text-emerald-600' : 'text-red-500'
-                                                                )}>
-                                                                    {profit > 0 ? '+' : ''}{formatCurrency(profit)}
-                                                                </span>
-                                                            ) : (
-                                                                <span className="text-muted-foreground">—</span>
-                                                            )}
-                                                        </td>
-                                                    </tr>
-                                                )
-                                            })}
-                                        </tbody>
-                                    </table>
-                                </div>
-
-                                {/* Mobile Card View */}
-                                <div className="md:hidden divide-y">
+                                {/* Unified Mobile-Friendly Card View */}
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
                                     {filteredPackages.map((pkg) => {
-                                        const val = pricing[pkg.id] || ''
+                                        const valStr = pricing[pkg.id] || ''
                                         const cost = getCostPrice(pkg)
-                                        const profit = getProfit(pkg, val)
-                                        const valid = isValidPrice(pkg, val)
+                                        const finalSelling = parseFloat(valStr) || 0
+                                        const profitStr = finalSelling > 0 ? (finalSelling - cost).toFixed(2) : ''
+                                        
+                                        const valid = isValidPrice(pkg, valStr)
+
                                         return (
-                                            <div key={pkg.id} className="p-4 space-y-3">
-                                                <div className="flex justify-between items-center">
-                                                    <span className="font-bold text-base">{pkg.size}</span>
-                                                    <span className="text-xs text-muted-foreground bg-muted px-2 py-1 rounded">
-                                                        Cost: {formatCurrency(cost)}
-                                                    </span>
-                                                </div>
-                                                <div className="grid grid-cols-2 gap-4 items-center">
+                                            <div key={pkg.id} className={cn(
+                                                "flex flex-col p-5 rounded-2xl border-2 transition-colors",
+                                                valStr && valid === false ? "border-red-300 bg-red-50/30 dark:border-red-900 overflow-hidden" : 
+                                                valStr && valid === true ? "border-emerald-200 shadow-sm" : "border-gray-200 dark:border-gray-800 shadow-sm"
+                                            )}>
+                                                {/* Header & Cost */}
+                                                <div className="flex justify-between items-start mb-4">
                                                     <div>
-                                                        <label className="text-xs text-muted-foreground mb-1 block">Your Price</label>
-                                                        <Input
-                                                            type="number"
-                                                            inputMode="decimal"
-                                                            value={val}
-                                                            onChange={(e) => setPricing(prev => ({ ...prev, [pkg.id]: e.target.value }))}
-                                                            placeholder="Set Price"
-                                                            className={cn(
-                                                                'h-10',
-                                                                val && valid === false && 'border-red-500 focus-visible:ring-red-500',
-                                                                val && valid === true && 'border-green-500 focus-visible:ring-green-500',
-                                                            )}
-                                                        />
+                                                        <h3 className="font-black text-lg text-foreground">{pkg.size}</h3>
+                                                        <span className="inline-block mt-1 text-xs font-semibold text-muted-foreground bg-muted px-2.5 py-1 rounded-md">
+                                                            Cost: {formatCurrency(cost)}
+                                                        </span>
                                                     </div>
-                                                    <div className="text-right">
-                                                        <label className="text-xs text-muted-foreground mb-1 block">Profit</label>
-                                                        {profit !== null ? (
-                                                            <span className={cn(
-                                                                'text-lg font-bold block',
-                                                                profit > 0 ? 'text-emerald-600' : 'text-red-500'
-                                                            )}>
-                                                                {formatCurrency(profit)}
+                                                </div>
+
+                                                {/* Profit Input */}
+                                                <div className="mt-auto space-y-4">
+                                                    <div>
+                                                        <label className="text-sm font-semibold flex items-center justify-between mb-1.5 text-foreground">
+                                                            Enter Profit
+                                                            {valStr && valid === false && (
+                                                                <span className="text-xs text-red-600 dark:text-red-400 font-medium">GHS 0.01 - {shop?.owner_role === 'agent' ? '10.00' : '5.00'}</span>
+                                                            )}
+                                                        </label>
+                                                        <div className="relative">
+                                                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium text-sm">GHS</span>
+                                                            <Input
+                                                                type="number"
+                                                                inputMode="decimal"
+                                                                value={profitStr}
+                                                                onChange={(e) => {
+                                                                    const parsedProfit = parseFloat(e.target.value)
+                                                                    if (isNaN(parsedProfit)) {
+                                                                        setPricing(prev => ({ ...prev, [pkg.id]: '' }))
+                                                                    } else {
+                                                                        setPricing(prev => ({ ...prev, [pkg.id]: (cost + parsedProfit).toFixed(2) }))
+                                                                    }
+                                                                }}
+                                                                placeholder="0.00"
+                                                                className={cn(
+                                                                    'h-12 pl-12 text-lg font-medium',
+                                                                    valStr && valid === false && 'border-red-500 focus-visible:ring-red-500 bg-white dark:bg-gray-900',
+                                                                    valStr && valid === true && 'border-green-500 focus-visible:ring-green-500 bg-white dark:bg-gray-900',
+                                                                )}
+                                                            />
+                                                        </div>
+                                                    </div>
+
+                                                    {/* Selling Price Display */}
+                                                    <div className="flex items-center justify-between p-3 rounded-xl bg-gray-50 dark:bg-gray-900 border">
+                                                        <span className="text-sm font-medium text-muted-foreground">You Sell At:</span>
+                                                        {valStr && valid !== null ? (
+                                                            <span className="text-lg font-black text-foreground">
+                                                                {formatCurrency(finalSelling)}
                                                             </span>
                                                         ) : (
-                                                            <span className="text-lg font-medium text-muted-foreground block">—</span>
+                                                            <span className="text-lg font-bold text-muted-foreground">—</span>
                                                         )}
                                                     </div>
                                                 </div>
@@ -623,10 +564,10 @@ export default function ShopPricingPage() {
                     <Button
                         onClick={handleSubmit}
                         disabled={saving}
-                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white h-11 text-sm gap-2"
+                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white h-12 text-base font-semibold shadow-xl gap-2 rounded-xl"
                     >
-                        {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
-                        {saving ? 'Submitting...' : 'Submit for Approval'}
+                        {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
+                        {saving ? 'Saving...' : 'Save & Go Live'}
                     </Button>
                 </div>
             </div>

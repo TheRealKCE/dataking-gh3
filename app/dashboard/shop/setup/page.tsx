@@ -181,6 +181,7 @@ export default function ShopSetupPage() {
                 brand_accent: form.brand_accent,
                 logo_url: logoUrl,
                 is_active: form.is_active,
+                approval_status: 'approved',
                 updated_at: new Date().toISOString(),
             }
 
@@ -192,7 +193,7 @@ export default function ShopSetupPage() {
                 if (error) throw error
             }
 
-            toast.success(existingShopId ? 'Shop updated!' : 'Shop created! Awaiting admin approval.')
+            toast.success(existingShopId ? 'Shop updated!' : 'Shop created successfully!')
             router.push('/dashboard/shop')
         } catch (err: any) {
             toast.error(err.message || 'Failed to save shop')
@@ -228,7 +229,7 @@ export default function ShopSetupPage() {
                         {existingShopId ? 'Edit Shop' : 'Create Your Shop'}
                     </h1>
                     <p className="text-muted-foreground text-sm mt-1">
-                        {existingShopId ? 'Update your shop details and branding.' : 'Set up your reseller storefront. An admin will review and approve it.'}
+                        {existingShopId ? 'Update your shop details and branding.' : 'Set up your reseller storefront.'}
                     </p>
                 </div>
             </div>

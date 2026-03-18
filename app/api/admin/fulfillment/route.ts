@@ -41,12 +41,16 @@ export async function GET(request: NextRequest) {
         let query = supabase
             .from('orders')
             .select(`
-                id, created_at, phone_number, network, size, price, status, user_id, shop_name,
+                id, created_at, phone_number, network, size, price, status, user_id, shop_name, shop_order_id, cost_price_at_time,
                 users (
                     first_name,
                     last_name,
                     role,
                     email
+                ),
+                shop_orders (
+                    cost_price,
+                    admin_cost_at_time
                 ),
                 mtn_fulfillment_tracking (
                     status,
@@ -98,8 +102,21 @@ export async function GET(request: NextRequest) {
                 transaction_id: t.api_response?.data?.transaction_id || t.api_response?.transactionId || null
             }))
 
+            const isShopOrder = order.shop_order_id && order.shop_orders
+            
+            const adminRevenue = isShopOrder 
+                ? order.shop_orders.cost_price         // What the shop owner paid the admin
+                : order.price                          // What the direct customer paid the admin
+
+            const adminTrueCost = isShopOrder
+                ? order.shop_orders.admin_cost_at_time // Admin's supplier cost for the shop order
+                : order.cost_price_at_time             // Admin's supplier cost for the direct order
+
             return {
                 ...order,
+                original_shop_price: order.price,
+                price: adminRevenue,
+                cost_price: adminTrueCost,
                 mtn_fulfillment_tracking: mappedTracking
             }
         })
