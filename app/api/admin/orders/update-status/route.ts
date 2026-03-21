@@ -43,20 +43,50 @@ export async function POST(request: Request) {
         }
 
         const body = await request.json()
-        const { orderIds, status } = body
+        const { orderIds, batchId, status } = body
 
-        if (!orderIds || !Array.isArray(orderIds) || !status) {
+        if (!status) {
             return NextResponse.json(
-                { error: 'Invalid request body' },
+                { error: 'Status is required' },
                 { status: 400 }
             )
+        }
+
+        if ((!orderIds || !Array.isArray(orderIds)) && !batchId) {
+            return NextResponse.json(
+                { error: 'Invalid request body: orderIds array or batchId is required' },
+                { status: 400 }
+            )
+        }
+
+        let targetOrderIds: string[] = []
+
+        if (batchId) {
+            // Fetch non-refunded orders for this batch
+            const { data: batchOrders, error: fetchError } = await supabaseAdmin
+                .from('orders')
+                .select('id')
+                .eq('download_batch_id', batchId)
+                .neq('payment_status', 'refunded')
+            
+            if (fetchError) {
+                console.error('Error fetching batch orders:', fetchError)
+                return NextResponse.json({ error: fetchError.message }, { status: 500 })
+            }
+            targetOrderIds = (batchOrders || []).map(o => o.id)
+        } else {
+            targetOrderIds = orderIds
+        }
+
+        if (targetOrderIds.length === 0) {
+            return NextResponse.json({ success: true, count: 0 })
         }
 
         // Use service role client to update orders
         const { error } = await supabaseAdmin
             .from('orders')
             .update({ status })
-            .in('id', orderIds)
+            .in('id', targetOrderIds)
 
         if (error) {
             console.error('Error updating orders:', error)
@@ -67,14 +97,14 @@ export async function POST(request: Request) {
         }
 
         // Sync with shop_orders
-        const results = await Promise.allSettled(orderIds.map(id => syncShopOrderStatus(id, status)))
+        const results = await Promise.allSettled(targetOrderIds.map(id => syncShopOrderStatus(id, status)))
         results.forEach((r, i) => {
             if (r.status === 'rejected') {
-                console.error(`[UpdateStatus] syncShopOrderStatus failed for order ${orderIds[i]}:`, r.reason)
+                console.error(`[UpdateStatus] syncShopOrderStatus failed for order ${targetOrderIds[i]}:`, r.reason)
             }
         })
 
-        return NextResponse.json({ success: true, count: orderIds.length })
+        return NextResponse.json({ success: true, count: targetOrderIds.length })
     } catch (error: any) {
         console.error('Error in update status route:', error)
         return NextResponse.json(

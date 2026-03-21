@@ -1,8 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
+import { createClient } from '@supabase/supabase-js'
+import { syncShopOrderStatus } from '@/lib/shop-service'
 
+// Create a service role client to bypass RLS for admin updates functions
+const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!,
+    {
+        auth: {
+            autoRefreshToken: false,
+            persistSession: false
+        }
+    }
+)
 export async function POST(request: NextRequest) {
     try {
         const cookieStore = await cookies()
@@ -32,7 +44,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Service role client to bypass RLS
-        const supabase = createServerClient()
+        const supabase = supabaseAdmin
 
         // 0. Check for existing batch with idempotency key
         if (idempotencyKey) {
@@ -99,6 +111,14 @@ export async function POST(request: NextRequest) {
             .in('id', orderIds)
 
         if (updateError) throw updateError
+
+        // Sync with shop_orders
+        const results = await Promise.allSettled(orderIds.map((id: string) => syncShopOrderStatus(id, 'processing')))
+        results.forEach((r, i) => {
+            if (r.status === 'rejected') {
+                console.error(`[AdminBatchCreate] syncShopOrderStatus failed for order ${orderIds[i]}:`, r.reason)
+            }
+        })
 
         return NextResponse.json({
             success: true,

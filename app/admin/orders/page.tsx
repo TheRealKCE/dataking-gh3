@@ -607,7 +607,7 @@ export default function AdminOrdersPage() {
             if (!confirm(`Mark all ${batchOrders.length} orders as ${status}?`)) return
             setIsUpdating(true)
             try {
-                const response = await fetch('/api/admin/orders/status', {
+                const response = await fetch('/api/admin/orders/update-status', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ batchId: batch.id, status })
@@ -701,7 +701,7 @@ export default function AdminOrdersPage() {
                                         const loadBatchOrders = async () => {
                                             setIsLoadingOrders(true)
                                             try {
-                                                const response = await fetch(`/api/admin/orders?batchId=${batch.id}`)
+                                                const response = await fetch(`/api/admin/orders?batchId=${batch.id}&limit=5000`)
                                                 if (response.ok) {
                                                     const data = await response.json()
                                                     setBatchOrders(data.orders || [])
