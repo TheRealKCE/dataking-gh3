@@ -9,11 +9,15 @@ import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import {
     CheckCircle2, XCircle, Loader2, Eye, Download, Clock,
-    Copy, Check, ShieldCheck, Users, LayoutList
+    Copy, Check, ShieldCheck, Users, LayoutList, Search, Filter
 } from 'lucide-react'
 import {
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription
 } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import {
+    Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+} from '@/components/ui/select'
 import { format } from 'date-fns'
 
 type AfarOrder = {
@@ -23,6 +27,7 @@ type AfarOrder = {
     phone: string
     id_type?: string
     id_number?: string
+    date_of_birth?: string
     ghana_card?: string
     location: string
     region: string
@@ -72,6 +77,13 @@ export default function AdminAfaManagementPage() {
     const [selectedApp, setSelectedApp] = useState<AfarOrder | null>(null)
     const [updatingId, setUpdatingId] = useState<string | null>(null)
     const [downloading, setDownloading] = useState(false)
+
+    // Filter state
+    const [searchQuery, setSearchQuery] = useState('')
+    const [statusFilter, setStatusFilter] = useState('all')
+    const [regionFilter, setRegionFilter] = useState('all')
+    const [dateFrom, setDateFrom] = useState('')
+    const [dateTo, setDateTo] = useState('')
 
     const fetchApplications = useCallback(async () => {
         const { data, error } = await (supabase
@@ -151,6 +163,7 @@ export default function AdminAfaManagementPage() {
                 `Phone Number     : ${app.phone}`,
                 `ID Type          : ${idType}`,
                 `ID Number        : ${idNumber}`,
+                ...(app.date_of_birth ? [`Date of Birth    : ${app.date_of_birth}`] : []),
                 `Region           : ${app.region}`,
                 `City / Town      : ${app.location}`,
                 `Occupation       : ${app.occupation || 'Farmer'}`,
@@ -238,6 +251,71 @@ export default function AdminAfaManagementPage() {
                 ))}
             </div>
 
+            {/* ─── Filters ─── */}
+            <Card className="border shadow-sm">
+                <CardContent className="p-4 flex flex-col sm:flex-row gap-3">
+                    <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <Input
+                            placeholder="Search by name, phone, or ID..."
+                            value={searchQuery}
+                            onChange={e => setSearchQuery(e.target.value)}
+                            className="pl-9 h-10"
+                        />
+                    </div>
+                    <Select value={regionFilter} onValueChange={setRegionFilter}>
+                        <SelectTrigger className="h-10 sm:w-[180px]">
+                            <SelectValue placeholder="All Regions" />
+                        </SelectTrigger>
+                        <SelectContent className="max-h-[300px]">
+                            <SelectItem value="all">All Regions</SelectItem>
+                            {['Greater Accra', 'Ashanti', 'Western', 'Eastern', 'Central', 'Northern', 'Volta', 'Upper East', 'Upper West', 'Bono', 'Bono East', 'Ahafo', 'Savannah', 'North East', 'Oti', 'Western North'].map(r => (
+                                <SelectItem key={r} value={r}>{r}</SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                    <Select value={statusFilter} onValueChange={setStatusFilter}>
+                        <SelectTrigger className="h-10 sm:w-[180px]">
+                            <SelectValue placeholder="All Statuses" />
+                        </SelectTrigger>
+                        <SelectContent>
+                            <SelectItem value="all">All Statuses</SelectItem>
+                            <SelectItem value="pending">Pending</SelectItem>
+                            <SelectItem value="processing">Processing</SelectItem>
+                            <SelectItem value="completed">Completed</SelectItem>
+                            <SelectItem value="cancelled">Cancelled</SelectItem>
+                        </SelectContent>
+                    </Select>
+                    <div className="flex items-center gap-2">
+                        <Input
+                            type="date"
+                            value={dateFrom}
+                            onChange={e => setDateFrom(e.target.value)}
+                            className="h-10 w-auto"
+                            title="From Date"
+                        />
+                        <span className="text-muted-foreground text-xs">to</span>
+                        <Input
+                            type="date"
+                            value={dateTo}
+                            onChange={e => setDateTo(e.target.value)}
+                            className="h-10 w-auto"
+                            title="To Date"
+                        />
+                        {(dateFrom || dateTo) && (
+                            <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="h-8 px-2 text-xs"
+                                onClick={() => { setDateFrom(''); setDateTo('') }}
+                            >
+                                Clear
+                            </Button>
+                        )}
+                    </div>
+                </CardContent>
+            </Card>
+
             {/* ─── Applications Table ─── */}
             <Card>
                 <CardHeader className="p-4 border-b">
@@ -247,29 +325,53 @@ export default function AdminAfaManagementPage() {
                     </CardTitle>
                 </CardHeader>
                 <CardContent className="p-0">
-                    {applications.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-2">
-                            <ShieldCheck className="w-10 h-10 opacity-20" />
-                            <p className="text-sm">No applications submitted yet.</p>
-                        </div>
-                    ) : (
-                        <>
-                            {/* Desktop Table */}
-                            <div className="hidden md:block overflow-x-auto">
-                                <Table>
-                                    <TableHeader>
-                                        <TableRow>
-                                            <TableHead>Applicant</TableHead>
-                                            <TableHead>ID Type</TableHead>
-                                            <TableHead>Location</TableHead>
-                                            <TableHead>Fee</TableHead>
-                                            <TableHead>Submitted</TableHead>
-                                            <TableHead>Status</TableHead>
-                                            <TableHead className="text-right">Action</TableHead>
-                                        </TableRow>
-                                    </TableHeader>
-                                    <TableBody>
-                                        {applications.map(app => {
+                    {(() => {
+                        const filteredApps = applications.filter(app => {
+                            const q = searchQuery.toLowerCase()
+                            const matchSearch = app.full_name.toLowerCase().includes(q) || 
+                                                app.phone.includes(q) ||
+                                                (app.id_number && app.id_number.toLowerCase().includes(q)) ||
+                                                (app.ghana_card && app.ghana_card.toLowerCase().includes(q))
+                            const matchStatus = statusFilter === 'all' || app.status === statusFilter
+                            const matchRegion = regionFilter === 'all' || app.region === regionFilter
+                            
+                            let matchDate = true
+                            if (dateFrom || dateTo) {
+                                const appDate = new Date(app.created_at).toISOString().split('T')[0]
+                                if (dateFrom && appDate < dateFrom) matchDate = false
+                                if (dateTo && appDate > dateTo) matchDate = false
+                            }
+
+                            return matchSearch && matchStatus && matchRegion && matchDate
+                        })
+
+                        if (filteredApps.length === 0) {
+                            return (
+                                <div className="flex flex-col items-center justify-center py-16 text-muted-foreground gap-2">
+                                    <ShieldCheck className="w-10 h-10 opacity-20" />
+                                    <p className="text-sm">No applications found matching your criteria.</p>
+                                </div>
+                            )
+                        }
+
+                        return (
+                            <>
+                                {/* Desktop Table */}
+                                <div className="hidden md:block overflow-x-auto">
+                                    <Table>
+                                        <TableHeader>
+                                            <TableRow>
+                                                <TableHead>Applicant</TableHead>
+                                                <TableHead>ID Type</TableHead>
+                                                <TableHead>Location</TableHead>
+                                                <TableHead>Fee</TableHead>
+                                                <TableHead>Submitted</TableHead>
+                                                <TableHead>Status</TableHead>
+                                                <TableHead className="text-right">Action</TableHead>
+                                            </TableRow>
+                                        </TableHeader>
+                                        <TableBody>
+                                            {filteredApps.map(app => {
                                             const cfg = STATUS_CONFIG[app.status] || STATUS_CONFIG.pending
                                             const StatusIcon = cfg.icon
                                             return (
@@ -316,7 +418,7 @@ export default function AdminAfaManagementPage() {
 
                             {/* Mobile Cards */}
                             <div className="md:hidden divide-y">
-                                {applications.map(app => {
+                                {filteredApps.map(app => {
                                     const cfg = STATUS_CONFIG[app.status] || STATUS_CONFIG.pending
                                     const StatusIcon = cfg.icon
                                     return (
@@ -337,8 +439,9 @@ export default function AdminAfaManagementPage() {
                                     )
                                 })}
                             </div>
-                        </>
-                    )}
+                            </>
+                        )
+                    })()}
                 </CardContent>
             </Card>
 
@@ -383,6 +486,7 @@ export default function AdminAfaManagementPage() {
                                     <CopyField label="Phone Number" value={selectedApp.phone} />
                                     <CopyField label="ID Type" value={idType} />
                                     <CopyField label="ID Number" value={idNumber} />
+                                    {selectedApp.date_of_birth && <CopyField label="Date of Birth" value={selectedApp.date_of_birth} />}
                                     <CopyField label="Region" value={selectedApp.region} />
                                     <CopyField label="City / Town" value={selectedApp.location} />
                                     <CopyField label="Occupation" value={selectedApp.occupation || 'Farmer'} />

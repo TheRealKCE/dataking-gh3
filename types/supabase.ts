@@ -377,6 +377,7 @@ export interface Database {
                     location: string
                     region: string
                     occupation: string
+                    date_of_birth?: string | null
                     status: 'pending' | 'processing' | 'completed' | 'cancelled'
                     notes: string | null
                     created_at: string
@@ -391,6 +392,7 @@ export interface Database {
                     location: string
                     region: string
                     occupation: string
+                    date_of_birth?: string | null
                     status?: 'pending' | 'processing' | 'completed' | 'cancelled'
                     notes?: string | null
                     created_at?: string

@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Validate required form fields
-        const requiredFields = ['full_name', 'phone', 'id_type', 'id_number', 'location', 'region']
+        const requiredFields = ['full_name', 'phone', 'id_type', 'id_number', 'location', 'region', 'date_of_birth']
         for (const field of requiredFields) {
             if (!formData[field] || String(formData[field]).trim() === '') {
                 return NextResponse.json(
@@ -47,6 +47,23 @@ export async function POST(request: NextRequest) {
                     { status: 400 }
                 )
             }
+        }
+
+        // Validate Date of Birth (at least 18 years old)
+        const dob = new Date(formData.date_of_birth)
+        if (isNaN(dob.getTime())) {
+            return NextResponse.json({ error: 'Invalid Date of Birth format' }, { status: 400 })
+        }
+        
+        const today = new Date()
+        let age = today.getFullYear() - dob.getFullYear()
+        const monthDiff = today.getMonth() - dob.getMonth()
+        if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < dob.getDate())) {
+            age--
+        }
+        
+        if (age < 18) {
+            return NextResponse.json({ error: 'Applicant must be at least 18 years of age.' }, { status: 400 })
         }
 
         // ── 2B: Fetch price server-side (prevents amount: 0 exploits) ──
@@ -134,6 +151,44 @@ export async function POST(request: NextRequest) {
                 { error: 'Failed to process registration' },
                 { status: 500 }
             )
+        }
+
+        // ── 2E: Send Admin Notification (Asynchronous) ──────────────
+        try {
+            // Find main admins to notify (excluding sub_admin)
+            const { data: adminUsers } = await supabase
+                .from('users')
+                .select('email')
+                .eq('role', 'admin')
+
+            // Create a unique set of recipients (DB Admins + Env Fallback)
+            const recipients = new Set<string>()
+            if (process.env.ADMIN_EMAIL) recipients.add(process.env.ADMIN_EMAIL)
+
+            if (adminUsers) {
+                (adminUsers as any[]).forEach(u => {
+                    if (u.email) recipients.add(u.email)
+                })
+            }
+
+            if (recipients.size > 0) {
+                const { sendAdminNewAfaApplicationAlert } = await import('@/lib/email-service')
+                
+                const notifyPromises = Array.from(recipients).map(email => 
+                    sendAdminNewAfaApplicationAlert(
+                        {
+                            applicantName: formData.full_name,
+                            phone: formData.phone,
+                            region: formData.region
+                        },
+                        email
+                    )
+                )
+                
+                await Promise.allSettled(notifyPromises)
+            }
+        } catch (emailError) {
+            console.error('[AFA Registration] Failed to send admin alert email:', emailError)
         }
 
         // ── Success ───────────────────────────────────────────────

@@ -1554,3 +1554,28 @@ export async function sendAdminShopWithdrawalRequestAlert(details: {
     `
     return sendEmail({ to: adminEmail, toName: 'Admin', subject: `${details.isResubmission ? '♻️ Resubmission' : '💸 New Withdrawal'} – GH${details.amount.toFixed(2)} from ${details.shopName}`, htmlContent: generatePremiumTemplate('Withdrawal Request', content) })
 }
+
+/**
+ * Alert 12 · New AFA Membership Application — Email to admin only
+ */
+export async function sendAdminNewAfaApplicationAlert(details: {
+    applicantName: string
+    phone: string
+    region: string
+}, toEmail?: string): Promise<EmailResult> {
+    const adminEmail = toEmail || process.env.ADMIN_EMAIL || 'kingflexydatalimited@gmail.com'
+    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.kingflexygh.com'
+    const content = `
+        <h1 class="greeting">New AFA Membership Application 🔔</h1>
+        <p class="subtitle">A new application has been submitted for review</p>
+        <div class="info-card">
+            <div class="info-card-header"><div class="info-card-icon">📝</div><span class="info-card-title">Applicant Details</span></div>
+            <div class="info-row"><span class="info-label">Name</span><span class="info-value">${details.applicantName}</span></div>
+            <div class="info-row"><span class="info-label">Phone</span><span class="info-value">${details.phone}</span></div>
+            <div class="info-row"><span class="info-label">Region</span><span class="info-value">${details.region}</span></div>
+        </div>
+        <div style="text-align: center; margin: 25px 0;"><span class="status-badge status-pending">Action Required</span></div>
+        <div class="cta-container"><a href="${siteUrl}/admin/afa-management" class="cta-button">Review Application</a></div>
+    `
+    return sendEmail({ to: adminEmail, toName: 'Admin', subject: '🔔 New AFA Membership Application - ' + details.applicantName, htmlContent: generatePremiumTemplate('New AFA Application', content) })
+}

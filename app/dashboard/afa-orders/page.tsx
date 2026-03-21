@@ -57,7 +57,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: any; d
     completed: {
         label: 'Completed', icon: CheckCircle2,
         color: 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400',
-        description: 'Your AFA registration is complete. You are now an authorized field agent.',
+        description: 'Your AFA registration is complete. You are now an officially recognized member.',
     },
     cancelled: {
         label: 'Cancelled', icon: XCircle,
@@ -67,7 +67,7 @@ const STATUS_CONFIG: Record<string, { label: string; color: string; icon: any; d
 }
 
 const EMPTY_FORM = {
-    full_name: '', phone: '', id_type: '', id_number: '',
+    full_name: '', phone: '', id_type: '', id_number: '', date_of_birth: '',
     location: '', region: 'Greater Accra', notes: '',
 }
 
@@ -78,6 +78,7 @@ type AfarOrder = {
     phone: string
     id_type: string
     id_number: string
+    date_of_birth?: string
     ghana_card?: string
     location: string
     region: string
@@ -156,6 +157,10 @@ export default function AFAOrdersPage() {
     const [walletBalance, setWalletBalance] = useState(0)
     const [loadingPrice, setLoadingPrice] = useState(true)
     const [loadingApps, setLoadingApps] = useState(true)
+
+    // Filter state
+    const [searchQuery, setSearchQuery] = useState('')
+    const [statusFilter, setStatusFilter] = useState('all')
 
     // Form state
     const [showForm, setShowForm] = useState(false)
@@ -294,6 +299,19 @@ export default function AFAOrdersPage() {
 
         if (!formData.id_type) { toast.error('Please select an ID type'); return }
         if (!formData.id_number.trim()) { toast.error('Please enter your ID number'); return }
+        if (!formData.date_of_birth) { toast.error('Please enter your Date of Birth'); return }
+
+        const dob = new Date(formData.date_of_birth)
+        const today = new Date()
+        let age = today.getFullYear() - dob.getFullYear()
+        const m = today.getMonth() - dob.getMonth()
+        if (m < 0 || (m === 0 && today.getDate() < dob.getDate())) {
+            age--
+        }
+        if (age < 18) {
+            toast.error('Applicant must be at least 18 years old.')
+            return
+        }
 
         const idValidationError = validateId(formData.id_type, formData.id_number)
         if (idValidationError) {
@@ -322,9 +340,10 @@ export default function AFAOrdersPage() {
                     formData: {
                         full_name:  formData.full_name,
                         phone:      formData.phone,
-                        id_type:    formData.id_type,
-                        id_number:  formData.id_number,
-                        location:   formData.location,
+                        id_type:        formData.id_type,
+                        id_number:      formData.id_number,
+                        date_of_birth:  formData.date_of_birth,
+                        location:       formData.location,
                         region:     formData.region,
                         notes:      formData.notes,
                     },
@@ -374,7 +393,7 @@ export default function AFAOrdersPage() {
         <div className="max-w-3xl mx-auto space-y-6 pb-10">
 
             {/* ── Hero Header ── */}
-            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-yellow-400 via-yellow-500 to-amber-600 p-6 sm:p-8 text-white shadow-xl">
+            <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-yellow-400 via-yellow-500 to-amber-600 p-6 sm:p-8 text-white shadow-xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
                 <div className="relative z-10">
                     <div className="flex items-center gap-2 mb-1">
                         <ShieldCheck className="w-5 h-5 opacity-80" />
@@ -387,6 +406,18 @@ export default function AFAOrdersPage() {
                         Your data will be securely submitted and processed by our team within 24 hours.
                     </p>
                 </div>
+                {!showForm && (
+                    <div className="relative z-10 shrink-0">
+                        <Button
+                            size="lg"
+                            className="bg-white text-yellow-600 hover:bg-yellow-50 font-bold shadow-lg shadow-yellow-900/20"
+                            onClick={openNewForm}
+                        >
+                            <Plus className="w-5 h-5 mr-2" />
+                            New Registration
+                        </Button>
+                    </div>
+                )}
                 <div className="absolute -top-8 -right-8 w-40 h-40 rounded-full bg-white/10" />
                 <div className="absolute -bottom-6 -right-16 w-56 h-56 rounded-full bg-white/5" />
             </div>
@@ -426,28 +457,53 @@ export default function AFAOrdersPage() {
                         <div>
                             <h2 className="text-base font-semibold">My Registrations</h2>
                             <p className="text-xs text-muted-foreground mt-0.5">
-                                View your AFA application status and download receipts.
+                                Below is your AFA membership application history. View your status and download receipts.
                             </p>
                         </div>
-                        <Button
-                            size="sm"
-                            className="bg-yellow-500 hover:bg-yellow-600 text-white gap-1.5 shrink-0"
-                            onClick={openNewForm}
-                        >
-                            <Plus className="w-4 h-4" />
-                            New Registration
-                        </Button>
+                    </div>
+                    
+                    {/* Filters */}
+                    <div className="flex flex-col sm:flex-row gap-3 pt-2 pb-1">
+                        <Input
+                            placeholder="Search by name or phone..."
+                            value={searchQuery}
+                            onChange={e => setSearchQuery(e.target.value)}
+                            className="h-10 sm:max-w-xs"
+                        />
+                        <Select value={statusFilter} onValueChange={setStatusFilter}>
+                            <SelectTrigger className="h-10 sm:max-w-[160px]">
+                                <SelectValue placeholder="All Statuses" />
+                            </SelectTrigger>
+                            <SelectContent>
+                                <SelectItem value="all">All Statuses</SelectItem>
+                                <SelectItem value="pending">Pending</SelectItem>
+                                <SelectItem value="processing">Processing</SelectItem>
+                                <SelectItem value="completed">Completed</SelectItem>
+                                <SelectItem value="cancelled">Cancelled</SelectItem>
+                            </SelectContent>
+                        </Select>
                     </div>
 
-                    {applications.length === 0 ? (
-                        <Card className="border-dashed">
-                            <CardContent className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-2">
-                                <ShieldCheck className="w-10 h-10 opacity-20" />
-                                <p className="text-sm">No registrations yet. Start your first AFA application.</p>
-                            </CardContent>
-                        </Card>
-                    ) : (
-                        applications.map((app) => {
+                    {(() => {
+                        const filteredApps = applications.filter(app => {
+                            const matchSearch = app.full_name.toLowerCase().includes(searchQuery.toLowerCase()) || 
+                                                app.phone.includes(searchQuery)
+                            const matchStatus = statusFilter === 'all' || app.status === statusFilter
+                            return matchSearch && matchStatus
+                        })
+
+                        if (filteredApps.length === 0) {
+                            return (
+                                <Card className="border-dashed">
+                                    <CardContent className="flex flex-col items-center justify-center py-12 text-muted-foreground gap-2">
+                                        <ShieldCheck className="w-10 h-10 opacity-20" />
+                                        <p className="text-sm">No registrations match your search.</p>
+                                    </CardContent>
+                                </Card>
+                            )
+                        }
+
+                        return filteredApps.map((app) => {
                             const cfg = STATUS_CONFIG[app.status] || STATUS_CONFIG.pending
                             const StatusIcon = cfg.icon
                             return (
@@ -521,7 +577,7 @@ export default function AFAOrdersPage() {
                                 </Card>
                             )
                         })
-                    )}
+                    })()}
                 </div>
             )}
 
@@ -609,8 +665,20 @@ export default function AFAOrdersPage() {
                                 </div>
                             </div>
 
-                            {/* Region & Location */}
+                            {/* Date of Birth & Region */}
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                    <Label>Date of Birth <span className="text-red-500">*</span></Label>
+                                    <Input
+                                        required
+                                        type="date"
+                                        disabled={isSubmitting}
+                                        value={formData.date_of_birth}
+                                        onChange={e => setFormData(p => ({ ...p, date_of_birth: e.target.value }))}
+                                        className="h-11 cursor-pointer"
+                                        max={new Date(new Date().setFullYear(new Date().getFullYear() - 18)).toISOString().split('T')[0]}
+                                    />
+                                </div>
                                 <div className="space-y-1.5">
                                     <Label>Region <span className="text-red-500">*</span></Label>
                                     <Select
@@ -628,6 +696,10 @@ export default function AFAOrdersPage() {
                                         </SelectContent>
                                     </Select>
                                 </div>
+                            </div>
+
+                            {/* Location & Occupation */}
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                                 <div className="space-y-1.5">
                                     <Label>City / Town <span className="text-red-500">*</span></Label>
                                     <Input
@@ -639,16 +711,14 @@ export default function AFAOrdersPage() {
                                         className="h-11"
                                     />
                                 </div>
-                            </div>
-
-                            {/* Occupation — locked */}
-                            <div className="space-y-1.5">
-                                <Label>Occupation</Label>
-                                <Input
-                                    value="Farmer"
-                                    readOnly
-                                    className="bg-muted cursor-not-allowed text-muted-foreground h-11"
-                                />
+                                <div className="space-y-1.5">
+                                    <Label>Occupation</Label>
+                                    <Input
+                                        value="Farmer"
+                                        readOnly
+                                        className="bg-muted cursor-not-allowed text-muted-foreground h-11"
+                                    />
+                                </div>
                             </div>
 
                             {/* Notes */}
@@ -760,6 +830,7 @@ export default function AFAOrdersPage() {
                                 { label: 'Phone', value: formData.phone },
                                 { label: 'ID Type', value: formData.id_type },
                                 { label: 'ID Number', value: formData.id_number },
+                                { label: 'Date of Birth', value: formData.date_of_birth },
                                 { label: 'Region', value: formData.region },
                                 { label: 'City / Town', value: formData.location },
                             ].map(row => (
@@ -856,6 +927,7 @@ export default function AFAOrdersPage() {
                                         { label: 'Phone Number', value: selectedApp.phone },
                                         { label: 'ID Type', value: idType },
                                         { label: 'ID Number', value: idNumber },
+                                        ...(selectedApp.date_of_birth ? [{ label: 'Date of Birth', value: selectedApp.date_of_birth }] : []),
                                         { label: 'Region', value: selectedApp.region },
                                         { label: 'City / Town', value: selectedApp.location },
                                         { label: 'Occupation', value: selectedApp.occupation || 'Farmer' },

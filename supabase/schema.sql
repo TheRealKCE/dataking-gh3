@@ -168,6 +168,7 @@ CREATE TABLE IF NOT EXISTS public.afa_orders (
   location TEXT NOT NULL,
   region TEXT NOT NULL,
   occupation TEXT NOT NULL,
+  date_of_birth DATE,
   status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'completed', 'cancelled')),
   notes TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
