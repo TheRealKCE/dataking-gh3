@@ -598,10 +598,24 @@ export default function AdminOrdersPage() {
     function BatchCard({ batch, onRefund, onFail }: { batch: any, onRefund?: any, onFail?: any }) {
         const [batchOrders, setBatchOrders] = useState<any[]>([])
         const [isLoadingOrders, setIsLoadingOrders] = useState(false)
+        const [hasLoaded, setHasLoaded] = useState(false)
         const [isUpdating, setIsUpdating] = useState(false)
 
-        // Automatic fetching removed to save CPU. 
-        // Logic moved to manual click handler in the UI.
+        const loadBatchOrders = async () => {
+            setIsLoadingOrders(true)
+            try {
+                const response = await fetch(`/api/admin/orders?batchId=${batch.id}&limit=5000`)
+                if (response.ok) {
+                    const data = await response.json()
+                    setBatchOrders(data.orders || [])
+                }
+            } catch (error) {
+                console.error('Failed to load batch orders', error)
+            } finally {
+                setIsLoadingOrders(false)
+                setHasLoaded(true)
+            }
+        }
 
         const onUpdateBatchStatus = async (status: string) => {
             if (!confirm(`Mark all ${batchOrders.length} orders as ${status}?`)) return
@@ -692,35 +706,23 @@ export default function AdminOrdersPage() {
                     </div>
 
                     <div className="flex-1 overflow-y-auto border rounded-md bg-muted/5 p-2 space-y-2">
-                        {isLoadingOrders ? (
+                        {!hasLoaded && !isLoadingOrders ? (
                             <div className="h-full flex items-center justify-center min-h-[100px]">
                                 <Button
                                     variant="ghost"
                                     size="sm"
-                                    onClick={() => {
-                                        const loadBatchOrders = async () => {
-                                            setIsLoadingOrders(true)
-                                            try {
-                                                const response = await fetch(`/api/admin/orders?batchId=${batch.id}&limit=5000`)
-                                                if (response.ok) {
-                                                    const data = await response.json()
-                                                    setBatchOrders(data.orders || [])
-                                                }
-                                            } catch (error) {
-                                                console.error('Failed to load batch orders', error)
-                                            } finally {
-                                                setIsLoadingOrders(false)
-                                            }
-                                        }
-                                        loadBatchOrders()
-                                    }}
+                                    onClick={loadBatchOrders}
                                     className="text-blue-600 hover:text-blue-700 font-bold"
                                 >
                                     <FileText className="w-4 h-4 mr-2" />
                                     Click to View {batch.order_count} Orders
                                 </Button>
                             </div>
-                        ) : batchOrders.length === 0 ? (
+                        ) : isLoadingOrders ? (
+                            <div className="h-full flex items-center justify-center min-h-[100px]">
+                                <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+                            </div>
+                        ) : hasLoaded && batchOrders.length === 0 ? (
                             <div className="h-full flex items-center justify-center text-xs text-muted-foreground py-10">
                                 No orders found
                             </div>
@@ -1071,6 +1073,8 @@ export default function AdminOrdersPage() {
                         <div className="relative flex-1 max-w-sm">
                             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                             <Input
+                                id="batch-search-history"
+                                name="batch-search-history"
                                 placeholder="Search batches by phone, ref..."
                                 value={searchTerm}
                                 onChange={(e) => setSearchTerm(e.target.value)}
