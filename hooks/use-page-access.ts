@@ -11,6 +11,7 @@ export interface PageAccessSettings {
     profile: boolean
     shop: boolean
     storefront: boolean
+    airtime: boolean
 }
 
 const PAGE_ROUTE_MAP: Record<string, keyof PageAccessSettings> = {
@@ -22,6 +23,7 @@ const PAGE_ROUTE_MAP: Record<string, keyof PageAccessSettings> = {
     '/dashboard/notifications': 'notifications',
     '/dashboard/profile': 'profile',
     '/dashboard/shop': 'shop',
+    '/dashboard/airtime': 'airtime',
 }
 
 export function usePageAccess() {
@@ -35,6 +37,7 @@ export function usePageAccess() {
         profile: true,
         shop: true,
         storefront: true,
+        airtime: true,
     })
     const [loading, setLoading] = useState(true)
 
@@ -58,6 +61,7 @@ export function usePageAccess() {
                 profile: settingsMap.page_access_profile !== 'false',
                 shop: settingsMap.page_access_shop !== 'false',
                 storefront: settingsMap.page_access_storefront !== 'false',
+                airtime: settingsMap.page_access_airtime !== 'false',
             })
         } catch (error) {
             console.error('Error fetching page access settings:', error)

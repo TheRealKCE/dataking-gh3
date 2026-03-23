@@ -559,3 +559,24 @@ export async function sendShopWithdrawalRejectedSMS(
 
     return sendSMS({ recipient: phoneNumber, message })
 }
+
+// ==========================================
+// AIRTIME FUNCTIONS
+// ==========================================
+
+/**
+ * Send beneficiary confirmation SMS when airtime order is placed
+ * Triggered immediately after successful wallet deduction
+ */
+export async function sendAirtimeBeneficiarySMS(
+    beneficiaryPhone: string,
+    airtimeAmount: number
+): Promise<SMSResult> {
+    const message = `Your order for GH ${airtimeAmount.toFixed(2)} airtime has been received and is being processed. You will receive the confirmation sms very soon.\n\nKingFlexyGh`
+
+    return sendSMS({
+        recipient: beneficiaryPhone,
+        message
+    })
+}
+

@@ -42,6 +42,7 @@ export default function AdminSettingsPage() {
     const [pageAccessProfile, setPageAccessProfile] = useState(true)
     const [pageAccessShop, setPageAccessShop] = useState(true)
     const [pageAccessStorefront, setPageAccessStorefront] = useState(true)
+    const [pageAccessAirtime, setPageAccessAirtime] = useState(true)
 
     useEffect(() => {
         fetchSettings()
@@ -87,6 +88,7 @@ export default function AdminSettingsPage() {
             setPageAccessProfile(settingsMap.page_access_profile !== 'false')
             setPageAccessShop(settingsMap.page_access_shop !== 'false')
             setPageAccessStorefront(settingsMap.page_access_storefront !== 'false')
+            setPageAccessAirtime(settingsMap.page_access_airtime !== 'false')
 
         } catch (error) {
             console.error('Error fetching settings:', error)
@@ -122,7 +124,8 @@ export default function AdminSettingsPage() {
                 { key: 'page_access_notifications', value: String(pageAccessNotifications) },
                 { key: 'page_access_profile', value: String(pageAccessProfile) },
                 { key: 'page_access_shop', value: String(pageAccessShop) },
-                { key: 'page_access_storefront', value: String(pageAccessStorefront) }
+                { key: 'page_access_storefront', value: String(pageAccessStorefront) },
+                { key: 'page_access_airtime', value: String(pageAccessAirtime) }
             ]
 
             const { error } = await (supabase
@@ -456,6 +459,22 @@ export default function AdminSettingsPage() {
                                 <Switch
                                     checked={pageAccessShop}
                                     onCheckedChange={setPageAccessShop}
+                                />
+                            </div>
+
+                            <div className="flex items-center justify-between p-4 border rounded-lg">
+                                <div className="space-y-0.5">
+                                    <Label className="text-base flex items-center gap-2">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.63 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.53 1h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 8a16 16 0 0 0 6 6l.72-.72a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 21 15.29"/></svg>
+                                        Buy Airtime
+                                    </Label>
+                                    <p className="text-sm text-muted-foreground">
+                                        Allow users to purchase airtime for MTN, Telecel, and AT networks
+                                    </p>
+                                </div>
+                                <Switch
+                                    checked={pageAccessAirtime}
+                                    onCheckedChange={setPageAccessAirtime}
                                 />
                             </div>
 

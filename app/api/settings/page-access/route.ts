@@ -26,7 +26,8 @@ export async function GET() {
                 'page_access_notifications',
                 'page_access_profile',
                 'page_access_shop',
-                'page_access_storefront'
+                'page_access_storefront',
+                'page_access_airtime'
             ])
 
         if (error) {

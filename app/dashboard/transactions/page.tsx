@@ -225,6 +225,7 @@ export default function TransactionsPage() {
                                 <SelectContent>
                                     <SelectItem value="all">All Categories</SelectItem>
                                     <SelectItem value="purchase">Data Purchase</SelectItem>
+                                    <SelectItem value="airtime">📱 Airtime</SelectItem>
                                     <SelectItem value="payment">Wallet Funding</SelectItem>
                                     <SelectItem value="admin">Adjustments</SelectItem>
                                     <SelectItem value="refund">Refunds</SelectItem>
