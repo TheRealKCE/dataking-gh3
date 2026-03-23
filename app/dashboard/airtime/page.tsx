@@ -2,6 +2,8 @@
 
 import React, { useState, useEffect, useCallback } from 'react'
 import { Phone, CheckCircle, Copy, Wallet, AlertTriangle, Loader2, ChevronRight, Info, History, X, ArrowRight, RefreshCw } from 'lucide-react'
+import { useAuth } from '@/contexts/auth-context'
+import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -191,6 +193,7 @@ function ConfirmSheet({ open, onCancel, onConfirm, isLoading, details }: {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function AirtimePage() {
+    const { dbUser } = useAuth()
     const [activeTab, setActiveTab] = useState<'buy' | 'history'>('buy')
 
     // Settings & wallet
@@ -201,6 +204,7 @@ export default function AirtimePage() {
 
     // Form state
     const [selectedNetwork, setSelectedNetwork] = useState<string | null>(null)
+    const [isManualSelection, setIsManualSelection] = useState(false)
     const [phone, setPhone] = useState('')
     const [amount, setAmount] = useState('')
     const [useExact, setUseExact] = useState(false)
@@ -217,12 +221,11 @@ export default function AirtimePage() {
     // Load settings + wallet
     useEffect(() => {
         const loadData = async () => {
+            if (!dbUser) return
             setSettingsLoading(true)
             try {
-                const [settingsRes, walletRes] = await Promise.all([
-                    fetch('/api/admin/airtime/settings'),
-                    fetch('/api/user/wallet'),
-                ])
+                // 1. Fetch settings from API
+                const settingsRes = await fetch('/api/admin/airtime/settings')
                 if (settingsRes.ok) {
                     const { settings: raw } = await settingsRes.json()
                     setSettings({
@@ -239,16 +242,26 @@ export default function AirtimePage() {
                         enabled_at: raw.airtime_enabled_at !== 'false',
                     })
                 }
-                if (walletRes.ok) {
-                    const d = await walletRes.json()
-                    setWalletBalance(d.balance ?? d.wallet?.balance ?? 0)
-                    setUserRole(d.role === 'agent' ? 'agent' : 'customer')
+
+                // 2. Fetch wallet directly from Supabase
+                const { data: walletData } = await supabase
+                    .from('wallets')
+                    .select('balance')
+                    .eq('user_id', dbUser.id)
+                    .single()
+
+                if (walletData) {
+                    setWalletBalance((walletData as any).balance || 0)
+                    setUserRole(dbUser.role === 'agent' ? 'agent' : 'customer')
                 }
-            } catch (e) { console.error(e) }
-            setSettingsLoading(false)
+            } catch (e) {
+                console.error('[Airtime] Error loading initial data:', e)
+            } finally {
+                setSettingsLoading(false)
+            }
         }
         loadData()
-    }, [])
+    }, [dbUser])
 
     // History loader
     const loadHistory = useCallback(async () => {
@@ -303,9 +316,19 @@ export default function AirtimePage() {
     const handlePhoneChange = (val: string) => {
         const clean = val.replace(/\D/g, '')
         setPhone(clean.slice(0, 10))
-        if (clean.length >= 3) {
-            const auto = detectNetwork(clean)
-            if (auto && !selectedNetwork) setSelectedNetwork(auto.id)
+
+        // Auto-selection logic
+        if (!isManualSelection) {
+            if (clean.length === 0) {
+                // Deselect if field is empty (user requested this)
+                setSelectedNetwork(null)
+            } else if (clean.length >= 3) {
+                const auto = detectNetwork(clean)
+                if (auto) {
+                    // Update if it detects a network (even if one was already auto-selected)
+                    setSelectedNetwork(auto.id as string)
+                }
+            }
         }
     }
 
@@ -412,9 +435,12 @@ export default function AirtimePage() {
                                 const isSelected = selectedNetwork === net.id
                                 return (
                                     <button
-                                        key={net.id}
-                                        onClick={() => isEnabled && setSelectedNetwork(net.id)}
-                                        disabled={!isEnabled}
+                                    key={net.id}
+                                    onClick={() => {
+                                        setSelectedNetwork(net.id)
+                                        setIsManualSelection(true) // Track manual override
+                                    }}
+                                    disabled={!isEnabled}
                                         className={cn(
                                             'relative flex flex-col items-center gap-2.5 p-4 rounded-2xl border-2 transition-all duration-200 font-semibold text-sm',
                                             isSelected
@@ -515,21 +541,35 @@ export default function AirtimePage() {
                         </div>
                     </div>
 
-                    {/* Exact amount checkbox */}
-                    <div className="flex items-start gap-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl p-4 border border-slate-200 dark:border-slate-700">
-                        <Checkbox
-                            id="exact-mode"
-                            checked={useExact}
-                            onCheckedChange={v => setUseExact(!!v)}
-                            className="mt-0.5"
-                        />
-                        <div>
-                            <label htmlFor="exact-mode" className="text-sm font-semibold text-slate-800 dark:text-slate-200 cursor-pointer">
-                                Send this exact amount — I'll pay more
-                            </label>
-                            <p className="text-xs text-slate-500 mt-0.5 flex items-center gap-1">
-                                <Info className="w-3 h-3 shrink-0" />
-                                When checked, recipient gets exactly what you type. You cover the fee on top.
+                    {/* Exact amount checkbox - Premium Card Style */}
+                    <div 
+                        onClick={() => setUseExact(!useExact)}
+                        className={cn(
+                            "group flex items-start gap-3.5 rounded-2xl p-5 border transition-all cursor-pointer select-none",
+                            useExact 
+                                ? "bg-emerald-50/60 dark:bg-emerald-950/20 border-emerald-500/50 shadow-sm ring-1 ring-emerald-500/20" 
+                                : "bg-slate-50 dark:bg-slate-900/40 border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700"
+                        )}
+                    >
+                        <div className={cn(
+                            "mt-0.5 flex items-center justify-center w-5 h-5 rounded-md border-2 transition-all",
+                            useExact 
+                                ? "bg-emerald-600 border-emerald-600 text-white" 
+                                : "border-slate-300 dark:border-slate-600 group-hover:border-slate-400"
+                        )}>
+                            {useExact && <CheckCircle className="w-3.5 h-3.5 stroke-[3px]" />}
+                        </div>
+                        <div className="flex-1 space-y-1">
+                            <h4 className={cn(
+                                "text-[13.5px] font-bold tracking-tight transition-colors",
+                                useExact ? "text-emerald-700 dark:text-emerald-400" : "text-slate-800 dark:text-slate-200"
+                            )}>
+                                Pay processing fee separately (Beneficiary receives exactly this amount)
+                            </h4>
+                            <p className="text-[11.5px] text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
+                                {useExact 
+                                    ? "Perfect for sending round numbers. The service fee will be added to your total payment." 
+                                    : "Standard Mode: The service fee will be deducted from whatever amount you type."}
                             </p>
                         </div>
                     </div>
