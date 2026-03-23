@@ -1,7 +1,7 @@
 'use client'
 
-import React, { useState, useEffect, useCallback } from 'react'
-import { Phone, CheckCircle, Copy, Wallet, AlertTriangle, Loader2, ChevronRight, Info, History, X, ArrowRight, RefreshCw } from 'lucide-react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import { Phone, CheckCircle, Copy, Wallet, AlertTriangle, Loader2, ChevronRight, Info, History, X, ArrowRight, RefreshCw, Search, Calendar, Filter, TrendingUp, Coins, Clock, CalendarRange } from 'lucide-react'
 import { useAuth } from '@/contexts/auth-context'
 import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
@@ -9,8 +9,24 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select'
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { format, startOfDay, endOfDay, subDays, startOfWeek, startOfMonth, isWithinInterval, parseISO, isSameDay } from 'date-fns'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const NETWORKS = [
@@ -110,17 +126,14 @@ function SuccessModal({ order, onClose, onBuyMore }: { order: AirtimeOrder | nul
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
             <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-300">
-                {/* Green top bar */}
                 <div className="h-1.5 bg-gradient-to-r from-emerald-400 to-green-500" />
                 <div className="p-8 text-center">
-                    {/* Animated checkmark */}
                     <div className="w-20 h-20 rounded-full bg-emerald-50 border-4 border-emerald-200 flex items-center justify-center mx-auto mb-6 animate-in zoom-in duration-500">
                         <CheckCircle className="w-10 h-10 text-emerald-500" />
                     </div>
                     <h2 className="text-2xl font-bold text-slate-900 mb-1">Order Placed!</h2>
                     <p className="text-slate-500 text-sm mb-6">Your airtime is being processed</p>
 
-                    {/* Summary card */}
                     <div className="bg-slate-50 rounded-2xl p-4 mb-6 text-left space-y-2.5">
                         <div className="flex justify-between text-sm"><span className="text-slate-500">Network</span><span className="font-semibold text-slate-900">{order.network}</span></div>
                         <div className="flex justify-between text-sm"><span className="text-slate-500">Recipient</span><span className="font-semibold text-slate-900">{order.beneficiary_phone}</span></div>
@@ -129,7 +142,6 @@ function SuccessModal({ order, onClose, onBuyMore }: { order: AirtimeOrder | nul
                         <div className="flex justify-between text-sm border-t border-slate-200 pt-2.5 mt-1"><span className="text-slate-500 font-medium">You Paid</span><span className="font-bold text-slate-900">GHS {order.total_paid.toFixed(2)}</span></div>
                     </div>
 
-                    {/* Reference */}
                     <button onClick={copy} className="w-full flex items-center justify-between bg-slate-100 hover:bg-slate-200 rounded-xl px-4 py-3 mb-6 transition-colors group">
                         <div className="text-left">
                             <p className="text-xs text-slate-400 mb-0.5">Reference Code</p>
@@ -138,11 +150,11 @@ function SuccessModal({ order, onClose, onBuyMore }: { order: AirtimeOrder | nul
                         <Copy className={cn('w-4 h-4 transition-colors', copied ? 'text-emerald-500' : 'text-slate-400 group-hover:text-slate-600')} />
                     </button>
 
-                    <p className="text-xs text-slate-400 mb-6">The network provider will send a confirmation SMS once the airtime is credited.</p>
+                    <p className="text-xs text-slate-400 mb-6 font-medium">The network provider will send a confirmation SMS once credited.</p>
 
                     <div className="flex gap-3">
-                        <Button variant="outline" className="flex-1 rounded-xl" onClick={onBuyMore}>Buy More</Button>
-                        <Button className="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-700" onClick={onClose}>
+                        <Button variant="outline" className="flex-1 rounded-xl h-12" onClick={onBuyMore}>Buy More</Button>
+                        <Button className="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 h-12" onClick={onClose}>
                             View History <ChevronRight className="w-4 h-4 ml-1" />
                         </Button>
                     </div>
@@ -176,9 +188,9 @@ function ConfirmSheet({ open, onCancel, onConfirm, isLoading, details }: {
                         </div>
                     </div>
                     <div className="flex gap-3">
-                        <Button variant="outline" className="flex-1 rounded-xl" onClick={onCancel} disabled={isLoading}>Cancel</Button>
+                        <Button variant="outline" className="flex-1 rounded-xl h-11" onClick={onCancel} disabled={isLoading}>Cancel</Button>
                         <Button
-                            className="flex-1 rounded-xl bg-slate-900 hover:bg-slate-800 text-white"
+                            className="flex-1 rounded-xl bg-slate-900 hover:bg-slate-800 text-white h-11"
                             onClick={onConfirm}
                             disabled={isLoading}
                         >
@@ -214,9 +226,14 @@ export default function AirtimePage() {
     const [showConfirm, setShowConfirm] = useState(false)
     const [successOrder, setSuccessOrder] = useState<AirtimeOrder | null>(null)
 
-    // History
+    // History & Filtering
     const [orders, setOrders] = useState<AirtimeOrder[]>([])
     const [historyLoading, setHistoryLoading] = useState(false)
+    const [searchQuery, setSearchQuery] = useState('')
+    const [timePeriod, setTimePeriod] = useState('Today')
+    const [isCustomDialogOpen, setIsCustomDialogOpen] = useState(false)
+    const [customStart, setCustomStart] = useState('')
+    const [customEnd, setCustomEnd] = useState('')
 
     // Load settings + wallet
     useEffect(() => {
@@ -224,7 +241,6 @@ export default function AirtimePage() {
             if (!dbUser) return
             setSettingsLoading(true)
             try {
-                // 1. Fetch settings from API
                 const settingsRes = await fetch('/api/admin/airtime/settings')
                 if (settingsRes.ok) {
                     const { settings: raw } = await settingsRes.json()
@@ -243,7 +259,6 @@ export default function AirtimePage() {
                     })
                 }
 
-                // 2. Fetch wallet directly from Supabase
                 const { data: walletData } = await supabase
                     .from('wallets')
                     .select('balance')
@@ -283,9 +298,9 @@ export default function AirtimePage() {
     // Fee calculation
     const getFeeRate = useCallback(() => {
         if (!settings || !selectedNetwork) return 5
-        const net = selectedNetwork.toLowerCase().replace('telecel', 'telecel').replace('at', 'at')
-        const keyMap: Record<string, string> = { mtn: 'mtn', telecel: 'telecel', at: 'at' }
-        const key = `fee_${keyMap[selectedNetwork.toLowerCase()]}_${userRole}` as keyof AirtimeSettings
+        const netKey = selectedNetwork.toLowerCase()
+        const roleKey = userRole
+        const key = `fee_${netKey}_${roleKey}` as keyof AirtimeSettings
         return (settings[key] as number) || 5
     }, [settings, selectedNetwork, userRole])
 
@@ -312,20 +327,16 @@ export default function AirtimePage() {
     const hasEnoughBalance = walletBalance !== null && totalPaid > 0 && walletBalance >= totalPaid
     const canProceed = selectedNetwork && isPhoneValid && isAmountValid && hasEnoughBalance && !isSubmitting
 
-    // Auto-select network on phone input
     const handlePhoneChange = (val: string) => {
         const clean = val.replace(/\D/g, '')
         setPhone(clean.slice(0, 10))
 
-        // Auto-selection logic
         if (!isManualSelection) {
             if (clean.length === 0) {
-                // Deselect if field is empty (user requested this)
                 setSelectedNetwork(null)
             } else if (clean.length >= 3) {
                 const auto = detectNetwork(clean)
                 if (auto) {
-                    // Update if it detects a network (even if one was already auto-selected)
                     setSelectedNetwork(auto.id as string)
                 }
             }
@@ -355,7 +366,7 @@ export default function AirtimePage() {
             if (data.walletBalance !== undefined) setWalletBalance(data.walletBalance)
             else if (data.order?.new_balance !== undefined) setWalletBalance(data.order.new_balance)
             setSuccessOrder(data.order)
-            setPhone(''); setAmount(''); setSelectedNetwork(null); setUseExact(false)
+            setPhone(''); setAmount(''); setSelectedNetwork(null); setUseExact(false); setIsManualSelection(false)
         } catch {
             toast.error('An unexpected error occurred. Please try again.')
         } finally {
@@ -365,6 +376,50 @@ export default function AirtimePage() {
 
     const handleBuyMore = () => { setSuccessOrder(null); setActiveTab('buy') }
     const handleSuccessClose = () => { setSuccessOrder(null); setActiveTab('history') }
+
+    // Filtering Logic
+    const filteredOrders = useMemo(() => {
+        return orders.filter(order => {
+            // Search
+            const matchesSearch = 
+                order.beneficiary_phone.toLowerCase().includes(searchQuery.toLowerCase()) ||
+                order.reference_code.toLowerCase().includes(searchQuery.toLowerCase())
+            if (!matchesSearch) return false
+
+            // Time Period
+            if (timePeriod === 'All') return true
+            
+            const date = parseISO(order.created_at)
+            const now = new Date()
+
+            if (timePeriod === 'Today') return isSameDay(date, now)
+            if (timePeriod === 'Yesterday') return isSameDay(date, subDays(now, 1))
+            if (timePeriod === 'This Week') return isWithinInterval(date, { start: startOfWeek(now), end: endOfDay(now) })
+            if (timePeriod === 'This Month') return isWithinInterval(date, { start: startOfMonth(now), end: endOfDay(now) })
+            if (timePeriod === 'Custom' && customStart && customEnd) {
+                return isWithinInterval(date, { 
+                    start: startOfDay(new Date(customStart)), 
+                    end: endOfDay(new Date(customEnd)) 
+                })
+            }
+            return true
+        })
+    }, [orders, searchQuery, timePeriod, customStart, customEnd])
+
+    // Statistics
+    const stats = useMemo(() => {
+        const today = new Date()
+        return {
+            totalSpent: filteredOrders.reduce((acc, o) => acc + (o.status === 'completed' ? o.total_paid : 0), 0),
+            totalOrders: filteredOrders.length,
+            todaySpent: filteredOrders.reduce((acc, o) => {
+                if (o.status === 'completed' && isSameDay(parseISO(o.created_at), today)) {
+                    return acc + o.total_paid
+                }
+                return acc
+            }, 0)
+        }
+    }, [filteredOrders])
 
     if (settingsLoading) {
         return (
@@ -381,21 +436,21 @@ export default function AirtimePage() {
                 <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
                     <Phone className="w-6 h-6 text-emerald-500" /> Buy Airtime
                 </h1>
-                <p className="text-slate-500 dark:text-slate-400 text-sm mt-1">Top up any Ghana network instantly from your wallet</p>
+                <p className="text-slate-500 dark:text-slate-400 text-sm mt-1 font-medium">Top up any Ghana network instantly from your wallet</p>
             </div>
 
             {/* Wallet Balance Card */}
             <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-800 to-slate-900 p-6 shadow-xl">
                 <div className="absolute top-0 right-0 w-40 h-40 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/4" />
                 <div className="relative">
-                    <div className="flex items-center gap-2 text-slate-400 text-sm mb-2">
+                    <div className="flex items-center gap-2 text-slate-400 text-sm mb-2 font-medium">
                         <Wallet className="w-4 h-4" /> Wallet Balance
                     </div>
                     <div className="text-3xl font-bold text-white mb-1">
                         GHS {walletBalance !== null ? walletBalance.toFixed(2) : '—'}
                     </div>
                     {walletBalance !== null && walletBalance < 5 && (
-                        <div className={cn('flex items-center gap-1.5 text-xs font-medium mt-2', walletBalance < 1 ? 'text-red-400' : 'text-amber-400')}>
+                        <div className={cn('flex items-center gap-1.5 text-xs font-semibold mt-2', walletBalance < 1 ? 'text-red-400' : 'text-amber-400')}>
                             <AlertTriangle className="w-3.5 h-3.5" />
                             {walletBalance < 1 ? 'Your balance is too low. Please top up.' : 'Low balance. Consider topping up soon.'}
                         </div>
@@ -410,9 +465,9 @@ export default function AirtimePage() {
                         key={tab}
                         onClick={() => setActiveTab(tab)}
                         className={cn(
-                            'flex-1 py-2 rounded-lg text-sm font-semibold transition-all capitalize flex items-center justify-center gap-2',
+                            'flex-1 py-2 rounded-lg text-sm font-bold transition-all capitalize flex items-center justify-center gap-2',
                             activeTab === tab
-                                ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm'
+                                ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm scale-[0.98]'
                                 : 'text-slate-500 hover:text-slate-700'
                         )}
                     >
@@ -424,10 +479,9 @@ export default function AirtimePage() {
 
             {/* ── BUY TAB ─────────────────────────────────────────────────────────── */}
             {activeTab === 'buy' && (
-                <div className="space-y-6">
-                    {/* Network Selector */}
+                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
                     <div>
-                        <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3 block">Select Network</Label>
+                        <Label className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-3 block">Select Network</Label>
                         <div className="grid grid-cols-3 gap-3">
                             {NETWORKS.map(net => {
                                 const enabledKey = `enabled_${net.id.toLowerCase()}` as keyof AirtimeSettings
@@ -435,14 +489,11 @@ export default function AirtimePage() {
                                 const isSelected = selectedNetwork === net.id
                                 return (
                                     <button
-                                    key={net.id}
-                                    onClick={() => {
-                                        setSelectedNetwork(net.id)
-                                        setIsManualSelection(true) // Track manual override
-                                    }}
-                                    disabled={!isEnabled}
+                                        key={net.id}
+                                        onClick={() => { setSelectedNetwork(net.id); setIsManualSelection(true) }}
+                                        disabled={!isEnabled}
                                         className={cn(
-                                            'relative flex flex-col items-center gap-2.5 p-4 rounded-2xl border-2 transition-all duration-200 font-semibold text-sm',
+                                            'relative flex flex-col items-center gap-2.5 p-4 rounded-2xl border-2 transition-all duration-200 font-bold text-sm',
                                             isSelected
                                                 ? `bg-gradient-to-br ${net.gradient} border-transparent shadow-lg scale-[1.03]`
                                                 : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-slate-400',
@@ -461,9 +512,8 @@ export default function AirtimePage() {
                         </div>
                     </div>
 
-                    {/* Phone input */}
                     <div>
-                        <Label htmlFor="beneficiary-phone" className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
+                        <Label htmlFor="beneficiary-phone" className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 block">
                             Beneficiary Phone Number
                         </Label>
                         <div className="relative">
@@ -475,38 +525,34 @@ export default function AirtimePage() {
                                 placeholder="0XXXXXXXXX"
                                 value={phone}
                                 onChange={e => handlePhoneChange(e.target.value)}
-                                className="pl-9 rounded-xl h-12 font-mono text-base"
+                                className="pl-9 rounded-xl h-12 font-mono text-base font-bold"
                                 maxLength={10}
                             />
                             {phone.length === 10 && (
                                 <div className={cn('absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full flex items-center justify-center', isPhoneValid ? 'bg-emerald-100' : 'bg-red-100')}>
-                                    {isPhoneValid
-                                        ? <CheckCircle className="w-3.5 h-3.5 text-emerald-600" />
-                                        : <X className="w-3.5 h-3.5 text-red-600" />
-                                    }
+                                    {isPhoneValid ? <CheckCircle className="w-3.5 h-3.5 text-emerald-600" /> : <X className="w-3.5 h-3.5 text-red-600" />}
                                 </div>
                             )}
                         </div>
                         {phoneWarning && (
-                            <p className="mt-2 text-xs text-amber-600 flex items-center gap-1.5">
+                            <p className="mt-2 text-xs text-amber-600 flex items-center gap-1.5 font-medium">
                                 <AlertTriangle className="w-3.5 h-3.5 shrink-0" /> {phoneWarning}
                             </p>
                         )}
                         {phone.length > 0 && phone.length < 10 && (
-                            <p className="mt-1.5 text-xs text-slate-400">{10 - phone.length} more digits needed</p>
+                            <p className="mt-1.5 text-xs text-slate-400 font-medium">{10 - phone.length} more digits needed</p>
                         )}
                     </div>
 
-                    {/* Quick amounts */}
                     <div>
-                        <Label className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-3 block">Quick Amount (GHS)</Label>
+                        <Label className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-3 block">Quick Amount (GHS)</Label>
                         <div className="flex gap-2 flex-wrap">
                             {QUICK_AMOUNTS.map(q => (
                                 <button
                                     key={q}
                                     onClick={() => setAmount(String(q))}
                                     className={cn(
-                                        'px-4 py-2 rounded-xl text-sm font-semibold border-2 transition-all',
+                                        'px-4 py-2 rounded-xl text-sm font-bold border-2 transition-all',
                                         amount === String(q)
                                             ? 'bg-slate-900 border-slate-900 text-white shadow-md'
                                             : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 hover:border-slate-400'
@@ -518,14 +564,13 @@ export default function AirtimePage() {
                         </div>
                     </div>
 
-                    {/* Custom amount */}
                     <div>
-                        <Label htmlFor="airtime-amount" className="text-sm font-semibold text-slate-700 dark:text-slate-300 mb-2 block">
+                        <Label htmlFor="airtime-amount" className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 block">
                             Custom Amount (GHS)
                             {settings && <span className="font-normal text-slate-400 ml-2">Min: {settings.min_amount} · Max: {settings.max_amount}</span>}
                         </Label>
                         <div className="relative">
-                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-medium text-sm">GHS</span>
+                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-sm">GHS</span>
                             <Input
                                 id="airtime-amount"
                                 type="number"
@@ -533,7 +578,7 @@ export default function AirtimePage() {
                                 placeholder="0.00"
                                 value={amount}
                                 onChange={e => setAmount(e.target.value)}
-                                className="pl-12 rounded-xl h-12 text-base font-semibold"
+                                className="pl-12 rounded-xl h-12 text-base font-bold"
                                 min={settings?.min_amount || 1}
                                 max={settings?.max_amount || 500}
                                 step="0.01"
@@ -541,7 +586,6 @@ export default function AirtimePage() {
                         </div>
                     </div>
 
-                    {/* Exact amount checkbox - Premium Card Style */}
                     <div 
                         onClick={() => setUseExact(!useExact)}
                         className={cn(
@@ -566,7 +610,7 @@ export default function AirtimePage() {
                             )}>
                                 Pay processing fee separately (Beneficiary receives exactly this amount)
                             </h4>
-                            <p className="text-[11.5px] text-slate-500 dark:text-slate-400 leading-relaxed font-medium">
+                            <p className="text-[11.5px] text-slate-500 dark:text-slate-400 leading-relaxed font-semibold">
                                 {useExact 
                                     ? "Perfect for sending round numbers. The service fee will be added to your total payment." 
                                     : "Standard Mode: The service fee will be deducted from whatever amount you type."}
@@ -574,38 +618,36 @@ export default function AirtimePage() {
                         </div>
                     </div>
 
-                    {/* Live fee breakdown */}
                     {parsedAmount > 0 && selectedNetwork && (
-                        <div className="rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+                        <div className="rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
                             <div className="bg-slate-50 dark:bg-slate-800 px-4 py-3 border-b border-slate-200 dark:border-slate-700">
-                                <p className="text-sm font-semibold text-slate-700 dark:text-slate-300">Fee Breakdown</p>
+                                <p className="text-sm font-bold text-slate-700 dark:text-slate-300">Fee Breakdown</p>
                             </div>
-                            <div className="p-4 space-y-2.5 text-sm">
+                            <div className="p-4 space-y-2.5 text-sm font-medium">
                                 {useExact ? (
                                     <>
-                                        <div className="flex justify-between"><span className="text-slate-500">You type</span><span className="font-semibold">GHS {parsedAmount.toFixed(2)}</span></div>
-                                        <div className="flex justify-between text-emerald-600"><span>Beneficiary receives</span><span className="font-bold">GHS {airtimeAmount.toFixed(2)} ✓</span></div>
-                                        <div className="flex justify-between"><span className="text-slate-500">Service fee ({feeRate}%)</span><span className="font-semibold">+ GHS {feeAmount.toFixed(2)}</span></div>
+                                        <div className="flex justify-between font-bold"><span className="text-slate-500">You type</span><span>GHS {parsedAmount.toFixed(2)}</span></div>
+                                        <div className="flex justify-between text-emerald-600 font-bold"><span>Beneficiary receives</span><span>GHS {airtimeAmount.toFixed(2)} ✓</span></div>
+                                        <div className="flex justify-between font-bold"><span className="text-slate-500">Service fee ({feeRate}%)</span><span>+ GHS {feeAmount.toFixed(2)}</span></div>
                                         <div className="flex justify-between border-t border-slate-200 dark:border-slate-600 pt-2.5 mt-1">
-                                            <span className="font-bold text-slate-800 dark:text-white">You pay</span>
-                                            <span className="font-bold text-lg text-slate-900 dark:text-white">GHS {totalPaid.toFixed(2)}</span>
+                                            <span className="font-black text-slate-800 dark:text-white uppercase tracking-tight">You pay</span>
+                                            <span className="font-black text-lg text-slate-900 dark:text-white">GHS {totalPaid.toFixed(2)}</span>
                                         </div>
                                     </>
                                 ) : (
                                     <>
-                                        <div className="flex justify-between"><span className="text-slate-500">You type</span><span className="font-semibold">GHS {parsedAmount.toFixed(2)}</span></div>
-                                        <div className="flex justify-between"><span className="text-slate-500">Service fee ({feeRate}%)</span><span className="font-semibold">– GHS {feeAmount.toFixed(2)}</span></div>
-                                        <div className="flex justify-between items-center rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-3 py-2 -mx-1">
-                                            <span className="text-amber-700 dark:text-amber-400 font-semibold flex items-center gap-1.5">
-                                                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                                                Beneficiary receives
+                                        <div className="flex justify-between font-bold"><span className="text-slate-500">You type</span><span>GHS {parsedAmount.toFixed(2)}</span></div>
+                                        <div className="flex justify-between font-bold"><span className="text-slate-500">Service fee ({feeRate}%)</span><span>– GHS {feeAmount.toFixed(2)}</span></div>
+                                        <div className="flex justify-between items-center rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 px-3 py-2.5 -mx-1">
+                                            <span className="text-amber-700 dark:text-amber-400 font-bold flex items-center gap-1.5 uppercase text-[11px] tracking-wider">
+                                                <AlertTriangle className="w-4 h-4 shrink-0" /> Beneficiary receives
                                             </span>
-                                            <span className="font-bold text-amber-700 dark:text-amber-400">GHS {airtimeAmount.toFixed(2)}</span>
+                                            <span className="font-black text-amber-700 dark:text-amber-400">GHS {airtimeAmount.toFixed(2)}</span>
                                         </div>
-                                        <p className="text-[11px] text-amber-600 dark:text-amber-500 -mt-1 px-1">Not GHS {parsedAmount.toFixed(2)} — fee deducted. Enable "Send exact" above to avoid this.</p>
+                                        <p className="text-[11px] text-amber-600 dark:text-amber-500 font-black uppercase tracking-tight px-1">Fee deducted — enable "Pay separately" to avoid this</p>
                                         <div className="flex justify-between border-t border-slate-200 dark:border-slate-600 pt-2.5 mt-1">
-                                            <span className="font-bold text-slate-800 dark:text-white">You pay</span>
-                                            <span className="font-bold text-lg text-slate-900 dark:text-white">GHS {totalPaid.toFixed(2)} ✓</span>
+                                            <span className="font-black text-slate-800 dark:text-white uppercase tracking-tight">You pay</span>
+                                            <span className="font-black text-lg text-slate-900 dark:text-white">GHS {totalPaid.toFixed(2)} ✓</span>
                                         </div>
                                     </>
                                 )}
@@ -613,27 +655,21 @@ export default function AirtimePage() {
                         </div>
                     )}
 
-                    {/* Wallet warning / Pay button */}
                     {parsedAmount > 0 && !hasEnoughBalance && walletBalance !== null ? (
                         <div className="rounded-2xl bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-800 p-4 flex items-center gap-3">
                             <AlertTriangle className="w-5 h-5 text-red-500 shrink-0" />
                             <div>
-                                <p className="text-sm font-semibold text-red-700 dark:text-red-400">Insufficient Balance</p>
-                                <p className="text-xs text-red-500">You need GHS {totalPaid.toFixed(2)} but have GHS {walletBalance.toFixed(2)}. Please top up your wallet.</p>
+                                <p className="text-sm font-bold text-red-700 dark:text-red-400">Insufficient Balance</p>
+                                <p className="text-xs text-red-500 font-semibold">You need GHS {totalPaid.toFixed(2)} but have GHS {walletBalance.toFixed(2)}. Please top up.</p>
                             </div>
                         </div>
                     ) : (
                         <Button
-                            onClick={() => setShowConfirm(true)}
+                            className="w-full h-14 rounded-2xl bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-white dark:text-slate-900 text-lg font-black shadow-lg transition-all"
                             disabled={!canProceed}
-                            className="w-full h-14 rounded-2xl text-base font-bold bg-gradient-to-r from-slate-800 to-slate-900 hover:from-slate-900 hover:to-black text-white shadow-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
+                            onClick={() => setShowConfirm(true)}
                         >
-                            {isSubmitting
-                                ? <><Loader2 className="w-5 h-5 mr-2 animate-spin" />Processing...</>
-                                : parsedAmount > 0
-                                    ? <>Pay GHS {totalPaid.toFixed(2)} <ArrowRight className="w-5 h-5 ml-2" /></>
-                                    : 'Enter Amount to Continue'
-                            }
+                            Proceed to Payment <ArrowRight className="w-5 h-5 ml-2" />
                         </Button>
                     )}
                 </div>
@@ -641,55 +677,146 @@ export default function AirtimePage() {
 
             {/* ── HISTORY TAB ──────────────────────────────────────────────────────── */}
             {activeTab === 'history' && (
-                <div className="space-y-4">
-                    <div className="flex items-center justify-between">
-                        <p className="text-sm text-slate-500">{orders.length} order{orders.length !== 1 ? 's' : ''} found</p>
-                        <Button variant="ghost" size="sm" onClick={loadHistory} disabled={historyLoading}>
-                            <RefreshCw className={cn('w-4 h-4 mr-1', historyLoading && 'animate-spin')} /> Refresh
-                        </Button>
+                <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
+                    <div className="grid grid-cols-3 gap-3">
+                        <div className="bg-white dark:bg-slate-800 rounded-2xl p-3.5 border border-slate-200 dark:border-slate-700 shadow-sm">
+                            <div className="bg-emerald-100 dark:bg-emerald-950/40 p-2 rounded-lg w-fit mb-2">
+                                <Coins className="w-4 h-4 text-emerald-600 dark:text-emerald-400" />
+                            </div>
+                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Total Spent</p>
+                            <p className="text-sm font-black text-slate-900 dark:text-white truncate">GHS {stats.totalSpent.toFixed(2)}</p>
+                        </div>
+                        <div className="bg-white dark:bg-slate-800 rounded-2xl p-3.5 border border-slate-200 dark:border-slate-700 shadow-sm">
+                            <div className="bg-blue-100 dark:bg-blue-950/40 p-2 rounded-lg w-fit mb-2">
+                                <History className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                            </div>
+                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Orders</p>
+                            <p className="text-sm font-black text-slate-900 dark:text-white truncate">{stats.totalOrders}</p>
+                        </div>
+                        <div className="bg-white dark:bg-slate-800 rounded-2xl p-3.5 border border-slate-200 dark:border-slate-700 shadow-sm">
+                            <div className="bg-amber-100 dark:bg-amber-950/40 p-2 rounded-lg w-fit mb-2">
+                                <TrendingUp className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                            </div>
+                            <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-1">Today</p>
+                            <p className="text-sm font-black text-slate-900 dark:text-white truncate">GHS {stats.todaySpent.toFixed(2)}</p>
+                        </div>
+                    </div>
+
+                    <div className="space-y-3">
+                        <div className="relative group">
+                            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-slate-600 transition-colors" />
+                            <Input 
+                                placeholder="Search beneficiary or reference..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="pl-10 h-12 rounded-xl bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 focus:ring-2 focus:ring-slate-900/10 font-bold"
+                            />
+                        </div>
+                        <div className="flex gap-2">
+                            <div className="flex-1">
+                                <Select value={timePeriod} onValueChange={(val) => {
+                                    if (val === 'Custom') setIsCustomDialogOpen(true)
+                                    else setTimePeriod(val)
+                                }}>
+                                    <SelectTrigger className="h-12 rounded-xl bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 font-bold">
+                                        <div className="flex items-center gap-2">
+                                            <Calendar className="w-4 h-4 text-slate-400" />
+                                            <SelectValue placeholder="Time Period" />
+                                        </div>
+                                    </SelectTrigger>
+                                    <SelectContent className="rounded-xl">
+                                        {['Today', 'Yesterday', 'This Week', 'This Month', 'Custom'].map(period => (
+                                            <SelectItem key={period} value={period} className="font-bold">{period}</SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <Button variant="outline" size="icon" className="h-12 w-12 rounded-xl shrink-0" onClick={loadHistory} disabled={historyLoading}>
+                                <RefreshCw className={cn('w-4 h-4', historyLoading && 'animate-spin')} />
+                            </Button>
+                        </div>
+                        {timePeriod === 'Custom' && customStart && (
+                            <div className="flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-lg text-xs text-slate-600 dark:text-slate-400 border border-slate-200 dark:border-slate-700 w-fit font-bold">
+                                <CalendarRange className="w-3 h-3" />
+                                {format(new Date(customStart), 'MMM d')} - {format(new Date(customEnd), 'MMM d, yyyy')}
+                                <button onClick={() => setTimePeriod('All')} className="ml-1 text-slate-400 hover:text-red-500" title="Clear Custom Date Filter"><X className="w-3 h-3 bg-white rounded-full p-0.5" /></button>
+                            </div>
+                        ) }
                     </div>
 
                     {historyLoading ? (
-                        <div className="flex justify-center py-12"><Loader2 className="w-7 h-7 animate-spin text-slate-400" /></div>
-                    ) : orders.length === 0 ? (
-                        <div className="text-center py-16 text-slate-400">
-                            <Phone className="w-12 h-12 mx-auto mb-4 opacity-30" />
-                            <p className="font-medium">No airtime orders yet</p>
-                            <p className="text-sm">Buy airtime and your orders will appear here</p>
+                        <div className="flex flex-col items-center justify-center py-20 bg-white/50 dark:bg-slate-800/50 rounded-3xl border border-dashed border-slate-200 dark:border-slate-700">
+                            <Loader2 className="w-8 h-8 animate-spin text-slate-400 mb-2" />
+                            <p className="text-sm font-bold text-slate-500">Syncing your history...</p>
+                        </div>
+                    ) : filteredOrders.length === 0 ? (
+                        <div className="text-center py-20 bg-white dark:bg-slate-800 rounded-3xl border border-dashed border-slate-200 dark:border-slate-700">
+                            <div className="bg-slate-100 dark:bg-slate-900/50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                                <History className="w-8 h-8 text-slate-300" />
+                            </div>
+                            <p className="font-black text-slate-900 dark:text-white uppercase tracking-tight">No orders found</p>
+                            <p className="text-sm text-slate-500 max-w-[200px] mx-auto font-medium">Try adjusting your filters or search query.</p>
                         </div>
                     ) : (
-                        <div className="space-y-3">
-                            {orders.map(order => (
-                                <div key={order.id} className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 p-4 hover:border-slate-300 transition-colors">
-                                    <div className="flex items-start justify-between mb-3">
-                                        <div>
-                                            <div className="flex items-center gap-2 mb-0.5">
-                                                <span className="font-bold text-slate-900 dark:text-white text-sm">{order.network}</span>
-                                                <span className="text-slate-400 text-xs">·</span>
-                                                <span className="text-slate-500 text-xs font-mono">{order.beneficiary_phone}</span>
+                        <div className="space-y-4 pb-20">
+                            {filteredOrders.map(order => (
+                                <div key={order.id} className="group bg-white dark:bg-slate-800 rounded-3xl border border-slate-100 dark:border-slate-700 p-5 shadow-sm hover:shadow-md hover:border-slate-200 dark:hover:border-slate-600 transition-all duration-300">
+                                    <div className="flex items-start justify-between mb-4">
+                                        <div className="flex items-center gap-4">
+                                            <div className="w-12 h-12 rounded-2xl bg-slate-50 dark:bg-slate-900 flex items-center justify-center border border-slate-100 dark:border-slate-800 group-hover:scale-110 transition-transform">
+                                                <NetworkLogo id={order.network} />
                                             </div>
-                                            <p className="text-xs text-slate-400 font-mono">{order.reference_code}</p>
+                                            <div>
+                                                <div className="flex items-center gap-2 mb-0.5">
+                                                    <span className="font-black text-slate-900 dark:text-white uppercase tracking-tight">{order.network} Airtime</span>
+                                                    <StatusBadge status={order.status} />
+                                                </div>
+                                                <div className="flex items-center gap-1.5 text-slate-500 text-sm font-bold">
+                                                    <Phone className="w-3.5 h-3.5" />
+                                                    <span>{order.beneficiary_phone}</span>
+                                                    <button 
+                                                        onClick={() => { navigator.clipboard.writeText(order.beneficiary_phone); toast.success('Number copied!') }}
+                                                        className="p-1 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-md transition-colors"
+                                                        title="Copy Beneficiary Number"
+                                                    >
+                                                        <Copy className="w-3 h-3" />
+                                                    </button>
+                                                </div>
+                                            </div>
                                         </div>
-                                        <StatusBadge status={order.status} />
+                                        <div className="text-right">
+                                            <p className="text-[10px] text-slate-400 uppercase tracking-[0.2em] font-black mb-1">Paid</p>
+                                            <p className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tight">GHS {order.total_paid.toFixed(2)}</p>
+                                        </div>
                                     </div>
-                                    <div className="flex justify-between text-sm border-t border-slate-100 dark:border-slate-700 pt-3">
-                                        <div className="text-center">
-                                            <p className="text-xs text-slate-400 mb-0.5">Airtime</p>
-                                            <p className="font-bold text-emerald-600">GHS {order.airtime_amount.toFixed(2)}</p>
+                                    
+                                    <div className="grid grid-cols-3 gap-2 bg-slate-50/50 dark:bg-slate-900/30 rounded-2xl p-3.5 border border-slate-100 dark:border-slate-800/10">
+                                        <div className="space-y-1">
+                                            <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Amount</p>
+                                            <p className="text-sm font-black text-emerald-600">GHS {order.airtime_amount.toFixed(2)}</p>
                                         </div>
-                                        <div className="text-center">
-                                            <p className="text-xs text-slate-400 mb-0.5">Fee</p>
-                                            <p className="font-semibold text-slate-700 dark:text-slate-300">GHS {order.fee_amount.toFixed(2)}</p>
+                                        <div className="space-y-1 text-center">
+                                            <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Fee</p>
+                                            <p className="text-sm font-black text-slate-600 dark:text-slate-400">GHS {order.fee_amount.toFixed(2)}</p>
                                         </div>
-                                        <div className="text-center">
-                                            <p className="text-xs text-slate-400 mb-0.5">Paid</p>
-                                            <p className="font-bold text-slate-900 dark:text-white">GHS {order.total_paid.toFixed(2)}</p>
-                                        </div>
-                                        <div className="text-center">
-                                            <p className="text-xs text-slate-400 mb-0.5">Date</p>
-                                            <p className="text-xs text-slate-600 dark:text-slate-300">
-                                                {new Date(order.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}
+                                        <div className="space-y-1 text-right">
+                                            <p className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Date</p>
+                                            <p className="text-xs font-black text-slate-700 dark:text-slate-200">
+                                                {format(parseISO(order.created_at), 'MMM d, p')}
                                             </p>
+                                        </div>
+                                    </div>
+
+                                    <div className="mt-4 pt-4 border-t border-slate-100 dark:border-slate-700/50 flex items-center justify-between">
+                                        <div className="flex items-center gap-2 text-slate-400 font-mono text-[10px] font-bold">
+                                            <Info className="w-3 h-3" />
+                                            REF: {order.reference_code}
+                                        </div>
+                                        <div className="flex items-center gap-1.5 text-slate-500 dark:text-slate-400">
+                                            <Clock className="w-3.5 h-3.5" />
+                                            <span className="text-[11px] font-black uppercase tracking-tight bg-slate-100 dark:bg-slate-900/50 px-2 py-0.5 rounded-md">
+                                                {format(parseISO(order.created_at), 'hh:mm a')}
+                                            </span>
                                         </div>
                                     </div>
                                 </div>
@@ -708,6 +835,59 @@ export default function AirtimePage() {
                 details={{ network: selectedNetwork || '', phone, airtime: airtimeAmount, fee: feeAmount, total: totalPaid, mode: useExact }}
             />
             <SuccessModal order={successOrder} onClose={handleSuccessClose} onBuyMore={handleBuyMore} />
+
+            {/* Custom Date Dialog */}
+            <Dialog open={isCustomDialogOpen} onOpenChange={setIsCustomDialogOpen}>
+                <DialogContent className="rounded-3xl max-w-[400px]">
+                    <DialogHeader>
+                        <DialogTitle className="font-black uppercase tracking-tight">Custom Date Range</DialogTitle>
+                        <DialogDescription className="font-semibold">
+                            Select a start and end date to filter your airtime orders.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="start" className="font-bold">Start Date</Label>
+                            <Input
+                                id="start"
+                                type="date"
+                                value={customStart}
+                                onChange={(e) => setCustomStart(e.target.value)}
+                                className="rounded-xl font-bold h-12"
+                            />
+                        </div>
+                        <div className="space-y-2">
+                            <Label htmlFor="end" className="font-bold">End Date</Label>
+                            <Input
+                                id="end"
+                                type="date"
+                                value={customEnd}
+                                onChange={(e) => setCustomEnd(e.target.value)}
+                                className="rounded-xl font-bold h-12"
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter className="gap-2 sm:gap-0">
+                        <Button 
+                            variant="outline" 
+                            onClick={() => setIsCustomDialogOpen(false)}
+                            className="rounded-xl h-12 font-bold flex-1"
+                        >
+                            Cancel
+                        </Button>
+                        <Button 
+                            onClick={() => {
+                                setTimePeriod('Custom')
+                                setIsCustomDialogOpen(false)
+                            }}
+                            className="bg-slate-900 text-white rounded-xl h-12 font-black flex-1"
+                            disabled={!customStart || !customEnd}
+                        >
+                            Apply Filter
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }

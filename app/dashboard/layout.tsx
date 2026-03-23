@@ -10,7 +10,7 @@ import { DashboardSidebar } from '@/components/dashboard/sidebar'
 import { DashboardHeader } from '@/components/dashboard/header'
 import { PageAccessGuard } from '@/components/dashboard/page-access-guard'
 import { Skeleton } from '@/components/ui/skeleton'
-import { WhatsAppButton } from '@/components/whatsapp-button'
+import { FloatingWhatsApp } from '@/components/floating-whatsapp'
 // import { SupportChatWidget } from '@/components/dashboard/support-chat-widget'
 import { SuspendedAccount } from '@/components/dashboard/SuspendedAccount'
 import { AnnouncementBell } from '@/components/dashboard/AnnouncementBell'
@@ -60,7 +60,7 @@ export default function DashboardLayout({
                             <SuspendedAccount />
                         </main>
                     </div>
-                    <WhatsAppButton />
+                    <FloatingWhatsApp variant="auth" />
                     {/* <SupportChatWidget /> */}
                 </div>
             </UIProvider>
@@ -82,7 +82,7 @@ export default function DashboardLayout({
                         </PageAccessGuard>
                     </main>
                 </div>
-                <WhatsAppButton />
+                <FloatingWhatsApp variant="auth" />
                 {/* <SupportChatWidget /> */}
             </div>
         </UIProvider>

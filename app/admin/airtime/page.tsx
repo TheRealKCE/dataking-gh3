@@ -1,13 +1,48 @@
 'use client'
 
-import React, { useState, useEffect, useCallback } from 'react'
-import { Phone, RefreshCw, Loader2, CheckCircle, XCircle, Clock, Settings2, Save, AlertTriangle, ChevronDown } from 'lucide-react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import { 
+    Phone, RefreshCw, Loader2, CheckCircle, XCircle, Clock, Settings2, Save, 
+    AlertTriangle, ChevronDown, Search, Filter, Calendar, TrendingUp, Coins, 
+    User, Mail, ArrowRight, Copy, Info, LayoutDashboard, Database,
+    UserCircle,
+    CalendarRange,
+    ExternalLink,
+    X
+} from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import { Badge } from '@/components/ui/badge'
+import {
+    Select,
+    SelectContent,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+} from '@/components/ui/select'
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+} from '@/components/ui/dialog'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { 
+    format, 
+    startOfDay, 
+    endOfDay, 
+    subDays, 
+    startOfWeek, 
+    startOfMonth, 
+    isWithinInterval, 
+    parseISO, 
+    isSameDay 
+} from 'date-fns'
 
 const NETWORKS = ['MTN', 'Telecel', 'AT'] as const
 type Network = typeof NETWORKS[number]
@@ -25,6 +60,37 @@ const NETWORK_COLORS: Record<Network, string> = {
     AT: 'bg-orange-100 text-orange-700 border-orange-200',
 }
 
+function MTNLogo() {
+    return (
+        <svg viewBox="0 0 60 60" className="w-8 h-8" fill="none">
+            <circle cx="30" cy="30" r="30" fill="#FFD200"/>
+            <text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" fontSize="20" fontWeight="bold" fill="#1a1a1a">MTN</text>
+        </svg>
+    )
+}
+function TelecelLogo() {
+    return (
+        <svg viewBox="0 0 60 60" className="w-8 h-8" fill="none">
+            <circle cx="30" cy="30" r="30" fill="#e63946"/>
+            <text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" fontSize="11" fontWeight="bold" fill="white">Telecel</text>
+        </svg>
+    )
+}
+function ATLogo() {
+    return (
+        <svg viewBox="0 0 60 60" className="w-8 h-8" fill="none">
+            <circle cx="30" cy="30" r="30" fill="#F97316"/>
+            <text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" fontSize="16" fontWeight="bold" fill="white">AT</text>
+        </svg>
+    )
+}
+
+const NetworkLogo = ({ id }: { id: string }) => {
+    if (id === 'MTN') return <MTNLogo />
+    if (id === 'Telecel') return <TelecelLogo />
+    return <ATLogo />
+}
+
 function StatusBadge({ status }: { status: string }) {
     const map: Record<string, string> = {
         pending: 'bg-amber-100 text-amber-700 border-amber-200',
@@ -39,7 +105,7 @@ function StatusBadge({ status }: { status: string }) {
         failed: <XCircle className="w-3 h-3" />,
     }
     return (
-        <span className={cn('inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold border capitalize', map[status] || 'bg-slate-100 text-slate-600 border-slate-200')}>
+        <span className={cn('inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase border tracking-tight', map[status] || 'bg-slate-100 text-slate-600 border-slate-200')}>
             {icons[status]} {status}
         </span>
     )
@@ -49,7 +115,7 @@ interface Order {
     id: string; reference_code: string; status: string; network: Network
     beneficiary_phone: string; airtime_amount: number; fee_amount: number
     total_paid: number; fee_rate: number; user_role: string; created_at: string
-    users?: { first_name: string; last_name: string; email: string }
+    users?: { first_name: string; last_name: string; email: string; phone_number?: string }
     fulfillment_note?: string; fulfilled_at?: string
 }
 
@@ -96,36 +162,48 @@ function ActionModal({ order, onClose, onSuccess }: { order: Order | null; onClo
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-            <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md animate-in zoom-in-95 duration-200">
-                <div className="p-6">
-                    <h3 className="text-lg font-bold text-slate-900 dark:text-white mb-1">Update Order Status</h3>
-                    <p className="text-sm text-slate-500 mb-5 font-mono">{order.reference_code}</p>
+            <div className="bg-white dark:bg-slate-900 rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
+                <div className="h-1.5 bg-gradient-to-r from-slate-800 to-slate-950" />
+                <div className="p-8">
+                    <h3 className="text-xl font-black text-slate-900 dark:text-white mb-1 uppercase tracking-tight">Update Status</h3>
+                    <p className="text-xs text-slate-500 mb-6 font-bold tracking-widest opacity-70">REF: {order.reference_code}</p>
 
-                    <div className="bg-slate-50 dark:bg-slate-800 rounded-xl p-4 mb-5 space-y-2 text-sm">
-                        <div className="flex justify-between"><span className="text-slate-500">Customer</span><span className="font-semibold">{order.users?.first_name} {order.users?.last_name}</span></div>
-                        <div className="flex justify-between"><span className="text-slate-500">Beneficiary</span><span className="font-semibold font-mono">{order.beneficiary_phone}</span></div>
-                        <div className="flex justify-between"><span className="text-slate-500">Network</span><span className="font-semibold">{order.network}</span></div>
-                        <div className="flex justify-between"><span className="text-slate-500">Airtime to send</span><span className="font-bold text-emerald-600">GHS {order.airtime_amount.toFixed(2)}</span></div>
+                    <div className="bg-slate-50 dark:bg-slate-800 bg-opacity-50 border border-slate-100 dark:border-slate-800 rounded-2xl p-4 mb-6 space-y-3">
+                        <div className="flex justify-between items-center text-xs">
+                            <span className="text-slate-500 font-bold uppercase tracking-wider">Customer</span>
+                            <span className="font-black text-slate-900 dark:text-white uppercase">{order.users?.first_name} {order.users?.last_name}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-xs text-emerald-600">
+                            <span className="font-bold uppercase tracking-wider">Amount</span>
+                            <span className="font-black">GHS {order.airtime_amount.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between items-center text-xs">
+                            <span className="text-slate-500 font-bold uppercase tracking-wider">Network</span>
+                            <Badge variant="outline" className={cn("font-black tracking-tight", NETWORK_COLORS[order.network])}>{order.network}</Badge>
+                        </div>
                     </div>
 
                     {transitions.length === 0 ? (
-                        <p className="text-sm text-slate-500 text-center py-2">This order cannot be updated further.</p>
+                        <div className="text-center py-4 space-y-2">
+                             <CheckCircle className="w-10 h-10 text-emerald-500 mx-auto" />
+                             <p className="text-xs font-bold text-slate-500">This order is completed and cannot be changed.</p>
+                        </div>
                     ) : (
-                        <>
-                            <div className="mb-4">
-                                <Label className="text-sm font-semibold mb-2 block">New Status</Label>
+                        <div className="space-y-5">
+                            <div>
+                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2 block">New Status</Label>
                                 <div className="flex gap-2">
                                     {transitions.map(s => (
                                         <button
                                             key={s}
                                             onClick={() => setTargetStatus(s)}
                                             className={cn(
-                                                'flex-1 py-2.5 rounded-xl text-sm font-semibold border-2 capitalize transition-all',
+                                                'flex-1 h-12 rounded-xl text-xs font-black uppercase tracking-tight border-2 transition-all',
                                                 targetStatus === s
-                                                    ? s === 'completed' ? 'bg-emerald-500 border-emerald-500 text-white'
-                                                        : s === 'failed' ? 'bg-red-500 border-red-500 text-white'
-                                                            : 'bg-blue-500 border-blue-500 text-white'
-                                                    : 'border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 hover:border-slate-300'
+                                                    ? s === 'completed' ? 'bg-emerald-600 border-emerald-600 text-white shadow-lg'
+                                                        : s === 'failed' ? 'bg-red-600 border-red-600 text-white shadow-lg'
+                                                            : 'bg-blue-600 border-blue-600 text-white shadow-lg'
+                                                    : 'border-slate-100 dark:border-slate-800 text-slate-400 dark:text-slate-500 hover:border-slate-200'
                                             )}
                                         >{s}</button>
                                     ))}
@@ -133,31 +211,32 @@ function ActionModal({ order, onClose, onSuccess }: { order: Order | null; onClo
                             </div>
 
                             {targetStatus === 'failed' && (
-                                <div className="mb-4">
-                                    <Label className="text-sm font-semibold mb-2 block text-red-600">Reason for Failure <span className="text-red-500">*</span></Label>
-                                    <textarea
+                                <div className="animate-in slide-in-from-top-2 duration-300">
+                                    <Label className="text-[10px] font-black uppercase tracking-widest text-red-600 mb-2 block">Reason for Failure</Label>
+                                    <Input
                                         value={note}
                                         onChange={e => setNote(e.target.value)}
-                                        placeholder="Describe why this order failed..."
-                                        className="w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-3 text-sm resize-none h-20 focus:outline-none focus:ring-2 focus:ring-red-300"
+                                        placeholder="Reason..."
+                                        className="rounded-xl border-red-100 h-12 font-bold"
+                                        autoFocus
                                     />
-                                    <p className="text-xs text-amber-600 mt-1 flex items-center gap-1">
-                                        <AlertTriangle className="w-3 h-3" /> No refund will be triggered. Use Admin Manual Credit to refund if needed.
+                                    <p className="text-[10px] text-red-400 mt-2 font-bold uppercase leading-tight">
+                                        Note: This will NOT refund money. Use manual credit if needed.
                                     </p>
                                 </div>
                             )}
-                        </>
+                        </div>
                     )}
 
-                    <div className="flex gap-3 mt-2">
-                        <Button variant="outline" className="flex-1 rounded-xl" onClick={onClose} disabled={loading}>Cancel</Button>
+                    <div className="flex gap-3 mt-8">
+                        <Button variant="outline" className="flex-1 rounded-xl h-12 font-bold" onClick={onClose} disabled={loading}>Cancel</Button>
                         {transitions.length > 0 && (
                             <Button
-                                className="flex-1 rounded-xl"
+                                className="flex-1 rounded-xl h-12 bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 font-black uppercase tracking-tight shadow-lg"
                                 onClick={handleSubmit}
                                 disabled={!targetStatus || loading}
                             >
-                                {loading ? <Loader2 className="w-4 h-4 mr-1 animate-spin" /> : null} Confirm
+                                {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Confirm'}
                             </Button>
                         )}
                     </div>
@@ -178,6 +257,12 @@ export default function AdminAirtimePage() {
     const [networkFilter, setNetworkFilter] = useState('all')
     const [search, setSearch] = useState('')
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
+    
+    // Time filtering
+    const [timePeriod, setTimePeriod] = useState('Today')
+    const [isCustomDialogOpen, setIsCustomDialogOpen] = useState(false)
+    const [customStart, setCustomStart] = useState('')
+    const [customEnd, setCustomEnd] = useState('')
 
     // Settings state
     const [settings, setSettings] = useState<AirtimeSettings>({
@@ -193,12 +278,20 @@ export default function AdminAirtimePage() {
     const loadOrders = useCallback(async () => {
         setOrdersLoading(true)
         try {
-            const params = new URLSearchParams({ status: statusFilter, network: networkFilter, ...(search && { search }) })
+            // We fetch more orders for the admin to allow frontend filtering by time period
+            const params = new URLSearchParams({ 
+                status: 'all', // Fetch all to allow local filtering
+                network: networkFilter,
+                limit: '200' // Increased limit for admin overview
+            })
             const res = await fetch(`/api/admin/airtime/orders?${params}`)
-            if (res.ok) { const d = await res.json(); setOrders(d.orders || []) }
+            if (res.ok) { 
+                const d = await res.json()
+                setOrders(d.orders || []) 
+            }
         } catch (e) { console.error(e) }
         setOrdersLoading(false)
-    }, [statusFilter, networkFilter, search])
+    }, [networkFilter])
 
     const loadSettings = useCallback(async () => {
         setSettingsLoading(true)
@@ -224,251 +317,563 @@ export default function AdminAirtimePage() {
         setSavingSettings(false)
     }
 
-    // Live preview calculation
-    const previewCustomer = (network: Network) => {
-        const key = `airtime_fee_${network.toLowerCase()}_customer` as keyof AirtimeSettings
-        const fee = parseFloat(settings[key] || '5')
-        return (10 * (1 + fee / 100)).toFixed(2)
-    }
-    const previewAgent = (network: Network) => {
-        const key = `airtime_fee_${network.toLowerCase()}_agent` as keyof AirtimeSettings
-        const fee = parseFloat(settings[key] || '3')
-        return (10 * (1 + fee / 100)).toFixed(2)
-    }
+    // Filtering Logic (Frontend)
+    const filteredOrders = useMemo(() => {
+        return orders.filter(order => {
+            // Search
+            const matchesSearch = 
+                order.beneficiary_phone.toLowerCase().includes(search.toLowerCase()) ||
+                order.reference_code.toLowerCase().includes(search.toLowerCase()) ||
+                order.users?.first_name?.toLowerCase().includes(search.toLowerCase()) ||
+                order.users?.last_name?.toLowerCase().includes(search.toLowerCase()) ||
+                order.users?.email?.toLowerCase().includes(search.toLowerCase())
+            if (!matchesSearch) return false
+
+            // Status
+            if (statusFilter !== 'all' && order.status !== statusFilter) return false
+
+            // Time Period
+            if (timePeriod === 'All') return true
+            const date = parseISO(order.created_at)
+            const now = new Date()
+            if (timePeriod === 'Today') return isSameDay(date, now)
+            if (timePeriod === 'Yesterday') return isSameDay(date, subDays(now, 1))
+            if (timePeriod === 'This Week') return isWithinInterval(date, { start: startOfWeek(now), end: endOfDay(now) })
+            if (timePeriod === 'This Month') return isWithinInterval(date, { start: startOfMonth(now), end: endOfDay(now) })
+            if (timePeriod === 'Custom' && customStart && customEnd) {
+                return isWithinInterval(date, { 
+                    start: startOfDay(new Date(customStart)), 
+                    end: endOfDay(new Date(customEnd)) 
+                })
+            }
+            return true
+        })
+    }, [orders, search, statusFilter, timePeriod, customStart, customEnd])
+
+    // Statistics
+    const stats = useMemo(() => {
+        const completed = filteredOrders.filter(o => o.status === 'completed')
+        return {
+            totalRevenue: completed.reduce((acc, o) => acc + o.total_paid, 0),
+            totalProfit: completed.reduce((acc, o) => acc + o.fee_amount, 0),
+            totalVolume: completed.reduce((acc, o) => acc + o.airtime_amount, 0),
+            totalCount: filteredOrders.length,
+            pendingCount: filteredOrders.filter(o => o.status === 'pending').length
+        }
+    }, [filteredOrders])
 
     const statusTabs = ['all', 'pending', 'processing', 'completed', 'failed']
 
     return (
-        <div className="max-w-6xl mx-auto px-4 py-8 space-y-6">
+        <div className="max-w-7xl mx-auto px-4 py-8 space-y-8 min-h-screen pb-40">
             {/* Header */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-2xl font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                        <Phone className="w-6 h-6 text-emerald-500" /> Airtime Management
+                    <h1 className="text-3xl font-black text-slate-900 dark:text-white uppercase tracking-tighter flex items-center gap-3">
+                        <div className="bg-emerald-500/10 p-2 rounded-2xl">
+                             <Phone className="w-8 h-8 text-emerald-500" />
+                        </div>
+                        Airtime Intelligence
                     </h1>
-                    <p className="text-slate-500 text-sm mt-1">Manage airtime orders and configure fee settings</p>
+                    <p className="text-slate-500 font-bold text-sm mt-1 uppercase tracking-widest opacity-70">Global Revenue & Fulfillment Control</p>
+                </div>
+                
+                <div className="flex gap-2">
+                    <Button 
+                        variant="outline" 
+                        onClick={loadOrders} 
+                        disabled={ordersLoading} 
+                        className="rounded-2xl border-slate-200 h-12 px-6 font-bold"
+                    >
+                        <RefreshCw className={cn('w-4 h-4 mr-2', ordersLoading && 'animate-spin')} />
+                        Refresh
+                    </Button>
+                    <button
+                        onClick={() => setActiveTab(activeTab === 'orders' ? 'settings' : 'orders')}
+                        className={cn(
+                            "h-12 w-12 rounded-2xl flex items-center justify-center transition-all border-2",
+                            activeTab === 'settings' 
+                                ? "bg-slate-900 border-slate-900 text-white shadow-xl rotate-90" 
+                                : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400"
+                        )}
+                        title={activeTab === 'orders' ? "Switch to Settings" : "Switch to Orders"}
+                    >
+                        <Settings2 className="w-5 h-5" />
+                    </button>
                 </div>
             </div>
 
-            {/* Tab bar */}
-            <div className="flex bg-slate-100 dark:bg-slate-800 rounded-xl p-1 gap-1 w-fit">
-                {(['orders', 'settings'] as const).map(tab => (
-                    <button
-                        key={tab}
-                        onClick={() => setActiveTab(tab)}
-                        className={cn(
-                            'px-6 py-2 rounded-lg text-sm font-semibold capitalize flex items-center gap-2 transition-all',
-                            activeTab === tab ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                        )}
-                    >
-                        {tab === 'orders' ? <Phone className="w-4 h-4" /> : <Settings2 className="w-4 h-4" />}
-                        {tab === 'orders' ? 'Orders' : 'Fee Configuration'}
-                    </button>
-                ))}
+            {/* Statistics Dashboard */}
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-6 shadow-sm border border-slate-100 dark:border-slate-800 group hover:shadow-xl transition-all duration-500">
+                    <div className="flex items-center gap-3 mb-4">
+                        <div className="bg-emerald-100 dark:bg-emerald-950/40 p-2.5 rounded-2xl group-hover:scale-110 transition-transform">
+                            <TrendingUp className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                        </div>
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Total Revenue</span>
+                    </div>
+                    <div className="space-y-1">
+                        <p className="text-2xl font-black text-slate-900 dark:text-white truncate tracking-tighter">
+                            GHS {stats.totalRevenue.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </p>
+                        <p className="text-[10px] font-bold text-slate-400 flex items-center gap-1">
+                            <Coins className="w-3 h-3 text-emerald-500" /> Volume: GHS {stats.totalVolume.toFixed(2)}
+                        </p>
+                    </div>
+                </div>
+
+                <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-6 shadow-sm border border-slate-100 dark:border-slate-800 group hover:shadow-xl transition-all duration-500">
+                    <div className="flex items-center gap-3 mb-4">
+                        <div className="bg-blue-100 dark:bg-blue-950/40 p-2.5 rounded-2xl group-hover:scale-110 transition-transform">
+                            <LayoutDashboard className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                        </div>
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Profit Engine</span>
+                    </div>
+                    <div className="space-y-1">
+                        <p className="text-2xl font-black text-emerald-500 truncate tracking-tighter">
+                            GHS {stats.totalProfit.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        </p>
+                        <div className="flex gap-2">
+                             <Badge variant="outline" className="text-[9px] font-black uppercase text-blue-500 border-blue-100 px-1 py-0">{stats.totalCount} Orders</Badge>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-6 shadow-sm border border-slate-100 dark:border-slate-800 group hover:shadow-xl transition-all duration-500">
+                    <div className="flex items-center gap-3 mb-4">
+                        <div className="bg-amber-100 dark:bg-amber-950/40 p-2.5 rounded-2xl group-hover:scale-110 transition-transform">
+                            <Clock className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                        </div>
+                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Pending Task</span>
+                    </div>
+                    <div className="space-y-1">
+                        <p className={cn("text-2xl font-black tracking-tighter", stats.pendingCount > 0 ? "text-amber-500 animate-pulse" : "text-slate-400")}>
+                            {stats.pendingCount} Action{stats.pendingCount !== 1 ? 's' : ''}
+                        </p>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">Requires Fulfillment</p>
+                    </div>
+                </div>
+
+                <div className="bg-slate-900 dark:bg-white rounded-[2.5rem] p-6 shadow-xl border-none flex flex-col justify-center">
+                    <div className="flex items-center gap-3 mb-2">
+                        <div className="bg-white/10 dark:bg-black/10 p-1.5 rounded-lg">
+                            <Database className="w-4 h-4 text-white dark:text-black" />
+                        </div>
+                        <span className="text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest">Selected Period</span>
+                    </div>
+                    <p className="text-xl font-black text-white dark:text-black uppercase tracking-tighter">{timePeriod}</p>
+                </div>
             </div>
 
-            {/* ── ORDERS TAB ─────────────────────────────────────────── */}
-            {activeTab === 'orders' && (
-                <div className="space-y-4">
-                    {/* Filters */}
-                    <div className="flex flex-wrap gap-3 items-center">
-                        <Input
-                            placeholder="Search by reference or phone..."
-                            value={search}
-                            onChange={e => setSearch(e.target.value)}
-                            className="w-64 rounded-xl h-9"
-                        />
-                        <select
-                            value={networkFilter}
-                            onChange={e => setNetworkFilter(e.target.value)}
-                            title="Filter by network"
-                            className="rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 text-sm px-3 h-9 focus:outline-none"
-                        >
-                            <option value="all">All Networks</option>
-                            {NETWORKS.map(n => <option key={n} value={n}>{n}</option>)}
-                        </select>
-                        <Button variant="outline" size="sm" onClick={loadOrders} disabled={ordersLoading} className="rounded-xl">
-                            <RefreshCw className={cn('w-4 h-4 mr-1', ordersLoading && 'animate-spin')} /> Refresh
-                        </Button>
-                    </div>
+            {/* Main Interface */}
+            <div className="bg-slate-50 dark:bg-slate-950/50 rounded-[3rem] p-2 md:p-6 border border-slate-100 dark:border-slate-800/50">
+                {activeTab === 'orders' ? (
+                    <div className="space-y-6">
+                        {/* Advanced Filtering */}
+                        <div className="bg-white dark:bg-slate-900 rounded-[2rem] p-4 border border-slate-100 dark:border-slate-800/50 shadow-sm space-y-4">
+                            <div className="flex flex-col lg:flex-row gap-3">
+                                <div className="relative flex-1 group">
+                                    <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400 group-focus-within:text-slate-900 transition-colors" />
+                                    <Input
+                                        placeholder="Scan reference, phone, or customer name..."
+                                        value={search}
+                                        onChange={e => setSearch(e.target.value)}
+                                        className="pl-12 h-14 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border-transparent focus:bg-white dark:focus:bg-slate-800 font-bold transition-all text-sm"
+                                    />
+                                </div>
+                                <div className="flex gap-2">
+                                    <Select value={networkFilter} onValueChange={setNetworkFilter}>
+                                        <SelectTrigger className="w-36 h-14 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border-transparent font-black uppercase text-xs tracking-wider">
+                                            <SelectValue placeholder="Network" />
+                                        </SelectTrigger>
+                                        <SelectContent className="rounded-2xl border-slate-100 font-bold">
+                                            <SelectItem value="all">Global</SelectItem>
+                                            {NETWORKS.map(n => <SelectItem key={n} value={n}>{n}</SelectItem>)}
+                                        </SelectContent>
+                                    </Select>
 
-                    {/* Status filter tabs */}
-                    <div className="flex gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl w-fit flex-wrap">
-                        {statusTabs.map(s => (
-                            <button
-                                key={s}
-                                onClick={() => setStatusFilter(s)}
-                                className={cn(
-                                    'px-3 py-1.5 rounded-lg text-xs font-semibold capitalize transition-all',
-                                    statusFilter === s ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-700'
-                                )}
-                            >{s}</button>
-                        ))}
-                    </div>
+                                    <Select value={timePeriod} onValueChange={(val) => {
+                                        if (val === 'Custom') setIsCustomDialogOpen(true)
+                                        else setTimePeriod(val)
+                                    }}>
+                                        <SelectTrigger className="w-36 h-14 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border-transparent font-black uppercase text-xs tracking-wider">
+                                            <Calendar className="w-4 h-4 mr-1 text-slate-400" />
+                                            <SelectValue placeholder="Time" />
+                                        </SelectTrigger>
+                                        <SelectContent className="rounded-2xl border-slate-100 font-bold">
+                                            {['Today', 'Yesterday', 'This Week', 'This Month', 'Custom'].map(period => (
+                                                <SelectItem key={period} value={period}>{period}</SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
+                                </div>
+                            </div>
 
-                    {/* Orders table */}
-                    {ordersLoading ? (
-                        <div className="flex justify-center py-16"><Loader2 className="w-8 h-8 animate-spin text-slate-300" /></div>
-                    ) : orders.length === 0 ? (
-                        <div className="text-center py-16 text-slate-400">
-                            <Phone className="w-12 h-12 mx-auto mb-4 opacity-30" />
-                            <p className="font-medium">No airtime orders found</p>
-                        </div>
-                    ) : (
-                        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-sm">
-                                    <thead>
-                                        <tr className="border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
-                                            <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Reference</th>
-                                            <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Customer</th>
-                                            <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Beneficiary</th>
-                                            <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Net</th>
-                                            <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Airtime</th>
-                                            <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Fee</th>
-                                            <th className="text-right px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Paid</th>
-                                            <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Status</th>
-                                            <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Date</th>
-                                            <th className="text-left px-4 py-3 text-xs font-semibold text-slate-500 uppercase tracking-wide">Action</th>
-                                        </tr>
-                                    </thead>
-                                    <tbody>
-                                        {orders.map((order, idx) => (
-                                            <tr key={order.id} className={cn('border-b border-slate-50 dark:border-slate-800/50 hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors', idx % 2 === 0 ? '' : 'bg-slate-50/50 dark:bg-slate-800/10')}>
-                                                <td className="px-4 py-3 font-mono text-xs text-slate-600 dark:text-slate-400">{order.reference_code}</td>
-                                                <td className="px-4 py-3">
-                                                    <div className="font-semibold text-slate-900 dark:text-white text-xs">{order.users?.first_name} {order.users?.last_name}</div>
-                                                    <div className="text-xs text-slate-400 capitalize">{order.user_role}</div>
-                                                </td>
-                                                <td className="px-4 py-3 font-mono text-xs text-slate-700 dark:text-slate-300">{order.beneficiary_phone}</td>
-                                                <td className="px-4 py-3">
-                                                    <span className={cn('inline-flex px-2 py-0.5 rounded-full text-xs font-bold border', NETWORK_COLORS[order.network])}>{order.network}</span>
-                                                </td>
-                                                <td className="px-4 py-3 text-right font-bold text-emerald-600">GHS {order.airtime_amount.toFixed(2)}</td>
-                                                <td className="px-4 py-3 text-right text-slate-600 dark:text-slate-300">GHS {order.fee_amount.toFixed(2)}</td>
-                                                <td className="px-4 py-3 text-right font-bold text-slate-900 dark:text-white">GHS {order.total_paid.toFixed(2)}</td>
-                                                <td className="px-4 py-3"><StatusBadge status={order.status} /></td>
-                                                <td className="px-4 py-3 text-xs text-slate-400">
-                                                    {new Date(order.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: '2-digit' })}
-                                                </td>
-                                                <td className="px-4 py-3">
-                                                    {STATUS_TRANSITIONS[order.status]?.length > 0 ? (
-                                                        <Button size="sm" variant="outline" className="rounded-xl h-7 text-xs px-3" onClick={() => setSelectedOrder(order)}>
-                                                            Update
-                                                        </Button>
-                                                    ) : (
-                                                        <span className="text-xs text-slate-300 dark:text-slate-600">—</span>
-                                                    )}
-                                                </td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
+                            <div className="flex gap-1.5 overflow-x-auto pb-2 scrollbar-hide">
+                                {statusTabs.map(s => (
+                                    <button
+                                        key={s}
+                                        onClick={() => setStatusFilter(s)}
+                                        className={cn(
+                                            'px-6 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border-2 shrink-0',
+                                            statusFilter === s 
+                                                ? 'bg-slate-900 border-slate-900 text-white shadow-lg scale-[0.98]' 
+                                                : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-800 text-slate-400 hover:border-slate-200'
+                                        )}
+                                    >{s}</button>
+                                ))}
                             </div>
                         </div>
-                    )}
-                </div>
-            )}
 
-            {/* ── SETTINGS TAB ───────────────────────────────────────────── */}
-            {activeTab === 'settings' && (
-                <div className="space-y-6">
-                    {settingsLoading ? (
-                        <div className="flex justify-center py-16"><Loader2 className="w-8 h-8 animate-spin text-slate-300" /></div>
-                    ) : (
-                        <>
-                            {/* Per-network fee configuration */}
-                            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-                                <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50">
-                                    <h2 className="font-bold text-slate-900 dark:text-white">Fee Configuration per Network</h2>
-                                    <p className="text-xs text-slate-500 mt-0.5">Set separate fees for customers and agents per network.</p>
+                        {/* Results Grid */}
+                        {ordersLoading ? (
+                             <div className="flex flex-col items-center justify-center py-32 space-y-4">
+                                <div className="relative">
+                                    <Loader2 className="w-12 h-12 animate-spin text-emerald-500" />
+                                    <Database className="w-4 h-4 text-slate-400 absolute inset-0 m-auto" />
                                 </div>
-                                <div className="divide-y divide-slate-100 dark:divide-slate-800">
-                                    {NETWORKS.map(net => {
-                                        const custKey = `airtime_fee_${net.toLowerCase()}_customer` as keyof AirtimeSettings
-                                        const agentKey = `airtime_fee_${net.toLowerCase()}_agent` as keyof AirtimeSettings
-                                        const enabledKey = `airtime_enabled_${net.toLowerCase()}` as keyof AirtimeSettings
-                                        const isEnabled = settings[enabledKey] !== 'false'
-
-                                        return (
-                                            <div key={net} className="px-6 py-5">
-                                                <div className="flex items-center justify-between mb-4">
-                                                    <div className="flex items-center gap-3">
-                                                        <span className={cn('px-2.5 py-1 rounded-lg text-sm font-bold border', NETWORK_COLORS[net])}>{net}</span>
-                                                        <span className={cn('text-sm font-medium', isEnabled ? 'text-emerald-600' : 'text-slate-400')}>
-                                                            {isEnabled ? 'Enabled' : 'Disabled'}
-                                                        </span>
-                                                    </div>
-                                                    <Switch
-                                                        checked={isEnabled}
-                                                        onCheckedChange={v => setSettings(s => ({ ...s, [enabledKey]: v ? 'true' : 'false' }))}
-                                                    />
+                                <p className="text-xs font-black text-slate-400 uppercase tracking-[0.3em]">Synchronizing Ledger</p>
+                            </div>
+                        ) : filteredOrders.length === 0 ? (
+                            <div className="bg-white dark:bg-slate-900 rounded-[3rem] py-32 text-center border-2 border-dashed border-slate-100 dark:border-slate-800">
+                                <Phone className="w-16 h-16 mx-auto mb-6 text-slate-100 dark:text-slate-800" />
+                                <p className="font-black text-slate-900 dark:text-white text-xl uppercase tracking-tighter">Zero Records Found</p>
+                                <p className="text-slate-400 font-bold text-sm uppercase tracking-widest mt-1 opacity-70">Adjust your filters to scan more data</p>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
+                                {filteredOrders.map(order => (
+                                    <div key={order.id} className="group relative bg-white dark:bg-slate-900 rounded-[2.5rem] p-6 shadow-sm border border-slate-100 dark:border-slate-800 hover:shadow-2xl hover:border-emerald-200 transition-all duration-500 overflow-hidden">
+                                        {/* Top Level: Network and Status */}
+                                        <div className="flex items-start justify-between mb-5">
+                                            <div className="flex items-center gap-4">
+                                                <div className="w-14 h-14 rounded-3xl bg-slate-50 dark:bg-slate-800/50 flex items-center justify-center border border-slate-100 dark:border-slate-800 transition-transform group-hover:scale-110 duration-500">
+                                                    <NetworkLogo id={order.network} />
                                                 </div>
-                                                <div className="grid grid-cols-2 gap-4">
-                                                    <div>
-                                                        <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 block">Customer Fee %</Label>
-                                                        <div className="relative">
-                                                            <Input
-                                                                type="number"
-                                                                value={settings[custKey]}
-                                                                onChange={e => setSettings(s => ({ ...s, [custKey]: e.target.value }))}
-                                                                className="rounded-xl pr-8"
-                                                                min="0" max="100" step="0.1"
-                                                            />
-                                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">%</span>
-                                                        </div>
+                                                <div>
+                                                    <div className="flex items-center gap-2 mb-1">
+                                                        <span className="font-black text-slate-900 dark:text-white uppercase tracking-tighter text-lg">{order.network} Order</span>
+                                                        <StatusBadge status={order.status} />
                                                     </div>
-                                                    <div>
-                                                        <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 block">Agent Fee %</Label>
-                                                        <div className="relative">
-                                                            <Input
-                                                                type="number"
-                                                                value={settings[agentKey]}
-                                                                onChange={e => setSettings(s => ({ ...s, [agentKey]: e.target.value }))}
-                                                                className="rounded-xl pr-8"
-                                                                min="0" max="100" step="0.1"
-                                                            />
-                                                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 text-sm">%</span>
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                                {/* Live preview */}
-                                                <div className="mt-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl p-3 text-xs text-slate-500 flex gap-4">
-                                                    <span>📱 Customer buying GHS 10 on {net} pays <strong className="text-slate-700 dark:text-slate-300">GHS {previewCustomer(net)}</strong></span>
-                                                    <span>·</span>
-                                                    <span>Agent pays <strong className="text-emerald-600">GHS {previewAgent(net)}</strong></span>
+                                                    <p className="font-mono text-[10px] font-black text-slate-400 uppercase tracking-widest">REF: {order.reference_code}</p>
                                                 </div>
                                             </div>
-                                        )
-                                    })}
+                                            
+                                            <div className="text-right">
+                                                <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Revenue</p>
+                                                <p className="text-xl font-black text-slate-900 dark:text-white tracking-tighter">GHS {order.total_paid.toFixed(2)}</p>
+                                            </div>
+                                        </div>
+
+                                        {/* Customer and Beneficiary Section */}
+                                        <div className="grid grid-cols-2 gap-3 mb-5">
+                                            <div className="bg-slate-50 dark:bg-slate-800/50 rounded-3xl p-4 border border-slate-100 dark:border-slate-800/30">
+                                                <div className="flex items-center gap-2.5 mb-2">
+                                                    <div className="w-8 h-8 rounded-full bg-slate-900 dark:bg-white text-white dark:text-slate-900 flex items-center justify-center font-black text-[10px] uppercase">
+                                                        {order.users?.first_name?.[0].toUpperCase()}{order.users?.last_name?.[0].toUpperCase()}
+                                                    </div>
+                                                    <div>
+                                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Initiator</p>
+                                                        <p className="text-xs font-black text-slate-900 dark:text-white truncate max-w-[100px] uppercase">{order.users?.first_name} {order.users?.last_name}</p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-1.5 text-[10px] text-slate-500 font-bold overflow-hidden">
+                                                     <Mail className="w-3 h-3 shrink-0" />
+                                                     <span className="truncate">{order.users?.email}</span>
+                                                </div>
+                                            </div>
+
+                                            <div className="bg-emerald-50 dark:bg-emerald-950/20 rounded-3xl p-4 border border-emerald-100/50 dark:border-emerald-800/30 relative overflow-hidden group/beneficiary">
+                                                <p className="text-[9px] font-black text-emerald-600/60 uppercase tracking-widest mb-2 relative z-10">Beneficiary Target</p>
+                                                <div className="flex items-center justify-between relative z-10">
+                                                    <span className="text-sm font-black text-emerald-700 dark:text-emerald-400 font-mono tracking-tighter">{order.beneficiary_phone}</span>
+                                                    <button 
+                                                        onClick={() => { navigator.clipboard.writeText(order.beneficiary_phone); toast.success('Target Copied!') }}
+                                                        className="w-7 h-7 bg-white dark:bg-slate-900 rounded-lg flex items-center justify-center shadow-sm hover:scale-110 active:scale-95 transition-all outline-none"
+                                                        title="Copy Beneficiary Number"
+                                                    >
+                                                        <Copy className="w-3.5 h-3.5 text-emerald-600" />
+                                                    </button>
+                                                </div>
+                                                <Phone className="absolute -bottom-2 -right-2 w-12 h-12 text-emerald-500/5 group-hover/beneficiary:scale-150 transition-transform duration-700" />
+                                            </div>
+                                        </div>
+
+                                        {/* Breakdown Box */}
+                                        <div className="flex items-center justify-between bg-slate-900 dark:bg-slate-100 rounded-3xl p-4 mb-5">
+                                            <div className="space-y-0.5">
+                                                <p className="text-[8px] font-black text-slate-500 uppercase tracking-[0.2em]">Net Value</p>
+                                                <p className="text-lg font-black text-white dark:text-slate-900 tracking-tighter">GHS {order.airtime_amount.toFixed(2)}</p>
+                                            </div>
+                                            <div className="h-8 w-px bg-white/10 dark:bg-black/10" />
+                                            <div className="space-y-0.5 text-center">
+                                                <p className="text-[8px] font-black text-slate-500 uppercase tracking-[0.2em]">Platform Profit</p>
+                                                <div className="flex items-center gap-1 justify-center">
+                                                    <Coins className="w-3 h-3 text-emerald-400" />
+                                                    <p className="text-sm font-black text-emerald-400">GHS {order.fee_amount.toFixed(2)}</p>
+                                                </div>
+                                            </div>
+                                            <div className="h-8 w-px bg-white/10 dark:bg-black/10" />
+                                            <div className="space-y-0.5 text-right">
+                                                <p className="text-[8px] font-black text-slate-500 uppercase tracking-[0.2em]">Markup</p>
+                                                <p className="text-sm font-black text-white dark:text-slate-900 tracking-tighter">{order.fee_rate}%</p>
+                                            </div>
+                                        </div>
+
+                                        {/* Footer: Date and Actions */}
+                                        <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800/50">
+                                            <div className="flex items-center gap-2">
+                                                <div className="bg-slate-100 dark:bg-slate-800 p-1.5 rounded-lg flex items-center gap-1.5">
+                                                     <Calendar className="w-3 h-3 text-slate-400" />
+                                                     <span className="text-[10px] font-black text-slate-500 uppercase tracking-tight">
+                                                        {format(parseISO(order.created_at), 'MMM d, yyyy · p')}
+                                                     </span>
+                                                </div>
+                                            </div>
+                                            
+                                            <div className="flex gap-2">
+                                                <Button 
+                                                    size="sm" 
+                                                    className={cn(
+                                                        "rounded-2xl h-10 px-6 font-black uppercase text-[10px] tracking-widest transition-all",
+                                                        STATUS_TRANSITIONS[order.status]?.length > 0
+                                                            ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 shadow-lg hover:shadow-2xl"
+                                                            : "bg-slate-100 dark:bg-slate-800 text-slate-300 dark:text-slate-600 pointer-events-none"
+                                                    )}
+                                                    onClick={() => setSelectedOrder(order)}
+                                                >
+                                                    Fulfill <ExternalLink className="w-3 h-3 ml-2" />
+                                                </Button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    <div className="space-y-6 animate-in fade-in duration-500">
+                        {settingsLoading ? (
+                             <div className="flex flex-col items-center justify-center py-32 space-y-4">
+                                <Loader2 className="w-12 h-12 animate-spin text-emerald-500" />
+                                <p className="text-xs font-black text-slate-400 uppercase tracking-[0.3em]">Loading Configurations</p>
+                            </div>
+                        ) : (
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                                <div className="lg:col-span-2 space-y-6">
+                                    {/* Per-network fee configuration */}
+                                    <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-100 dark:border-slate-800 overflow-hidden shadow-sm">
+                                        <div className="px-8 py-6 border-b border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50">
+                                            <h2 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">Fee Intelligence</h2>
+                                            <p className="text-xs text-slate-500 font-bold uppercase tracking-widest mt-1 opacity-70">Variable Rate Configuration</p>
+                                        </div>
+                                        <div className="divide-y divide-slate-100 dark:divide-slate-800">
+                                            {NETWORKS.map(net => {
+                                                const custKey = `airtime_fee_${net.toLowerCase()}_customer` as keyof AirtimeSettings
+                                                const agentKey = `airtime_fee_${net.toLowerCase()}_agent` as keyof AirtimeSettings
+                                                const enabledKey = `airtime_enabled_${net.toLowerCase()}` as keyof AirtimeSettings
+                                                const isEnabled = settings[enabledKey] !== 'false'
+
+                                                // Live preview calculation (Inline to avoid closure issues)
+                                                const previewValue = (type: 'customer' | 'agent') => {
+                                                    const key = `airtime_fee_${net.toLowerCase()}_${type}` as keyof AirtimeSettings
+                                                    const fee = parseFloat(settings[key] || '0')
+                                                    return (10 * (1 + fee / 100)).toFixed(2)
+                                                }
+
+                                                return (
+                                                    <div key={net} className="px-8 py-8 group hover:bg-slate-50/30 dark:hover:bg-slate-800/20 transition-colors">
+                                                        <div className="flex items-center justify-between mb-6">
+                                                            <div className="flex items-center gap-4">
+                                                                <div className="w-12 h-12 rounded-2xl bg-white dark:bg-slate-800 flex items-center justify-center border border-slate-100 dark:border-slate-800 group-hover:scale-110 transition-transform shadow-sm">
+                                                                    <NetworkLogo id={net} />
+                                                                </div>
+                                                                <div>
+                                                                    <h3 className="font-black text-slate-900 dark:text-white uppercase tracking-tight text-lg">{net} Network</h3>
+                                                                    <span className={cn('text-[10px] font-black uppercase tracking-[0.2em]', isEnabled ? 'text-emerald-500' : 'text-slate-300')}>
+                                                                        {isEnabled ? 'Operational' : 'Deactivated'}
+                                                                    </span>
+                                                                </div>
+                                                            </div>
+                                                            <div className="flex items-center gap-3 bg-slate-100 dark:bg-slate-800 px-4 py-2 rounded-2xl">
+                                                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{isEnabled ? 'ON' : 'OFF'}</span>
+                                                                <Switch
+                                                                    checked={isEnabled}
+                                                                    onCheckedChange={v => setSettings(s => ({ ...s, [enabledKey]: v ? 'true' : 'false' }))}
+                                                                />
+                                                            </div>
+                                                        </div>
+                                                        
+                                                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                                                            <div className="space-y-4">
+                                                                <div className="flex justify-between items-center">
+                                                                    <Label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Customer Surcharge</Label>
+                                                                    <Badge variant="outline" className="text-emerald-500 border-emerald-100 font-bold">GHS {previewValue('customer')}</Badge>
+                                                                </div>
+                                                                <div className="relative group/input">
+                                                                    <Input
+                                                                        type="number"
+                                                                        value={settings[custKey]}
+                                                                        onChange={e => setSettings(s => ({ ...s, [custKey]: e.target.value }))}
+                                                                        className="rounded-2xl h-14 pr-12 bg-slate-50 border-none font-black text-xl group-hover/input:bg-white transition-all shadow-inner"
+                                                                        min="0" max="100" step="0.1"
+                                                                    />
+                                                                    <span className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 font-black text-sm">%</span>
+                                                                </div>
+                                                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tight">Markup above face value for retail clients</p>
+                                                            </div>
+
+                                                            <div className="space-y-4">
+                                                                <div className="flex justify-between items-center">
+                                                                    <Label className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Agent Premium</Label>
+                                                                    <Badge variant="outline" className="text-blue-500 border-blue-100 font-bold">GHS {previewValue('agent')}</Badge>
+                                                                </div>
+                                                                <div className="relative group/input">
+                                                                    <Input
+                                                                        type="number"
+                                                                        value={settings[agentKey]}
+                                                                        onChange={e => setSettings(s => ({ ...s, [agentKey]: e.target.value }))}
+                                                                        className="rounded-2xl h-14 pr-12 bg-slate-50 border-none font-black text-xl group-hover/input:bg-white transition-all shadow-inner"
+                                                                        min="0" max="100" step="0.1"
+                                                                    />
+                                                                    <span className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 font-black text-sm">%</span>
+                                                                </div>
+                                                                <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tight">Preferred pricing for verified resellers</p>
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                )
+                                            })}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-6">
+                                    {/* System Limits */}
+                                    <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 border border-slate-100 dark:border-slate-800 shadow-sm space-y-8">
+                                        <div className="space-y-2">
+                                            <h2 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">Thresholds</h2>
+                                            <p className="text-xs text-slate-500 font-bold uppercase tracking-widest opacity-70">Transaction Boundaries</p>
+                                        </div>
+                                        
+                                        <div className="space-y-6">
+                                            <div className="space-y-3">
+                                                <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Global Floor (Min)</Label>
+                                                <div className="relative">
+                                                     <Input type="number" value={settings.airtime_min_amount} onChange={e => setSettings(s => ({ ...s, airtime_min_amount: e.target.value }))} className="rounded-2xl h-14 pl-12 bg-slate-50 border-none font-black text-xl shadow-inner" min="0.5" step="0.5" />
+                                                     <Coins className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-500" />
+                                                     <span className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 font-black text-xs uppercase">GHS</span>
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-3">
+                                                <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Global Ceiling (Max)</Label>
+                                                <div className="relative">
+                                                     <Input type="number" value={settings.airtime_max_amount} onChange={e => setSettings(s => ({ ...s, airtime_max_amount: e.target.value }))} className="rounded-2xl h-14 pl-12 bg-slate-50 border-none font-black text-xl shadow-inner" min="1" step="1" />
+                                                     <AlertTriangle className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-amber-500" />
+                                                     <span className="absolute right-5 top-1/2 -translate-y-1/2 text-slate-400 font-black text-xs uppercase">GHS</span>
+                                                </div>
+                                            </div>
+                                        </div>
+
+                                        <div className="pt-4 space-y-4">
+                                            <Button 
+                                                onClick={saveSettings} 
+                                                disabled={savingSettings} 
+                                                className="w-full h-16 rounded-[1.5rem] bg-slate-900 hover:bg-black text-white dark:bg-white dark:text-black font-black uppercase tracking-widest text-sm shadow-xl hover:shadow-2xl transition-all"
+                                            >
+                                                {savingSettings ? <Loader2 className="w-5 h-5 animate-spin mr-2" /> : <Save className="w-5 h-5 mr-2" />}
+                                                Commit Changes
+                                            </Button>
+                                            
+                                            <div className="bg-amber-50 dark:bg-amber-950/20 rounded-2xl p-4 border border-amber-100 dark:border-amber-950 flex gap-3">
+                                                <AlertTriangle className="w-5 h-5 text-amber-500 shrink-0" />
+                                                <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase leading-relaxed">
+                                                    Caution: Changes to fee structures take effect immediately across all user dashboards.
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Info Card */}
+                                    <div className="bg-gradient-to-br from-emerald-500 to-green-600 rounded-[2.5rem] p-8 text-white shadow-xl shadow-emerald-500/20 relative overflow-hidden">
+                                        <div className="relative z-10 space-y-4">
+                                            <h3 className="text-xl font-black uppercase tracking-tighter">Profit Summary</h3>
+                                            <p className="text-xs font-bold text-emerald-50 tracking-widest uppercase opacity-80 leading-relaxed">
+                                                Your current fee structure is generating an average of <strong>{((parseFloat(settings.airtime_fee_mtn_customer) + parseFloat(settings.airtime_fee_mtn_agent))/2).toFixed(1)}%</strong> profit per MTN transaction.
+                                            </p>
+                                            <div className="h-1 w-full bg-white/20 rounded-full overflow-hidden">
+                                                <div className="h-full bg-white w-2/3" />
+                                            </div>
+                                        </div>
+                                        <Coins className="absolute -bottom-4 -right-4 w-32 h-32 text-white/10 rotate-12" />
+                                    </div>
                                 </div>
                             </div>
+                        )}
+                    </div>
+                )}
+            </div>
 
-                            {/* Min / Max */}
-                            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6">
-                                <h2 className="font-bold text-slate-900 dark:text-white mb-4">Order Limits</h2>
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div>
-                                        <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 block">Minimum Amount (GHS)</Label>
-                                        <Input type="number" value={settings.airtime_min_amount} onChange={e => setSettings(s => ({ ...s, airtime_min_amount: e.target.value }))} className="rounded-xl" min="0.5" step="0.5" />
-                                    </div>
-                                    <div>
-                                        <Label className="text-xs font-semibold text-slate-500 uppercase tracking-wide mb-2 block">Maximum Amount (GHS)</Label>
-                                        <Input type="number" value={settings.airtime_max_amount} onChange={e => setSettings(s => ({ ...s, airtime_max_amount: e.target.value }))} className="rounded-xl" min="1" step="1" />
-                                    </div>
-                                </div>
-                            </div>
+            {/* Overlays */}
+            <ActionModal 
+                order={selectedOrder} 
+                onClose={() => setSelectedOrder(null)} 
+                onSuccess={loadOrders} 
+            />
 
-                            <Button onClick={saveSettings} disabled={savingSettings} className="w-full h-12 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-base">
-                                {savingSettings ? <><Loader2 className="w-5 h-5 mr-2 animate-spin" />Saving...</> : <><Save className="w-5 h-5 mr-2" />Save All Settings</>}
-                            </Button>
-                        </>
-                    )}
-                </div>
-            )}
-
-            {/* Action Modal */}
-            <ActionModal order={selectedOrder} onClose={() => setSelectedOrder(null)} onSuccess={loadOrders} />
+            {/* Custom Date Dialog */}
+            <Dialog open={isCustomDialogOpen} onOpenChange={setIsCustomDialogOpen}>
+                <DialogContent className="rounded-[2.5rem] max-w-[400px] border-none shadow-2xl">
+                    <DialogHeader>
+                        <DialogTitle className="text-xl font-black uppercase tracking-tighter">Custom Range</DialogTitle>
+                        <DialogDescription className="font-bold text-slate-500">
+                            Select specific dates for revenue scanning.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-6 py-4">
+                        <div className="space-y-3">
+                            <Label htmlFor="start" className="text-[10px] font-black uppercase tracking-widest text-slate-400">Scan Start</Label>
+                            <Input
+                                id="start"
+                                type="date"
+                                value={customStart}
+                                onChange={(e) => setCustomStart(e.target.value)}
+                                className="rounded-2xl h-14 bg-slate-50 border-none font-black text-lg focus:bg-white transition-all shadow-inner"
+                            />
+                        </div>
+                        <div className="space-y-3">
+                            <Label htmlFor="end" className="text-[10px] font-black uppercase tracking-widest text-slate-400">Scan End</Label>
+                            <Input
+                                id="end"
+                                type="date"
+                                value={customEnd}
+                                onChange={(e) => setCustomEnd(e.target.value)}
+                                className="rounded-2xl h-14 bg-slate-50 border-none font-black text-lg focus:bg-white transition-all shadow-inner"
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter className="gap-2 sm:gap-0">
+                        <Button 
+                            variant="outline" 
+                            onClick={() => setIsCustomDialogOpen(false)}
+                            className="rounded-2xl h-14 font-bold flex-1"
+                        >
+                            Cancel
+                        </Button>
+                        <Button 
+                            onClick={() => {
+                                setTimePeriod('Custom')
+                                setIsCustomDialogOpen(false)
+                            }}
+                            className="bg-slate-900 text-white rounded-2xl h-14 font-black flex-1 uppercase tracking-widest text-xs shadow-lg"
+                            disabled={!customStart || !customEnd}
+                        >
+                            Apply Filter
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }

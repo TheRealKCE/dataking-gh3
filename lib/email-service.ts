@@ -1605,48 +1605,82 @@ export async function sendAdminAirtimeOrderEmail(details: {
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.SUPABASE_SERVICE_ROLE_KEY!
     )
-    const { data: settings } = await supabase
-        .from('admin_settings')
-        .select('key, value')
-        .eq('key', 'support_email')
-        .single()
 
-    const adminEmail = (settings as any)?.value?.replace(/"/g, '') || 'kingflexydatalimited@gmail.com'
-    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://kingflexygh.com'
+    try {
+        // 1. Fetch support email from settings
+        const { data: settings } = await supabase
+            .from('admin_settings')
+            .select('key, value')
+            .eq('key', 'support_email')
+            .single()
 
-    const content = `
-        <h1 class="greeting">New Airtime Order 📱</h1>
-        <p class="subtitle">A new airtime order requires your attention</p>
-        <p class="message-text">
-            A new airtime order has been placed and is awaiting fulfillment. Please process it as soon as possible.
-        </p>
-        <div class="info-card">
-            <div class="info-card-header"><div class="info-card-icon">📋</div><span class="info-card-title">Order Details</span></div>
-            <div class="info-row"><span class="info-label">Reference</span><span class="info-value">${details.referenceCode}</span></div>
-            <div class="info-row"><span class="info-label">Customer</span><span class="info-value">${details.userName} (${details.userRole})</span></div>
-            <div class="info-row"><span class="info-label">Email</span><span class="info-value">${details.userEmail}</span></div>
-            <div class="info-row"><span class="info-label">Beneficiary Phone</span><span class="info-value">${details.beneficiaryPhone}</span></div>
-            <div class="info-row"><span class="info-label">Network</span><span class="info-value">${details.network}</span></div>
-            <div class="info-row"><span class="info-label">Airtime to Send</span><span class="info-value" style="color: #10b981; font-size: 16px;">GHS ${details.airtimeAmount.toFixed(2)}</span></div>
-            <div class="info-row"><span class="info-label">Fee Rate</span><span class="info-value">${details.feeRate}%</span></div>
-            <div class="info-row"><span class="info-label">Fee Charged</span><span class="info-value">GHS ${details.feeAmount.toFixed(2)}</span></div>
-            <div class="info-row"><span class="info-label">Total Paid by User</span><span class="info-value" style="color: #D4AF37; font-size: 16px;">GHS ${details.totalPaid.toFixed(2)}</span></div>
-            <div class="info-row"><span class="info-label">Mode</span><span class="info-value">${details.useExactAmount ? 'Exact Amount' : 'Standard'}</span></div>
-            <div class="info-row"><span class="info-label">Wallet Balance After</span><span class="info-value">GHS ${details.walletBalanceAfter?.toFixed(2) ?? 'N/A'}</span></div>
-            <div class="info-row"><span class="info-label">Timestamp</span><span class="info-value">${new Date().toLocaleString('en-GB', { timeZone: 'Africa/Accra' })}</span></div>
-        </div>
-        <div style="text-align: center; margin: 25px 0;"><span class="status-badge status-pending">Action Required</span></div>
-        <div class="cta-container"><a href="${siteUrl}/admin/airtime" class="cta-button">Manage Airtime Orders</a></div>
-        <div class="highlight-box">
-            <p class="highlight-text">⚠️ <strong>Action Required:</strong> Log in to your admin panel, process the airtime for ${details.beneficiaryPhone} on ${details.network}, then mark the order as Completed.</p>
-        </div>
-    `
+        // 2. Fetch all main admins (excluding sub-admins for this specific high-priority alert as requested)
+        const { data: mainAdmins } = await supabase
+            .from('users')
+            .select('email')
+            .eq('role', 'admin')
 
-    return sendEmail({
-        to: adminEmail,
-        toName: 'Admin',
-        subject: `📱 New Airtime Order — ${details.referenceCode} | ${details.network} | GHS ${details.airtimeAmount.toFixed(2)}`,
-        htmlContent: generatePremiumTemplate('New Airtime Order', content, '#25D366')
-    })
+        // 3. Compile unique list of recipients
+        const adminEmails = new Set<string>()
+        
+        // Add default/support email
+        const supportEmail = (settings as any)?.value?.replace(/"/g, '') || process.env.ADMIN_EMAIL || 'kingflexydatalimited@gmail.com'
+        adminEmails.add(supportEmail)
+
+        // Add all fetched main admins
+        if (mainAdmins) {
+            mainAdmins.forEach(admin => {
+                if (admin.email) adminEmails.add(admin.email)
+            })
+        }
+
+        if (adminEmails.size === 0) {
+            console.warn('[Airtime] No admin emails found to send alert.')
+            return { success: false, error: 'No recipients found' }
+        }
+
+        const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://kingflexygh.com'
+        const content = `
+            <h1 class="greeting">New Airtime Order 📱</h1>
+            <p class="subtitle">A new airtime order requires your attention</p>
+            <p class="message-text">
+                A new airtime order has been placed and is awaiting fulfillment. Please process it as soon as possible.
+            </p>
+            <div class="info-card">
+                <div class="info-card-header"><div class="info-card-icon">📋</div><span class="info-card-title">Order Details</span></div>
+                <div class="info-row"><span class="info-label">Reference</span><span class="info-value">${details.referenceCode}</span></div>
+                <div class="info-row"><span class="info-label">Customer</span><span class="info-value">${details.userName} (${details.userRole})</span></div>
+                <div class="info-row"><span class="info-label">Email</span><span class="info-value">${details.userEmail}</span></div>
+                <div class="info-row"><span class="info-label">Beneficiary Phone</span><span class="info-value">${details.beneficiaryPhone}</span></div>
+                <div class="info-row"><span class="info-label">Network</span><span class="info-value">${details.network}</span></div>
+                <div class="info-row"><span class="info-label">Airtime to Send</span><span class="info-value" style="color: #10b981; font-size: 16px;">GHS ${details.airtimeAmount.toFixed(2)}</span></div>
+                <div class="info-row"><span class="info-label">Fee Rate</span><span class="info-value">${details.feeRate}%</span></div>
+                <div class="info-row"><span class="info-label">Fee Charged</span><span class="info-value">GHS ${details.feeAmount.toFixed(2)}</span></div>
+                <div class="info-row"><span class="info-label">Total Paid by User</span><span class="info-value" style="color: #D4AF37; font-size: 16px;">GHS ${details.totalPaid.toFixed(2)}</span></div>
+                <div class="info-row"><span class="info-label">Mode</span><span class="info-value">${details.useExactAmount ? 'Exact Amount' : 'Standard'}</span></div>
+                <div class="info-row"><span class="info-label">Wallet Balance After</span><span class="info-value">GHS ${details.walletBalanceAfter?.toFixed(2) ?? 'N/A'}</span></div>
+                <div class="info-row"><span class="info-label">Timestamp</span><span class="info-value">${new Date().toLocaleString('en-GB', { timeZone: 'Africa/Accra' })}</span></div>
+            </div>
+            <div style="text-align: center; margin: 25px 0;"><span class="status-badge status-pending">Action Required</span></div>
+            <div class="cta-container"><a href="${siteUrl}/admin/airtime" class="cta-button">Manage Airtime Orders</a></div>
+            <div class="highlight-box">
+                <p class="highlight-text">⚠️ <strong>Action Required:</strong> Log in to your admin panel, process the airtime for ${details.beneficiaryPhone} on ${details.network}, then mark the order as Completed.</p>
+            </div>
+        `
+
+        const htmlContent = generatePremiumTemplate('New Airtime Order', content, '#25D366')
+        const subject = `📱 New Airtime Order — ${details.referenceCode} | ${details.network} | GHS ${details.airtimeAmount.toFixed(2)}`
+
+        // Send to all unique admins
+        const emailPromises = Array.from(adminEmails).map(email => 
+            sendEmail({ to: email, toName: 'Admin', subject, htmlContent })
+        )
+        
+        await Promise.allSettled(emailPromises)
+        return { success: true }
+    } catch (error: any) {
+        console.error('[Airtime] Failed to send admin order alerts:', error)
+        return { success: false, error: 'Failed to broadcast admin alerts' }
+    }
 }
 
