@@ -1,11 +1,28 @@
 'use client'
 
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { MessagesSquare, Tv } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { getCachedPricing } from '@/lib/pricing-cache'
 
 export function WhatsAppCommunityButtons({ className, compact = false }: { className?: string, compact?: boolean }) {
-    const GROUP_LINK = "https://chat.whatsapp.com/FC6jYV3VDEQ4MmdTXiFqDV?mode=gi_t"
-    const CHANNEL_LINK = "https://whatsapp.com/channel/0029Vb7HTfx47XeIZz7ht232"
+    const [links, setLinks] = useState({
+        group: "",
+        channel: ""
+    })
+
+    useEffect(() => {
+        getCachedPricing().then(data => {
+            if (data) {
+                setLinks({
+                    group: data.whatsappGroupLink || "",
+                    channel: data.whatsappChannelLink || ""
+                })
+            }
+        }).catch(console.error)
+    }, [])
+
+    if (!links.group && !links.channel) return null
 
     // WhatsApp SVG Icon
     const WhatsAppIcon = ({ className: iconClass }: { className?: string }) => (
@@ -19,31 +36,38 @@ export function WhatsAppCommunityButtons({ className, compact = false }: { class
         return (
             <div className={`w-full ${className}`}>
                 <p className="text-xs font-medium text-slate-500 text-center mb-2">Join Our Community</p>
-                <div className="grid grid-cols-2 gap-2">
-                    <a
-                        href={GROUP_LINK}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="group flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-[#25D366]/10 border border-[#25D366]/20 hover:bg-[#25D366] hover:border-[#25D366] transition-all duration-300"
-                    >
-                        <div className="flex items-center gap-1.5">
-                            <WhatsAppIcon className="w-4 h-4 text-[#25D366] group-hover:text-white transition-colors" />
-                            <MessagesSquare className="w-3 h-3 text-[#25D366] group-hover:text-white transition-colors" />
-                        </div>
-                        <span className="text-xs font-semibold text-[#25D366] group-hover:text-white transition-colors">Group</span>
-                    </a>
-                    <a
-                        href={CHANNEL_LINK}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="group flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-[#25D366]/10 border border-[#25D366]/20 hover:bg-[#25D366] hover:border-[#25D366] transition-all duration-300"
-                    >
-                        <div className="flex items-center gap-1.5">
-                            <WhatsAppIcon className="w-4 h-4 text-[#25D366] group-hover:text-white transition-colors" />
-                            <Tv className="w-3 h-3 text-[#25D366] group-hover:text-white transition-colors" />
-                        </div>
-                        <span className="text-xs font-semibold text-[#25D366] group-hover:text-white transition-colors">Channel</span>
-                    </a>
+                <div className={cn(
+                    "grid gap-2",
+                    links.group && links.channel ? "grid-cols-2" : "grid-cols-1"
+                )}>
+                    {links.group && (
+                        <a
+                            href={links.group}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="group flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-[#25D366]/10 border border-[#25D366]/20 hover:bg-[#25D366] hover:border-[#25D366] transition-all duration-300"
+                        >
+                            <div className="flex items-center gap-1.5">
+                                <WhatsAppIcon className="w-4 h-4 text-[#25D366] group-hover:text-white transition-colors" />
+                                <MessagesSquare className="w-3 h-3 text-[#25D366] group-hover:text-white transition-colors" />
+                            </div>
+                            <span className="text-xs font-semibold text-[#25D366] group-hover:text-white transition-colors">Group</span>
+                        </a>
+                    )}
+                    {links.channel && (
+                        <a
+                            href={links.channel}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="group flex items-center justify-center gap-1.5 px-3 py-2 rounded-lg bg-[#25D366]/10 border border-[#25D366]/20 hover:bg-[#25D366] hover:border-[#25D366] transition-all duration-300"
+                        >
+                            <div className="flex items-center gap-1.5">
+                                <WhatsAppIcon className="w-4 h-4 text-[#25D366] group-hover:text-white transition-colors" />
+                                <Tv className="w-3 h-3 text-[#25D366] group-hover:text-white transition-colors" />
+                            </div>
+                            <span className="text-xs font-semibold text-[#25D366] group-hover:text-white transition-colors">Channel</span>
+                        </a>
+                    )}
                 </div>
             </div>
         )
@@ -56,23 +80,24 @@ export function WhatsAppCommunityButtons({ className, compact = false }: { class
                 <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Join Our Community</h3>
             </div>
 
-            {[
-                {
-                    title: "Join WhatsApp Group",
-                    subtitle: "Connect with the community",
-                    link: GROUP_LINK,
-                    icon: <MessagesSquare className="w-5 h-5" />
-                },
-                {
-                    title: "Join WhatsApp Channel",
-                    subtitle: "Get latest updates & news",
-                    link: CHANNEL_LINK,
-                    icon: <Tv className="w-5 h-5" />
-                }
-            ].map((item, index) => (
-                <a
-                    key={index}
-                    href={item.link}
+            {
+                [
+                    links.group ? {
+                        title: "Join WhatsApp Group",
+                        subtitle: "Connect with the community",
+                        link: links.group,
+                        icon: <MessagesSquare className="w-5 h-5" />
+                    } : null,
+                    links.channel ? {
+                        title: "Join WhatsApp Channel",
+                        subtitle: "Get latest updates & news",
+                        link: links.channel,
+                        icon: <Tv className="w-5 h-5" />
+                    } : null
+                ].filter(Boolean).map((item: any, index) => (
+                    <a
+                        key={index}
+                        href={item.link}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="w-full group"

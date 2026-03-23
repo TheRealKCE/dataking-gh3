@@ -22,6 +22,10 @@ export interface PricingData {
     }
     showStrikethrough: boolean
     guestStorefrontUrl: string
+    whatsappGroupLink: string
+    whatsappChannelLink: string
+    whatsappAdminNumber: string
+    whatsappCommunityLink: string
 }
 
 interface CachedData extends PricingData {
@@ -53,7 +57,11 @@ export async function getCachedPricing(): Promise<PricingData> {
                     prices: data.prices,
                     oldPrices: data.oldPrices,
                     showStrikethrough: data.showStrikethrough,
-                    guestStorefrontUrl: data.guestStorefrontUrl
+                    guestStorefrontUrl: data.guestStorefrontUrl,
+                    whatsappGroupLink: data.whatsappGroupLink,
+                    whatsappChannelLink: data.whatsappChannelLink,
+                    whatsappAdminNumber: data.whatsappAdminNumber,
+                    whatsappCommunityLink: data.whatsappCommunityLink
                 }
             }
         }

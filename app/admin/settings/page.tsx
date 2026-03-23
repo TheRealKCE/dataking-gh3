@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { normalizeWhatsAppNumber } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -25,6 +26,10 @@ export default function AdminSettingsPage() {
     const [afaPriceAgent, setAfaPriceAgent] = useState('15')
     const [supportEmail, setSupportEmail] = useState('')
     const [guestStorefrontUrl, setGuestStorefrontUrl] = useState('')
+    const [whatsappGroupLink, setWhatsappGroupLink] = useState('')
+    const [whatsappChannelLink, setWhatsappChannelLink] = useState('')
+    const [whatsappAdminNumber, setWhatsappAdminNumber] = useState('')
+    const [whatsappCommunityLink, setWhatsappCommunityLink] = useState('')
     const [autoFulfillment, setAutoFulfillment] = useState(true)
 
     // Page access states
@@ -66,6 +71,10 @@ export default function AdminSettingsPage() {
             setAfaPriceAgent(settingsMap.afa_price_agent || '15')
             setSupportEmail(settingsMap.support_email || '')
             setGuestStorefrontUrl(settingsMap.guest_storefront_url || 'https://kingflexygh.com/shop/felix-s-shop')
+            setWhatsappGroupLink(settingsMap.whatsapp_group_link || '')
+            setWhatsappChannelLink(settingsMap.whatsapp_channel_link || '')
+            setWhatsappAdminNumber(settingsMap.whatsapp_admin_number || '')
+            setWhatsappCommunityLink(settingsMap.whatsapp_community_link || '')
             setAutoFulfillment(settingsMap.auto_fulfillment_enabled === 'true')
 
             // Initialize page access values
@@ -99,6 +108,10 @@ export default function AdminSettingsPage() {
                 { key: 'afa_price_agent', value: afaPriceAgent },
                 { key: 'support_email', value: supportEmail },
                 { key: 'guest_storefront_url', value: guestStorefrontUrl },
+                { key: 'whatsapp_group_link', value: whatsappGroupLink },
+                { key: 'whatsapp_channel_link', value: whatsappChannelLink },
+                { key: 'whatsapp_admin_number', value: normalizeWhatsAppNumber(whatsappAdminNumber) },
+                { key: 'whatsapp_community_link', value: whatsappCommunityLink },
                 { key: 'auto_fulfillment_enabled', value: String(autoFulfillment) },
                 // Page access settings
                 { key: 'page_access_dashboard', value: String(pageAccessDashboard) },
@@ -166,6 +179,51 @@ export default function AdminSettingsPage() {
                                     onChange={(e) => setSupportEmail(e.target.value)}
                                     placeholder="support@kingflexydataltd.com"
                                 />
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Social Media & Community</CardTitle>
+                            <CardDescription>Configure WhatsApp links and support contacts</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="space-y-2">
+                                <Label>WhatsApp Admin Number</Label>
+                                <Input
+                                    value={whatsappAdminNumber}
+                                    onChange={(e) => setWhatsappAdminNumber(e.target.value)}
+                                    placeholder="e.g. 0555123456 or 233555123456"
+                                />
+                                <p className="text-xs text-muted-foreground">This number will be used for direct support chats. It will be automatically normalized to international format (233...).</p>
+                            </div>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label>WhatsApp Group Link</Label>
+                                    <Input
+                                        value={whatsappGroupLink}
+                                        onChange={(e) => setWhatsappGroupLink(e.target.value)}
+                                        placeholder="https://chat.whatsapp.com/..."
+                                    />
+                                </div>
+                                <div className="space-y-2">
+                                    <Label>WhatsApp Channel Link</Label>
+                                    <Input
+                                        value={whatsappChannelLink}
+                                        onChange={(e) => setWhatsappChannelLink(e.target.value)}
+                                        placeholder="https://whatsapp.com/channel/..."
+                                    />
+                                </div>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>WhatsApp Community Link (Sidebar)</Label>
+                                <Input
+                                    value={whatsappCommunityLink}
+                                    onChange={(e) => setWhatsappCommunityLink(e.target.value)}
+                                    placeholder="https://chat.whatsapp.com/..."
+                                />
+                                <p className="text-xs text-muted-foreground">The "Join Community" link shown in the dashboard sidebar.</p>
                             </div>
                         </CardContent>
                     </Card>

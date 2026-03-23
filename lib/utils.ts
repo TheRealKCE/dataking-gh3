@@ -69,3 +69,22 @@ export function calculatePaystackFee(amount: number, feePercentage: number = 1.9
 export function sleep(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms))
 }
+
+export function normalizeWhatsAppNumber(phone: string): string {
+    // Remove all non-numeric characters (including +)
+    const numeric = phone.replace(/\D/g, '')
+
+    // Handle common Ghana formats:
+    // 1. Starts with 0 and has 10 digits (e.g. 0555...) -> replace 0 with 233
+    if (numeric.startsWith('0') && numeric.length === 10) {
+        return '233' + numeric.substring(1)
+    }
+
+    // 2. Starts with a digit like 5, 2 and has 9 digits (e.g. 555...) -> prefix with 233
+    if (numeric.length === 9 && (numeric.startsWith('5') || numeric.startsWith('2') || numeric.startsWith('4'))) {
+        return '233' + numeric
+    }
+
+    // 3. Otherwise return numeric as is (e.g. if it already has 233)
+    return numeric
+}

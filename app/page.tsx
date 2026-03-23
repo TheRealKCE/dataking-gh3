@@ -24,6 +24,7 @@ import { getCachedPricing } from '@/lib/pricing-cache'
 export default function HomePage() {
     const router = useRouter()
     const [guestUrl, setGuestUrl] = useState('https://kingflexygh.com/shop/felix-s-shop')
+    const [adminPhone, setAdminPhone] = useState('')
 
     useEffect(() => {
         try {
@@ -36,6 +37,9 @@ export default function HomePage() {
         getCachedPricing().then(data => {
             if (data?.guestStorefrontUrl) {
                 setGuestUrl(data.guestStorefrontUrl)
+            }
+            if (data?.whatsappAdminNumber) {
+                setAdminPhone(data.whatsappAdminNumber)
             }
         }).catch(console.error)
     }, [router])
@@ -84,18 +88,21 @@ export default function HomePage() {
                                 <h1 className="text-3xl font-black text-slate-900 tracking-tight drop-shadow-sm">KING FLEXY DATA LTD</h1>
                             </div>
 
-                            <div className="flex flex-col items-center space-y-2">
-                                <p className="text-slate-600 font-medium">Need help?</p>
-                                <a
-                                    href="https://wa.me/233578065809"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="flex items-center space-x-2 px-4 py-2 rounded-full bg-[#25D366] hover:bg-[#20bd5a] text-white transition-all hover:scale-105 shadow-lg shadow-green-500/20"
-                                >
-                                    <Smartphone className="w-4 h-4" />
-                                    <span className="font-bold">Contact Us on WhatsApp</span>
-                                </a>
-                            </div>
+                            {/* Support Section - Only show if phone is configured */}
+                            {adminPhone && (
+                                <div className="flex flex-col items-center space-y-2">
+                                    <p className="text-slate-600 font-medium">Need help?</p>
+                                    <a
+                                        href={`https://wa.me/${adminPhone}`}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="flex items-center space-x-2 px-4 py-2 rounded-full bg-[#25D366] hover:bg-[#20bd5a] text-white transition-all hover:scale-105 shadow-lg shadow-green-500/20"
+                                    >
+                                        <Smartphone className="w-4 h-4" />
+                                        <span className="font-bold">Contact Us on WhatsApp</span>
+                                    </a>
+                                </div>
+                            )}
                         </div>
 
                         <div className="inline-flex items-center px-4 py-2 rounded-full bg-white/80 backdrop-blur-sm border border-slate-200 shadow-sm mb-8">
