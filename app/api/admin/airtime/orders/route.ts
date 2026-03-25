@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
-import { sendAirtimeBeneficiarySMS } from '@/lib/sms-service'
+import { sendAirtimeBeneficiarySMS, sendAirtimeCompletedSMS } from '@/lib/sms-service'
 
 async function verifyAdmin(supabaseUserClient: any) {
     const { data: { session }, error } = await supabaseUserClient.auth.getSession()
@@ -116,6 +116,12 @@ export async function PATCH(request: NextRequest) {
             return NextResponse.json({ error: updateError.message }, { status: 500 })
         }
 
+        // SYNC: If this is a shop order, sync the status downward.
+        if (existing.reference_code && existing.reference_code.startsWith('SHOP-')) {
+            await (supabase.from('shop_orders') as any).update({ status, updated_at: new Date().toISOString() }).eq('paystack_reference', existing.reference_code)
+            await (supabase.from('orders') as any).update({ status }).eq('reference_code', existing.reference_code)
+        }
+
         // Update the user's in-app notification
         ;(supabase.from('notifications') as any).insert({
             user_id: existing.user_id,
@@ -126,6 +132,12 @@ export async function PATCH(request: NextRequest) {
             type: 'order_update',
             action_url: '/dashboard/airtime',
         }).then(() => {}).catch((e: any) => console.error('[Admin Airtime] Notification error:', e))
+
+        // Trigger the completed SMS alert
+        if (status === 'completed') {
+            sendAirtimeCompletedSMS(existing.beneficiary_phone, existing.airtime_amount)
+                .catch(err => console.error('[Admin Airtime] Completed SMS failed:', err))
+        }
 
         return NextResponse.json({ success: true, status })
     } catch (error) {

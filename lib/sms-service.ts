@@ -580,3 +580,44 @@ export async function sendAirtimeBeneficiarySMS(
     })
 }
 
+/**
+ * Send admin alert when a new airtime order is placed (both shop and main site)
+ * Sent only to admins, excluding sub-admins.
+ */
+export async function sendAdminAirtimeAlertSMS(
+    adminPhones: string[],
+    details: {
+        source: string
+        receiver: string
+        amount: number
+        network: string
+    }
+): Promise<void> {
+    const message = `NEW AIRTIME ORDER:
+Source : ${details.source}
+Receiver : ${details.receiver}
+Amount: GH ${details.amount.toFixed(2)}
+Network: ${details.network}`
+
+    // Send to all provided admins in parallel
+    const promises = adminPhones.map(phone => sendSMS({ recipient: phone, message }))
+    await Promise.allSettled(promises)
+}
+
+/**
+ * Send alert when a main site or shop airtime order is marked as completed
+ */
+export async function sendAirtimeCompletedSMS(
+    beneficiaryPhone: string,
+    amount: number
+): Promise<void> {
+    const message = `Dear customer, your airtime order of GH${amount.toFixed(2)} has been credited successfully. Kindly dial *124# to check your balance thank you.
+
+KingFlexyGh`
+
+    await sendSMS({
+        recipient: beneficiaryPhone,
+        message
+    })
+}
+

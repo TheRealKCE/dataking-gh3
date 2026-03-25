@@ -10,9 +10,11 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Skeleton } from '@/components/ui/skeleton'
+import { Badge } from '@/components/ui/badge'
+import { Label } from '@/components/ui/label'
 import {
     Tag, Save, Loader2, TrendingUp, AlertCircle, CheckCircle2,
-    Clock, XCircle, Lightbulb, Send, Lock, ArrowLeft, Sparkles
+    Clock, XCircle, Lightbulb, Send, Lock, ArrowLeft, Sparkles, PhoneCall
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -36,6 +38,9 @@ interface ShopProfile {
     pricing_status: 'not_submitted' | 'pending_review' | 'approved' | 'rejected'
     pricing_note: string | null
     pricing_rejection_acknowledged: boolean
+    airtime_fee_mtn?: number
+    airtime_fee_telecel?: number
+    airtime_fee_at?: number
 }
 
 const networkColors: Record<string, string> = {
@@ -43,9 +48,11 @@ const networkColors: Record<string, string> = {
     Telecel: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
     'AT-iShare': 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
     'AT-BigTime': 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
+    AT: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
 }
 
 const NETWORKS = ['MTN', 'Telecel', 'AT-iShare', 'AT-BigTime']
+const AIRTIME_NETWORKS = ['MTN', 'Telecel', 'AT']
 
 export default function ShopPricingPage() {
     const { dbUser, isAdmin, isSubAdmin } = useAuth()
@@ -53,14 +60,17 @@ export default function ShopPricingPage() {
     const [shop, setShop] = useState<ShopProfile | null>(null)
     const [packages, setPackages] = useState<Package[]>([])
     const [pricing, setPricing] = useState<Record<string, string>>({})
+    const [airtimeFees, setAirtimeFees] = useState({ mtn: '', telecel: '', at: '' })
+    const [adminAirtimeFees, setAdminAirtimeFees] = useState<Record<string, number>>({})
+    
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
+    const [savingAirtime, setSavingAirtime] = useState(false)
     const [acknowledging, setAcknowledging] = useState(false)
     const [activeNetwork, setActiveNetwork] = useState<string>('MTN')
     const [manualMargin, setManualMargin] = useState<string>('0.50')
 
     useEffect(() => {
-        // Shop feature is available to all authenticated users (agent, customer, admin, sub-admin)
         if (dbUser) fetchData()
     }, [dbUser, isAdmin, isSubAdmin])
 
@@ -68,13 +78,13 @@ export default function ShopPricingPage() {
         try {
             const { data: shopData } = await ((supabase as any)
                 .from('shop_profiles')
-                .select('id, shop_name, owner_id, approval_status, pricing_status, pricing_note, pricing_rejection_acknowledged')
+                .select('id, shop_name, owner_id, approval_status, pricing_status, pricing_note, pricing_rejection_acknowledged, airtime_fee_mtn, airtime_fee_telecel, airtime_fee_at')
                 .eq('owner_id', dbUser!.id)
                 .single())
 
             if (shopData && shopData.owner_id) {
-                const { data: uData } = await (supabase as any).from('users').select('role').eq('id', shopData.owner_id).single();
-                shopData.owner_role = uData?.role || 'customer';
+                const { data: uData } = await (supabase as any).from('users').select('role').eq('id', shopData.owner_id).single()
+                shopData.owner_role = uData?.role || 'customer'
             }
 
             if (!shopData) {
@@ -84,15 +94,30 @@ export default function ShopPricingPage() {
             }
             setShop(shopData)
 
-            const [pkgRes, priceRes] = await Promise.all([
+            setAirtimeFees({
+                mtn: shopData.airtime_fee_mtn?.toString() || '',
+                telecel: shopData.airtime_fee_telecel?.toString() || '',
+                at: shopData.airtime_fee_at?.toString() || ''
+            })
+
+            const [pkgRes, priceRes, adminRes] = await Promise.all([
                 (supabase.from('data_packages').select('*').eq('is_available', true).order('sort_order') as any),
-                // Load live prices (for display reference)
                 ((supabase as any).from('shop_pricing').select('*').eq('shop_id', shopData.id)),
+                ((supabase as any).from('admin_settings').select('key, value').in('key', [
+                    'airtime_fee_mtn_customer', 'airtime_fee_mtn_agent', 
+                    'airtime_fee_telecel_customer', 'airtime_fee_telecel_agent', 
+                    'airtime_fee_at_customer', 'airtime_fee_at_agent'
+                ]))
             ])
 
             setPackages(pkgRes.data || [])
 
-            // Build pricing map from live prices (what's currently approved)
+            const adminFlags: Record<string, number> = {}
+            for (const row of (adminRes.data || [])) {
+                adminFlags[row.key] = parseFloat(row.value) || 0
+            }
+            setAdminAirtimeFees(adminFlags)
+
             const priceMap: Record<string, string> = {}
             for (const row of (priceRes.data || [])) {
                 priceMap[row.package_id] = String(row.selling_price)
@@ -123,6 +148,13 @@ export default function ShopPricingPage() {
         return profit > 0 && profit <= maxProfit
     }
 
+    const getMaxAirtimeProfit = (networkStr: string) => {
+        const role = shop?.owner_role || 'customer'
+        const key = `airtime_fee_${networkStr.toLowerCase()}_${role}`
+        const adminFee = adminAirtimeFees[key] || 0
+        return Math.max(0, 10 - adminFee)
+    }
+
     const handleAcknowledge = async () => {
         if (!shop) return
         setAcknowledging(true)
@@ -140,10 +172,41 @@ export default function ShopPricingPage() {
         }
     }
 
+    const handleSaveAirtimeOnly = async () => {
+        if (!shop) return
+        setSavingAirtime(true)
+        try {
+            // Validate Airtime explicitly
+            let valid = true
+            for (const net of ['mtn', 'telecel', 'at']) {
+                const max = getMaxAirtimeProfit(net)
+                const val = parseFloat(airtimeFees[net as keyof typeof airtimeFees] || '0')
+                if (val > max) {
+                    toast.error(`${net.toUpperCase()} Airtime Profit exceeds maximum of ${max.toFixed(2)}%`)
+                    valid = false
+                }
+            }
+            if (!valid) return
+
+            const res = await fetch('/api/shop/pricing', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ shopId: shop.id, items: [], airtimeFees }) // Send empty items just to update airtime globally
+            })
+            const data = await res.json()
+            if (!res.ok) throw new Error(data.error || 'Failed to submit airtime settings')
+            toast.success('Airtime Profit Settings Live!')
+        } catch (err: any) {
+            toast.error(err.message || 'Failed to submit airtime settings')
+        } finally {
+            setSavingAirtime(false)
+        }
+    }
+
     const handleSubmit = async () => {
         if (!shop) return
 
-        const maxProfit = shop.owner_role === 'agent' ? 10 : 5
+        const maxDataProfit = shop.owner_role === 'agent' ? 10 : 5
         let invalidReason = ''
         const invalid = packages.filter(pkg => {
             const val = pricing[pkg.id]
@@ -154,8 +217,8 @@ export default function ShopPricingPage() {
                 invalidReason = 'Profit must be more than 0'
                 return true
             }
-            if (profit > maxProfit) {
-                invalidReason = `Profit cannot exceed GHS ${maxProfit.toFixed(2)}`
+            if (profit > maxDataProfit) {
+                invalidReason = `Profit cannot exceed GHS ${maxDataProfit.toFixed(2)}`
                 return true
             }
             return false
@@ -164,6 +227,16 @@ export default function ShopPricingPage() {
         if (invalid.length > 0) {
             toast.error(`${invalidReason} for: ${invalid.map(p => `${p.network} ${p.size}`).join(', ')}`)
             return
+        }
+
+        // Validate Airtime explicitly alongside data package bundle
+        for (const net of ['mtn', 'telecel', 'at']) {
+            const max = getMaxAirtimeProfit(net)
+            const val = parseFloat(airtimeFees[net as keyof typeof airtimeFees] || '0')
+            if (val > max) {
+                toast.error(`${net.toUpperCase()} Airtime Profit exceeds maximum of ${max.toFixed(2)}%`)
+                return
+            }
         }
 
         const rows = packages
@@ -175,8 +248,8 @@ export default function ShopPricingPage() {
                 selling_price: parseFloat(pricing[pkg.id])
             }))
 
-        if (rows.length === 0) {
-            toast.error('Set at least one price before submitting')
+        if (rows.length === 0 && !airtimeFees.mtn && !airtimeFees.telecel && !airtimeFees.at) {
+            toast.error('Please configure a price to save changes')
             return
         }
 
@@ -185,7 +258,7 @@ export default function ShopPricingPage() {
             const res = await fetch('/api/shop/pricing', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ shopId: shop.id, items: rows })
+                body: JSON.stringify({ shopId: shop.id, items: rows, airtimeFees })
             })
 
             const data = await res.json()
@@ -202,14 +275,13 @@ export default function ShopPricingPage() {
 
     if (loading) {
         return (
-            <div className="space-y-4">
+            <div className="space-y-4 max-w-7xl mx-auto px-4">
                 <Skeleton className="h-8 w-48" />
-                {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-16" />)}
+                {[...Array(6)].map((_, i) => <Skeleton key={i} className="h-40 rounded-2xl" />)}
             </div>
         )
     }
 
-    // ── State: Profile not yet approved ──
     if (shop?.approval_status !== 'approved') {
         return (
             <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
@@ -224,7 +296,6 @@ export default function ShopPricingPage() {
         )
     }
 
-    // ── State: Pricing rejected — must acknowledge before editing ──
     if (shop?.pricing_status === 'rejected' && !shop?.pricing_rejection_acknowledged) {
         return (
             <div className="max-w-lg mx-auto py-10 space-y-4">
@@ -254,7 +325,7 @@ export default function ShopPricingPage() {
                         <Button
                             onClick={handleAcknowledge}
                             disabled={acknowledging}
-                            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
+                            className="w-full bg-emerald-600 hover:bg-emerald-700 text-white gap-2 h-12"
                         >
                             {acknowledging ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />}
                             I Understand, Let Me Revise
@@ -265,7 +336,6 @@ export default function ShopPricingPage() {
         )
     }
 
-    // ── Editable state (approved or rejected/acknowledged) ──
     const filteredPackages = packages.filter(p => p.network === activeNetwork)
     const setPricedCount = Object.values(pricing).filter(v => v && parseFloat(v) > 0).length
     const isResubmission = shop?.pricing_status === 'approved'
@@ -281,7 +351,6 @@ export default function ShopPricingPage() {
             toast.error(`Profit cannot exceed GHS ${maxProfit.toFixed(2)}`)
             return
         }
-        
         const newPricing: Record<string, string> = { ...pricing }
         let count = 0
         packages.forEach(pkg => {
@@ -291,14 +360,11 @@ export default function ShopPricingPage() {
             count++
         })
         setPricing(newPricing)
-        toast.success(`Applied GHS ${margin.toFixed(2)} profit to ${count} packages`, {
-            description: 'Review below then click Save & Go Live when ready.'
-        })
+        toast.success(`Applied GHS ${margin.toFixed(2)} profit to ${count} packages`)
     }
 
     return (
-        <div className="space-y-6 pb-20 md:pb-0">
-            {/* Header */}
+        <div className="space-y-8 pb-32 max-w-7xl mx-auto px-4 md:px-8 mt-6">
             <div className="flex flex-col gap-4">
                 <Link href="/dashboard/shop">
                     <Button variant="ghost" size="sm" className="w-fit gap-2 -ml-2 text-muted-foreground hover:text-emerald-600 transition-colors">
@@ -308,20 +374,19 @@ export default function ShopPricingPage() {
                 </Link>
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
                     <div>
-                        <h1 className="text-2xl font-bold flex items-center gap-2">
-                            <Tag className="w-6 h-6 text-emerald-600" />
+                        <h1 className="text-3xl font-black uppercase tracking-tighter flex items-center gap-3">
+                            <Tag className="w-8 h-8 text-emerald-600" />
                             Pricing Engine
                         </h1>
-                        <p className="text-muted-foreground text-sm mt-1">
-                            Set your selling prices. Only packages with a price will appear on your shop.
-                            {setPricedCount > 0 && <span className="ml-2 font-semibold text-emerald-600">{setPricedCount} active</span>}
+                        <p className="text-muted-foreground text-sm mt-1 font-bold uppercase tracking-widest opacity-80">
+                            Configure your Storefront Rates
                         </p>
                     </div>
                     <div className="hidden sm:flex items-center gap-2">
                         <Button
                             onClick={handleSubmit}
                             disabled={saving}
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
+                            className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2 shadow-xl h-12 px-6 rounded-2xl"
                         >
                             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
                             {saving ? 'Saving...' : 'Save & Go Live'}
@@ -329,80 +394,151 @@ export default function ShopPricingPage() {
                     </div>
                 </div>
 
-                {/* Warning banner for resubmission */}
                 {isResubmission && (
-                    <div className="p-3 rounded-xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 flex gap-2 text-sm text-amber-700 dark:text-amber-300">
-                        <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                    <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 flex gap-3 text-sm text-amber-700 dark:text-amber-300 mt-4">
+                        <AlertCircle className="w-5 h-5 flex-shrink-0 mt-0.5 text-amber-500" />
                         <span>
                             <strong>Heads up!</strong> Your new prices will go live automatically, but admins reserve the right to review and reject them later.
                         </span>
                     </div>
                 )}
+            </div>
 
-                {/* Cost info banner */}
-                <div className="p-3 rounded-xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 flex gap-2 text-sm text-blue-700 dark:text-blue-300">
-                    <AlertCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                    <span>
-                        Your cost price is based on your role ({dbUser?.role === 'agent' ? 'Agent' : 'Customer'}).
-                        Selling price must be higher than your cost.
-                    </span>
+            {/* AIRTIME PROFIT SECTION (ABOVE DATA GRID) */}
+            <div className="bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-950/20 dark:to-blue-950/20 rounded-[2.5rem] p-6 md:p-8 border border-indigo-100 dark:border-indigo-900 shadow-sm relative overflow-hidden">
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8 relative z-10">
+                    <div>
+                        <h2 className="text-xl font-black uppercase tracking-tighter text-indigo-900 dark:text-indigo-300 flex items-center gap-2">
+                            <PhoneCall className="w-6 h-6" /> Airtime Profit Configurator
+                        </h2>
+                        <p className="text-xs font-bold text-indigo-700/70 dark:text-indigo-400/70 uppercase tracking-widest mt-1 max-w-xl">
+                            By default, airtime profit is zero. You earn nothing until you explicitly configure your markup below. The max allowed combined total fee is strictly 10%.
+                        </p>
+                    </div>
+                    <Button 
+                        onClick={handleSaveAirtimeOnly} 
+                        disabled={savingAirtime}
+                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold h-12 px-6 rounded-2xl shrink-0 gap-2 shadow-lg w-full md:w-auto"
+                    >
+                        {savingAirtime ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                        Save Airtime Only
+                    </Button>
                 </div>
 
-                {/* Business Tips */}
-                <Card className="border-emerald-200 dark:border-emerald-800 bg-emerald-50/50 dark:bg-emerald-900/10">
-                    <CardHeader className="pb-2">
-                        <CardTitle className="text-sm flex items-center gap-2 text-emerald-700 dark:text-emerald-400">
-                            <Lightbulb className="w-4 h-4" />
-                            Tips for Better Business Growth
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="space-y-2">
-                        <ul className="text-xs text-emerald-800 dark:text-emerald-300 space-y-1.5">
-                            <li className="flex items-start gap-2">
-                                <TrendingUp className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-emerald-600" />
-                                <span>Keep your profit margin <strong>small but consistent</strong> — lower prices attract more repeat customers.</span>
-                            </li>
-                            <li className="flex items-start gap-2">
-                                <TrendingUp className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-emerald-600" />
-                                <span>A <strong>GHS 0.50–1.00 profit</strong> per bundle adds up to big earnings with volume sales.</span>
-                            </li>
-                            <li className="flex items-start gap-2">
-                                <TrendingUp className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-emerald-600" />
-                                <span>Competitive pricing builds <strong>customer loyalty</strong> faster than one-time high margins.</span>
-                            </li>
-                            <li className="flex items-start gap-2">
-                                <TrendingUp className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-emerald-600" />
-                                <span>Bundles with the <strong>best value-for-money</strong> get shared the most on WhatsApp — free marketing!</span>
-                            </li>
-                            <li className="flex items-start gap-2">
-                                <TrendingUp className="w-3.5 h-3.5 flex-shrink-0 mt-0.5 text-emerald-600" />
-                                <span>Check what other shops charge and price <strong>slightly below</strong> to stand out and win customers.</span>
-                            </li>
-                        </ul>
-                    </CardContent>
-                </Card>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 relative z-10">
+                    {AIRTIME_NETWORKS.map(net => {
+                        const key = net.toLowerCase() as keyof typeof airtimeFees
+                        const maxAllowed = getMaxAirtimeProfit(net)
+                        const val = parseFloat(airtimeFees[key] || '0')
+                        const isOverLimit = val > maxAllowed
 
-                {/* Network Tabs */}
-                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                        return (
+                            <div key={net} className={cn(
+                                "bg-white dark:bg-slate-900 p-6 rounded-[2rem] border transition-all",
+                                isOverLimit ? "border-red-300 shadow-md ring-2 ring-red-100" : "border-indigo-100 dark:border-slate-800 shadow-sm hover:border-indigo-300"
+                            )}>
+                                <div className="flex justify-between items-center mb-6">
+                                    <Badge variant="outline" className={cn("px-4 py-1.5 uppercase font-black tracking-widest", networkColors[net] || networkColors['MTN'])}>{net}</Badge>
+                                    <div className="text-right">
+                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Max Markup</p>
+                                        <p className="font-black text-slate-900 dark:text-white">{maxAllowed.toFixed(2)}%</p>
+                                    </div>
+                                </div>
+                                <div className="space-y-4">
+                                    <div className="relative group/input">
+                                        <Input
+                                            type="number"
+                                            value={airtimeFees[key]}
+                                            onChange={e => setAirtimeFees(s => ({ ...s, [key]: e.target.value }))}
+                                            className={cn(
+                                                "rounded-xl h-14 pr-12 bg-slate-50 dark:bg-slate-800 text-xl font-black text-center shadow-inner transition-colors",
+                                                isOverLimit ? "text-red-600 bg-red-50 dark:bg-red-900/10 focus-visible:ring-red-300" : "text-indigo-900 dark:text-white"
+                                            )}
+                                            min="0" max={maxAllowed} step="0.1" placeholder="0.00"
+                                        />
+                                        <span className={cn("absolute right-5 top-1/2 -translate-y-1/2 font-black text-sm", isOverLimit ? "text-red-500" : "text-slate-400")}>%</span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-xs">
+                                        <span className="font-bold text-slate-500 uppercase tracking-widest">Network Cost:</span>
+                                        <span className="font-black text-slate-400">{(10 - maxAllowed).toFixed(2)}%</span>
+                                    </div>
+                                    <div className="flex justify-between items-center text-xs border-t border-slate-100 dark:border-slate-800 pt-3">
+                                        <span className="font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest">Your Profit:</span>
+                                        <span className={cn("font-black text-lg", isOverLimit ? "text-red-500" : "text-emerald-500")}>{val.toFixed(2)}%</span>
+                                    </div>
+                                </div>
+                            </div>
+                        )
+                    })}
+                </div>
+            </div>
+
+            {/* Existing Data Package Section */}
+            <div className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-2 p-6 rounded-3xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/60 dark:bg-emerald-900/10 shadow-sm">
+                        <div className="flex items-center gap-2 mb-2">
+                            <Lightbulb className="w-6 h-6 text-emerald-600" />
+                            <span className="font-black text-lg uppercase tracking-tight text-emerald-800 dark:text-emerald-300">Data Pricing Guide</span>
+                        </div>
+                        <div className="text-sm text-emerald-800/80 dark:text-emerald-200/80 space-y-3 font-medium">
+                            <p>Your cost price is what you pay us. Your profit is what you add on top.</p>
+                            <div className="p-4 bg-white dark:bg-black/20 rounded-2xl border border-emerald-100 dark:border-emerald-800/50 shadow-sm flex flex-col gap-1">
+                                <span className="text-emerald-900 dark:text-emerald-100 mb-1"><strong>Example:</strong> If cost is GHS 10 and you add GHS {shop?.owner_role === 'agent' ? '3' : '2'}</span>
+                                <span className="font-black text-lg">You sell at GHS {shop?.owner_role === 'agent' ? '13' : '12'}</span>
+                            </div>
+                            <ul className="space-y-2 pt-2 text-xs uppercase tracking-wider font-bold">
+                                <li className="flex items-center gap-2"><CheckCircle2 className="w-4 h-4 text-emerald-500"/> Max profit: GHS {shop?.owner_role === 'agent' ? '10.00' : '5.00'}</li>
+                                <li className="flex items-center gap-2"><XCircle className="w-4 h-4 text-red-500"/> Cannot sell below cost</li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div className="flex flex-col gap-3 p-6 rounded-3xl border border-blue-200 dark:border-blue-800 bg-blue-50/60 dark:bg-blue-900/10 shadow-sm justify-center">
+                        <div className="flex items-center gap-2 mb-2">
+                            <TrendingUp className="w-6 h-6 text-blue-600" />
+                            <span className="font-black text-lg uppercase tracking-tight text-blue-800 dark:text-blue-300">Bulk Data Margin</span>
+                        </div>
+                        <p className="text-sm font-medium text-blue-700/80 dark:text-blue-400/80 mb-2">
+                            Enter desired profit amount, then click <strong>Apply</strong> to quickly set all {activeNetwork} items to Cost + your profit.
+                        </p>
+                        <div className="flex gap-3">
+                            <div className="relative flex-1">
+                                <span className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-black uppercase tracking-widest">GHS</span>
+                                <Input
+                                    type="number" min="0.01" max={shop?.owner_role === 'agent' ? "10.00" : "5.00"} step="0.01" value={manualMargin}
+                                    onChange={(e) => setManualMargin(e.target.value)}
+                                    className="pl-14 h-14 rounded-2xl bg-white dark:bg-gray-800 text-xl font-bold border-transparent focus:ring-blue-500 shadow-inner"
+                                />
+                            </div>
+                            <Button
+                                onClick={handleApplyManualMargin}
+                                className="bg-blue-600 hover:bg-blue-700 text-white px-6 rounded-2xl h-14 font-black uppercase tracking-widest gap-2 shadow-lg"
+                            >
+                                Apply Bulk
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+
+                <div className="flex gap-2 overflow-x-auto pb-2 pt-4 scrollbar-hide">
                     {NETWORKS.map(network => {
                         const count = packages.filter(p => p.network === network).length
                         if (count === 0) return null
                         const isActiveTab = activeNetwork === network
-                        const colorClass = networkColors[network]
                         return (
                             <button
                                 key={network}
                                 onClick={() => setActiveNetwork(network)}
                                 className={cn(
-                                    'flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-all whitespace-nowrap border',
+                                    'flex items-center gap-2 h-12 px-6 rounded-2xl text-xs font-black uppercase tracking-widest transition-all border-2 shrink-0',
                                     isActiveTab
-                                        ? 'border-transparent shadow-sm scale-105'
-                                        : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-400 hover:bg-gray-50',
-                                    isActiveTab && colorClass
+                                        ? 'bg-slate-900 border-slate-900 text-white shadow-xl scale-[1.02]'
+                                        : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 hover:bg-slate-50'
                                 )}
                             >
                                 {network}
-                                <span className="text-xs opacity-70 px-1.5 py-0.5 rounded-full bg-black/5 dark:bg-white/10">
+                                <span className={cn("px-2 py-0.5 rounded-md", isActiveTab ? "bg-white/20" : "bg-slate-100 dark:bg-slate-700")}>
                                     {count}
                                 </span>
                             </button>
@@ -410,182 +546,76 @@ export default function ShopPricingPage() {
                     })}
                 </div>
 
-                {/* ── User Education & Pricing Tools ── */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    {/* How to Set Your Price (Education block) */}
-                    <div className="flex flex-col gap-2 p-5 rounded-2xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50/60 dark:bg-emerald-900/10">
-                        <div className="flex items-center gap-2 mb-2">
-                            <Lightbulb className="w-5 h-5 text-emerald-600" />
-                            <span className="font-bold text-base text-emerald-800 dark:text-emerald-300">How to Set Your Price</span>
-                        </div>
-                        <div className="text-sm text-emerald-800 dark:text-emerald-200 space-y-3">
-                            <p>Your cost price is what you pay us.<br/>Your profit is what you add on top.</p>
-                            <div className="p-3 bg-white dark:bg-black/20 rounded-xl border border-emerald-100 dark:border-emerald-800/50 shadow-sm">
-                                <strong>Example:</strong><br/>If your cost is GHS 10 and you add GHS {shop?.owner_role === 'agent' ? '3' : '2'},<br/>you will sell at <strong>GHS {shop?.owner_role === 'agent' ? '13' : '12'}</strong>.
-                            </div>
-                            <ul className="space-y-1.5 pt-1 font-medium">
-                                <li>✅ <strong>Max profit:</strong> GHS {shop?.owner_role === 'agent' ? '10.00' : '5.00'}</li>
-                                <li>❌ You cannot sell below your cost</li>
-                            </ul>
-                            <div className="pt-2 text-emerald-700 dark:text-emerald-400 font-medium pb-1">
-                                {shop?.owner_role === 'agent' 
-                                    ? '💡 Tip: Agents can set higher profit to cover subscription costs.' 
-                                    : '💡 Tip: Start with GHS 1–2 profit.'}
-                            </div>
-                        </div>
-                    </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-10">
+                    {filteredPackages.map((pkg) => {
+                        const valStr = pricing[pkg.id] || ''
+                        const cost = getCostPrice(pkg)
+                        const finalSelling = parseFloat(valStr) || 0
+                        const profitStr = finalSelling > 0 ? (finalSelling - cost).toFixed(2) : ''
+                        const valid = isValidPrice(pkg, valStr)
 
-                    {/* Manual Profit Block */}
-                    <div className="flex flex-col gap-3 p-5 rounded-2xl border border-blue-200 dark:border-blue-800 bg-blue-50/60 dark:bg-blue-900/10 justify-center">
-                        <div className="flex items-center gap-2 mb-1">
-                            <TrendingUp className="w-5 h-5 text-blue-600" />
-                            <span className="font-bold text-base text-blue-800 dark:text-blue-300">Set Bulk Profit Margin</span>
-                        </div>
-                        <p className="text-sm text-blue-700 dark:text-blue-400">
-                            Enter your desired profit amount, then click <strong>Apply</strong> to quickly set all {activeNetwork} items to Cost + your profit.
-                        </p>
-                        <div className="flex gap-3 mt-2">
-                            <div className="relative flex-1">
-                                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-medium">GHS</span>
-                                <Input
-                                    type="number"
-                                    min="0.01"
-                                    max={shop?.owner_role === 'agent' ? "10.00" : "5.00"}
-                                    step="0.01"
-                                    value={manualMargin}
-                                    onChange={(e) => setManualMargin(e.target.value)}
-                                    className="pl-12 h-12 bg-white dark:bg-gray-800 text-lg shadow-sm"
-                                    placeholder="e.g. 1.00"
-                                />
-                            </div>
-                            <Button
-                                onClick={handleApplyManualMargin}
-                                className="bg-blue-600 hover:bg-blue-700 text-white px-5 h-12 font-semibold shadow-sm gap-2"
-                            >
-                                <CheckCircle2 className="w-5 h-5" />
-                                Apply
-                            </Button>
-                        </div>
-                    </div>
-                </div>
-
-                {/* Pricing Table */}
-                <Card>
-                    <CardHeader className="pb-3 border-b">
-                        <CardTitle className="text-sm flex items-center justify-between">
-                            <span>{activeNetwork} Packages</span>
-                            <span className="text-xs font-normal text-muted-foreground">{filteredPackages.length} available</span>
-                        </CardTitle>
-                    </CardHeader>
-                    <CardContent className="p-0">
-                        {filteredPackages.length === 0 ? (
-                            <div className="p-8 text-center text-muted-foreground">
-                                No packages available for {activeNetwork}.
-                            </div>
-                        ) : (
-                            <>
-                                {/* Unified Mobile-Friendly Card View */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 p-4">
-                                    {filteredPackages.map((pkg) => {
-                                        const valStr = pricing[pkg.id] || ''
-                                        const cost = getCostPrice(pkg)
-                                        const finalSelling = parseFloat(valStr) || 0
-                                        const profitStr = finalSelling > 0 ? (finalSelling - cost).toFixed(2) : ''
-                                        
-                                        const valid = isValidPrice(pkg, valStr)
-
-                                        return (
-                                            <div key={pkg.id} className={cn(
-                                                "flex flex-col p-5 rounded-2xl border-2 transition-colors",
-                                                valStr && valid === false ? "border-red-300 bg-red-50/30 dark:border-red-900 overflow-hidden" : 
-                                                valStr && valid === true ? "border-emerald-200 shadow-sm" : "border-gray-200 dark:border-gray-800 shadow-sm"
-                                            )}>
-                                                {/* Header & Cost */}
-                                                <div className="flex justify-between items-start mb-4">
-                                                    <div>
-                                                        <h3 className="font-black text-lg text-foreground">{pkg.size}</h3>
-                                                        <span className="inline-block mt-1 text-xs font-semibold text-muted-foreground bg-muted px-2.5 py-1 rounded-md">
-                                                            Cost: {formatCurrency(cost)}
-                                                        </span>
-                                                    </div>
-                                                </div>
-
-                                                {/* Profit Input */}
-                                                <div className="mt-auto space-y-4">
-                                                    <div>
-                                                        <label className="text-sm font-semibold flex items-center justify-between mb-1.5 text-foreground">
-                                                            Enter Selling Price
-                                                            {valStr && valid === false && (
-                                                                <span className="text-xs text-red-600 dark:text-red-400 font-medium">Max Profit: GHS {shop?.owner_role === 'agent' ? '10.00' : '5.00'}</span>
-                                                            )}
-                                                        </label>
-                                                        <div className="relative">
-                                                            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-medium text-sm">GHS</span>
-                                                            <Input
-                                                                type="number"
-                                                                inputMode="decimal"
-                                                                value={valStr}
-                                                                onChange={(e) => {
-                                                                    setPricing(prev => ({ ...prev, [pkg.id]: e.target.value }))
-                                                                }}
-                                                                placeholder={cost.toFixed(2)}
-                                                                className={cn(
-                                                                    'h-12 pl-12 text-lg font-medium',
-                                                                    valStr && valid === false && 'border-red-500 focus-visible:ring-red-500 bg-white dark:bg-gray-900',
-                                                                    valStr && valid === true && 'border-green-500 focus-visible:ring-green-500 bg-white dark:bg-gray-900',
-                                                                )}
-                                                            />
-                                                        </div>
-                                                    </div>
-
-                                                    {/* Selling Price Display */}
-                                                    <div className="flex flex-col gap-2 p-3 rounded-xl bg-gray-50 dark:bg-gray-900 border">
-                                                        <div className="flex items-center justify-between">
-                                                            <span className="text-sm font-medium text-muted-foreground">You Sell At:</span>
-                                                            {valStr && valid !== null ? (
-                                                                <span className="text-lg font-black text-foreground">
-                                                                    {formatCurrency(finalSelling)}
-                                                                </span>
-                                                            ) : (
-                                                                <span className="text-lg font-bold text-muted-foreground">—</span>
-                                                            )}
-                                                        </div>
-                                                        
-                                                        <div className="flex items-center justify-between border-t border-gray-200 dark:border-gray-800 pt-2">
-                                                            <span className="text-sm font-medium text-muted-foreground">Your Profit:</span>
-                                                            {valStr && valid !== null ? (
-                                                                <span className={cn(
-                                                                    "text-sm font-bold",
-                                                                    valid ? "text-green-600 dark:text-green-400" : "text-red-600 dark:text-red-400"
-                                                                )}>
-                                                                    {parseFloat(profitStr) > 0 ? '+' : ''} {formatCurrency(parseFloat(profitStr) || 0)}
-                                                                </span>
-                                                            ) : (
-                                                                <span className="text-sm font-bold text-muted-foreground">—</span>
-                                                            )}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        )
-                                    })}
+                        return (
+                            <div key={pkg.id} className={cn(
+                                "flex flex-col p-6 rounded-[2rem] border-2 transition-all duration-300",
+                                valStr && valid === false ? "border-red-400 bg-red-50/50 dark:border-red-900/30" : 
+                                valStr && valid === true ? "border-emerald-300 shadow-md bg-white dark:bg-slate-900" : "border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50"
+                            )}>
+                                <div className="mb-6 space-y-2">
+                                    <h3 className="font-black text-xl tracking-tighter text-foreground">{pkg.size}</h3>
+                                    <span className="inline-block text-[10px] font-black uppercase tracking-widest text-slate-500 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-lg">
+                                        Cost: {formatCurrency(cost)}
+                                    </span>
                                 </div>
-                            </>
-                        )}
-                    </CardContent>
-                </Card>
 
-                {/* Mobile Sticky Submit Button */}
-                <div className="fixed bottom-4 left-4 right-4 md:hidden z-10 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md p-2 rounded-2xl border border-gray-200 dark:border-gray-800 shadow-xl">
-                    <Button
-                        onClick={handleSubmit}
-                        disabled={saving}
-                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white h-12 text-base font-semibold shadow-xl gap-2 rounded-xl"
-                    >
-                        {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}
-                        {saving ? 'Saving...' : 'Save & Go Live'}
-                    </Button>
+                                <div className="mt-auto space-y-5">
+                                    <div>
+                                        <div className="flex justify-between mb-2">
+                                            <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Selling Price</Label>
+                                            {valStr && valid === false && <span className="text-[10px] text-red-600 font-bold uppercase tracking-tight">Max Profit: {shop?.owner_role === 'agent' ? '10' : '5'}</span>}
+                                        </div>
+                                        <div className="relative">
+                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-sm text-slate-400">GHS</span>
+                                            <Input
+                                                type="number" inputMode="decimal" value={valStr}
+                                                onChange={(e) => setPricing(prev => ({ ...prev, [pkg.id]: e.target.value }))}
+                                                placeholder={cost.toFixed(2)}
+                                                className={cn(
+                                                    'h-14 rounded-2xl pl-14 text-xl font-black shadow-inner transition-colors',
+                                                    valStr && valid === false ? 'border-red-500 bg-red-50 text-red-900 focus:ring-red-400' : 
+                                                    valStr && valid === true ? 'border-emerald-500 bg-emerald-50 text-emerald-900 dark:bg-emerald-900/20 dark:text-emerald-100' : 'bg-slate-50 dark:bg-slate-800 border-transparent'
+                                                )}
+                                            />
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-4 space-y-3 border border-slate-100 dark:border-slate-800">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Price tag</span>
+                                            <span className="font-black text-lg">{valStr && valid !== null ? formatCurrency(finalSelling) : '—'}</span>
+                                        </div>
+                                        <div className="h-px bg-slate-200 dark:bg-slate-700" />
+                                        <div className="flex items-center justify-between">
+                                            <span className={cn("text-[10px] font-black uppercase tracking-widest", valid ? "text-emerald-600" : "text-slate-400")}>Profit</span>
+                                            <span className={cn("font-black text-base", valid ? "text-emerald-500" : valid === false ? "text-red-500" : "text-slate-400")}>
+                                                {valStr && valid !== null ? `${parseFloat(profitStr) > 0 ? '+' : ''} ${formatCurrency(parseFloat(profitStr) || 0)}` : '—'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )
+                    })}
                 </div>
+            </div>
+
+            <div className="fixed bottom-6 left-4 right-4 md:left-auto md:right-8 z-50 pointer-events-none">
+                <Button
+                    onClick={handleSubmit} disabled={saving}
+                    className="w-full md:w-auto min-w-[200px] h-16 rounded-[2rem] bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-black uppercase tracking-widest shadow-2xl hover:shadow-[0_20px_40px_rgba(0,0,0,0.4)] pointer-events-auto hover:bg-black hover:scale-105 transition-all outline-none"
+                >
+                    {saving ? <Loader2 className="w-5 h-5 animate-spin mr-3" /> : <Save className="w-5 h-5 mr-3 group-hover:scale-110 transition-transform" />}
+                    {saving ? 'Saving Everything...' : 'Save & Go Live'}
+                </Button>
             </div>
         </div>
     )

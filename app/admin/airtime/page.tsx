@@ -117,6 +117,7 @@ interface Order {
     total_paid: number; fee_rate: number; user_role: string; created_at: string
     users?: { first_name: string; last_name: string; email: string; phone_number?: string }
     fulfillment_note?: string; fulfilled_at?: string
+    shop_id?: string; shop_name?: string
 }
 
 interface AirtimeSettings {
@@ -125,6 +126,7 @@ interface AirtimeSettings {
     airtime_fee_at_customer: string; airtime_fee_at_agent: string
     airtime_min_amount: string; airtime_max_amount: string
     airtime_enabled_mtn: string; airtime_enabled_telecel: string; airtime_enabled_at: string
+    storefront_airtime_enabled: string
 }
 
 // ─── Status Action Modal ───────────────────────────────────────────────────────
@@ -271,6 +273,7 @@ export default function AdminAirtimePage() {
         airtime_fee_at_customer: '5', airtime_fee_at_agent: '3',
         airtime_min_amount: '1', airtime_max_amount: '500',
         airtime_enabled_mtn: 'true', airtime_enabled_telecel: 'true', airtime_enabled_at: 'true',
+        storefront_airtime_enabled: 'false',
     })
     const [settingsLoading, setSettingsLoading] = useState(true)
     const [savingSettings, setSavingSettings] = useState(false)
@@ -551,9 +554,14 @@ export default function AdminAirtimePage() {
                                                     <NetworkLogo id={order.network} />
                                                 </div>
                                                 <div>
-                                                    <div className="flex items-center gap-2 mb-1">
+                                                    <div className="flex items-center gap-2 mb-1 flex-wrap">
                                                         <span className="font-black text-slate-900 dark:text-white uppercase tracking-tighter text-lg">{order.network} Order</span>
                                                         <StatusBadge status={order.status} />
+                                                        {order.shop_name && (
+                                                            <Badge variant="outline" className="bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border-purple-200 dark:border-purple-800 uppercase tracking-widest text-[9px] font-black shadow-sm">
+                                                                Shop: {order.shop_name}
+                                                            </Badge>
+                                                        )}
                                                     </div>
                                                     <p className="font-mono text-[10px] font-black text-slate-400 uppercase tracking-widest">REF: {order.reference_code}</p>
                                                 </div>
@@ -752,11 +760,21 @@ export default function AdminAirtimePage() {
                                     {/* System Limits */}
                                     <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 border border-slate-100 dark:border-slate-800 shadow-sm space-y-8">
                                         <div className="space-y-2">
-                                            <h2 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">Thresholds</h2>
-                                            <p className="text-xs text-slate-500 font-bold uppercase tracking-widest opacity-70">Transaction Boundaries</p>
+                                            <h2 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">Thresholds & Storefronts</h2>
+                                            <p className="text-xs text-slate-500 font-bold uppercase tracking-widest opacity-70">Transaction Boundaries & Global Features</p>
                                         </div>
                                         
                                         <div className="space-y-6">
+                                            <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800">
+                                                <div>
+                                                    <Label className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-widest">Storefront Airtime Support</Label>
+                                                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tight mt-1">Enable guest airtime purchases across all shop storefronts globally.</p>
+                                                </div>
+                                                <Switch
+                                                    checked={settings.storefront_airtime_enabled === 'true'}
+                                                    onCheckedChange={v => setSettings(s => ({ ...s, storefront_airtime_enabled: v ? 'true' : 'false' }))}
+                                                />
+                                            </div>
                                             <div className="space-y-3">
                                                 <Label className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Global Floor (Min)</Label>
                                                 <div className="relative">

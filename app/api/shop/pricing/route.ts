@@ -13,9 +13,9 @@ export async function POST(req: Request) {
         }
 
         const body = await req.json()
-        const { shopId, items } = body
+        const { shopId, items, airtimeFees } = body
 
-        if (!shopId || !items || !Array.isArray(items)) {
+        if (!shopId) {
             return NextResponse.json({ error: 'Invalid payload' }, { status: 400 })
         }
 
@@ -31,57 +31,88 @@ export async function POST(req: Request) {
         }
 
         const { data: userData } = await supabase.from('users').select('role').eq('id', shopProfile.owner_id).single()
-        const maxProfit = userData?.role === 'agent' ? 10 : 5
+        const userRole = userData?.role || 'customer'
+        const maxDataProfit = userRole === 'agent' ? 10 : 5
 
-        // Strict Backend Validation
-        for (const item of items) {
-            if (item.profit_margin === undefined || item.profit_margin === null) {
-                return NextResponse.json({ error: 'Missing profit margin' }, { status: 400 })
+        // Fetch Admin Settings to properly calculate Airtime caps
+        const { data: adminSettingsData } = await supabase.from('admin_settings').select('key, value')
+        const adminSettings: Record<string, string> = {}
+        for (const row of adminSettingsData || []) adminSettings[row.key] = String(row.value)
+
+        // Strict Backend Validation for Data Packages
+        if (items && Array.isArray(items)) {
+            for (const item of items) {
+                if (item.profit_margin === undefined || item.profit_margin === null) {
+                    return NextResponse.json({ error: 'Missing profit margin' }, { status: 400 })
+                }
+                if (item.profit_margin <= 0) {
+                    return NextResponse.json({ error: 'Profit must be more than 0' }, { status: 400 })
+                }
+                if (item.profit_margin > maxDataProfit) {
+                    return NextResponse.json({ error: `Profit cannot exceed GHS ${maxDataProfit.toFixed(2)}` }, { status: 400 })
+                }
+                
+                if (!item.package_id || !item.selling_price) {
+                    return NextResponse.json({ error: 'Invalid payload format' }, { status: 400 })
+                }
+                
+                item.shop_id = shopId
             }
-            if (item.profit_margin <= 0) {
-                return NextResponse.json({ error: 'Profit must be more than 0' }, { status: 400 })
+
+            // Clear existing pricing to prevent duplicates
+            const { error: deleteError } = await supabase
+                .from('shop_pricing')
+                .delete()
+                .eq('shop_id', shopId)
+
+            if (deleteError) {
+                return NextResponse.json({ error: 'Failed to clear previous pricing data' }, { status: 500 })
             }
-            if (item.profit_margin > maxProfit) {
-                return NextResponse.json({ error: `Profit cannot exceed GHS ${maxProfit.toFixed(2)}` }, { status: 400 })
+
+            // Insert new pricing capturing profit_margin explicitly if elements exist
+            if (items.length > 0) {
+                const { error: insertError } = await supabase
+                    .from('shop_pricing')
+                    .insert(items)
+
+                if (insertError) {
+                    return NextResponse.json({ error: 'Failed to insert pricing data' }, { status: 500 })
+                }
             }
-            
-            // Validate the item format minimally
-            if (!item.package_id || !item.selling_price) {
-                return NextResponse.json({ error: 'Invalid payload format' }, { status: 400 })
-            }
-            
-            // Ensure shop_id is correctly mapped and un-tampered
-            item.shop_id = shopId
         }
 
-        // Clear existing pricing to prevent duplicates
-        const { error: deleteError } = await supabase
-            .from('shop_pricing')
-            .delete()
-            .eq('shop_id', shopId)
+        // Secure Airtime Fee calculations & clamping strictly bounding at MAX 10% including admin baseline
+        let airtimeUpdates: any = {}
+        if (airtimeFees) {
+            for (const net of ['mtn', 'telecel', 'at']) {
+                if (airtimeFees[net] !== undefined) {
+                    let fee = parseFloat(airtimeFees[net])
+                    if (isNaN(fee) || fee < 0) fee = 0
 
-        if (deleteError) {
-            return NextResponse.json({ error: 'Failed to clear previous pricing data' }, { status: 500 })
+                    const adminFeeKey = `airtime_fee_${net}_${userRole}`
+                    const baseAdminFeeString = adminSettings[adminFeeKey] || '0'
+                    const baseAdminFee = parseFloat(baseAdminFeeString)
+
+                    const maxAllowedFee = Math.max(0, 10 - baseAdminFee)
+                    if (fee > maxAllowedFee) fee = maxAllowedFee
+
+                    airtimeUpdates[`airtime_fee_${net}`] = fee
+                }
+            }
         }
 
-        // Insert new pricing capturing profit_margin explicitly
-        const { error: insertError } = await supabase
-            .from('shop_pricing')
-            .insert(items)
-
-        if (insertError) {
-            return NextResponse.json({ error: 'Failed to insert pricing data' }, { status: 500 })
+        // Instantly make the shop live and save the new airtime prices inline
+        const profileUpdates = {
+            pricing_status: 'approved',
+            approval_status: 'approved',
+            pricing_submitted_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            ...airtimeUpdates
         }
 
-        // Instantly make the shop live without needing admin review
         const { error: updateError } = await supabase
             .from('shop_profiles')
-            .update({
-                pricing_status: 'approved',
-                approval_status: 'approved',
-                pricing_submitted_at: new Date().toISOString(),
-                updated_at: new Date().toISOString()
-            })
+            .update(profileUpdates)
             .eq('id', shopId)
 
         if (updateError) {

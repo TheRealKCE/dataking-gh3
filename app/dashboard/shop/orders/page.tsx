@@ -36,11 +36,17 @@ interface ShopOrder {
     profit: number
     status: string
     created_at: string
-    shop_id: string
+    order_type?: 'data' | 'airtime'
     orders?: {
         id: string
         complaints: any[]
     }[]
+}
+
+interface ShopFees {
+    mtn: number
+    telecel: number
+    at: number
 }
 
 const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
@@ -59,9 +65,12 @@ export default function ShopOrdersPage() {
     const [orders, setOrders] = useState<ShopOrder[]>([])
     const [loading, setLoading] = useState(true)
     const [isRefreshing, setIsRefreshing] = useState(false)
+    const [fees, setFees] = useState<ShopFees>({ mtn: 0, telecel: 0, at: 0 })
+    const [activeTab, setActiveTab] = useState<'data' | 'airtime'>('data')
 
     // Filter state
     const [filterStatus, setFilterStatus] = useState<string>('all')
+    const [filterNetwork, setFilterNetwork] = useState<string>('all')
     const [filterDate, setFilterDate] = useState<'today' | '7d' | '30d' | 'all'>('today')
     const [searchPhone, setSearchPhone] = useState('')
 
@@ -80,7 +89,7 @@ export default function ShopOrdersPage() {
             // Fetch this user's shop profile first
             const { data: shopData, error: shopErr } = await (supabase as any)
                 .from('shop_profiles')
-                .select('id')
+                .select('id, airtime_fee_mtn, airtime_fee_telecel, airtime_fee_at')
                 .eq('owner_id', dbUser!.id)
                 .single()
 
@@ -88,6 +97,12 @@ export default function ShopOrdersPage() {
                 setOrders([])
                 return
             }
+
+            setFees({
+                mtn: shopData.airtime_fee_mtn || 0,
+                telecel: shopData.airtime_fee_telecel || 0,
+                at: shopData.airtime_fee_at || 0
+            })
 
             // Build the orders query — all statuses, filtered by date
             let query = (supabase as any)
@@ -201,10 +216,17 @@ export default function ShopOrdersPage() {
 
     // Filter Logic
     const filteredOrders = orders.filter(order => {
+        // Tab Filter
+        const type = order.order_type || 'data'
+        if (type !== activeTab) return false
+        
         if (filterStatus !== 'all' && order.status !== filterStatus) return false
+        if (filterNetwork !== 'all' && order.network.toLowerCase() !== filterNetwork.toLowerCase()) return false
         if (searchPhone && !order.guest_phone.includes(searchPhone)) return false
         return true
     })
+
+    const hasNoAirtimeFees = fees.mtn === 0 && fees.telecel === 0 && fees.at === 0
 
     // Stats Calculation
     const completed = filteredOrders.filter(o => o.status === 'completed')
@@ -262,55 +284,119 @@ export default function ShopOrdersPage() {
                 </div>
             </div>
 
-            {/* Filters Section - Moved to Top */}
-            <div className="flex flex-col lg:flex-row gap-4 items-center justify-between bg-muted/30 p-4 rounded-xl border">
-                {/* Search */}
-                <div className="relative w-full lg:w-64">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                    <Input
-                        placeholder="Search phone number..."
-                        value={searchPhone}
-                        onChange={(e) => setSearchPhone(e.target.value)}
-                        className="pl-9 h-9 bg-background"
-                    />
+            {/* Tabs & Filters Section */}
+            <div className="space-y-4">
+                {/* Tabs */}
+                <div className="flex p-1 bg-muted rounded-xl w-fit border shadow-sm">
+                    <button
+                        onClick={() => setActiveTab('data')}
+                        className={cn(
+                            "px-6 py-2 text-sm font-bold rounded-lg transition-all flex items-center gap-2",
+                            activeTab === 'data' ? "bg-white dark:bg-gray-800 shadow-sm text-emerald-600" : "text-muted-foreground hover:text-foreground"
+                        )}
+                    >
+                        <ShoppingCart className="w-4 h-4" />
+                        Data Bundles
+                    </button>
+                    <button
+                        onClick={() => setActiveTab('airtime')}
+                        className={cn(
+                            "px-6 py-2 text-sm font-bold rounded-lg transition-all flex items-center gap-2",
+                            activeTab === 'airtime' ? "bg-white dark:bg-gray-800 shadow-sm text-purple-600" : "text-muted-foreground hover:text-foreground"
+                        )}
+                    >
+                        <RefreshCcw className="w-4 h-4" />
+                        Airtime
+                    </button>
                 </div>
 
-                {/* Filters */}
-                <div className="flex w-full lg:w-auto overflow-x-auto gap-2">
-                    {/* Date Filter */}
-                    <div className="flex bg-muted rounded-lg p-1 shrink-0">
-                        {[
-                            { id: 'today', label: 'Today' },
-                            { id: '7d', label: '7 Days' },
-                            { id: '30d', label: '30 Days' },
-                            { id: 'all', label: 'All' },
-                        ].map((f) => (
-                            <button
-                                key={f.id}
-                                onClick={() => setFilterDate(f.id as any)}
-                                className={cn(
-                                    "px-3 py-1 text-xs font-medium rounded-md transition-all whitespace-nowrap",
-                                    filterDate === f.id ? "bg-white dark:bg-gray-800 shadow-sm text-emerald-600" : "text-muted-foreground hover:text-foreground"
-                                )}
-                            >
-                                {f.label}
-                            </button>
-                        ))}
+                {/* Airtime Warning Banner */}
+                {activeTab === 'airtime' && hasNoAirtimeFees && (
+                    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 p-4 rounded-xl bg-purple-50 border border-purple-100 dark:bg-purple-900/10 dark:border-purple-900/20">
+                        <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-purple-100 dark:bg-purple-900/30 flex items-center justify-center shrink-0">
+                                <AlertCircle className="w-5 h-5 text-purple-600 dark:text-purple-400" />
+                            </div>
+                            <div>
+                                <h3 className="text-sm font-bold text-purple-900 dark:text-purple-100 uppercase tracking-tight">No Profit Gained</h3>
+                                <p className="text-xs text-purple-700 dark:text-purple-400">You haven't set any airtime fees yet. Customers can still buy airtime, but you won't earn any commission on these orders.</p>
+                            </div>
+                        </div>
+                        <Link href="/dashboard/shop/pricing">
+                            <Button size="sm" className="bg-purple-600 hover:bg-purple-700 text-white gap-2 shadow-lg shadow-purple-200 dark:shadow-none whitespace-nowrap">
+                                Set Fees & Start Earning
+                            </Button>
+                        </Link>
+                    </div>
+                )}
+
+                <div className="flex flex-col lg:flex-row gap-4 items-center justify-between bg-muted/30 p-4 rounded-xl border">
+                    {/* Search */}
+                    <div className="relative w-full lg:w-64">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                        <Input
+                            placeholder="Search phone number..."
+                            title="Search phone number"
+                            aria-label="Search phone number"
+                            value={searchPhone}
+                            onChange={(e) => setSearchPhone(e.target.value)}
+                            className="pl-9 h-9 bg-background"
+                        />
                     </div>
 
-                    {/* Status Filter */}
-                    <select
-                        className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
-                        value={filterStatus}
-                        onChange={(e) => setFilterStatus(e.target.value)}
-                    >
-                        <option value="all">All Status</option>
-                        <option value="pending">Pending</option>
-                        <option value="completed">Completed</option>
-                        <option value="processing">Processing</option>
-                        <option value="failed">Failed</option>
-                        <option value="refunded">Refunded</option>
-                    </select>
+                    {/* Filters */}
+                    <div className="flex w-full lg:w-auto overflow-x-auto gap-2">
+                        {/* Date Filter */}
+                        <div className="flex bg-muted rounded-lg p-1 shrink-0">
+                            {[
+                                { id: 'today', label: 'Today' },
+                                { id: '7d', label: '7 Days' },
+                                { id: '30d', label: '30 Days' },
+                                { id: 'all', label: 'All' },
+                            ].map((f) => (
+                                <button
+                                    key={f.id}
+                                    onClick={() => setFilterDate(f.id as any)}
+                                    className={cn(
+                                        "px-3 py-1 text-xs font-medium rounded-md transition-all whitespace-nowrap",
+                                        filterDate === f.id ? "bg-white dark:bg-gray-800 shadow-sm text-emerald-600" : "text-muted-foreground hover:text-foreground"
+                                    )}
+                                >
+                                    {f.label}
+                                </button>
+                            ))}
+                        </div>
+
+                        {/* Network Filter */}
+                        <select
+                            title="Filter by Network"
+                            aria-label="Filter by Network"
+                            className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                            value={filterNetwork}
+                            onChange={(e) => setFilterNetwork(e.target.value)}
+                        >
+                            <option value="all">All Networks</option>
+                            <option value="mtn">MTN</option>
+                            <option value="telecel">Telecel</option>
+                            <option value="at">AT</option>
+                        </select>
+
+                        {/* Status Filter */}
+                        <select
+                            title="Filter by Status"
+                            aria-label="Filter by Status"
+                            className="h-9 rounded-md border border-input bg-background px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring"
+                            value={filterStatus}
+                            onChange={(e) => setFilterStatus(e.target.value)}
+                        >
+                            <option value="all">All Status</option>
+                            <option value="pending">Pending</option>
+                            <option value="completed">Completed</option>
+                            <option value="processing">Processing</option>
+                            <option value="failed">Failed</option>
+                            <option value="refunded">Refunded</option>
+                        </select>
+                    </div>
                 </div>
             </div>
 
@@ -321,8 +407,8 @@ export default function ShopOrdersPage() {
                     { label: 'Pending', value: stats.pending, icon: Clock, color: 'text-yellow-600', bg: 'bg-yellow-50 dark:bg-yellow-900/20' },
                     { label: 'Processing', value: stats.processing, icon: Clock, color: 'text-orange-600', bg: 'bg-orange-50 dark:bg-orange-900/20' },
                     { label: 'Completed', value: stats.completed, icon: CheckCircle2, color: 'text-green-600', bg: 'bg-green-50 dark:bg-green-900/20' },
-                    { label: 'Total Revenue', value: formatCurrency(stats.revenue), icon: TrendingUp, color: 'text-purple-600', bg: 'bg-purple-50 dark:bg-purple-900/20' },
-                    { label: 'Total Profit', value: formatCurrency(stats.profit), icon: TrendingUp, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-900/20' },
+                    { label: 'Total Revenue', value: formatCurrency(stats.revenue), icon: TrendingUp, color: activeTab === 'airtime' ? 'text-purple-600' : 'text-emerald-600', bg: activeTab === 'airtime' ? 'bg-purple-50 dark:bg-purple-900/20' : 'bg-emerald-50 dark:bg-emerald-900/20' },
+                    { label: 'Total Profit', value: formatCurrency(stats.profit), icon: TrendingUp, color: activeTab === 'airtime' ? 'text-purple-600' : 'text-emerald-600', bg: activeTab === 'airtime' ? 'bg-purple-50 dark:bg-purple-900/20' : 'bg-emerald-50 dark:bg-emerald-900/20' },
                 ].map((stat) => (
                     <Card key={stat.label} className="border shadow-sm">
                         <CardContent className="p-4">
@@ -374,7 +460,16 @@ export default function ShopOrdersPage() {
                                                     {new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                                                 </td>
                                                 <td className="px-4 py-3 font-mono text-xs">{order.guest_phone}</td>
-                                                <td className="px-4 py-3 text-xs font-medium">{order.network} {order.package_size}</td>
+                                                <td className="px-4 py-3 text-xs font-medium">
+                                                    {order.order_type === 'airtime' ? (
+                                                        <span className="flex items-center gap-1.5">
+                                                            <RefreshCcw className="w-3 h-3 text-purple-600" />
+                                                            {order.network} Airtime
+                                                        </span>
+                                                    ) : (
+                                                        `${order.network} ${order.package_size}`
+                                                    )}
+                                                </td>
                                                 <td className="px-4 py-3 text-right font-medium">{formatCurrency(order.selling_price)}</td>
                                                 <td className="px-4 py-3 text-right text-emerald-600 font-semibold">{formatCurrency(order.profit)}</td>
                                                 <td className="px-4 py-3 text-center">
@@ -442,7 +537,10 @@ export default function ShopOrdersPage() {
                                     <div key={order.id} className="p-4 space-y-4 hover:bg-muted/30 transition-colors">
                                         <div className="flex justify-between items-start">
                                             <div>
-                                                <p className="font-bold text-sm">{order.network} {order.package_size}</p>
+                                                <p className="font-bold text-sm flex items-center gap-2">
+                                                    {order.order_type === 'airtime' && <RefreshCcw className="w-3.5 h-3.5 text-purple-600" />}
+                                                    {order.network} {order.order_type === 'airtime' ? 'Airtime' : order.package_size}
+                                                </p>
                                                 <p className="text-xs font-mono text-muted-foreground mt-0.5">{order.guest_phone}</p>
                                             </div>
                                             <div className="flex flex-col items-end gap-2">

@@ -18,6 +18,11 @@ export async function processShopOrder(
         network: string;
         package_size: string;
         fulfillment_mode?: string;
+        order_type?: string;
+        airtime_amount?: number;
+        selling_price?: number;
+        cost_price?: number;
+        profit?: number;
     },
     paidAmountPesewas: number,
     slug?: string
@@ -61,35 +66,59 @@ export async function processShopOrder(
 
         if (!shopProfile) return { success: false, error: 'Shop profile not found' }
 
-        const { data: settingsRows } = await db
-            .from('shop_global_settings')
-            .select('key, value')
-            .in('key', ['shop_paystack_fee_percent'])
+        let expectedTotalPesewas = 0
+        let verifiedSellingPrice = 0
+        let verifiedCostPrice = 0
+        let verifiedProfit = 0
+        let adminCostAtTime = 0
 
-        const globalFeePercent = settingsRows?.find((r: any) => r.key === 'shop_paystack_fee_percent')?.value
-        const paystackFeePercent = shopProfile?.paystack_fee_percent ?? parseFloat(globalFeePercent) ?? 1.95
-
-        const { data: pkg } = await db
-            .from('data_packages')
-            .select('price, agent_price, cost_price')
-            .eq('id', metadata.package_id)
+        const { data: ownerProfile } = await db
+            .from('users')
+            .select('role')
+            .eq('id', shopProfile?.owner_id)
             .single()
+            
+        const ownerRole = ownerProfile?.role || 'customer'
 
-        const { data: shopPrice } = await db
-            .from('shop_pricing')
-            .select('selling_price')
-            .eq('shop_id', metadata.shop_id)
-            .eq('package_id', metadata.package_id)
-            .single()
+        if (metadata.order_type === 'airtime') {
+            const { data: settingsRows } = await db.from('admin_settings').select('key, value').in('key', [
+                `airtime_fee_${metadata.network.toLowerCase()}_customer`, 
+                `airtime_fee_${metadata.network.toLowerCase()}_agent`
+            ])
+            const settingsMap = (settingsRows || []).reduce((acc: any, curr: any) => ({ ...acc, [curr.key]: curr.value }), {})
+            
+            const shopFee = parseFloat((shopProfile as any)[`airtime_fee_${metadata.network.toLowerCase()}`] || 0)
+            const adminFee = parseFloat(settingsMap[`airtime_fee_${metadata.network.toLowerCase()}_${ownerRole}`] || '0')
+            const numAmount = metadata.airtime_amount || parseFloat(metadata.selling_price as any || '0')
+            
+            const totalFeeMultiplier = (shopFee + adminFee) / 100
+            const feeAmount = numAmount * totalFeeMultiplier
+            
+            expectedTotalPesewas = Math.round((numAmount + feeAmount) * 100)
+            verifiedSellingPrice = numAmount
+            verifiedCostPrice = numAmount
+            verifiedProfit = numAmount * (shopFee / 100)
+            adminCostAtTime = numAmount
+        } else {
+            const { data: settingsRows } = await db.from('shop_global_settings').select('key, value').eq('key', 'shop_paystack_fee_percent')
+            const globalFeePercent = settingsRows?.[0]?.value
+            const paystackFeePercent = shopProfile?.paystack_fee_percent ?? parseFloat(globalFeePercent) ?? 1.95
 
-        if (!shopPrice || !pkg) {
-            console.error(`[Shop Order Processor] SECURITY: Pricing/Package not found for Ref: ${reference}`)
-            return { success: false, error: 'Price configuration missing' }
+            const { data: pkg } = await db.from('data_packages').select('price, agent_price, cost_price').eq('id', metadata.package_id).single()
+            const { data: shopPrice } = await db.from('shop_pricing').select('selling_price').eq('shop_id', metadata.shop_id).eq('package_id', metadata.package_id).single()
+
+            if (!shopPrice || !pkg) return { success: false, error: 'Price configuration missing' }
+
+            const dbSellingPrice = parseFloat(shopPrice.selling_price)
+            const paystackFee = Math.round(dbSellingPrice * (paystackFeePercent / 100) * 100) / 100
+            expectedTotalPesewas = Math.round((dbSellingPrice + paystackFee) * 100)
+            
+            const isAgentOwner = ownerRole === 'agent' && parseFloat(pkg?.agent_price) > 0
+            verifiedSellingPrice = dbSellingPrice
+            verifiedCostPrice = isAgentOwner ? parseFloat(pkg?.agent_price) : (parseFloat(pkg?.price) || 0)
+            verifiedProfit = dbSellingPrice - verifiedCostPrice
+            adminCostAtTime = parseFloat(pkg?.cost_price) || 0
         }
-
-        const dbSellingPrice = parseFloat(shopPrice.selling_price)
-        const paystackFee = Math.round(dbSellingPrice * (paystackFeePercent / 100) * 100) / 100
-        const expectedTotalPesewas = Math.round((dbSellingPrice + paystackFee) * 100)
 
         const amountDifference = Math.abs(paidAmountPesewas - expectedTotalPesewas)
 
@@ -97,34 +126,26 @@ export async function processShopOrder(
         let orderId = existingOrder?.id
         const fulfillmentMode = shopProfile?.fulfillment_mode || metadata.fulfillment_mode || 'auto'
 
-        // Cost price calculation
-        const { data: ownerProfile } = await db
-            .from('users')
-            .select('role')
-            .eq('id', shopProfile?.owner_id)
-            .single()
-
-        const isAgentOwner = ownerProfile?.role === 'agent' && parseFloat(pkg?.agent_price) > 0
-        const verifiedCostPrice = isAgentOwner ? parseFloat(pkg?.agent_price) : (parseFloat(pkg?.price) || 0)
-        const verifiedProfit = dbSellingPrice - verifiedCostPrice
-
         if (!existingOrder) {
+            const payload = {
+                shop_id: metadata.shop_id,
+                package_id: metadata.package_id || null, // null for airtime
+                guest_phone: metadata.guest_phone,
+                network: metadata.network,
+                package_size: metadata.package_size || `${metadata.airtime_amount} Airtime`,
+                selling_price: verifiedSellingPrice,
+                cost_price: verifiedCostPrice,
+                profit: verifiedProfit,
+                admin_cost_at_time: adminCostAtTime,
+                owner_role_at_time: ownerRole,
+                paystack_reference: reference,
+                status: 'pending',
+                order_type: metadata.order_type || 'data'
+            }
+            
             const { data: newOrder, error: createError } = await db
                 .from('shop_orders')
-                .insert({
-                    shop_id: metadata.shop_id,
-                    package_id: metadata.package_id,
-                    guest_phone: metadata.guest_phone,
-                    network: metadata.network,
-                    package_size: metadata.package_size,
-                    selling_price: dbSellingPrice,
-                    cost_price: verifiedCostPrice,
-                    profit: verifiedProfit,
-                    admin_cost_at_time: parseFloat(pkg?.cost_price) || 0,
-                    owner_role_at_time: ownerProfile?.role || 'customer',
-                    paystack_reference: reference,
-                    status: 'pending',
-                })
+                .insert(payload)
                 .select('id')
                 .single()
 
@@ -134,22 +155,46 @@ export async function processShopOrder(
             }
             orderId = newOrder?.id
 
-            // Mirror to main orders table
             await db.from('orders').insert({
                 user_id: shopProfile?.owner_id,
                 phone_number: metadata.guest_phone,
                 network: metadata.network,
-                size: metadata.package_size,
-                price: dbSellingPrice,
+                size: metadata.package_size || `${metadata.airtime_amount} Airtime`,
+                price: verifiedSellingPrice,
                 cost_price_at_time: verifiedCostPrice,
-                role_at_time: ownerProfile?.role || 'customer',
+                role_at_time: ownerRole,
                 status: 'pending',
                 payment_status: 'paid',
                 reference_code: `SHOP-${reference.slice(-10)}`,
                 fulfillment_method: 'auto',
+                order_type: metadata.order_type || 'data',
                 shop_name: shopProfile?.shop_name || slug,
                 shop_order_id: orderId
             })
+
+            // IMPORTANT: If it's an airtime order, mirror it to the primary airtime_orders ledger 
+            // so admins can view and fulfill it in the Airtime Intelligence page under 'Shop orders'
+            if (metadata.order_type === 'airtime') {
+                const totalPaidGHS = expectedTotalPesewas / 100;
+                const totalFeeAmount = totalPaidGHS - verifiedSellingPrice;
+                const totalFeeRate = verifiedSellingPrice > 0 ? (totalFeeAmount / verifiedSellingPrice) * 100 : 0;
+                
+                await db.from('airtime_orders').insert({
+                    user_id: shopProfile?.owner_id,
+                    user_role: ownerRole,
+                    beneficiary_phone: metadata.guest_phone,
+                    network: metadata.network,
+                    airtime_amount: verifiedSellingPrice, // Value requested
+                    fee_rate: totalFeeRate,         // Total markup%
+                    fee_amount: totalFeeAmount,
+                    total_paid: totalPaidGHS, // Total charged in GHS
+                    use_exact_amount: false,
+                    status: 'pending',
+                    reference_code: `SHOP-${reference.slice(-10)}`, // Same reference so downward sync hooks it
+                    shop_id: metadata.shop_id,
+                    shop_name: shopProfile?.shop_name || slug
+                })
+            }
         }
 
         // 4. Security Enforcement: Amount Validation
@@ -161,12 +206,11 @@ export async function processShopOrder(
         }
 
         // 5. Process Valid Order
-        // 5.1 Send SMS (Async)
         if (metadata.guest_phone) {
             sendOrderSuccessSMS(metadata.guest_phone, {
                 network: metadata.network,
-                size: metadata.package_size,
-                price: dbSellingPrice,
+                size: metadata.package_size || `${metadata.airtime_amount} Airtime`,
+                price: verifiedSellingPrice,
                 recipientNumber: metadata.guest_phone,
                 currentBalance: 0
             }).catch((err: Error) => console.error('[Shop Order Processor] SMS error:', err))
@@ -181,13 +225,19 @@ export async function processShopOrder(
 
         // 5.3 Trigger Fulfillment
         try {
-            await triggerShopFulfillment(orderId!, metadata.network, metadata.guest_phone, metadata.package_size, db, {
+            const fulfillmentPayload = metadata.order_type === 'airtime' 
+               ? { amount: metadata.airtime_amount || verifiedSellingPrice }
+               : { size: metadata.package_size }
+            
+            await triggerShopFulfillment(orderId!, metadata.network, metadata.guest_phone, db, {
                 referenceCode: `SHOP-${reference.slice(-10)}`,
-                price: dbSellingPrice,
+                price: verifiedSellingPrice,
                 customerName: 'Shop Guest',
                 customerEmail: 'N/A',
                 shopName: shopProfile?.shop_name || slug || shopProfile?.shop_name,
-                fulfillmentMode
+                fulfillmentMode,
+                orderType: metadata.order_type || 'data',
+                ...fulfillmentPayload
             })
         } catch (fulfillErr) {
             console.error('[Shop Order Processor] Fulfillment error:', fulfillErr)
@@ -208,7 +258,6 @@ async function triggerShopFulfillment(
     orderId: string,
     network: string,
     phone: string,
-    size: string,
     db: any,
     extra: {
         referenceCode: string
@@ -217,6 +266,9 @@ async function triggerShopFulfillment(
         customerEmail: string
         shopName: string
         fulfillmentMode: string
+        orderType: string
+        amount?: number
+        size?: string
     }
 ) {
     const { sendAdminNewOrderAlert } = await import('./email-service')
@@ -225,7 +277,7 @@ async function triggerShopFulfillment(
         referenceCode: extra.referenceCode,
         phoneNumber: phone,
         network: network,
-        size: size,
+        size: extra.size || `${extra.amount} Airtime`,
         price: extra.price,
         customerName: extra.customerName,
         customerEmail: extra.customerEmail,
@@ -233,12 +285,30 @@ async function triggerShopFulfillment(
         shopName: extra.shopName
     }
 
-    if (extra.fulfillmentMode !== 'auto') {
-        console.log(`[Shop Order Processor] Manual fulfillment mode - sending alert`)
+    if (extra.fulfillmentMode !== 'auto' || extra.orderType === 'airtime') {
+        console.log(`[Shop Order Processor] Manual fulfillment required - sending alert`)
         await sendAdminNewOrderAlert({
             ...alertDetails,
-            reason: 'Manual fulfillment mode enabled for this shop'
+            reason: extra.orderType === 'airtime' ? 'Airtime requires manual fulfillment' : 'Manual fulfillment mode enabled for this shop'
         }).catch(e => console.error('[Shop Order Processor] Admin Alert Error:', e))
+        
+        if (extra.orderType === 'airtime') {
+            try {
+                const { sendAdminAirtimeAlertSMS } = await import('./sms-service')
+                const { data: admins } = await db.from('users').select('phone_number').eq('role', 'admin')
+                const adminPhones = admins?.map((a: any) => a.phone_number).filter(Boolean) || []
+                if (adminPhones.length > 0) {
+                    await sendAdminAirtimeAlertSMS(adminPhones, {
+                        source: `${extra.customerName} / ${extra.shopName} (Shop)`,
+                        receiver: phone,
+                        amount: extra.amount || extra.price,
+                        network: network
+                    })
+                }
+            } catch (err) {
+                console.error('[Shop Order Processor] Admin SMS Error:', err)
+            }
+        }
         return
     }
 
@@ -278,7 +348,6 @@ async function triggerShopFulfillment(
             return
         }
 
-        // const { checkFraudSignals, logSuspiciousActivity } = await import('./security')
         // const isFraud = await checkFraudSignals(null as unknown as string, phone, db)
         // if (isFraud) {
         //     await logSuspiciousActivity('guest', 'shop_order', 'fraud detected', db)
@@ -296,7 +365,7 @@ async function triggerShopFulfillment(
         //     return
         // }
 
-        const result = await fulfillOrder(network, phone, size, orderId)
+        const result = await fulfillOrder(network, phone, extra.size || '', orderId)
 
         if (result.success) {
             const updatedAt = new Date().toISOString()

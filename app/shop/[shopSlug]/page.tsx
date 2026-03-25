@@ -47,7 +47,7 @@ export default async function ShopPage({ params }: Props) {
     // Fetch shop — include pricing_status so we can show Under Review state
     const { data: shop } = await (supabase
         .from('shop_profiles')
-        .select('id, shop_name, shop_slug, description, owner_phone, owner_email, whatsapp_number, logo_url, brand_color, brand_accent, approval_status, pricing_status, is_active')
+        .select('id, shop_name, shop_slug, description, owner_phone, owner_email, whatsapp_number, logo_url, brand_color, brand_accent, approval_status, pricing_status, is_active, owner_id, airtime_fee_mtn, airtime_fee_telecel, airtime_fee_at')
         .eq('shop_slug', shopSlug)
         .single() as any)
 
@@ -63,11 +63,18 @@ export default async function ShopPage({ params }: Props) {
     }
 
     // Check Global Storefront Access Settings
-    const { data: storefrontSetting } = await (supabase
+    const { data: adminSettings } = await (supabase
         .from('admin_settings')
-        .select('value')
-        .eq('key', 'page_access_storefront')
-        .single() as any)
+        .select('key, value')
+        .in('key', ['page_access_storefront', 'storefront_airtime_enabled', 'airtime_fee_mtn_customer', 'airtime_fee_mtn_agent', 'airtime_fee_telecel_customer', 'airtime_fee_telecel_agent', 'airtime_fee_at_customer', 'airtime_fee_at_agent', 'airtime_min_amount', 'airtime_max_amount']) as any)
+
+    const adminSettingsMap: Record<string, string> = {}
+    for (const row of adminSettings || []) {
+        adminSettingsMap[row.key] = row.value
+    }
+    
+    // Check Global Storefront Access Settings
+    const storefrontSetting = adminSettingsMap['page_access_storefront']
 
     // Admin pass-through check
     const { data: { session } } = await supabase.auth.getSession()
@@ -82,7 +89,7 @@ export default async function ShopPage({ params }: Props) {
     }
 
     // Block if globally disabled and not an admin
-    if (storefrontSetting?.value === 'false' && !isAdmin) {
+    if (storefrontSetting === 'false' && !isAdmin) {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-6">
                 <div className="max-w-md w-full text-center space-y-6">
@@ -192,5 +199,12 @@ export default async function ShopPage({ params }: Props) {
         }))
         .sort((a: any, b: any) => a.network.localeCompare(b.network) || a.sort_order - b.sort_order)
 
-    return <ShopStorefront shop={shop} packages={packages} />
+    // Append owner role to calculate correct max amount limits client side
+    let ownerRole = 'customer'
+    if (shop?.owner_id) {
+        const { data: uData } = await supabase.from('users').select('role').eq('id', shop.owner_id).single()
+        ownerRole = (uData as any)?.role || 'customer'
+    }
+
+    return <ShopStorefront shop={{ ...shop, ownerRole }} packages={packages} adminSettings={adminSettingsMap} />
 }

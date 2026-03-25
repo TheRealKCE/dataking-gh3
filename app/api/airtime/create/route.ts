@@ -3,7 +3,7 @@ import { createServerClient } from '@/lib/supabase'
 import { generateReferenceCode } from '@/lib/utils'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
-import { sendAirtimeBeneficiarySMS } from '@/lib/sms-service'
+import { sendAirtimeBeneficiarySMS, sendAdminAirtimeAlertSMS } from '@/lib/sms-service'
 import { sendAdminAirtimeOrderEmail } from '@/lib/email-service'
 
 const NETWORK_KEY_MAP: Record<string, string> = {
@@ -246,6 +246,25 @@ export async function POST(request: NextRequest) {
                 walletBalanceAfter: newBalance,
                 useExactAmount: useExactAmount || false,
             }).catch((err: any) => console.error('[Airtime] Admin email failed:', err))
+
+            // 3. Admin SMS alert
+            try {
+                const { data: admins } = await (supabase.from('users') as any)
+                    .select('phone_number')
+                    .eq('role', 'admin')
+                const adminPhones = admins?.map((a: any) => a.phone_number).filter(Boolean) || []
+                
+                if (adminPhones.length > 0) {
+                    await sendAdminAirtimeAlertSMS(adminPhones, {
+                        source: `${userData.first_name || ''} ${userData.last_name || ''}`.trim() || 'Guest',
+                        receiver: cleanPhone,
+                        amount: airtimeAmount,
+                        network: network
+                    })
+                }
+            } catch (smsErr) {
+                console.error('[Airtime] Admin SMS failed:', smsErr)
+            }
         } catch (postOrderErr) {
             console.error('[Airtime] Post-order processing error:', postOrderErr)
         }
