@@ -1,6 +1,31 @@
 import { NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
+import { createServerClient } from '@/lib/supabase'
+
+export async function GET() {
+    try {
+        const supabase = createServerClient()
+        const { data, error } = await supabase
+            .from('admin_settings')
+            .select('key, value')
+            .in('key', [
+                'airtime_fee_mtn_customer', 'airtime_fee_mtn_agent',
+                'airtime_fee_telecel_customer', 'airtime_fee_telecel_agent',
+                'airtime_fee_at_customer', 'airtime_fee_at_agent'
+            ])
+
+        if (error) throw error
+
+        const settings: Record<string, string> = {}
+        for (const row of (data as any) || []) settings[row.key] = String(row.value)
+
+        return NextResponse.json(settings)
+    } catch (err: any) {
+        console.error('Settings API Error:', err)
+        return NextResponse.json({ error: 'Failed to fetch settings' }, { status: 500 })
+    }
+}
 
 export async function POST(req: Request) {
     try {
@@ -34,10 +59,11 @@ export async function POST(req: Request) {
         const userRole = userData?.role || 'customer'
         const maxDataProfit = userRole === 'agent' ? 10 : 5
 
-        // Fetch Admin Settings to properly calculate Airtime caps
-        const { data: adminSettingsData } = await supabase.from('admin_settings').select('key, value')
+        // Fetch Admin Settings to properly calculate Airtime caps (Bypassing RLS via Service Role)
+        const adminDb = createServerClient()
+        const { data: adminSettingsData } = await adminDb.from('admin_settings').select('key, value')
         const adminSettings: Record<string, string> = {}
-        for (const row of adminSettingsData || []) adminSettings[row.key] = String(row.value)
+        for (const row of (adminSettingsData as any) || []) adminSettings[row.key] = String(row.value)
 
         // Strict Backend Validation for Data Packages
         if (items && Array.isArray(items)) {

@@ -103,18 +103,14 @@ export default function ShopPricingPage() {
             const [pkgRes, priceRes, adminRes] = await Promise.all([
                 (supabase.from('data_packages').select('*').eq('is_available', true).order('sort_order') as any),
                 ((supabase as any).from('shop_pricing').select('*').eq('shop_id', shopData.id)),
-                ((supabase as any).from('admin_settings').select('key, value').in('key', [
-                    'airtime_fee_mtn_customer', 'airtime_fee_mtn_agent', 
-                    'airtime_fee_telecel_customer', 'airtime_fee_telecel_agent', 
-                    'airtime_fee_at_customer', 'airtime_fee_at_agent'
-                ]))
+                fetch('/api/shop/pricing').then(res => res.json())
             ])
 
             setPackages(pkgRes.data || [])
 
             const adminFlags: Record<string, number> = {}
-            for (const row of (adminRes.data || [])) {
-                adminFlags[row.key] = parseFloat(row.value) || 0
+            for (const [key, value] of Object.entries(adminRes || {})) {
+                adminFlags[key] = parseFloat(value as string) || 0
             }
             setAdminAirtimeFees(adminFlags)
 
