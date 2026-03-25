@@ -191,7 +191,7 @@ export default function ShopPricingPage() {
             const res = await fetch('/api/shop/pricing', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ shopId: shop.id, items: [], airtimeFees }) // Send empty items just to update airtime globally
+                body: JSON.stringify({ shopId: shop.id, airtimeFees }) // Send only airtimeFees to update airtime globally without clearing packages
             })
             const data = await res.json()
             if (!res.ok) throw new Error(data.error || 'Failed to submit airtime settings')
