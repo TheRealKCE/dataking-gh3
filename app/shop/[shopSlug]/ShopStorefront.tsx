@@ -123,7 +123,7 @@ export default function ShopStorefront({ shop, packages, adminSettings }: Props)
         { id: 'MTN', fee: shop.airtime_fee_mtn || 0, enabled: adminSettings['airtime_enabled_mtn'] !== 'false' },
         { id: 'Telecel', fee: shop.airtime_fee_telecel || 0, enabled: adminSettings['airtime_enabled_telecel'] !== 'false' },
         { id: 'AT', fee: shop.airtime_fee_at || 0, enabled: adminSettings['airtime_enabled_at'] !== 'false' }
-    ].filter(n => n.fee > 0 && n.enabled)
+    ].filter(n => n.enabled)
 
     const isShopAirtimeEnabled = isGlobalAirtimeEnabled && airtimeNetworks.length > 0
 
