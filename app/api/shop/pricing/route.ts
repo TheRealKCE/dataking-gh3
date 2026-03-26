@@ -5,6 +5,13 @@ import { createServerClient } from '@/lib/supabase'
 
 export async function GET() {
     try {
+        const supabaseAuth = createRouteHandlerClient({ cookies })
+        const { data: { session } } = await supabaseAuth.auth.getSession()
+        
+        if (!session) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+
         const supabase = createServerClient()
         const { data, error } = await supabase
             .from('admin_settings')
