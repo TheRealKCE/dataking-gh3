@@ -9,7 +9,8 @@ import { supabase } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
 import {
     Phone, Mail, MessageCircle, ShoppingCart, Loader2,
-    CheckCircle2, AlertCircle, X, Search, Zap, Smartphone, ChevronDown, Check
+    CheckCircle2, AlertCircle, X, Search, Zap, Smartphone, ChevronDown, Check,
+    History, TrendingUp, Coins, Calendar, CalendarRange, RefreshCw, Info, Clock, Copy, ArrowRight, AlertTriangle
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
@@ -48,12 +49,45 @@ interface Props {
 // Fixed network order + brand colors (matches main platform)
 const NETWORK_ORDER = ['MTN', 'Telecel', 'AT-iShare', 'AT-BigTime', 'AT']
 
-const networkColors: Record<string, { bg: string; text: string; border: string }> = {
-    MTN: { bg: '#FFCE00', text: '#000000', border: '#e6b800' },
-    Telecel: { bg: '#E60000', text: '#ffffff', border: '#cc0000' },
-    'AT-iShare': { bg: '#0056B3', text: '#ffffff', border: '#004494' },
-    'AT-BigTime': { bg: '#6f42c1', text: '#ffffff', border: '#5a32a3' },
-    AT: { bg: '#F97316', text: '#ffffff', border: '#ea580c' },
+const networkColors: Record<string, { bg: string; text: string; border: string; gradient: string }> = {
+    MTN: { bg: '#FFCE00', text: '#000000', border: '#e6b800', gradient: 'from-yellow-400 to-yellow-500' },
+    Telecel: { bg: '#E60000', text: '#ffffff', border: '#cc0000', gradient: 'from-red-500 to-red-600' },
+    'AT-iShare': { bg: '#0056B3', text: '#ffffff', border: '#004494', gradient: 'from-blue-600 to-blue-700' },
+    'AT-BigTime': { bg: '#6f42c1', text: '#ffffff', border: '#5a32a3', gradient: 'from-purple-600 to-purple-700' },
+    AT: { bg: '#F97316', text: '#ffffff', border: '#ea580c', gradient: 'from-orange-500 to-orange-600' },
+}
+
+const QUICK_AMOUNTS = [1, 2, 5, 10, 20, 50, 100]
+
+function MTNLogo() {
+    return (
+        <svg viewBox="0 0 60 60" className="w-8 h-8" fill="none">
+            <circle cx="30" cy="30" r="30" fill="#FFD200"/>
+            <text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" fontSize="20" fontWeight="bold" fill="#1a1a1a">MTN</text>
+        </svg>
+    )
+}
+function TelecelLogo() {
+    return (
+        <svg viewBox="0 0 60 60" className="w-8 h-8" fill="none">
+            <circle cx="30" cy="30" r="30" fill="#e63946"/>
+            <text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" fontSize="11" fontWeight="bold" fill="white">Telecel</text>
+        </svg>
+    )
+}
+function ATLogo() {
+    return (
+        <svg viewBox="0 0 60 60" className="w-8 h-8" fill="none">
+            <circle cx="30" cy="30" r="30" fill="#F97316"/>
+            <text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" fontSize="16" fontWeight="bold" fill="white">AT</text>
+        </svg>
+    )
+}
+
+const NetworkLogo = ({ id }: { id: string }) => {
+    if (id === 'MTN') return <MTNLogo />
+    if (id === 'Telecel') return <TelecelLogo />
+    return <ATLogo />
 }
 
 export default function ShopStorefront({ shop, packages, adminSettings }: Props) {
@@ -70,6 +104,8 @@ export default function ShopStorefront({ shop, packages, adminSettings }: Props)
     const [airtimeEmail, setAirtimeEmail] = useState('')
     const [airtimeAmount, setAirtimeAmount] = useState('')
     const [detectedNetwork, setDetectedNetwork] = useState<'MTN' | 'Telecel' | 'AT' | null>(null)
+    const [isManualSelection, setIsManualSelection] = useState(false)
+    const [useExact, setUseExact] = useState(false)
     const airtimeRef = useRef<HTMLDivElement>(null)
     
     // Global State
@@ -154,6 +190,8 @@ export default function ShopStorefront({ shop, packages, adminSettings }: Props)
 
     // Auto-detect network for airtime
     useEffect(() => {
+        if (isManualSelection) return
+        
         const clean = airtimePhone.replace(/\s+/g, '')
         if (clean.length >= 3) {
             const prefix = clean.substring(0, 3)
@@ -181,20 +219,27 @@ export default function ShopStorefront({ shop, packages, adminSettings }: Props)
         } else {
             setDetectedNetwork(null)
         }
-    }, [airtimePhone, airtimeNetworks])
+    }, [airtimePhone, airtimeNetworks, isManualSelection])
 
     const calculateAirtimeFees = () => {
-        if (!detectedNetwork || !airtimeAmount) return { feeAmount: 0, totalPay: 0 }
+        if (!detectedNetwork || !airtimeAmount) return { feeAmount: 0, totalPay: 0, airtimeToReceive: 0 }
         const numAmount = parseFloat(airtimeAmount)
-        if (isNaN(numAmount) || numAmount <= 0) return { feeAmount: 0, totalPay: 0 }
+        if (isNaN(numAmount) || numAmount <= 0) return { feeAmount: 0, totalPay: 0, airtimeToReceive: 0 }
 
         const shopFeeConfig = airtimeNetworks.find(n => n.id === detectedNetwork)
         const shopFeeMultiplier = shopFeeConfig ? shopFeeConfig.fee : 0
         const adminFeeMultiplier = parseFloat(adminSettings[`airtime_fee_${detectedNetwork.toLowerCase()}_${shop.ownerRole}`] || '0')
         
         const totalMultiplier = (adminFeeMultiplier + shopFeeMultiplier) / 100
-        const feeAmount = numAmount * totalMultiplier
-        return { feeAmount, totalPay: numAmount + feeAmount }
+        const round2 = (n: number) => Math.round(n * 100) / 100
+
+        if (useExact) {
+            const feeAmount = round2(numAmount * totalMultiplier)
+            return { feeAmount, totalPay: round2(numAmount + feeAmount), airtimeToReceive: numAmount }
+        } else {
+            const feeAmount = round2(numAmount * totalMultiplier)
+            return { feeAmount, totalPay: numAmount, airtimeToReceive: round2(numAmount - feeAmount) }
+        }
     }
 
     const handleBuyData = async () => {
@@ -259,6 +304,7 @@ export default function ShopStorefront({ shop, packages, adminSettings }: Props)
                     orderType: 'airtime',
                     network: detectedNetwork,
                     amount: numAmount,
+                    useExactAmount: useExact,
                     guestPhone: cleanPhone,
                     guestEmail: airtimeEmail.trim() || undefined,
                 }),
@@ -291,7 +337,7 @@ export default function ShopStorefront({ shop, packages, adminSettings }: Props)
 
     const brandColor = shop.brand_color || '#2563eb'
     const filteredPackages = packages.filter(p => p.network === activeNetwork)
-    const { feeAmount: airFee, totalPay: airTotal } = calculateAirtimeFees()
+    const { feeAmount: airFee, totalPay: airTotal, airtimeToReceive } = calculateAirtimeFees()
 
     if (pageLoading) {
         return (
@@ -495,7 +541,42 @@ export default function ShopStorefront({ shop, packages, adminSettings }: Props)
 
                         {isAirtimeOpen && (
                             <div className="p-5 pt-0 border-t border-gray-100 dark:border-gray-800 animate-in slide-in-from-top-2">
-                                <div className="space-y-4 pt-4">
+                                <div className="space-y-5 pt-5">
+                                    {/* Network Selection Grid */}
+                                    <div>
+                                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 ml-1">Select Network</p>
+                                        <div className="grid grid-cols-3 gap-2">
+                                            {['MTN', 'Telecel', 'AT'].map(netId => {
+                                                const netConfig = airtimeNetworks.find(n => n.id === netId)
+                                                const isEnabled = !!netConfig
+                                                const isSelected = detectedNetwork === netId
+                                                const colors = networkColors[netId]
+                                                
+                                                return (
+                                                    <button
+                                                        key={netId}
+                                                        disabled={!isEnabled}
+                                                        onClick={() => { setDetectedNetwork(netId as any); setIsManualSelection(true) }}
+                                                        className={cn(
+                                                            "relative flex flex-col items-center gap-2 p-3 rounded-2xl border-2 transition-all duration-300",
+                                                            isSelected 
+                                                                ? `bg-gradient-to-br ${colors.gradient} border-transparent shadow-lg scale-[1.03]` 
+                                                                : "bg-gray-50 dark:bg-gray-800 border-gray-100 dark:border-gray-700 hover:border-gray-200",
+                                                            !isEnabled && "opacity-40 grayscale cursor-not-allowed"
+                                                        )}
+                                                    >
+                                                        <NetworkLogo id={netId} />
+                                                        <span className={cn("text-[10px] font-black uppercase tracking-tight", isSelected ? "text-white" : "text-gray-500")}>
+                                                            {netId}
+                                                        </span>
+                                                        {!isEnabled && <span className="absolute top-1 right-1 px-1 py-0.5 bg-gray-200 dark:bg-gray-700 text-[8px] font-black rounded-md">OFF</span>}
+                                                    </button>
+                                                )
+                                            })}
+                                        </div>
+                                    </div>
+
+                                    <div className="space-y-4">
                                     <div className="relative">
                                         <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
                                         <input
@@ -518,13 +599,35 @@ export default function ShopStorefront({ shop, packages, adminSettings }: Props)
                                         )}
                                     </div>
 
-                                    <div className="relative">
-                                        <span className="absolute left-5 top-1/2 -translate-y-1/2 font-black text-gray-400 text-sm">GHS</span>
-                                        <input
-                                            type="number" min="1" step="0.5" value={airtimeAmount} onChange={(e) => setAirtimeAmount(e.target.value)}
-                                            placeholder={`Amount (Min ${formatCurrency(1)})`}
-                                            className="w-full pl-14 pr-4 py-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-lg font-black transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                        />
+                                    <div className="space-y-3">
+                                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Recharge Amount</p>
+                                        
+                                        {/* Quick Amount Chips */}
+                                        <div className="flex gap-2 flex-wrap mb-1">
+                                            {QUICK_AMOUNTS.map(q => (
+                                                <button
+                                                    key={q}
+                                                    onClick={() => setAirtimeAmount(String(q))}
+                                                    className={cn(
+                                                        "px-4 py-2 rounded-xl text-xs font-black border-2 transition-all",
+                                                        airtimeAmount === String(q)
+                                                            ? "bg-gray-900 dark:bg-white text-white dark:text-gray-900 border-gray-900 dark:border-white shadow-md scale-105"
+                                                            : "bg-gray-50 dark:bg-gray-800 text-gray-500 border-gray-100 dark:border-gray-700 hover:border-gray-300"
+                                                    )}
+                                                >
+                                                    {q}
+                                                </button>
+                                            ))}
+                                        </div>
+
+                                        <div className="relative">
+                                            <span className="absolute left-5 top-1/2 -translate-y-1/2 font-black text-gray-400 text-sm">GHS</span>
+                                            <input
+                                                type="number" min="1" step="0.5" value={airtimeAmount} onChange={(e) => setAirtimeAmount(e.target.value)}
+                                                placeholder={`Custom Amount`}
+                                                className="w-full pl-14 pr-4 py-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-lg font-black transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                            />
+                                        </div>
                                     </div>
 
                                     <div className="relative">
@@ -536,20 +639,58 @@ export default function ShopStorefront({ shop, packages, adminSettings }: Props)
                                         />
                                     </div>
 
+                                    {/* Pay Separately Toggle */}
+                                    <div 
+                                        onClick={() => setUseExact(!useExact)}
+                                        className={cn(
+                                            "flex items-start gap-3 p-4 rounded-2xl border transition-all cursor-pointer group",
+                                            useExact 
+                                                ? "bg-emerald-50 dark:bg-emerald-900/10 border-emerald-400 shadow-sm" 
+                                                : "bg-gray-50 dark:bg-gray-800/40 border-gray-100 dark:border-gray-700 hover:border-gray-200"
+                                        )}
+                                    >
+                                        <div className={cn(
+                                            "mt-0.5 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all",
+                                            useExact ? "bg-emerald-500 border-emerald-500 text-white" : "border-gray-300 dark:border-gray-600 group-hover:border-gray-400"
+                                        )}>
+                                            {useExact && <Check className="w-3.5 h-3.5 stroke-[3px]" />}
+                                        </div>
+                                        <div className="flex-1">
+                                            <p className={cn("text-xs font-black uppercase tracking-tight mb-0.5", useExact ? "text-emerald-700 dark:text-emerald-400" : "text-gray-700 dark:text-gray-300")}>
+                                                Pay processing fee separately
+                                            </p>
+                                            <p className="text-[10px] font-bold text-gray-500 leading-tight">
+                                                {useExact ? "You'll pay a bit more, but recipient gets exactly the amount typed." : "Standard: Fee is deducted from the amount you recharge."}
+                                            </p>
+                                        </div>
+                                    </div>
+
                                     {detectedNetwork && airtimeAmount !== '' && parseFloat(airtimeAmount) > 0 && (
-                                        <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-xl p-4 border border-indigo-100 dark:border-indigo-800">
-                                            <div className="flex justify-between items-center mb-2">
-                                                <span className="text-xs font-bold text-gray-500 uppercase tracking-widest">Airtime Value</span>
-                                                <span className="font-bold">{formatCurrency(parseFloat(airtimeAmount))}</span>
-                                            </div>
-                                            <div className="flex justify-between items-center mb-3">
-                                                <span className="text-xs font-bold text-gray-500 uppercase tracking-widest flex items-center gap-1">Processing Fee <Check className="w-3 h-3 text-emerald-500"/></span>
-                                                <span className="font-bold text-gray-600">{formatCurrency(airFee)}</span>
-                                            </div>
-                                            <div className="h-px bg-indigo-200/50 mb-3" />
-                                            <div className="flex justify-between items-center">
-                                                <span className="text-sm font-black text-indigo-900 dark:text-indigo-300 uppercase tracking-widest">Total to Pay</span>
-                                                <span className="text-2xl font-black text-indigo-600 dark:text-indigo-400">{formatCurrency(airTotal)}</span>
+                                        <div className="bg-indigo-50 dark:bg-indigo-900/20 rounded-2xl p-5 border border-indigo-100 dark:border-indigo-800 shadow-inner">
+                                            <div className="space-y-3">
+                                                <div className="flex justify-between items-center text-xs font-bold text-gray-500 uppercase tracking-widest">
+                                                    <span>Recharge Value</span>
+                                                    <span className="text-gray-900 dark:text-gray-200 font-black">{formatCurrency(parseFloat(airtimeAmount))}</span>
+                                                </div>
+                                                
+                                                <div className="flex justify-between items-center text-xs font-bold">
+                                                    <span className="text-gray-500 uppercase tracking-widest flex items-center gap-1">Processing Fee ({(((airFee) / (useExact ? parseFloat(airtimeAmount) : parseFloat(airtimeAmount) - airFee)) * 100).toFixed(0)}%)</span>
+                                                    <span className="text-gray-600 dark:text-gray-400">{useExact ? '+' : '–'} {formatCurrency(airFee)}</span>
+                                                </div>
+
+                                                <div className="flex justify-between items-center py-2 px-3 rounded-xl bg-indigo-100/50 dark:bg-indigo-950/50 border border-indigo-200/50 dark:border-indigo-900/50">
+                                                    <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-tighter flex items-center gap-1.5">
+                                                        <Info className="w-3.5 h-3.5" /> Recipient Gets
+                                                    </span>
+                                                    <span className="text-sm font-black text-indigo-700 dark:text-indigo-300">{formatCurrency(airtimeToReceive)}</span>
+                                                </div>
+
+                                                <div className="pt-2 border-t border-indigo-200/30">
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-sm font-black text-indigo-900 dark:text-indigo-100 uppercase tracking-tighter">You Pay Total</span>
+                                                        <span className="text-2xl font-black text-indigo-600 dark:text-indigo-400">{formatCurrency(airTotal)}</span>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                     )}
@@ -561,6 +702,7 @@ export default function ShopStorefront({ shop, packages, adminSettings }: Props)
                                         {loading ? <><Loader2 className="w-5 h-5 animate-spin" /> Processing...</> : <><Smartphone className="w-5 h-5"/> Recharge Airtime</>}
                                     </button>
                                 </div>
+                                </div>
                             </div>
                         )}
                     </div>
@@ -570,7 +712,7 @@ export default function ShopStorefront({ shop, packages, adminSettings }: Props)
                 {networks.length > 1 && (
                     <div className="flex gap-2 overflow-x-auto pb-1 mb-4 scrollbar-hide">
                         {networks.map(net => {
-                            const isActive = activeNetwork === net && !isAirtimeOpen
+                            const isActive = activeNetwork === net
                             const netStyle = networkColors[net]
                             return (
                                 <button
@@ -589,12 +731,12 @@ export default function ShopStorefront({ shop, packages, adminSettings }: Props)
                 )}
 
                 {/* Package grid */}
-                {!isAirtimeOpen && filteredPackages.length === 0 ? (
+                {filteredPackages.length === 0 ? (
                     <div className="text-center py-16 text-gray-400">
                         <ShoppingCart className="w-12 h-12 mx-auto mb-3 opacity-30" />
                         <p className="text-sm">No packages available for this network.</p>
                     </div>
-                ) : !isAirtimeOpen && (
+                ) : (
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
                         {filteredPackages.map((pkg) => {
                             const netStyle = networkColors[pkg.network]
@@ -637,7 +779,7 @@ export default function ShopStorefront({ shop, packages, adminSettings }: Props)
                 )}
 
                 {/* Checkout card for DATA Packages */}
-                {selectedPackage && !isAirtimeOpen && (
+                {selectedPackage && (
                     <div className="sticky bottom-4 bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 p-4 space-y-3">
                         <div className="flex items-center justify-between">
                             <div>

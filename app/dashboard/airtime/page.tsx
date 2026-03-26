@@ -125,24 +125,23 @@ function SuccessModal({ order, onClose, onBuyMore }: { order: AirtimeOrder | nul
 
     return (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-            <div className="bg-white rounded-3xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-300">
+            <div className="bg-white rounded-[2rem] shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-300">
                 <div className="h-1.5 bg-gradient-to-r from-emerald-400 to-green-500" />
-                <div className="p-8 text-center">
-                    <div className="w-20 h-20 rounded-full bg-emerald-50 border-4 border-emerald-200 flex items-center justify-center mx-auto mb-6 animate-in zoom-in duration-500">
-                        <CheckCircle className="w-10 h-10 text-emerald-500" />
+                <div className="p-6 text-center">
+                    <div className="w-16 h-16 rounded-full bg-emerald-50 border-2 border-emerald-200 flex items-center justify-center mx-auto mb-4 animate-in zoom-in duration-500">
+                        <CheckCircle className="w-8 h-8 text-emerald-500" />
                     </div>
-                    <h2 className="text-2xl font-bold text-slate-900 mb-1">Order Placed!</h2>
-                    <p className="text-slate-500 text-sm mb-6">Your airtime is being processed</p>
+                    <h2 className="text-xl font-bold text-slate-900 mb-0.5">Order Placed!</h2>
+                    <p className="text-slate-500 text-[13px] mb-4">Your airtime is being processed</p>
 
-                    <div className="bg-slate-50 rounded-2xl p-4 mb-6 text-left space-y-2.5">
+                    <div className="bg-slate-50 rounded-2xl p-4 mb-4 text-left space-y-2.5">
                         <div className="flex justify-between text-sm"><span className="text-slate-500">Network</span><span className="font-semibold text-slate-900">{order.network}</span></div>
                         <div className="flex justify-between text-sm"><span className="text-slate-500">Recipient</span><span className="font-semibold text-slate-900">{order.beneficiary_phone}</span></div>
                         <div className="flex justify-between text-sm"><span className="text-slate-500">Airtime</span><span className="font-semibold text-emerald-600">GHS {order.airtime_amount.toFixed(2)}</span></div>
-                        <div className="flex justify-between text-sm"><span className="text-slate-500">Fee</span><span className="font-semibold text-slate-900">GHS {order.fee_amount.toFixed(2)}</span></div>
                         <div className="flex justify-between text-sm border-t border-slate-200 pt-2.5 mt-1"><span className="text-slate-500 font-medium">You Paid</span><span className="font-bold text-slate-900">GHS {order.total_paid.toFixed(2)}</span></div>
                     </div>
 
-                    <button onClick={copy} className="w-full flex items-center justify-between bg-slate-100 hover:bg-slate-200 rounded-xl px-4 py-3 mb-6 transition-colors group">
+                    <button onClick={copy} className="w-full flex items-center justify-between bg-slate-100 hover:bg-slate-200 rounded-xl px-4 py-3 mb-4 transition-colors group">
                         <div className="text-left">
                             <p className="text-xs text-slate-400 mb-0.5">Reference Code</p>
                             <p className="font-mono font-bold text-slate-800 text-sm">{order.reference_code}</p>
@@ -150,12 +149,12 @@ function SuccessModal({ order, onClose, onBuyMore }: { order: AirtimeOrder | nul
                         <Copy className={cn('w-4 h-4 transition-colors', copied ? 'text-emerald-500' : 'text-slate-400 group-hover:text-slate-600')} />
                     </button>
 
-                    <p className="text-xs text-slate-400 mb-6 font-medium">The network provider will send a confirmation SMS once credited.</p>
+                    <p className="text-xs text-slate-400 mb-5 font-medium leading-tight">The network provider will send a confirmation SMS once credited.</p>
 
                     <div className="flex gap-3">
-                        <Button variant="outline" className="flex-1 rounded-xl h-12" onClick={onBuyMore}>Buy More</Button>
-                        <Button className="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 h-12" onClick={onClose}>
-                            View History <ChevronRight className="w-4 h-4 ml-1" />
+                        <Button variant="outline" className="flex-1 rounded-xl h-11" onClick={onBuyMore}>Buy More</Button>
+                        <Button className="flex-1 rounded-xl bg-emerald-600 hover:bg-emerald-700 h-11" onClick={onClose}>
+                            History <ChevronRight className="w-4 h-4 ml-1" />
                         </Button>
                     </div>
                 </div>
