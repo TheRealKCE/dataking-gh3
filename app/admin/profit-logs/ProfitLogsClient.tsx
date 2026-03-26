@@ -222,6 +222,8 @@ export default function ProfitLogsClient() {
                         
                         {/* Type Filter */}
                         <select 
+                            title="Filter by transaction type"
+                            aria-label="Filter by transaction type"
                             value={typeFilter}
                             onChange={(e) => setTypeFilter(e.target.value as any)}
                             className="bg-white border border-slate-200 text-sm font-semibold text-slate-700 px-4 py-2 rounded-lg ml-auto min-w-[150px] cursor-pointer outline-none focus:ring-2 focus:ring-indigo-500"

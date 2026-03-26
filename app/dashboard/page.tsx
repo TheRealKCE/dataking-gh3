@@ -424,14 +424,6 @@ export default function DashboardPage() {
                     </div>
                 </CardContent>
             </Card>
-
-            {/* Dashboard Footer */}
-            <footer className="mt-12 py-8 border-t border-gray-100 dark:border-gray-800 text-center space-y-2">
-                <p className="text-sm font-bold text-gray-500 dark:text-gray-400">KingFlexyGh</p>
-                <p className="text-xs text-muted-foreground">
-                    © {new Date().getFullYear()} KingFlexyGh. All rights reserved.
-                </p>
-            </footer>
         </div>
     )
 }

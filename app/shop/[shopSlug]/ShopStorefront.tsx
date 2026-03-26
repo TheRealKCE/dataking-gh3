@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
+import { CopyrightFooter } from '@/components/CopyrightFooter'
 
 interface ShopData {
     id: string
@@ -49,12 +50,12 @@ interface Props {
 // Fixed network order + brand colors (matches main platform)
 const NETWORK_ORDER = ['MTN', 'Telecel', 'AT-iShare', 'AT-BigTime', 'AT']
 
-const networkColors: Record<string, { bg: string; text: string; border: string; gradient: string }> = {
-    MTN: { bg: '#FFCE00', text: '#000000', border: '#e6b800', gradient: 'from-yellow-400 to-yellow-500' },
-    Telecel: { bg: '#E60000', text: '#ffffff', border: '#cc0000', gradient: 'from-red-500 to-red-600' },
-    'AT-iShare': { bg: '#0056B3', text: '#ffffff', border: '#004494', gradient: 'from-blue-600 to-blue-700' },
-    'AT-BigTime': { bg: '#6f42c1', text: '#ffffff', border: '#5a32a3', gradient: 'from-purple-600 to-purple-700' },
-    AT: { bg: '#F97316', text: '#ffffff', border: '#ea580c', gradient: 'from-orange-500 to-orange-600' },
+const networkColors: Record<string, { bgClass: string; textClass: string; borderClass: string; gradient: string }> = {
+    MTN: { bgClass: 'bg-[#FFCE00]', textClass: 'text-[#000000]', borderClass: 'border-[#e6b800]', gradient: 'from-yellow-400 to-yellow-500' },
+    Telecel: { bgClass: 'bg-[#E60000]', textClass: 'text-[#ffffff]', borderClass: 'border-[#cc0000]', gradient: 'from-red-500 to-red-600' },
+    'AT-iShare': { bgClass: 'bg-[#0056B3]', textClass: 'text-[#ffffff]', borderClass: 'border-[#004494]', gradient: 'from-blue-600 to-blue-700' },
+    'AT-BigTime': { bgClass: 'bg-[#6f42c1]', textClass: 'text-[#ffffff]', borderClass: 'border-[#5a32a3]', gradient: 'from-purple-600 to-purple-700' },
+    AT: { bgClass: 'bg-[#F97316]', textClass: 'text-[#ffffff]', borderClass: 'border-[#ea580c]', gradient: 'from-orange-500 to-orange-600' },
 }
 
 const QUICK_AMOUNTS = [1, 2, 5, 10, 20, 50, 100]
@@ -371,7 +372,8 @@ export default function ShopStorefront({ shop, packages, adminSettings }: Props)
 
     if (pageLoading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-[var(--brand-color)]" style={{ '--brand-color': brandColor } as any}>
+            <div className="min-h-screen flex items-center justify-center bg-[var(--brand-color)] theme-shop">
+                <style dangerouslySetInnerHTML={{ __html: `.theme-shop { --brand-color: ${brandColor}; }` }} />
                 <div className="flex flex-col items-center gap-4">
                     {shop.logo_url ? (
                         <div className="relative w-16 h-16 rounded-2xl overflow-hidden bg-white/20">
@@ -384,7 +386,7 @@ export default function ShopStorefront({ shop, packages, adminSettings }: Props)
                     )}
                     <div className="flex gap-1.5">
                         {[0, 1, 2].map(i => (
-                            <div key={i} className="w-2 h-2 rounded-full bg-white animate-bounce" style={{ animationDelay: `${i * 0.15}s` } as any} />
+                            <div key={i} className={cn("w-2 h-2 rounded-full bg-white animate-bounce", ['[animation-delay:0s]', '[animation-delay:0.15s]', '[animation-delay:0.3s]'][i])} />
                         ))}
                     </div>
                 </div>
@@ -393,9 +395,10 @@ export default function ShopStorefront({ shop, packages, adminSettings }: Props)
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+        <div className="min-h-screen bg-gray-50 dark:bg-gray-950 theme-shop">
+            <style dangerouslySetInnerHTML={{ __html: `.theme-shop { --brand-color: ${brandColor}; }` }} />
             {/* Header / Hero */}
-            <div className="relative transition-colors duration-300 pt-10 pb-16 bg-[var(--brand-color)]" style={{ '--brand-color': brandColor } as any}>
+            <div className="relative transition-colors duration-300 pt-10 pb-16 bg-[var(--brand-color)]">
                 <div className="absolute top-4 right-4 z-10">
                     <ThemeToggle />
                 </div>
@@ -617,11 +620,7 @@ export default function ShopStorefront({ shop, packages, adminSettings }: Props)
                                             {detectedNetwork && (
                                                 <div className="absolute right-3 top-1/2 -translate-y-1/2">
                                                     <div 
-                                                        className="px-2 py-1 tracking-widest text-[10px] uppercase font-black rounded-lg shadow-sm"
-                                                        style={{ 
-                                                            backgroundColor: networkColors[detectedNetwork].bg, 
-                                                            color: networkColors[detectedNetwork].text 
-                                                        } as any}
+                                                        className={cn("px-2 py-1 tracking-widest text-[10px] uppercase font-black rounded-lg shadow-sm", networkColors[detectedNetwork].bgClass, networkColors[detectedNetwork].textClass)}
                                                     >
                                                         {detectedNetwork}
                                                     </div>
@@ -756,9 +755,12 @@ export default function ShopStorefront({ shop, packages, adminSettings }: Props)
                                     key={net} onClick={() => { setActiveNetwork(net); setSelectedPackage(null); setIsAirtimeOpen(false) }}
                                     className={cn(
                                         'flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-bold transition-all border-2',
+                                        isActive && !netStyle && 'bg-[var(--brand-color)] text-white border-[var(--brand-color)]',
+                                        isActive && netStyle && netStyle.bgClass,
+                                        isActive && netStyle && netStyle.textClass,
+                                        isActive && netStyle && netStyle.borderClass,
                                         isActive ? 'shadow-md scale-[1.03]' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:border-gray-300'
                                     )}
-                                    style={isActive && netStyle ? { backgroundColor: netStyle.bg, color: netStyle.text, borderColor: netStyle.border } as any : isActive ? { backgroundColor: brandColor, color: '#fff', borderColor: brandColor } as any : {}}
                                 >
                                     {net}
                                 </button>
@@ -783,13 +785,15 @@ export default function ShopStorefront({ shop, packages, adminSettings }: Props)
                                     key={pkg.id} onClick={() => setSelectedPackage(isSelected ? null : pkg)}
                                     className={cn(
                                         'relative p-4 rounded-2xl border-2 text-left transition-all duration-200 active:scale-95 flex flex-col gap-1.5',
-                                        isSelected ? 'shadow-lg scale-[1.02]' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-md'
+                                        isSelected ? 'bg-[var(--brand-color)] border-[var(--brand-color)] shadow-lg scale-[1.02]' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-md'
                                     )}
-                                    style={isSelected ? { backgroundColor: brandColor, borderColor: brandColor } as any : {}}
                                 >
                                     {isSelected && <div className="absolute top-2 right-2"><CheckCircle2 className="w-4 h-4 text-white" /></div>}
 
-                                    <div className="inline-block text-[10px] font-black px-2 py-0.5 rounded-full self-start" style={netStyle ? { backgroundColor: netStyle.bg, color: netStyle.text } as any : { backgroundColor: '#e5e7eb', color: '#374151' } as any}>
+                                    <div className={cn("inline-block text-[10px] font-black px-2 py-0.5 rounded-full self-start",
+                                        netStyle ? netStyle.bgClass : 'bg-[#e5e7eb]',
+                                        netStyle ? netStyle.textClass : 'text-[#374151]'
+                                    )}>
                                         {pkg.network}
                                     </div>
 
@@ -825,7 +829,7 @@ export default function ShopStorefront({ shop, packages, adminSettings }: Props)
                             </div>
                             <div className="text-right">
                                 <p className="text-xs text-muted-foreground">Total</p>
-                                <p className="font-black text-lg text-[var(--brand-color)]" style={{ '--brand-color': brandColor } as any}>
+                                <p className="font-black text-lg text-[var(--brand-color)]">
                                     {formatCurrency(selectedPackage.selling_price)}
                                 </p>
                             </div>
@@ -836,7 +840,6 @@ export default function ShopStorefront({ shop, packages, adminSettings }: Props)
                             <input
                                 type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Recipient phone: 0244123456"
                                 className="w-full pl-9 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 transition-all ring-[var(--brand-color)]"
-                                style={{ '--brand-color': brandColor } as any}
                             />
                         </div>
 
@@ -845,14 +848,12 @@ export default function ShopStorefront({ shop, packages, adminSettings }: Props)
                             <input
                                 type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Your email to receive transaction receipt (Optional)"
                                 className="w-full pl-9 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 transition-all ring-[var(--brand-color)]"
-                                style={{ '--brand-color': brandColor } as any}
                             />
                         </div>
 
                         <button
                             onClick={handleBuyData} disabled={loading}
                             className="w-full py-3.5 rounded-xl text-white font-bold text-base flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-70 bg-[var(--brand-color)]"
-                            style={{ '--brand-color': brandColor } as any}
                         >
                             {loading ? <><Loader2 className="w-5 h-5 animate-spin" /> Processing...</> : <><ShoppingCart className="w-5 h-5" /> Pay {formatCurrency(selectedPackage.selling_price)}</>}
                         </button>
@@ -873,6 +874,13 @@ export default function ShopStorefront({ shop, packages, adminSettings }: Props)
                     </svg>
                 </a>
             )}
+
+            <CopyrightFooter 
+                variant="shop" 
+                shopName={shop.shop_name} 
+                adminSettings={adminSettings}
+                className="pb-20 pt-10" // Extra padding to stay clear of floating buttons
+            />
         </div>
     )
 }

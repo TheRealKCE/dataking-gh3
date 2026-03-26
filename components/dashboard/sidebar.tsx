@@ -78,9 +78,9 @@ import { roleConfig } from '@/lib/roles'
 export function DashboardSidebar() {
     const pathname = usePathname()
     const { dbUser, isAdmin, isSubAdmin, signOut } = useAuth()
-    const { isInternalSidebarOpen, closeSidebar } = useUI()
+    const { isInternalSidebarOpen, closeSidebar, isCollapsed, toggleCollapse } = useUI()
     const { isPageAccessible, loading: pageAccessLoading } = usePageAccess()
-    const [isCollapsed, setIsCollapsed] = useState(false)
+    // Remove local state: const [isCollapsed, setIsCollapsed] = useState(false)
     const [walletBalance, setWalletBalance] = useState(0)
     const [communityLink, setCommunityLink] = useState('https://chat.whatsapp.com/GY8X8nUkNgYATUiOY5gXAb')
     const { counts: adminCounts } = useAdminCounts()
@@ -205,7 +205,7 @@ export function DashboardSidebar() {
                     <Button
                         variant="ghost"
                         size="icon"
-                        onClick={() => setIsCollapsed(!isCollapsed)}
+                        onClick={toggleCollapse}
                         className="hidden lg:flex text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white hover:bg-gray-300 dark:hover:bg-gray-800 w-8 h-8 rounded-full"
                     >
                         {isCollapsed ? <ChevronRight className="w-5 h-5" /> : <ChevronLeft className="w-5 h-5" />}
@@ -232,8 +232,12 @@ export function DashboardSidebar() {
                         <div className="flex items-center gap-3.5 mb-4">
                             {/* Avatar with Role Icon */}
                             <div
-                                className="relative w-12 h-12 rounded-full flex items-center justify-center text-white shadow-md ring-2 ring-white/20"
-                                style={{ backgroundColor: currentRole.color }}
+                                className={cn(
+                                    "relative w-12 h-12 rounded-full flex items-center justify-center text-white shadow-md ring-2 ring-white/20",
+                                    dbUser?.role === 'admin' ? "bg-[#E60000]" :
+                                    dbUser?.role === 'sub-admin' ? "bg-[#FACC15]" :
+                                    dbUser?.role === 'agent' ? "bg-[#25D366]" : "bg-[#0056B3]"
+                                )}
                             >
                                 <RoleIcon className="w-6 h-6" />
                                 <div
@@ -264,8 +268,12 @@ export function DashboardSidebar() {
                                 </p>
                                 <div className="flex items-center gap-1.5 mt-0.5">
                                     <span
-                                        className="text-xs font-bold px-2 py-0.5 rounded-full bg-white/50 dark:bg-black/20 backdrop-blur-sm"
-                                        style={{ color: currentRole.textColor }}
+                                        className={cn(
+                                            "text-xs font-bold px-2 py-0.5 rounded-full bg-white/50 dark:bg-black/20 backdrop-blur-sm",
+                                            dbUser?.role === 'admin' ? "text-[#E60000]" :
+                                            dbUser?.role === 'sub-admin' ? "text-[#B59410]" :
+                                            dbUser?.role === 'agent' ? "text-[#25D366]" : "text-[#0056B3]"
+                                        )}
                                     >
                                         {currentRole.label}
                                     </span>

@@ -199,6 +199,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return () => clearInterval(checkInactivity)
     }, [user, lastActivity])
 
+    // Handle tab visibility and session stale check
+    useEffect(() => {
+        const handleVisibilityChange = async () => {
+            if (document.visibilityState === 'visible' && user) {
+                console.log('[Auth] Tab visible, checking session...')
+                const { data: { session: currentSession }, error } = await supabase.auth.getSession()
+                
+                // If there's an error or the session is gone, or UID changed
+                if (error || !currentSession || currentSession.user.id !== user.id) {
+                    console.warn('[Auth] Session stale or missing, reloading...')
+                    window.location.reload()
+                } else {
+                    setSession(currentSession)
+                    setUser(currentSession.user)
+                }
+            }
+        }
+
+        document.addEventListener('visibilitychange', handleVisibilityChange)
+        return () => document.removeEventListener('visibilitychange', handleVisibilityChange)
+    }, [user])
+
     // Initialize auth state
     useEffect(() => {
         const initAuth = async () => {

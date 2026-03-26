@@ -11,9 +11,12 @@ import { DashboardHeader } from '@/components/dashboard/header'
 import { PageAccessGuard } from '@/components/dashboard/page-access-guard'
 import { Skeleton } from '@/components/ui/skeleton'
 import { FloatingWhatsApp } from '@/components/floating-whatsapp'
+import { cn } from '@/lib/utils'
+import { useUI } from '@/contexts/ui-context'
 // import { SupportChatWidget } from '@/components/dashboard/support-chat-widget'
 import { SuspendedAccount } from '@/components/dashboard/SuspendedAccount'
 import { AnnouncementBell } from '@/components/dashboard/AnnouncementBell'
+import { CopyrightFooter } from '@/components/CopyrightFooter'
 
 
 export default function DashboardLayout({
@@ -22,6 +25,7 @@ export default function DashboardLayout({
     children: React.ReactNode
 }) {
     const { user, dbUser, isLoading } = useAuth()
+    const { isCollapsed } = useUI()
     const router = useRouter()
 
     useEffect(() => {
@@ -50,41 +54,45 @@ export default function DashboardLayout({
 
     if (isSuspended) {
         return (
-            <UIProvider>
-                <div className="min-h-screen bg-[#E5E7EB] dark:bg-[#000000] relative">
-                    <DashboardSidebar />
-                    <div className="lg:pl-80 relative">
-                        <AnnouncementBell />
-                        <DashboardHeader />
-                        <main className="p-4 lg:p-6">
-                            <SuspendedAccount />
-                        </main>
-                    </div>
-                    <FloatingWhatsApp variant="auth" />
-                    {/* <SupportChatWidget /> */}
-                </div>
-            </UIProvider>
-        )
-    }
-
-    return (
-        <UIProvider>
             <div className="min-h-screen bg-[#E5E7EB] dark:bg-[#000000] relative">
-                <SystemAnnouncementModal />
-                <AgentExpiryModal />
                 <DashboardSidebar />
-                <div className="lg:pl-80 relative">
+                <div className={cn(
+                    "relative transition-all duration-300 ease-in-out min-h-screen flex flex-col w-full max-w-[100vw] overflow-x-hidden",
+                    isCollapsed ? "lg:pl-20" : "lg:pl-80"
+                )}>
                     <AnnouncementBell />
                     <DashboardHeader />
-                    <main className="p-4 lg:p-6">
-                        <PageAccessGuard>
-                            {children}
-                        </PageAccessGuard>
+                    <main className="p-4 lg:p-6 flex-1">
+                        <SuspendedAccount />
                     </main>
+                    <CopyrightFooter className="bg-[#E5E7EB]/50 dark:bg-[#000000]/50" />
                 </div>
                 <FloatingWhatsApp variant="auth" />
                 {/* <SupportChatWidget /> */}
             </div>
-        </UIProvider>
+        )
+    }
+
+    return (
+        <div className="min-h-screen bg-[#E5E7EB] dark:bg-[#000000] relative">
+            <SystemAnnouncementModal />
+            <AgentExpiryModal />
+            <DashboardSidebar />
+            <div className={cn(
+                "relative transition-all duration-300 ease-in-out min-h-screen flex flex-col w-full max-w-[100vw] overflow-x-hidden",
+                isCollapsed ? "lg:pl-20" : "lg:pl-80"
+            )}>
+                <AnnouncementBell />
+                <DashboardHeader />
+                <main className="p-4 lg:p-6 flex-1">
+                    <PageAccessGuard>
+                        {children}
+                    </PageAccessGuard>
+                </main>
+                <CopyrightFooter className="bg-[#E5E7EB]/50 dark:bg-[#000000]/50" />
+            </div>
+            <FloatingWhatsApp variant="auth" />
+            {/* <SupportChatWidget /> */}
+        </div>
     )
 }

@@ -30,6 +30,8 @@ export default function AdminSettingsPage() {
     const [whatsappChannelLink, setWhatsappChannelLink] = useState('')
     const [whatsappAdminNumber, setWhatsappAdminNumber] = useState('')
     const [whatsappCommunityLink, setWhatsappCommunityLink] = useState('')
+    const [footerCopyrightText, setFooterCopyrightText] = useState('')
+    const [footerBrandingText, setFooterBrandingText] = useState('')
     const [autoFulfillment, setAutoFulfillment] = useState(true)
 
     // Page access states
@@ -76,6 +78,8 @@ export default function AdminSettingsPage() {
             setWhatsappChannelLink(settingsMap.whatsapp_channel_link || '')
             setWhatsappAdminNumber(settingsMap.whatsapp_admin_number || '')
             setWhatsappCommunityLink(settingsMap.whatsapp_community_link || '')
+            setFooterCopyrightText(settingsMap.footer_copyright_text || `2025 KING FLEXY DATA LIMITED`)
+            setFooterBrandingText(settingsMap.footer_branding_text || 'KingFlexyGh')
             setAutoFulfillment(settingsMap.auto_fulfillment_enabled === 'true')
 
             // Initialize page access values
@@ -114,6 +118,8 @@ export default function AdminSettingsPage() {
                 { key: 'whatsapp_channel_link', value: whatsappChannelLink },
                 { key: 'whatsapp_admin_number', value: normalizeWhatsAppNumber(whatsappAdminNumber) },
                 { key: 'whatsapp_community_link', value: whatsappCommunityLink },
+                { key: 'footer_copyright_text', value: footerCopyrightText },
+                { key: 'footer_branding_text', value: footerBrandingText },
                 { key: 'auto_fulfillment_enabled', value: String(autoFulfillment) },
                 // Page access settings
                 { key: 'page_access_dashboard', value: String(pageAccessDashboard) },
@@ -245,6 +251,33 @@ export default function AdminSettingsPage() {
                                     placeholder="https://kingflexygh.com/shop/your-shop"
                                 />
                                 <p className="text-xs text-muted-foreground">Changes to this link will instantly update the unauthenticated app pages.</p>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Copyright & Branding</CardTitle>
+                            <CardDescription>Configure the copyright text and "Powered by" labels used in footers.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="space-y-2">
+                                <Label>Platform Copyright Text</Label>
+                                <Input
+                                    value={footerCopyrightText}
+                                    onChange={(e) => setFooterCopyrightText(e.target.value)}
+                                    placeholder="e.g. 2025 KING FLEXY DATA LIMITED"
+                                />
+                                <p className="text-xs text-muted-foreground">Used on Dashboard and Admin footer: © [Text]. All rights reserved.</p>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Storefront Branding Label (Powered by)</Label>
+                                <Input
+                                    value={footerBrandingText}
+                                    onChange={(e) => setFooterBrandingText(e.target.value)}
+                                    placeholder="e.g. KingFlexyGh"
+                                />
+                                <p className="text-xs text-muted-foreground">Plain text label shown on shop footers: Powered by [Text].</p>
                             </div>
                         </CardContent>
                     </Card>

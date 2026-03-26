@@ -34,6 +34,8 @@ export const metadata: Metadata = {
     },
 }
 
+import { UIProvider } from '@/contexts/ui-context'
+
 export default function RootLayout({
     children,
 }: {
@@ -49,11 +51,13 @@ export default function RootLayout({
                     disableTransitionOnChange
                 >
                     <AuthProvider>
-                        <Suspense fallback={null}>
-                            <GlobalLoader />
-                        </Suspense>
-                        {children}
-                        <Toaster position="top-right" richColors />
+                        <UIProvider>
+                            <Suspense fallback={null}>
+                                <GlobalLoader />
+                            </Suspense>
+                            {children}
+                            <Toaster position="top-right" richColors />
+                        </UIProvider>
                     </AuthProvider>
                 </ThemeProvider>
             </body>

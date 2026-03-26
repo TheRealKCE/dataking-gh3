@@ -3,12 +3,14 @@
 import { useEffect } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import { useAuth } from '@/contexts/auth-context'
-import { UIProvider } from '@/contexts/ui-context'
+import { ShieldAlert } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { useUI } from '@/contexts/ui-context'
 import { DashboardSidebar } from '@/components/dashboard/sidebar'
 import { DashboardHeader } from '@/components/dashboard/header'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
-import { ShieldAlert } from 'lucide-react'
+import { CopyrightFooter } from '@/components/CopyrightFooter'
 
 export default function AdminLayout({
     children,
@@ -16,6 +18,7 @@ export default function AdminLayout({
     children: React.ReactNode
 }) {
     const { user, dbUser, isLoading, isAdmin, isSubAdmin } = useAuth()
+    const { isCollapsed } = useUI()
     const router = useRouter()
     const pathname = usePathname()
 
@@ -63,16 +66,18 @@ export default function AdminLayout({
     }
 
     return (
-        <UIProvider>
-            <div className="min-h-screen bg-[#E5E7EB] dark:bg-[#000000]">
-                <DashboardSidebar />
-                <div className="lg:pl-72">
-                    <DashboardHeader />
-                    <main className="p-4 lg:p-6">
-                        {children}
-                    </main>
-                </div>
+        <div className="min-h-screen bg-[#E5E7EB] dark:bg-[#000000]">
+            <DashboardSidebar />
+            <div className={cn(
+                "relative transition-all duration-300 ease-in-out min-h-screen flex flex-col w-full max-w-[100vw] overflow-x-hidden",
+                isCollapsed ? "lg:pl-20" : "lg:pl-80"
+            )}>
+                <DashboardHeader />
+                <main className="p-4 lg:p-6 flex-1">
+                    {children}
+                </main>
+                <CopyrightFooter className="bg-[#E5E7EB]/50 dark:bg-[#000000]/50" />
             </div>
-        </UIProvider>
+        </div>
     )
 }

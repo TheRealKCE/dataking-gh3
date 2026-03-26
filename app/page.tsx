@@ -16,6 +16,7 @@ import {
     Store,
     ExternalLink
 } from 'lucide-react'
+import { CopyrightFooter } from '@/components/CopyrightFooter'
 import { WhatsAppCommunityButtons } from '@/components/whatsapp-community-buttons'
 import { NetworkIcon } from '@/components/network-icon'
 import Image from 'next/image'
@@ -300,21 +301,7 @@ export default function HomePage() {
             </section>
 
             {/* Footer */}
-            <footer className="py-12 px-4 sm:px-6 lg:px-8 border-t border-slate-300 bg-white/50">
-                <div className="max-w-7xl mx-auto">
-                    <div className="flex flex-col md:flex-row items-center justify-between">
-                        <div className="flex items-center space-x-2 mb-4 md:mb-0">
-                            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#0056B3] to-[#00B4D8] flex items-center justify-center">
-                                <Wifi className="w-4 h-4 text-white" />
-                            </div>
-                            <span className="text-lg font-semibold text-slate-900">KING FLEXY DATA LTD</span>
-                        </div>
-                        <p className="text-slate-500 text-sm">
-                            © 2026 KING FLEXY DATA LTD. All rights reserved.
-                        </p>
-                    </div>
-                </div>
-            </footer>
+            <CopyrightFooter className="bg-white/50 border-slate-300" />
         </div>
     )
 }

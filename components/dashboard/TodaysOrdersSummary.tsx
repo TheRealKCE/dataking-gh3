@@ -81,10 +81,12 @@ export function TodaysOrdersSummary() {
                             currentStats.processing.count++
                             currentStats.processing.gb += gb
                             currentStats.processing.amount += amount
+                            currentStats.totalSpent += amount
                         } else if (order.status === 'pending') {
                             currentStats.pending.count++
                             currentStats.pending.gb += gb
                             currentStats.pending.amount += amount
+                            currentStats.totalSpent += amount
                         }
                     })
                 }
@@ -93,11 +95,13 @@ export function TodaysOrdersSummary() {
                 if (afaOrders) {
                     currentStats.totalCount += afaOrders.length
                     afaOrders.forEach((order: any) => {
+                        const amount = order.amount || 0
                         currentStats.afa.count++
-                        currentStats.afa.amount += order.amount || 0
+                        currentStats.afa.amount += amount
                         
-                        if (order.status === 'completed') {
-                            currentStats.totalSpent += order.amount || 0
+                        // Include in total spent if not failed/refunded
+                        if (['completed', 'processing', 'pending'].includes(order.status)) {
+                            currentStats.totalSpent += amount
                         }
                     })
                 }
