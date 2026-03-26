@@ -36,7 +36,8 @@ interface ShopOrder {
     profit: number
     status: string
     created_at: string
-    order_type?: 'data' | 'airtime'
+    order_type?: string
+    package_id?: string | null
     orders?: {
         id: string
         complaints: any[]
@@ -214,10 +215,9 @@ export default function ShopOrdersPage() {
         toast.success('Orders updated')
     }
 
-    // Filter Logic
     const filteredOrders = orders.filter(order => {
-        // Tab Filter
-        const type = order.order_type || 'data'
+        // Tab Filter — use loose equality to catch both null and undefined
+        const type = order.package_id == null ? 'airtime' : 'data'
         if (type !== activeTab) return false
         
         if (filterStatus !== 'all' && order.status !== filterStatus) return false
@@ -461,7 +461,7 @@ export default function ShopOrdersPage() {
                                                 </td>
                                                 <td className="px-4 py-3 font-mono text-xs">{order.guest_phone}</td>
                                                 <td className="px-4 py-3 text-xs font-medium">
-                                                    {order.order_type === 'airtime' ? (
+                                                    {order.package_id == null ? (
                                                         <span className="flex items-center gap-1.5">
                                                             <RefreshCcw className="w-3 h-3 text-purple-600" />
                                                             {order.network} Airtime
@@ -471,7 +471,9 @@ export default function ShopOrdersPage() {
                                                     )}
                                                 </td>
                                                 <td className="px-4 py-3 text-right font-medium">{formatCurrency(order.selling_price)}</td>
-                                                <td className="px-4 py-3 text-right text-emerald-600 font-semibold">{formatCurrency(order.profit)}</td>
+                                                <td className="px-4 py-3 text-right text-emerald-600 font-semibold">
+                                                    {order.status === 'failed' ? <span className="text-muted-foreground">—</span> : formatCurrency(order.profit)}
+                                                </td>
                                                 <td className="px-4 py-3 text-center">
                                                     <div className="flex flex-col items-center gap-2">
                                                         <span className={cn(

@@ -107,7 +107,21 @@ export async function syncShopOrderStatus(mainOrderId: string, status: string) {
             console.log(`[ShopSync DEBUG] Successfully updated shop order status.`)
         }
 
-        // 3. Profit is now credited immediately at payment time (in /api/shop/verify).
+        // 3b. If it's an airtime order (SHOP- reference), also sync airtime_orders
+        if (order.reference_code?.startsWith('SHOP-')) {
+            const { error: airtimeError } = await db
+                .from('airtime_orders')
+                .update({ status, updated_at: new Date().toISOString() })
+                .eq('reference_code', order.reference_code)
+
+            if (airtimeError) {
+                console.warn(`[ShopSync] Could not sync airtime_orders for ref ${order.reference_code}:`, airtimeError)
+            } else {
+                console.log(`[ShopSync] airtime_orders synced to: ${status} for ref ${order.reference_code}`)
+            }
+        }
+
+        // 4. Profit is now credited immediately at payment time (in /api/shop/verify).
         // No longer credited here on 'completed' to prevent double-crediting.
         console.log(`[ShopSync] Status synced to: ${status}. Profit crediting is handled at payment time.`)
     } catch (err) {

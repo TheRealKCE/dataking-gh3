@@ -545,7 +545,12 @@ export default function AdminAirtimePage() {
                             </div>
                         ) : (
                             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-                                {filteredOrders.map(order => (
+                                {filteredOrders.map(order => {
+                                    const isFailed = order.status === 'failed'
+                                    // Sanity check: if fee_rate exceeds 100%, the record has corrupt data (old production bug)
+                                    const hasCorruptData = order.fee_rate > 100 || (order.total_paid > order.airtime_amount * 3 && order.airtime_amount > 0)
+
+                                    return (
                                     <div key={order.id} className="group relative bg-white dark:bg-slate-900 rounded-[2.5rem] p-6 shadow-sm border border-slate-100 dark:border-slate-800 hover:shadow-2xl hover:border-emerald-200 transition-all duration-500 overflow-hidden">
                                         {/* Top Level: Network and Status */}
                                         <div className="flex items-start justify-between mb-5">
@@ -562,6 +567,11 @@ export default function AdminAirtimePage() {
                                                                 Shop: {order.shop_name}
                                                             </Badge>
                                                         )}
+                                                        {hasCorruptData && (
+                                                            <Badge variant="outline" className="bg-red-100 dark:bg-red-900/30 text-red-700 dark:text-red-400 border-red-200 dark:border-red-800 uppercase tracking-widest text-[9px] font-black shadow-sm">
+                                                                ⚠️ Data Error
+                                                            </Badge>
+                                                        )}
                                                     </div>
                                                     <p className="font-mono text-[10px] font-black text-slate-400 uppercase tracking-widest">REF: {order.reference_code}</p>
                                                 </div>
@@ -569,7 +579,11 @@ export default function AdminAirtimePage() {
                                             
                                             <div className="text-right">
                                                 <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-1">Revenue</p>
-                                                <p className="text-xl font-black text-slate-900 dark:text-white tracking-tighter">GHS {order.total_paid.toFixed(2)}</p>
+                                                {isFailed ? (
+                                                    <p className="text-xl font-black text-slate-400 tracking-tighter">—</p>
+                                                ) : (
+                                                    <p className="text-xl font-black text-slate-900 dark:text-white tracking-tighter">GHS {order.airtime_amount.toFixed(2)}</p>
+                                                )}
                                             </div>
                                         </div>
 
@@ -617,14 +631,24 @@ export default function AdminAirtimePage() {
                                             <div className="space-y-0.5 text-center">
                                                 <p className="text-[8px] font-black text-slate-500 uppercase tracking-[0.2em]">Platform Profit</p>
                                                 <div className="flex items-center gap-1 justify-center">
-                                                    <Coins className="w-3 h-3 text-emerald-400" />
-                                                    <p className="text-sm font-black text-emerald-400">GHS {order.fee_amount.toFixed(2)}</p>
+                                                    {isFailed || hasCorruptData ? (
+                                                        <p className="text-sm font-black text-slate-500">—</p>
+                                                    ) : (
+                                                        <>
+                                                            <Coins className="w-3 h-3 text-emerald-400" />
+                                                            <p className="text-sm font-black text-emerald-400">GHS {order.fee_amount.toFixed(2)}</p>
+                                                        </>
+                                                    )}
                                                 </div>
                                             </div>
                                             <div className="h-8 w-px bg-white/10 dark:bg-black/10" />
                                             <div className="space-y-0.5 text-right">
                                                 <p className="text-[8px] font-black text-slate-500 uppercase tracking-[0.2em]">Markup</p>
-                                                <p className="text-sm font-black text-white dark:text-slate-900 tracking-tighter">{order.fee_rate}%</p>
+                                                {isFailed || hasCorruptData ? (
+                                                    <p className="text-sm font-black text-slate-500">—</p>
+                                                ) : (
+                                                    <p className="text-sm font-black text-white dark:text-slate-900 tracking-tighter">{order.fee_rate.toFixed(1)}%</p>
+                                                )}
                                             </div>
                                         </div>
 
@@ -655,7 +679,8 @@ export default function AdminAirtimePage() {
                                             </div>
                                         </div>
                                     </div>
-                                ))}
+                                    )
+                                })}
                             </div>
                         )}
                     </div>
