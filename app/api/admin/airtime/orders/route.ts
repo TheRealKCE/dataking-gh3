@@ -118,8 +118,22 @@ export async function PATCH(request: NextRequest) {
 
         // SYNC: If this is a shop order, sync the status downward.
         if (existing.reference_code && existing.reference_code.startsWith('SHOP-')) {
-            await (supabase.from('shop_orders') as any).update({ status, updated_at: new Date().toISOString() }).eq('paystack_reference', existing.reference_code)
+            const refSuffix = existing.reference_code.replace('SHOP-', '')
+            
+            // 1. Update orders table (which uses the 10-char truncated reference)
             await (supabase.from('orders') as any).update({ status }).eq('reference_code', existing.reference_code)
+            
+            // 2. Update shop_orders (which uses the full paystack reference)
+            const { data: sOrder } = await (supabase.from('shop_orders') as any)
+                .select('id')
+                .ilike('paystack_reference', `%${refSuffix}`)
+                .single()
+                
+            if (sOrder?.id) {
+                await (supabase.from('shop_orders') as any)
+                    .update({ status, updated_at: new Date().toISOString() })
+                    .eq('id', sOrder.id)
+            }
         }
 
         // Update the user's in-app notification

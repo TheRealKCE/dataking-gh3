@@ -589,14 +589,15 @@ export async function sendAdminAirtimeAlertSMS(
     details: {
         source: string
         receiver: string
-        amount: number
+        amount: number | string
         network: string
     }
 ): Promise<void> {
+    const amountNum = typeof details.amount === 'string' ? parseFloat(details.amount) : details.amount;
     const message = `NEW AIRTIME ORDER:
 Source : ${details.source}
 Receiver : ${details.receiver}
-Amount: GH ${details.amount.toFixed(2)}
+Amount: GH ${amountNum.toFixed(2)}
 Network: ${details.network}`
 
     // Send to all provided admins in parallel

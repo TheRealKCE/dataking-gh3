@@ -1594,12 +1594,13 @@ export async function sendAdminAirtimeOrderEmail(details: {
     userRole: string
     beneficiaryPhone: string
     network: string
-    airtimeAmount: number
-    feeRate: number
-    feeAmount: number
-    totalPaid: number
-    walletBalanceAfter: number
+    airtimeAmount: number | string
+    feeRate?: number | string
+    feeAmount?: number | string
+    totalPaid: number | string
+    walletBalanceAfter?: number | string | null
     useExactAmount: boolean
+    source?: string
 }): Promise<EmailResult> {
     const supabase = createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -1640,6 +1641,10 @@ export async function sendAdminAirtimeOrderEmail(details: {
         }
 
         const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://kingflexygh.com'
+        
+        // Helper to parse numbers if string
+        const parseNum = (val: any) => typeof val === 'string' ? parseFloat(val) : val;
+        
         const content = `
             <h1 class="greeting">New Airtime Order 📱</h1>
             <p class="subtitle">A new airtime order requires your attention</p>
@@ -1649,16 +1654,17 @@ export async function sendAdminAirtimeOrderEmail(details: {
             <div class="info-card">
                 <div class="info-card-header"><div class="info-card-icon">📋</div><span class="info-card-title">Order Details</span></div>
                 <div class="info-row"><span class="info-label">Reference</span><span class="info-value">${details.referenceCode}</span></div>
+                ${details.source ? `<div class="info-row"><span class="info-label">Source</span><span class="info-value">${details.source}</span></div>` : ''}
                 <div class="info-row"><span class="info-label">Customer</span><span class="info-value">${details.userName} (${details.userRole})</span></div>
                 <div class="info-row"><span class="info-label">Email</span><span class="info-value">${details.userEmail}</span></div>
                 <div class="info-row"><span class="info-label">Beneficiary Phone</span><span class="info-value">${details.beneficiaryPhone}</span></div>
                 <div class="info-row"><span class="info-label">Network</span><span class="info-value">${details.network}</span></div>
-                <div class="info-row"><span class="info-label">Airtime to Send</span><span class="info-value" style="color: #10b981; font-size: 16px;">GHS ${details.airtimeAmount.toFixed(2)}</span></div>
-                <div class="info-row"><span class="info-label">Fee Rate</span><span class="info-value">${details.feeRate}%</span></div>
-                <div class="info-row"><span class="info-label">Fee Charged</span><span class="info-value">GHS ${details.feeAmount.toFixed(2)}</span></div>
-                <div class="info-row"><span class="info-label">Total Paid by User</span><span class="info-value" style="color: #D4AF37; font-size: 16px;">GHS ${details.totalPaid.toFixed(2)}</span></div>
+                <div class="info-row"><span class="info-label">Airtime to Send</span><span class="info-value" style="color: #10b981; font-size: 16px;">GHS ${parseNum(details.airtimeAmount).toFixed(2)}</span></div>
+                ${details.feeRate !== undefined ? `<div class="info-row"><span class="info-label">Fee Rate</span><span class="info-value">${details.feeRate}%</span></div>` : ''}
+                ${details.feeAmount !== undefined ? `<div class="info-row"><span class="info-label">Fee Charged</span><span class="info-value">GHS ${parseNum(details.feeAmount).toFixed(2)}</span></div>` : ''}
+                <div class="info-row"><span class="info-label">Total Paid by User</span><span class="info-value" style="color: #D4AF37; font-size: 16px;">GHS ${parseNum(details.totalPaid).toFixed(2)}</span></div>
                 <div class="info-row"><span class="info-label">Mode</span><span class="info-value">${details.useExactAmount ? 'Exact Amount' : 'Standard'}</span></div>
-                <div class="info-row"><span class="info-label">Wallet Balance After</span><span class="info-value">GHS ${details.walletBalanceAfter?.toFixed(2) ?? 'N/A'}</span></div>
+                ${details.walletBalanceAfter !== undefined && details.walletBalanceAfter !== null ? `<div class="info-row"><span class="info-label">Wallet Balance After</span><span class="info-value">GHS ${parseNum(details.walletBalanceAfter).toFixed(2)}</span></div>` : ''}
                 <div class="info-row"><span class="info-label">Timestamp</span><span class="info-value">${new Date().toLocaleString('en-GB', { timeZone: 'Africa/Accra' })}</span></div>
             </div>
             <div style="text-align: center; margin: 25px 0;"><span class="status-badge status-pending">Action Required</span></div>
@@ -1669,7 +1675,7 @@ export async function sendAdminAirtimeOrderEmail(details: {
         `
 
         const htmlContent = generatePremiumTemplate('New Airtime Order', content, '#25D366')
-        const subject = `📱 New Airtime Order — ${details.referenceCode} | ${details.network} | GHS ${details.airtimeAmount.toFixed(2)}`
+        const subject = `📱 ${details.source ? `[${details.source.split(' ')[0]}] ` : ''}New Airtime Order — ${details.referenceCode} | ${details.network} | GHS ${parseNum(details.airtimeAmount).toFixed(2)}`
 
         // Send to all unique admins
         const emailPromises = Array.from(adminEmails).map(email => 
