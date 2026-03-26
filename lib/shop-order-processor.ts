@@ -23,6 +23,8 @@ export async function processShopOrder(
         selling_price?: number;
         cost_price?: number;
         profit?: number;
+        use_exact_amount?: boolean;
+        original_amount?: number;
     },
     paidAmountPesewas: number,
     slug?: string
@@ -57,10 +59,11 @@ export async function processShopOrder(
             }
         }
 
-        // 2. Security: Verify Amount Against DB Prices (0.01 Attacker Protection)
+        // 2. Security: Verify Amount Against DB Prices
+        // A1 — Added airtime_fee_mtn, airtime_fee_telecel, airtime_fee_at to select
         const { data: shopProfile } = await db
             .from('shop_profiles')
-            .select('owner_id, shop_name, paystack_fee_percent, fulfillment_mode')
+            .select('owner_id, shop_name, paystack_fee_percent, fulfillment_mode, airtime_fee_mtn, airtime_fee_telecel, airtime_fee_at')
             .eq('id', metadata.shop_id)
             .single()
 
@@ -87,18 +90,32 @@ export async function processShopOrder(
             ])
             const settingsMap = (settingsRows || []).reduce((acc: any, curr: any) => ({ ...acc, [curr.key]: curr.value }), {})
             
-            const shopFee = parseFloat((shopProfile as any)[`airtime_fee_${metadata.network.toLowerCase()}`] || 0)
+            // A1 — shopFeeKey now reads correctly because columns were added to the select above
+            const shopFeeKey = `airtime_fee_${metadata.network.toLowerCase()}`
+            const shopFee = parseFloat((shopProfile as any)[shopFeeKey] || 0)
             const adminFee = parseFloat(settingsMap[`airtime_fee_${metadata.network.toLowerCase()}_${ownerRole}`] || '0')
-            const numAmount = metadata.airtime_amount || parseFloat(metadata.selling_price as any || '0')
+            
+            const originalAmount = parseFloat((metadata.original_amount || metadata.airtime_amount || metadata.selling_price || '0') as any)
             
             const totalFeeMultiplier = (shopFee + adminFee) / 100
-            const feeAmount = numAmount * totalFeeMultiplier
+            const feeAmount = originalAmount * totalFeeMultiplier
             
-            expectedTotalPesewas = Math.round((numAmount + feeAmount) * 100)
-            verifiedSellingPrice = numAmount
-            verifiedCostPrice = numAmount
-            verifiedProfit = numAmount * (shopFee / 100)
-            adminCostAtTime = numAmount
+            let actualAirtimeAmount = originalAmount
+            const exactFlag = metadata.use_exact_amount
+            const isExact = exactFlag === true || String(exactFlag) === 'true'
+            
+            if (isExact || exactFlag === undefined) {
+                // If it's an old pending order without the flag, it behaves like exact mode
+                expectedTotalPesewas = Math.round((originalAmount + feeAmount) * 100)
+            } else {
+                expectedTotalPesewas = Math.round(originalAmount * 100)
+                actualAirtimeAmount = Math.max(0, originalAmount - feeAmount)
+            }
+            
+            verifiedSellingPrice = actualAirtimeAmount
+            verifiedCostPrice = actualAirtimeAmount
+            verifiedProfit = actualAirtimeAmount > 0 ? actualAirtimeAmount * (shopFee / 100) : 0
+            adminCostAtTime = actualAirtimeAmount
         } else {
             const { data: settingsRows } = await db.from('shop_global_settings').select('key, value').eq('key', 'shop_paystack_fee_percent')
             const globalFeePercent = settingsRows?.[0]?.value
@@ -122,7 +139,41 @@ export async function processShopOrder(
 
         const amountDifference = Math.abs(paidAmountPesewas - expectedTotalPesewas)
 
-        // 3. Create/Update Order Records
+        // A2 — SECURITY: Amount validation runs BEFORE any order creation
+        if (amountDifference > 5) {
+            console.error(`[Shop Order Processor] 🚨 AMOUNT MISMATCH: Ref: ${reference}, Paid: ${paidAmountPesewas}, Expected: ${expectedTotalPesewas}`)
+
+            // B5 — Audit trail: persist mismatch for fraud monitoring
+            try {
+                await db.from('security_events').insert({
+                    event_type: 'airtime_amount_mismatch',
+                    reference,
+                    shop_id: metadata.shop_id,
+                    paid_amount: paidAmountPesewas,
+                    expected_amount: expectedTotalPesewas,
+                    guest_phone: metadata.guest_phone,
+                    network: metadata.network,
+                    order_type: metadata.order_type || 'data',
+                    created_at: new Date().toISOString()
+                })
+            } catch (auditErr) {
+                // Non-fatal — log but continue returning the error
+                console.warn('[Shop Order Processor] Audit log failed:', auditErr)
+            }
+
+            // A5 — Safety net: if an existingOrder record was found (already in DB), update all tables to failed
+            if (existingOrder?.id) {
+                await db.from('shop_orders').update({ status: 'failed' }).eq('id', existingOrder.id)
+                await db.from('orders').update({ status: 'failed' }).eq('shop_order_id', existingOrder.id)
+                await db.from('airtime_orders')
+                    .update({ status: 'failed' })
+                    .eq('reference_code', `SHOP-${reference.slice(-10)}`)
+            }
+
+            return { success: false, error: 'Payment amount mismatch' }
+        }
+
+        // 3. Create Order Records (only runs after amount validation passes)
         let orderId = existingOrder?.id
         const fulfillmentMode = shopProfile?.fulfillment_mode || metadata.fulfillment_mode || 'auto'
 
@@ -171,40 +222,36 @@ export async function processShopOrder(
                 shop_order_id: orderId
             })
 
-            // IMPORTANT: If it's an airtime order, mirror it to the primary airtime_orders ledger 
-            // so admins can view and fulfill it in the Airtime Intelligence page under 'Shop orders'
+            // Mirror airtime orders to the primary airtime_orders ledger
+            // so admins can view and fulfill them in the Airtime Intelligence page
             if (metadata.order_type === 'airtime') {
-                const totalPaidGHS = expectedTotalPesewas / 100;
-                const totalFeeAmount = totalPaidGHS - verifiedSellingPrice;
-                const totalFeeRate = verifiedSellingPrice > 0 ? (totalFeeAmount / verifiedSellingPrice) * 100 : 0;
+                // A3 — Use actual paid amount (paidAmountPesewas), NOT expectedTotalPesewas
+                const totalPaidGHS = paidAmountPesewas / 100
+                const totalFeeAmount = Math.max(0, totalPaidGHS - verifiedSellingPrice)
+                const totalFeeRate = verifiedSellingPrice > 0 ? (totalFeeAmount / verifiedSellingPrice) * 100 : 0
+
+                // A4 — Read use_exact_amount from metadata instead of hardcoding false
+                const useExactAmountFlag = metadata.use_exact_amount === true || String(metadata.use_exact_amount) === 'true'
                 
                 await db.from('airtime_orders').insert({
                     user_id: shopProfile?.owner_id,
                     user_role: ownerRole,
                     beneficiary_phone: metadata.guest_phone,
                     network: metadata.network,
-                    airtime_amount: verifiedSellingPrice, // Value requested
-                    fee_rate: totalFeeRate,         // Total markup%
-                    fee_amount: totalFeeAmount,
-                    total_paid: totalPaidGHS, // Total charged in GHS
-                    use_exact_amount: false,
+                    airtime_amount: verifiedSellingPrice, // Net airtime value credited
+                    fee_rate: totalFeeRate,               // Combined markup %
+                    fee_amount: totalFeeAmount,            // Total fee in GHS
+                    total_paid: totalPaidGHS,              // Actual amount charged to customer
+                    use_exact_amount: useExactAmountFlag,
                     status: 'pending',
-                    reference_code: `SHOP-${reference.slice(-10)}`, // Same reference so downward sync hooks it
+                    reference_code: `SHOP-${reference.slice(-10)}`,
                     shop_id: metadata.shop_id,
                     shop_name: shopProfile?.shop_name || slug
                 })
             }
         }
 
-        // 4. Security Enforcement: Amount Validation
-        if (amountDifference > 5) {
-            console.error(`[Shop Order Processor] 🚨 AMOUNT MISMATCH: Ref: ${reference}, Paid: ${paidAmountPesewas}, Expected: ${expectedTotalPesewas}`)
-            await db.from('shop_orders').update({ status: 'failed' }).eq('id', orderId)
-            await db.from('orders').update({ status: 'failed' }).eq('shop_order_id', orderId)
-            return { success: false, error: 'Payment amount mismatch' }
-        }
-
-        // 5. Process Valid Order
+        // 4. Process Valid Order — SMS, Profit Credit, Fulfillment
         if (metadata.guest_phone) {
             sendOrderSuccessSMS(metadata.guest_phone, {
                 network: metadata.network,
@@ -215,14 +262,14 @@ export async function processShopOrder(
             }).catch((err: Error) => console.error('[Shop Order Processor] SMS error:', err))
         }
 
-        // 5.2 Credit Profit
+        // 4.2 Credit Profit
         try {
             await creditShopProfit(orderId!)
         } catch (profitErr) {
             console.error('[Shop Order Processor] Profit credit error:', profitErr)
         }
 
-        // 5.3 Trigger Fulfillment
+        // 4.3 Trigger Fulfillment
         try {
             const fulfillmentPayload = metadata.order_type === 'airtime' 
                ? { amount: metadata.airtime_amount || verifiedSellingPrice }
@@ -346,23 +393,6 @@ async function triggerShopFulfillment(
             await sendAdminNewOrderAlert({ ...alertDetails, reason: `Auto-fulfillment is disabled for network: ${network}` })
             return
         }
-
-        // const isFraud = await checkFraudSignals(null as unknown as string, phone, db)
-        // if (isFraud) {
-        //     await logSuspiciousActivity('guest', 'shop_order', 'fraud detected', db)
-        // 
-        //     await db.from('shop_orders').update({
-        //         status: 'failed_security_check',
-        //         updated_at: new Date().toISOString()
-        //     }).eq('id', orderId)
-        // 
-        //     await db.from('orders').update({
-        //         status: 'failed_security_check'
-        //     }).eq('shop_order_id', orderId)
-        // 
-        //     console.warn(`[Shop Order Processor] Blocked fulfillment for order ${orderId} due to fraud detection`)
-        //     return
-        // }
 
         const result = await fulfillOrder(network, phone, extra.size || '', orderId)
 

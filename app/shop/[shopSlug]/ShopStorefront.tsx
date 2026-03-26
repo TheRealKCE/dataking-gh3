@@ -190,36 +190,66 @@ export default function ShopStorefront({ shop, packages, adminSettings }: Props)
 
     // Auto-detect network for airtime
     useEffect(() => {
+        const clean = airtimePhone.replace(/\s+/g, '')
+        
+        // Reset network selection and manual flag if phone is deleted or < 3 chars
+        if (clean.length < 3) {
+            setDetectedNetwork(null)
+            setIsManualSelection(false)
+            return
+        }
+
         if (isManualSelection) return
         
-        const clean = airtimePhone.replace(/\s+/g, '')
-        if (clean.length >= 3) {
-            const prefix = clean.substring(0, 3)
-            let detected: 'MTN' | 'Telecel' | 'AT' | null = null
-            
-            const prefixes = {
-                MTN: ['024', '025', '053', '054', '055', '059', '098'],
-                Telecel: ['020', '050'],
-                AT: ['026', '027', '056']
-            }
+        const prefix = clean.substring(0, 3)
+        let detected: 'MTN' | 'Telecel' | 'AT' | null = null
+        
+        const prefixes = {
+            MTN: ['024', '054', '055', '059', '025', '053', '098'],
+            Telecel: ['020', '050'],
+            AT: ['026', '027', '056', '028', '058', '057'] // Includes 057 and 028 from main site
+        }
 
-            for (const [net, prfxs] of Object.entries(prefixes)) {
-                if (prfxs.includes(prefix)) {
-                    detected = net as 'MTN' | 'Telecel' | 'AT'
-                    break
-                }
+        for (const [net, prfxs] of Object.entries(prefixes)) {
+            if (prfxs.includes(prefix)) {
+                detected = net as 'MTN' | 'Telecel' | 'AT'
+                break
             }
-            
-            // Validate if detected network is supported by shop
-            if (detected && airtimeNetworks.some(n => n.id === detected)) {
-                setDetectedNetwork(detected)
-            } else {
-                setDetectedNetwork(null)
-            }
+        }
+        
+        if (detected && airtimeNetworks.some(n => n.id === detected)) {
+            setDetectedNetwork(detected)
         } else {
             setDetectedNetwork(null)
         }
     }, [airtimePhone, airtimeNetworks, isManualSelection])
+
+    // Generate Network Soft Warning
+    const airtimeNetworkWarning = useMemo(() => {
+        const clean = airtimePhone.replace(/\s+/g, '')
+        if (clean.length < 3) return null
+
+        const prefix = clean.substring(0, 3)
+        const prefixes = {
+            MTN: ['024', '054', '055', '059', '025', '053', '098'],
+            Telecel: ['020', '050'],
+            AT: ['026', '027', '056', '028', '058', '057']
+        }
+        
+        let actualNet = null
+        for (const [net, prfxs] of Object.entries(prefixes)) {
+            if (prfxs.includes(prefix)) {
+                actualNet = net
+                break
+            }
+        }
+
+        if (!actualNet) return 'Unrecognized prefix — please confirm your network.'
+        if (detectedNetwork && actualNet !== detectedNetwork) {
+            return `This number looks like it belongs to ${actualNet}. Please verify before proceeding.`
+        }
+        return null
+    }, [airtimePhone, detectedNetwork])
 
     const calculateAirtimeFees = () => {
         if (!detectedNetwork || !airtimeAmount) return { feeAmount: 0, totalPay: 0, airtimeToReceive: 0 }
@@ -577,27 +607,34 @@ export default function ShopStorefront({ shop, packages, adminSettings }: Props)
                                     </div>
 
                                     <div className="space-y-4">
-                                    <div className="relative">
-                                        <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                        <input
-                                            type="tel" value={airtimePhone} onChange={(e) => setAirtimePhone(e.target.value)}
-                                            placeholder="Receiver Phone (e.g. 024XXXXXXX)"
-                                            className="w-full pl-12 pr-12 py-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-base font-bold transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                                        />
-                                        {detectedNetwork && (
-                                            <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                                                <div 
-                                                    className="px-2 py-1 tracking-widest text-[10px] uppercase font-black rounded-lg shadow-sm"
-                                                    style={{ 
-                                                        backgroundColor: networkColors[detectedNetwork].bg, 
-                                                        color: networkColors[detectedNetwork].text 
-                                                    } as any}
-                                                >
-                                                    {detectedNetwork}
+                                        <div className="relative">
+                                            <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                            <input
+                                                type="tel" value={airtimePhone} onChange={(e) => setAirtimePhone(e.target.value)}
+                                                placeholder="Receiver Phone (e.g. 024XXXXXXX)"
+                                                className="w-full pl-12 pr-12 py-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-base font-bold transition-all focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                                            />
+                                            {detectedNetwork && (
+                                                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                                    <div 
+                                                        className="px-2 py-1 tracking-widest text-[10px] uppercase font-black rounded-lg shadow-sm"
+                                                        style={{ 
+                                                            backgroundColor: networkColors[detectedNetwork].bg, 
+                                                            color: networkColors[detectedNetwork].text 
+                                                        } as any}
+                                                    >
+                                                        {detectedNetwork}
+                                                    </div>
                                                 </div>
+                                            )}
+                                        </div>
+
+                                        {airtimeNetworkWarning && (
+                                            <div className="flex gap-2 items-start bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 p-3 rounded-lg border border-amber-200 dark:border-amber-800">
+                                                <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
+                                                <p className="text-xs font-medium leading-relaxed">{airtimeNetworkWarning}</p>
                                             </div>
                                         )}
-                                    </div>
 
                                     <div className="space-y-3">
                                         <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Recharge Amount</p>

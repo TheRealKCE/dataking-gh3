@@ -1,14 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 
+const rateLimitCache = new Map<string, { count: number, resetTime: number }>()
+const idempotencyCache = new Map<string, { authUrl: string, ref: string, expireAt: number }>()
+
+function cleanupCaches() {
+    const now = Date.now()
+    for (const [key, val] of rateLimitCache.entries()) if (val.resetTime < now) rateLimitCache.delete(key)
+    for (const [key, val] of idempotencyCache.entries()) if (val.expireAt < now) idempotencyCache.delete(key)
+}
+
 export async function POST(request: NextRequest) {
     try {
+        cleanupCaches()
+        const ip = request.headers.get('x-forwarded-for') || 'unknown'
         const body = await request.json()
-        const { shopSlug, packageId, guestPhone, guestEmail, orderType, network, amount } = body
+        const { shopSlug, packageId, guestPhone, guestEmail, orderType, network, amount, useExactAmount } = body
 
         if (!shopSlug || !guestPhone) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
         }
+        
+        const rlKey = `${ip}-${shopSlug}`
+        const rlEntry = rateLimitCache.get(rlKey) || { count: 0, resetTime: Date.now() + 60000 }
+        if (rlEntry.count > 5 && rlEntry.resetTime > Date.now()) {
+            return NextResponse.json({ error: 'Too many requests. Please try again in a minute.' }, { status: 429 })
+        }
+        rlEntry.count++
+        rateLimitCache.set(rlKey, rlEntry)
 
         if (orderType === 'airtime' && (!network || !amount)) {
             return NextResponse.json({ error: 'Missing airtime fields' }, { status: 400 })
@@ -111,25 +130,44 @@ export async function POST(request: NextRequest) {
             const shopFee = parseFloat(shop[shopFeeKey] || 0)
             const adminFee = parseFloat(settings[`airtime_fee_${network.toLowerCase()}_${ownerRole}`] || '0')
             
+            if (shopFee + adminFee > 10) {
+                return NextResponse.json({ error: 'Airtime is temporarily unavailable (Fee cap exceeded). Please contact the shop owner.' }, { status: 503 })
+            }
+            
             const totalFeeMultiplier = (shopFee + adminFee) / 100
             const feeAmount = numAmount * totalFeeMultiplier
             
-            profit = numAmount * (shopFee / 100)
-            sellingPrice = numAmount
-            costPrice = numAmount
-            totalAmount = Math.round((numAmount + feeAmount) * 100) // total inc fees in pesewas
+            let actualAirtimeAmount = numAmount
+            let actualFeeAmount = feeAmount
+            
+            if (useExactAmount) {
+                totalAmount = Math.round((numAmount + feeAmount) * 100) // pay amount + fee
+            } else {
+                totalAmount = Math.round(numAmount * 100) // pay exactly amount
+                actualAirtimeAmount = Math.max(0, numAmount - feeAmount)
+            }
+            
+            if (actualAirtimeAmount < minAmount) {
+                return NextResponse.json({ error: `The combined fees are too high for this amount. The minimum airtime deliverable is GHS ${minAmount}.` }, { status: 400 })
+            }
+            
+            profit = actualAirtimeAmount > 0 ? actualAirtimeAmount * (shopFee / 100) : 0
+            sellingPrice = actualAirtimeAmount
+            costPrice = actualAirtimeAmount
             pkgNetwork = network
-            pkgSize = `GHS ${numAmount} Airtime`
+            pkgSize = `GHS ${actualAirtimeAmount.toFixed(2)} Airtime`
 
             metadataPayload = {
                 order_type: 'airtime',
                 network,
                 package_size: pkgSize,
-                airtime_amount: numAmount,
-                selling_price: numAmount,
-                cost_price: numAmount,
+                airtime_amount: actualAirtimeAmount,
+                selling_price: actualAirtimeAmount,
+                cost_price: actualAirtimeAmount,
                 profit: profit,
-                fee_amount: feeAmount
+                fee_amount: feeAmount,
+                use_exact_amount: !!useExactAmount,
+                original_amount: numAmount
             }
         } else {
             const { data: pkg } = await db.from('data_packages').select('*').eq('id', packageId).eq('is_available', true).single()
@@ -172,6 +210,12 @@ export async function POST(request: NextRequest) {
         const paystackRef = `SHOP-${shop.id.slice(0, 8)}-${Date.now()}`
         const callbackUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://kingflexygh.com'}/api/shop/verify?ref=${paystackRef}&slug=${shopSlug}`
 
+        const idemKey = `${shop.id}-${cleanPhone}-${totalAmount}`
+        const cachedIdem = idempotencyCache.get(idemKey)
+        if (cachedIdem && cachedIdem.expireAt > Date.now()) {
+            return NextResponse.json({ success: true, authorization_url: cachedIdem.authUrl, reference: cachedIdem.ref })
+        }
+
         const paystackRes = await fetch('https://api.paystack.co/transaction/initialize', {
             method: 'POST',
             headers: { 'Authorization': `Bearer ${PAYSTACK_SECRET_KEY}`, 'Content-Type': 'application/json' },
@@ -200,6 +244,8 @@ export async function POST(request: NextRequest) {
 
         const paystackData = await paystackRes.json()
         if (!paystackData.status) return NextResponse.json({ error: 'Payment initialization failed' }, { status: 500 })
+
+        idempotencyCache.set(idemKey, { authUrl: paystackData.data.authorization_url, ref: paystackRef, expireAt: Date.now() + 60000 })
 
         return NextResponse.json({ success: true, authorization_url: paystackData.data.authorization_url, reference: paystackRef })
     } catch (error) {

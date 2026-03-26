@@ -36,6 +36,11 @@ export async function GET(request: NextRequest) {
             return NextResponse.redirect(new URL(`/shop/${slug}?error=payment_error`, request.url))
         }
 
+        if (verifyData.data?.status !== 'success') {
+            console.error('[Shop Verify] Payment not successful:', verifyData.data?.status)
+            return NextResponse.redirect(new URL(`/shop/${slug}?error=payment_failed`, request.url))
+        }
+
         // 3. Process the order using the shared logic (Idempotent)
         const { processShopOrder } = await import('@/lib/shop-order-processor')
         const result = await processShopOrder(
