@@ -139,8 +139,7 @@ export async function processShopOrder(
                 admin_cost_at_time: adminCostAtTime,
                 owner_role_at_time: ownerRole,
                 paystack_reference: reference,
-                status: 'pending',
-                order_type: metadata.order_type || 'data'
+                status: 'pending'
             }
             
             const { data: newOrder, error: createError } = await db
