@@ -217,7 +217,6 @@ export async function processShopOrder(
                 payment_status: 'paid',
                 reference_code: `SHOP-${reference.slice(-10)}`,
                 fulfillment_method: 'auto',
-                order_type: metadata.order_type || 'data',
                 shop_name: shopProfile?.shop_name || slug,
                 shop_order_id: orderId
             })
@@ -333,12 +332,22 @@ async function triggerShopFulfillment(
 
     if (extra.fulfillmentMode !== 'auto' || extra.orderType === 'airtime') {
         console.log(`[Shop Order Processor] Manual fulfillment required - sending alert`)
-        await sendAdminNewOrderAlert({
-            ...alertDetails,
-            reason: extra.orderType === 'airtime' ? 'Airtime requires manual fulfillment' : 'Manual fulfillment mode enabled for this shop'
-        }).catch(e => console.error('[Shop Order Processor] Admin Alert Error:', e))
         
         if (extra.orderType === 'airtime') {
+            const { sendAdminAirtimeOrderEmail } = await import('./email-service')
+            await sendAdminAirtimeOrderEmail({
+                referenceCode: extra.referenceCode,
+                userName: extra.customerName,
+                userEmail: extra.customerEmail,
+                userRole: 'Guest',
+                beneficiaryPhone: phone,
+                network: network,
+                airtimeAmount: extra.amount || extra.price,
+                totalPaid: extra.price,
+                useExactAmount: false,
+                source: `Shop Storefront (${extra.shopName})`
+            }).catch(e => console.error('[Shop Order Processor] Admin Airtime Email Error:', e))
+            
             try {
                 const { sendAdminAirtimeAlertSMS } = await import('./sms-service')
                 const { data: admins } = await db.from('users').select('phone_number').eq('role', 'admin')
@@ -347,14 +356,20 @@ async function triggerShopFulfillment(
                     await sendAdminAirtimeAlertSMS(adminPhones, {
                         source: `${extra.customerName} / ${extra.shopName} (Shop)`,
                         receiver: phone,
-                        amount: extra.amount || extra.price,
+                        amount: extra.amount || extra.price || 0,
                         network: network
                     })
                 }
             } catch (err) {
                 console.error('[Shop Order Processor] Admin SMS Error:', err)
             }
+        } else {
+            await sendAdminNewOrderAlert({
+                ...alertDetails,
+                reason: 'Manual fulfillment mode enabled for this shop'
+            }).catch(e => console.error('[Shop Order Processor] Admin Alert Error:', e))
         }
+        
         return
     }
 
