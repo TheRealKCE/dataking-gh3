@@ -10,11 +10,43 @@ import { cn } from '@/lib/utils'
 import {
     Phone, Mail, MessageCircle, ShoppingCart, Loader2,
     CheckCircle2, AlertCircle, X, Search, Zap, Smartphone, ChevronDown, Check,
-    History, TrendingUp, Coins, Calendar, CalendarRange, RefreshCw, Info, Clock, Copy, ArrowRight, AlertTriangle
+    History, TrendingUp, Coins, Calendar, CalendarRange, RefreshCw, Info, Clock, Copy, ArrowRight, AlertTriangle, Users
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { CopyrightFooter } from '@/components/CopyrightFooter'
+
+// ─── Divider SVG paths (matching setup page) ──────────────────────────────────
+const DIVIDER_PATHS: Record<string, string> = {
+    'asymmetric-curve': 'M321.39,56.44c58-10.79,114.16-30.13,172-41.86,82.39-16.72,168.19-17.73,250.45-.39C823.78,31,906.67,72,985.66,92.83c70.05,18.48,146.53,26.09,214.34,3V120H0V0C0,0,0,0,0,0c0,0,0,0,0,0Q160.69,78,321.39,56.44Z',
+    'angled': 'M0,0 L1200,80 L1200,120 L0,120 Z',
+    'zigzag': 'M0,60 L100,0 L200,60 L300,0 L400,60 L500,0 L600,60 L700,0 L800,60 L900,0 L1000,60 L1100,0 L1200,60 L1200,120 L0,120 Z',
+    'concave': 'M0,0 Q600,120 1200,0 L1200,120 L0,120 Z',
+    'animated-wave': 'M0,64 C150,100 350,0 600,60 C850,120 1050,20 1200,64 L1200,120 L0,120 Z',
+    'layered-waves': 'M0,80 C200,20 400,100 600,60 C800,20 1000,100 1200,80 L1200,120 L0,120 Z',
+    'tilt': 'M0,40 L1200,0 L1200,120 L0,120 Z',
+    'organic-blob': 'M0,80 C100,20 300,100 500,70 C700,40 900,110 1100,60 C1150,45 1180,50 1200,60 L1200,120 L0,120 Z',
+    'paper-cut': 'M0,80 L120,40 L240,80 L360,40 L480,80 L600,40 L720,80 L840,40 L960,80 L1080,40 L1200,80 L1200,120 L0,120 Z',
+    'torn-edge': 'M0,90 L30,70 L60,95 L90,65 L130,85 L170,60 L210,90 L260,55 L310,80 L370,50 L430,85 L490,58 L560,90 L640,55 L720,85 L800,50 L880,80 L960,45 L1040,75 L1120,50 L1200,70 L1200,120 L0,120 Z',
+    'convex': 'M0,120 Q600,0 1200,120 L1200,120 L0,120 Z',
+    'slant': 'M0,80 L1200,0 L1200,120 L0,120 Z',
+    'skewed': 'M0,0 L900,0 L1200,120 L0,120 Z',
+    'glassmorphic': 'M0,100 Q600,60 1200,100 L1200,120 L0,120 Z',
+    'multi-step-wave': 'M0,60 C100,40 200,80 300,60 C400,40 500,80 600,60 C700,40 800,80 900,60 C1000,40 1100,80 1200,60 L1200,120 L0,120 Z',
+}
+
+function DividerSVG({ style, fillClass }: { style?: string | null; fillClass: string }) {
+    const path = DIVIDER_PATHS[style || 'asymmetric-curve'] || DIVIDER_PATHS['asymmetric-curve']
+    const isAnimated = style === 'animated-wave'
+    return (
+        <div className="absolute bottom-0 left-0 w-full overflow-hidden leading-none">
+            <svg viewBox="0 0 1200 120" preserveAspectRatio="none" className={cn('relative block w-full h-[40px]', fillClass, isAnimated && 'animate-pulse')} aria-hidden="true">
+                <title>Section divider</title>
+                <path d={path} />
+            </svg>
+        </div>
+    )
+}
 
 interface ShopData {
     id: string
@@ -25,6 +57,9 @@ interface ShopData {
     owner_email: string | null
     whatsapp_number: string | null
     logo_url: string | null
+    banner_url?: string | null
+    community_link?: string | null
+    divider_style?: string | null
     brand_color: string
     brand_accent: string
     ownerRole: string
@@ -108,6 +143,7 @@ export default function ShopStorefront({ shop, packages, adminSettings }: Props)
     const [isManualSelection, setIsManualSelection] = useState(false)
     const [useExact, setUseExact] = useState(false)
     const airtimeRef = useRef<HTMLDivElement>(null)
+    const heroRef = useRef<HTMLDivElement>(null)
     
     // Global State
     const [loading, setLoading] = useState(false)
@@ -116,6 +152,7 @@ export default function ShopStorefront({ shop, packages, adminSettings }: Props)
     const [contactInfo, setContactInfo] = useState<{ phone?: string; whatsapp?: string; email?: string } | null>(null)
     const [announcement, setAnnouncement] = useState<{ type: 'admin' | 'shop'; message: string; title?: string } | null>(null)
     const [announcementDismissed, setAnnouncementDismissed] = useState(false)
+    const [scrolled, setScrolled] = useState(false)
 
     // Derived flags for Airtime
     const isGlobalAirtimeEnabled = adminSettings['storefront_airtime_enabled'] === 'true'
@@ -139,6 +176,16 @@ export default function ShopStorefront({ shop, packages, adminSettings }: Props)
         try { sessionStorage.setItem('shop_sticky_slug', shop.shop_slug) } catch (_) { }
         return () => clearTimeout(timer)
     }, [shop.shop_slug])
+
+    // Sticky header scroll listener
+    useEffect(() => {
+        const handleScroll = () => {
+            const heroHeight = heroRef.current?.offsetHeight || 200
+            setScrolled(window.scrollY > heroHeight - 60)
+        }
+        window.addEventListener('scroll', handleScroll, { passive: true })
+        return () => window.removeEventListener('scroll', handleScroll)
+    }, [])
 
     useEffect(() => {
         const fetchAnnouncements = async () => {
@@ -397,37 +444,61 @@ export default function ShopStorefront({ shop, packages, adminSettings }: Props)
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-950 theme-shop">
             <style dangerouslySetInnerHTML={{ __html: `.theme-shop { --brand-color: ${brandColor}; }` }} />
+
+            {/* ── Sticky Top Bar (appears on scroll) ── */}
+            <div className={cn(
+                'fixed top-0 left-0 w-full z-50 transition-transform duration-300 shadow-lg bg-[var(--brand-color)]',
+                scrolled ? 'translate-y-0' : '-translate-y-full'
+            )}>
+                <div className="max-w-2xl mx-auto px-4 py-2.5 flex items-center gap-3">
+                    {shop.logo_url ? (
+                        <div className="relative w-8 h-8 rounded-lg overflow-hidden bg-white/20 flex-shrink-0">
+                            <Image src={shop.logo_url} alt={`${shop.shop_name} logo`} fill className="object-contain" />
+                        </div>
+                    ) : (
+                        <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center flex-shrink-0">
+                            <ShoppingCart className="w-4 h-4 text-white" aria-hidden="true" />
+                        </div>
+                    )}
+                    <p className="flex-1 font-black text-white text-sm truncate">{shop.shop_name}</p>
+                    <ThemeToggle />
+                </div>
+            </div>
+
             {/* Header / Hero */}
-            <div className="relative transition-colors duration-300 pt-10 pb-16 bg-[var(--brand-color)]">
-                <div className="absolute top-4 right-4 z-10">
+            <div ref={heroRef} className="relative transition-colors duration-300 pt-10 pb-16 bg-[var(--brand-color)]">
+                {/* Theme toggle (only visible when not scrolled) */}
+                <div className={cn('absolute top-4 right-4 z-10 transition-opacity duration-200', scrolled ? 'opacity-0 pointer-events-none' : 'opacity-100')}>
                     <ThemeToggle />
                 </div>
                 <div className="max-w-2xl mx-auto px-4 text-center">
-                    <div className="flex flex-col items-center gap-4">
+                    <div className="flex flex-col items-center gap-3">
+                        {/* 1. Logo */}
                         {shop.logo_url ? (
-                            <div className="relative w-24 h-24 rounded-3xl overflow-hidden bg-white/20 flex-shrink-0 shadow-lg mb-2">
+                            <div className="relative w-24 h-24 rounded-3xl overflow-hidden bg-white/20 flex-shrink-0 shadow-lg">
                                 <Image src={shop.logo_url} alt={shop.shop_name} fill className="object-contain" />
                             </div>
                         ) : (
-                            <div className="w-24 h-24 rounded-3xl bg-white/20 flex items-center justify-center flex-shrink-0 mb-2">
+                            <div className="w-24 h-24 rounded-3xl bg-white/20 flex items-center justify-center flex-shrink-0">
                                 <ShoppingCart className="w-10 h-10 text-white" />
                             </div>
                         )}
-                        <div>
-                            <h1 className="text-3xl font-black text-white leading-tight mb-2">{shop.shop_name}</h1>
-                            {shop.description && (
-                                <p className="text-white/90 text-sm max-w-sm mx-auto leading-relaxed">{shop.description}</p>
-                            )}
-                        </div>
+                        {/* 2. Shop Name */}
+                        <h1 className="text-3xl font-black text-white leading-tight">{shop.shop_name}</h1>
+                        {/* 3. Description */}
+                        {shop.description && (
+                            <p className="text-white/90 text-sm max-w-sm mx-auto leading-relaxed">{shop.description}</p>
+                        )}
+                        {/* 4. Banner Image (below description, only if set) */}
+                        {shop.banner_url && (
+                            <div className="relative w-full h-[180px] rounded-2xl overflow-hidden mt-2 shadow-lg">
+                                <Image src={shop.banner_url} alt={`${shop.shop_name} banner`} fill className="object-cover" />
+                            </div>
+                        )}
                     </div>
                 </div>
-
-                {/* Wave divider - moved to absolute bottom */}
-                <div className="absolute bottom-0 left-0 w-full overflow-hidden leading-none">
-                    <svg viewBox="0 0 1200 120" preserveAspectRatio="none" className="relative block w-full h-[40px] fill-gray-50 dark:fill-gray-950">
-                        <path d="M321.39,56.44c58-10.79,114.16-30.13,172-41.86,82.39-16.72,168.19-17.73,250.45-.39C823.78,31,906.67,72,985.66,92.83c70.05,18.48,146.53,26.09,214.34,3V120H0V0C0,0,0,0,0,0c0,0,0,0,0,0Q160.69,78,321.39,56.44Z"></path>
-                    </svg>
-                </div>
+                {/* 5. Divider SVG — always at absolute bottom */}
+                <DividerSVG style={shop.divider_style} fillClass="fill-gray-50 dark:fill-gray-950" />
             </div>
 
             <div className="max-w-2xl mx-auto px-4 pb-40 -mt-2">
@@ -489,36 +560,50 @@ export default function ShopStorefront({ shop, packages, adminSettings }: Props)
                 )}
 
                 {/* ── Need Help? Contact Card ── */}
-                <div className="mb-5 rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm px-4 py-3 flex items-center justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                        <p className="text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1.5">Need Help?</p>
-                        <div className="flex flex-wrap gap-x-3 gap-y-1">
-                            <a href={`tel:${shop.owner_phone}`} className="inline-flex items-center gap-1 text-sm font-semibold text-gray-700 dark:text-gray-200 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">
-                                <Phone className="w-3.5 h-3.5 flex-shrink-0" /> {shop.owner_phone}
-                            </a>
-                            {shop.owner_email && (
-                                <a href={`mailto:${shop.owner_email}`} className="inline-flex items-center gap-1 text-sm font-semibold text-gray-700 dark:text-gray-200 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors truncate max-w-[180px]">
-                                    <Mail className="w-3.5 h-3.5 flex-shrink-0" /> <span className="truncate">{shop.owner_email}</span>
+                <div className="mb-5 rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm px-4 py-3 space-y-3">
+                    <div className="flex items-center justify-between gap-3">
+                        <div className="flex-1 min-w-0">
+                            <p className="text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1.5">Need Help?</p>
+                            <div className="flex flex-wrap gap-x-3 gap-y-1">
+                                <a href={`tel:${shop.owner_phone}`} className="inline-flex items-center gap-1 text-sm font-semibold text-gray-700 dark:text-gray-200 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">
+                                    <Phone className="w-3.5 h-3.5 flex-shrink-0" /> {shop.owner_phone}
                                 </a>
-                            )}
-                            {shop.whatsapp_number && (
-                                <a href={`https://wa.me/${shop.whatsapp_number}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm font-semibold text-[#25D366] hover:text-[#1ebe5d] transition-colors">
-                                    <MessageCircle className="w-3.5 h-3.5 flex-shrink-0" /> WhatsApp
-                                </a>
-                            )}
+                                {shop.owner_email && (
+                                    <a href={`mailto:${shop.owner_email}`} className="inline-flex items-center gap-1 text-sm font-semibold text-gray-700 dark:text-gray-200 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors truncate max-w-[180px]">
+                                        <Mail className="w-3.5 h-3.5 flex-shrink-0" /> <span className="truncate">{shop.owner_email}</span>
+                                    </a>
+                                )}
+                                {shop.whatsapp_number && (
+                                    <a href={`https://wa.me/${shop.whatsapp_number}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm font-semibold text-[#25D366] hover:text-[#1ebe5d] transition-colors">
+                                        <MessageCircle className="w-3.5 h-3.5 flex-shrink-0" /> WhatsApp
+                                    </a>
+                                )}
+                            </div>
                         </div>
+                        {/* Track Order button */}
+                        <Link
+                            href={`/shop/status?shop=${shop.shop_slug}&name=${encodeURIComponent(shop.shop_name)}`}
+                            className="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-all shadow-sm group"
+                        >
+                            <Search className="w-5 h-5 text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform" />
+                            <div className="text-left">
+                                <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-tight leading-none mb-0.5">My Orders</p>
+                                <span className="text-sm font-black text-emerald-700 dark:text-emerald-300 leading-tight">Track Now</span>
+                            </div>
+                        </Link>
                     </div>
-                    {/* Track Order button */}
-                    <Link
-                        href={`/shop/status?shop=${shop.shop_slug}&name=${encodeURIComponent(shop.shop_name)}`}
-                        className="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-all shadow-sm group"
-                    >
-                        <Search className="w-5 h-5 text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform" />
-                        <div className="text-left">
-                            <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-tight leading-none mb-0.5">My Orders</p>
-                            <span className="text-sm font-black text-emerald-700 dark:text-emerald-300 leading-tight">Track Now</span>
-                        </div>
-                    </Link>
+                    {/* Community Link */}
+                    {shop.community_link && (
+                        <a
+                            href={shop.community_link}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl font-bold text-sm text-white transition-all hover:opacity-90 active:scale-95 shadow-md bg-[var(--brand-color)]"
+                        >
+                            <Users className="w-4 h-4" />
+                            Join Our Community
+                        </a>
+                    )}
                 </div>
 
                 {/* Error banner */}

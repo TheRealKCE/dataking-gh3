@@ -47,7 +47,7 @@ export default async function ShopPage({ params }: Props) {
     // Fetch shop — include pricing_status so we can show Under Review state
     const { data: shop } = await (supabase
         .from('shop_profiles')
-        .select('id, shop_name, shop_slug, description, owner_phone, owner_email, whatsapp_number, logo_url, brand_color, brand_accent, approval_status, pricing_status, is_active, owner_id, airtime_fee_mtn, airtime_fee_telecel, airtime_fee_at')
+        .select('id, shop_name, shop_slug, description, owner_phone, owner_email, whatsapp_number, logo_url, banner_url, community_link, divider_style, brand_color, brand_accent, approval_status, pricing_status, is_active, owner_id, airtime_fee_mtn, airtime_fee_telecel, airtime_fee_at')
         .eq('shop_slug', shopSlug)
         .single() as any)
 
