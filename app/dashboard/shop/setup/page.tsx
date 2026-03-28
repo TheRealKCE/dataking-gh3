@@ -149,6 +149,22 @@ interface ShopForm {
 // ─── Progress Steps ───────────────────────────────────────────────────────────
 const STEPS = ['Details', 'Contact', 'Community', 'Branding']
 
+const SectionHeader = ({ 
+    title, icon, isCollapsed, onToggle 
+}: { 
+    title: string; icon: React.ReactNode; isCollapsed: boolean; onToggle: () => void 
+}) => (
+    <CardHeader
+        className="cursor-pointer select-none hover:bg-gray-50 dark:hover:bg-gray-900/50 transition-colors"
+        onClick={onToggle}
+    >
+        <CardTitle className="text-base flex items-center justify-between">
+            <span className="flex items-center gap-2">{icon}{title}</span>
+            {isCollapsed ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronUp className="w-4 h-4 text-muted-foreground" />}
+        </CardTitle>
+    </CardHeader>
+)
+
 export default function ShopSetupPage() {
     const { dbUser } = useAuth()
     const router = useRouter()
@@ -443,18 +459,6 @@ export default function ShopSetupPage() {
     const dividerList = showAllDividers ? DIVIDER_PRESETS : POPULAR_DIVIDERS
     const platform = detectPlatform(form.community_link)
 
-    const SectionHeader = ({ title, icon, sectionKey }: { title: string; icon: React.ReactNode; sectionKey: string }) => (
-        <CardHeader
-            className="cursor-pointer select-none"
-            onClick={() => toggleSection(sectionKey)}
-        >
-            <CardTitle className="text-base flex items-center justify-between">
-                <span className="flex items-center gap-2">{icon}{title}</span>
-                {collapsed[sectionKey] ? <ChevronDown className="w-4 h-4 text-muted-foreground" /> : <ChevronUp className="w-4 h-4 text-muted-foreground" />}
-            </CardTitle>
-        </CardHeader>
-    )
-
     return (
         <div className="space-y-6 max-w-2xl pb-32 setup-theme">
             {/* Dynamic CSS variables to avoid inline style lint errors */}
@@ -543,8 +547,13 @@ export default function ShopSetupPage() {
             </div>
 
             {/* ── CARD 1: Shop Details ────────────────────────────────────── */}
-            <Card onClick={() => setActiveStep(0)}>
-                <SectionHeader title="Shop Details" icon={<Store className="w-4 h-4 text-emerald-600" />} sectionKey="details" />
+            <Card onFocusCapture={() => setActiveStep(0)}>
+                <SectionHeader 
+                    title="Shop Details" 
+                    icon={<Store className="w-4 h-4 text-emerald-600" />} 
+                    isCollapsed={!!collapsed['details']} 
+                    onToggle={() => { toggleSection('details'); setActiveStep(0); }} 
+                />
                 {!collapsed['details'] && (
                     <CardContent className="space-y-4">
                         <div>
@@ -661,8 +670,13 @@ export default function ShopSetupPage() {
             </Card>
 
             {/* ── CARD 2: Contact Information ─────────────────────────────── */}
-            <Card onClick={() => setActiveStep(1)}>
-                <SectionHeader title="Contact Information" icon={<Phone className="w-4 h-4 text-blue-500" />} sectionKey="contact" />
+            <Card onFocusCapture={() => setActiveStep(1)}>
+                <SectionHeader 
+                    title="Contact Information" 
+                    icon={<Phone className="w-4 h-4 text-blue-500" />} 
+                    isCollapsed={!!collapsed['contact']} 
+                    onToggle={() => { toggleSection('contact'); setActiveStep(1); }} 
+                />
                 {!collapsed['contact'] && (
                     <CardContent className="space-y-4">
                         <div>
@@ -727,8 +741,13 @@ export default function ShopSetupPage() {
             </Card>
 
             {/* ── CARD 3: Community Link ──────────────────────────────────── */}
-            <Card onClick={() => setActiveStep(2)}>
-                <SectionHeader title="Community Link (Optional)" icon={<Users className="w-4 h-4 text-violet-500" />} sectionKey="community" />
+            <Card onFocusCapture={() => setActiveStep(2)}>
+                <SectionHeader 
+                    title="Community Link (Optional)" 
+                    icon={<Users className="w-4 h-4 text-violet-500" />} 
+                    isCollapsed={!!collapsed['community']} 
+                    onToggle={() => { toggleSection('community'); setActiveStep(2); }} 
+                />
                 {!collapsed['community'] && (
                     <CardContent className="space-y-3">
                         <div>
@@ -763,8 +782,13 @@ export default function ShopSetupPage() {
             </Card>
 
             {/* ── CARD 4: Branding ────────────────────────────────────────── */}
-            <Card onClick={() => setActiveStep(3)}>
-                <SectionHeader title="Branding" icon={<Palette className="w-4 h-4 text-pink-500" />} sectionKey="branding" />
+            <Card onFocusCapture={() => setActiveStep(3)}>
+                <SectionHeader 
+                    title="Branding" 
+                    icon={<Palette className="w-4 h-4 text-pink-500" />} 
+                    isCollapsed={!!collapsed['branding']} 
+                    onToggle={() => { toggleSection('branding'); setActiveStep(3); }} 
+                />
                 {!collapsed['branding'] && (
                     <CardContent className="space-y-6">
 

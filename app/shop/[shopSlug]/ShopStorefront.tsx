@@ -9,7 +9,7 @@ import { supabase } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
 import {
     Phone, Mail, MessageCircle, ShoppingCart, Loader2,
-    CheckCircle2, AlertCircle, X, Search, Zap, Smartphone, ChevronDown, Check,
+    CheckCircle2, AlertCircle, X, Search, Zap, Smartphone, ChevronDown, Check, Menu, Bell,
     History, TrendingUp, Coins, Calendar, CalendarRange, RefreshCw, Info, Clock, Copy, ArrowRight, AlertTriangle, Users
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -146,6 +146,9 @@ export default function ShopStorefront({ shop, packages, adminSettings }: Props)
     const heroRef = useRef<HTMLDivElement>(null)
     
     // Global State
+    const [isSidebarOpen, setIsSidebarOpen] = useState(false)
+    const [activeTab, setActiveTab] = useState<'data' | 'airtime'>('data')
+    const [showAnnouncementModal, setShowAnnouncementModal] = useState(false)
     const [loading, setLoading] = useState(false)
     const [pageLoading, setPageLoading] = useState(true)
     const [errorMsg, setErrorMsg] = useState<string | null>(null)
@@ -443,34 +446,42 @@ export default function ShopStorefront({ shop, packages, adminSettings }: Props)
 
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-950 theme-shop">
-            <style dangerouslySetInnerHTML={{ __html: `.theme-shop { --brand-color: ${brandColor}; }` }} />
-
-            {/* ── Sticky Top Bar (appears on scroll) ── */}
-            <div className={cn(
-                'fixed top-0 left-0 w-full z-50 transition-transform duration-300 shadow-lg bg-[var(--brand-color)]',
-                scrolled ? 'translate-y-0' : '-translate-y-full'
-            )}>
-                <div className="max-w-2xl mx-auto px-4 py-2.5 flex items-center gap-3">
-                    {shop.logo_url ? (
-                        <div className="relative w-8 h-8 rounded-lg overflow-hidden bg-white/20 flex-shrink-0">
-                            <Image src={shop.logo_url} alt={`${shop.shop_name} logo`} fill className="object-contain" />
-                        </div>
-                    ) : (
-                        <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center flex-shrink-0">
-                            <ShoppingCart className="w-4 h-4 text-white" aria-hidden="true" />
-                        </div>
-                    )}
-                    <p className="flex-1 font-black text-white text-sm truncate">{shop.shop_name}</p>
+            {/* ── Permanent Top Bar ── */}
+            <div className="sticky top-0 left-0 w-full z-[45] shadow-md bg-[var(--brand-color)]">
+                <style dangerouslySetInnerHTML={{ __html: `
+                @keyframes shake { 0%, 100% { transform: rotate(0deg); } 25% { transform: rotate(15deg); } 75% { transform: rotate(-15deg); } }
+                .animate-shake { animation: shake 0.5s infinite; transform-origin: top center; }
+                ` }} />
+                <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                        <button onClick={() => setIsSidebarOpen(true)} className="p-1 hover:bg-black/10 rounded-lg transition-colors flex-shrink-0 text-white" aria-label="Open menu">
+                            <Menu className="w-6 h-6" />
+                        </button>
+                        {shop.logo_url && (
+                            <div className="relative w-8 h-8 rounded-lg overflow-hidden bg-white/20 flex-shrink-0">
+                                <Image src={shop.logo_url} alt={`${shop.shop_name} logo`} fill className="object-contain" />
+                            </div>
+                        )}
+                        <p className="font-black text-white text-base truncate pr-2">{shop.shop_name}</p>
+                    </div>
                     <ThemeToggle />
                 </div>
             </div>
 
+            {/* ── Floating Notification Bell ── */}
+            {announcement && (
+                <button 
+                    onClick={() => { setShowAnnouncementModal(true); setAnnouncementDismissed(true); }}
+                    className="fixed top-[76px] right-4 z-[40] p-3 rounded-full bg-white dark:bg-gray-800 shadow-xl border border-gray-100 dark:border-gray-700 hover:scale-110 transition-transform group"
+                    aria-label="Announcements"
+                >
+                    <Bell className={cn("w-6 h-6 text-amber-500", !announcementDismissed && "animate-shake")} />
+                    {!announcementDismissed && <span className="absolute top-0 right-0 w-3 h-3 rounded-full bg-red-500 border-2 border-white dark:border-gray-800 animate-pulse" />}
+                </button>
+            )}
+
             {/* Header / Hero */}
-            <div ref={heroRef} className="relative transition-colors duration-300 pt-10 pb-16 bg-[var(--brand-color)]">
-                {/* Theme toggle (only visible when not scrolled) */}
-                <div className={cn('absolute top-4 right-4 z-10 transition-opacity duration-200', scrolled ? 'opacity-0 pointer-events-none' : 'opacity-100')}>
-                    <ThemeToggle />
-                </div>
+            <div ref={heroRef} className="relative transition-colors duration-300 pt-6 pb-16 bg-[var(--brand-color)]">
                 <div className="max-w-2xl mx-auto px-4 text-center">
                     <div className="flex flex-col items-center gap-3">
                         {/* 1. Logo */}
@@ -502,106 +513,35 @@ export default function ShopStorefront({ shop, packages, adminSettings }: Props)
             </div>
 
             <div className="max-w-2xl mx-auto px-4 pb-40 -mt-2">
-                {/* ── Announcement Banner ── */}
-                {announcement && !announcementDismissed && (
-                    <div className={cn(
-                        "mb-5 -mt-4 relative overflow-hidden rounded-2xl border shadow-lg animate-in fade-in slide-in-from-top-4 duration-500",
-                        announcement.type === 'admin'
-                            ? "bg-amber-50 border-amber-200 dark:bg-amber-950/30 dark:border-amber-900/50"
-                            : "bg-blue-50 border-blue-200 dark:bg-blue-950/30 dark:border-blue-900/50"
-                    )}>
-                        <div className={cn(
-                            "absolute -right-4 -top-4 w-24 h-24 opacity-10 rounded-full",
-                            announcement.type === 'admin' ? "bg-amber-500" : "bg-blue-500"
-                        )} />
-
-                        <div className="p-4 relative z-10">
-                            <div className="flex items-start gap-3">
-                                <div className={cn(
-                                    "p-2 rounded-xl shrink-0",
-                                    announcement.type === 'admin' ? "bg-amber-100 dark:bg-amber-900/50" : "bg-blue-100 dark:bg-blue-900/50"
-                                )}>
-                                    {announcement.type === 'admin' ? (
-                                        <Zap className="w-5 h-5 text-amber-600 dark:text-amber-400" />
-                                    ) : (
-                                        <MessageCircle className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                                    )}
-                                </div>
-                                <div className="flex-1 pt-0.5">
-                                    <div className="flex items-center gap-2 mb-1">
-                                        <span className={cn(
-                                            "text-[10px] font-black uppercase tracking-widest px-2 py-0.5 rounded-full",
-                                            announcement.type === 'admin' ? "bg-amber-500 text-white" : "bg-blue-500 text-white"
-                                        )}>
-                                            {announcement.type === 'admin' ? 'Official Notice' : 'Shop Announcement'}
-                                        </span>
-                                        {announcement.title && (
-                                            <span className="text-xs font-bold text-gray-500">{announcement.title}</span>
-                                        )}
-                                    </div>
-                                    <p className={cn(
-                                        "text-sm font-semibold leading-relaxed",
-                                        announcement.type === 'admin' ? "text-amber-900 dark:text-amber-200" : "text-blue-900 dark:text-blue-200"
-                                    )}>
-                                        {announcement.message}
-                                    </p>
-                                </div>
-                                <button
-                                    onClick={() => setAnnouncementDismissed(true)}
-                                    title="Dismiss announcement"
-                                    aria-label="Dismiss announcement"
-                                    className="p-1 hover:bg-black/5 dark:hover:bg-white/5 rounded-full transition-colors shrink-0"
-                                >
-                                    <X className="w-4 h-4 text-gray-400" />
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
+                
+                {/* ── Main Layout Tabs ── */}
+                <div className="flex items-center gap-2 mb-5 bg-gray-200/50 dark:bg-gray-800/50 p-1.5 rounded-2xl">
+                    <button onClick={() => setActiveTab('data')} className={cn("flex-1 py-3 rounded-xl font-black text-sm transition-all flex items-center justify-center gap-2", activeTab === 'data' ? "bg-white dark:bg-gray-900 shadow-sm text-gray-900 dark:text-white" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300")}>
+                        <Zap className="w-4 h-4" /> Data Packages
+                    </button>
+                    {isShopAirtimeEnabled && (
+                        <button onClick={() => setActiveTab('airtime')} className={cn("flex-1 py-3 rounded-xl font-black text-sm transition-all flex items-center justify-center gap-2", activeTab === 'airtime' ? "bg-white dark:bg-gray-900 shadow-sm text-gray-900 dark:text-white" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300")}>
+                            <Smartphone className="w-4 h-4" /> Airtime Recharge
+                        </button>
+                    )}
+                </div>
 
                 {/* ── Need Help? Contact Card ── */}
-                <div className="mb-5 rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm px-4 py-3 space-y-3">
-                    <div className="flex items-center justify-between gap-3">
-                        <div className="flex-1 min-w-0">
-                            <p className="text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1.5">Need Help?</p>
-                            <div className="flex flex-wrap gap-x-3 gap-y-1">
-                                <a href={`tel:${shop.owner_phone}`} className="inline-flex items-center gap-1 text-sm font-semibold text-gray-700 dark:text-gray-200 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors">
-                                    <Phone className="w-3.5 h-3.5 flex-shrink-0" /> {shop.owner_phone}
-                                </a>
-                                {shop.owner_email && (
-                                    <a href={`mailto:${shop.owner_email}`} className="inline-flex items-center gap-1 text-sm font-semibold text-gray-700 dark:text-gray-200 hover:text-emerald-600 dark:hover:text-emerald-400 transition-colors truncate max-w-[180px]">
-                                        <Mail className="w-3.5 h-3.5 flex-shrink-0" /> <span className="truncate">{shop.owner_email}</span>
-                                    </a>
-                                )}
-                                {shop.whatsapp_number && (
-                                    <a href={`https://wa.me/${shop.whatsapp_number}`} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 text-sm font-semibold text-[#25D366] hover:text-[#1ebe5d] transition-colors">
-                                        <MessageCircle className="w-3.5 h-3.5 flex-shrink-0" /> WhatsApp
-                                    </a>
-                                )}
-                            </div>
-                        </div>
-                        {/* Track Order button */}
-                        <Link
-                            href={`/shop/status?shop=${shop.shop_slug}&name=${encodeURIComponent(shop.shop_name)}`}
-                            className="flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/20 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 transition-all shadow-sm group"
-                        >
-                            <Search className="w-5 h-5 text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform" />
-                            <div className="text-left">
-                                <p className="text-[10px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-tight leading-none mb-0.5">My Orders</p>
-                                <span className="text-sm font-black text-emerald-700 dark:text-emerald-300 leading-tight">Track Now</span>
-                            </div>
-                        </Link>
+                <div className="mb-6 rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm px-4 py-4 space-y-3">
+                    <p className="text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1.5 text-center">Need Help?</p>
+                    <div className="flex flex-wrap justify-center gap-x-4 gap-y-2">
+                        <a href={`tel:${shop.owner_phone}`} className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-700 dark:text-gray-200 hover:text-emerald-600 transition-colors">
+                            <Phone className="w-4 h-4" /> {shop.owner_phone}
+                        </a>
+                        {shop.owner_email && (
+                            <a href={`mailto:${shop.owner_email}`} className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-700 dark:text-gray-200 hover:text-emerald-600 transition-colors">
+                                <Mail className="w-4 h-4" /> Email Us
+                            </a>
+                        )}
                     </div>
-                    {/* Community Link */}
                     {shop.community_link && (
-                        <a
-                            href={shop.community_link}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl font-bold text-sm text-white transition-all hover:opacity-90 active:scale-95 shadow-md bg-[var(--brand-color)]"
-                        >
-                            <Users className="w-4 h-4" />
-                            Join Our Community
+                        <a href={shop.community_link} target="_blank" rel="noopener noreferrer" className="mt-2 flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl font-bold text-sm text-white transition-all hover:opacity-90 active:scale-95 shadow-md bg-[var(--brand-color)]">
+                            <Users className="w-4 h-4" /> Join Our Community
                         </a>
                     )}
                 </div>
@@ -638,28 +578,20 @@ export default function ShopStorefront({ shop, packages, adminSettings }: Props)
                     </div>
                 )}
 
-                {/* ── Toggleable Airtime Drawer ── */}
-                {isShopAirtimeEnabled && (
-                    <div ref={airtimeRef} className="mb-6 bg-white dark:bg-gray-900 rounded-[2rem] border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden transition-all duration-300">
-                        <button 
-                            onClick={() => { setIsAirtimeOpen(!isAirtimeOpen); setSelectedPackage(null) }}
-                            className="w-full p-5 flex items-center justify-between hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors"
-                        >
-                            <div className="flex items-center gap-3">
-                                <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center text-white transition-colors duration-500", isAirtimeOpen ? "bg-indigo-600" : "bg-gray-900 dark:bg-gray-700")}>
-                                    <Smartphone className="w-6 h-6" />
-                                </div>
-                                <div className="text-left">
-                                    <h3 className="text-lg font-black text-gray-900 dark:text-white uppercase tracking-tighter">Buy Direct Airtime</h3>
-                                    <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest leading-tight">Instant Credit to Any Network</p>
-                                </div>
+                {/* ── Airtime Tab Content ── */}
+                {isShopAirtimeEnabled && activeTab === 'airtime' && (
+                    <div ref={airtimeRef} className="mb-6 bg-white dark:bg-gray-900 rounded-[2rem] border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden p-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                        <div className="flex items-center gap-3 mb-5 border-b border-gray-100 dark:border-gray-800 pb-5">
+                            <div className="w-12 h-12 rounded-xl flex items-center justify-center text-white bg-indigo-600 shadow-sm">
+                                <Smartphone className="w-6 h-6" />
                             </div>
-                            <ChevronDown className={cn("w-6 h-6 text-gray-400 transition-transform duration-300", isAirtimeOpen && "rotate-180")} />
-                        </button>
+                            <div className="text-left">
+                                <h3 className="text-lg font-black text-gray-900 dark:text-white uppercase tracking-tighter">Buy Direct Airtime</h3>
+                                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest leading-tight">Instant Credit to Any Network</p>
+                            </div>
+                        </div>
 
-                        {isAirtimeOpen && (
-                            <div className="p-5 pt-0 border-t border-gray-100 dark:border-gray-800 animate-in slide-in-from-top-2">
-                                <div className="space-y-5 pt-5">
+                        <div className="space-y-5">
                                     {/* Network Selection Grid */}
                                     <div>
                                         <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-3 ml-1">Select Network</p>
@@ -823,11 +755,13 @@ export default function ShopStorefront({ shop, packages, adminSettings }: Props)
                                         {loading ? <><Loader2 className="w-5 h-5 animate-spin" /> Processing...</> : <><Smartphone className="w-5 h-5"/> Recharge Airtime</>}
                                     </button>
                                 </div>
-                                </div>
                             </div>
-                        )}
-                    </div>
+                        </div>
                 )}
+
+                {/* ── Data Packages Tab Content ── */}
+                {activeTab === 'data' && (
+                    <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-4">
 
                 {/* ── Network Filter Tabs ── */}
                 {networks.length > 1 && (
@@ -903,6 +837,8 @@ export default function ShopStorefront({ shop, packages, adminSettings }: Props)
                         })}
                     </div>
                 )}
+                </div>
+            )}
 
                 {/* Checkout card for DATA Packages */}
                 {selectedPackage && (
@@ -949,15 +885,120 @@ export default function ShopStorefront({ shop, packages, adminSettings }: Props)
 
             {/* WhatsApp floating button */}
             {shop.whatsapp_number && (
-                <a
-                    href={`https://wa.me/${shop.whatsapp_number}`} target="_blank" rel="noopener noreferrer"
-                    className="fixed bottom-6 right-4 w-14 h-14 rounded-full bg-[#25D366] shadow-xl flex items-center justify-center hover:scale-110 transition-transform z-50"
-                    aria-label="Chat on WhatsApp"
-                >
-                    <svg viewBox="0 0 24 24" className="w-7 h-7 fill-white" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.008-.57-.008-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.88 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
-                    </svg>
-                </a>
+                <div className="fixed bottom-6 right-4 z-50 flex items-center gap-3 group animate-in slide-in-from-bottom-6 duration-700">
+                    <style dangerouslySetInnerHTML={{ __html: `
+                        @keyframes promptPeek {
+                            0%, 100% { transform: translateX(5px); opacity: 0; }
+                            10%, 90% { transform: translateX(0); opacity: 1; }
+                        }
+                        .animate-prompt-peek { animation: promptPeek 4s ease-in-out infinite; }
+                    ` }} />
+                    <div className="hidden sm:block absolute right-[4.5rem] bg-white dark:bg-gray-800 text-gray-800 dark:text-white px-3 py-1.5 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity animate-prompt-peek whitespace-nowrap">
+                        <span className="font-bold text-sm tracking-tight text-gray-700 dark:text-gray-200">Need Help?</span>
+                        <div className="absolute top-1/2 -mt-1 -right-1.5 w-3 h-3 bg-white dark:bg-gray-800 border-r border-t border-gray-100 dark:border-gray-700 rotate-45" />
+                    </div>
+                    <a
+                        href={`https://wa.me/${shop.whatsapp_number}`} target="_blank" rel="noopener noreferrer"
+                        className="w-14 h-14 rounded-full bg-[#25D366] shadow-xl flex items-center justify-center hover:scale-110 transition-transform relative"
+                        aria-label="Chat on WhatsApp"
+                    >
+                        <div className="absolute inset-0 rounded-full bg-[#25D366] animate-ping opacity-20" />
+                        <svg viewBox="0 0 24 24" className="w-7 h-7 fill-white relative z-10" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.008-.57-.008-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.88 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z" />
+                        </svg>
+                    </a>
+                </div>
+            )}
+
+            {/* ── Sidebar Navigation Overlay ── */}
+            <div className={cn("fixed inset-0 z-[100] transition-opacity duration-300", isSidebarOpen ? "opacity-100" : "opacity-0 pointer-events-none")}>
+                <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsSidebarOpen(false)} />
+                <div className={cn("absolute top-0 left-0 w-[300px] h-full bg-gray-50 dark:bg-gray-950 shadow-2xl transition-transform duration-300 transform flex flex-col", isSidebarOpen ? "translate-x-0" : "-translate-x-full")}>
+                    <div className="p-5 relative flex flex-col items-center justify-center bg-[var(--brand-color)] h-32 overflow-hidden shadow-inner border-b border-black/10">
+                        <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]" />
+                        {shop.logo_url ? (
+                            <div className="relative w-14 h-14 rounded-2xl overflow-hidden bg-white/20 shadow-md mb-2">
+                                <Image src={shop.logo_url} alt="Logo" fill className="object-contain" />
+                            </div>
+                        ) : (
+                            <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center shadow-md mb-2">
+                                <ShoppingCart className="w-6 h-6 text-white" />
+                            </div>
+                        )}
+                        <p className="font-black text-white text-lg truncate w-full text-center relative z-10 drop-shadow-md">{shop.shop_name}</p>
+                        <button 
+                            onClick={() => setIsSidebarOpen(false)} 
+                            className="absolute top-3 right-3 p-1.5 bg-black/20 hover:bg-black/40 rounded-full text-white transition-colors backdrop-blur-sm shadow-sm border border-white/10"
+                            aria-label="Close menu"
+                            title="Close menu"
+                        >
+                            <X className="w-4 h-4" />
+                        </button>
+                    </div>
+                    <div className="flex-1 overflow-y-auto py-5 px-3 space-y-1.5">
+                        <button onClick={() => { setIsSidebarOpen(false); setActiveTab('data'); }} className={cn("w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all shadow-sm border", activeTab === 'data' ? "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 border-gray-200 dark:border-gray-700" : "hover:bg-gray-100 dark:hover:bg-gray-900 text-gray-600 dark:text-gray-400 border-transparent")}>
+                            <Zap className={cn("w-5 h-5", activeTab === 'data' ? "text-[var(--brand-color)]" : "text-gray-400")} /> <span className="font-bold flex-1 text-left">Data Packages</span> 
+                            {activeTab === 'data' && <Check className="w-4 h-4 text-[var(--brand-color)]" />}
+                        </button>
+                        {networks.map(net => (
+                            <button key={net} onClick={() => { setIsSidebarOpen(false); setActiveTab('data'); setActiveNetwork(net); }} className="w-full flex items-center gap-3 px-3 py-2 pl-11 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-900 text-left text-sm font-semibold text-gray-500 transition-colors">
+                                {net} Bundles
+                            </button>
+                        ))}
+
+                        {isShopAirtimeEnabled && (
+                            <button onClick={() => { setIsSidebarOpen(false); setActiveTab('airtime'); }} className={cn("mt-2 w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all shadow-sm border", activeTab === 'airtime' ? "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 border-gray-200 dark:border-gray-700" : "hover:bg-gray-100 dark:hover:bg-gray-900 text-gray-600 dark:text-gray-400 border-transparent")}>
+                                <Smartphone className={cn("w-5 h-5", activeTab === 'airtime' ? "text-[var(--brand-color)]" : "text-gray-400")} /> <span className="font-bold flex-1 text-left">Airtime Recharge</span>
+                                {activeTab === 'airtime' && <Check className="w-4 h-4 text-[var(--brand-color)]" />}
+                            </button>
+                        )}
+                        <div className="my-4 border-t border-gray-200 dark:border-gray-800" />
+                        <Link href={`/shop/status?shop=${shop.shop_slug}&name=${encodeURIComponent(shop.shop_name)}`} onClick={() => setIsSidebarOpen(false)} className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-900 text-left font-bold text-gray-600 dark:text-gray-400 transition-colors">
+                            <History className="w-5 h-5 text-gray-400" /> Track My Orders
+                        </Link>
+                        <Link href={`/shop/${shop.shop_slug}/about`} onClick={() => setIsSidebarOpen(false)} className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-900 text-left font-bold text-gray-600 dark:text-gray-400 transition-colors">
+                            <Info className="w-5 h-5 text-gray-400" /> About Shop & Terms
+                        </Link>
+                    </div>
+                </div>
+            </div>
+
+            {/* ── Announcement Modal ── */}
+            {announcement && showAnnouncementModal && (
+                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in" onClick={() => setShowAnnouncementModal(false)} />
+                    <div className="relative w-full max-w-sm bg-white dark:bg-gray-900 rounded-[2rem] shadow-2xl overflow-hidden animate-in zoom-in-95 fade-in duration-200 border border-gray-100 dark:border-gray-800">
+                        <div className={cn(
+                            "p-6 flex flex-col items-center text-center",
+                            announcement.type === 'admin' ? "bg-amber-50 dark:bg-amber-950/20" : "bg-blue-50 dark:bg-blue-950/20"
+                        )}>
+                            <div className={cn(
+                                "w-16 h-16 rounded-full flex items-center justify-center mb-4 shadow-inner border-4 border-white dark:border-gray-800",
+                                announcement.type === 'admin' ? "bg-amber-500" : "bg-blue-500"
+                            )}>
+                                <Bell className="w-8 h-8 text-white" />
+                            </div>
+                            <span className={cn(
+                                "text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full mb-2 bg-white dark:bg-gray-800 shadow-sm border",
+                                announcement.type === 'admin' ? "text-amber-600 border-amber-200" : "text-blue-600 border-blue-200"
+                            )}>
+                                {announcement.type === 'admin' ? 'Official Platform Notice' : 'Shop Announcement'}
+                            </span>
+                            <h3 className="text-xl font-black text-gray-900 dark:text-white capitalize">{announcement.title || 'Important Update'}</h3>
+                        </div>
+                        <div className="p-6 pt-5 bg-white dark:bg-gray-900">
+                            <p className="text-sm font-semibold text-gray-600 dark:text-gray-300 leading-relaxed text-center mb-6">
+                                {announcement.message}
+                            </p>
+                            <button 
+                                onClick={() => setShowAnnouncementModal(false)}
+                                className="w-full py-3.5 rounded-xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-bold text-sm hover:scale-[1.02] active:scale-95 transition-transform"
+                            >
+                                Got it, thanks!
+                            </button>
+                        </div>
+                    </div>
+                </div>
             )}
 
             <CopyrightFooter 
