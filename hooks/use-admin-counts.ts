@@ -12,6 +12,7 @@ export interface AdminCounts {
     pendingAfa: number
     pendingComplaints: number
     expiringAgents: number
+    pendingDebts: number
 }
 
 const initialCounts: AdminCounts = {
@@ -21,7 +22,8 @@ const initialCounts: AdminCounts = {
     pendingWithdrawals: 0,
     pendingAfa: 0,
     pendingComplaints: 0,
-    expiringAgents: 0
+    expiringAgents: 0,
+    pendingDebts: 0
 }
 
 export function useAdminCounts() {
@@ -109,6 +111,14 @@ export function useAdminCounts() {
         setCounts(prev => ({ ...prev, expiringAgents: count || 0 }))
     }, [])
 
+    const fetchPendingDebtsCount = useCallback(async () => {
+        const { count } = await (supabase
+            .from('pending_settlements')
+            .select('*', { count: 'exact', head: true })
+            .in('status', ['pending', 'partially_settled']) as any)
+        setCounts(prev => ({ ...prev, pendingDebts: count || 0 }))
+    }, [])
+
     const fetchAllCounts = useCallback(() => {
         fetchOrdersCount()
         fetchShopsCount()
@@ -116,7 +126,8 @@ export function useAdminCounts() {
         fetchAfaCount()
         fetchComplaintsCount()
         fetchExpiringAgentsCount()
-    }, [fetchOrdersCount, fetchShopsCount, fetchWithdrawalsCount, fetchAfaCount, fetchComplaintsCount, fetchExpiringAgentsCount])
+        fetchPendingDebtsCount()
+    }, [fetchOrdersCount, fetchShopsCount, fetchWithdrawalsCount, fetchAfaCount, fetchComplaintsCount, fetchExpiringAgentsCount, fetchPendingDebtsCount])
 
     useEffect(() => {
         if (!isAdmin) return
@@ -148,6 +159,10 @@ export function useAdminCounts() {
             .on('postgres_changes', { event: '*', schema: 'public', table: 'users' }, fetchExpiringAgentsCount)
             .subscribe()
 
+        const debtsChannel = supabase.channel('admin-counts-debts')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'pending_settlements' }, fetchPendingDebtsCount)
+            .subscribe()
+
         return () => {
             supabase.removeChannel(ordersChannel)
             supabase.removeChannel(shopsChannel)
@@ -155,8 +170,9 @@ export function useAdminCounts() {
             supabase.removeChannel(afaChannel)
             supabase.removeChannel(complaintsChannel)
             supabase.removeChannel(usersChannel)
+            supabase.removeChannel(debtsChannel)
         }
-    }, [isAdmin, fetchAllCounts, fetchOrdersCount, fetchShopsCount, fetchWithdrawalsCount, fetchAfaCount, fetchComplaintsCount, fetchExpiringAgentsCount])
+    }, [isAdmin, fetchAllCounts, fetchOrdersCount, fetchShopsCount, fetchWithdrawalsCount, fetchAfaCount, fetchComplaintsCount, fetchExpiringAgentsCount, fetchPendingDebtsCount])
 
     return { counts, refresh: fetchAllCounts }
 }

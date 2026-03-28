@@ -56,6 +56,7 @@ const userNavItems = [
 
 const adminNavItems = [
     { href: '/admin', label: 'Dashboard', icon: Shield },
+    { href: '/admin/top-up', label: 'Top-Up', icon: Wallet },
     { href: '/admin/orders', label: 'Orders', icon: ShoppingCart },
     { href: '/admin/fulfillment', label: 'Fulfillment', icon: Activity },
     { href: '/admin/datagod', label: 'DataGod Terminal', icon: Activity },
@@ -480,6 +481,7 @@ export function DashboardSidebar() {
                                 // Get badge count for this item
                                 let badgeCount = 0
                                 if (item.href === '/admin/orders') badgeCount = adminCounts.pendingOrders
+                                else if (item.href === '/admin/top-up') badgeCount = adminCounts.pendingDebts
                                 else if (item.href === '/admin/fulfillment') badgeCount = adminCounts.pendingFulfillment
                                 else if (item.href === '/admin/shops') badgeCount = adminCounts.pendingShops
                                 else if (item.href === '/admin/shops/withdrawals') badgeCount = adminCounts.pendingWithdrawals

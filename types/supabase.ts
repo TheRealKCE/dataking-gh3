@@ -497,6 +497,39 @@ export interface Database {
                     is_active?: boolean
                 }
             }
+            pending_settlements: {
+                Row: {
+                    id: string
+                    user_id: string
+                    wallet_transaction_id: string | null
+                    amount_owed: number
+                    amount_settled: number
+                    status: 'pending' | 'partially_settled' | 'settled'
+                    payment_method: string | null
+                    notes: string | null
+                    created_at: string
+                    settled_at: string | null
+                }
+                Insert: {
+                    id?: string
+                    user_id: string
+                    wallet_transaction_id?: string | null
+                    amount_owed: number
+                    amount_settled?: number
+                    status?: 'pending' | 'partially_settled' | 'settled'
+                    payment_method?: string | null
+                    notes?: string | null
+                    created_at?: string
+                    settled_at?: string | null
+                }
+                Update: {
+                    amount_settled?: number
+                    status?: 'pending' | 'partially_settled' | 'settled'
+                    payment_method?: string | null
+                    notes?: string | null
+                    settled_at?: string | null
+                }
+            }
         }
     }
 }
@@ -515,3 +548,4 @@ export type CustomerPurchase = Database['public']['Tables']['customer_purchases'
 export type DownloadBatch = Database['public']['Tables']['download_batches']['Row']
 export type SystemAnnouncement = Database['public']['Tables']['system_announcements']['Row']
 export type ShopAnnouncement = Database['public']['Tables']['shop_announcements']['Row']
+export type PendingSettlement = Database['public']['Tables']['pending_settlements']['Row']

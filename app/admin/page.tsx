@@ -21,7 +21,8 @@ import {
     Banknote,
     BadgeCheck,
     Crown,
-    ArrowRight
+    ArrowRight,
+    Scale
 } from 'lucide-react'
 import { useAdminCounts } from '@/hooks/use-admin-counts'
 import Link from 'next/link'
@@ -40,6 +41,7 @@ interface AdminStats {
 export default function AdminDashboardPage() {
     const [stats, setStats] = useState<AdminStats | null>(null)
     const [isLoading, setIsLoading] = useState(true)
+    const [debtStats, setDebtStats] = useState<{ totalOwed: number; pendingUsersCount: number } | null>(null)
     const { counts: adminCounts } = useAdminCounts()
 
     // Calculate total actions required
@@ -47,6 +49,10 @@ export default function AdminDashboardPage() {
 
     useEffect(() => {
         fetchStats()
+        fetch('/api/admin/top-up/debt-summary')
+            .then(r => r.ok ? r.json() : null)
+            .then(data => { if (data) setDebtStats(data) })
+            .catch(() => {})
     }, [])
 
     const fetchStats = async () => {
@@ -326,6 +332,26 @@ export default function AdminDashboardPage() {
                         </div>
                     </CardContent>
                 </Card>
+
+                {/* Debt Widget — hidden when 0 */}
+                {debtStats && debtStats.totalOwed > 0 && (
+                    <Link href="/admin/top-up?tab=settlements">
+                        <Card className={`bg-gradient-to-br from-amber-500 to-orange-600 text-white border-0 cursor-pointer hover:opacity-90 transition-opacity ${debtStats.totalOwed > 0 ? 'animate-pulse' : ''}`}>
+                            <CardContent className="p-6">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-amber-100 text-sm font-medium">Outstanding Debts</p>
+                                        <p className="text-3xl font-bold mt-1">{formatCurrency(debtStats.totalOwed)}</p>
+                                        <p className="text-xs text-amber-200 mt-1">{debtStats.pendingUsersCount} user{debtStats.pendingUsersCount !== 1 ? 's' : ''} owe you · View All →</p>
+                                    </div>
+                                    <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
+                                        <Scale className="w-6 h-6" />
+                                    </div>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    </Link>
+                )}
             </div>
 
             {/* Quick Actions */}
