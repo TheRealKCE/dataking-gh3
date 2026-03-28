@@ -419,7 +419,17 @@ export default function ShopStorefront({ shop, packages, adminSettings }: Props)
         }
     }, [isAirtimeOpen])
 
+    // Contrast utility
+    const isLightColor = (hex: string) => {
+        const r = parseInt(hex.slice(1, 3), 16)
+        const g = parseInt(hex.slice(3, 5), 16)
+        const b = parseInt(hex.slice(5, 7), 16)
+        const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000
+        return yiq >= 128
+    }
+
     const brandColor = shop.brand_color || '#2563eb'
+    const brandContrastText = isLightColor(brandColor) ? '#030712' : '#ffffff'
     const filteredPackages = packages.filter(p => p.network === activeNetwork)
     const { feeAmount: airFee, totalPay: airTotal, airtimeToReceive } = calculateAirtimeFees()
 
@@ -450,7 +460,10 @@ export default function ShopStorefront({ shop, packages, adminSettings }: Props)
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-950 theme-shop">
             <style dangerouslySetInnerHTML={{ __html: `
-                .theme-shop { --brand-color: ${brandColor}; }
+                .theme-shop { 
+                    --brand-color: ${brandColor}; 
+                    --brand-contrast-text: ${brandContrastText};
+                }
                 @keyframes shake { 0%, 100% { transform: rotate(0deg); } 25% { transform: rotate(15deg); } 75% { transform: rotate(-15deg); } }
                 .animate-shake { animation: shake 0.5s infinite; transform-origin: top center; }
             ` }} />
@@ -458,15 +471,17 @@ export default function ShopStorefront({ shop, packages, adminSettings }: Props)
             <div className="sticky top-0 left-0 w-full z-[45] shadow-lg border-b border-black/5 dark:border-white/5 bg-[var(--brand-color)]/95 backdrop-blur-md">
                 <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
-                        <button onClick={() => setIsSidebarOpen(true)} className="p-1 hover:bg-black/10 rounded-lg transition-colors flex-shrink-0 text-white" aria-label="Open menu">
+                        <button onClick={() => setIsSidebarOpen(true)} className="p-1 hover:bg-black/10 rounded-lg transition-colors flex-shrink-0 text-[var(--brand-contrast-text)]" aria-label="Open menu">
                             <Menu className="w-6 h-6" />
                         </button>
                         {shop.logo_url && (
-                            <div className="relative w-8 h-8 rounded-lg overflow-hidden bg-white/20 flex-shrink-0">
-                                <Image src={shop.logo_url} alt={`${shop.shop_name} logo`} fill className="object-contain" />
+                            <div className="relative w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 border border-black/5 shadow-sm bg-white/20">
+                                <Image src={shop.logo_url} alt="Logo" fill className="object-contain" />
                             </div>
                         )}
-                        <p className="font-black text-white text-base truncate pr-2">{shop.shop_name}</p>
+                        <h1 className="font-black text-[15px] sm:text-lg truncate text-[var(--brand-contrast-text)] transition-colors">
+                            {shop.shop_name}
+                        </h1>
                     </div>
                     <ThemeToggle />
                 </div>
@@ -906,8 +921,8 @@ export default function ShopStorefront({ shop, packages, adminSettings }: Props)
                         }
                         .animate-prompt-peek { animation: promptPeek 4s ease-in-out infinite; }
                     ` }} />
-                    <div className="hidden sm:block absolute right-[4.5rem] bg-white dark:bg-gray-800 text-gray-800 dark:text-white px-3 py-1.5 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity animate-prompt-peek whitespace-nowrap">
-                        <span className="font-bold text-sm tracking-tight text-gray-700 dark:text-gray-200">Need Help?</span>
+                    <div className="absolute right-[4.5rem] bg-white dark:bg-gray-800 text-gray-800 dark:text-white px-3 py-1.5 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity animate-prompt-peek whitespace-nowrap">
+                        <span className="font-bold text-xs sm:text-sm tracking-tight text-gray-700 dark:text-gray-200">Need Help?</span>
                         <div className="absolute top-1/2 -mt-1 -right-1.5 w-3 h-3 bg-white dark:bg-gray-800 border-r border-t border-gray-100 dark:border-gray-700 rotate-45" />
                     </div>
                     <a
@@ -924,9 +939,9 @@ export default function ShopStorefront({ shop, packages, adminSettings }: Props)
             )}
 
             {/* ── Sidebar Navigation Overlay ── */}
-            <div className={cn("fixed inset-0 z-[100] transition-opacity duration-300", isSidebarOpen ? "opacity-100" : "opacity-0 pointer-events-none")}>
+            <div className={cn("fixed inset-0 z-[100] transition-opacity duration-200", isSidebarOpen ? "opacity-100" : "opacity-0 pointer-events-none")}>
                 <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsSidebarOpen(false)} />
-                <div className={cn("absolute top-0 left-0 w-[300px] h-full bg-gray-50 dark:bg-gray-950 shadow-2xl transition-transform duration-300 transform flex flex-col", isSidebarOpen ? "translate-x-0" : "-translate-x-full")}>
+                <div className={cn("absolute top-0 left-0 w-[300px] h-full bg-gray-50 dark:bg-gray-950 shadow-2xl transition-transform duration-200 transform flex flex-col will-change-transform", isSidebarOpen ? "translate-x-0" : "-translate-x-full")}>
                     <div className="p-5 relative flex flex-col items-center justify-center bg-[var(--brand-color)] h-32 overflow-hidden shadow-inner border-b border-black/10">
                         <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]" />
                         {shop.logo_url ? (

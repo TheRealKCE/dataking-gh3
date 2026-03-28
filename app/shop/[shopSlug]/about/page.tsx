@@ -204,6 +204,19 @@ export default async function ShopAboutPage({ params }: Props) {
 
                         <div className="flex gap-4">
                             <div className="flex-shrink-0 mt-1">
+                                <ShieldCheck className="w-5 h-5 text-purple-500" />
+                            </div>
+                            <div>
+                                <h3 className="text-sm font-black text-gray-900 dark:text-white mb-1">Payment Verification & Stay-on-Page</h3>
+                                <p className="text-sm font-medium text-gray-500 dark:text-gray-400 leading-relaxed text-blue-600 dark:text-blue-400 font-bold p-3 bg-blue-50/50 dark:bg-blue-900/10 rounded-xl border border-blue-100 dark:border-blue-900/30">
+                                    To ensure your order is processed instantly, you <strong className="text-gray-900 dark:text-white underline">MUST NOT</strong> close the payment tab or leave the site until you see the final "Payment Successful" screen. 
+                                    <span className="block mt-2 font-medium opacity-90">If you approve a payment manually on your phone, you must return to this site to trigger final verification. Failure to wait for this confirmation may result in fund loss or delayed fulfillment.</span>
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="flex gap-4">
+                            <div className="flex-shrink-0 mt-1">
                                 <CheckCircle2 className="w-5 h-5 text-gray-400" />
                             </div>
                             <div>

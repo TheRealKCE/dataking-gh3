@@ -342,8 +342,8 @@ export default function ShopSetupPage() {
             setBannerPreview(urlData.publicUrl)
             setHasUnsavedChanges(true)
             toast.success('Banner uploaded! Use the sliders to reposition.')
-        } catch { 
-            toast.error('Banner upload failed.') 
+        } catch (err: any) { 
+            toast.error(err.message || 'Banner upload failed.') 
         } finally { 
             setUploadingBanner(false) 
         }
@@ -393,7 +393,7 @@ export default function ShopSetupPage() {
                 owner_id: dbUser!.id,
                 shop_name: form.shop_name.trim(),
                 shop_slug: form.shop_slug.trim(),
-                description: form.description.trim().slice(0, 160),
+                description: form.description.trim().slice(0, 400),
                 owner_phone: form.owner_phone.trim(),
                 owner_email: form.owner_email.trim() || null,
                 whatsapp_number: finalWA || null,
@@ -604,9 +604,9 @@ export default function ShopSetupPage() {
                                 <Label htmlFor="description">Description</Label>
                                 <span className={cn(
                                     'text-xs font-medium tabular-nums',
-                                    form.description.length > 150 ? 'text-red-500' :
-                                        form.description.length > 120 ? 'text-amber-500' : 'text-muted-foreground'
-                                )}>{form.description.length}/160</span>
+                                    form.description.length > 380 ? 'text-red-500' :
+                                        form.description.length > 300 ? 'text-amber-500' : 'text-muted-foreground'
+                                )}>{form.description.length}/400</span>
                             </div>
                             <Textarea
                                 id="description"
@@ -614,7 +614,7 @@ export default function ShopSetupPage() {
                                 onChange={(e) => updateForm({ description: e.target.value })}
                                 placeholder="Describe your shop (shown as subtitle and meta description)"
                                 rows={3}
-                                maxLength={160}
+                                maxLength={400}
                                 className="mt-0"
                             />
                         </div>
