@@ -41,7 +41,7 @@ export async function POST(request: Request) {
         const results = []
 
         // Fetch selected orders that are pending
-        const { data: ordersToProcess, error: fetchError } = await supabase
+        const { data: ordersToProcess, error: fetchError } = await (supabase as any)
             .from('orders')
             .select('id, network, phone_number, size, status, user_id')
             .in('id', orderIds)
@@ -56,8 +56,17 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'No valid pending orders found for the given IDs.' }, { status: 400 })
         }
 
+        interface PendingOrder {
+            id: string;
+            network: string;
+            phone_number: string;
+            size: string;
+            status: string;
+            user_id: string;
+        }
+
         // Process sequentially to respect potential rate limits
-        for (const order of (ordersToProcess as any[])) {
+        for (const order of (ordersToProcess as PendingOrder[])) {
             console.log(`[DataGod Fulfill] Processing order: ${order.id} | ${order.network} | ${order.phone_number}`);
             
             // Generate unique reference (using our order ID)
@@ -75,9 +84,9 @@ export async function POST(request: Request) {
                 // Determine new status. Usually APIs return success but still need to be checked later,
                 // so we mark as processing and let a status checker or admin confirm. The docs say 
                 // standalone orders might complete immediately or go queued.
-                const nextStatus = result.apiResponse?.status === 'success' || result.apiResponse?.data?.status === 'success' ? 'completed' : 'processing'
+                const nextStatus: 'pending' | 'processing' | 'completed' | 'failed' = result.apiResponse?.status === 'success' || result.apiResponse?.data?.status === 'success' ? 'completed' : 'processing'
 
-                const { error: updateError } = await supabase
+                const { error: updateError } = await (supabase as any)
                     .from('orders')
                     .update({ status: nextStatus })
                     .eq('id', order.id)
@@ -87,7 +96,7 @@ export async function POST(request: Request) {
                 }
 
                 // Log into fulfillment tracking
-                await supabase
+                await (supabase as any)
                     .from('mtn_fulfillment_tracking')
                     .insert({
                         order_id: order.id,
@@ -105,7 +114,7 @@ export async function POST(request: Request) {
                 results.push({ id: order.id, success: true, status: nextStatus, message: 'Processed' })
             } else {
                 // Log failure into tracking but keep order status as pending
-                await supabase
+                await (supabase as any)
                     .from('mtn_fulfillment_tracking')
                     .insert({
                         order_id: order.id,

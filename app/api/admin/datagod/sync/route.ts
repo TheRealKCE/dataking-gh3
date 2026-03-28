@@ -38,7 +38,7 @@ export async function POST(request: Request) {
         
         // Fetch the tracking records to get the references
         // We only want orders where they have a datagod tracking history
-        const { data: ordersWithTracking, error: fetchError } = await supabase
+        const { data: ordersWithTracking, error: fetchError } = await (supabase as any)
             .from('orders')
             .select(`
                 id, 
