@@ -15,7 +15,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import {
     Store, Upload, Phone, Mail, MessageCircle, Palette, Eye, Save,
     Loader2, ExternalLink, ArrowLeft, ChevronDown, ChevronUp, Users,
-    X, Trash2, CheckCircle2, XCircle, AlertTriangle, ImageIcon
+    X, Trash2, CheckCircle2, XCircle, AlertTriangle, ImageIcon, RefreshCw
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -144,6 +144,9 @@ interface ShopForm {
     brand_accent: string
     is_active: boolean
     divider_style: string
+    banner_pos_x: number
+    banner_pos_y: number
+    banner_zoom: number
 }
 
 // ─── Progress Steps ───────────────────────────────────────────────────────────
@@ -209,6 +212,9 @@ export default function ShopSetupPage() {
         brand_accent: '#1e40af',
         is_active: true,
         divider_style: 'asymmetric-curve',
+        banner_pos_x: 50,
+        banner_pos_y: 50,
+        banner_zoom: 1,
     })
 
     const updateForm = useCallback((updates: Partial<ShopForm>) => {
@@ -254,6 +260,9 @@ export default function ShopSetupPage() {
                 brand_accent: data.brand_accent || '#1e40af',
                 is_active: data.is_active ?? true,
                 divider_style: data.divider_style || 'asymmetric-curve',
+                banner_pos_x: data.banner_pos_x ?? 50,
+                banner_pos_y: data.banner_pos_y ?? 50,
+                banner_zoom: data.banner_zoom ?? 1,
             })
         }
         setLoading(false)
@@ -315,61 +324,52 @@ export default function ShopSetupPage() {
         if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
             toast.error('Only JPG, PNG, or WEBP images allowed'); return
         }
-        const reader = new FileReader()
-        reader.onload = (ev) => { setBannerPreview(ev.target?.result as string); setCropMode(true) }
-        reader.readAsDataURL(file)
-        setRawBannerFile(file)
+        
+        // Auto-upload immediately
+        uploadBannerFile(file)
     }
 
     const uploadBannerFile = async (file: File | Blob) => {
         setUploadingBanner(true)
         try {
-            const path = `${dbUser!.id}/banner_${Date.now()}.webp`
-            const { error } = await supabase.storage.from('shop-banners').upload(path, file, { upsert: true, contentType: 'image/webp' })
+            const ext = (file instanceof File) ? file.name.split('.').pop() : 'webp'
+            const path = `${dbUser!.id}/banner_${Date.now()}.${ext}`
+            const { error } = await supabase.storage.from('shop-banners').upload(path, file, { upsert: true })
             if (error) throw error
+            
             const { data: urlData } = supabase.storage.from('shop-banners').getPublicUrl(path)
             setBannerUrl(urlData.publicUrl)
+            setBannerPreview(urlData.publicUrl)
             setHasUnsavedChanges(true)
-            setCropMode(false)
-            toast.success('Banner uploaded!')
-        } catch { toast.error('Banner upload failed.') }
-        finally { setUploadingBanner(false) }
-    }
-
-    const handleUseAsIs = () => {
-        if (!rawBannerFile) return
-        uploadBannerFile(rawBannerFile)
-    }
-
-    const handleCropAndUpload = () => {
-        const canvas = cropCanvasRef.current
-        if (!canvas) return
-        canvas.toBlob((blob) => {
-            if (!blob) { toast.error('Crop failed'); return }
-            uploadBannerFile(blob)
-        }, 'image/webp', 0.92)
-    }
-
-    // Draw image on canvas for preview (3:1 ratio)
-    useEffect(() => {
-        if (!cropMode || !bannerPreview || !cropCanvasRef.current) return
-        const canvas = cropCanvasRef.current
-        const ctx = canvas.getContext('2d')
-        if (!ctx) return
-        const img = new window.Image()
-        img.onload = () => {
-            const W = canvas.width
-            const H = canvas.height
-            const scale = Math.max(W / img.width, H / img.height)
-            const sw = img.width * scale
-            const sh = img.height * scale
-            const sx = (W - sw) / 2
-            const sy = (H - sh) / 2
-            ctx.clearRect(0, 0, W, H)
-            ctx.drawImage(img, sx, sy, sw, sh)
+            toast.success('Banner uploaded! Use the sliders to reposition.')
+        } catch { 
+            toast.error('Banner upload failed.') 
+        } finally { 
+            setUploadingBanner(false) 
         }
-        img.src = bannerPreview
-    }, [cropMode, bannerPreview])
+    }
+
+    // Draggable positioning logic
+    const handleBannerDrag = (e: React.MouseEvent | React.TouchEvent) => {
+        if (uploadingBanner || !bannerPreview) return
+        const container = (e.currentTarget as HTMLElement).getBoundingClientRect()
+        let clientX, clientY
+        if ('touches' in e) {
+            clientX = e.touches[0].clientX
+            clientY = e.touches[0].clientY
+        } else {
+            clientX = e.clientX
+            clientY = e.clientY
+        }
+
+        const x = ((clientX - container.left) / container.width) * 100
+        const y = ((clientY - container.top) / container.height) * 100
+        
+        updateForm({ 
+            banner_pos_x: Math.max(0, Math.min(100, Math.round(x))),
+            banner_pos_y: Math.max(0, Math.min(100, Math.round(y)))
+        })
+    }
 
     // ─── WhatsApp derived state ───────────────────────────────────────────────
     const normalizedWA = normalizeWhatsapp(form.whatsapp_number)
@@ -402,6 +402,9 @@ export default function ShopSetupPage() {
                 brand_accent: form.brand_accent,
                 logo_url: logoUrl,
                 banner_url: bannerUrl,
+                banner_pos_x: form.banner_pos_x,
+                banner_pos_y: form.banner_pos_y,
+                banner_zoom: form.banner_zoom,
                 divider_style: form.divider_style,
                 is_active: form.is_active,
                 approval_status: 'approved',
@@ -793,61 +796,124 @@ export default function ShopSetupPage() {
                     <CardContent className="space-y-6">
 
                         {/* Banner Upload */}
-                        <div>
-                            <Label className="flex items-center gap-1.5">
-                                <ImageIcon className="w-3.5 h-3.5" /> Shop Banner (Max 10MB — Ideal: 1200×400px)
+                        <div className="space-y-4">
+                            <Label className="flex items-center gap-1.5 font-bold">
+                                <ImageIcon className="w-3.5 h-3.5" /> Shop Banner (Max 10MB)
                             </Label>
-                            {!cropMode ? (
-                                <>
-                                    <div
-                                        className="mt-2 border-2 border-dashed rounded-xl p-5 text-center cursor-pointer hover:border-emerald-500 hover:bg-emerald-50/50 dark:hover:bg-emerald-900/10 transition-colors"
-                                        onClick={() => bannerInputRef.current?.click()}
-                                    >
-                                        {bannerPreview ? (
-                                            <div className="relative w-full h-32 rounded-lg overflow-hidden">
-                                                <Image src={bannerPreview} alt="Banner preview" fill className="object-cover" />
-                                                <p className="absolute bottom-1 right-1 text-[10px] bg-black/60 text-white px-2 py-0.5 rounded">Click to change</p>
+                            
+                            <div className="relative group">
+                                <div 
+                                    className="relative w-full aspect-[3/1] rounded-2xl overflow-hidden bg-gray-100 dark:bg-gray-800 border-2 border-dashed border-gray-200 dark:border-gray-700 transition-all hover:border-emerald-500/50"
+                                    onClick={(e) => {
+                                        if (!bannerPreview) bannerInputRef.current?.click()
+                                        else handleBannerDrag(e)
+                                    }}
+                                    onMouseMove={(e) => { if (e.buttons === 1) handleBannerDrag(e) }}
+                                    onTouchMove={handleBannerDrag}
+                                >
+                                    {bannerPreview ? (
+                                        <>
+                                            <Image 
+                                                src={bannerPreview} 
+                                                alt="Banner preview" 
+                                                fill 
+                                                className="object-cover transition-transform duration-300 touch-none pointer-events-none"
+                                                style={{ 
+                                                    objectPosition: `${form.banner_pos_x}% ${form.banner_pos_y}%`,
+                                                    transform: `scale(${form.banner_zoom})`
+                                                }}
+                                            />
+                                            {/* Reposition Overlay */}
+                                            <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center pointer-events-none">
+                                                <div className="bg-black/60 backdrop-blur-sm text-white px-4 py-2 rounded-xl text-xs font-black uppercase tracking-widest flex items-center gap-2">
+                                                    <Upload className="w-4 h-4" /> Tap/Drag to Reposition
+                                                </div>
                                             </div>
-                                        ) : (
-                                            <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                                                {uploadingBanner ? <Loader2 className="w-8 h-8 animate-spin text-emerald-600" /> : <ImageIcon className="w-8 h-8" />}
-                                                <p className="text-sm font-medium">{uploadingBanner ? 'Uploading...' : 'Click to upload banner'}</p>
-                                                <p className="text-xs">JPG, PNG, WEBP · up to 10MB · Ideal: 1200×400px (3:1)</p>
+                                            {uploadingBanner && (
+                                                <div className="absolute inset-0 bg-white/60 dark:bg-black/60 backdrop-blur-sm flex items-center justify-center z-20">
+                                                    <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
+                                                </div>
+                                            )}
+                                        </>
+                                    ) : (
+                                        <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 text-muted-foreground">
+                                            {uploadingBanner ? <Loader2 className="w-8 h-8 animate-spin text-emerald-600" /> : <ImageIcon className="w-8 h-8 opacity-20" />}
+                                            <div className="text-center">
+                                                <p className="text-sm font-black uppercase tracking-tighter">{uploadingBanner ? 'Uploading...' : 'Click to add shop banner'}</p>
+                                                <p className="text-[10px] font-bold opacity-60">Ideal aspect ratio: 3:1 (e.g. 1200x400px)</p>
                                             </div>
-                                        )}
-                                    </div>
-                                    {bannerPreview && (
-                                        <Button variant="ghost" size="sm" className="mt-1 text-red-500 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/10 gap-1.5 text-xs"
-                                            onClick={() => { setBannerPreview(null); setBannerUrl(null); setHasUnsavedChanges(true) }}>
-                                            <Trash2 className="w-3.5 h-3.5" /> Remove Banner
-                                        </Button>
+                                        </div>
                                     )}
-                                    <input ref={bannerInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleBannerSelect} title="Upload shop banner" aria-label="Upload shop banner" />
-                                </>
-                            ) : (
-                                <div className="mt-2 space-y-3">
-                                    <p className="text-xs text-muted-foreground font-medium">Crop preview (3:1 ratio) — drag to adjust</p>
-                                    <canvas
-                                        ref={cropCanvasRef}
-                                        width={600}
-                                        height={200}
-                                        className="w-full rounded-xl border border-gray-200 dark:border-gray-700 object-cover aspect-[3/1]"
-                                    />
-                                    <div className="flex gap-3">
-                                        <Button variant="outline" className="flex-1" size="sm" onClick={handleUseAsIs} disabled={uploadingBanner}>
-                                            {uploadingBanner ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                                            Use As-Is
-                                        </Button>
-                                        <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700 text-white" size="sm" onClick={handleCropAndUpload} disabled={uploadingBanner}>
-                                            {uploadingBanner ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : null}
-                                            Crop &amp; Upload
-                                        </Button>
+                                </div>
+                                
+                                {bannerPreview && !uploadingBanner && (
+                                    <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-2 px-4 py-2 bg-white dark:bg-gray-900 shadow-xl border border-gray-100 dark:border-gray-800 rounded-2xl z-20">
+                                        <button 
+                                            onClick={() => bannerInputRef.current?.click()}
+                                            className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg text-emerald-600 transition-colors"
+                                            title="Replace Banner"
+                                        >
+                                            <RefreshCw className="w-4 h-4" />
+                                        </button>
+                                        <div className="h-4 w-[1px] bg-gray-200 dark:bg-gray-700" />
+                                        <button 
+                                            onClick={() => { setBannerPreview(null); setBannerUrl(null); setHasUnsavedChanges(true); }}
+                                            className="p-1.5 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-lg text-red-500 transition-colors"
+                                            title="Remove Banner"
+                                        >
+                                            <Trash2 className="w-4 h-4" />
+                                        </button>
                                     </div>
-                                    <Button variant="ghost" size="sm" className="w-full text-xs text-muted-foreground" onClick={() => { setCropMode(false); setBannerPreview(bannerUrl) }}>
-                                        <X className="w-3.5 h-3.5 mr-1" /> Cancel
-                                    </Button>
+                                )}
+                            </div>
+
+                            {bannerPreview && (
+                                <div className="space-y-4 pt-2">
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">
+                                            <span>Zoom Level</span>
+                                            <span className="text-emerald-600">{Math.round(form.banner_zoom * 100)}%</span>
+                                        </div>
+                                        <input 
+                                            type="range" min="1" max="2.5" step="0.01" 
+                                            value={form.banner_zoom} 
+                                            onChange={(e) => updateForm({ banner_zoom: parseFloat(e.target.value) })}
+                                            className="w-full h-1.5 bg-gray-200 dark:bg-gray-800 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                                            title="Banner Zoom Level"
+                                            aria-label="Banner Zoom Level"
+                                        />
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <div className="space-y-2">
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">Horizontal Focus</span>
+                                            <input 
+                                                type="range" min="0" max="100" 
+                                                value={form.banner_pos_x} 
+                                                onChange={(e) => updateForm({ banner_pos_x: parseInt(e.target.value) })}
+                                                className="w-full h-1.5 bg-gray-200 dark:bg-gray-800 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                                                title="Banner Horizontal Focus"
+                                                aria-label="Banner Horizontal Focus"
+                                            />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <span className="text-[10px] font-black uppercase tracking-widest text-gray-500 dark:text-gray-400">Vertical Focus</span>
+                                            <input 
+                                                type="range" min="0" max="100" 
+                                                value={form.banner_pos_y} 
+                                                onChange={(e) => updateForm({ banner_pos_y: parseInt(e.target.value) })}
+                                                className="w-full h-1.5 bg-gray-200 dark:bg-gray-800 rounded-lg appearance-none cursor-pointer accent-emerald-500"
+                                                title="Banner Vertical Focus"
+                                                aria-label="Banner Vertical Focus"
+                                            />
+                                        </div>
+                                    </div>
+                                    <p className="text-[10px] font-medium text-center text-muted-foreground italic">
+                                        💡 You can also drag the image directly in the preview to adjust the focus.
+                                    </p>
                                 </div>
                             )}
+
+                            <input ref={bannerInputRef} type="file" accept="image/jpeg,image/png,image/webp" className="hidden" onChange={handleBannerSelect} title="Upload shop banner" aria-label="Upload shop banner" />
                         </div>
 
                         {/* Logo Upload */}

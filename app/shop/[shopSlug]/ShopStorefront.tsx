@@ -66,6 +66,9 @@ interface ShopData {
     airtime_fee_mtn?: number
     airtime_fee_telecel?: number
     airtime_fee_at?: number
+    banner_pos_x?: number
+    banner_pos_y?: number
+    banner_zoom?: number
 }
 
 interface Package {
@@ -446,12 +449,13 @@ export default function ShopStorefront({ shop, packages, adminSettings }: Props)
 
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-gray-950 theme-shop">
-            {/* ── Permanent Top Bar ── */}
-            <div className="sticky top-0 left-0 w-full z-[45] shadow-md bg-[var(--brand-color)]">
-                <style dangerouslySetInnerHTML={{ __html: `
+            <style dangerouslySetInnerHTML={{ __html: `
+                .theme-shop { --brand-color: ${brandColor}; }
                 @keyframes shake { 0%, 100% { transform: rotate(0deg); } 25% { transform: rotate(15deg); } 75% { transform: rotate(-15deg); } }
                 .animate-shake { animation: shake 0.5s infinite; transform-origin: top center; }
-                ` }} />
+            ` }} />
+            {/* ── Permanent Top Bar ── */}
+            <div className="sticky top-0 left-0 w-full z-[45] shadow-lg border-b border-black/5 dark:border-white/5 bg-[var(--brand-color)]/95 backdrop-blur-md">
                 <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
                         <button onClick={() => setIsSidebarOpen(true)} className="p-1 hover:bg-black/10 rounded-lg transition-colors flex-shrink-0 text-white" aria-label="Open menu">
@@ -502,8 +506,17 @@ export default function ShopStorefront({ shop, packages, adminSettings }: Props)
                         )}
                         {/* 4. Banner Image (below description, only if set) */}
                         {shop.banner_url && (
-                            <div className="relative w-full h-[180px] rounded-2xl overflow-hidden mt-2 shadow-lg">
-                                <Image src={shop.banner_url} alt={`${shop.shop_name} banner`} fill className="object-cover" />
+                            <div className="relative w-full h-[180px] rounded-2xl overflow-hidden mt-4 shadow-lg bg-black/5 border border-white/10">
+                                <Image 
+                                    src={shop.banner_url} 
+                                    alt={`${shop.shop_name} banner`} 
+                                    fill 
+                                    className="object-cover transition-opacity duration-700"
+                                    style={{ 
+                                        objectPosition: `${shop.banner_pos_x ?? 50}% ${shop.banner_pos_y ?? 50}%`,
+                                        transform: `scale(${shop.banner_zoom ?? 1})`
+                                    }}
+                                />
                             </div>
                         )}
                     </div>

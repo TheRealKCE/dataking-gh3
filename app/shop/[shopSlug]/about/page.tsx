@@ -194,9 +194,10 @@ export default async function ShopAboutPage({ params }: Props) {
                                 <Clock className="w-5 h-5 text-blue-500" />
                             </div>
                             <div>
-                                <h3 className="text-sm font-black text-gray-900 dark:text-white mb-1">Processing Times & Delays</h3>
+                                <h3 className="text-sm font-black text-gray-900 dark:text-white mb-1">Processing Times & 24hr Reporting</h3>
                                 <p className="text-sm font-medium text-gray-500 dark:text-gray-400 leading-relaxed">
-                                    While 99% of transactions hit the entered number within seconds, telecommunications networks (MTN, Telecel, AT) may occasionally experience internal downtimes or routine maintenance. If your order shows "Successful" but hasn't arrived within 5 minutes, please contact our support lines immediately.
+                                    While 99% of transactions hit the entered number within seconds, telecommunications networks (MTN, Telecel, AT) may occasionally experience internal downtimes. 
+                                    <strong className="text-gray-900 dark:text-white block mt-1">IMPORTANT: Customers must report any non-received orders to the shop owner within 24 hours of purchase. Failure to provide notification within this 24-hour window may result in the loss of eligibility for fulfillment, manual reversals, or refunds.</strong>
                                 </p>
                             </div>
                         </div>
