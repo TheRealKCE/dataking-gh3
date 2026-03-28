@@ -57,7 +57,7 @@ export async function POST(request: Request) {
         }
 
         // Process sequentially to respect potential rate limits
-        for (const order of ordersToProcess) {
+        for (const order of (ordersToProcess as any[])) {
             console.log(`[DataGod Fulfill] Processing order: ${order.id} | ${order.network} | ${order.phone_number}`);
             
             // Generate unique reference (using our order ID)

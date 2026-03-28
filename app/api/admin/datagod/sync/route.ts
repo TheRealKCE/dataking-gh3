@@ -65,7 +65,7 @@ export async function POST(request: Request) {
         let failedCount = 0
         const results = []
 
-        for (const order of ordersWithTracking) {
+        for (const order of (ordersWithTracking as any[])) {
             // Find the datagod tracking record with the reference
             const datagodTracking = order.mtn_fulfillment_tracking.find(
                 (t: any) => t.api_response?.supplier === 'datagod' && t.api_response?.reference
