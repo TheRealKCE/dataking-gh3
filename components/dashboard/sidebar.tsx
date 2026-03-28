@@ -58,6 +58,7 @@ const adminNavItems = [
     { href: '/admin', label: 'Dashboard', icon: Shield },
     { href: '/admin/orders', label: 'Orders', icon: ShoppingCart },
     { href: '/admin/fulfillment', label: 'Fulfillment', icon: Activity },
+    { href: '/admin/datagod', label: 'DataGod Terminal', icon: Activity },
     { href: '/admin/airtime', label: 'Airtime', icon: Phone },
     { href: '/admin/shops', label: 'Shops', icon: Store },
     { href: '/admin/shops/withdrawals', label: 'Shop Withdrawals', icon: Banknote },
