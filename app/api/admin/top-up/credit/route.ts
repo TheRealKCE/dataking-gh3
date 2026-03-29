@@ -50,7 +50,7 @@ export async function POST(request: NextRequest) {
             }, { status: 400 })
         }
 
-        const supabase = createServerClient()
+        const supabase = createServerClient() as any
 
         // --- IDEMPOTENCY CHECK ---
         // Block if same user_id + amount was already credited by admin in the last 5 seconds

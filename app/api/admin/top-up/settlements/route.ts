@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
         }
 
-        const supabase = createServerClient()
+        const supabase = createServerClient() as any
 
         const { data: settlements, error } = await supabase
             .from('pending_settlements')
@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
         }
 
         // Fetch user info for each settlement
-        const userIds = [...new Set(settlements.map(s => s.user_id))]
+        const userIds = [...new Set((settlements as any[]).map((s: any) => s.user_id))]
         const { data: users } = await supabase
             .from('users')
             .select('id, first_name, last_name, phone_number')
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
         const userMap: Record<string, any> = {}
         for (const u of users ?? []) userMap[u.id] = u
 
-        const enriched = settlements.map(s => ({
+        const enriched = (settlements as any[]).map((s: any) => ({
             ...s,
             remaining: s.amount_owed - s.amount_settled,
             first_name: userMap[s.user_id]?.first_name ?? 'Unknown',

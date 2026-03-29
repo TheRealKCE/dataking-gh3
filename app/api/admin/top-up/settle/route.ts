@@ -33,14 +33,14 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'settlementId and paymentAmount > 0 are required' }, { status: 400 })
         }
 
-        const supabase = createServerClient()
+        const supabase = createServerClient() as any
 
         // Fetch current settlement record
-        const { data: settlement, error: fetchError } = await (supabase
+        const { data: settlement, error: fetchError } = await supabase
             .from('pending_settlements')
             .select('id, amount_owed, amount_settled, status')
             .eq('id', settlementId)
-            .single() as any)
+            .single()
 
         if (fetchError || !settlement) {
             return NextResponse.json({ error: 'Settlement record not found' }, { status: 404 })
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
         const isFullySettled = newAmountSettled >= s.amount_owed
         const remaining = Math.max(0, s.amount_owed - newAmountSettled)
 
-        const { error: updateError } = await (supabase
+        const { error: updateError } = await supabase
             .from('pending_settlements')
             .update({
                 amount_settled: Math.min(newAmountSettled, s.amount_owed),
@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
                 payment_method: paymentMethod || null,
                 notes: notes || null
             })
-            .eq('id', settlementId) as any)
+            .eq('id', settlementId)
 
         if (updateError) throw updateError
 
