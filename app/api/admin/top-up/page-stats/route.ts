@@ -35,6 +35,7 @@ export async function GET(request: NextRequest) {
             usersResult,
             agentsResult,
             customersResult,
+            subAdminsResult,
             topupsResult,
             debtResult
         ] = await Promise.all([
@@ -56,6 +57,11 @@ export async function GET(request: NextRequest) {
             // Customers count
             (supabase.from('users').select('*', { count: 'exact', head: true }).eq('role', 'customer') as any).then(({ count }: any) => ({
                 totalCustomers: count ?? 0
+            })),
+
+            // Sub-admins count
+            (supabase.from('users').select('*', { count: 'exact', head: true }).eq('role', 'subadmin') as any).then(({ count }: any) => ({
+                totalSubAdmins: count ?? 0
             })),
 
             // Admin top-ups today
@@ -91,6 +97,7 @@ export async function GET(request: NextRequest) {
             ...usersResult,
             ...agentsResult,
             ...customersResult,
+            ...subAdminsResult,
             ...topupsResult,
             ...debtResult
         })

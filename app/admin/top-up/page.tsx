@@ -3,11 +3,12 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Skeleton } from '@/components/ui/skeleton'
-import { CreditCard, Scale } from 'lucide-react'
+import { CreditCard, Scale, History } from 'lucide-react'
 import { StatCards } from './components/StatCards'
 import { UserSelector } from './components/UserSelector'
 import { TopUpForm } from './components/TopUpForm'
 import { SettlementsTab } from './components/SettlementsTab'
+import { CreditsHistoryTab } from './components/CreditsHistoryTab'
 import { cn } from '@/lib/utils'
 import { useSearchParams, useRouter } from 'next/navigation'
 
@@ -15,6 +16,7 @@ const ROLE_FILTERS = [
     { value: 'all', label: 'All' },
     { value: 'agent', label: 'Agent' },
     { value: 'customer', label: 'Customer' },
+    { value: 'subadmin', label: 'Sub-Admin' },
     { value: 'admin', label: 'Admin' },
 ]
 
@@ -23,6 +25,7 @@ interface PageStats {
     totalUsers: number
     totalAgents: number
     totalCustomers: number
+    totalSubAdmins: number
     totalAdminTopUpsToday: number
     totalCreditedToday: number
     totalOwed: number
@@ -41,12 +44,17 @@ interface SelectedUser {
     last_admin_topup_amount: number | null
 }
 
+type TabType = 'topup' | 'settlements' | 'history'
+
 export default function AdminTopUpPage() {
     const searchParams = useSearchParams()
     const router = useRouter()
-    const initialTab = searchParams.get('tab') === 'settlements' ? 'settlements' : 'topup'
+    const tabParam = searchParams.get('tab')
+    const initialTab: TabType =
+        tabParam === 'settlements' ? 'settlements' :
+        tabParam === 'history' ? 'history' : 'topup'
 
-    const [activeTab, setActiveTab] = useState<'topup' | 'settlements'>(initialTab)
+    const [activeTab, setActiveTab] = useState<TabType>(initialTab)
     const [roleFilter, setRoleFilter] = useState('agent')
     const [selectedUser, setSelectedUser] = useState<SelectedUser | null>(null)
     const [stats, setStats] = useState<PageStats | null>(null)
@@ -66,9 +74,10 @@ export default function AdminTopUpPage() {
 
     useEffect(() => { fetchStats() }, [fetchStats])
 
-    const handleTabChange = (tab: 'topup' | 'settlements') => {
+    const handleTabChange = (tab: TabType) => {
         setActiveTab(tab)
-        router.replace(`/admin/top-up${tab === 'settlements' ? '?tab=settlements' : ''}`, { scroll: false })
+        const param = tab !== 'topup' ? `?tab=${tab}` : ''
+        router.replace(`/admin/top-up${param}`, { scroll: false })
     }
 
     return (
@@ -92,37 +101,51 @@ export default function AdminTopUpPage() {
                 <StatCards stats={stats} />
             ) : null}
 
-            {/* Tab Switcher */}
-            <div className="flex gap-1 bg-slate-100 dark:bg-slate-900 rounded-xl p-1 w-full sm:w-fit">
-                <button
-                    onClick={() => handleTabChange('topup')}
-                    className={cn(
-                        'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all',
-                        activeTab === 'topup'
-                            ? 'bg-white dark:bg-slate-800 shadow text-yellow-600'
-                            : 'text-muted-foreground hover:text-foreground'
-                    )}
-                >
-                    <CreditCard className="w-4 h-4" />
-                    Top Up
-                </button>
-                <button
-                    onClick={() => handleTabChange('settlements')}
-                    className={cn(
-                        'flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold transition-all relative',
-                        activeTab === 'settlements'
-                            ? 'bg-white dark:bg-slate-800 shadow text-red-600'
-                            : 'text-muted-foreground hover:text-foreground'
-                    )}
-                >
-                    <Scale className="w-4 h-4" />
-                    Settlements
-                    {settlementCount > 0 && (
-                        <span className="ml-1 bg-red-500 text-white text-[10px] font-black rounded-full px-1.5 py-0.5 min-w-[18px] text-center animate-pulse">
-                            {settlementCount}
-                        </span>
-                    )}
-                </button>
+            {/* Tab Switcher — centered, large */}
+            <div className="flex justify-center">
+                <div className="flex gap-1 bg-slate-100 dark:bg-slate-900 rounded-2xl p-1.5 w-full sm:w-auto">
+                    <button
+                        onClick={() => handleTabChange('topup')}
+                        className={cn(
+                            'flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-bold transition-all flex-1 sm:flex-auto justify-center',
+                            activeTab === 'topup'
+                                ? 'bg-white dark:bg-slate-800 shadow-md text-yellow-600 dark:text-yellow-400'
+                                : 'text-muted-foreground hover:text-foreground'
+                        )}
+                    >
+                        <CreditCard className="w-4 h-4" />
+                        Top Up
+                    </button>
+                    <button
+                        onClick={() => handleTabChange('settlements')}
+                        className={cn(
+                            'flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-bold transition-all relative flex-1 sm:flex-auto justify-center',
+                            activeTab === 'settlements'
+                                ? 'bg-white dark:bg-slate-800 shadow-md text-red-600 dark:text-red-400'
+                                : 'text-muted-foreground hover:text-foreground'
+                        )}
+                    >
+                        <Scale className="w-4 h-4" />
+                        Settlements
+                        {settlementCount > 0 && (
+                            <span className="ml-1 bg-red-500 text-white text-[10px] font-black rounded-full px-1.5 py-0.5 min-w-[18px] text-center animate-pulse">
+                                {settlementCount}
+                            </span>
+                        )}
+                    </button>
+                    <button
+                        onClick={() => handleTabChange('history')}
+                        className={cn(
+                            'flex items-center gap-2 px-5 py-3 rounded-xl text-sm font-bold transition-all flex-1 sm:flex-auto justify-center',
+                            activeTab === 'history'
+                                ? 'bg-white dark:bg-slate-800 shadow-md text-blue-600 dark:text-blue-400'
+                                : 'text-muted-foreground hover:text-foreground'
+                        )}
+                    >
+                        <History className="w-4 h-4" />
+                        Credits History
+                    </button>
+                </div>
             </div>
 
             {/* Tab Content */}
@@ -147,6 +170,9 @@ export default function AdminTopUpPage() {
                                 )}
                                 {f.value === 'customer' && stats && (
                                     <span className="ml-1 opacity-60">({stats.totalCustomers})</span>
+                                )}
+                                {f.value === 'subadmin' && stats && (
+                                    <span className="ml-1 opacity-60">({stats.totalSubAdmins})</span>
                                 )}
                                 {f.value === 'all' && stats && (
                                     <span className="ml-1 opacity-60">({stats.totalUsers})</span>
@@ -186,6 +212,14 @@ export default function AdminTopUpPage() {
                 <Card className="border-slate-200 dark:border-slate-700 shadow-sm">
                     <CardContent className="p-4 sm:p-6">
                         <SettlementsTab onDebtChange={fetchStats} />
+                    </CardContent>
+                </Card>
+            )}
+
+            {activeTab === 'history' && (
+                <Card className="border-slate-200 dark:border-slate-700 shadow-sm">
+                    <CardContent className="p-4 sm:p-6">
+                        <CreditsHistoryTab />
                     </CardContent>
                 </Card>
             )}

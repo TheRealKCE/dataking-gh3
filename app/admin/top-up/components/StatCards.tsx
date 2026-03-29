@@ -10,6 +10,7 @@ interface PageStats {
     totalUsers: number
     totalAgents: number
     totalCustomers: number
+    totalSubAdmins: number
     totalAdminTopUpsToday: number
     totalCreditedToday: number
     totalOwed: number
