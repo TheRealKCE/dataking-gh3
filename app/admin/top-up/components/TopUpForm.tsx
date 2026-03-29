@@ -354,7 +354,7 @@ export function TopUpForm({ selectedUser, onSuccess }: TopUpFormProps) {
 
             {/* Confirmation Dialog */}
             <Dialog open={showConfirm} onOpenChange={setShowConfirm}>
-                <DialogContent>
+                <DialogContent aria-describedby={undefined}>
                     <DialogHeader>
                         <DialogTitle>Confirm Top-Up</DialogTitle>
                         <DialogDescription asChild>

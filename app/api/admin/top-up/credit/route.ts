@@ -122,24 +122,21 @@ export async function POST(request: NextRequest) {
         const { error: walletUpdateError } = await supabase
             .from('wallets')
             .update({
-                balance: newBalance,
-                total_credited: supabase.rpc as any // We use raw increment below
+                balance: newBalance
             })
             .eq('id', wallet.id)
 
         // Use direct increment for total_credited to avoid race conditions
-        await supabase.rpc('increment_wallet_credited' as any, {
-            p_wallet_id: wallet.id,
-            p_amount: netCredit
-        }).catch(() => {
+        try {
+            await supabase.rpc('increment_wallet_credited', {
+                p_wallet_id: wallet.id,
+                p_amount: netCredit
+            })
+        } catch (e) {
             // Fallback: fetch and update manually if RPC doesn't exist
-        })
+        }
 
-        // Direct balance update (balance is the critical field)
-        await supabase
-            .from('wallets')
-            .update({ balance: newBalance })
-            .eq('id', wallet.id)
+
 
         // Also update total_credited safely
         const { data: currentWallet } = await supabase

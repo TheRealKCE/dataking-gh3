@@ -1,0 +1,110 @@
+﻿
+> ghdata@1.0.0 build
+> next build
+
+   Γû▓ Next.js 15.1.9
+   - Environments: .env.local
+
+   Creating an optimized production build ...
+ Γ£ô Compiled successfully
+   Linting and checking validity of types ...
+node.exe : Failed to 
+compile.
+At line:1 char:1
++ & "C:\Program 
+Files\nodejs/node.exe" 
+"C:\Program 
+Files\nodejs/node_mo ...
++ ~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo       
+       : NotSpecifi    
+ed: (Failed to com    
+pile.:String) [],     
+RemoteException
+    + FullyQualifiedEr   
+ rorId : NativeComm    
+andError
+ 
+
+./app/api/admin/top-up/cr
+edit/route.ts:102:14
+Type error: No overload 
+matches this call.
+  Overload 1 of 2, 
+'(values: never, 
+options?: { count?: 
+"exact" | "planned" | 
+"estimated" | undefined; 
+} | undefined): 
+PostgrestFilterBuilder<{ 
+PostgrestVersion: "12"; 
+}, never, never, null, 
+"wallet_transactions", 
+never, "POST">', gave 
+the following error.
+    Argument of type '{ 
+wallet_id: any; user_id: 
+any; type: string; 
+amount: any; 
+description: any; 
+source: string; status: 
+string; }' is not 
+assignable to parameter 
+of type 'never'.
+  Overload 2 of 2, 
+'(values: never[], 
+options?: { count?: 
+"exact" | "planned" | 
+"estimated" | undefined; 
+defaultToNull?: boolean 
+| undefined; } | 
+undefined): 
+PostgrestFilterBuilder<{ 
+PostgrestVersion: "12"; 
+}, never, never, null, 
+"wallet_transactions", 
+never, "POST">', gave 
+the following error.
+    Object literal may 
+only specify known 
+properties, and 
+'wallet_id' does not 
+exist in type 'never[]'.
+
+[0m [90m 100 |[39m    
+     [36mconst[39m { 
+data[33m:[39m 
+newTx[33m,[39m 
+error[33m:[39m txError 
+} [33m=[39m 
+[36mawait[39m 
+supabase[0m
+[0m [90m 101 |[39m    
+         [33m.[39m[36m
+from[39m([32m'wallet_tr
+ansactions'[39m)[0m
+[0m[31m[1m>[22m[39m
+[90m 102 |[39m          
+   
+[33m.[39minsert({[0m
+[0m [90m     |[39m    
+          
+[31m[1m^[22m[39m[0m
+[0m [90m 103 |[39m    
+             
+wallet_id[33m:[39m wall
+et[33m.[39mid[33m,[39
+m[0m
+[0m [90m 104 |[39m    
+             
+user_id[33m:[39m 
+userId[33m,[39m[0m
+[0m [90m 105 |[39m    
+             
+type[33m:[39m [32m'cre
+dit'[39m[33m,[39m[0m
+Next.js build worker 
+exited with code: 1 and 
+signal: null
