@@ -23,7 +23,7 @@ import { cn } from '@/lib/utils'
 
 export function DashboardHeader() {
     const { dbUser, signOut, isAdmin, isSubAdmin } = useAuth()
-    const { toggleSidebar } = useUI()
+    const { toggleSidebar, isCollapsed } = useUI()
     const [unreadCount, setUnreadCount] = useState(0)
 
     useEffect(() => {
