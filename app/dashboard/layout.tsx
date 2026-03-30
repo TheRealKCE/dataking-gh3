@@ -62,6 +62,7 @@ export default function DashboardLayout({
                 )}>
                     <AnnouncementBell />
                     <DashboardHeader />
+                    <div className="h-16 flex-shrink-0" />
                     <main className="p-4 lg:p-6 flex-1">
                         <SuspendedAccount />
                     </main>
@@ -84,6 +85,7 @@ export default function DashboardLayout({
             )}>
                 <AnnouncementBell />
                 <DashboardHeader />
+                <div className="h-16 flex-shrink-0" />
                 <main className="p-4 lg:p-6 flex-1">
                     <PageAccessGuard>
                         {children}

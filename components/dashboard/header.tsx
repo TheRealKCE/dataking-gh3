@@ -54,7 +54,9 @@ export function DashboardHeader() {
 
     return (
         <header className={cn(
-            "sticky top-0 z-40 h-16 backdrop-blur-xl border-b transition-colors duration-200",
+            "fixed top-0 left-0 z-40 h-16 backdrop-blur-xl border-b transition-all duration-300 ease-in-out",
+            "w-full lg:left-80 lg:w-[calc(100%-20rem)]",
+            isCollapsed && "lg:left-20 lg:w-[calc(100%-5rem)]",
             dbUser?.role === 'agent'
                 ? "bg-gradient-to-b from-yellow-400 via-amber-500 to-amber-600 border-amber-600/20 shadow-sm"
                 : "bg-white/80 dark:bg-gray-900/80 border-gray-200 dark:border-gray-800"

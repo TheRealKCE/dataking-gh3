@@ -468,7 +468,7 @@ export default function ShopStorefront({ shop, packages, adminSettings }: Props)
                 .animate-shake { animation: shake 0.5s infinite; transform-origin: top center; }
             ` }} />
             {/* ── Permanent Top Bar ── */}
-            <div className="sticky top-0 left-0 w-full z-[45] shadow-lg border-b border-black/5 dark:border-white/5 bg-[var(--brand-color)]/95 backdrop-blur-md">
+            <div className="fixed top-0 left-0 w-full z-[45] shadow-lg border-b border-black/5 dark:border-white/5 bg-[var(--brand-color)]/95 backdrop-blur-md transition-all duration-300 ease-in-out">
                 <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
                         <button onClick={() => setIsSidebarOpen(true)} className="p-1 hover:bg-black/10 rounded-lg transition-colors flex-shrink-0 text-[var(--brand-contrast-text)]" aria-label="Open menu">
@@ -486,6 +486,8 @@ export default function ShopStorefront({ shop, packages, adminSettings }: Props)
                     <ThemeToggle />
                 </div>
             </div>
+            {/* Spacer to account for fixed top bar height */}
+            <div className="h-[60px] flex-shrink-0" />
 
             {/* ── Floating Notification Bell ── */}
             {announcement && (

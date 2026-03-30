@@ -21,11 +21,22 @@ import { WhatsAppCommunityButtons } from '@/components/whatsapp-community-button
 import { NetworkIcon } from '@/components/network-icon'
 import Image from 'next/image'
 import { getCachedPricing } from '@/lib/pricing-cache'
+import { cn } from '@/lib/utils'
 
 export default function HomePage() {
     const router = useRouter()
     const [guestUrl, setGuestUrl] = useState('https://kingflexygh.com/shop/felix-s-shop')
     const [adminPhone, setAdminPhone] = useState('')
+
+    const [headerScrolled, setHeaderScrolled] = useState(false)
+
+    useEffect(() => {
+        const handleHeaderScroll = () => {
+            setHeaderScrolled(window.scrollY > 50)
+        }
+        window.addEventListener('scroll', handleHeaderScroll, { passive: true })
+        return () => window.removeEventListener('scroll', handleHeaderScroll)
+    }, [])
 
     useEffect(() => {
         try {
@@ -48,13 +59,23 @@ export default function HomePage() {
     return (
         <div className="min-h-screen bg-[#E5E7EB] overflow-x-hidden">
             {/* Navigation */}
-            <nav className="fixed top-0 w-full z-50 bg-white lg:bg-white/80 lg:backdrop-blur-xl border-b border-slate-200 shadow-sm">
+            <nav className={cn(
+                "fixed top-0 w-full z-50 transition-all duration-300",
+                headerScrolled
+                    ? "bg-white/80 lg:bg-white/80 backdrop-blur-md shadow-sm border-b border-slate-200"
+                    : "bg-transparent border-transparent"
+            )}>
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                     <div className="flex items-center justify-between h-16">
                         <div className="flex items-center space-x-2 opacity-0"></div>
                         <div className="flex items-center space-x-4">
                             <Link href="/auth/login">
-                                <Button variant="ghost" className="text-slate-700 hover:bg-slate-100 font-semibold">
+                                <Button variant="ghost" className={cn(
+                                    "font-semibold",
+                                    headerScrolled
+                                        ? "text-slate-700 hover:bg-slate-100"
+                                        : "text-slate-800 hover:bg-white/20"
+                                )}>
                                     Login
                                 </Button>
                             </Link>
