@@ -102,7 +102,7 @@ export default function ShopWithdrawPage() {
     const [wallet, setWallet] = useState<ShopWallet | null>(null)
     const [history, setHistory] = useState<WithdrawalRequest[]>([])
     const [savedDetails, setSavedDetails] = useState<SavedDetail[]>([])
-    const [settings, setSettings] = useState<GlobalSettings>({ withdrawal_fee_percent: 5, withdrawal_fee_flat: 0, min_withdrawal_amount: 10 })
+    const [settings, setSettings] = useState<GlobalSettings>({ withdrawal_fee_percent: 0, withdrawal_fee_flat: 0, min_withdrawal_amount: 0 })
     const [loading, setLoading] = useState(true)
     const [submitting, setSubmitting] = useState(false)
     const [shopName, setShopName] = useState('')
@@ -164,19 +164,32 @@ export default function ShopWithdrawPage() {
             if (shopRes.data?.shop_name) setShopName(shopRes.data.shop_name)
             setSavedDetails(savedRes.data || [])
 
-            // Parse global settings
+            // Parse global settings — role-aware
             if (settingsRes.data) {
                 const s: Record<string, any> = {}
                 for (const row of settingsRes.data) {
                     s[row.key] = typeof row.value === 'string' ? parseFloat(row.value) : row.value
                 }
+
+                // Role of the current user (agent or customer)
+                const ownerRole = dbUser!.role || 'customer'
+
+                // Resolve fee: role-specific key → legacy global key → safe neutral default
+                const resolveGlobal = (baseKey: string, fallback: number): number => {
+                    const roleVal = s[`${baseKey}_${ownerRole}`]
+                    if (roleVal != null && !isNaN(roleVal)) return roleVal
+                    const legacyVal = s[baseKey]
+                    if (legacyVal != null && !isNaN(legacyVal)) return legacyVal
+                    return fallback
+                }
+
                 setSettings({
-                    withdrawal_fee_percent: s.withdrawal_fee_percent || 5,
-                    withdrawal_fee_flat: s.withdrawal_fee_flat || 0,
-                    min_withdrawal_amount: s.min_withdrawal_amount || 10,
+                    withdrawal_fee_percent: resolveGlobal('withdrawal_fee_percent', 0),
+                    withdrawal_fee_flat: resolveGlobal('withdrawal_fee_flat', 0),
+                    min_withdrawal_amount: resolveGlobal('min_withdrawal_amount', 0),
                 })
 
-                // Overlay shop-specific overrides
+                // Overlay shop-specific overrides (highest priority)
                 if (shopRes.data) {
                     const sp = shopRes.data
                     setSettings(prev => ({

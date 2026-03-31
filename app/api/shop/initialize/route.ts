@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
             .from('admin_settings')
             .select('key, value')
             .in('key', [
-                'shop_feature_enabled', 'shop_paystack_fee_percent', 'storefront_airtime_enabled',
+                'shop_feature_enabled', 'storefront_airtime_enabled',
                 'airtime_enabled_mtn', 'airtime_enabled_telecel', 'airtime_enabled_at',
                 'airtime_min_amount', 'airtime_max_amount',
                 'airtime_fee_mtn_customer', 'airtime_fee_mtn_agent',
@@ -97,6 +97,17 @@ export async function POST(request: NextRequest) {
 
         const settings: Record<string, string> = {}
         for (const row of (settingsRows || [])) settings[row.key] = row.value
+
+        // Fetch role-specific Paystack fee from the correct table (shop_global_settings)
+        const { data: paystackFeeRows } = await db
+            .from('shop_global_settings')
+            .select('key, value')
+            .in('key', [
+                `shop_paystack_fee_percent_${ownerRole}`,
+                'shop_paystack_fee_percent',
+            ])
+        const paystackFeeMap: Record<string, string> = {}
+        for (const row of (paystackFeeRows || [])) paystackFeeMap[row.key] = row.value
 
         if (settings.shop_feature_enabled === 'false') {
             return NextResponse.json({ error: 'Shop feature is currently disabled' }, { status: 503 })
@@ -185,7 +196,16 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({ error: 'Invalid pricing configuration' }, { status: 400 })
             }
 
-            const paystackFeePercent = shop.paystack_fee_percent ?? parseFloat(settings.shop_paystack_fee_percent || '1.95')
+            // --- Role-Aware Paystack Fee Resolution ---
+            // Priority: per-shop override → role-specific global → legacy global → last-resort default
+            let paystackFeePercent = 1.95 // last-resort only
+            if (shop.paystack_fee_percent !== null && shop.paystack_fee_percent !== undefined) {
+                paystackFeePercent = parseFloat(String(shop.paystack_fee_percent))
+            } else if (paystackFeeMap[`shop_paystack_fee_percent_${ownerRole}`] != null) {
+                paystackFeePercent = parseFloat(String(paystackFeeMap[`shop_paystack_fee_percent_${ownerRole}`]))
+            } else if (paystackFeeMap['shop_paystack_fee_percent'] != null) {
+                paystackFeePercent = parseFloat(String(paystackFeeMap['shop_paystack_fee_percent']))
+            }
             const paystackFee = Math.round(sellingPrice * (paystackFeePercent / 100) * 100) / 100
             totalAmount = Math.round((sellingPrice + paystackFee) * 100)
             pkgNetwork = pkg.network
