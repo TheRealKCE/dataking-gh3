@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
         if (shopError || !shop) return NextResponse.json({ error: 'Shop not found' }, { status: 404 })
 
         const ownerRole = shop.owner?.role || 'customer'
-        if (shop.approval_status !== 'approved' || !shop.is_active || !['agent', 'admin', 'sub-admin'].includes(shop.owner?.role)) {
+        if (shop.approval_status !== 'approved' || !shop.is_active || !['customer', 'agent', 'admin', 'sub-admin'].includes(shop.owner?.role)) {
             return NextResponse.json({
                 error: 'This shop is not currently active',
                 contact: { phone: shop.owner_phone, whatsapp: shop.whatsapp_number, email: shop.owner?.email }

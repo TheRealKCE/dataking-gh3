@@ -15,7 +15,8 @@ import { Switch } from '@/components/ui/switch'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
     Store, ArrowLeft, CheckCircle2, XCircle, AlertCircle, Clock,
-    ExternalLink, Loader2, Save, Wallet, Tag, MessageCircle
+    ExternalLink, Loader2, Save, Wallet, Tag, MessageCircle,
+    Eye, EyeOff, AlertTriangle, BarChart2, TrendingUp
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -53,6 +54,30 @@ interface PendingPrice {
     data_packages: { network: string; size: string; price: number; agent_price: number }
 }
 
+interface LivePrice {
+    package_id: string
+    selling_price: number
+    data_packages: { network: string; size: string; price: number; agent_price: number }
+}
+
+function parseSizeMB(size: string): number {
+    const mb = size.match(/(\d+(\.\d+)?)\s*MB/i)
+    if (mb) return parseFloat(mb[1])
+    const gb = size.match(/(\d+(\.\d+)?)\s*GB/i)
+    if (gb) return parseFloat(gb[1]) * 1024
+    return 0
+}
+
+function networkSortOrder(network: string): number {
+    const n = network.toLowerCase()
+    if (n.includes('mtn')) return 0
+    if (n.includes('telecel')) return 1
+    if (n.includes('ishare') || n.includes('at-i')) return 2
+    if (n.includes('bigtime') || n.includes('big')) return 3
+    if (n.includes('at')) return 4
+    return 5
+}
+
 const statusConfig = {
     pending: { label: 'Pending', color: 'bg-yellow-100 text-yellow-700', icon: Clock },
     approved: { label: 'Active', color: 'bg-green-100 text-green-700', icon: CheckCircle2 },
@@ -82,6 +107,12 @@ export default function AdminShopDetailPage() {
     const [minWithdrawAmount, setMinWithdrawAmount] = useState('')
     const [fulfillmentMode, setFulfillmentMode] = useState<'auto' | 'manual'>('auto')
     const [isActive, setIsActive] = useState(true)
+
+    const [livePrices, setLivePrices] = useState<LivePrice[]>([])
+    const [fetchingPrices, setFetchingPrices] = useState(false)
+    const [showLivePrices, setShowLivePrices] = useState(false)
+    const [revokingPricing, setRevokingPricing] = useState(false)
+    const [revocationNote, setRevocationNote] = useState('')
 
     useEffect(() => {
         if (dbUser && !isAdmin) { router.replace('/dashboard'); return }
@@ -255,6 +286,77 @@ export default function AdminShopDetailPage() {
             toast.error(err.message || 'Failed to reject pricing')
         } finally {
             setPricingAction(null)
+        }
+    }
+
+    const fetchLivePrices = async () => {
+        if (showLivePrices) {
+            setShowLivePrices(false)
+            return
+        }
+        setFetchingPrices(true)
+        try {
+            const { data, error } = await (supabase as any)
+                .from('shop_pricing')
+                .select('*, data_packages(network, size, price, agent_price)')
+                .eq('shop_id', shopId)
+            if (error) throw error
+            const sorted = ((data || []) as LivePrice[]).sort((a, b) => {
+                const netA = networkSortOrder(a.data_packages?.network || '')
+                const netB = networkSortOrder(b.data_packages?.network || '')
+                if (netA !== netB) return netA - netB
+                return parseSizeMB(a.data_packages?.size || '') - parseSizeMB(b.data_packages?.size || '')
+            })
+            setLivePrices(sorted)
+            setShowLivePrices(true)
+        } catch (err: any) {
+            toast.error(err.message || 'Failed to fetch live pricing')
+        } finally {
+            setFetchingPrices(false)
+        }
+    }
+
+    const revokeLivePricing = async () => {
+        if (!revocationNote.trim()) {
+            toast.error('Please provide a revocation reason for the shop owner')
+            return
+        }
+        setRevokingPricing(true)
+        try {
+            await (supabase as any).from('shop_pricing').delete().eq('shop_id', shopId)
+            const { error } = await (supabase as any).from('shop_profiles').update({
+                pricing_status: 'rejected',
+                pricing_note: revocationNote.trim(),
+                pricing_rejection_acknowledged: false,
+                is_active: false,
+                updated_at: new Date().toISOString(),
+            }).eq('id', shopId)
+            if (error) throw error
+            if (shop && owner) {
+                fetch('/api/shop/alerts', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        type: 'pricing_rejected',
+                        payload: {
+                            phone: shop.owner_phone,
+                            firstName: owner.first_name,
+                            email: owner.email,
+                            shopName: shop.shop_name,
+                            reason: revocationNote.trim(),
+                        },
+                    }),
+                }).catch(err => console.warn('[ShopAlert]', err))
+            }
+            toast.success('Live pricing revoked. Shop has been taken offline.')
+            setShowLivePrices(false)
+            setLivePrices([])
+            setRevocationNote('')
+            fetchData()
+        } catch (err: any) {
+            toast.error(err.message || 'Failed to revoke pricing')
+        } finally {
+            setRevokingPricing(false)
         }
     }
 
@@ -475,6 +577,134 @@ export default function AdminShopDetailPage() {
                     </CardContent>
                 </Card>
             )}
+
+            {/* Live Pricing Viewer */}
+            <Card className="border-sky-200 dark:border-sky-800">
+                <CardHeader>
+                    <div className="flex items-center justify-between">
+                        <CardTitle className="text-sm flex items-center gap-2 text-sky-700 dark:text-sky-400">
+                            <BarChart2 className="w-4 h-4" />
+                            Live Shop Pricing
+                        </CardTitle>
+                        <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={fetchLivePrices}
+                            disabled={fetchingPrices}
+                            className="h-8 text-xs gap-1.5 border-sky-500 text-sky-700 hover:bg-sky-50"
+                        >
+                            {fetchingPrices ? (
+                                <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            ) : showLivePrices ? (
+                                <EyeOff className="w-3.5 h-3.5" />
+                            ) : (
+                                <Eye className="w-3.5 h-3.5" />
+                            )}
+                            {showLivePrices ? 'Hide Live Pricing' : 'View Live Pricing'}
+                        </Button>
+                    </div>
+                </CardHeader>
+
+                {showLivePrices && (
+                    <CardContent className="space-y-4">
+                        {livePrices.length === 0 ? (
+                            <p className="text-sm text-muted-foreground text-center py-4">No live pricing configured for this shop.</p>
+                        ) : (() => {
+                            const isAgent = owner?.role === 'agent'
+                            const totalPkg = livePrices.length
+                            const avgProfit = livePrices.reduce((sum, p) => {
+                                const pkg = p.data_packages as any
+                                const cost = (isAgent && pkg?.agent_price > 0) ? pkg.agent_price : (pkg?.price || 0)
+                                return sum + (p.selling_price - cost)
+                            }, 0) / totalPkg
+
+                            return (
+                                <>
+                                    {/* Summary Metrics Bar */}
+                                    <div className="flex items-center gap-4 p-3 rounded-lg bg-sky-50 dark:bg-sky-950 border border-sky-100 dark:border-sky-800">
+                                        <div className="flex items-center gap-1.5">
+                                            <BarChart2 className="w-3.5 h-3.5 text-sky-600" />
+                                            <span className="text-xs text-muted-foreground">Total Packages:</span>
+                                            <span className="text-xs font-bold text-sky-700">{totalPkg}</span>
+                                        </div>
+                                        <div className="flex items-center gap-1.5">
+                                            <TrendingUp className="w-3.5 h-3.5 text-emerald-600" />
+                                            <span className="text-xs text-muted-foreground">Avg. Profit:</span>
+                                            <span className={cn('text-xs font-bold', avgProfit > 0 ? 'text-emerald-600' : 'text-red-600')}>
+                                                {avgProfit > 0 ? '+' : ''}{formatCurrency(avgProfit)}
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    {/* Pricing Table */}
+                                    <div className="rounded-lg border overflow-hidden">
+                                        <table className="w-full text-sm">
+                                            <thead>
+                                                <tr className="bg-muted/50 border-b text-xs text-muted-foreground">
+                                                    <th className="text-left px-3 py-2 font-medium">Package</th>
+                                                    <th className="text-right px-3 py-2 font-medium">Cost</th>
+                                                    <th className="text-right px-3 py-2 font-medium">Selling</th>
+                                                    <th className="text-right px-3 py-2 font-medium">Profit</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                {livePrices.map(p => {
+                                                    const pkg = p.data_packages as any
+                                                    const cost = (isAgent && pkg?.agent_price > 0) ? pkg.agent_price : (pkg?.price || 0)
+                                                    const profit = p.selling_price - cost
+                                                    const hasWarning = profit <= 0
+                                                    return (
+                                                        <tr
+                                                            key={p.package_id}
+                                                            className="border-b last:border-0 hover:bg-muted/30 transition-colors"
+                                                        >
+                                                            <td className="px-3 py-2 font-medium">{pkg?.network} {pkg?.size}</td>
+                                                            <td className="px-3 py-2 text-right text-muted-foreground">{formatCurrency(cost)}</td>
+                                                            <td className="px-3 py-2 text-right font-semibold">{formatCurrency(p.selling_price)}</td>
+                                                            <td className={cn('px-3 py-2 text-right font-bold', hasWarning ? 'text-red-600' : 'text-emerald-600')}>
+                                                                <span className="flex items-center justify-end gap-1">
+                                                                    {hasWarning && <AlertTriangle className="w-3 h-3" />}
+                                                                    {profit > 0 ? '+' : ''}{formatCurrency(profit)}
+                                                                </span>
+                                                            </td>
+                                                        </tr>
+                                                    )
+                                                })}
+                                            </tbody>
+                                        </table>
+                                    </div>
+
+                                    {/* Revoke Live Pricing */}
+                                    <div className="space-y-2 pt-2 border-t">
+                                        <p className="text-xs font-semibold text-red-600">Revoke Live Pricing</p>
+                                        <p className="text-xs text-muted-foreground">Revoking will clear all live prices, take the shop offline, and notify the owner to re-submit pricing.</p>
+                                        <div>
+                                            <Label htmlFor="revocation_note">Revocation Reason (required)</Label>
+                                            <Textarea
+                                                id="revocation_note"
+                                                value={revocationNote}
+                                                onChange={(e) => setRevocationNote(e.target.value)}
+                                                placeholder="Explain to the shop owner why their pricing was revoked..."
+                                                rows={2}
+                                                className="mt-1"
+                                            />
+                                        </div>
+                                        <Button
+                                            onClick={revokeLivePricing}
+                                            disabled={revokingPricing}
+                                            variant="outline"
+                                            className="border-red-500 text-red-600 hover:bg-red-50 gap-1.5"
+                                        >
+                                            {revokingPricing ? <Loader2 className="w-4 h-4 animate-spin" /> : <XCircle className="w-4 h-4" />}
+                                            Revoke Live Pricing
+                                        </Button>
+                                    </div>
+                                </>
+                            )
+                        })()}
+                    </CardContent>
+                )}
+            </Card>
 
             {/* Approval Controls */}
             <Card>
