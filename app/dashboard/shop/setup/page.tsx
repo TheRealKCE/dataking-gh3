@@ -17,22 +17,9 @@ import {
     Loader2, ExternalLink, ArrowLeft, ChevronDown, ChevronUp, Users,
     X, Trash2, CheckCircle2, XCircle, AlertTriangle, ImageIcon, RefreshCw
 } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { cn, normalizeWhatsAppNumber } from '@/lib/utils'
 import { toast } from 'sonner'
 
-// ─── WhatsApp Normalization ───────────────────────────────────────────────────
-function normalizeWhatsapp(raw: string): string {
-    // Strip all non-digit characters (spaces, dashes, +, brackets)
-    let digits = raw.replace(/\D/g, '')
-    if (!digits) return ''
-    // 9 digits (no prefix) → prepend 233
-    if (digits.length === 9) return '233' + digits
-    // starts with 0 → replace leading 0 with 233
-    if (digits.startsWith('0')) return '233' + digits.slice(1)
-    // starts with 233 → keep as-is
-    if (digits.startsWith('233')) return digits
-    return digits
-}
 
 // ─── Brand Presets ────────────────────────────────────────────────────────────
 const BRAND_PRESETS = [
@@ -246,7 +233,7 @@ export default function ShopSetupPage() {
             setLogoPreview(data.logo_url)
             setBannerUrl(data.banner_url || null)
             setBannerPreview(data.banner_url || null)
-            const normalizedWA = normalizeWhatsapp(data.whatsapp_number || '')
+            const normalizedWA = normalizeWhatsAppNumber(data.whatsapp_number || '')
             setSavedIsActive(data.is_active ?? true)
             setForm({
                 shop_name: data.shop_name || '',
@@ -372,7 +359,7 @@ export default function ShopSetupPage() {
     }
 
     // ─── WhatsApp derived state ───────────────────────────────────────────────
-    const normalizedWA = normalizeWhatsapp(form.whatsapp_number)
+    const normalizedWA = normalizeWhatsAppNumber(form.whatsapp_number)
     const waValid = !normalizedWA || /^233\d{9}$/.test(normalizedWA)
 
     // ─── Save ─────────────────────────────────────────────────────────────────
@@ -388,7 +375,7 @@ export default function ShopSetupPage() {
 
         setSaving(true)
         try {
-            const finalWA = normalizeWhatsapp(form.whatsapp_number)
+            const finalWA = normalizeWhatsAppNumber(form.whatsapp_number)
             const payload = {
                 owner_id: dbUser!.id,
                 shop_name: form.shop_name.trim(),
@@ -717,7 +704,7 @@ export default function ShopSetupPage() {
                             <Input
                                 id="whatsapp_number"
                                 value={form.whatsapp_number}
-                                onChange={(e) => updateForm({ whatsapp_number: normalizeWhatsapp(e.target.value) })}
+                                onChange={(e) => updateForm({ whatsapp_number: e.target.value })}
                                 placeholder="0244123456 or +233244123456"
                                 className="mt-1"
                             />
