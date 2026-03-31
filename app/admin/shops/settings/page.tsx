@@ -183,24 +183,39 @@ export default function AdminShopSettingsPage() {
         setSaving(true)
         try {
             const now = new Date().toISOString()
+
+            // NaN-safe parser: empty string → 0, valid numbers → that number.
+            const safeParse = (val: string): number => {
+                const n = parseFloat(val)
+                return isNaN(n) ? 0 : n
+            }
+
             const rows = [
                 // Platform control
                 { key: 'shop_feature_enabled',      value: settings.shop_feature_enabled,      updated_at: now },
                 { key: 'default_fulfillment_mode',  value: settings.default_fulfillment_mode,  updated_at: now },
                 // Customer-specific fees
-                { key: 'shop_paystack_fee_percent_customer',  value: parseFloat(settings.customer.paystack_fee_percent)  || 0, updated_at: now },
-                { key: 'withdrawal_fee_percent_customer',     value: parseFloat(settings.customer.withdrawal_fee_percent) || 0, updated_at: now },
-                { key: 'withdrawal_fee_flat_customer',        value: parseFloat(settings.customer.withdrawal_fee_flat)    || 0, updated_at: now },
-                { key: 'min_withdrawal_amount_customer',      value: parseFloat(settings.customer.min_withdrawal_amount)  || 0, updated_at: now },
+                { key: 'shop_paystack_fee_percent_customer',  value: safeParse(settings.customer.paystack_fee_percent),  updated_at: now },
+                { key: 'withdrawal_fee_percent_customer',     value: safeParse(settings.customer.withdrawal_fee_percent), updated_at: now },
+                { key: 'withdrawal_fee_flat_customer',        value: safeParse(settings.customer.withdrawal_fee_flat),    updated_at: now },
+                { key: 'min_withdrawal_amount_customer',      value: safeParse(settings.customer.min_withdrawal_amount),  updated_at: now },
                 // Agent-specific fees
-                { key: 'shop_paystack_fee_percent_agent',     value: parseFloat(settings.agent.paystack_fee_percent)     || 0, updated_at: now },
-                { key: 'withdrawal_fee_percent_agent',        value: parseFloat(settings.agent.withdrawal_fee_percent)    || 0, updated_at: now },
-                { key: 'withdrawal_fee_flat_agent',           value: parseFloat(settings.agent.withdrawal_fee_flat)       || 0, updated_at: now },
-                { key: 'min_withdrawal_amount_agent',         value: parseFloat(settings.agent.min_withdrawal_amount)     || 0, updated_at: now },
+                { key: 'shop_paystack_fee_percent_agent',     value: safeParse(settings.agent.paystack_fee_percent),     updated_at: now },
+                { key: 'withdrawal_fee_percent_agent',        value: safeParse(settings.agent.withdrawal_fee_percent),    updated_at: now },
+                { key: 'withdrawal_fee_flat_agent',           value: safeParse(settings.agent.withdrawal_fee_flat),       updated_at: now },
+                { key: 'min_withdrawal_amount_agent',         value: safeParse(settings.agent.min_withdrawal_amount),     updated_at: now },
             ]
 
-            const { error } = await (supabase as any).from('shop_global_settings').upsert(rows, { onConflict: 'key' })
-            if (error) throw error
+            // Use the server-side API route which uses the service role client.
+            // Direct browser-client upserts on shop_global_settings fail silently
+            // because no write RLS policy exists for authenticated users.
+            const res = await fetch('/api/admin/shop/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ rows }),
+            })
+            const result = await res.json()
+            if (!res.ok) throw new Error(result.error || 'Failed to save settings')
 
             toast.success('Global settings saved! Changes take effect immediately for all shops without custom overrides.')
         } catch (err: any) {
