@@ -11,25 +11,126 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Settings, ArrowLeft, Save, Loader2, AlertCircle } from 'lucide-react'
+import { Settings, ArrowLeft, Save, Loader2, AlertCircle, Users, UserCheck } from 'lucide-react'
 import { toast } from 'sonner'
+
+interface RoleFeeConfig {
+    paystack_fee_percent: string
+    withdrawal_fee_percent: string
+    withdrawal_fee_flat: string
+    min_withdrawal_amount: string
+}
 
 interface GlobalSettings {
     shop_feature_enabled: boolean
-    withdrawal_fee_percent: number
-    withdrawal_fee_flat: number
-    min_withdrawal_amount: number
-    shop_paystack_fee_percent: number
     default_fulfillment_mode: 'auto' | 'manual'
+    customer: RoleFeeConfig
+    agent: RoleFeeConfig
 }
 
 const DEFAULTS: GlobalSettings = {
     shop_feature_enabled: true,
-    withdrawal_fee_percent: 5,
-    withdrawal_fee_flat: 0,
-    min_withdrawal_amount: 10,
-    shop_paystack_fee_percent: 1.95,
     default_fulfillment_mode: 'auto',
+    customer: {
+        paystack_fee_percent: '1.95',
+        withdrawal_fee_percent: '5.0',
+        withdrawal_fee_flat: '0.0',
+        min_withdrawal_amount: '50.0',
+    },
+    agent: {
+        paystack_fee_percent: '1.50',
+        withdrawal_fee_percent: '3.0',
+        withdrawal_fee_flat: '0.0',
+        min_withdrawal_amount: '30.0',
+    },
+}
+
+function RoleFeeCard({
+    title,
+    subtitle,
+    icon: Icon,
+    iconColor,
+    borderColor,
+    config,
+    onChange,
+}: {
+    title: string
+    subtitle: string
+    icon: React.ElementType
+    iconColor: string
+    borderColor: string
+    config: RoleFeeConfig
+    onChange: (key: keyof RoleFeeConfig, value: string) => void
+}) {
+    return (
+        <Card className={`border-2 ${borderColor}`}>
+            <CardHeader className="pb-3">
+                <CardTitle className={`text-sm flex items-center gap-2 ${iconColor}`}>
+                    <Icon className="w-4 h-4" />
+                    {title}
+                </CardTitle>
+                <p className="text-xs text-muted-foreground">{subtitle}</p>
+            </CardHeader>
+            <CardContent className="space-y-4">
+                <div>
+                    <Label htmlFor={`${title}_paystack_fee`}>Paystack Fee (%)</Label>
+                    <Input
+                        id={`${title}_paystack_fee`}
+                        type="number"
+                        min="0"
+                        max="10"
+                        step="0.01"
+                        value={config.paystack_fee_percent}
+                        onChange={(e) => onChange('paystack_fee_percent', e.target.value)}
+                        className="mt-1"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">
+                        Added on top of selling price to cover Paystack charges for {title.toLowerCase()} shops.
+                    </p>
+                </div>
+
+                <div>
+                    <Label htmlFor={`${title}_withdrawal_fee_percent`}>Withdrawal Fee (%)</Label>
+                    <Input
+                        id={`${title}_withdrawal_fee_percent`}
+                        type="number"
+                        min="0"
+                        max="50"
+                        step="0.1"
+                        value={config.withdrawal_fee_percent}
+                        onChange={(e) => onChange('withdrawal_fee_percent', e.target.value)}
+                        className="mt-1"
+                    />
+                </div>
+
+                <div>
+                    <Label htmlFor={`${title}_withdrawal_fee_flat`}>Withdrawal Flat Fee (GHS)</Label>
+                    <Input
+                        id={`${title}_withdrawal_fee_flat`}
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        value={config.withdrawal_fee_flat}
+                        onChange={(e) => onChange('withdrawal_fee_flat', e.target.value)}
+                        className="mt-1"
+                    />
+                </div>
+
+                <div>
+                    <Label htmlFor={`${title}_min_withdrawal`}>Minimum Withdrawal Amount (GHS)</Label>
+                    <Input
+                        id={`${title}_min_withdrawal`}
+                        type="number"
+                        min="1"
+                        step="0.01"
+                        value={config.min_withdrawal_amount}
+                        onChange={(e) => onChange('min_withdrawal_amount', e.target.value)}
+                        className="mt-1"
+                    />
+                </div>
+            </CardContent>
+        </Card>
+    )
 }
 
 export default function AdminShopSettingsPage() {
@@ -53,32 +154,55 @@ export default function AdminShopSettingsPage() {
             }
             setSettings({
                 shop_feature_enabled: map.shop_feature_enabled !== false && map.shop_feature_enabled !== 'false',
-                withdrawal_fee_percent: map.withdrawal_fee_percent != null ? parseFloat(map.withdrawal_fee_percent) : DEFAULTS.withdrawal_fee_percent,
-                withdrawal_fee_flat: map.withdrawal_fee_flat != null ? parseFloat(map.withdrawal_fee_flat) : DEFAULTS.withdrawal_fee_flat,
-                min_withdrawal_amount: map.min_withdrawal_amount != null ? parseFloat(map.min_withdrawal_amount) : DEFAULTS.min_withdrawal_amount,
-                shop_paystack_fee_percent: map.shop_paystack_fee_percent != null ? parseFloat(map.shop_paystack_fee_percent) : DEFAULTS.shop_paystack_fee_percent,
                 default_fulfillment_mode: map.default_fulfillment_mode || DEFAULTS.default_fulfillment_mode,
+                customer: {
+                    paystack_fee_percent:  map.shop_paystack_fee_percent_customer  != null ? String(parseFloat(map.shop_paystack_fee_percent_customer))  : DEFAULTS.customer.paystack_fee_percent,
+                    withdrawal_fee_percent: map.withdrawal_fee_percent_customer     != null ? String(parseFloat(map.withdrawal_fee_percent_customer))     : DEFAULTS.customer.withdrawal_fee_percent,
+                    withdrawal_fee_flat:    map.withdrawal_fee_flat_customer        != null ? String(parseFloat(map.withdrawal_fee_flat_customer))        : DEFAULTS.customer.withdrawal_fee_flat,
+                    min_withdrawal_amount:  map.min_withdrawal_amount_customer      != null ? String(parseFloat(map.min_withdrawal_amount_customer))      : DEFAULTS.customer.min_withdrawal_amount,
+                },
+                agent: {
+                    paystack_fee_percent:  map.shop_paystack_fee_percent_agent     != null ? String(parseFloat(map.shop_paystack_fee_percent_agent))     : DEFAULTS.agent.paystack_fee_percent,
+                    withdrawal_fee_percent: map.withdrawal_fee_percent_agent        != null ? String(parseFloat(map.withdrawal_fee_percent_agent))        : DEFAULTS.agent.withdrawal_fee_percent,
+                    withdrawal_fee_flat:    map.withdrawal_fee_flat_agent           != null ? String(parseFloat(map.withdrawal_fee_flat_agent))           : DEFAULTS.agent.withdrawal_fee_flat,
+                    min_withdrawal_amount:  map.min_withdrawal_amount_agent         != null ? String(parseFloat(map.min_withdrawal_amount_agent))         : DEFAULTS.agent.min_withdrawal_amount,
+                },
             })
         }
         setLoading(false)
     }
 
+    const updateRoleConfig = (role: 'customer' | 'agent', key: keyof RoleFeeConfig, value: string) => {
+        setSettings(prev => ({
+            ...prev,
+            [role]: { ...prev[role], [key]: value },
+        }))
+    }
+
     const handleSave = async () => {
         setSaving(true)
         try {
+            const now = new Date().toISOString()
             const rows = [
-                { key: 'shop_feature_enabled', value: settings.shop_feature_enabled, updated_at: new Date().toISOString() },
-                { key: 'withdrawal_fee_percent', value: settings.withdrawal_fee_percent, updated_at: new Date().toISOString() },
-                { key: 'withdrawal_fee_flat', value: settings.withdrawal_fee_flat, updated_at: new Date().toISOString() },
-                { key: 'min_withdrawal_amount', value: settings.min_withdrawal_amount, updated_at: new Date().toISOString() },
-                { key: 'shop_paystack_fee_percent', value: settings.shop_paystack_fee_percent, updated_at: new Date().toISOString() },
-                { key: 'default_fulfillment_mode', value: settings.default_fulfillment_mode, updated_at: new Date().toISOString() },
+                // Platform control
+                { key: 'shop_feature_enabled',      value: settings.shop_feature_enabled,      updated_at: now },
+                { key: 'default_fulfillment_mode',  value: settings.default_fulfillment_mode,  updated_at: now },
+                // Customer-specific fees
+                { key: 'shop_paystack_fee_percent_customer',  value: parseFloat(settings.customer.paystack_fee_percent)  || 0, updated_at: now },
+                { key: 'withdrawal_fee_percent_customer',     value: parseFloat(settings.customer.withdrawal_fee_percent) || 0, updated_at: now },
+                { key: 'withdrawal_fee_flat_customer',        value: parseFloat(settings.customer.withdrawal_fee_flat)    || 0, updated_at: now },
+                { key: 'min_withdrawal_amount_customer',      value: parseFloat(settings.customer.min_withdrawal_amount)  || 0, updated_at: now },
+                // Agent-specific fees
+                { key: 'shop_paystack_fee_percent_agent',     value: parseFloat(settings.agent.paystack_fee_percent)     || 0, updated_at: now },
+                { key: 'withdrawal_fee_percent_agent',        value: parseFloat(settings.agent.withdrawal_fee_percent)    || 0, updated_at: now },
+                { key: 'withdrawal_fee_flat_agent',           value: parseFloat(settings.agent.withdrawal_fee_flat)       || 0, updated_at: now },
+                { key: 'min_withdrawal_amount_agent',         value: parseFloat(settings.agent.min_withdrawal_amount)     || 0, updated_at: now },
             ]
 
             const { error } = await (supabase as any).from('shop_global_settings').upsert(rows, { onConflict: 'key' })
             if (error) throw error
 
-            toast.success('Global settings saved!')
+            toast.success('Global settings saved! Changes take effect immediately for all shops without custom overrides.')
         } catch (err: any) {
             toast.error(err.message || 'Failed to save settings')
         } finally {
@@ -88,7 +212,7 @@ export default function AdminShopSettingsPage() {
 
     if (loading) {
         return (
-            <div className="space-y-4 max-w-lg">
+            <div className="space-y-4 max-w-2xl">
                 <Skeleton className="h-8 w-48" />
                 {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-16" />)}
             </div>
@@ -96,7 +220,7 @@ export default function AdminShopSettingsPage() {
     }
 
     return (
-        <div className="space-y-6 max-w-lg">
+        <div className="space-y-6 max-w-2xl">
             <div className="flex items-center gap-3">
                 <Link href="/admin/shops">
                     <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -108,7 +232,9 @@ export default function AdminShopSettingsPage() {
                         <Settings className="w-5 h-5 text-emerald-600" />
                         Global Shop Settings
                     </h1>
-                    <p className="text-muted-foreground text-sm">Platform-wide defaults for all shops.</p>
+                    <p className="text-muted-foreground text-sm">
+                        Platform-wide defaults. Shops without custom overrides inherit these instantly on save.
+                    </p>
                 </div>
             </div>
 
@@ -135,66 +261,36 @@ export default function AdminShopSettingsPage() {
                 </CardContent>
             </Card>
 
-            {/* Fees */}
-            <Card>
-                <CardHeader><CardTitle className="text-sm">Fee Configuration</CardTitle></CardHeader>
-                <CardContent className="space-y-4">
-                    <div>
-                        <Label htmlFor="paystack_fee">Default Paystack Fee (%)</Label>
-                        <Input
-                            id="paystack_fee"
-                            type="number"
-                            min="0"
-                            max="10"
-                            step="0.01"
-                            value={settings.shop_paystack_fee_percent}
-                            onChange={(e) => setSettings(prev => ({ ...prev, shop_paystack_fee_percent: parseFloat(e.target.value) || 0 }))}
-                            className="mt-1"
-                        />
-                        <p className="text-xs text-muted-foreground mt-1">Added on top of selling price to cover Paystack charges. Can be overridden per shop.</p>
-                    </div>
-
-                    <div>
-                        <Label htmlFor="withdrawal_fee_percent">Withdrawal Fee (%)</Label>
-                        <Input
-                            id="withdrawal_fee_percent"
-                            type="number"
-                            min="0"
-                            max="50"
-                            step="0.1"
-                            value={settings.withdrawal_fee_percent}
-                            onChange={(e) => setSettings(prev => ({ ...prev, withdrawal_fee_percent: parseFloat(e.target.value) || 0 }))}
-                            className="mt-1"
-                        />
-                    </div>
-
-                    <div>
-                        <Label htmlFor="withdrawal_fee_flat">Withdrawal Flat Fee (GHS)</Label>
-                        <Input
-                            id="withdrawal_fee_flat"
-                            type="number"
-                            min="0"
-                            step="0.01"
-                            value={settings.withdrawal_fee_flat}
-                            onChange={(e) => setSettings(prev => ({ ...prev, withdrawal_fee_flat: parseFloat(e.target.value) || 0 }))}
-                            className="mt-1"
-                        />
-                    </div>
-
-                    <div>
-                        <Label htmlFor="min_withdrawal">Minimum Withdrawal Amount (GHS)</Label>
-                        <Input
-                            id="min_withdrawal"
-                            type="number"
-                            min="1"
-                            step="0.01"
-                            value={settings.min_withdrawal_amount}
-                            onChange={(e) => setSettings(prev => ({ ...prev, min_withdrawal_amount: parseFloat(e.target.value) || 1 }))}
-                            className="mt-1"
-                        />
-                    </div>
-                </CardContent>
-            </Card>
+            {/* Role-Specific Fee Configuration */}
+            <div>
+                <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide mb-3">
+                    Fee Configuration by Role
+                </h2>
+                <p className="text-xs text-muted-foreground mb-4">
+                    These are the default fees applied to all shops based on whether the owner is a Customer or Agent.
+                    Shops with custom admin-set overrides will not be affected by changes here.
+                </p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <RoleFeeCard
+                        title="Customer"
+                        subtitle="Applies to shops owned by regular customers"
+                        icon={Users}
+                        iconColor="text-blue-600"
+                        borderColor="border-blue-200 dark:border-blue-800"
+                        config={settings.customer}
+                        onChange={(key, value) => updateRoleConfig('customer', key, value)}
+                    />
+                    <RoleFeeCard
+                        title="Agent"
+                        subtitle="Applies to shops owned by subscribed agents"
+                        icon={UserCheck}
+                        iconColor="text-emerald-600"
+                        borderColor="border-emerald-200 dark:border-emerald-800"
+                        config={settings.agent}
+                        onChange={(key, value) => updateRoleConfig('agent', key, value)}
+                    />
+                </div>
+            </div>
 
             {/* Fulfillment */}
             <Card>

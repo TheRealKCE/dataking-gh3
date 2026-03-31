@@ -46,19 +46,67 @@ export async function POST(req: NextRequest) {
 
         if (!wallet) return NextResponse.json({ error: 'Shop wallet not found' }, { status: 404 })
 
+        // Fetch the shop's per-shop fee overrides (set by admin)
+        const { data: shopProfile } = await supabase
+            .from('shop_profiles')
+            .select('paystack_fee_percent, withdrawal_fee_percent, withdrawal_fee_flat, min_withdrawal_amount')
+            .eq('owner_id', user.id)
+            .single()
+
+        const ownerRole = dbUser.role || 'customer' // 'customer' or 'agent'
+
+        // Fetch all relevant global settings keys in one query
         const { data: settingsRows } = await supabase
             .from('shop_global_settings')
             .select('key, value')
-            .in('key', ['min_withdrawal_amount', 'withdrawal_fee_percent', 'withdrawal_fee_flat'])
+            .in('key', [
+                `withdrawal_fee_percent_${ownerRole}`,
+                `withdrawal_fee_flat_${ownerRole}`,
+                `min_withdrawal_amount_${ownerRole}`,
+                'withdrawal_fee_percent',
+                'withdrawal_fee_flat',
+                'min_withdrawal_amount',
+            ])
 
-        const settings: Record<string, number> = {
-            min_withdrawal_amount: 50,
-            withdrawal_fee_percent: 2,
-            withdrawal_fee_flat: 0
+        const globalMap: Record<string, number> = {}
+        for (const row of (settingsRows || [])) {
+            globalMap[row.key] = parseFloat(row.value)
         }
 
-        for (const row of (settingsRows || [])) {
-            settings[row.key] = parseFloat(row.value)
+        // --- Role-Aware Fee Resolution ---
+        // Priority: per-shop override (if not null) → role-specific global → legacy global → hardcoded default
+        // Per-shop override of 0 means "deliberately free". Only null means "inherit global".
+        function resolveWithdrawalFee(
+            perShopValue: number | null | undefined,
+            roleKey: string,
+            legacyKey: string,
+            hardcodedDefault: number
+        ): number {
+            if (perShopValue !== null && perShopValue !== undefined) return perShopValue
+            if (globalMap[roleKey] != null) return globalMap[roleKey]
+            if (globalMap[legacyKey] != null) return globalMap[legacyKey]
+            return hardcodedDefault
+        }
+
+        const settings = {
+            min_withdrawal_amount: resolveWithdrawalFee(
+                shopProfile?.min_withdrawal_amount,
+                `min_withdrawal_amount_${ownerRole}`,
+                'min_withdrawal_amount',
+                50
+            ),
+            withdrawal_fee_percent: resolveWithdrawalFee(
+                shopProfile?.withdrawal_fee_percent,
+                `withdrawal_fee_percent_${ownerRole}`,
+                'withdrawal_fee_percent',
+                2
+            ),
+            withdrawal_fee_flat: resolveWithdrawalFee(
+                shopProfile?.withdrawal_fee_flat,
+                `withdrawal_fee_flat_${ownerRole}`,
+                'withdrawal_fee_flat',
+                0
+            ),
         }
 
         // 4. Security Checks: Server-side validation

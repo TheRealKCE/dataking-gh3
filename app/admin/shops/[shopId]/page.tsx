@@ -267,13 +267,24 @@ export default function AdminShopDetailPage() {
     const saveSettings = async () => {
         setSaving(true)
         try {
+            // Fee override parsing rule:
+            // - Blank ("") → null  → means "Inherit from Global Settings for this shop's owner role"
+            // - "0"        → 0     → means "Deliberately free for this shop"
+            // - any number → that exact number as an override
+            const parseOverride = (val: string): number | null => {
+                const trimmed = val.trim()
+                if (trimmed === '' || trimmed === null) return null
+                const parsed = parseFloat(trimmed)
+                return isNaN(parsed) ? null : parsed
+            }
+
             const { error } = await (supabase as any).from('shop_profiles').update({
-                fulfillment_mode: fulfillmentMode,
-                is_active: isActive,
-                paystack_fee_percent: feeOverride ? parseFloat(feeOverride) : null,
-                withdrawal_fee_percent: withdrawFeePercent ? parseFloat(withdrawFeePercent) : null,
-                withdrawal_fee_flat: withdrawFeeFlat ? parseFloat(withdrawFeeFlat) : null,
-                min_withdrawal_amount: minWithdrawAmount ? parseFloat(minWithdrawAmount) : null,
+                fulfillment_mode:       fulfillmentMode,
+                is_active:              isActive,
+                paystack_fee_percent:   parseOverride(feeOverride),
+                withdrawal_fee_percent: parseOverride(withdrawFeePercent),
+                withdrawal_fee_flat:    parseOverride(withdrawFeeFlat),
+                min_withdrawal_amount:  parseOverride(minWithdrawAmount),
                 updated_at: new Date().toISOString(),
             }).eq('id', shopId)
             if (error) throw error
@@ -531,7 +542,7 @@ export default function AdminShopDetailPage() {
                     </div>
 
                     <div>
-                        <Label htmlFor="fee_override">Paystack Fee Override (%) — leave blank to use global default</Label>
+                        <Label htmlFor="fee_override">Paystack Fee Override (%)</Label>
                         <Input
                             id="fee_override"
                             type="number"
@@ -540,11 +551,17 @@ export default function AdminShopDetailPage() {
                             step="0.01"
                             value={feeOverride}
                             onChange={(e) => setFeeOverride(e.target.value)}
-                            placeholder="e.g. 1.95"
+                            placeholder="Blank = Inherits Global Rate"
                             className="mt-1 max-w-xs"
                         />
+                        <p className="text-xs text-muted-foreground mt-1">
+                            Leave blank to inherit the global rate for this owner's role. Enter <strong>0</strong> to waive the fee entirely for this shop.
+                        </p>
                     </div>
 
+                    <div className="p-3 rounded-lg bg-muted/40 border border-dashed text-xs text-muted-foreground mb-1">
+                        <strong>Note:</strong> Blank = Inherits rate from Global Settings (based on owner's role). &nbsp;|&nbsp; <strong>0</strong> = Fee deliberately waived for this shop.
+                    </div>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <Label htmlFor="withdraw_fee_percent">Withdrawal Fee (%) Override</Label>
@@ -556,7 +573,7 @@ export default function AdminShopDetailPage() {
                                 step="0.1"
                                 value={withdrawFeePercent}
                                 onChange={(e) => setWithdrawFeePercent(e.target.value)}
-                                placeholder="e.g. 5.0"
+                                placeholder="Blank = Inherits Global Rate"
                                 className="mt-1"
                             />
                         </div>
@@ -569,7 +586,7 @@ export default function AdminShopDetailPage() {
                                 step="0.01"
                                 value={withdrawFeeFlat}
                                 onChange={(e) => setWithdrawFeeFlat(e.target.value)}
-                                placeholder="e.g. 1.00"
+                                placeholder="Blank = Inherits Global Rate"
                                 className="mt-1"
                             />
                         </div>
@@ -578,11 +595,11 @@ export default function AdminShopDetailPage() {
                             <Input
                                 id="min_withdraw"
                                 type="number"
-                                min="1"
+                                min="0"
                                 step="0.01"
                                 value={minWithdrawAmount}
                                 onChange={(e) => setMinWithdrawAmount(e.target.value)}
-                                placeholder="e.g. 10.00"
+                                placeholder="Blank = Inherits Global Rate"
                                 className="mt-1"
                             />
                         </div>

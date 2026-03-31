@@ -66,6 +66,24 @@ export async function POST(request: NextRequest) {
             throw updateError
         }
 
+        // Reset shop fee overrides to null so the shop inherits agent global defaults.
+        // Non-blocking — failure does not abort the permanent upgrade.
+        try {
+            await (supabase
+                .from('shop_profiles') as any)
+                .update({
+                    paystack_fee_percent:   null,
+                    withdrawal_fee_percent: null,
+                    withdrawal_fee_flat:    null,
+                    min_withdrawal_amount:  null,
+                    updated_at: new Date().toISOString(),
+                })
+                .eq('owner_id', userId)
+            console.log(`[AdminPermanentRoleUpdate] Shop fee overrides reset for user ${userId}`)
+        } catch (resetErr) {
+            console.error('[AdminPermanentRoleUpdate] Failed to reset shop fee overrides (non-fatal):', resetErr)
+        }
+
         // Send SMS notification
         if (userDetails?.phone_number) {
             try {

@@ -117,9 +117,36 @@ export async function processShopOrder(
             verifiedProfit = actualAirtimeAmount > 0 ? actualAirtimeAmount * (shopFee / 100) : 0
             adminCostAtTime = actualAirtimeAmount
         } else {
-            const { data: settingsRows } = await db.from('shop_global_settings').select('key, value').eq('key', 'shop_paystack_fee_percent')
-            const globalFeePercent = settingsRows?.[0]?.value
-            const paystackFeePercent = shopProfile?.paystack_fee_percent ?? parseFloat(globalFeePercent) ?? 1.95
+            // --- Role-Aware Paystack Fee Resolution ---
+            // Priority: per-shop override → role-specific global → legacy global → hardcoded default
+            // A per-shop override of exactly 0 means "deliberately free for this shop".
+            // Only null means "inherit from global".
+            let paystackFeePercent = 1.95 // hardcoded last-resort default
+
+            // Fetch all relevant fee keys in one query for efficiency
+            const { data: paystackSettingsRows } = await db
+                .from('shop_global_settings')
+                .select('key, value')
+                .in('key', [
+                    `shop_paystack_fee_percent_${ownerRole}`,
+                    'shop_paystack_fee_percent',
+                ])
+            const paystackSettingsMap: Record<string, string> = {}
+            for (const row of (paystackSettingsRows || [])) {
+                paystackSettingsMap[row.key] = row.value
+            }
+
+            if (shopProfile?.paystack_fee_percent !== null && shopProfile?.paystack_fee_percent !== undefined) {
+                // Explicit per-shop override set by admin (0 = deliberately free)
+                paystackFeePercent = parseFloat(shopProfile.paystack_fee_percent)
+            } else if (paystackSettingsMap[`shop_paystack_fee_percent_${ownerRole}`] != null) {
+                // Role-specific global setting (customer or agent)
+                paystackFeePercent = parseFloat(paystackSettingsMap[`shop_paystack_fee_percent_${ownerRole}`])
+            } else if (paystackSettingsMap['shop_paystack_fee_percent'] != null) {
+                // Legacy fallback global key (backward compatibility)
+                paystackFeePercent = parseFloat(paystackSettingsMap['shop_paystack_fee_percent'])
+            }
+            // else: keep hardcoded default 1.95
 
             const { data: pkg } = await db.from('data_packages').select('price, agent_price, cost_price').eq('id', metadata.package_id).single()
             const { data: shopPrice } = await db.from('shop_pricing').select('selling_price').eq('shop_id', metadata.shop_id).eq('package_id', metadata.package_id).single()

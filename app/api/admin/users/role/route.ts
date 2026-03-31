@@ -74,6 +74,8 @@ export async function POST(request: NextRequest) {
         // Auto-adjust shop pricing to preserve the owner's profit margins.
         // This replaces the old "deactivate shop on role change" behaviour.
         // The shop stays live; only selling prices are silently recalculated.
+        // Also resets per-shop fee overrides so the shop inherits the correct
+        // global fee defaults for the new role.
         // -----------------------------------------------------------------
         if (oldRole !== role) {
             try {
@@ -92,6 +94,24 @@ export async function POST(request: NextRequest) {
                 }
             } catch (rpcErr) {
                 console.error('[AdminRoleUpdate] Unexpected RPC error:', rpcErr)
+            }
+
+            // Reset shop fee overrides to null so the shop inherits global defaults
+            // for the user's new role. Non-blocking — failure does not abort the role change.
+            try {
+                await (supabase
+                    .from('shop_profiles') as any)
+                    .update({
+                        paystack_fee_percent:   null,
+                        withdrawal_fee_percent: null,
+                        withdrawal_fee_flat:    null,
+                        min_withdrawal_amount:  null,
+                        updated_at: new Date().toISOString(),
+                    })
+                    .eq('owner_id', userId)
+                console.log(`[AdminRoleUpdate] Shop fee overrides reset for user ${userId}`)
+            } catch (resetErr) {
+                console.error('[AdminRoleUpdate] Failed to reset shop fee overrides (non-fatal):', resetErr)
             }
         }
 

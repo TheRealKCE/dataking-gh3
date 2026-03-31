@@ -50,6 +50,24 @@ export async function POST(request: NextRequest) {
             throw updateError
         }
 
+        // Reset shop fee overrides so the shop inherits the customer global settings.
+        // This is non-blocking — a failure here does not prevent the downgrade from completing.
+        try {
+            await (supabase
+                .from('shop_profiles') as any)
+                .update({
+                    paystack_fee_percent:   null,
+                    withdrawal_fee_percent: null,
+                    withdrawal_fee_flat:    null,
+                    min_withdrawal_amount:  null,
+                    updated_at: new Date().toISOString(),
+                })
+                .eq('owner_id', session.user.id)
+            console.log(`[AgentDowngrade] Shop fee overrides reset for user ${session.user.id}`)
+        } catch (resetErr) {
+            console.error('[AgentDowngrade] Failed to reset shop fee overrides (non-fatal):', resetErr)
+        }
+
         console.log(`[AgentDowngrade] User ${session.user.id} downgraded to customer`)
 
         return NextResponse.json({
