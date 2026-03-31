@@ -90,18 +90,12 @@ export default function AdminShopDetailPage() {
 
     const fetchData = async () => {
         try {
-            const [shopRes, walletRes, withdrawalRes, ordersRes, pendingRes] = await Promise.all([
+            // Note: wallet is fetched separately after shop loads (owner_id needed)
+            const [shopRes, ordersRes, pendingRes] = await Promise.all([
                 // Fix: explicit FK to avoid ambiguous relationship error
                 (supabase as any).from('shop_profiles')
                     .select('*, owner:users!shop_profiles_owner_id_fkey(first_name, last_name, email, role)')
                     .eq('id', shopId).single(),
-                (supabase as any).from('shop_wallets').select('*').eq('owner_id',
-                    // We'll get owner_id after shop loads — fetch by shop_id workaround
-                    // Actually fetch after shop loads
-                    'placeholder'
-                ).single(),
-                (supabase as any).from('shop_wallet_transactions').select('*')
-                    .eq('type', 'withdrawal').order('created_at', { ascending: false }).limit(20),
                 (supabase as any).from('shop_orders').select('id', { count: 'exact', head: true }).eq('shop_id', shopId),
                 (supabase as any).from('shop_pricing_pending')
                     .select('*, data_packages(network, size, price, agent_price)')
@@ -278,16 +272,23 @@ export default function AdminShopDetailPage() {
                 return isNaN(parsed) ? null : parsed
             }
 
-            const { error } = await (supabase as any).from('shop_profiles').update({
-                fulfillment_mode:       fulfillmentMode,
-                is_active:              isActive,
-                paystack_fee_percent:   parseOverride(feeOverride),
-                withdrawal_fee_percent: parseOverride(withdrawFeePercent),
-                withdrawal_fee_flat:    parseOverride(withdrawFeeFlat),
-                min_withdrawal_amount:  parseOverride(minWithdrawAmount),
-                updated_at: new Date().toISOString(),
-            }).eq('id', shopId)
-            if (error) throw error
+            // Use the server-side API route which uses the service role client.
+            // This bypasses the security trigger that protects fee columns from
+            // being modified by shop owners via the browser client.
+            const res = await fetch(`/api/admin/shop/${shopId}/settings`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    fulfillment_mode:       fulfillmentMode,
+                    is_active:              isActive,
+                    paystack_fee_percent:   parseOverride(feeOverride),
+                    withdrawal_fee_percent: parseOverride(withdrawFeePercent),
+                    withdrawal_fee_flat:    parseOverride(withdrawFeeFlat),
+                    min_withdrawal_amount:  parseOverride(minWithdrawAmount),
+                }),
+            })
+            const result = await res.json()
+            if (!res.ok) throw new Error(result.error || 'Failed to save settings')
             toast.success('Settings saved')
             fetchData()
         } catch (err: any) {
