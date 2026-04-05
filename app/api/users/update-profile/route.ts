@@ -1,13 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { createClient } from '@supabase/supabase-js'
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { cookies } from 'next/headers'
 
 export async function PUT(request: NextRequest) {
     try {
-        const supabase = createServerClient()
+        const cookieStore = await cookies()
+        const supabaseUserClient = createRouteHandlerClient({
+            // @ts-expect-error - auth-helpers types expect Promise but runtime needs synchronous object
+            cookies: () => cookieStore
+        })
         
         // 1. Authenticate user securely from server-context
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+        const { data: { session }, error: sessionError } = await supabaseUserClient.auth.getSession()
         
         if (sessionError || !session?.user) {
             return NextResponse.json({ error: 'Unauthorized Configuration' }, { status: 401 })
