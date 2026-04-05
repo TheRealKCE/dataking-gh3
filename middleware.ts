@@ -2,6 +2,17 @@ import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
+// ============================================================
+// STRICT CORS ALLOWLIST - Only these origins are trusted.
+// NEVER add a wildcard (*) here. Never reflect the raw Origin.
+// ============================================================
+const ALLOWED_ORIGINS: ReadonlySet<string> = new Set([
+    'https://kingflexygh.com',
+    'https://www.kingflexygh.com',
+    // Remove this line in production once testing is done:
+    'http://localhost:3000',
+])
+
 // Helper to add cache-prevention headers
 function addNoCacheHeaders(response: NextResponse) {
     response.headers.set('Cache-Control', 'no-store, no-cache, max-age=0, must-revalidate, proxy-revalidate')
@@ -10,11 +21,51 @@ function addNoCacheHeaders(response: NextResponse) {
     return response
 }
 
+// Sets CORS headers ONLY for explicitly allowlisted origins.
+// Never reflects the raw origin. Never uses wildcard with credentials.
+function setCORSHeaders(response: NextResponse, origin: string | null): NextResponse {
+    if (origin && ALLOWED_ORIGINS.has(origin)) {
+        response.headers.set('Access-Control-Allow-Origin', origin)
+        response.headers.set('Access-Control-Allow-Credentials', 'true')
+        response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS')
+        response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With')
+        response.headers.set('Vary', 'Origin')
+    }
+    // For untrusted/missing origins: emit NO Access-Control-* headers at all.
+    return response
+}
+
 export async function middleware(request: NextRequest) {
+    const origin = request.headers.get('origin')
+    const pathname = request.nextUrl.pathname
+
+    // === CORS PREFLIGHT HANDLER ===
+    // Handle OPTIONS preflight FIRST, before any Supabase logic.
+    if (request.method === 'OPTIONS') {
+        if (origin && ALLOWED_ORIGINS.has(origin)) {
+            // Trusted origin: approve the preflight
+            const preflightResponse = new NextResponse(null, { status: 204 })
+            return addNoCacheHeaders(setCORSHeaders(preflightResponse, origin))
+        } else {
+            // Untrusted origin: reject the preflight entirely
+            return new NextResponse(null, { status: 403 })
+        }
+    }
+
+    // === ORIGIN ENFORCEMENT FOR API ROUTES ===
+    // For cross-origin requests (Origin header present) to API routes,
+    // block the request if origin is not in the allowlist.
+    if (origin && pathname.startsWith('/api') && !ALLOWED_ORIGINS.has(origin)) {
+        console.warn(`[CORS] Blocked request from untrusted origin: ${origin} → ${pathname}`)
+        return new NextResponse(
+            JSON.stringify({ error: 'CORS: Origin not allowed' }),
+            { status: 403, headers: { 'Content-Type': 'application/json' } }
+        )
+    }
+
     const res = NextResponse.next()
     const supabase = createMiddlewareClient({ req: request, res })
 
-    const pathname = request.nextUrl.pathname
 
     let session = null
 
@@ -105,7 +156,7 @@ export async function middleware(request: NextRequest) {
         }
     }
 
-    return addNoCacheHeaders(res)
+    return addNoCacheHeaders(setCORSHeaders(res, origin))
 }
 
 export const config = {
