@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
                 const isPermanent = metadata.plan_type === 'permanent';
 
                 if (!isPermanent) {
-                    const planDays = parseInt(metadata.plan_days) || (metadata.plan_type === '3d' ? 3 : metadata.plan_type === '14d' ? 14 : 30)
+                    const planDays = metadata.plan_type === '3d' ? 3 : metadata.plan_type === '14d' ? 14 : 30
                     let expirationDate = new Date()
 
                     if (user.role === 'agent' && user.agent_expires_at) {

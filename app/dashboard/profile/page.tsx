@@ -101,23 +101,28 @@ export default function ProfilePage() {
     const handleSave = async () => {
         setIsSaving(true)
         try {
-            const { error } = await (supabase
-                .from('users') as any)
-                .update({
+            const res = await fetch('/api/users/update-profile', {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
                     first_name: formData.first_name,
                     last_name: formData.last_name,
                     phone_number: formData.phone_number,
-                    updated_at: new Date().toISOString(),
                 })
-                .eq('id', dbUser?.id as any)
+            })
 
-            if (error) throw error
+            const data = await res.json()
+
+            if (!res.ok) {
+                throw new Error(data.error || 'Failed to update profile')
+            }
 
             await refreshUser()
             setIsEditing(false)
             toast.success('Profile updated successfully')
-        } catch (error) {
-            toast.error('Failed to update profile')
+        } catch (error: any) {
+            console.error('Profile Update error:', error)
+            toast.error(error.message || 'Failed to update profile')
         } finally {
             setIsSaving(false)
         }
@@ -239,11 +244,18 @@ export default function ProfilePage() {
                         {(() => {
                             const userRole = (dbUser?.role || 'customer') as UserRole
                             const config = roleConfig[userRole] || roleConfig['customer']
+                            const roleBgClass = {
+                                'admin': 'bg-[#E60000]',
+                                'sub-admin': 'bg-[#FACC15]',
+                                'agent': 'bg-[#25D366]',
+                                'customer': 'bg-[#0056B3]',
+                            }[userRole] || 'bg-[#0056B3]'
+
                             const RoleIcon = config.icon
+
                             return (
                                 <div
-                                    className="w-20 h-20 rounded-full flex items-center justify-center text-white shadow-lg ring-4 ring-white dark:ring-gray-800"
-                                    style={{ backgroundColor: config.color }}
+                                    className={cn("w-20 h-20 rounded-full flex items-center justify-center text-white shadow-lg ring-4 ring-white dark:ring-gray-800", roleBgClass)}
                                 >
                                     <RoleIcon className="w-10 h-10" />
                                 </div>
