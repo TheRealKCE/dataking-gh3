@@ -1,0 +1,22 @@
+﻿ M app/api/admin/finance/stats/route.ts
+ M app/api/admin/orders/route.ts
+ M app/api/admin/shop/settings/route.ts
+ M app/api/admin/stats/route.ts
+ M app/api/admin/users/route.ts
+ D app/api/fix-admin/route.ts
+ M app/api/payments/webhook/route.ts
+ M app/dashboard/profile/page.tsx
+ M app/dashboard/shop/setup/page.tsx
+ M app/shop/[shopSlug]/ShopStorefront.tsx
+ M app/shop/[shopSlug]/about/page.tsx
+ M middleware.ts
+ M package-lock.json
+ M package.json
+?? app/api/users/update-profile/
+?? lib/auth-utils.ts
+?? public/images/person_happy.png
+?? public/images/person_stressed.png
+?? public/marketing-ad.html
+?? temp_git_status.txt
+?? temp_routes.txt
+?? temp_routes_utf8.txt

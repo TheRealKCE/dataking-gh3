@@ -45,14 +45,18 @@ export async function middleware(request: NextRequest) {
         }
     }
 
-    // Protected admin routes
-    if (pathname.startsWith('/admin')) {
+    // Protected admin routes (UI and API)
+    const isAdminUI = pathname.startsWith('/admin')
+    const isAdminAPI = pathname.startsWith('/api/admin')
+
+    if (isAdminUI || isAdminAPI) {
         if (!session) {
+            if (isAdminAPI) return addNoCacheHeaders(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }))
             return addNoCacheHeaders(NextResponse.redirect(new URL('/auth/login', request.url)))
         }
 
         try {
-            // Add 8 second timeout to role check (increased for slow connections)
+            // Add 8 second timeout to role check
             const timeout = new Promise((_, reject) =>
                 setTimeout(() => reject(new Error('Role check timeout')), 8000)
             )
@@ -69,11 +73,27 @@ export async function middleware(request: NextRequest) {
             ]) as any
 
             if (!user || (user.role !== 'admin' && user.role !== 'sub-admin')) {
+                if (isAdminAPI) return addNoCacheHeaders(NextResponse.json({ error: 'Forbidden' }, { status: 403 }))
                 return addNoCacheHeaders(NextResponse.redirect(new URL('/dashboard', request.url)))
+            }
+
+            // Strict Sub-Admin Lockdown
+            if (user.role === 'sub-admin') {
+                const isOrderPath = pathname.includes('/admin/orders')
+                
+                if (!isOrderPath) {
+                    console.warn(`[MiddlewareAudit] Sub-admin ${session.user.id} blocked from ${pathname}`)
+                    
+                    if (isAdminAPI) {
+                        return addNoCacheHeaders(NextResponse.json({ error: 'Forbidden' }, { status: 403 }))
+                    }
+                    
+                    return addNoCacheHeaders(NextResponse.redirect(new URL('/admin/orders', request.url)))
+                }
             }
         } catch (error) {
             console.error('Middleware role check error:', error)
-            // On error or timeout, redirect to dashboard (deny admin access)
+            if (isAdminAPI) return addNoCacheHeaders(NextResponse.json({ error: 'Internal server error' }, { status: 500 }))
             return addNoCacheHeaders(NextResponse.redirect(new URL('/dashboard', request.url)))
         }
     }
@@ -89,8 +109,8 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-    // Exclude static files and api routes to prevent unnecessary middleware execution
+    // Exclude static files but INCLUDE api/admin for protection
     matcher: [
-        '/((?!api/|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2)$).*)'
+        '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2)$).*)'
     ],
 }

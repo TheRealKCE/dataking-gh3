@@ -162,6 +162,9 @@ export default function ShopSetupPage() {
     const bannerInputRef = useRef<HTMLInputElement>(null)
     const cropCanvasRef = useRef<HTMLCanvasElement>(null)
     const pendingNavRef = useRef<string | null>(null)
+    
+    // Hex Color Validator
+    const isValidHex = (color: string) => /^#([A-Fa-f0-9]{3}){1,4}$/.test(color)
 
     const [existingShopId, setExistingShopId] = useState<string | null>(null)
     const [savedIsActive, setSavedIsActive] = useState(true)
@@ -451,10 +454,10 @@ export default function ShopSetupPage() {
 
     return (
         <div className="space-y-6 max-w-2xl pb-32 setup-theme">
-            {/* Dynamic CSS variables to avoid inline style lint errors */}
+            {/* Dynamic CSS variables with sanitization */}
             <style dangerouslySetInnerHTML={{ __html: `
                 .setup-theme { 
-                    --brand-color: ${form.brand_color}; 
+                    --brand-color: ${isValidHex(form.brand_color) ? form.brand_color : '#2563eb'}; 
                     ${platform ? `--platform-color: ${platform.color};` : ''}
                 }
                 ${BRAND_PRESETS.map((p, i) => `.preset-bg-${i} { background-color: ${p.color}; }`).join('\n')}

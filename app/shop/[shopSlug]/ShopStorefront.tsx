@@ -429,14 +429,17 @@ export default function ShopStorefront({ shop, packages, adminSettings }: Props)
     }
 
     const brandColor = shop.brand_color || '#2563eb'
-    const brandContrastText = isLightColor(brandColor) ? '#030712' : '#ffffff'
+    const isValidHex = (color: string) => /^#([A-Fa-f0-9]{3}){1,4}$/.test(color)
+    const safeBrandColor = isValidHex(brandColor) ? brandColor : '#2563eb'
+    
+    const brandContrastText = isLightColor(safeBrandColor) ? '#030712' : '#ffffff'
     const filteredPackages = packages.filter(p => p.network === activeNetwork)
     const { feeAmount: airFee, totalPay: airTotal, airtimeToReceive } = calculateAirtimeFees()
 
     if (pageLoading) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-[var(--brand-color)] theme-shop">
-                <style dangerouslySetInnerHTML={{ __html: `.theme-shop { --brand-color: ${brandColor}; }` }} />
+                <style dangerouslySetInnerHTML={{ __html: `.theme-shop { --brand-color: ${safeBrandColor}; }` }} />
                 <div className="flex flex-col items-center gap-4">
                     {shop.logo_url ? (
                         <div className="relative w-16 h-16 rounded-2xl overflow-hidden bg-white/20">
@@ -461,7 +464,7 @@ export default function ShopStorefront({ shop, packages, adminSettings }: Props)
         <div className="min-h-screen bg-gray-50 dark:bg-gray-950 theme-shop">
             <style dangerouslySetInnerHTML={{ __html: `
                 .theme-shop { 
-                    --brand-color: ${brandColor}; 
+                    --brand-color: ${safeBrandColor}; 
                     --brand-contrast-text: ${brandContrastText};
                 }
                 @keyframes shake { 0%, 100% { transform: rotate(0deg); } 25% { transform: rotate(15deg); } 75% { transform: rotate(-15deg); } }

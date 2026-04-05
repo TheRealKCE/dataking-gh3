@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>King Flexy — Master Ad Studio 🎬</title>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700;900&family=Orbitron:wght@700;900&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --brand-blue: #0056B3;
+      --brand-light: #00B4D8;
+      --brand-gold: #FACC15;
+      --brand-dark: #0A1628;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0d0d1a;
+      font-family: 'Poppins', sans-serif;
+      color: #fff;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      overflow-x: hidden;
+    }
+
+    /* ──────────────────── TOP HEADER ──────────────────── */
+    .studio-header { width: 100%; text-align: center; padding: 20px 20px 10px; }
+    .studio-header h1 { font-family: 'Orbitron', sans-serif; font-size: 1.4rem; color: var(--brand-gold); letter-spacing: 2px; text-transform: uppercase; }
+    .studio-header p { font-size: 0.8rem; opacity: 0.7; margin-top: 4px; }
+
+    /* ──────────────────── PLATFORM TABS ──────────────────── */
+    .platform-tabs {
+      display: flex; flex-wrap: wrap; gap: 8px; justify-content: center;
+      padding: 15px; max-width: 1000px; width: 100%; margin-bottom: 10px;
+    }
+    .tab-btn {
+      display: flex; align-items: center; gap: 8px; padding: 10px 18px;
+      border-radius: 50px; border: 2px solid rgba(255,255,255,0.12);
+      background: rgba(255,255,255,0.05); color: rgba(255,255,255,0.65);
+      font-family: 'Poppins', sans-serif; font-weight: 600; font-size: 0.8rem;
+      cursor: pointer; transition: all 0.3s ease;
+    }
+    .tab-btn:hover { background: rgba(255,255,255,0.12); color: #fff; }
+    .tab-btn.active { border-color: var(--brand-gold); background: rgba(250,204,21,0.12); color: var(--brand-gold); }
+
+    /* ──────────────────── AD STAGE ──────────────────── */
+    .ad-stage { position: relative; display: flex; flex-direction: column; align-items: center; width: 100%; padding-bottom: 60px; }
+    .platform-label { font-size: 0.75rem; letter-spacing: 2px; text-transform: uppercase; opacity: 0.5; margin-bottom: 15px; }
+
+    /* ──── Ad Frames ──── */
+    .ad-frame { position: relative; overflow: hidden; box-shadow: 0 30px 80px rgba(0,0,0,0.7); border: 1px solid rgba(255,255,255,0.1); }
+    .frame-vertical { width: 360px; height: 640px; border-radius: 20px; }
+    .frame-square   { width: 480px; height: 480px; border-radius: 20px; }
+    .frame-landscape{ width: 640px; height: 213px; border-radius: 14px; }
+    .frame-cover    { width: 640px; height: 237px; border-radius: 14px; }
+
+    .ad-panel { display: none; width: 100%; flex-direction: column; align-items: center; }
+    .ad-panel.active { display: flex; }
+
+    /* Common Utilities */
+    .anim-slide-up { animation: slideUp 0.7s cubic-bezier(.22,.68,0,1.2) forwards; opacity: 0; }
+    .anim-fade-in { animation: fadeIn 0.8s ease forwards; opacity: 0; }
+    .anim-scale-in { animation: scaleIn 0.6s cubic-bezier(.22,.68,0,1.2) forwards; opacity: 0; }
+    @keyframes slideUp { from { transform: translateY(40px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    @keyframes scaleIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+    @keyframes ticker { 0% { transform: translateX(100%); } 100% { transform: translateX(-100%); } }
+    @keyframes floatY { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
+
+    .d1 { animation-delay:.1s; } .d2 { animation-delay:.3s; } .d3 { animation-delay:.5s; }
+    .d4 { animation-delay:.7s; } .d5 { animation-delay:.9s; } .d6 { animation-delay:1.1s; }
+
+    /* Controls for 60s Video */
+    .btn-play { background: var(--brand-gold); color: #000; border: none; padding: 10px 24px; border-radius: 30px; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 8px; margin-top: 20px; font-size: 1rem; }
+    .btn-play:hover { transform: scale(1.05); }
+
+    /* ══════════════════════════════════════════════════════
+       1. THE 60-SECOND CINEMATIC VIDEO GENERATOR
+    ══════════════════════════════════════════════════════ */
+    .vid-bg { background: linear-gradient(135deg, var(--brand-dark) 0%, var(--brand-blue) 100%); }
+    .progress-container { position: absolute; top: 15px; left: 15px; right: 15px; height: 4px; display: flex; gap: 4px; z-index: 100; }
+    .progress-segment { flex: 1; background: rgba(255,255,255,0.2); border-radius: 2px; position: relative; overflow: hidden; }
+    .progress-fill { position: absolute; top:0; left:0; bottom:0; background: #fff; width: 0%; }
+    .timer-display { position: absolute; top: 25px; right: 20px; font-size: 0.7rem; font-family: monospace; z-index: 100; }
+
+    .scene { position: absolute; inset: 0; opacity: 0; visibility: hidden; transition: opacity 0.4s ease; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 20px; text-align: center; z-index: 10; }
+    .scene.active { opacity: 1; visibility: visible; z-index: 20; }
+
+    .scene .anim-el { opacity: 0; transform: translateY(30px); transition: all 0.6s cubic-bezier(0.17,0.67,0.83,0.67); }
+    .scene.active .anim-el { opacity: 1; transform: translateY(0); }
+    .scene .anim-sc { opacity: 0; transform: scale(0.8); transition: all 0.6s cubic-bezier(0.17,0.67,0.83,0.67); }
+    .scene.active .anim-sc { opacity: 1; transform: scale(1); }
+
+    .char-img { max-height: 240px; margin-bottom: 20px; filter: drop-shadow(0 10px 20px rgba(0,0,0,0.5)); border-radius: 20px; }
+    .net-pill { padding: 6px 14px; border-radius: 50px; font-size: 0.7rem; font-weight: 800; background: rgba(0,0,0,0.3); border: 1px solid rgba(255,255,255,0.2); margin: 4px; display: inline-block; }
+
+    /* ══════════════════════════════════════════════════════
+       2. WHATSAPP LOOP ANIMATION
+    ══════════════════════════════════════════════════════ */
+    .bg-wa { background: linear-gradient(160deg, #064e3b 0%, #047857 100%); }
+    .wa-logo { font-size: 3rem; background: #fff; width: 80px; height: 80px; border-radius: 20px; display: flex; align-items: center; justify-content: center; margin: 0 auto 20px; animation: floatY 3s ease-in-out infinite; box-shadow: 0 10px 30px rgba(0,0,0,0.3); }
+    .ticker-wrap { position: absolute; bottom: 0; width: 100%; background: rgba(16,185,129,0.2); height: 30px; display: flex; align-items: center; overflow: hidden; border-top: 1px solid rgba(74,222,128,0.3); }
+    .ticker { white-space: nowrap; font-size: 0.7rem; font-weight: 700; color: #4ade80; animation: ticker 15s linear infinite; }
+
+    /* ══════════════════════════════════════════════════════
+       3. FACEBOOK SQUARE LOOP
+    ══════════════════════════════════════════════════════ */
+    .bg-fb { background: linear-gradient(145deg, #1877F2 0%, #1a1a2e 100%); }
+
+    /* ══════════════════════════════════════════════════════
+       4. TWITTER BANNER LOOP
+    ══════════════════════════════════════════════════════ */
+    .bg-tw { background: linear-gradient(145deg, #0d0d1a 0%, #1DA1F2 100%); }
+
+  </style>
+</head>
+<body>
+
+  <div class="studio-header">
+    <h1>👑 KING FLEXY AD STUDIO</h1>
+    <p>All your promotional assets in one place.</p>
+  </div>
+
+  <div class="platform-tabs">
+    <button class="tab-btn active" onclick="switchTab(event, 'vid')"><span class="icon">🎬</span> 60s Video Commercial</button>
+    <button class="tab-btn" onclick="switchTab(event, 'wa')"><span class="icon">📱</span> WhatsApp Status</button>
+    <button class="tab-btn" onclick="switchTab(event, 'fb')"><span class="icon">📘</span> Facebook Feed</button>
+    <button class="tab-btn" onclick="switchTab(event, 'tt')"><span class="icon">🎵</span> TikTok Short</button>
+    <button class="tab-btn" onclick="switchTab(event, 'tw')"><span class="icon">🐦</span> Twitter Header</button>
+  </div>
+
+  <div class="ad-stage">
+    <p class="platform-label" id="stage-label">Full 60-Second Video Ad (9:16)</p>
+
+    <!-- ───────────────────────────────────────────────────────── -->
+    <!-- TAB 1: 60s VIDEO GENERATOR -->
+    <!-- ───────────────────────────────────────────────────────── -->
+    <div class="ad-panel active" id="panel-vid">
+      <div class="ad-frame frame-vertical vid-bg">
+        <div class="progress-container">
+          <div class="progress-segment"><div class="progress-fill" id="prog-0"></div></div>
+          <div class="progress-segment"><div class="progress-fill" id="prog-1"></div></div>
+          <div class="progress-segment"><div class="progress-fill" id="prog-2"></div></div>
+          <div class="progress-segment"><div class="progress-fill" id="prog-3"></div></div>
+          <div class="progress-segment"><div class="progress-fill" id="prog-4"></div></div>
+        </div>
+        <div class="timer-display" id="timer">00:00</div>
+
+        <!-- Scene 1: Hook -->
+        <div class="scene" id="scene-0">
+          <img src="/images/person_stressed.png" class="char-img anim-el" alt="Stressed" onerror="this.style.display='none'">
+          <div class="text-4xl mb-4 anim-sc" style="transition-delay: 0.1s">🔄</div>
+          <h2 class="text-3xl font-black uppercase text-white leading-tight anim-el" style="transition-delay: 0.2s">
+            Tired of <br><span class="text-red-500">Expensive</span> Data? 😤
+          </h2>
+          <div class="bg-red-500/20 text-red-100 border border-red-500/50 p-3 rounded-xl text-sm font-semibold anim-el mt-4" style="transition-delay: 0.3s">
+            Are you still buying at full price?<br>With slow delivery?
+          </div>
+        </div>
+
+        <!-- Scene 2: Reveal -->
+        <div class="scene" id="scene-1">
+          <div class="text-7xl bg-white w-28 h-28 rounded-3xl flex items-center justify-center shadow-[0_0_50px_rgba(255,255,255,0.4)] mb-6 anim-sc">👑</div>
+          <h3 class="text-lg text-yellow-400 font-bold uppercase tracking-widest anim-el" style="transition-delay: 0.2s">Introducing</h3>
+          <h1 class="text-4xl font-black text-white leading-none anim-el mb-4" style="transition-delay: 0.3s">KING FLEXY<br>DATA LTD</h1>
+          <p class="text-sm text-blue-200 anim-el mb-6 px-4" style="transition-delay: 0.4s">Ghana's fastest and most affordable data platform!</p>
+          <div class="anim-el" style="transition-delay: 0.5s">
+            <span class="net-pill text-yellow-400">MTN</span>
+            <span class="net-pill text-red-500">TELECEL</span>
+            <span class="net-pill text-orange-400">AT-iSHARE</span>
+          </div>
+        </div>
+
+        <!-- Scene 3: Features -->
+        <div class="scene" id="scene-2">
+          <h2 class="text-3xl font-bold text-white mb-8 anim-el">Why King Flexy?</h2>
+          <div class="flex flex-col gap-4 w-full max-w-[280px]">
+            <div class="bg-white/10 p-4 rounded-xl flex items-center gap-4 anim-el" style="transition-delay: 0.2s">
+              <span class="text-2xl">⚡</span>
+              <div class="text-left"><div class="font-bold text-yellow-400">Instant Delivery</div><div class="text-xs">Seconds to your phone</div></div>
+            </div>
+            <div class="bg-white/10 p-4 rounded-xl flex items-center gap-4 anim-el" style="transition-delay: 0.4s">
+              <span class="text-2xl">🔒</span>
+              <div class="text-left"><div class="font-bold text-green-400">Secure Payments</div><div class="text-xs">Powered by Paystack</div></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Scene 4: Social Proof -->
+        <div class="scene" id="scene-3">
+          <img src="/images/person_happy.png" class="char-img anim-el" alt="Happy" onerror="this.style.display='none'">
+          <h2 class="text-2xl font-black text-white mb-6 anim-el" style="transition-delay: 0.1s">Thousands of Happy Users!</h2>
+          <div class="w-full px-6 flex flex-col gap-3">
+            <div class="bg-[#128C7E] p-3 rounded-2xl rounded-tl-sm text-sm self-start anim-el" style="transition-delay: 0.4s">Data landed instantly 🔥</div>
+            <div class="bg-white text-black p-3 rounded-2xl rounded-br-sm text-sm self-end font-bold anim-el" style="transition-delay: 0.7s">Best prices in Ghana! 💯</div>
+          </div>
+        </div>
+
+        <!-- Scene 5: CTA -->
+        <div class="scene" id="scene-4">
+          <div class="bg-yellow-400 text-black px-4 py-1 rounded-full font-bold mb-6 anim-sc">STARTING FROM GHS 4.20</div>
+          <h1 class="text-4xl font-black text-white leading-tight mb-2 anim-el" style="transition-delay: 0.2s">SIGN UP <br><span class="text-yellow-400">FREE</span> TODAY!</h1>
+          <div class="w-full bg-white text-black p-4 rounded-xl mt-8 anim-el" style="transition-delay: 0.4s">
+            <div class="text-xs font-bold text-gray-500">VISIT WEBSITE</div>
+            <div class="text-xl font-black text-blue-600">kingflexygh.com</div>
+          </div>
+          <div class="w-full bg-green-500 text-white p-4 rounded-xl mt-3 anim-el" style="transition-delay: 0.5s">
+            <div class="text-xs font-bold">WHATSAPP US</div>
+            <div class="text-lg font-bold">0578065809 / 0551617309</div>
+          </div>
+        </div>
+      </div>
+      <button class="btn-play" onclick="start60sVideo()">▶ Play 60s Commercial</button>
+    </div>
+
+    <!-- ───────────────────────────────────────────────────────── -->
+    <!-- TAB 2: WHATSAPP LOOPING STATUS -->
+    <!-- ───────────────────────────────────────────────────────── -->
+    <div class="ad-panel" id="panel-wa">
+      <div class="ad-frame frame-vertical bg-wa p-8 flex flex-col items-center justify-center text-center">
+        <div class="wa-logo anim-scale-in">👑</div>
+        <h1 class="text-3xl font-black text-white leading-tight anim-slide-up d1">STAY <br><span class="text-emerald-300">CONNECTED</span></h1>
+        <div class="bg-yellow-400 text-black font-black px-6 py-2 rounded-full mt-6 text-xl anim-scale-in d2 shadow-[0_5px_20px_rgba(250,204,21,0.4)]">From GHS 4.20</div>
+        
+        <div class="my-8 flex gap-2 justify-center anim-slide-up d3">
+          <span class="bg-black/30 border border-white/20 px-3 py-1 rounded-lg text-xs font-bold text-yellow-400">MTN</span>
+          <span class="bg-black/30 border border-white/20 px-3 py-1 rounded-lg text-xs font-bold text-red-500">TELECEL</span>
+          <span class="bg-black/30 border border-white/20 px-3 py-1 rounded-lg text-xs font-bold text-orange-400">AT</span>
+        </div>
+
+        <div class="w-full bg-white/10 p-4 rounded-xl border border-white/20 anim-slide-up d4">
+          <div class="text-lg font-bold">kingflexygh.com</div>
+          <div class="text-xs text-emerald-200 mt-1">📞 0578065809</div>
+        </div>
+        
+        <div class="ticker-wrap"><div class="ticker">⚡ INSTANT DELIVERY ⚡ SECURE PAYSTACK ⚡ 24/7 SUPPORT ⚡ REGISTERED BIZ ⚡ </div></div>
+      </div>
+      <button class="btn-play mt-4 !bg-emerald-500 !text-white" onclick="resetLoops('wa')">↺ Replay Animation</button>
+    </div>
+
+    <!-- ───────────────────────────────────────────────────────── -->
+    <!-- TAB 3: FACEBOOK SQUARE -->
+    <!-- ───────────────────────────────────────────────────────── -->
+    <div class="ad-panel" id="panel-fb">
+      <div class="ad-frame frame-square bg-fb p-10 flex flex-col items-center justify-between">
+        <div class="text-center w-full">
+            <div class="inline-flex bg-white/20 px-4 py-1 rounded-full text-xs font-bold mb-6 anim-fade-in text-blue-200">🇬🇭 Ghana's Premium Data Service</div>
+            <h1 class="text-4xl font-black text-white leading-tight anim-slide-up d1">DATA BUNDLES<br><span class="text-yellow-400">INSTANTLY.</span></h1>
+        </div>
+        <div class="bg-yellow-400/10 border-2 border-yellow-400 p-4 rounded-2xl w-full flex items-center justify-between anim-scale-in d2">
+            <div class="text-left">
+                <div class="text-xs tracking-widest text-yellow-400">STARTING FROM</div>
+                <div class="text-3xl font-black text-yellow-400">GHS 4.20</div>
+            </div>
+            <div class="text-5xl">👑</div>
+        </div>
+        <div class="w-full flex justify-between items-center bg-white/10 p-4 rounded-xl anim-slide-up d4 border border-white/20">
+            <div class="font-bold text-xl tracking-wider">kingflexygh.com</div>
+            <div class="bg-blue-600 px-4 py-2 rounded-lg font-bold text-sm">SHOP NOW</div>
+        </div>
+      </div>
+      <button class="btn-play" onclick="resetLoops('fb')">↺ Replay Animation</button>
+    </div>
+
+    <!-- ───────────────────────────────────────────────────────── -->
+    <!-- TAB 4: TIKTOK / REELS -->
+    <!-- ───────────────────────────────────────────────────────── -->
+    <div class="ad-panel" id="panel-tt">
+      <div class="ad-frame frame-vertical bg-[#0f0f0f] text-white p-6 flex flex-col items-center justify-center">
+        <div class="absolute top-6 left-6 bg-[#fe2c55] px-3 py-1 font-bold text-xs rounded uppercase tracking-widest anim-fade-in shadow-[0_0_15px_#fe2c55]">POV 📱</div>
+        <div class="text-6xl mb-6 anim-scale-in d1">🤯</div>
+        <h1 class="text-3xl font-black text-center anim-slide-up d2 uppercase leading-tight">When your data<br>finishes mid-video</h1>
+        <div class="bg-white/10 p-5 rounded-2xl border border-white/20 w-full mt-8 anim-slide-up d3">
+            <div class="font-bold text-yellow-400 mb-2">🔥 The Fix: King Flexy</div>
+            <div class="text-sm space-y-2 opacity-80">
+                <div>👉 Type kingflexygh.com</div>
+                <div>👉 Pick bundle from GHS 4.20</div>
+                <div>👉 Get data in 3 seconds</div>
+            </div>
+        </div>
+        <div class="mt-10 border-2 border-[#fe2c55] w-full p-4 rounded-2xl text-center anim-scale-in d5">
+            <div class="font-bold text-lg">kingflexygh.com</div>
+        </div>
+      </div>
+      <button class="btn-play !bg-[#fe2c55] !text-white" onclick="resetLoops('tt')">↺ Replay Animation</button>
+    </div>
+
+    <!-- ───────────────────────────────────────────────────────── -->
+    <!-- TAB 5: TWITTER BANNER -->
+    <!-- ───────────────────────────────────────────────────────── -->
+    <div class="ad-panel" id="panel-tw">
+      <div class="ad-frame frame-landscape bg-tw p-8 flex items-center justify-between">
+         <div class="w-1/2 text-left anim-slide-up">
+            <div class="text-4xl mb-2">👑</div>
+            <div class="font-black text-xl tracking-widest text-yellow-400">KING FLEXY DATA</div>
+            <div class="text-xs opacity-70 italic mt-1">"Data. Fast. Affordable. Always."</div>
+            <div class="mt-4 font-bold text-sm">🌐 kingflexygh.com</div>
+         </div>
+         <div class="w-px h-full bg-white/20 mx-4"></div>
+         <div class="w-1/2 text-right anim-slide-up d2">
+            <h1 class="font-black text-2xl leading-tight">ALL NETWORKS<br><span class="text-blue-300">ONE PLATFORM</span></h1>
+            <div class="bg-yellow-400 text-black px-4 py-1 rounded-full font-bold inline-block mt-4 text-lg">From GHS 4.20</div>
+         </div>
+      </div>
+      <button class="btn-play !bg-[#1DA1F2] !text-white" onclick="resetLoops('tw')">↺ Replay Animation</button>
+    </div>
+
+  </div>
+
+  <script>
+    // --- PLATFORM SWITCHER ---
+    const labels = {
+      vid: "Full 60-Second Video Ad (9:16)",
+      wa: "WhatsApp Status Loop (9:16)",
+      fb: "Facebook/IG Feed Square (1:1)",
+      tt: "TikTok / IG Reel Promo (9:16)",
+      tw: "Twitter Header Banner (16:9)"
+    };
+
+    function switchTab(e, tabId) {
+      document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+      e.currentTarget.classList.add('active');
+      
+      document.querySelectorAll('.ad-panel').forEach(panel => panel.classList.remove('active'));
+      document.getElementById('panel-' + tabId).classList.add('active');
+      
+      document.getElementById('stage-label').textContent = labels[tabId];
+      
+      // Stop video if switching away
+      if (tabId !== 'vid') {
+          resetTimeline();
+          resetLoops(tabId);
+      }
+    }
+
+    function resetLoops(tabId) {
+      const frame = document.querySelector(`#panel-${tabId} .ad-frame`);
+      const clone = frame.cloneNode(true);
+      frame.replaceWith(clone);
+    }
+
+    // --- 60s VIDEO LOGIC ---
+    const scenes = [
+        { id: 0, duration: 8000 },
+        { id: 1, duration: 10000 },
+        { id: 2, duration: 17000 },
+        { id: 3, duration: 13000 },
+        { id: 4, duration: 12000 }
+    ];
+    let timeline = { isRunning: false, start: 0, current: -1, frame: null };
+
+    function resetTimeline() {
+        timeline.isRunning = false;
+        cancelAnimationFrame(timeline.frame);
+        document.querySelectorAll('#panel-vid .scene').forEach(s => s.classList.remove('active'));
+        for(let i=0; i<scenes.length; i++) document.getElementById(`prog-${i}`).style.width = '0%';
+        document.getElementById('timer').textContent = "00:00";
+        activateScene(0, false);
+    }
+
+    function activateScene(index, animate = true) {
+        if(timeline.current !== index && timeline.current >= 0) {
+            document.getElementById(`scene-${timeline.current}`)?.classList.remove('active');
+        }
+        timeline.current = index;
+        if(animate) {
+            const el = document.getElementById(`scene-${index}`);
+            el.classList.remove('active');
+            requestAnimationFrame(() => requestAnimationFrame(() => el.classList.add('active')));
+        } else {
+            document.getElementById(`scene-${index}`)?.classList.add('active');
+        }
+    }
+
+    function playLoop(timestamp) {
+        if(!timeline.isRunning) return;
+        if(!timeline.start) timeline.start = timestamp;
+        const elapsed = timestamp - timeline.start;
+        
+        let accrued = 0, activeIndex = -1;
+        for(let i=0; i<scenes.length; i++) {
+            const end = accrued + scenes[i].duration;
+            const prog = document.getElementById(`prog-${i}`);
+            if(elapsed >= end) prog.style.width = '100%';
+            else if(elapsed >= accrued && elapsed < end) {
+                prog.style.width = `${((elapsed-accrued)/scenes[i].duration)*100}%`;
+                activeIndex = i;
+            } else prog.style.width = '0%';
+            accrued += scenes[i].duration;
+        }
+        
+        if(activeIndex !== -1 && activeIndex !== timeline.current) activateScene(activeIndex);
+        
+        const secs = Math.min(60, Math.floor(elapsed/1000));
+        document.getElementById('timer').textContent = `00:${secs < 10 ? '0'+secs : secs}`;
+        
+        if(elapsed < accrued) timeline.frame = requestAnimationFrame(playLoop);
+        else timeline.isRunning = false;
+    }
+
+    function start60sVideo() {
+        resetTimeline();
+        timeline.isRunning = true;
+        timeline.start = null;
+        timeline.frame = requestAnimationFrame(playLoop);
+    }
+
+    resetTimeline();
+  </script>
+</body>
+</html>

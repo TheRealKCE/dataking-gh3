@@ -2,30 +2,15 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
+import { validateAdminAccess } from '@/lib/auth-utils'
 
 export async function GET(request: NextRequest) {
     try {
-        const cookieStore = await cookies()
-        const supabaseUserClient = createRouteHandlerClient({
-            // @ts-expect-error - auth-helpers types expect Promise but runtime needs synchronous object
-            cookies: () => cookieStore
-        })
-        const { data: { session }, error: sessionError } = await supabaseUserClient.auth.getSession()
-
-        if (sessionError || !session?.user) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        const authResult = await validateAdminAccess(true, request)
+        if (authResult.error) {
+            return NextResponse.json({ error: authResult.error }, { status: authResult.status })
         }
-
-        // Check if user is admin
-        const { data: userData } = await supabaseUserClient
-            .from('users')
-            .select('role')
-            .eq('id', session.user.id)
-            .single()
-
-        if (userData?.role !== 'admin' && userData?.role !== 'sub-admin') {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-        }
+        const { supabase: supabaseUserClient, user: sessionUser } = authResult
 
         const { searchParams } = new URL(request.url)
         const available = searchParams.get('available') === 'true'
