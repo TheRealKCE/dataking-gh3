@@ -16,9 +16,9 @@ const supabaseAdmin = createClient(
 
 export async function GET(request: NextRequest) {
     const supabase = createRouteClient()
-    const { data: { session } } = await supabase.auth.getSession()
+    const { data: { user: authUser } } = await supabase.auth.getUser()
 
-    if (!session) {
+    if (!authUser) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -26,7 +26,7 @@ export async function GET(request: NextRequest) {
     const { data: user } = await supabase
         .from('users')
         .select('role')
-        .eq('id', session.user.id)
+        .eq('id', authUser.id)
         .single()
 
     if ((user as any)?.role !== 'admin') {
@@ -48,16 +48,16 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
     const supabase = createRouteClient()
-    const { data: { session } } = await supabase.auth.getSession()
+    const { data: { user: authUser } } = await supabase.auth.getUser()
 
-    if (!session) {
+    if (!authUser) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const { data: user } = await supabase
         .from('users')
         .select('role')
-        .eq('id', session.user.id)
+        .eq('id', authUser.id)
         .single()
 
     if ((user as any)?.role !== 'admin') {
@@ -83,16 +83,16 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
     const supabase = createRouteClient()
-    const { data: { session } } = await supabase.auth.getSession()
+    const { data: { user: authUser } } = await supabase.auth.getUser()
 
-    if (!session) {
+    if (!authUser) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const { data: user } = await supabase
         .from('users')
         .select('role')
-        .eq('id', session.user.id)
+        .eq('id', authUser.id)
         .single()
 
     if ((user as any)?.role !== 'admin') {
@@ -126,16 +126,16 @@ export async function PUT(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
     const supabase = createRouteClient()
-    const { data: { session } } = await supabase.auth.getSession()
+    const { data: { user: authUser } } = await supabase.auth.getUser()
 
-    if (!session) {
+    if (!authUser) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const { data: user } = await supabase
         .from('users')
         .select('role')
-        .eq('id', session.user.id)
+        .eq('id', authUser.id)
         .single()
 
     if ((user as any)?.role !== 'admin') {

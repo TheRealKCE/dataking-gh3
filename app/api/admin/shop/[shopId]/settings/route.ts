@@ -15,8 +15,8 @@ export async function PATCH(
             cookies: () => cookieStore
         })
 
-        const { data: { session }, error: sessionError } = await supabaseUserClient.auth.getSession()
-        if (sessionError || !session?.user) {
+        const { data: { user: authUser }, error: authError } = await supabaseUserClient.auth.getUser()
+        if (authError || !authUser) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
@@ -24,7 +24,7 @@ export async function PATCH(
         const { data: callerUser } = await supabaseUserClient
             .from('users')
             .select('role')
-            .eq('id', session.user.id)
+            .eq('id', authUser.id)
             .single()
 
         if (!callerUser || !['admin', 'sub-admin'].includes(callerUser.role)) {

@@ -20,16 +20,16 @@ export async function POST(request: Request) {
             // @ts-expect-error - auth-helpers types expect Promise but runtime needs synchronous object
             cookies: () => cookieStore
         })
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+        const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
 
-        if (sessionError || !session?.user) {
+        if (authError || !authUser) {
             return NextResponse.json(
                 { error: 'Unauthorized' },
                 { status: 401 }
             )
         }
 
-        const user = session.user
+        const user = authUser
 
         // 1. Insert Complaint
         const { data: complaint, error: insertError } = await (supabase

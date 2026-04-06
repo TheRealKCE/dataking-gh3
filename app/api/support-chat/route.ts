@@ -23,18 +23,18 @@ export async function POST(request: Request) {
                 // @ts-expect-error - auth-helpers types expect Promise but runtime needs synchronous object
                 cookies: () => cookieStore
             })
-            const { data: { session } } = await supabaseUserClient.auth.getSession()
+            const { data: { user: authUser } } = await supabaseUserClient.auth.getUser()
 
-            if (session?.user) {
-                userName = session.user.user_metadata?.full_name || session.user.email || 'User'
+            if (authUser) {
+                userName = authUser.user_metadata?.full_name || authUser.email || 'User'
 
                 // Try fetching precise name if email is the best we got
-                if (userName === session.user.email || userName === 'User') {
+                if (userName === authUser.email || userName === 'User') {
                     const supabase = createServerClient()
                     const { data: userData } = await supabase
                         .from('users')
                         .select('first_name, last_name')
-                        .eq('id', session.user.id)
+                        .eq('id', authUser.id)
                         .single()
 
                     const pUser = userData as any;

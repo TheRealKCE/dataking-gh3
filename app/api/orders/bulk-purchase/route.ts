@@ -27,13 +27,13 @@ export async function POST(request: NextRequest) {
             // @ts-expect-error - auth-helpers types expect Promise but runtime needs synchronous object
             cookies: () => cookieStore
         })
-        const { data: { session }, error: sessionError } = await supabaseUserClient.auth.getSession()
+        const { data: { user: authUser }, error: authError } = await supabaseUserClient.auth.getUser()
 
-        if (sessionError || !session?.user) {
+        if (authError || !authUser) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        const userId = session.user.id
+        const userId = authUser.id
 
         // === SECURITY: Rate limit purchases ===
         // if (isRateLimited(userId, 'bulk')) {

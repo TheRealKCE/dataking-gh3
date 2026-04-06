@@ -25,12 +25,12 @@ export async function POST(request: NextRequest) {
         }
 
         // Get current user
-        const { data: { session } } = await supabase.auth.getSession()
-        if (!session?.user) {
+        const { data: { user: authUser } } = await supabase.auth.getUser()
+        if (!authUser) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        const userId = session.user.id
+        const userId = authUser.id
 
         // Get user details
         const { data: user } = await supabaseAdmin
@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                email: (user as any)?.email || session.user.email,
+                email: (user as any)?.email || authUser.email,
                 amount: Math.round(totalAmount * 100), // Paystack uses kobo/pesewas
                 currency: 'GHS',
                 reference: reference,

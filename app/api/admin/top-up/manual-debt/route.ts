@@ -10,10 +10,10 @@ export async function POST(request: NextRequest) {
             // @ts-expect-error - auth-helpers types
             cookies: () => cookieStore
         })
-        const { data: { session }, error: sessionError } = await supabaseUserClient.auth.getSession()
-        if (sessionError || !session?.user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        const { data: { user: authUser }, error: authError } = await supabaseUserClient.auth.getUser()
+        if (authError || !authUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-        const { data: userData } = await supabaseUserClient.from('users').select('role').eq('id', session.user.id).single()
+        const { data: userData } = await supabaseUserClient.from('users').select('role').eq('id', authUser.id).single()
         if (userData?.role !== 'admin') return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
         const body = await request.json()

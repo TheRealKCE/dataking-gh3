@@ -13,13 +13,13 @@ export async function PUT(request: NextRequest) {
         })
         
         // 1. Authenticate user securely from server-context
-        const { data: { session }, error: sessionError } = await supabaseUserClient.auth.getSession()
+        const { data: { user: authUser }, error: authError } = await supabaseUserClient.auth.getUser()
         
-        if (sessionError || !session?.user) {
+        if (authError || !authUser) {
             return NextResponse.json({ error: 'Unauthorized Configuration' }, { status: 401 })
         }
         
-        const userId = session.user.id
+        const userId = authUser.id
         const body = await request.json()
         
         // 2. STRICT PAYLOAD FILTERING (Mass Assignment Protection)

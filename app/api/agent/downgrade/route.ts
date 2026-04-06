@@ -10,9 +10,9 @@ export async function POST(request: NextRequest) {
             // @ts-expect-error - auth-helpers types expect Promise but runtime needs synchronous object
             cookies: () => cookieStore
         })
-        const { data: { session }, error: sessionError } = await supabaseUserClient.auth.getSession()
+        const { data: { user: authUser }, error: authError } = await supabaseUserClient.auth.getUser()
 
-        if (sessionError || !session?.user) {
+        if (authError || !authUser) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
         const { data: user, error: fetchError } = await (supabase
             .from('users') as any)
             .select('id, role, agent_expires_at')
-            .eq('id', session.user.id)
+            .eq('id', authUser.id)
             .single()
 
         if (fetchError || !user) {
@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
                 role: 'customer',
                 agent_expires_at: null
             })
-            .eq('id', session.user.id)
+            .eq('id', authUser.id)
 
         if (updateError) {
             console.error('[AgentDowngrade] Update error:', updateError)
@@ -62,13 +62,13 @@ export async function POST(request: NextRequest) {
                     min_withdrawal_amount:  null,
                     updated_at: new Date().toISOString(),
                 })
-                .eq('owner_id', session.user.id)
-            console.log(`[AgentDowngrade] Shop fee overrides reset for user ${session.user.id}`)
+                .eq('owner_id', authUser.id)
+            console.log(`[AgentDowngrade] Shop fee overrides reset for user ${authUser.id}`)
         } catch (resetErr) {
             console.error('[AgentDowngrade] Failed to reset shop fee overrides (non-fatal):', resetErr)
         }
 
-        console.log(`[AgentDowngrade] User ${session.user.id} downgraded to customer`)
+        console.log(`[AgentDowngrade] User ${authUser.id} downgraded to customer`)
 
         return NextResponse.json({
             success: true,

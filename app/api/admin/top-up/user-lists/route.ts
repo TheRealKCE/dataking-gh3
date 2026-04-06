@@ -9,11 +9,11 @@ async function getAdminSupabase() {
         // @ts-expect-error - auth-helpers types
         cookies: () => cookieStore
     })
-    const { data: { session }, error: sessionError } = await supabaseUserClient.auth.getSession()
-    if (sessionError || !session?.user) return { error: 'Unauthorized', status: 401 }
-    const { data: userData } = await supabaseUserClient.from('users').select('role').eq('id', session.user.id).single()
+    const { data: { user: authUser }, error: authError } = await supabaseUserClient.auth.getUser()
+    if (authError || !authUser) return { error: 'Unauthorized', status: 401 }
+    const { data: userData } = await supabaseUserClient.from('users').select('role').eq('id', authUser.id).single()
     if (userData?.role !== 'admin') return { error: 'Forbidden', status: 403 }
-    return { session, supabase: createServerClient() as any, supabaseUserClient }
+    return { authUser, supabase: createServerClient() as any, supabaseUserClient }
 }
 
 // GET — Fetch all custom lists with their member user details
@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
     try {
         const auth = await getAdminSupabase()
         if ('error' in auth) return NextResponse.json({ error: auth.error }, { status: auth.status })
-        const { supabase, session } = auth
+        const { supabase, authUser } = auth
 
         const body = await request.json()
         const { action, listId, listName, userId } = body
@@ -98,7 +98,7 @@ export async function POST(request: NextRequest) {
             if (!listName?.trim()) return NextResponse.json({ error: 'List name is required' }, { status: 400 })
             const { data: newList, error } = await supabase
                 .from('admin_custom_lists')
-                .insert({ name: listName.trim(), created_by: session!.user.id })
+                .insert({ name: listName.trim(), created_by: authUser.id })
                 .select('id, name, created_at')
                 .single()
             if (error) throw error

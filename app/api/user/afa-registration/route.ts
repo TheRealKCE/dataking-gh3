@@ -12,13 +12,13 @@ export async function POST(request: NextRequest) {
             cookies: () => cookieStore,
         })
 
-        const { data: { session }, error: sessionError } = await supabaseUserClient.auth.getSession()
+        const { data: { user: authUser }, error: authError } = await supabaseUserClient.auth.getUser()
 
-        if (sessionError || !session?.user) {
+        if (authError || !authUser) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        const userId = session.user.id
+        const userId = authUser.id
 
         // ── Parse request body ────────────────────────────────────
         let body: any

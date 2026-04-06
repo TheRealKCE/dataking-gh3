@@ -19,13 +19,13 @@ const AIRTIME_SETTING_KEYS = [
 ]
 
 async function verifyAdmin(supabaseUserClient: any) {
-    const { data: { session }, error } = await supabaseUserClient.auth.getSession()
-    if (error || !session?.user) return null
+    const { data: { user: authUser }, error: authError } = await supabaseUserClient.auth.getUser()
+    if (authError || !authUser) return null
     const supabase = createServerClient()
-    const { data: user } = await supabase.from('users').select('role').eq('id', session.user.id).single()
+    const { data: user } = await supabase.from('users').select('role').eq('id', authUser.id).single()
     const role = (user as any)?.role
     if (!['admin', 'sub-admin'].includes(role)) return null
-    return { userId: session.user.id }
+    return { userId: authUser.id }
 }
 
 // GET — fetch all airtime settings

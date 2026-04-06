@@ -25,9 +25,9 @@ export async function POST(request: Request) {
         const cookieStore = await cookies()
         // @ts-expect-error - auth-helpers types conflict with Next.js 15
         const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
-        const { data: { session } } = await supabase.auth.getSession()
+        const { data: { user: authUser } } = await supabase.auth.getUser()
 
-        if (!session) {
+        if (!authUser) {
             return NextResponse.json(
                 { error: 'Unauthorized' },
                 { status: 401 }
@@ -38,7 +38,7 @@ export async function POST(request: Request) {
         const { data: requesterData, error: requesterError } = await supabase
             .from('users')
             .select('role')
-            .eq('id', session.user.id)
+            .eq('id', authUser.id)
             .single()
 
         if (requesterError || (requesterData?.role !== 'admin' && requesterData?.role !== 'sub-admin')) {
@@ -49,7 +49,7 @@ export async function POST(request: Request) {
         }
 
         // Prevent changing own status
-        if (userId === session.user.id) {
+        if (userId === authUser.id) {
             return NextResponse.json(
                 { error: 'Cannot change your own account status' },
                 { status: 400 }
@@ -73,7 +73,7 @@ export async function POST(request: Request) {
             )
         }
 
-        console.log(`[Admin] User ${userId} status updated to ${status} by ${session.user.id}`)
+        console.log(`[Admin] User ${userId} status updated to ${status} by ${authUser.id}`)
 
         return NextResponse.json({ success: true })
 

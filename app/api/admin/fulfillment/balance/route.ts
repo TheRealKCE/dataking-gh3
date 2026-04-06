@@ -14,9 +14,9 @@ export async function GET() {
             // @ts-expect-error - auth-helpers types expect Promise but runtime needs synchronous object
             cookies: () => cookieStore
         })
-        const { data: { session } } = await supabase.auth.getSession()
+        const { data: { user: authUser } } = await supabase.auth.getUser()
 
-        if (!session?.user) {
+        if (!authUser) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
@@ -24,7 +24,7 @@ export async function GET() {
         const { data: userData } = await supabase
             .from('users')
             .select('role')
-            .eq('id', session.user.id)
+            .eq('id', authUser.id)
             .single()
 
         if (userData?.role !== 'admin') {

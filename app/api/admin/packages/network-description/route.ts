@@ -7,9 +7,9 @@ export async function POST(request: NextRequest) {
     try {
         const cookieStore = await cookies()
         const supabaseUserClient = createRouteHandlerClient({ cookies: () => cookieStore as any })
-        const { data: { session }, error: sessionError } = await supabaseUserClient.auth.getSession()
+        const { data: { user: authUser }, error: authError } = await supabaseUserClient.auth.getUser()
 
-        if (sessionError || !session?.user) {
+        if (authError || !authUser) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
         const { data: userData } = await supabaseUserClient
             .from('users')
             .select('role')
-            .eq('id', session.user.id)
+            .eq('id', authUser.id)
             .single()
 
         if (userData?.role !== 'admin') {

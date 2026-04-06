@@ -6,9 +6,9 @@ import { createServerClient } from '@/lib/supabase'
 export async function GET() {
     try {
         const supabaseAuth = createRouteHandlerClient({ cookies })
-        const { data: { session } } = await supabaseAuth.auth.getSession()
+        const { data: { user: authUser } } = await supabaseAuth.auth.getUser()
         
-        if (!session) {
+        if (!authUser) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
@@ -39,8 +39,8 @@ export async function POST(req: Request) {
         const supabase = createRouteHandlerClient({ cookies })
         
         // Ensure user is authenticated
-        const { data: { session } } = await supabase.auth.getSession()
-        if (!session) {
+        const { data: { user: authUser } } = await supabase.auth.getUser()
+        if (!authUser) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
@@ -58,7 +58,7 @@ export async function POST(req: Request) {
             .eq('id', shopId)
             .single()
 
-        if (shopError || !shopProfile || shopProfile.owner_id !== session.user.id) {
+        if (shopError || !shopProfile || shopProfile.owner_id !== authUser.id) {
             return NextResponse.json({ error: 'Unauthorized to modify this shop' }, { status: 403 })
         }
 

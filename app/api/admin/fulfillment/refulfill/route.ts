@@ -20,9 +20,9 @@ const supabaseAdmin = createClient(
 export async function POST(request: Request) {
     try {
         const supabase = createRouteHandlerClient({ cookies })
-        const { data: { session } } = await supabase.auth.getSession()
+        const { data: { user: authUser } } = await supabase.auth.getUser()
 
-        if (!session) {
+        if (!authUser) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
         const { data: user } = await supabase
             .from('users')
             .select('role')
-            .eq('id', session.user.id)
+            .eq('id', authUser.id)
             .single()
 
         if (!user || (user.role !== 'admin' && user.role !== 'sub-admin')) {

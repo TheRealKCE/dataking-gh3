@@ -4,9 +4,9 @@ import { NextResponse } from 'next/server'
 
 export async function GET() {
     const supabase = createRouteHandlerClient({ cookies })
-    const { data: { session } } = await supabase.auth.getSession()
+    const { data: { user: authUser } } = await supabase.auth.getUser()
 
-    if (!session) {
+    if (!authUser) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -14,7 +14,7 @@ export async function GET() {
     const { data: shop } = await supabase
         .from('shop_profiles')
         .select('id')
-        .eq('owner_id', session.user.id)
+        .eq('owner_id', authUser.id)
         .single()
 
     if (!shop) {
@@ -35,9 +35,9 @@ export async function GET() {
 
 export async function POST(req: Request) {
     const supabase = createRouteHandlerClient({ cookies })
-    const { data: { session } } = await supabase.auth.getSession()
+    const { data: { user: authUser } } = await supabase.auth.getUser()
 
-    if (!session) {
+    if (!authUser) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
@@ -51,7 +51,7 @@ export async function POST(req: Request) {
     const { data: shop } = await supabase
         .from('shop_profiles')
         .select('id')
-        .eq('owner_id', session.user.id)
+        .eq('owner_id', authUser.id)
         .single()
 
     if (!shop) {
@@ -100,16 +100,16 @@ export async function POST(req: Request) {
 
 export async function DELETE() {
     const supabase = createRouteHandlerClient({ cookies })
-    const { data: { session } } = await supabase.auth.getSession()
+    const { data: { user: authUser } } = await supabase.auth.getUser()
 
-    if (!session) {
+    if (!authUser) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
     const { data: shop } = await supabase
         .from('shop_profiles')
         .select('id')
-        .eq('owner_id', session.user.id)
+        .eq('owner_id', authUser.id)
         .single()
 
     if (!shop) {

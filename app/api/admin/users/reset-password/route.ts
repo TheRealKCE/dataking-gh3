@@ -10,9 +10,9 @@ export async function POST(request: NextRequest) {
             // @ts-expect-error - auth-helpers types expect Promise but runtime needs synchronous object
             cookies: () => cookieStore
         })
-        const { data: { session }, error: sessionError } = await supabaseUserClient.auth.getSession()
+        const { data: { user: authUser }, error: authError } = await supabaseUserClient.auth.getUser()
 
-        if (sessionError || !session?.user) {
+        if (authError || !authUser) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
@@ -20,7 +20,7 @@ export async function POST(request: NextRequest) {
         const { data: callerData } = await supabaseUserClient
             .from('users')
             .select('role')
-            .eq('id', session.user.id)
+            .eq('id', authUser.id)
             .single()
 
         if (!callerData || (callerData.role !== 'admin' && callerData.role !== 'sub-admin')) {
@@ -67,7 +67,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: resetError.message || 'Failed to send reset email' }, { status: 500 })
         }
 
-        console.log(`[AdminResetPassword] Reset email sent for user ${userId} (${targetUser.email}) by admin ${session.user.id}`)
+        console.log(`[AdminResetPassword] Reset email sent for user ${userId} (${targetUser.email}) by admin ${authUser.id}`)
 
         return NextResponse.json({
             success: true,
