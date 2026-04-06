@@ -1,0 +1,26 @@
+C:\Users\KING FLEXY GH\.gemini\antigravity\KingFlexyGh Site Files\KingFlexyGh\app\api\admin\fulfillment\refulfill\route.ts:
+  25: if (!session) {
+C:\Users\KING FLEXY GH\.gemini\antigravity\KingFlexyGh Site Files\KingFlexyGh\app\api\admin\orders\update-status\route.ts:
+  24: if (!session) {
+C:\Users\KING FLEXY GH\.gemini\antigravity\KingFlexyGh Site Files\KingFlexyGh\app\api\admin\packages\route.ts:
+  21: if (!session) {
+  53: if (!session) {
+  88: if (!session) {
+  131: if (!session) {
+C:\Users\KING FLEXY GH\.gemini\antigravity\KingFlexyGh Site Files\KingFlexyGh\app\api\admin\top-up\user-lists\route.ts:
+  16: return { session, supabase: createServerClient() as any, supabaseUserClient }
+  92: const { supabase, session } = auth
+  101: .insert({ name: listName.trim(), created_by: session!.user.id })
+C:\Users\KING FLEXY GH\.gemini\antigravity\KingFlexyGh Site Files\KingFlexyGh\app\api\admin\users\delete\route.ts:
+  23: if (!session) {
+C:\Users\KING FLEXY GH\.gemini\antigravity\KingFlexyGh Site Files\KingFlexyGh\app\api\admin\users\update-status\route.ts:
+  30: if (!session) {
+C:\Users\KING FLEXY GH\.gemini\antigravity\KingFlexyGh Site Files\KingFlexyGh\app\api\shop\announcements\route.ts:
+  9: if (!session) {
+  40: if (!session) {
+  105: if (!session) {
+C:\Users\KING FLEXY GH\.gemini\antigravity\KingFlexyGh Site Files\KingFlexyGh\app\api\shop\pricing\route.ts:
+  11: if (!session) {
+  43: if (!session) {
+C:\Users\KING FLEXY GH\.gemini\antigravity\KingFlexyGh Site Files\KingFlexyGh\app\api\users\delete-account\route.ts:
+  25: if (!session) {

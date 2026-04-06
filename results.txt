@@ -1,0 +1,8 @@
+﻿                            <CardTitle className="text-base font-semibold text-muted-foreground uppercase tracking-wide">Profit Origin Split</CardTitle>
+                .animate-shake { animation: shake 0.5s infinite; transform-origin: top center; }
+            const feeAmount = originalAmount * totalFeeMultiplier
+            let actualAirtimeAmount = originalAmount
+                expectedTotalPesewas = Math.round((originalAmount + feeAmount) * 100)
+                expectedTotalPesewas = Math.round(originalAmount * 100)
+                actualAirtimeAmount = Math.max(0, originalAmount - feeAmount)
+ * Syncs order status between mirrored main orders and original shop orders.

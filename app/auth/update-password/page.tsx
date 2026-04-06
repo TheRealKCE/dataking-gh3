@@ -30,9 +30,9 @@ export default function UpdatePasswordPage() {
     // We just need to check that there is an active session of type 'recovery'
     useEffect(() => {
         const checkSession = async () => {
-            const { data: { session } } = await supabase.auth.getSession()
+            const { data: { user } } = await supabase.auth.getUser()
             // Supabase sets the session automatically when the recovery token is in the hash
-            setIsValidSession(!!session)
+            setIsValidSession(!!user)
         }
 
         // Listen for the PASSWORD_RECOVERY event

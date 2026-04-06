@@ -24,9 +24,9 @@ export async function validateAdminAccess(
             cookies: () => cookieStore
         })
         
-        const { data: { session }, error: sessionError } = await supabase.auth.getSession()
+        const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
         
-        if (sessionError || !session?.user) {
+        if (authError || !authUser) {
             return { user: null, role: null, supabase: null, error: 'Unauthorized', status: 401 }
         }
         
@@ -34,7 +34,7 @@ export async function validateAdminAccess(
         const { data: userData } = await supabase
             .from('users')
             .select('role')
-            .eq('id', session.user.id)
+            .eq('id', authUser.id)
             .single()
             
         if (!userData) {
@@ -45,7 +45,7 @@ export async function validateAdminAccess(
         
         // 1. Admin always has access
         if (role === 'admin') {
-            return { user: session.user, role, supabase, error: null }
+            return { user: authUser, role, supabase, error: null }
         }
         
         // 2. Sub-admin access (strictly restricted to specific logic)
@@ -60,11 +60,11 @@ export async function validateAdminAccess(
                                      path.startsWith('/api/admin/batches') // Often used by orders
                     
                     if (!isOrderApi) {
-                        console.warn(`[AuthAudit] Sub-admin ${session.user.id} blocked from non-order API: ${path}`)
+                        console.warn(`[AuthAudit] Sub-admin ${authUser.id} blocked from non-order API: ${path}`)
                         return { user: null, role: null, supabase: null, error: 'Forbidden: Sub-admin limited to orders', status: 403 }
                     }
                 }
-                return { user: session.user, role, supabase, error: null }
+                return { user: authUser, role, supabase, error: null }
             } else {
                 return { user: null, role: null, supabase: null, error: 'Forbidden: Admin access required', status: 403 }
             }

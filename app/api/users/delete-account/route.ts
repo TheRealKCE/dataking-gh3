@@ -82,7 +82,7 @@ export async function POST(request: Request) {
         }
 
         // 5. Sign out the user
-        await supabase.auth.signOut()
+        await supabase.auth.signOut({ scope: 'global' })
 
         return NextResponse.json({
             success: true,

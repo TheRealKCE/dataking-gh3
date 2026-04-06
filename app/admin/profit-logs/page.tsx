@@ -7,14 +7,14 @@ export const dynamic = 'force-dynamic'
 
 export default async function AdminProfitLogsPage() {
     const supabase = createServerComponentClient({ cookies })
-    const { data: { session } } = await supabase.auth.getSession()
+    const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
 
-    if (!session?.user) redirect('/admin/login')
+    if (authError || !authUser) redirect('/admin/login')
 
     const { data: userData } = await supabase
         .from('users')
         .select('role')
-        .eq('id', session.user.id)
+        .eq('id', authUser.id)
         .single()
 
     // STRICTLY BLOCK SUB-ADMINS

@@ -67,7 +67,7 @@ export async function middleware(request: NextRequest) {
     const supabase = createMiddlewareClient({ req: request, res })
 
 
-    let session = null
+    let authUser = null
 
     try {
         // Add 10 second timeout to prevent hanging (increased for slow connections)
@@ -75,23 +75,23 @@ export async function middleware(request: NextRequest) {
             setTimeout(() => reject(new Error('Session timeout')), 10000)
         )
 
-        const sessionPromise = supabase.auth.getSession()
+        const userPromise = supabase.auth.getUser()
 
         const { data } = await Promise.race([
-            sessionPromise,
+            userPromise,
             timeout
         ]) as any
 
-        session = data?.session || null
+        authUser = data?.user || null
     } catch (error) {
         console.error('Middleware session error:', error)
         // On error or timeout, treat as no session
-        session = null
+        authUser = null
     }
 
     // Protected dashboard routes
     if (pathname.startsWith('/dashboard')) {
-        if (!session) {
+        if (!authUser) {
             return addNoCacheHeaders(NextResponse.redirect(new URL('/auth/login', request.url)))
         }
     }
@@ -101,7 +101,7 @@ export async function middleware(request: NextRequest) {
     const isAdminAPI = pathname.startsWith('/api/admin')
 
     if (isAdminUI || isAdminAPI) {
-        if (!session) {
+        if (!authUser) {
             if (isAdminAPI) return addNoCacheHeaders(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }))
             return addNoCacheHeaders(NextResponse.redirect(new URL('/auth/login', request.url)))
         }
@@ -115,7 +115,7 @@ export async function middleware(request: NextRequest) {
             const roleQuery = supabase
                 .from('users')
                 .select('role')
-                .eq('id', session.user.id)
+                .eq('id', authUser.id)
                 .single()
 
             const { data: user } = await Promise.race([
@@ -133,7 +133,7 @@ export async function middleware(request: NextRequest) {
                 const isOrderPath = pathname.includes('/admin/orders')
                 
                 if (!isOrderPath) {
-                    console.warn(`[MiddlewareAudit] Sub-admin ${session.user.id} blocked from ${pathname}`)
+                    console.warn(`[MiddlewareAudit] Sub-admin ${authUser.id} blocked from ${pathname}`)
                     
                     if (isAdminAPI) {
                         return addNoCacheHeaders(NextResponse.json({ error: 'Forbidden' }, { status: 403 }))
@@ -151,7 +151,7 @@ export async function middleware(request: NextRequest) {
 
     // Redirect authenticated users away from auth pages
     if (pathname.startsWith('/auth')) {
-        if (session) {
+        if (authUser) {
             return addNoCacheHeaders(NextResponse.redirect(new URL('/dashboard', request.url)))
         }
     }

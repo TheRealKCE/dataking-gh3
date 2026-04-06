@@ -77,13 +77,13 @@ export default async function ShopPage({ params }: Props) {
     const storefrontSetting = adminSettingsMap['page_access_storefront']
 
     // Admin pass-through check
-    const { data: { session } } = await supabase.auth.getSession()
+    const { data: { user: authUser } } = await supabase.auth.getUser()
     let isAdmin = false
-    if (session) {
+    if (authUser) {
         const { data: user } = await supabase
             .from('users')
             .select('role')
-            .eq('id', session.user.id)
+            .eq('id', authUser.id)
             .single()
         if ((user as any)?.role === 'admin') isAdmin = true
     }
