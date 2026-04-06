@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase'
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { cookies } from 'next/headers'
 import { creditShopProfit } from '@/lib/shop-service'
 import { sendOrderSuccessSMS } from '@/lib/sms-service'
 
@@ -26,7 +27,11 @@ export async function GET(request: NextRequest) {
         })
         const verifyData = await verifyRes.json()
 
-        const supabase = createServerClient()
+        const cookieStore = await cookies()
+        const supabase = createRouteHandlerClient({
+            // @ts-expect-error - auth-helpers types expect Promise but runtime needs synchronous object
+            cookies: () => cookieStore,
+        })
         const db = supabase as any
 
         // 2. Extract order data from metadata

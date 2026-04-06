@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 
@@ -67,7 +66,8 @@ export async function POST(request: NextRequest) {
         }
 
         // ── 2B: Fetch price server-side (prevents amount: 0 exploits) ──
-        const supabase = createServerClient()
+        // Reuse the already-authenticated client — no service role needed here
+        const supabase = supabaseUserClient
 
         const { data: userRow } = await (supabase
             .from('users')

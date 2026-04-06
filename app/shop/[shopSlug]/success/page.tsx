@@ -1,7 +1,10 @@
 import { Metadata } from 'next'
 import Link from 'next/link'
 import Image from 'next/image'
+import { redirect } from 'next/navigation'
 import { createServerClient } from '@/lib/supabase'
+import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'
+import { cookies } from 'next/headers'
 import { CheckCircle2, ShoppingCart, Clock, XCircle, RefreshCw } from 'lucide-react'
 import { CopyButton } from './copy-button'
 
@@ -20,6 +23,13 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 export default async function ShopSuccessPage({ params, searchParams }: Props) {
     const { shopSlug } = await params
     const { ref } = await searchParams
+
+    // Auth guard: success page requires a logged-in session
+    const authClient = createServerComponentClient({ cookies })
+    const { data: { user: authUser } } = await authClient.auth.getUser()
+    if (!authUser) {
+        redirect('/auth/login')
+    }
 
     const supabase = createServerClient()
 

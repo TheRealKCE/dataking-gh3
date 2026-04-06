@@ -1,6 +1,7 @@
 import { Metadata } from 'next'
 import { notFound } from 'next/navigation'
-import { createServerClient } from '@/lib/supabase'
+import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'
+import { cookies } from 'next/headers'
 import Image from 'next/image'
 import Link from 'next/link'
 import { ArrowLeft, Phone, Mail, MessageCircle, MapPin, ShieldCheck, Clock, CheckCircle2, AlertTriangle, Users, BookOpen } from 'lucide-react'
@@ -14,7 +15,7 @@ export const revalidate = 3600 // Revalidate once an hour
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
     const { shopSlug } = await params
-    const supabase = createServerClient()
+    const supabase = createServerComponentClient({ cookies })
 
     const { data: shop } = await (supabase
         .from('shop_profiles')
@@ -34,7 +35,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function ShopAboutPage({ params }: Props) {
     const { shopSlug } = await params
-    const supabase = createServerClient()
+    const supabase = createServerComponentClient({ cookies })
 
     const { data: shop } = await (supabase
         .from('shop_profiles')

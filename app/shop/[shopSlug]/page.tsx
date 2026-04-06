@@ -1,6 +1,7 @@
 import { Metadata } from 'next'
 import { notFound } from 'next/navigation'
-import { createServerClient } from '@/lib/supabase'
+import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'
+import { cookies } from 'next/headers'
 import ShopStorefront from './ShopStorefront'
 
 interface Props {
@@ -12,7 +13,7 @@ export const revalidate = 600
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
     const { shopSlug } = await params
-    const supabase = createServerClient()
+    const supabase = createServerComponentClient({ cookies })
 
     const { data: shop } = await (supabase
         .from('shop_profiles')
@@ -42,7 +43,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function ShopPage({ params }: Props) {
     const { shopSlug } = await params
-    const supabase = createServerClient()
+    const supabase = createServerComponentClient({ cookies })
 
     // Fetch shop — include pricing_status so we can show Under Review state
     const { data: shop } = await (supabase
@@ -51,11 +52,7 @@ export default async function ShopPage({ params }: Props) {
         .eq('shop_slug', shopSlug)
         .single() as any)
 
-    // Set sticky cookie (Client won't be able to easily delete path)
-    if (shop) {
-        supabase.auth.updateUser({}) // Keep session alive if any
-        // Cookie setting moved to middleware to avoid Server Component error
-    }
+    // Note: session refresh is handled by middleware; no explicit call needed here
 
     // Shop doesn't exist or is not profile-approved → 404
     if (!shop || shop.approval_status !== 'approved' || !shop.is_active) {

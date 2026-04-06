@@ -1,5 +1,4 @@
 import { NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 
@@ -15,22 +14,23 @@ export async function POST(request: Request) {
             )
         }
 
+        // Create a single authenticated client for all DB operations in this request
+        const cookieStore = await cookies()
+        const supabase = createRouteHandlerClient({
+            // @ts-expect-error - auth-helpers types expect Promise but runtime needs synchronous object
+            cookies: () => cookieStore
+        })
+
         let userName = 'Anonymous'
 
         try {
-            const cookieStore = await cookies()
-            const supabaseUserClient = createRouteHandlerClient({
-                // @ts-expect-error - auth-helpers types expect Promise but runtime needs synchronous object
-                cookies: () => cookieStore
-            })
-            const { data: { user: authUser } } = await supabaseUserClient.auth.getUser()
+            const { data: { user: authUser } } = await supabase.auth.getUser()
 
             if (authUser) {
                 userName = authUser.user_metadata?.full_name || authUser.email || 'User'
 
                 // Try fetching precise name if email is the best we got
                 if (userName === authUser.email || userName === 'User') {
-                    const supabase = createServerClient()
                     const { data: userData } = await supabase
                         .from('users')
                         .select('first_name, last_name')
@@ -48,7 +48,6 @@ export async function POST(request: Request) {
         }
 
         try {
-            const supabase = createServerClient()
             await (supabase.from('support_logs') as any).insert({
                 user_name: userName,
                 message: message,

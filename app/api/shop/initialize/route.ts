@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createServerClient } from '@/lib/supabase'
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { cookies } from 'next/headers'
 
 const rateLimitCache = new Map<string, { count: number, resetTime: number }>()
 const idempotencyCache = new Map<string, { authUrl: string, ref: string, expireAt: number }>()
@@ -59,7 +60,11 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Invalid phone number. Use format: 0XXXXXXXXX or 233XXXXXXXXX' }, { status: 400 })
         }
 
-        const supabase = createServerClient()
+        const cookieStore = await cookies()
+        const supabase = createRouteHandlerClient({
+            // @ts-expect-error - auth-helpers types expect Promise but runtime needs synchronous object
+            cookies: () => cookieStore,
+        })
         const db = supabase as any
 
         const { data: shop, error: shopError } = await db
