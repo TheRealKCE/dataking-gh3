@@ -60,12 +60,8 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Invalid phone number. Use format: 0XXXXXXXXX or 233XXXXXXXXX' }, { status: 400 })
         }
 
-        const cookieStore = await cookies()
-        const supabase = createRouteHandlerClient({
-            // @ts-expect-error - auth-helpers types expect Promise but runtime needs synchronous object
-            cookies: () => cookieStore,
-        })
-        const db = supabase as any
+        const { createServerClient } = await import('@/lib/supabase')
+        const db = createServerClient() as any
 
         const { data: shop, error: shopError } = await db
             .from('shop_profiles')

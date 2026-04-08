@@ -199,7 +199,9 @@ export default async function ShopPage({ params }: Props) {
     // Append owner role to calculate correct max amount limits client side
     let ownerRole = 'customer'
     if (shop?.owner_id) {
-        const { data: uData } = await supabase.from('users').select('role').eq('id', shop.owner_id).single()
+        const { createServerClient } = await import('@/lib/supabase')
+        const adminDb = createServerClient()
+        const { data: uData } = await adminDb.from('users').select('role').eq('id', shop.owner_id).single()
         ownerRole = (uData as any)?.role || 'customer'
     }
 
