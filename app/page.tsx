@@ -57,12 +57,12 @@ export default function HomePage() {
     }, [router])
 
     return (
-        <div className="min-h-screen bg-[#E5E7EB] overflow-x-hidden">
+        <div className="min-h-screen bg-slate-50 dark:bg-slate-950 overflow-x-hidden transition-colors duration-300">
             {/* Navigation */}
             <nav className={cn(
                 "fixed top-0 w-full z-50 transition-all duration-300",
                 headerScrolled
-                    ? "bg-white/80 lg:bg-white/80 backdrop-blur-md shadow-sm border-b border-slate-200"
+                    ? "bg-white/80 dark:bg-slate-900/80 backdrop-blur-md shadow-sm border-b border-slate-200 dark:border-slate-800"
                     : "bg-transparent border-transparent"
             )}>
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -107,7 +107,7 @@ export default function HomePage() {
                                         sizes="96px"
                                     />
                                 </div>
-                                <h1 className="text-3xl font-black text-slate-900 tracking-tight drop-shadow-sm">KING FLEXY DATA LTD</h1>
+                                <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight drop-shadow-sm">KING FLEXY DATA LTD</h1>
                             </div>
 
                             {/* Support Section - Only show if phone is configured */}
@@ -131,14 +131,14 @@ export default function HomePage() {
                             <Zap className="w-4 h-4 text-yellow-500 mr-2" />
                             <span className="text-sm text-slate-700 font-medium">Ultra Fast Instant Delivery</span>
                         </div>
-                        <h1 className="text-4xl md:text-7xl font-bold text-slate-900 mb-6 leading-tight">
+                        <h1 className="text-4xl md:text-7xl font-bold text-slate-900 dark:text-white mb-6 leading-tight">
                             Buy Data Bundles
                             <br />
                             <span className="bg-gradient-to-r from-[#0056B3] via-[#0077B6] to-[#00B4D8] bg-clip-text text-transparent">
                                 Instantly
                             </span>
                         </h1>
-                        <p className="text-lg md:text-xl text-slate-600 max-w-2xl mx-auto mb-10 px-4">
+                        <p className="text-lg md:text-xl text-slate-600 dark:text-slate-400 max-w-2xl mx-auto mb-10 px-4">
                             Purchase data bundles for MTN, Telecel, AT-iShare, and AT-BigTime networks.
                             Ultra fast, reliable, and affordable with instant automatic delivery.
                         </p>
@@ -174,13 +174,13 @@ export default function HomePage() {
                         ].map((network) => (
                             <div
                                 key={network.name}
-                                className="group relative p-6 rounded-2xl bg-white/80 backdrop-blur-sm border border-slate-200 shadow-md hover:shadow-xl transition-all duration-300 hover:scale-105"
+                                className="group relative p-6 rounded-2xl bg-white/80 dark:bg-slate-900/50 backdrop-blur-sm border border-slate-200 dark:border-slate-800 shadow-md hover:shadow-xl transition-all duration-300 hover:scale-105"
                             >
                                 <div className="flex items-center justify-center mb-4">
                                     <NetworkIcon network={network.name} size={64} />
                                 </div>
-                                <h3 className="text-lg font-semibold text-slate-900">{network.name}</h3>
-                                <p className="text-sm text-slate-500">Data Bundles</p>
+                                <h3 className="text-lg font-semibold text-slate-900 dark:text-white">{network.name}</h3>
+                                <p className="text-sm text-slate-500 dark:text-slate-400 font-medium">Data Bundles</p>
                             </div>
                         ))}
                     </div>
@@ -191,10 +191,10 @@ export default function HomePage() {
             <section className="py-20 px-4 sm:px-6 lg:px-8 bg-white/50">
                 <div className="max-w-7xl mx-auto">
                     <div className="text-center mb-16">
-                        <h2 className="text-3xl md:text-4xl font-bold text-slate-900 mb-4">
+                        <h2 className="text-3xl md:text-4xl font-bold text-slate-900 dark:text-white mb-4">
                             Why Choose KING FLEXY DATA LTD?
                         </h2>
-                        <p className="text-slate-600 max-w-xl mx-auto">
+                        <p className="text-slate-600 dark:text-slate-400 max-w-xl mx-auto">
                             Experience the fastest and most reliable way to purchase mobile data bundles in Ghana
                         </p>
                     </div>
@@ -222,13 +222,13 @@ export default function HomePage() {
                         ].map((feature, index) => (
                             <div
                                 key={index}
-                                className="group p-8 rounded-2xl bg-white/95 lg:bg-white/80 lg:backdrop-blur-sm border border-slate-200 shadow-sm lg:shadow-md lg:hover:shadow-xl transition-all duration-300"
+                                className="group p-8 rounded-2xl bg-white/95 dark:bg-slate-900/80 lg:backdrop-blur-sm border border-slate-200 dark:border-slate-800 shadow-sm lg:shadow-md lg:hover:shadow-xl transition-all duration-300"
                             >
                                 <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${feature.gradient} flex items-center justify-center mb-6 group-hover:scale-110 transition-transform`}>
                                     <feature.icon className="w-7 h-7 text-white" />
                                 </div>
-                                <h3 className="text-xl font-semibold text-slate-900 mb-3">{feature.title}</h3>
-                                <p className="text-slate-600">{feature.description}</p>
+                                <h3 className="text-xl font-semibold text-slate-900 dark:text-white mb-3">{feature.title}</h3>
+                                <p className="text-slate-600 dark:text-slate-400">{feature.description}</p>
                             </div>
                         ))}
                     </div>

@@ -77,7 +77,7 @@
   h6,
   .CardTitle {
     text-align: center !important;
-    color: #1A1A1A !important;
+    color: #1A1A1A;
   }
 
   .dark h1,
@@ -87,7 +87,7 @@
   .dark h5,
   .dark h6,
   .dark .CardTitle {
-    color: #E5E7EB !important;
+    color: #E5E7EB;
   }
 
   /* Subheaders/paragraphs often used under titles */
@@ -323,8 +323,8 @@
   border: none !important;
   box-shadow: none !important;
   padding: 0 !important;
-  backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
   max-width: 320px !important;
 }
 

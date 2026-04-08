@@ -205,8 +205,18 @@ export default function ShopStorefront({ shop, packages, adminSettings }: Props)
                     .limit(1)
                     .maybeSingle()
 
+                const showAutoPopup = () => {
+                    const seenKey = `announcement_seen_${shop.id}`
+                    if (!sessionStorage.getItem(seenKey)) {
+                        setShowAnnouncementModal(true)
+                        setAnnouncementDismissed(true)
+                        sessionStorage.setItem(seenKey, 'true')
+                    }
+                }
+
                 if (adminAnn) {
                     setAnnouncement({ type: 'admin', title: (adminAnn as any).title, message: (adminAnn as any).message })
+                    showAutoPopup()
                     return
                 }
 
@@ -221,6 +231,7 @@ export default function ShopStorefront({ shop, packages, adminSettings }: Props)
 
                 if (shopAnn) {
                     setAnnouncement({ type: 'shop', message: (shopAnn as any).message })
+                    showAutoPopup()
                 }
             } catch (err) {
                 console.error('Error fetching announcements:', err)
@@ -474,8 +485,8 @@ export default function ShopStorefront({ shop, packages, adminSettings }: Props)
             <div className="fixed top-0 left-0 w-full z-[45] shadow-lg border-b border-black/5 dark:border-white/5 bg-[var(--brand-color)]/95 backdrop-blur-md transition-all duration-300 ease-in-out">
                 <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
-                        <button onClick={() => setIsSidebarOpen(true)} className="p-1 hover:bg-black/10 rounded-lg transition-colors flex-shrink-0 text-[var(--brand-contrast-text)]" aria-label="Open menu">
-                            <Menu className="w-6 h-6" />
+                        <button onClick={() => setIsSidebarOpen(true)} className="p-1 bg-[#FFCE00] hover:bg-[#E6B800] rounded-lg transition-colors flex-shrink-0 text-black border border-black/10 shadow-sm" aria-label="Open menu">
+                            <Menu className="w-6 h-6 text-black" />
                         </button>
                         {shop.logo_url && (
                             <div className="relative w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 border border-black/5 shadow-sm bg-white/20">

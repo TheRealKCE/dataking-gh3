@@ -87,7 +87,7 @@ export default function AdminDashboardPage() {
         <div className="space-y-6">
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
                 <div>
-                    <h1 className="text-3xl font-black text-slate-900">Admin Dashboard</h1>
+                    <h1 className="text-3xl font-black text-slate-900 dark:text-white">Admin Dashboard</h1>
                     <p className="text-muted-foreground font-medium text-sm">Overview of platform performance and required actions.</p>
                 </div>
                 {totalActions > 0 && (
@@ -112,7 +112,7 @@ export default function AdminDashboardPage() {
                                             <ShoppingCart className="w-5 h-5" />
                                         </div>
                                         <div>
-                                            <p className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Orders</p>
+                                            <p className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider">Orders</p>
                                             <p className="text-lg font-black">{adminCounts.pendingOrders} Pending</p>
                                         </div>
                                     </div>
@@ -131,7 +131,7 @@ export default function AdminDashboardPage() {
                                             <Store className="w-5 h-5" />
                                         </div>
                                         <div>
-                                            <p className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Shops</p>
+                                            <p className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider">Shops</p>
                                             <p className="text-lg font-black">{adminCounts.pendingShops} Review</p>
                                         </div>
                                     </div>
@@ -150,7 +150,7 @@ export default function AdminDashboardPage() {
                                             <Banknote className="w-5 h-5" />
                                         </div>
                                         <div>
-                                            <p className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Withdrawals</p>
+                                            <p className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider">Withdrawals</p>
                                             <p className="text-lg font-black">{adminCounts.pendingWithdrawals} Pending</p>
                                         </div>
                                     </div>
@@ -169,7 +169,7 @@ export default function AdminDashboardPage() {
                                             <MessageSquare className="w-5 h-5" />
                                         </div>
                                         <div>
-                                            <p className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Complaints</p>
+                                            <p className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider">Complaints</p>
                                             <p className="text-lg font-black">{adminCounts.pendingComplaints} Issues</p>
                                         </div>
                                     </div>
@@ -188,7 +188,7 @@ export default function AdminDashboardPage() {
                                             <BadgeCheck className="w-5 h-5" />
                                         </div>
                                         <div>
-                                            <p className="text-[10px] font-black uppercase text-slate-500 tracking-wider">AFA Apps</p>
+                                            <p className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider">AFA Apps</p>
                                             <p className="text-lg font-black">{adminCounts.pendingAfa} Pending</p>
                                         </div>
                                     </div>
@@ -207,7 +207,7 @@ export default function AdminDashboardPage() {
                                             <Crown className="w-5 h-5" />
                                         </div>
                                         <div>
-                                            <p className="text-[10px] font-black uppercase text-slate-500 tracking-wider">Expired Agents</p>
+                                            <p className="text-[10px] font-black uppercase text-slate-500 dark:text-slate-400 tracking-wider">Expired Agents</p>
                                             <p className="text-lg font-black">{adminCounts.expiringAgents} Soon</p>
                                         </div>
                                     </div>

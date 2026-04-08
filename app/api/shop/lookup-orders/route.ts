@@ -33,7 +33,10 @@ export async function GET(req: NextRequest) {
             return NextResponse.json({ error: 'Failed to fetch orders', details: error.message }, { status: 500 })
         }
 
-        return NextResponse.json({ orders: data || [] }, {
+        const timeBoundary = Date.now() - (48 * 60 * 60 * 1000)
+        const recentOrders = (data || []).filter((order: any) => new Date(order.created_at).getTime() >= timeBoundary)
+
+        return NextResponse.json({ orders: recentOrders }, {
             headers: {
                 'Cache-Control': 'private, max-age=600'
             }

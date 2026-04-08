@@ -185,7 +185,7 @@ export default function AdminProfitsPage() {
     const COLORS = ['#10b981', '#3b82f6'];
 
     return (
-        <div className="p-4 md:p-6 lg:p-8 space-y-8 bg-zinc-50/50 min-h-screen pb-20">
+        <div className="p-4 md:p-6 lg:p-8 space-y-8 bg-background dark:bg-slate-950 min-h-screen pb-20">
             
             {/* --- HEADER & CONTROLS --- */}
             <div className="flex flex-col gap-6 md:flex-row md:items-end justify-between">
@@ -194,7 +194,7 @@ export default function AdminProfitsPage() {
                     <p className="text-muted-foreground">Comprehensive overview of revenue, costs, and pure profit.</p>
                 </div>
 
-                <div className="flex flex-wrap items-center gap-3 bg-white p-2 rounded-xl shadow-sm border">
+                <div className="flex flex-wrap items-center gap-3 bg-card dark:bg-slate-900 p-2 rounded-xl shadow-sm border border-border">
                     {(['today', 'yesterday', 'week', 'month', 'all'] as TimeRange[]).map((r) => (
                         <Button
                             key={r}
@@ -249,7 +249,7 @@ export default function AdminProfitsPage() {
             {/* --- TOP SUMMARY CARDS --- */}
             <Tabs defaultValue="all" value={channel} onValueChange={(v) => setChannel(v as ChannelFilter)} className="w-full">
                 <div className="flex items-center justify-between mb-4">
-                    <TabsList className="bg-white border shadow-sm">
+                    <TabsList className="bg-card dark:bg-slate-900 border border-border shadow-sm">
                         <TabsTrigger value="all">Overall System</TabsTrigger>
                         <TabsTrigger value="main">Main Platform</TabsTrigger>
                         <TabsTrigger value="shop">DataKazina Storefronts</TabsTrigger>
@@ -257,7 +257,7 @@ export default function AdminProfitsPage() {
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-                    <Card className="border-0 shadow-sm bg-white overflow-hidden relative">
+                    <Card className="border-border shadow-sm bg-card overflow-hidden relative">
                         <div className="absolute top-0 right-0 p-4 opacity-10">
                             <DollarSign className="w-16 h-16" />
                         </div>
@@ -267,7 +267,7 @@ export default function AdminProfitsPage() {
                         </CardContent>
                     </Card>
 
-                    <Card className="border-0 shadow-sm bg-white overflow-hidden relative">
+                    <Card className="border-border shadow-sm bg-card overflow-hidden relative">
                         <div className="absolute top-0 right-0 p-4 opacity-10 text-rose-500">
                             <TrendingDown className="w-16 h-16" />
                         </div>
@@ -294,7 +294,7 @@ export default function AdminProfitsPage() {
                         </CardContent>
                     </Card>
 
-                    <Card className="border-0 shadow-sm bg-white overflow-hidden relative">
+                    <Card className="border-border shadow-sm bg-card overflow-hidden relative">
                         <div className="absolute top-0 right-0 p-4 opacity-10">
                             <BarChart3 className="w-16 h-16" />
                         </div>
@@ -311,7 +311,7 @@ export default function AdminProfitsPage() {
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
                 
                 {/* LINE CHART */}
-                <Card className="col-span-1 lg:col-span-2 shadow-sm border-0">
+                <Card className="col-span-1 lg:col-span-2 shadow-sm border border-border bg-card">
                     <CardHeader>
                         <CardTitle className="text-base font-semibold text-muted-foreground flex items-center gap-2 uppercase tracking-wide">
                             <Activity className="w-4 h-4" /> 
@@ -346,10 +346,11 @@ export default function AdminProfitsPage() {
                                         dx={-10}
                                         tickFormatter={(val) => `GH₵${val}`}
                                     />
-                                    <CartesianGrid vertical={false} stroke="#f0f0f0" />
+                                    <CartesianGrid vertical={false} stroke="currentColor" className="text-muted/20" />
                                     <Tooltip 
                                         formatter={(value: any) => [`GHS ${Number(value).toFixed(2)}`, '']}
-                                        contentStyle={{ borderRadius: '8px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                                        contentStyle={{ borderRadius: '8px', border: 'none', backgroundColor: 'hsl(var(--card))', color: 'hsl(var(--foreground))', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                                        itemStyle={{ color: 'hsl(var(--foreground))' }}
                                     />
                                     
                                     {channel === 'all' && <Area type="monotone" name="Main Profit" dataKey="main_profit" stroke="#3b82f6" fillOpacity={1} fill="url(#colorProfit)" strokeWidth={2} />}
@@ -369,7 +370,7 @@ export default function AdminProfitsPage() {
 
                 {/* PIE CHART / INSIGHTS */}
                 <div className="space-y-6">
-                    <Card className="shadow-sm border-0">
+                    <Card className="shadow-sm border border-border bg-card">
                         <CardHeader className="pb-2">
                             <CardTitle className="text-base font-semibold text-muted-foreground uppercase tracking-wide">Profit Origin Split</CardTitle>
                         </CardHeader>
@@ -408,7 +409,7 @@ export default function AdminProfitsPage() {
                         </CardContent>
                     </Card>
 
-                    <Card className="shadow-sm border-0 bg-blue-50/50">
+                    <Card className="shadow-sm border border-border bg-blue-50/50 dark:bg-blue-900/10">
                         <CardContent className="p-5 space-y-4">
                             {insights?.map((insight, idx) => (
                                 <div key={idx} className="flex gap-3">
@@ -430,7 +431,7 @@ export default function AdminProfitsPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                 
                 {/* WALLETS */}
-                <Card className="shadow-sm border-0">
+                <Card className="shadow-sm border border-border bg-card">
                     <CardHeader>
                         <CardTitle className="text-base font-semibold text-muted-foreground uppercase flex items-center tracking-wide gap-2">
                             <Wallet className="w-4 h-4" /> System Liability (Wallets)
@@ -466,7 +467,7 @@ export default function AdminProfitsPage() {
                 </Card>
 
                 {/* SHOP OWNER LEADERBOARD */}
-                <Card className="shadow-sm border-0 flex flex-col">
+                <Card className="shadow-sm border border-border bg-card flex flex-col">
                     <CardHeader>
                         <CardTitle className="text-base font-semibold text-muted-foreground uppercase flex items-center tracking-wide gap-2">
                             <Store className="w-4 h-4" /> Top Storefront Earners

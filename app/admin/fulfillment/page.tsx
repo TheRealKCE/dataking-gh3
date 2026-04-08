@@ -55,6 +55,7 @@ interface Order {
 interface FulfillmentSettings {
     is_global_enabled: boolean
     networks: Record<string, boolean>
+    codecraft_networks: Record<string, boolean>
 }
 
 const NETWORKS = ['MTN', 'Telecel', 'AT-iShare', 'AT-BigTime']
@@ -83,12 +84,14 @@ export default function FulfillmentPage() {
     // Settings state
     const [settings, setSettings] = useState<FulfillmentSettings>({
         is_global_enabled: true,
-        networks: NETWORKS.reduce((acc, n) => ({ ...acc, [n]: true }), {})
+        networks: NETWORKS.reduce((acc, n) => ({ ...acc, [n]: true }), {}),
+        codecraft_networks: NETWORKS.reduce((acc, n) => ({ ...acc, [n]: false }), {})
     })
     const [isSavingSettings, setIsSavingSettings] = useState(false)
 
     // Balance state
     const [balance, setBalance] = useState<{ amount: number; currency: string } | null>(null)
+    const [codecraftBalance, setCodecraftBalance] = useState<{ amount: number; currency: string } | null>(null)
     const [isLoadingBalance, setIsLoadingBalance] = useState(false)
 
     useEffect(() => {
@@ -155,6 +158,10 @@ export default function FulfillmentPage() {
                 networks: {
                     ...NETWORKS.reduce((acc, n) => ({ ...acc, [n]: true }), {}),
                     ...(dbFulfillmentSettings.networks || {})
+                },
+                codecraft_networks: {
+                    ...NETWORKS.reduce((acc, n) => ({ ...acc, [n]: false }), {}),
+                    ...(dbFulfillmentSettings.codecraft_networks || {})
                 }
             })
         } catch (error) {
@@ -167,7 +174,7 @@ export default function FulfillmentPage() {
         try {
             const updates = [
                 { key: 'auto_fulfillment_enabled', value: String(newSettings.is_global_enabled) },
-                { key: 'fulfillment_settings', value: JSON.stringify({ networks: newSettings.networks }) }
+                { key: 'fulfillment_settings', value: JSON.stringify({ networks: newSettings.networks, codecraft_networks: newSettings.codecraft_networks }) }
             ]
 
             const { error } = await (supabase
@@ -184,12 +191,21 @@ export default function FulfillmentPage() {
         }
     }
 
-    const toggleNetwork = (network: string) => {
-        const newSettings = {
-            ...settings,
-            networks: {
-                ...settings.networks,
-                [network]: !settings.networks[network]
+    const toggleNetwork = (network: string, provider: 'datakazina' | 'codecraft') => {
+        const newSettings = { ...settings }
+        if (provider === 'datakazina') {
+            const isCurrentlyEnabled = settings.networks[network]
+            newSettings.networks = { ...settings.networks, [network]: !isCurrentlyEnabled }
+            // If turning DataKazina ON, strictly turn CodeCraft OFF
+            if (!isCurrentlyEnabled) {
+                newSettings.codecraft_networks = { ...settings.codecraft_networks, [network]: false }
+            }
+        } else {
+            const isCurrentlyEnabled = settings.codecraft_networks[network]
+            newSettings.codecraft_networks = { ...settings.codecraft_networks, [network]: !isCurrentlyEnabled }
+            // If turning CodeCraft ON, strictly turn DataKazina OFF
+            if (!isCurrentlyEnabled) {
+                newSettings.networks = { ...settings.networks, [network]: false }
             }
         }
         saveSettings(newSettings)
@@ -242,6 +258,9 @@ export default function FulfillmentPage() {
 
             const data = await response.json()
             setBalance({ amount: data.balance, currency: data.currency })
+            if (data.codecraft_currency !== undefined) {
+                setCodecraftBalance({ amount: data.codecraft_balance, currency: data.codecraft_currency })
+            }
         } catch (error: any) {
             console.error('Balance fetch error:', error)
             toast.error('Failed to fetch supplier balance')
@@ -350,62 +369,122 @@ export default function FulfillmentPage() {
                 </div>
             </div>
 
-            {/* Supplier Balance Card */}
-            <Card className="bg-gradient-to-br from-emerald-600 to-emerald-800 text-white border-none shadow-lg">
-                <CardContent className="p-4 md:p-6">
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-                        <div className="flex items-center gap-3">
-                            <div className="bg-white/20 p-2.5 rounded-lg">
-                                <Server className="w-5 h-5 md:w-6 md:h-6" />
+            {/* Supplier Balances */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <Card className="bg-gradient-to-br from-emerald-600 to-emerald-800 text-white border-none shadow-lg">
+                    <CardContent className="p-4 md:p-5">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div className="flex items-center gap-3">
+                                <div className="bg-white/20 p-2.5 rounded-lg">
+                                    <Server className="w-5 h-5 md:w-6 md:h-6" />
+                                </div>
+                                <div>
+                                    <p className="text-[10px] md:text-xs font-bold uppercase tracking-wider opacity-90">DataKazina Balance</p>
+                                    <p className="text-2xl md:text-3xl font-black">
+                                        {balance ? `${balance.currency} ${balance.amount.toFixed(2)}` : (isLoadingBalance ? 'Loading...' : 'GHS 0.00')}
+                                    </p>
+                                </div>
                             </div>
-                            <div>
-                                <p className="text-[10px] md:text-xs font-bold uppercase tracking-wider opacity-90">DataKazina Balance</p>
-                                <p className="text-2xl md:text-3xl font-black">
-                                    {balance ? `${balance.currency} ${balance.amount.toFixed(2)}` : (isLoadingBalance ? 'Loading...' : 'GHS 0.00')}
-                                </p>
-                            </div>
+                            <Button
+                                onClick={fetchBalance}
+                                disabled={isLoadingBalance}
+                                variant="secondary"
+                                size="sm"
+                                className="bg-white/20 hover:bg-white/30 text-white border-white/30"
+                            >
+                                <RefreshCw className={`w-4 h-4 mr-2 ${isLoadingBalance ? 'animate-spin' : ''}`} />
+                                Refresh
+                            </Button>
                         </div>
-                        <Button
-                            onClick={fetchBalance}
-                            disabled={isLoadingBalance}
-                            variant="secondary"
-                            size="sm"
-                            className="bg-white/20 hover:bg-white/30 text-white border-white/30"
-                        >
-                            <RefreshCw className={`w-4 h-4 mr-2 ${isLoadingBalance ? 'animate-spin' : ''}`} />
-                            Refresh Balance
-                        </Button>
-                    </div>
-                </CardContent>
-            </Card>
+                    </CardContent>
+                </Card>
+
+                <Card className="bg-gradient-to-br from-blue-600 to-blue-800 text-white border-none shadow-lg">
+                    <CardContent className="p-4 md:p-5">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div className="flex items-center gap-3">
+                                <div className="bg-white/20 p-2.5 rounded-lg">
+                                    <Server className="w-5 h-5 md:w-6 md:h-6" />
+                                </div>
+                                <div>
+                                    <p className="text-[10px] md:text-xs font-bold uppercase tracking-wider opacity-90">CodeCraft Balance</p>
+                                    <p className="text-2xl md:text-3xl font-black">
+                                        {codecraftBalance ? `${codecraftBalance.currency} ${codecraftBalance.amount.toFixed(2)}` : (isLoadingBalance ? 'Loading...' : 'GHS 0.00')}
+                                    </p>
+                                </div>
+                            </div>
+                            <Button
+                                onClick={fetchBalance}
+                                disabled={isLoadingBalance}
+                                variant="secondary"
+                                size="sm"
+                                className="bg-white/20 hover:bg-white/30 text-white border-white/30"
+                            >
+                                <RefreshCw className={`w-4 h-4 mr-2 ${isLoadingBalance ? 'animate-spin' : ''}`} />
+                                Refresh
+                            </Button>
+                        </div>
+                    </CardContent>
+                </Card>
+            </div>
 
             {/* Network Connections */}
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-                {NETWORKS.map(net => (
-                    <Card key={net} className={`border-l-4 ${settings.networks[net] ? 'border-l-green-500' : 'border-l-gray-300'}`}>
-                        <CardContent className="p-3 md:p-4">
-                            <div className="flex items-center justify-between mb-2">
-                                <div className="flex items-center gap-2">
-                                    <Activity className={`w-3.5 h-3.5 ${settings.networks[net] ? 'text-green-500' : 'text-gray-400'}`} />
-                                    <span className="font-semibold text-xs md:text-sm">{net}</span>
+            <div className="space-y-4">
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+                    {NETWORKS.map(net => (
+                        <Card key={`datakazina-${net}`} className={`border-l-4 ${settings.networks[net] ? 'border-l-emerald-500' : 'border-l-gray-300'}`}>
+                            <CardContent className="p-3 md:p-4">
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-2">
+                                        <Activity className={`w-3.5 h-3.5 ${settings.networks[net] ? 'text-emerald-500' : 'text-gray-400'}`} />
+                                        <span className="font-semibold text-xs md:text-sm">{net}</span>
+                                    </div>
+                                    <Button
+                                        variant={settings.networks[net] ? "outline" : "default"}
+                                        size="sm"
+                                        className="h-6 text-[10px] md:text-xs px-2"
+                                        onClick={() => toggleNetwork(net, 'datakazina')}
+                                        disabled={isSavingSettings}
+                                    >
+                                        {settings.networks[net] ? 'Disconnect' : 'Connect'}
+                                    </Button>
                                 </div>
-                                <Button
-                                    variant={settings.networks[net] ? "outline" : "default"}
-                                    size="sm"
-                                    className="h-6 text-[10px] md:text-xs px-2"
-                                    onClick={() => toggleNetwork(net)}
-                                    disabled={isSavingSettings}
-                                >
-                                    {settings.networks[net] ? 'Disconnect' : 'Connect'}
-                                </Button>
-                            </div>
-                            <div className="text-[10px] text-muted-foreground flex items-center gap-1">
-                                <Server className="w-3 h-3" />
-                                Provider: <span className="font-medium text-primary">DataKazina</span>
-                            </div>
-                        </CardContent>
-                    </Card>
-                ))}
+                                <div className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                    <Server className="w-3 h-3 text-emerald-500" />
+                                    Provider: <span className="font-bold text-emerald-600 dark:text-emerald-400">DataKazina</span>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    ))}
+                </div>
+
+                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+                    {NETWORKS.map(net => (
+                        <Card key={`codecraft-${net}`} className={`border-l-4 ${settings.codecraft_networks[net] ? 'border-l-blue-500' : 'border-l-gray-300'}`}>
+                            <CardContent className="p-3 md:p-4">
+                                <div className="flex items-center justify-between mb-2">
+                                    <div className="flex items-center gap-2">
+                                        <Activity className={`w-3.5 h-3.5 ${settings.codecraft_networks[net] ? 'text-blue-500' : 'text-gray-400'}`} />
+                                        <span className="font-semibold text-xs md:text-sm">{net}</span>
+                                    </div>
+                                    <Button
+                                        variant={settings.codecraft_networks[net] ? "outline" : "default"}
+                                        size="sm"
+                                        className="h-6 text-[10px] md:text-xs px-2"
+                                        onClick={() => toggleNetwork(net, 'codecraft')}
+                                        disabled={isSavingSettings}
+                                    >
+                                        {settings.codecraft_networks[net] ? 'Disconnect' : 'Connect'}
+                                    </Button>
+                                </div>
+                                <div className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                    <Server className="w-3 h-3 text-blue-500" />
+                                    Provider: <span className="font-bold text-blue-600 dark:text-blue-400">CodeCraft</span>
+                                </div>
+                            </CardContent>
+                        </Card>
+                    ))}
+                </div>
             </div>
 
             {/* Main Content Area */}

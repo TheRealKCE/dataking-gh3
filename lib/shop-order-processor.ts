@@ -401,9 +401,7 @@ async function triggerShopFulfillment(
     }
 
     try {
-        const { fulfillOrder } = await import('./fulfillment-service')
-
-        // Check global auto-fulfillment toggle
+        // Check global auto-fulfillment toggle and fetch settings
         const { data: settingsData } = await db
             .from('admin_settings')
             .select('key, value')
@@ -420,23 +418,49 @@ async function triggerShopFulfillment(
             return
         }
 
-        let fulfillmentSettings = { networks: {} as Record<string, boolean> }
+        // Dynamic fulfillment routing
+        let fulfillmentSettings = { networks: {} as Record<string, boolean>, codecraft_networks: {} as Record<string, boolean> }
         try {
             if (settingsMap.fulfillment_settings) {
                 fulfillmentSettings = typeof settingsMap.fulfillment_settings === 'string'
                     ? JSON.parse(settingsMap.fulfillment_settings)
                     : settingsMap.fulfillment_settings
+                
+                if (!fulfillmentSettings.codecraft_networks) {
+                    fulfillmentSettings.codecraft_networks = {}
+                }
             }
         } catch (e) { /* ignore */ }
 
-        const isNetworkEnabled = fulfillmentSettings.networks[network] !== false
-        if (!isNetworkEnabled) {
-            console.log(`[Shop Order Processor] Auto-fulfillment disabled for ${network}`)
-            await sendAdminNewOrderAlert({ ...alertDetails, reason: `Auto-fulfillment is disabled for network: ${network}` })
+        // DataKazina defaults to enabled if historically true and not strictly set to false
+        const isDataKazinaEnabled = fulfillmentSettings.networks[network] !== false
+        const isCodeCraftEnabled = fulfillmentSettings.codecraft_networks[network] === true
+
+        // Absolute Last Line of Defense
+        if (isDataKazinaEnabled && isCodeCraftEnabled) {
+            console.error(`[Fulfillment] CONFLICT DETECTED for ${network}`);
+            await sendAdminNewOrderAlert({ ...alertDetails, reason: `SYSTEM HALTED: Both suppliers active for same network ${network}. Fix in admin panel.` })
+            throw new Error(`FULFILLMENT_CONFLICT: Both suppliers active for same network ${network}`);
+        }
+
+        if (!isDataKazinaEnabled && !isCodeCraftEnabled) {
+            console.log(`[Shop Order Processor] Auto-fulfillment disabled for ${network} on both providers`)
+            await sendAdminNewOrderAlert({ ...alertDetails, reason: `Auto-fulfillment is disabled for network: ${network} across all suppliers` })
             return
         }
 
-        const result = await fulfillOrder(network, phone, extra.size || '', orderId)
+        let fulfillOrderFunction: any;
+        if (isCodeCraftEnabled) {
+            const { fulfillOrder } = await import('./codecraft-service')
+            fulfillOrderFunction = fulfillOrder;
+            console.log(`[Shop Order Processor] Routing fulfillment to CodeCraft for ${network}`)
+        } else {
+            const { fulfillOrder } = await import('./fulfillment-service')
+            fulfillOrderFunction = fulfillOrder;
+            console.log(`[Shop Order Processor] Routing fulfillment to DataKazina for ${network}`)
+        }
+
+        const result = await fulfillOrderFunction(network, phone, extra.size || '', orderId)
 
         if (result.success) {
             const updatedAt = new Date().toISOString()

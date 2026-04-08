@@ -66,10 +66,10 @@ export function DashboardHeader() {
                 <Button
                     variant="ghost"
                     size="icon"
-                    className={cn("lg:hidden", dbUser?.role === 'agent' ? "text-black hover:bg-black/10" : "")}
+                    className="lg:hidden bg-[#FFCE00] hover:bg-[#E6B800] text-black shrink-0 border border-black/10 shadow-sm transition-colors"
                     onClick={toggleSidebar}
                 >
-                    <Menu className="w-5 h-5" />
+                    <Menu className="w-5 h-5 text-black" />
                 </Button>
 
                 {/* Welcome Message */}

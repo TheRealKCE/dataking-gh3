@@ -38,27 +38,38 @@ export async function GET() {
             return NextResponse.json({
                 balance: balanceCache.balance,
                 currency: balanceCache.currency,
+                codecraft_balance: (balanceCache as any).codecraft_balance,
+                codecraft_currency: (balanceCache as any).codecraft_currency,
                 cached: true
             })
         }
 
-        // 4. Fetch balance from DataKazina
-        const result = await fetchSupplierBalance()
+        // 4. Fetch balances from DataKazina and CodeCraft currently
+        const { fetchSupplierBalance: fetchCodeCraftBalance } = await import('@/lib/codecraft-service')
+        
+        const [dakazinaResult, codecraftResult] = await Promise.all([
+            fetchSupplierBalance(),
+            fetchCodeCraftBalance()
+        ])
 
-        if (!result.success) {
-            return NextResponse.json({ error: result.error }, { status: 500 })
+        if (!dakazinaResult.success && !codecraftResult.success) {
+            return NextResponse.json({ error: 'Failed to fetch balances from all suppliers' }, { status: 500 })
         }
 
         // 5. Update Cache
         balanceCache = {
-            balance: result.balance || 0,
-            currency: result.currency || 'GHS',
+            balance: dakazinaResult.balance || 0,
+            currency: dakazinaResult.currency || 'GHS',
+            codecraft_balance: codecraftResult.balance || 0,
+            codecraft_currency: codecraftResult.currency || 'GHS',
             timestamp: now
-        }
+        } as any
 
         return NextResponse.json({
-            balance: result.balance,
-            currency: result.currency,
+            balance: dakazinaResult.balance || 0,
+            currency: dakazinaResult.currency || 'GHS',
+            codecraft_balance: codecraftResult.balance || 0,
+            codecraft_currency: codecraftResult.currency || 'GHS',
             cached: false
         })
 
