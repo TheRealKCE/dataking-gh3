@@ -81,10 +81,10 @@ export default function FulfillmentPage() {
     // Pagination State (Disabled for total load)
     const [ordersCount, setOrdersCount] = useState(0)
 
-    // Settings state
+    // Settings state — defaults all networks to false until loaded from DB
     const [settings, setSettings] = useState<FulfillmentSettings>({
         is_global_enabled: true,
-        networks: NETWORKS.reduce((acc, n) => ({ ...acc, [n]: true }), {}),
+        networks: NETWORKS.reduce((acc, n) => ({ ...acc, [n]: false }), {}),
         codecraft_networks: NETWORKS.reduce((acc, n) => ({ ...acc, [n]: false }), {})
     })
     const [isSavingSettings, setIsSavingSettings] = useState(false)
@@ -151,18 +151,23 @@ export default function FulfillmentPage() {
 
             const dbFulfillmentSettings = typeof map.fulfillment_settings === 'string'
                 ? JSON.parse(map.fulfillment_settings)
-                : map.fulfillment_settings || { networks: {} }
+                : map.fulfillment_settings || {}
+
+            // Use explicit DB values only — defaults are false for both suppliers.
+            // Processor requires networks[network] === true (not !== false) so we must be explicit.
+            const dbNetworks: Record<string, boolean> = dbFulfillmentSettings.networks || {}
+            const dbCodecraftNetworks: Record<string, boolean> = dbFulfillmentSettings.codecraft_networks || {}
 
             setSettings({
                 is_global_enabled: map.auto_fulfillment_enabled !== 'false',
-                networks: {
-                    ...NETWORKS.reduce((acc, n) => ({ ...acc, [n]: true }), {}),
-                    ...(dbFulfillmentSettings.networks || {})
-                },
-                codecraft_networks: {
-                    ...NETWORKS.reduce((acc, n) => ({ ...acc, [n]: false }), {}),
-                    ...(dbFulfillmentSettings.codecraft_networks || {})
-                }
+                networks: NETWORKS.reduce((acc, n) => ({
+                    ...acc,
+                    [n]: dbNetworks[n] === true
+                }), {} as Record<string, boolean>),
+                codecraft_networks: NETWORKS.reduce((acc, n) => ({
+                    ...acc,
+                    [n]: dbCodecraftNetworks[n] === true
+                }), {} as Record<string, boolean>)
             })
         } catch (error) {
             console.error('Failed to fetch settings:', error)
@@ -428,62 +433,82 @@ export default function FulfillmentPage() {
                 </Card>
             </div>
 
-            {/* Network Connections */}
-            <div className="space-y-4">
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-                    {NETWORKS.map(net => (
-                        <Card key={`datakazina-${net}`} className={`border-l-4 ${settings.networks[net] ? 'border-l-emerald-500' : 'border-l-gray-300'}`}>
-                            <CardContent className="p-3 md:p-4">
-                                <div className="flex items-center justify-between mb-2">
-                                    <div className="flex items-center gap-2">
-                                        <Activity className={`w-3.5 h-3.5 ${settings.networks[net] ? 'text-emerald-500' : 'text-gray-400'}`} />
-                                        <span className="font-semibold text-xs md:text-sm">{net}</span>
+            {/* Network Connections — Mutex Toggle System */}
+            <div className="space-y-3">
+                {/* DataKazina Row */}
+                <div>
+                    <div className="flex items-center gap-2 mb-2">
+                        <Server className="w-3.5 h-3.5 text-emerald-500" />
+                        <span className="text-xs font-bold uppercase tracking-wide text-emerald-700 dark:text-emerald-400">DataKazina Networks</span>
+                        <span className="text-[10px] text-muted-foreground">(enabling a network here auto-disables CodeCraft for same network)</span>
+                    </div>
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+                        {NETWORKS.map(net => (
+                            <Card key={`datakazina-${net}`} className={`border-l-4 transition-colors ${settings.networks[net] ? 'border-l-emerald-500' : 'border-l-gray-300 dark:border-l-gray-600'}`}>
+                                <CardContent className="p-3 md:p-4">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <div className="flex items-center gap-2">
+                                            <Activity className={`w-3.5 h-3.5 ${settings.networks[net] ? 'text-emerald-500' : 'text-gray-400'}`} />
+                                            <span className="font-semibold text-xs md:text-sm">{net}</span>
+                                        </div>
+                                        <Button
+                                            id={`dk-toggle-${net}`}
+                                            variant={settings.networks[net] ? 'outline' : 'default'}
+                                            size="sm"
+                                            className={`h-6 text-[10px] md:text-xs px-2 ${settings.networks[net] ? 'border-emerald-500 text-emerald-600' : ''}`}
+                                            onClick={() => toggleNetwork(net, 'datakazina')}
+                                            disabled={isSavingSettings}
+                                        >
+                                            {settings.networks[net] ? 'Disconnect' : 'Connect'}
+                                        </Button>
                                     </div>
-                                    <Button
-                                        variant={settings.networks[net] ? "outline" : "default"}
-                                        size="sm"
-                                        className="h-6 text-[10px] md:text-xs px-2"
-                                        onClick={() => toggleNetwork(net, 'datakazina')}
-                                        disabled={isSavingSettings}
-                                    >
-                                        {settings.networks[net] ? 'Disconnect' : 'Connect'}
-                                    </Button>
-                                </div>
-                                <div className="text-[10px] text-muted-foreground flex items-center gap-1">
-                                    <Server className="w-3 h-3 text-emerald-500" />
-                                    Provider: <span className="font-bold text-emerald-600 dark:text-emerald-400">DataKazina</span>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    ))}
+                                    <div className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                        <div className={`w-1.5 h-1.5 rounded-full ${settings.networks[net] ? 'bg-emerald-500' : 'bg-gray-300'}`} />
+                                        <span className="font-bold text-emerald-600 dark:text-emerald-400">DataKazina</span>
+                                        {settings.networks[net] && <span className="text-emerald-500 font-semibold">· Active</span>}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </div>
                 </div>
 
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
-                    {NETWORKS.map(net => (
-                        <Card key={`codecraft-${net}`} className={`border-l-4 ${settings.codecraft_networks[net] ? 'border-l-blue-500' : 'border-l-gray-300'}`}>
-                            <CardContent className="p-3 md:p-4">
-                                <div className="flex items-center justify-between mb-2">
-                                    <div className="flex items-center gap-2">
-                                        <Activity className={`w-3.5 h-3.5 ${settings.codecraft_networks[net] ? 'text-blue-500' : 'text-gray-400'}`} />
-                                        <span className="font-semibold text-xs md:text-sm">{net}</span>
+                {/* CodeCraft Row */}
+                <div>
+                    <div className="flex items-center gap-2 mb-2">
+                        <Server className="w-3.5 h-3.5 text-blue-500" />
+                        <span className="text-xs font-bold uppercase tracking-wide text-blue-700 dark:text-blue-400">CodeCraft Networks</span>
+                        <span className="text-[10px] text-muted-foreground">(enabling a network here auto-disables DataKazina for same network)</span>
+                    </div>
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+                        {NETWORKS.map(net => (
+                            <Card key={`codecraft-${net}`} className={`border-l-4 transition-colors ${settings.codecraft_networks[net] ? 'border-l-blue-500' : 'border-l-gray-300 dark:border-l-gray-600'}`}>
+                                <CardContent className="p-3 md:p-4">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <div className="flex items-center gap-2">
+                                            <Activity className={`w-3.5 h-3.5 ${settings.codecraft_networks[net] ? 'text-blue-500' : 'text-gray-400'}`} />
+                                            <span className="font-semibold text-xs md:text-sm">{net}</span>
+                                        </div>
+                                        <Button
+                                            id={`cc-toggle-${net}`}
+                                            variant={settings.codecraft_networks[net] ? 'outline' : 'default'}
+                                            size="sm"
+                                            className={`h-6 text-[10px] md:text-xs px-2 ${settings.codecraft_networks[net] ? 'border-blue-500 text-blue-600' : ''}`}
+                                            onClick={() => toggleNetwork(net, 'codecraft')}
+                                            disabled={isSavingSettings}
+                                        >
+                                            {settings.codecraft_networks[net] ? 'Disconnect' : 'Connect'}
+                                        </Button>
                                     </div>
-                                    <Button
-                                        variant={settings.codecraft_networks[net] ? "outline" : "default"}
-                                        size="sm"
-                                        className="h-6 text-[10px] md:text-xs px-2"
-                                        onClick={() => toggleNetwork(net, 'codecraft')}
-                                        disabled={isSavingSettings}
-                                    >
-                                        {settings.codecraft_networks[net] ? 'Disconnect' : 'Connect'}
-                                    </Button>
-                                </div>
-                                <div className="text-[10px] text-muted-foreground flex items-center gap-1">
-                                    <Server className="w-3 h-3 text-blue-500" />
-                                    Provider: <span className="font-bold text-blue-600 dark:text-blue-400">CodeCraft</span>
-                                </div>
-                            </CardContent>
-                        </Card>
-                    ))}
+                                    <div className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                        <div className={`w-1.5 h-1.5 rounded-full ${settings.codecraft_networks[net] ? 'bg-blue-500' : 'bg-gray-300'}`} />
+                                        <span className="font-bold text-blue-600 dark:text-blue-400">CodeCraft</span>
+                                        {settings.codecraft_networks[net] && <span className="text-blue-500 font-semibold">· Active</span>}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </div>
                 </div>
             </div>
 

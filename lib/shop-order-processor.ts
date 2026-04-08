@@ -401,7 +401,7 @@ async function triggerShopFulfillment(
     }
 
     try {
-        // Check global auto-fulfillment toggle and fetch settings
+        // ── 1. Fetch fulfillment settings from admin_settings ──────────────
         const { data: settingsData } = await db
             .from('admin_settings')
             .select('key, value')
@@ -418,68 +418,94 @@ async function triggerShopFulfillment(
             return
         }
 
-        // Dynamic fulfillment routing
-        let fulfillmentSettings = { networks: {} as Record<string, boolean>, codecraft_networks: {} as Record<string, boolean> }
+        // ── 2. Parse fulfillment_settings ─────────────────────────────────
+        let fulfillmentSettings: {
+            networks: Record<string, boolean>
+            codecraft_networks: Record<string, boolean>
+        } = { networks: {}, codecraft_networks: {} }
+
         try {
             if (settingsMap.fulfillment_settings) {
-                fulfillmentSettings = typeof settingsMap.fulfillment_settings === 'string'
+                const parsed = typeof settingsMap.fulfillment_settings === 'string'
                     ? JSON.parse(settingsMap.fulfillment_settings)
                     : settingsMap.fulfillment_settings
-                
-                if (!fulfillmentSettings.codecraft_networks) {
-                    fulfillmentSettings.codecraft_networks = {}
-                }
+                fulfillmentSettings.networks = parsed.networks || {}
+                fulfillmentSettings.codecraft_networks = parsed.codecraft_networks || {}
             }
-        } catch (e) { /* ignore */ }
+        } catch (e) { /* ignore parse failure — defaults to empty */ }
 
-        // DataKazina defaults to enabled if historically true and not strictly set to false
-        const isDataKazinaEnabled = fulfillmentSettings.networks[network] !== false
+        const isDataKazinaEnabled = fulfillmentSettings.networks[network] === true
         const isCodeCraftEnabled = fulfillmentSettings.codecraft_networks[network] === true
 
-        // Absolute Last Line of Defense
+        // ── 3. FULFILLMENT_CONFLICT Guard (absolute last line of defense) ──
         if (isDataKazinaEnabled && isCodeCraftEnabled) {
-            console.error(`[Fulfillment] CONFLICT DETECTED for ${network}`);
-            await sendAdminNewOrderAlert({ ...alertDetails, reason: `SYSTEM HALTED: Both suppliers active for same network ${network}. Fix in admin panel.` })
-            throw new Error(`FULFILLMENT_CONFLICT: Both suppliers active for same network ${network}`);
-        }
-
-        if (!isDataKazinaEnabled && !isCodeCraftEnabled) {
-            console.log(`[Shop Order Processor] Auto-fulfillment disabled for ${network} on both providers`)
-            await sendAdminNewOrderAlert({ ...alertDetails, reason: `Auto-fulfillment is disabled for network: ${network} across all suppliers` })
+            console.error(`[Fulfillment] CONFLICT DETECTED for ${network} on order ${orderId}`)
+            await sendAdminNewOrderAlert({
+                ...alertDetails,
+                reason: `⚠️ SYSTEM HALTED: Both DataKazina and CodeCraft are active for ${network}. Order ${orderId} kept pending. Fix in admin panel immediately.`
+            })
+            // Keep order as PENDING — do not throw to outer catch (would trigger duplicate alert)
             return
         }
 
-        let fulfillOrderFunction: any;
-        if (isCodeCraftEnabled) {
-            const { fulfillOrder } = await import('./codecraft-service')
-            fulfillOrderFunction = fulfillOrder;
-            console.log(`[Shop Order Processor] Routing fulfillment to CodeCraft for ${network}`)
-        } else {
-            const { fulfillOrder } = await import('./fulfillment-service')
-            fulfillOrderFunction = fulfillOrder;
-            console.log(`[Shop Order Processor] Routing fulfillment to DataKazina for ${network}`)
+        // ── 4. No active supplier ──────────────────────────────────────────
+        if (!isDataKazinaEnabled && !isCodeCraftEnabled) {
+            console.log(`[Shop Order Processor] No active supplier for network ${network}. Order ${orderId} kept pending.`)
+            await sendAdminNewOrderAlert({ ...alertDetails, reason: `No active supplier configured for network: ${network}` })
+            return
         }
 
-        const result = await fulfillOrderFunction(network, phone, extra.size || '', orderId)
+        // ── 5. Determine supplier and stamp fulfilled_by ATOMICALLY first ──
+        const supplierLabel = isCodeCraftEnabled ? 'codecraft' : 'datakazina'
+        await db.from('shop_orders').update({ fulfilled_by: supplierLabel }).eq('id', orderId)
+        console.log(`[Shop Order Processor] Routing to ${supplierLabel} for order ${orderId} | network: ${network}`)
 
+        // ── 6. Execute fulfillment ─────────────────────────────────────────
+        let result: { success: boolean; reference?: string; transactionId?: string; error?: string; isRateLimited?: boolean }
+
+        if (isCodeCraftEnabled) {
+            const { fulfillOrder: ccFulfill } = await import('./codecraft-service')
+            result = await ccFulfill(network, phone, extra.size || '', orderId)
+        } else {
+            const { fulfillOrder: dkFulfill } = await import('./fulfillment-service')
+            result = await dkFulfill(network, phone, extra.size || '', orderId)
+        }
+
+        // ── 7. Handle result ───────────────────────────────────────────────
         if (result.success) {
             const updatedAt = new Date().toISOString()
-            await db.from('shop_orders').update({
+
+            const updatePayload: Record<string, any> = {
                 status: 'processing',
                 updated_at: updatedAt,
-            }).eq('id', orderId)
+            }
 
-            await db.from('orders').update({
-                status: 'processing'
-            }).eq('shop_order_id', orderId)
+            // Store CodeCraft's reference_id for traceability
+            if (isCodeCraftEnabled && result.transactionId) {
+                updatePayload.codecraft_reference_id = result.transactionId
+            }
 
-            console.log(`[Shop Order Processor] Fulfillment success for order ${orderId}`)
+            await db.from('shop_orders').update(updatePayload).eq('id', orderId)
+            await db.from('orders').update({ status: 'processing' }).eq('shop_order_id', orderId)
+
+            console.log(`[Shop Order Processor] ✅ Fulfillment success for order ${orderId} via ${supplierLabel}. Ref: ${result.transactionId || result.reference}`)
+
         } else {
-            console.error(`[Shop Order Processor] Fulfillment failed for order ${orderId}:`, result.error)
-            await sendAdminNewOrderAlert({ ...alertDetails, reason: `Auto-fulfillment API error: ${result.error || 'Unknown error'}` })
+            // ALL failures → keep order as PENDING — never mark as failed
+            console.warn(`[Shop Order Processor] Fulfillment attempt failed for order ${orderId} via ${supplierLabel}:`, result.error)
+            console.warn(`[Shop Order Processor] Order ${orderId} kept as PENDING for manual review.`)
+            await sendAdminNewOrderAlert({
+                ...alertDetails,
+                reason: `Auto-fulfillment (${supplierLabel}) failed: ${result.error || 'Unknown error'}. Order kept pending.`
+            })
         }
+
     } catch (err) {
-        console.error(`[Shop Order Processor] Fulfillment exception for order ${orderId}:`, err)
-        await sendAdminNewOrderAlert({ ...alertDetails, reason: `System Exception during fulfillment: ${err instanceof Error ? err.message : 'Unknown exception'}` })
+        console.error(`[Shop Order Processor] Exception for order ${orderId}:`, err)
+        // Keep order as PENDING — do not update status
+        await sendAdminNewOrderAlert({
+            ...alertDetails,
+            reason: `System Exception during fulfillment: ${err instanceof Error ? err.message : 'Unknown exception'}. Order kept pending.`
+        })
     }
 }

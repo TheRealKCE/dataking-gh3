@@ -29,7 +29,7 @@ interface SignUpData {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-const INACTIVITY_TIMEOUT = 60 * 60 * 1000 // 1 hour (60 minutes)
+const INACTIVITY_TIMEOUT = 30 * 60 * 1000 // 30 minutes
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<User | null>(null)
@@ -186,7 +186,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         const checkInactivity = setInterval(() => {
             if (Date.now() - lastActivity > INACTIVITY_TIMEOUT) {
-                console.log('User inactive for 1 hour, redirecting to home...')
+                console.log('User inactive for 30 minutes, redirecting to home...')
                 // Sign out and redirect to home page
                 supabase.auth.signOut()
                 setUser(null)
