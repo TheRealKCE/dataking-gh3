@@ -2,18 +2,27 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { sendAdminNewComplaintAlert } from '@/lib/email-service'
+import { z } from 'zod'
+import { shortTextSchema, longTextSchema } from '@/lib/validation'
 
 export async function POST(request: Request) {
     try {
         const body = await request.json()
-        const { order_id, title, description, priority = 'medium' } = body
+        
+        const complaintSchema = z.object({
+            title: shortTextSchema,
+            description: longTextSchema,
+            order_id: z.string(),
+            priority: z.string().optional()
+        })
 
-        if (!order_id || !title || !description) {
-            return NextResponse.json(
-                { error: 'Missing required fields' },
-                { status: 400 }
-            )
+        const validation = complaintSchema.safeParse(body)
+        if (!validation.success) {
+            const errorDetails = validation.error.errors.map(err => `${err.path.join('.')}: ${err.message}`)
+            return NextResponse.json({ error: 'Invalid input', details: errorDetails }, { status: 400 })
         }
+
+        const { order_id, title, description, priority = 'medium' } = validation.data
 
         const cookieStore = await cookies()
         const supabase = createRouteHandlerClient({

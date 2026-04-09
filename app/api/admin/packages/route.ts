@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createRouteClient } from '@/lib/supabase-server'
 import { createClient } from '@supabase/supabase-js'
+import { z } from 'zod'
+import { adminShortTextSchema, adminLongTextSchema } from '@/lib/validation'
 
 // Create admin client directly since createServerClient might not be exported customly
 const supabaseAdmin = createClient(
@@ -66,6 +68,17 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json()
 
+    const packageSchema = z.object({
+        name: adminShortTextSchema.optional(),
+        description: adminLongTextSchema.optional(),
+    }).passthrough()
+
+    const validation = packageSchema.safeParse(body)
+    if (!validation.success) {
+        const errorDetails = validation.error.errors.map(err => `${err.path.join('.')}: ${err.message}`)
+        return NextResponse.json({ error: 'Invalid input', details: errorDetails }, { status: 400 })
+    }
+
     // Explicitly cast insert to avoid type errors with string enums if mismatch
     const { data, error } = await (supabaseAdmin
         .from('data_packages') as any)
@@ -100,7 +113,19 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json()
-    const { id, ...updates } = body
+
+    const packageSchema = z.object({
+        name: adminShortTextSchema.optional(),
+        description: adminLongTextSchema.optional(),
+    }).passthrough()
+
+    const validation = packageSchema.safeParse(body)
+    if (!validation.success) {
+        const errorDetails = validation.error.errors.map(err => `${err.path.join('.')}: ${err.message}`)
+        return NextResponse.json({ error: 'Invalid input', details: errorDetails }, { status: 400 })
+    }
+
+    const { id, ...updates } = validation.data
 
     if (!id) {
         return NextResponse.json({ error: 'Package ID required' }, { status: 400 })

@@ -14,7 +14,7 @@ interface AuthContextType {
     isAdmin: boolean
     isSubAdmin: boolean
     signIn: (email: string, password: string) => Promise<{ error: Error | null }>
-    signUp: (data: SignUpData) => Promise<{ error: Error | null, data: { user: User | null, session: Session | null } | null }>
+    signUp: (data: SignUpData) => Promise<{ error: any, data: { user: User | null, session: Session | null } | null }>
     signOut: () => Promise<void>
     refreshUser: () => Promise<void>
 }
@@ -165,7 +165,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const responseData = await response.json()
 
         if (!response.ok) {
-            return { error: { message: responseData.error } as Error, data: null }
+            return { error: { message: responseData.error, details: responseData.details }, data: null }
         }
 
         // Refresh the Supabase client session from the server-set cookie

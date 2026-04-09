@@ -1,17 +1,28 @@
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
+import { z } from 'zod'
+import { nameSchema, phoneSchema, emailSchema } from '@/lib/validation'
 
 export async function POST(request: NextRequest) {
   try {
-    const { email, password, firstName, lastName, phoneNumber } = await request.json()
+    const body = await request.json()
 
-    if (!email || !password || !firstName || !lastName || !phoneNumber) {
-      return NextResponse.json(
-        { error: 'All fields are required' },
-        { status: 400 }
-      )
+    const signupSchema = z.object({
+      email: emailSchema,
+      password: z.string().min(8, 'Password must be at least 8 characters'),
+      firstName: nameSchema,
+      lastName: nameSchema,
+      phoneNumber: phoneSchema
+    })
+
+    const validation = signupSchema.safeParse(body)
+    if (!validation.success) {
+      const errorDetails = validation.error.errors.map(err => `${err.path.join('.')}: ${err.message}`)
+      return NextResponse.json({ error: 'Invalid input', details: errorDetails }, { status: 400 })
     }
+
+    const { email, password, firstName, lastName, phoneNumber } = validation.data
 
     const cookieStore = await cookies()
     const supabase = createRouteHandlerClient({

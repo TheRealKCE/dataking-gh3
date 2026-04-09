@@ -3,6 +3,8 @@ import { createServerClient } from '@/lib/supabase'
 import { createClient } from '@supabase/supabase-js'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
+import { z } from 'zod'
+import { nameSchema, phoneSchema } from '@/lib/validation'
 
 export async function PUT(request: NextRequest) {
     try {
@@ -22,10 +24,24 @@ export async function PUT(request: NextRequest) {
         const userId = authUser.id
         const body = await request.json()
         
-        // 2. STRICT PAYLOAD FILTERING (Mass Assignment Protection)
-        // Destructure only the specifically allowed fields. 
+        // 2. STRICT INPUT VALIDATION (XSS Prevention)
+        const profileSchema = z.object({
+            first_name: nameSchema.optional(),
+            last_name: nameSchema.optional(),
+            phone_number: phoneSchema.optional()
+        })
+
+        const validation = profileSchema.safeParse(body)
+        if (!validation.success) {
+            const errorDetails = validation.error.errors.map(err => `${err.path.join('.')}: ${err.message}`)
+            console.warn(`[Security] Input validation rejected for User: ${userId} — ${errorDetails.join(', ')}`)
+            return NextResponse.json({ error: 'Invalid input', details: errorDetails }, { status: 400 })
+        }
+
+        // 3. STRICT PAYLOAD FILTERING (Mass Assignment Protection)
+        // Destructure only the specifically allowed fields from validated data.
         // If an attacker sends { role: 'admin' }, it is completely ignored here.
-        const { first_name, last_name, phone_number } = body
+        const { first_name, last_name, phone_number } = validation.data
         
         const updatePayload = {
             // Provide fallbacks to avoid undefined overwrites if a field was excluded during a partial update,

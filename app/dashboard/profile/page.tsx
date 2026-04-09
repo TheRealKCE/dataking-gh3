@@ -52,6 +52,7 @@ export default function ProfilePage() {
         last_name: '',
         phone_number: '',
     })
+    const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
     // Calculate days remaining for agents
     const calculateDaysRemaining = () => {
@@ -96,10 +97,17 @@ export default function ProfilePage() {
             ...prev,
             [e.target.name]: e.target.value
         }))
+        if (fieldErrors[e.target.name]) {
+            setFieldErrors(prev => {
+                const { [e.target.name]: _, ...rest } = prev
+                return rest
+            })
+        }
     }
 
     const handleSave = async () => {
         setIsSaving(true)
+        setFieldErrors({})
         try {
             const res = await fetch('/api/users/update-profile', {
                 method: 'PUT',
@@ -114,6 +122,14 @@ export default function ProfilePage() {
             const data = await res.json()
 
             if (!res.ok) {
+                if (data.details) {
+                    const newErrors: Record<string, string> = {}
+                    data.details.forEach((err: string) => {
+                        const [field, ...msgParts] = err.split(': ')
+                        if (field) newErrors[field] = msgParts.join(': ')
+                    })
+                    setFieldErrors(newErrors)
+                }
                 throw new Error(data.error || 'Failed to update profile')
             }
 
@@ -311,7 +327,9 @@ export default function ProfilePage() {
                                         name="first_name"
                                         value={formData.first_name}
                                         onChange={handleChange}
+                                        className={fieldErrors.first_name ? 'border-red-500 focus:ring-red-500' : ''}
                                     />
+                                    {fieldErrors.first_name && <p className="text-red-500 text-xs mt-1">{fieldErrors.first_name}</p>}
                                 </div>
                                 <div className="space-y-2">
                                     <Label htmlFor="last_name">Last Name</Label>
@@ -320,7 +338,9 @@ export default function ProfilePage() {
                                         name="last_name"
                                         value={formData.last_name}
                                         onChange={handleChange}
+                                        className={fieldErrors.last_name ? 'border-red-500 focus:ring-red-500' : ''}
                                     />
+                                    {fieldErrors.last_name && <p className="text-red-500 text-xs mt-1">{fieldErrors.last_name}</p>}
                                 </div>
                             </div>
                             <div className="space-y-2">
@@ -330,7 +350,9 @@ export default function ProfilePage() {
                                     name="phone_number"
                                     value={formData.phone_number}
                                     onChange={handleChange}
+                                    className={fieldErrors.phone_number ? 'border-red-500 focus:ring-red-500' : ''}
                                 />
+                                {fieldErrors.phone_number && <p className="text-red-500 text-xs mt-1">{fieldErrors.phone_number}</p>}
                             </div>
                             <div className="flex gap-2">
                                 <Button onClick={handleSave} disabled={isSaving}>

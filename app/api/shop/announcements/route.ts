@@ -1,6 +1,8 @@
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
+import { z } from 'zod'
+import { adminLongTextSchema } from '@/lib/validation'
 
 export async function GET() {
     const supabase = createRouteHandlerClient({ cookies })
@@ -41,11 +43,19 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const { message } = await req.json()
+    const body = await req.json()
 
-    if (!message) {
-        return NextResponse.json({ error: 'Message is required' }, { status: 400 })
+    const announcementSchema = z.object({
+        message: adminLongTextSchema
+    })
+
+    const validation = announcementSchema.safeParse(body)
+    if (!validation.success) {
+        const errorDetails = validation.error.errors.map(err => `${err.path.join('.')}: ${err.message}`)
+        return NextResponse.json({ error: 'Invalid input', details: errorDetails }, { status: 400 })
     }
+
+    const { message } = validation.data
 
     // 1. Get shop ID
     const { data: shop } = await supabase

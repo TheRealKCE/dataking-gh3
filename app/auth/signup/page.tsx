@@ -30,6 +30,7 @@ export default function SignupPage() {
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState('')
     const [success, setSuccess] = useState(false)
+    const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
     const [lockoutMinutes, setLockoutMinutes] = useState<number | null>(null)
     const { signUp } = useAuth()
     const router = useRouter()
@@ -48,6 +49,12 @@ export default function SignupPage() {
             ...prev,
             [e.target.name]: e.target.value
         }))
+        if (fieldErrors[e.target.name]) {
+            setFieldErrors(prev => {
+                const { [e.target.name]: _, ...rest } = prev
+                return rest
+            })
+        }
     }
 
     const handleSubmit = async (e: React.FormEvent) => {
@@ -71,6 +78,7 @@ export default function SignupPage() {
         }
 
         setIsLoading(true)
+        setFieldErrors({})
 
         try {
             const { error, data } = await signUp({
@@ -82,7 +90,15 @@ export default function SignupPage() {
             })
 
             if (error) {
-                if (error.message.startsWith('TOO_MANY_ATTEMPTS:')) {
+                if (error.details) {
+                    const newErrors: Record<string, string> = {}
+                    error.details.forEach((err: string) => {
+                        const [field, ...msgParts] = err.split(': ')
+                        if (field) newErrors[field] = msgParts.join(': ')
+                    })
+                    setFieldErrors(newErrors)
+                    setError('Please fix the errors below.')
+                } else if (error.message?.startsWith('TOO_MANY_ATTEMPTS:')) {
                     const minutes = parseInt(error.message.split(':')[1])
                     setLockoutMinutes(minutes)
                     setError(`Too many attempts. Please try again in ${minutes} minute${minutes !== 1 ? 's' : ''}.`)
@@ -193,9 +209,10 @@ export default function SignupPage() {
                                             value={formData.firstName}
                                             onChange={handleChange}
                                             required
-                                            className="h-11 pl-11 bg-white/95 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-[#0056B3] focus:ring-[#0056B3]/20 rounded-xl text-base"
+                                            className={`h-11 pl-11 bg-white/95 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-[#0056B3] focus:ring-[#0056B3]/20 rounded-xl text-base ${fieldErrors.firstName ? 'border-red-500 focus:ring-red-500' : ''}`}
                                         />
                                     </div>
+                                    {fieldErrors.firstName && <p className="text-red-500 text-xs mt-1 px-1">{fieldErrors.firstName}</p>}
                                 </div>
                                 <div className="space-y-1.5">
                                     <Label htmlFor="lastName" className="text-slate-700 font-semibold text-sm">Last Name</Label>
@@ -208,9 +225,10 @@ export default function SignupPage() {
                                             value={formData.lastName}
                                             onChange={handleChange}
                                             required
-                                            className="h-11 pl-11 bg-white/95 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-[#0056B3] focus:ring-[#0056B3]/20 rounded-xl text-base"
+                                            className={`h-11 pl-11 bg-white/95 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-[#0056B3] focus:ring-[#0056B3]/20 rounded-xl text-base ${fieldErrors.lastName ? 'border-red-500 focus:ring-red-500' : ''}`}
                                         />
                                     </div>
+                                    {fieldErrors.lastName && <p className="text-red-500 text-xs mt-1 px-1">{fieldErrors.lastName}</p>}
                                 </div>
                             </div>
 
@@ -226,9 +244,10 @@ export default function SignupPage() {
                                         value={formData.email}
                                         onChange={handleChange}
                                         required
-                                        className="h-11 pl-11 bg-white/95 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-[#0056B3] focus:ring-[#0056B3]/20 rounded-xl text-base"
+                                        className={`h-11 pl-11 bg-white/95 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-[#0056B3] focus:ring-[#0056B3]/20 rounded-xl text-base ${fieldErrors.email ? 'border-red-500 focus:ring-red-500' : ''}`}
                                     />
                                 </div>
+                                {fieldErrors.email && <p className="text-red-500 text-xs mt-1 px-1">{fieldErrors.email}</p>}
                             </div>
 
                             <div className="space-y-1.5">
@@ -243,9 +262,10 @@ export default function SignupPage() {
                                         value={formData.phoneNumber}
                                         onChange={handleChange}
                                         required
-                                        className="h-11 pl-11 bg-white/95 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-[#0056B3] focus:ring-[#0056B3]/20 rounded-xl text-base"
+                                        className={`h-11 pl-11 bg-white/95 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-[#0056B3] focus:ring-[#0056B3]/20 rounded-xl text-base ${fieldErrors.phoneNumber ? 'border-red-500 focus:ring-red-500' : ''}`}
                                     />
                                 </div>
+                                {fieldErrors.phoneNumber && <p className="text-red-500 text-xs mt-1 px-1">{fieldErrors.phoneNumber}</p>}
                             </div>
 
                             <div className="space-y-1.5">
@@ -260,7 +280,7 @@ export default function SignupPage() {
                                         value={formData.password}
                                         onChange={handleChange}
                                         required
-                                        className="h-11 pl-11 pr-11 bg-white/95 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-[#0056B3] focus:ring-[#0056B3]/20 rounded-xl text-base"
+                                        className={`h-11 pl-11 pr-11 bg-white/95 border-slate-200 text-slate-900 placeholder:text-slate-400 focus:border-[#0056B3] focus:ring-[#0056B3]/20 rounded-xl text-base ${fieldErrors.password ? 'border-red-500 focus:ring-red-500' : ''}`}
                                     />
                                     <button
                                         type="button"
@@ -270,6 +290,7 @@ export default function SignupPage() {
                                         {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
                                     </button>
                                 </div>
+                                {fieldErrors.password && <p className="text-red-500 text-xs mt-1 px-1">{fieldErrors.password}</p>}
                             </div>
 
                             <div className="space-y-1.5">

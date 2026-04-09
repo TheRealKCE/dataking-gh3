@@ -1,18 +1,22 @@
 import { NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
+import { z } from 'zod'
+import { messageSchema } from '@/lib/validation'
 
 export async function POST(request: Request) {
     try {
         const body = await request.json()
-        const { message } = body
-
-        if (!message || typeof message !== 'string') {
-            return NextResponse.json(
-                { reply: "I didn't quite get that. Could you please rephrase?" },
-                { status: 400 }
-            )
+        
+        const chatSchema = z.object({ message: messageSchema })
+        const validation = chatSchema.safeParse(body)
+        
+        if (!validation.success) {
+            const errorDetails = validation.error.errors.map(err => `${err.path.join('.')}: ${err.message}`)
+            return NextResponse.json({ error: 'Invalid input', details: errorDetails }, { status: 400 })
         }
+        
+        const { message } = validation.data
 
         // Create a single authenticated client for all DB operations in this request
         const cookieStore = await cookies()

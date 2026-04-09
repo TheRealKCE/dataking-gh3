@@ -37,3 +37,6 @@ kingflexy-mobile/
 tsconfig.tsbuildinfo
 *.tsbuildinfo
 *.csv
+*_audit.*
+*_final.mjs
+check_*.mjs
