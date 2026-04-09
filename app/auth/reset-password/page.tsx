@@ -20,6 +20,7 @@ export default function ResetPasswordPage() {
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState('')
     const [success, setSuccess] = useState(false)
+    const [lockoutMinutes, setLockoutMinutes] = useState<number | null>(null)
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -27,19 +28,32 @@ export default function ResetPasswordPage() {
         setIsLoading(true)
 
         try {
-            const siteUrl = (process.env.NEXT_PUBLIC_SITE_URL || 'https://www.kingflexygh.com').replace(/\/$/, '')
-            const { error } = await supabase.auth.resetPasswordForEmail(email, {
-                redirectTo: `${siteUrl}/auth/update-password`,
+            const response = await fetch('/api/auth/forgot-password', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email })
             })
 
-            if (error) {
-                setError(error.message)
+            if (response.status === 429) {
+                const retryAfter = response.headers.get('Retry-After')
+                const minutes = retryAfter ? Math.ceil(parseInt(retryAfter) / 60) : 10
+                setLockoutMinutes(minutes)
+                setError(`Too many attempts. Please try again in ${minutes} minute${minutes !== 1 ? 's' : ''}.`)
+                return
+            }
+
+            const data = await response.json()
+
+            if (!response.ok) {
+                setLockoutMinutes(null)
+                setError(data.error)
                 return
             }
 
             setSuccess(true)
             toast.success('Password reset email sent!')
         } catch (err) {
+            setLockoutMinutes(null)
             setError('An unexpected error occurred')
         } finally {
             setIsLoading(false)
@@ -83,8 +97,8 @@ export default function ResetPasswordPage() {
                                 </p>
 
                                 {error && (
-                                    <Alert variant="destructive" className="bg-red-500/10 border-red-500/50 py-2">
-                                        <AlertDescription className="text-red-600 text-sm">{error}</AlertDescription>
+                                    <Alert variant="destructive" className={lockoutMinutes !== null ? "bg-orange-500/10 border-orange-500/50 py-2" : "bg-red-500/10 border-red-500/50 py-2"}>
+                                        <AlertDescription className={lockoutMinutes !== null ? "text-orange-600 text-sm" : "text-red-600 text-sm"}>{error}</AlertDescription>
                                     </Alert>
                                 )}
 
@@ -106,10 +120,12 @@ export default function ResetPasswordPage() {
 
                                 <Button
                                     type="submit"
-                                    disabled={isLoading}
-                                    className="w-full h-12 text-base font-bold bg-[#0056B3] hover:bg-[#004494] text-white shadow-lg rounded-xl"
+                                    disabled={isLoading || lockoutMinutes !== null}
+                                    className="w-full h-12 text-base font-bold bg-[#0056B3] hover:bg-[#004494] text-white shadow-lg rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    {isLoading ? (
+                                    {lockoutMinutes !== null ? (
+                                        `Locked — try again in ${lockoutMinutes}m`
+                                    ) : isLoading ? (
                                         <>
                                             <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                                             Sending...

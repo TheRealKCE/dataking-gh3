@@ -30,6 +30,7 @@ export default function SignupPage() {
     const [isLoading, setIsLoading] = useState(false)
     const [error, setError] = useState('')
     const [success, setSuccess] = useState(false)
+    const [lockoutMinutes, setLockoutMinutes] = useState<number | null>(null)
     const { signUp } = useAuth()
     const router = useRouter()
     const [guestUrl, setGuestUrl] = useState('https://kingflexygh.com/shop/felix-s-shop')
@@ -81,7 +82,14 @@ export default function SignupPage() {
             })
 
             if (error) {
-                setError(error.message)
+                if (error.message.startsWith('TOO_MANY_ATTEMPTS:')) {
+                    const minutes = parseInt(error.message.split(':')[1])
+                    setLockoutMinutes(minutes)
+                    setError(`Too many attempts. Please try again in ${minutes} minute${minutes !== 1 ? 's' : ''}.`)
+                } else {
+                    setLockoutMinutes(null)
+                    setError(error.message)
+                }
                 return
             }
 
@@ -168,8 +176,8 @@ export default function SignupPage() {
                     <CardContent className="p-5 sm:p-6">
                         <form onSubmit={handleSubmit} className="space-y-3.5">
                             {error && (
-                                <Alert variant="destructive" className="bg-red-500/10 border-red-500/50 py-2">
-                                    <AlertDescription className="text-red-600 text-sm">{error}</AlertDescription>
+                                <Alert variant="destructive" className={lockoutMinutes !== null ? "bg-orange-500/10 border-orange-500/50 py-2" : "bg-red-500/10 border-red-500/50 py-2"}>
+                                    <AlertDescription className={lockoutMinutes !== null ? "text-orange-600 text-sm" : "text-red-600 text-sm"}>{error}</AlertDescription>
                                 </Alert>
                             )}
 
@@ -290,10 +298,12 @@ export default function SignupPage() {
 
                             <Button
                                 type="submit"
-                                disabled={isLoading}
-                                className="w-full sm:w-auto sm:min-w-[200px] sm:mx-auto h-12 text-base font-bold bg-sky-500 hover:bg-sky-600 text-white shadow-lg rounded-xl mt-1"
+                                disabled={isLoading || lockoutMinutes !== null}
+                                className="w-full sm:w-auto sm:min-w-[200px] sm:mx-auto h-12 text-base font-bold bg-sky-500 hover:bg-sky-600 text-white shadow-lg rounded-xl mt-1 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
-                                {isLoading ? (
+                                {lockoutMinutes !== null ? (
+                                    `Locked — try again in ${lockoutMinutes}m`
+                                ) : isLoading ? (
                                     <>
                                         <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                                         Creating...

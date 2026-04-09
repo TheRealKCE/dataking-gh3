@@ -25,44 +25,44 @@ const redis = Redis.fromEnv()
 
 const rateLimiters = {
     // ── Auth routes ────────────────────────────────────────────
-    login:              new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5,   '10 m') }),
-    signup:             new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(3,   '1 h')  }),
-    forgotPassword:     new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(3,   '1 h')  }),
+    login: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, '10 m') }),
+    signup: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(3, '1 h') }),
+    forgotPassword: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(3, '1 h') }),
     // ── Admin routes (broad) ───────────────────────────────────
-    admin:              new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(30,  '1 m')  }),
-    adminSettings:      new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(10,  '1 m')  }),
-    supplierBalance:    new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(10,  '1 m')  }),
+    admin: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(30, '1 m') }),
+    adminSettings: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(10, '1 m') }),
+    supplierBalance: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(10, '1 m') }),
     // ── Orders & Purchases ─────────────────────────────────────
-    airtimeCreate:      new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5,   '1 m')  }),
-    ordersPurchase:     new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5,   '1 m')  }),
-    ordersBulk:         new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(3,   '1 m')  }),
+    airtimeCreate: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, '1 m') }),
+    ordersPurchase: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, '1 m') }),
+    ordersBulk: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(3, '1 m') }),
     // ── Payments ──────────────────────────────────────────────
-    paymentsInitialize: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(10,  '1 m')  }),
-    paymentsVerify:     new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(30,  '1 m')  }),
+    paymentsInitialize: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(10, '1 m') }),
+    paymentsVerify: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(30, '1 m') }),
     // ── Shop ──────────────────────────────────────────────────
-    shopInitialize:     new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(10,  '1 m')  }),
-    shopVerifyOrder:    new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(20,  '1 m')  }),
-    shopPricing:        new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(20,  '1 m')  }),
-    shopWithdraw:       new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(3,   '1 h')  }),
-    shopAnnouncements:  new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5,   '1 m')  }),
-    shopAlerts:         new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5,   '1 m')  }),
-    shopLookupOrders:   new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(20,  '1 m')  }),
-    shopMyOrders:       new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(60,  '1 m')  }),
+    shopInitialize: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(10, '1 m') }),
+    shopVerifyOrder: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(20, '1 m') }),
+    shopPricing: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(20, '1 m') }),
+    shopWithdraw: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(3, '1 h') }),
+    shopAnnouncements: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, '1 m') }),
+    shopAlerts: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, '1 m') }),
+    shopLookupOrders: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(20, '1 m') }),
+    shopMyOrders: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(60, '1 m') }),
     // ── Webhooks ──────────────────────────────────────────────
-    webhook:            new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(20,  '1 m')  }),
+    webhook: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(20, '1 m') }),
     // ── User actions ──────────────────────────────────────────
-    user:               new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(60,  '1 m')  }),
-    userUpgrade:        new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(3,   '1 h')  }),
-    afaRegistration:    new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(2,   '1 h')  }),
-    agentDowngrade:     new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(2,   '1 h')  }),
-    updateProfile:      new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5,   '10 m') }),
-    deleteAccount:      new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(1,   '24 h') }),
-    airtimeHistory:     new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(60,  '1 m')  }),
+    user: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(60, '1 m') }),
+    userUpgrade: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(3, '1 h') }),
+    afaRegistration: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(2, '1 h') }),
+    agentDowngrade: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(2, '1 h') }),
+    updateProfile: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, '10 m') }),
+    deleteAccount: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(1, '24 h') }),
+    airtimeHistory: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(60, '1 m') }),
     // ── Support & Cron ────────────────────────────────────────
-    supportChat:        new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(10,  '1 m')  }),
-    cron:               new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(10,  '1 m')  }),
+    supportChat: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(10, '1 m') }),
+    cron: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(10, '1 m') }),
     // ── General catch-all ─────────────────────────────────────
-    general:            new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(100, '1 m')  }),
+    general: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(100, '1 m') }),
 }
 
 // Helper to add cache-prevention headers
@@ -315,14 +315,14 @@ export async function middleware(request: NextRequest) {
             // Strict Sub-Admin Lockdown
             if (user.role === 'sub-admin') {
                 const isOrderPath = pathname.includes('/admin/orders')
-                
+
                 if (!isOrderPath) {
                     console.warn(`[MiddlewareAudit] Sub-admin ${authUser.id} blocked from ${pathname}`)
-                    
+
                     if (isAdminAPI) {
                         return addNoCacheHeaders(NextResponse.json({ error: 'Forbidden' }, { status: 403 }))
                     }
-                    
+
                     return addNoCacheHeaders(NextResponse.redirect(new URL('/admin/orders', request.url)))
                 }
             }

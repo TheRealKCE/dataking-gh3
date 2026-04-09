@@ -125,30 +125,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, [user, fetchDbUser])
 
     const signIn = async (email: string, password: string) => {
-        const { error } = await supabase.auth.signInWithPassword({
-            email,
-            password,
+        const response = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
         })
 
-        return { error }
+        if (response.status === 429) {
+            const retryAfter = response.headers.get('Retry-After')
+            const minutes = retryAfter ? Math.ceil(parseInt(retryAfter) / 60) : 10
+            return { error: { message: `TOO_MANY_ATTEMPTS:${minutes}` } as Error }
+        }
+
+        const data = await response.json()
+
+        if (!response.ok) {
+            return { error: { message: data.error } as Error }
+        }
+
+        // Refresh the Supabase client session from the server-set cookie
+        await supabase.auth.getSession()
+
+        return { error: null }
     }
 
     const signUp = async (data: SignUpData) => {
-        const { data: authData, error: authError } = await supabase.auth.signUp({
-            email: data.email,
-            password: data.password,
-            options: {
-                data: {
-                    first_name: data.firstName,
-                    last_name: data.lastName,
-                    phone_number: data.phoneNumber,
-                },
-            },
+        const response = await fetch('/api/auth/signup', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(data)
         })
 
-        if (authError) return { error: authError, data: null }
+        if (response.status === 429) {
+            const retryAfter = response.headers.get('Retry-After')
+            const minutes = retryAfter ? Math.ceil(parseInt(retryAfter) / 60) : 10
+            return { error: { message: `TOO_MANY_ATTEMPTS:${minutes}` } as Error, data: null }
+        }
 
-        return { error: null, data: authData }
+        const responseData = await response.json()
+
+        if (!response.ok) {
+            return { error: { message: responseData.error } as Error, data: null }
+        }
+
+        // Refresh the Supabase client session from the server-set cookie
+        await supabase.auth.getSession()
+
+        return { error: null, data: { user: responseData.user, session: responseData.session } }
     }
 
     const signOut = async () => {
