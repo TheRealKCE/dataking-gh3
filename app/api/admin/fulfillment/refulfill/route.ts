@@ -212,20 +212,6 @@ export async function POST(request: Request) {
                     console.error(`[ManualRefulfill] syncShopOrderStatus revert failed for ${order.id}:`, err)
                 )
 
-                // Fire admin alert with failure reason
-                await sendAdminNewOrderAlert({
-                    referenceCode: order.reference_code || order.id,
-                    phoneNumber: order.phone_number,
-                    network: order.network,
-                    size: order.size,
-                    price: order.price,
-                    customerName: 'Shop Guest',
-                    customerEmail: 'N/A',
-                    source: 'shop_storefront',
-                    shopName: 'Admin Refulfill',
-                    reason: `Manual refulfill (${supplierLabel}) failed: ${result.error || 'Unknown error'}. Order reverted to pending.`
-                }).catch(e => console.error('[ManualRefulfill] Alert error:', e))
-
                 failed++
             }
         }
