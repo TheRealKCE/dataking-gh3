@@ -2,6 +2,7 @@ import { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
+import { createServerClient } from '@/lib/supabase'
 import ShopStorefront from './ShopStorefront'
 
 interface Props {
@@ -179,7 +180,9 @@ export default async function ShopPage({ params }: Props) {
     }
 
     // Fetch live approved packages with shop pricing
-    const { data: pricingRows } = await (supabase
+    // Uses service role client to bypass RLS — only selling_price is exposed to client, never cost/profit
+    const supabaseAdmin = createServerClient()
+    const { data: pricingRows } = await (supabaseAdmin
         .from('shop_pricing')
         .select('package_id, selling_price, data_packages(id, network, size, description, sort_order, is_available)')
         .eq('shop_id', shop.id) as any)
@@ -199,9 +202,7 @@ export default async function ShopPage({ params }: Props) {
     // Append owner role to calculate correct max amount limits client side
     let ownerRole = 'customer'
     if (shop?.owner_id) {
-        const { createServerClient } = await import('@/lib/supabase')
-        const adminDb = createServerClient()
-        const { data: uData } = await adminDb.from('users').select('role').eq('id', shop.owner_id).single()
+        const { data: uData } = await supabaseAdmin.from('users').select('role').eq('id', shop.owner_id).single()
         ownerRole = (uData as any)?.role || 'customer'
     }
 
