@@ -27,12 +27,12 @@ export async function POST(request: NextRequest) {
 
         if (event.event === 'charge.success') {
             const { reference, amount: paidAmountKobo } = event.data
+            const metadata = event.data.metadata
 
-            // ✅ SHOP ORDERS FALLBACK: If reference starts with SHOP-, process as shop order
-            // Shop orders are not in wallet_payments, so we must handle them separately
+            // ✅ SHOP ORDERS: References starting with SHOP- are storefront guest orders.
+            // They are NOT stored in wallet_payments, so we must handle them separately
             // before the DB lookup to avoid "Payment not found" errors.
             if (reference && reference.startsWith('SHOP-')) {
-                const metadata = event.data.metadata
                 const { processShopOrder } = await import('@/lib/shop-order-processor')
                 console.log(`[PaystackWebhook] Routing shop order: ${reference}`)
                 await processShopOrder(reference, metadata, paidAmountKobo, metadata?.slug)
@@ -57,24 +57,20 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({ received: true })
             }
 
-            // Verify amount (Paystack sends amount in kobo/pesewas)
+            // ✅ AMOUNT VERIFICATION: Cross-check paid amount against DB-stored expected amount
             const expectedAmountKobo = Math.round((payment as any).total_amount * 100)
             if (paidAmountKobo !== expectedAmountKobo) {
-                console.error(`[PaystackWebhook] AMOUT MISMATCH: Expected ${expectedAmountKobo}, got ${paidAmountKobo}`)
+                console.error(`[PaystackWebhook] AMOUNT MISMATCH: Expected ${expectedAmountKobo}, got ${paidAmountKobo}`)
                 return NextResponse.json({ received: true })
             }
 
-            // Process the payment based on metadata
-            const metadata = event.data.metadata
-            if (metadata?.shop_id) {
-                // ── NEW: Shop storefront orders ──
-                const { processShopOrder } = await import('@/lib/shop-order-processor')
-                console.log(`[PaystackWebhook] Processing shop order for Ref: ${reference}`)
-                await processShopOrder(reference, metadata, paidAmountKobo, metadata.slug)
-            } else if (metadata?.upgrade_type === 'agent') {
+            // Route by payment type based on metadata
+            if (metadata?.upgrade_type === 'agent') {
+                // Agent membership upgrades
                 const { processCompletedUpgradePayment } = await import('@/lib/payments')
                 await processCompletedUpgradePayment(reference, event.data)
             } else {
+                // Standard wallet top-up
                 await processCompletedWalletPayment(reference, event.data)
             }
         }

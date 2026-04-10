@@ -1,6 +1,6 @@
 import { createServerClient } from './supabase'
-import { sendWalletTopupSuccessEmail } from './email-service'
-import { sendWalletTopupSuccessSMS, sendAgentUpgradeSuccessSMS, sendAgentExtensionSuccessSMS } from './sms-service'
+import { sendWalletTopupSuccessEmail, sendPermanentAgentUpgradeSuccessEmail } from './email-service'
+import { sendWalletTopupSuccessSMS, sendAgentUpgradeSuccessSMS, sendAgentExtensionSuccessSMS, sendPermanentAgentUpgradeSuccessSMS } from './sms-service'
 
 /**
  * Processes a completed payment by updating the status, 
@@ -261,8 +261,7 @@ export async function processCompletedUpgradePayment(reference: string, provider
     try {
         if (user.phone_number) {
             if (isPermanent) {
-                // Send Permanent/Lifetime notification
-                const { sendPermanentAgentUpgradeSuccessSMS } = await import('./sms-service')
+                // Send Permanent/Lifetime notification (static import at top-level)
                 await sendPermanentAgentUpgradeSuccessSMS(user.phone_number)
             } else if (newExpiry) {
                 const planLabelText = (payment.metadata as any)?.plan_label ||
@@ -294,6 +293,20 @@ export async function processCompletedUpgradePayment(reference: string, provider
     } catch (smsError) {
         console.error('[UpgradeProcess] SMS error:', smsError)
         // Don't fail the transaction if SMS fails
+    }
+
+    // 8. Send permanent agent upgrade email notification
+    // Migrated from /api/payments/webhook (old route) — lines 140-147
+    if (isPermanent && user.email) {
+        try {
+            await sendPermanentAgentUpgradeSuccessEmail(
+                user.email,
+                user.first_name || 'User'
+            )
+        } catch (emailError) {
+            console.error('[UpgradeProcess] Permanent upgrade email error:', emailError)
+            // Don't fail the transaction if email fails
+        }
     }
 
     return { success: true }

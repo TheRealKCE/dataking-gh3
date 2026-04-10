@@ -40,3 +40,16 @@ tsconfig.tsbuildinfo
 *_audit.*
 *_final.mjs
 check_*.mjs
+
+
+# Audit & Meta Tracking
+all_files*.txt
+list_files.txt
+full_git_status.txt
+full_diff.txt
+git_log_full.txt
+temp_git_status.txt
+test-hooks*.js
+implementation_plan.md
+task.md
+walkthrough.md
