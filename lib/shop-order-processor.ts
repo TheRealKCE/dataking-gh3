@@ -460,15 +460,24 @@ async function triggerShopFulfillment(
         await db.from('shop_orders').update({ fulfilled_by: supplierLabel }).eq('id', orderId)
         console.log(`[Shop Order Processor] Routing to ${supplierLabel} for order ${orderId} | network: ${network}`)
 
-        // ── 6. Execute fulfillment ─────────────────────────────────────────
+        // ── 6. Execute fulfillment (dedicated try/catch — ensures alert fires on any exception) ──
         let result: { success: boolean; reference?: string; transactionId?: string; error?: string; isRateLimited?: boolean }
 
-        if (isCodeCraftEnabled) {
-            const { fulfillOrder: ccFulfill } = await import('./codecraft-service')
-            result = await ccFulfill(network, phone, extra.size || '', orderId)
-        } else {
-            const { fulfillOrder: dkFulfill } = await import('./fulfillment-service')
-            result = await dkFulfill(network, phone, extra.size || '', orderId)
+        try {
+            if (isCodeCraftEnabled) {
+                const { fulfillOrder: ccFulfill } = await import('./codecraft-service')
+                result = await ccFulfill(network, phone, extra.size || '', orderId)
+            } else {
+                const { fulfillOrder: dkFulfill } = await import('./fulfillment-service')
+                result = await dkFulfill(network, phone, extra.size || '', orderId)
+            }
+        } catch (importOrCallErr: any) {
+            console.error(`[Shop Order Processor] Supplier import/call exception for order ${orderId}:`, importOrCallErr)
+            await sendAdminNewOrderAlert({
+                ...alertDetails,
+                reason: `Supplier exception during fulfillment (${supplierLabel}): ${importOrCallErr?.message || 'Unknown error'}. Order kept pending.`
+            })
+            return
         }
 
         // ── 7. Handle result ───────────────────────────────────────────────

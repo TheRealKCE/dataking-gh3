@@ -346,11 +346,16 @@ export async function fulfillOrder(
         const data = await response.json()
         console.log(`[CodeCraft] Full API response (HTTP ${response.status}):`, JSON.stringify(data))
 
-        // ── STRICT Status Codes ─────────────────────────────────────────────
-        // 200 = success, 100 = low balance, 101 = out of stock,
-        // 500 = system error, 102 = agent not found, 103 = price not found, 555 = network not found
-        // ALL non-200 → keep order pending
-        if (response.ok && data.status === 200 && data.reference_id) {
+        // ── Resilient Success Detection ─────────────────────────────────────
+        // CodeCraft may return status as number 200, string '200', or string 'success'
+        // reference_id is always at top level — never nested
+        // 100 = low balance, 101 = out of stock, 500 = system error,
+        // 102 = agent not found, 103 = price not found, 555 = network not found
+        // ALL non-success → keep order pending
+        const isSuccess = response.ok &&
+            (data.status === 200 || data.status === 'success' || data.status === '200') &&
+            data.reference_id
+        if (isSuccess) {
             recordSuccess()
             return {
                 success: true,

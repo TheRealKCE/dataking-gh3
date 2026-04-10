@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
-import { checkRegularOrderStatus, checkBigTimeOrderStatus } from '@/lib/at-ishare-service'
+import { checkOrderStatus } from '@/lib/codecraft-service'
 import { syncShopOrderStatus } from '@/lib/shop-service'
 import { createNotification, orderUpdateNotification } from '@/lib/notification-service'
 
@@ -14,13 +14,13 @@ export async function GET(request: NextRequest) {
     const supabase = createServerClient()
 
     try {
-        // Get pending/processing orders for Telecel, AT-iShare, AT-BigTime
+        // Get pending/processing orders fulfilled by CodeCraft (have a codecraft_reference_id)
         const { data: orders, error } = await supabase
             .from('orders')
             .select('*, mtn_fulfillment_tracking(*)')
-            .in('network', ['Telecel', 'AT-iShare', 'AT-BigTime'])
+            .in('network', ['MTN', 'Telecel', 'AT-iShare', 'AT-BigTime'])
             .in('status', ['pending', 'processing'])
-            .not('codecraft_reference', 'is', null)
+            .not('codecraft_reference_id', 'is', null)
             .limit(50)
 
         if (error) throw error
@@ -30,12 +30,13 @@ export async function GET(request: NextRequest) {
 
         for (const order of orders || []) {
             try {
-                if (!(order as any).codecraft_reference) continue
+                if (!(order as any).codecraft_reference_id) continue
 
-                // Check status based on network type
-                const statusResult = (order as any).network === 'AT-BigTime'
-                    ? await checkBigTimeOrderStatus((order as any).codecraft_reference)
-                    : await checkRegularOrderStatus((order as any).codecraft_reference)
+                // Single checkOrderStatus call — routes internally to correct endpoint
+                const statusResult = await checkOrderStatus(
+                    (order as any).codecraft_reference_id,
+                    (order as any).network
+                )
 
                 if (statusResult.success) {
                     const newStatus = statusResult.status
