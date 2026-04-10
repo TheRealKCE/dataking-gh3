@@ -173,9 +173,12 @@ export async function fetchAllBundleMappings(): Promise<BundleMap> {
             throw new Error(`Failed to fetch packages and no cache available (Status: ${response.status})`)
         }
 
-        const contentType = response.headers.get('content-type') || ''
-        if (!contentType.includes('application/json')) {
-            console.error(`[CodeCraft] Non-JSON response (HTTP ${response.status}) from /packages.php`)
+        const rawText = await response.text()
+        let data: any
+        try {
+            data = JSON.parse(rawText)
+        } catch (e) {
+            console.error(`[CodeCraft] Non-JSON response (HTTP ${response.status}) from /packages.php:`, rawText.slice(0, 300))
             if (storedMap?.mappings) {
                 bundleMappingCache = storedMap.mappings
                 lastBundleFetch = now
@@ -183,8 +186,6 @@ export async function fetchAllBundleMappings(): Promise<BundleMap> {
             }
             throw new Error(`Supplier returned unexpected response format (HTTP ${response.status})`)
         }
-
-        const data = await response.json()
 
         // Build the new map from regular_packages and bigtime_packages arrays
         // { regular: { MTN: [{gig:1,amount:'4.50'}, ...], AT: [...] }, bigtime: {...} }
@@ -334,16 +335,16 @@ export async function fulfillOrder(
             return { success: false, error: lastError?.message || 'Persistent network error connecting to CodeCraft' }
         }
 
-        // ── Non-JSON safety check ───────────────────────────────────────────
-        const contentType = response.headers.get('content-type') || ''
-        if (!contentType.includes('application/json')) {
-            const rawText = await response.text()
+        // ── Attempt JSON Parse ──────────────────────────────────────────────
+        const rawText = await response.text()
+        let data: any
+        try {
+            data = JSON.parse(rawText)
+        } catch (e) {
             console.error(`[CodeCraft] Non-JSON response (HTTP ${response.status}):`, rawText.slice(0, 300))
             recordFailure()
-            return { success: false, error: `Supplier returned unexpected response (HTTP ${response.status})` }
+            return { success: false, error: `Supplier returned unexpected response format (HTTP ${response.status})` }
         }
-
-        const data = await response.json()
         console.log(`[CodeCraft] Full API response (HTTP ${response.status}):`, JSON.stringify(data))
 
         // ── Resilient Success Detection ─────────────────────────────────────
@@ -415,14 +416,15 @@ export async function checkOrderStatus(
             body: JSON.stringify({ reference_id: referenceId }),
         })
 
-        const contentType = response.headers.get('content-type') || ''
-        if (!contentType.includes('application/json')) {
-            console.error(`[CodeCraft Status] Non-JSON response (HTTP ${response.status})`)
+        const rawText = await response.text()
+        let data: any
+        try {
+            data = JSON.parse(rawText)
+        } catch (e) {
+            console.error(`[CodeCraft Status] Non-JSON response (HTTP ${response.status}):`, rawText.slice(0, 300))
             recordFailure()
             return { success: false, status: 'pending', message: `Unexpected response format (HTTP ${response.status})` }
         }
-
-        const data = await response.json()
 
         if (response.ok && data.status === 200 && data.success) {
             recordSuccess()
@@ -470,14 +472,14 @@ export async function fetchSupplierBalance(): Promise<{
             },
         })
 
-        const contentType = response.headers.get('content-type') || ''
-        if (!contentType.includes('application/json')) {
-            const rawText = await response.text()
+        const rawText = await response.text()
+        let data: any
+        try {
+            data = JSON.parse(rawText)
+        } catch (e) {
             console.error('[CodeCraft Balance] Non-JSON response (HTTP', response.status, '):', rawText.slice(0, 300))
             return { success: false, error: `Unexpected response format (HTTP ${response.status})` }
         }
-
-        const data = await response.json()
         console.log('[CodeCraft Balance] API Response:', JSON.stringify(data))
 
         if (response.ok && data.status === 'success') {
