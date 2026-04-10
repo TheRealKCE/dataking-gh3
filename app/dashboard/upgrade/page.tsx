@@ -165,6 +165,11 @@ export default function UpgradePage() {
         }
     }
 
+    const getDiscountPercent = (oldPrice: number, newPrice: number): number => {
+        if (!oldPrice || oldPrice <= newPrice) return 0
+        return Math.round(((oldPrice - newPrice) / oldPrice) * 100)
+    }
+
     const tiers = [
         {
             id: '3d',
@@ -292,7 +297,7 @@ export default function UpgradePage() {
                 />
             )}
 
-            <div className="relative -m-4 sm:-m-6 min-h-[calc(100vh+2rem)] lg:min-h-screen bg-gradient-to-br from-yellow-400 via-amber-500 to-yellow-600 overflow-x-hidden selection:bg-yellow-200 px-4 sm:px-6 py-10 sm:py-16 flex flex-col items-center scroll-smooth" style={{ fontFamily: '"Fira Sans", sans-serif' }}>
+            <div className="relative -m-4 sm:-m-6 min-h-[calc(100vh+2rem)] lg:min-h-screen bg-gradient-to-br from-yellow-400 via-amber-500 to-yellow-600 overflow-x-hidden selection:bg-yellow-200 px-4 sm:px-6 py-10 sm:py-16 flex flex-col items-center scroll-smooth [font-family:'Fira_Sans',sans-serif]">
 
                 <div className="relative z-10 w-full max-w-6xl flex flex-col items-center">
 
@@ -381,21 +386,38 @@ export default function UpgradePage() {
                                         </div>
 
                                         <div className="text-center mb-6 flex flex-col items-center justify-center gap-1">
-                                            {/* Old Price with Strikethrough */}
                                             {showStrikethrough && tier.oldPrice > 0 && tier.oldPrice !== tier.price && (
-                                                <div className="flex items-baseline gap-1">
-                                                    <span className="text-gray-400 line-through text-sm font-bold">GHS {tier.oldPrice.toFixed(2)}</span>
-                                                </div>
+                                                <>
+                                                    {/* Discount badge */}
+                                                    <div className="inline-flex items-center gap-1 bg-red-500 text-white text-xs font-black px-2.5 py-1 rounded-full mb-1 shadow-sm">
+                                                        <span>🔥</span>
+                                                        <span>SAVE {getDiscountPercent(tier.oldPrice, tier.price)}%</span>
+                                                    </div>
+                                                    {/* Strikethrough old price */}
+                                                    <div className="flex items-baseline gap-1">
+                                                        <span className="text-red-400 line-through text-sm font-bold opacity-75">
+                                                            GHS {tier.oldPrice.toFixed(2)}
+                                                        </span>
+                                                    </div>
+                                                </>
                                             )}
 
-                                            {/* New Price */}
+                                            {/* New price — main display */}
                                             <div className="flex items-baseline justify-center gap-1.5">
                                                 <span className={`font-black text-base sm:text-lg ${tier.priceColor}`}>GHS</span>
                                                 <span className={`text-4xl sm:text-5xl font-black ${tier.priceColor} tracking-tighter`}>
                                                     {tier.price.toString().split('.')[0]}
-                                                    <span className="text-2xl sm:text-3xl font-black">{tier.price.toFixed(2).includes('.') ? '.' + tier.price.toFixed(2).split('.')[1] : '.99'}</span>
+                                                    <span className="text-2xl sm:text-3xl font-black">
+                                                        {tier.price.toFixed(2).includes('.') ? '.' + tier.price.toFixed(2).split('.')[1] : '.00'}
+                                                    </span>
                                                 </span>
                                             </div>
+
+                                            {showStrikethrough && tier.oldPrice > 0 && tier.oldPrice !== tier.price && (
+                                                <p className="text-green-600 text-xs font-bold mt-1">
+                                                    ✅ Limited time offer
+                                                </p>
+                                            )}
                                         </div>
 
                                         <div className="space-y-3 mb-8 flex-1">
@@ -435,7 +457,7 @@ export default function UpgradePage() {
 
                             {/* Secure Badge Section */}
                             <div className="w-full max-w-3xl">
-                                <div className="bg-white/60 backdrop-blur-xl rounded-2xl p-6 sm:p-10 border-2 shadow-[0_8px_30px_rgba(238,238,238,0.8)] flex flex-col items-center text-center space-y-6" style={{ borderColor: '#EEEEEE' }}>
+                                <div className="bg-white/60 backdrop-blur-xl rounded-2xl p-6 sm:p-10 border-2 border-[#EEEEEE] shadow-[0_8px_30px_rgba(238,238,238,0.8)] flex flex-col items-center text-center space-y-6">
                                     <div className="inline-flex items-center gap-2 text-amber-600 bg-yellow-100/50 px-4 py-1.5 rounded-full border border-yellow-200/50">
                                         <Zap className="w-5 h-5 fill-current" />
                                         <span className="text-xs font-black uppercase tracking-[0.2em]">FAST & SECURE</span>
