@@ -178,6 +178,9 @@ export async function middleware(request: NextRequest) {
         } else if (pathname === '/api/auth/forgot-password') {
             limiter = rateLimiters.forgotPassword
             identifier = ip
+        } else if (pathname === '/api/admin/get-prices') {
+            limiter = rateLimiters.general
+            identifier = authUser?.id ? `${authUser.id}-${ip}` : ip
         } else if (pathname.startsWith('/api/admin')) {
             limiter = rateLimiters.admin
             identifier = authUser?.id ?? ip
@@ -284,7 +287,11 @@ export async function middleware(request: NextRequest) {
     const isAdminUI = pathname.startsWith('/admin')
     const isAdminAPI = pathname.startsWith('/api/admin')
 
-    if (isAdminUI || isAdminAPI) {
+    // Whitelisted admin endpoints accessible to all authenticated users
+    const adminPublicEndpoints = ['/api/admin/get-prices']
+    const isAdminPublicEndpoint = adminPublicEndpoints.some(ep => pathname === ep)
+
+    if ((isAdminUI || isAdminAPI) && !isAdminPublicEndpoint) {
         if (!authUser) {
             if (isAdminAPI) return addNoCacheHeaders(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }))
             return addNoCacheHeaders(NextResponse.redirect(new URL('/auth/login', request.url)))
