@@ -442,10 +442,11 @@ export async function checkOrderStatus(
 }
 
 function mapOrderStatus(orderStatus: string): 'pending' | 'processing' | 'completed' | 'failed' {
-    const COMPLETED_STATUSES = ['Delivered', 'Success', 'Completed', 'Crediting successful', 'Credited']
-    const FAILED_STATUSES = ['Failed', 'Rejected', 'Reversed', 'Cancelled']
-    if (COMPLETED_STATUSES.includes(orderStatus)) return 'completed'
-    if (FAILED_STATUSES.includes(orderStatus)) return 'failed'
+    const normalized = (orderStatus || '').trim().toLowerCase()
+    const COMPLETED_STATUSES = ['delivered', 'success', 'completed', 'crediting successful', 'credited']
+    const FAILED_STATUSES = ['failed', 'rejected', 'reversed', 'cancelled']
+    if (COMPLETED_STATUSES.includes(normalized)) return 'completed'
+    if (FAILED_STATUSES.includes(normalized)) return 'failed'
     return 'processing'
 }
 

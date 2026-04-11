@@ -85,7 +85,8 @@ export async function POST(request: NextRequest) {
                         .eq('id', order.id)
 
                     if (updateError) {
-                        errors.push(`shop_orders update failed for ${order.id}: ${updateError.message}`)
+                        console.error(`[SyncCodeCraft] shop_orders DB update failed for ${order.id}:`, updateError.message)
+                        errors.push(`DB update failed for ${order.id}: ${updateError.message}`)
                         totalFailed++
                     } else {
                         totalUpdated++
@@ -142,7 +143,8 @@ export async function POST(request: NextRequest) {
                         .eq('id', order.id)
 
                     if (updateError) {
-                        errors.push(`orders update failed for ${order.id}: ${updateError.message}`)
+                        console.error(`[SyncCodeCraft] orders DB update failed for ${order.id}:`, updateError.message)
+                        errors.push(`DB update failed for ${order.id}: ${updateError.message}`)
                         totalFailed++
                     } else {
                         totalUpdated++

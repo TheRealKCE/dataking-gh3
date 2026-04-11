@@ -87,8 +87,8 @@ export async function GET(request: NextRequest) {
                         .eq('id', order.id)
 
                     if (updateError) {
-                        console.error(`[CronSync] shop_orders update failed for ${order.id}:`, updateError)
-                        errors.push(`shop_orders update failed for ${order.id}: ${updateError.message}`)
+                        console.error(`[CronSync] shop_orders DB update failed for ${order.id}:`, updateError.message)
+                        errors.push(`DB update failed for ${order.id}: ${updateError.message}`)
                         totalFailed++
                     } else {
                         console.log(`[CronSync] shop_orders ${order.id}: ${order.status} → ${newStatus}`)
@@ -150,8 +150,8 @@ export async function GET(request: NextRequest) {
                         .eq('id', order.id)
 
                     if (updateError) {
-                        console.error(`[CronSync] orders update failed for ${order.id}:`, updateError)
-                        errors.push(`orders update failed for ${order.id}: ${updateError.message}`)
+                        console.error(`[CronSync] orders DB update failed for ${order.id}:`, updateError.message)
+                        errors.push(`DB update failed for ${order.id}: ${updateError.message}`)
                         totalFailed++
                     } else {
                         console.log(`[CronSync] orders ${order.id}: ${order.status} → ${newStatus}`)

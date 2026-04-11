@@ -423,9 +423,13 @@ async function triggerFulfillment(orderId: string, network: string, user: { emai
                 ordersUpdate.codecraft_reference = result.transactionId || result.reference
             }
 
-            await (supabase.from('orders') as any)
+            const { error: updateError } = await (supabase.from('orders') as any)
                 .update(ordersUpdate)
                 .eq('id', orderId)
+
+            if (updateError) {
+                console.error(`[OrderPurchase] Failed to update order ${orderId} status:`, updateError.message)
+            }
 
             await (supabase.from('mtn_fulfillment_tracking') as any).insert({
                 order_id: orderId,
