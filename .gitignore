@@ -54,3 +54,5 @@ implementation_plan.md
 task.md
 walkthrough.md
 debug-*.ts
+scratch/
+*.mjs

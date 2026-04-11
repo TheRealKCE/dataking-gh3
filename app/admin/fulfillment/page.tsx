@@ -24,7 +24,8 @@ import {
     Calendar as CalendarIcon,
     ChevronLeft,
     ChevronRight,
-    MoreHorizontal
+    MoreHorizontal,
+    Loader2
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatCurrency, cn } from '@/lib/utils'
@@ -93,6 +94,10 @@ export default function FulfillmentPage() {
     const [balance, setBalance] = useState<{ amount: number; currency: string } | null>(null)
     const [codecraftBalance, setCodecraftBalance] = useState<{ amount: number; currency: string } | null>(null)
     const [isLoadingBalance, setIsLoadingBalance] = useState(false)
+
+    // Sync CodeCraft Status state
+    const [isSyncing, setIsSyncing] = useState(false)
+    const [syncCooldown, setSyncCooldown] = useState(false)
 
     useEffect(() => {
         if (dbUser?.role === 'admin') {
@@ -222,6 +227,29 @@ export default function FulfillmentPage() {
             is_global_enabled: !settings.is_global_enabled
         }
         saveSettings(newSettings)
+    }
+
+    const handleSyncCodecraft = async () => {
+        if (isSyncing || syncCooldown) return
+        setIsSyncing(true)
+        try {
+            const response = await fetch('/api/admin/fulfillment/sync-codecraft', {
+                method: 'POST',
+            })
+            const result = await response.json()
+            if (!response.ok) {
+                toast.error('Sync failed: ' + (result.error || 'Unknown error'))
+            } else {
+                toast.success(`${result.checked} checked, ${result.updated} updated, ${result.failed} failed`)
+                await fetchOrders()
+            }
+        } catch (err: any) {
+            toast.error('Sync error: ' + err.message)
+        } finally {
+            setIsSyncing(false)
+            setSyncCooldown(true)
+            setTimeout(() => setSyncCooldown(false), 30000)
+        }
     }
 
     const fetchOrders = async (isNewFilter = false) => {
@@ -429,6 +457,34 @@ export default function FulfillmentPage() {
                                 Refresh
                             </Button>
                         </div>
+                    </CardContent>
+                </Card>
+
+                <Card className="bg-gradient-to-br from-blue-700 to-indigo-800 text-white border-none shadow-lg">
+                    <CardContent className="p-4 md:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                            <div className="bg-white/20 p-2.5 rounded-lg">
+                                <RefreshCw className="w-5 h-5 md:w-6 md:h-6" />
+                            </div>
+                            <div>
+                                <p className="text-[10px] md:text-xs font-bold uppercase tracking-wider opacity-90">CodeCraft Status Sync</p>
+                                <p className="text-xs text-white/70 mt-0.5">Pulls live status for all pending CodeCraft orders</p>
+                            </div>
+                        </div>
+                        <Button
+                            onClick={handleSyncCodecraft}
+                            disabled={isSyncing || syncCooldown}
+                            variant="secondary"
+                            size="sm"
+                            className="bg-white/20 hover:bg-white/30 text-white border-white/30 disabled:opacity-50"
+                        >
+                            {isSyncing
+                                ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Syncing...</>
+                                : syncCooldown
+                                    ? <><RefreshCw className="w-4 h-4 mr-2" />Cooling down...</>
+                                    : <><RefreshCw className="w-4 h-4 mr-2" />Sync CodeCraft Status</>
+                            }
+                        </Button>
                     </CardContent>
                 </Card>
             </div>

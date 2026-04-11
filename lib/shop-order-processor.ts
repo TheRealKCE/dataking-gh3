@@ -495,7 +495,12 @@ async function triggerShopFulfillment(
             }
 
             await db.from('shop_orders').update(updatePayload).eq('id', orderId)
-            await db.from('orders').update({ status: 'processing' }).eq('shop_order_id', orderId)
+            const ordersUpdate: Record<string, string> = { status: 'processing' }
+            if (isCodeCraftEnabled && result.transactionId) {
+                ordersUpdate.codecraft_reference = result.transactionId
+                ordersUpdate.fulfillment_method = 'codecraft'
+            }
+            await db.from('orders').update(ordersUpdate).eq('shop_order_id', orderId)
 
             console.log(`[Shop Order Processor] ✅ Fulfillment success for order ${orderId} via ${supplierLabel}. Ref: ${result.transactionId || result.reference}`)
 

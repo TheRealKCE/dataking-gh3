@@ -15,15 +15,15 @@ export async function GET(request: Request) {
 
         const supabase = createServerClient()
 
-        // Calculate date 3 days ago
-        const threeDaysAgo = new Date()
-        threeDaysAgo.setDate(threeDaysAgo.getDate() - 3)
+        // Calculate date 30 days ago
+        const thirtyDaysAgo = new Date()
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
 
         // Delete old complaints
         const { count, error } = await (supabase
             .from('complaints') as any)
             .delete({ count: 'exact' })
-            .lt('created_at', threeDaysAgo.toISOString())
+            .lt('created_at', thirtyDaysAgo.toISOString())
 
         if (error) throw error
 

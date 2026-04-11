@@ -299,7 +299,6 @@ async function updateCustomerPurchases(
 
 async function triggerFulfillment(orderId: string, network: string, user: { email: string, name: string }) {
     try {
-        const { fulfillOrder } = await import('@/lib/fulfillment-service')
         const { sendAdminNewOrderAlert } = await import('@/lib/email-service')
         const { syncShopOrderStatus } = await import('@/lib/shop-service')
         const supabase = createServerClient()
@@ -343,25 +342,48 @@ async function triggerFulfillment(orderId: string, network: string, user: { emai
             return
         }
 
-        let fulfillmentSettings = { networks: {} as Record<string, boolean> }
+        // ── Parse both supplier network settings ───────────────────────────
+        let fulfillmentSettings: {
+            networks: Record<string, boolean>
+            codecraft_networks: Record<string, boolean>
+        } = { networks: {}, codecraft_networks: {} }
         try {
             if (settingsMap.fulfillment_settings) {
-                fulfillmentSettings = typeof settingsMap.fulfillment_settings === 'string'
+                const parsed = typeof settingsMap.fulfillment_settings === 'string'
                     ? JSON.parse(settingsMap.fulfillment_settings)
                     : settingsMap.fulfillment_settings
+                fulfillmentSettings.networks = parsed.networks || {}
+                fulfillmentSettings.codecraft_networks = parsed.codecraft_networks || {}
             }
         } catch (e) {
             console.error('[Fulfillment] Failed to parse fulfillment_settings:', e)
         }
 
-        const isNetworkEnabled = fulfillmentSettings.networks[network] !== false
-        if (!isNetworkEnabled) {
-            await sendAdminNewOrderAlert({ ...alertDetails, reason: `Auto-fulfillment is disabled for network: ${network}` })
-                .catch(err => console.error('[Fulfillment] Admin alert (network disabled) failed:', err))
+        const isDataKazinaEnabled = fulfillmentSettings.networks[network] === true
+        const isCodeCraftEnabled = fulfillmentSettings.codecraft_networks[network] === true
+
+        // ── Conflict Guard ─────────────────────────────────────────────────
+        if (isDataKazinaEnabled && isCodeCraftEnabled) {
+            console.error(`[Fulfillment] CONFLICT DETECTED for ${network} on order ${orderId}`)
+            await sendAdminNewOrderAlert({
+                ...alertDetails,
+                reason: `⚠️ SYSTEM HALTED: Both DataKazina and CodeCraft are active for ${network}. Order ${orderId} kept pending. Fix in admin panel immediately.`
+            }).catch(err => console.error('[Fulfillment] Conflict alert failed:', err))
             return
         }
 
-        // Idempotency check for fulfillment
+        // ── No Supplier Guard ──────────────────────────────────────────────
+        if (!isDataKazinaEnabled && !isCodeCraftEnabled) {
+            console.log(`[Fulfillment] No active supplier for network ${network}. Order ${orderId} kept pending.`)
+            await sendAdminNewOrderAlert({ ...alertDetails, reason: `No active supplier configured for network: ${network}` })
+                .catch(err => console.error('[Fulfillment] No-supplier alert failed:', err))
+            return
+        }
+
+        const supplierLabel = isCodeCraftEnabled ? 'codecraft' : 'datakazina'
+        console.log(`[Fulfillment] Routing to ${supplierLabel} for order ${orderId} | network: ${network}`)
+
+        // ── Idempotency check ──────────────────────────────────────────────
         const { data: existingTracking } = await supabase
             .from('mtn_fulfillment_tracking')
             .select('status')
@@ -373,30 +395,63 @@ async function triggerFulfillment(orderId: string, network: string, user: { emai
             return
         }
 
-        const result = await fulfillOrder(network, (order as any).phone_number, (order as any).size, orderId)
+        // ── Execute fulfillment ────────────────────────────────────────────
+        let result: { success: boolean; reference?: string; transactionId?: string; error?: string; apiResponse?: any }
+        try {
+            if (isCodeCraftEnabled) {
+                const { fulfillOrder: ccFulfill } = await import('@/lib/codecraft-service')
+                result = await ccFulfill(network, (order as any).phone_number, (order as any).size, orderId)
+            } else {
+                const { fulfillOrder: dkFulfill } = await import('@/lib/fulfillment-service')
+                result = await dkFulfill(network, (order as any).phone_number, (order as any).size, orderId)
+            }
+        } catch (supplierErr: any) {
+            console.error(`[Fulfillment] Supplier call exception for order ${orderId}:`, supplierErr)
+            await sendAdminNewOrderAlert({ ...alertDetails, reason: `Supplier exception: ${supplierErr.message}` })
+                .catch(err => console.error('[Fulfillment] Exception alert failed:', err))
+            return
+        }
 
         if (result.success) {
+            // ── Build atomic orders update ─────────────────────────────────
+            const ordersUpdate: Record<string, any> = {
+                status: 'processing',
+                updated_at: new Date().toISOString(),
+                fulfillment_method: supplierLabel,
+            }
+            if (isCodeCraftEnabled && (result.transactionId || result.reference)) {
+                ordersUpdate.codecraft_reference = result.transactionId || result.reference
+            }
+
+            await (supabase.from('orders') as any)
+                .update(ordersUpdate)
+                .eq('id', orderId)
+
             await (supabase.from('mtn_fulfillment_tracking') as any).insert({
                 order_id: orderId,
                 status: 'processing',
-                api_response: result.apiResponse || { reference: result.reference, network },
+                api_response: {
+                    ...(result.apiResponse || {}),
+                    reference: result.transactionId || result.reference,
+                    supplier: supplierLabel,
+                    network,
+                },
             })
-            await (supabase.from('orders') as any)
-                .update({ status: 'processing', updated_at: new Date().toISOString() })
-                .eq('id', orderId)
-                
+
             // Sync status to healing wrapper so shop owners see it
-            await syncShopOrderStatus(orderId, 'processing').catch(err => 
+            await syncShopOrderStatus(orderId, 'processing').catch(err =>
                 console.error(`[Fulfillment] syncShopOrderStatus failed for ${orderId}:`, err)
             )
         } else {
-            await sendAdminNewOrderAlert({ ...alertDetails, reason: `Auto-fulfillment API error: ${result.error || 'Unknown error'}` })
+            // Failure — keep order as pending (do not update orders table status)
+            console.warn(`[Fulfillment] Supplier ${supplierLabel} failed for order ${orderId}: ${result.error}`)
+            await sendAdminNewOrderAlert({ ...alertDetails, reason: `Auto-fulfillment API error (${supplierLabel}): ${result.error || 'Unknown error'}` })
                 .catch(err => console.error('[Fulfillment] Admin alert (API failed) failed:', err))
 
             await (supabase.from('mtn_fulfillment_tracking') as any).insert({
                 order_id: orderId,
                 status: 'failed',
-                api_response: { error: result.error, network, ...result.apiResponse },
+                api_response: { error: result.error, supplier: supplierLabel, network, ...result.apiResponse },
             })
         }
     } catch (error) {

@@ -391,21 +391,17 @@ export async function fulfillOrder(
  */
 export async function checkOrderStatus(
     referenceId: string,
-    network: string
+    packageType: 'regular' | 'bigtime'
 ): Promise<StatusResponse> {
 
     if (!checkCircuit()) return { success: false, status: 'pending', message: 'Service unavailable (circuit open)' }
     if (!CODECRAFT_API_KEY) return { success: false, status: 'pending', message: 'API key not configured' }
 
-    try {
-        // AT-BigTime or MTN >= 10GB orders were placed via /special.php → check via response_big_time.php
-        // For simplicity we infer from network name — AT-BigTime is always big time
-        const isBigTime = network === 'AT-BigTime'
-        const endpoint = isBigTime
-            ? `${CODECRAFT_API_BASE_URL}/response_big_time.php`
-            : `${CODECRAFT_API_BASE_URL}/response_regular.php`
+    const endpoint = packageType === 'bigtime'
+        ? `${CODECRAFT_API_BASE_URL}/response_big_time.php`
+        : `${CODECRAFT_API_BASE_URL}/response_regular.php`
 
-        // API docs show GET with a JSON body payload — using POST for broad fetch compatibility
+    try {
         const response = await fetch(endpoint, {
             method: 'POST',
             headers: {
@@ -445,10 +441,11 @@ export async function checkOrderStatus(
     }
 }
 
-function mapOrderStatus(status: string): 'pending' | 'processing' | 'completed' | 'failed' {
-    const s = (status || '').toLowerCase()
-    if (['success', 'completed', 'delivered'].includes(s)) return 'completed'
-    if (['failed', 'error', 'rejected', 'reversed'].includes(s)) return 'failed'
+function mapOrderStatus(orderStatus: string): 'pending' | 'processing' | 'completed' | 'failed' {
+    const COMPLETED_STATUSES = ['Delivered', 'Success', 'Completed', 'Crediting successful', 'Credited']
+    const FAILED_STATUSES = ['Failed', 'Rejected', 'Reversed', 'Cancelled']
+    if (COMPLETED_STATUSES.includes(orderStatus)) return 'completed'
+    if (FAILED_STATUSES.includes(orderStatus)) return 'failed'
     return 'processing'
 }
 
