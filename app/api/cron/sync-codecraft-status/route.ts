@@ -4,7 +4,7 @@ import { checkOrderStatus } from '@/lib/codecraft-service'
 
 // ─── Shared Package Type Resolver ─────────────────────────────────────────────
 function resolvePackageType(network: string, gigValue: number): 'regular' | 'bigtime' {
-    if (network === 'MTN') return gigValue < 10 ? 'regular' : 'bigtime'
+    if (network === 'MTN') return 'regular'
     if (network === 'AT-iShare') return 'regular'
     if (network === 'AT-BigTime') return 'bigtime'
     if (network === 'Telecel') return 'regular'

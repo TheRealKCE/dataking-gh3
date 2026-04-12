@@ -56,7 +56,6 @@ function resolveEndpointAndType(
     const baseName = network.startsWith('AT') ? 'AT' : network
 
     if (baseName === 'MTN') {
-        if (gigVolume >= 10) return { endpoint: `${CODECRAFT_API_BASE_URL}/special.php`, packageType: 'bigtime' }
         return { endpoint: `${CODECRAFT_API_BASE_URL}/initiate.php`, packageType: 'regular' }
     }
 
