@@ -329,7 +329,7 @@ export async function fulfillOrder(
             return {
                 success: true,
                 reference: responseData?.reference || orderId,
-                transactionId: responseData?.transaction_id,
+                transactionId: responseData?.transaction_code || responseData?.transaction_id,
                 apiResponse: data,
             }
         }
