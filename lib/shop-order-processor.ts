@@ -502,6 +502,19 @@ async function triggerShopFulfillment(
             }
             await db.from('orders').update(ordersUpdate).eq('shop_order_id', orderId)
 
+            if (!isCodeCraftEnabled && (result.transactionId || result.reference)) {
+                const { error: refError } = await db
+                    .from('orders')
+                    .update({ dakazina_reference: result.transactionId || result.reference })
+                    .eq('shop_order_id', orderId)
+                if (refError) console.error(`[ShopOrderProcessor] Failed to stamp dakazina_reference:`, refError.message)
+                
+                await db
+                    .from('shop_orders')
+                    .update({ dakazina_reference: result.transactionId || result.reference })
+                    .eq('id', orderId)
+            }
+
             console.log(`[Shop Order Processor] ✅ Fulfillment success for order ${orderId} via ${supplierLabel}. Ref: ${result.transactionId || result.reference}`)
 
         } else {

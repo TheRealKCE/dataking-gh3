@@ -101,6 +101,7 @@ CREATE TABLE IF NOT EXISTS public.shop_orders (
   paystack_reference TEXT UNIQUE,
   status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'completed', 'failed', 'refunded')),
   fulfillment_reference TEXT,
+  dakazina_reference TEXT,
   error_message TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()

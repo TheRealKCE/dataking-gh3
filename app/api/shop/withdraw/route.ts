@@ -1,6 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
+import { z } from 'zod'
+import { nameSchema, phoneSchema } from '@/lib/validation'
+
+const withdrawSchema = z.object({
+  amount: z.union([z.number().positive(), z.string().regex(/^\d+(\.\d{1,2})?$/).transform(Number)]),
+  accountName: nameSchema,
+  momoNumber: phoneSchema,
+  network: z.enum(['MTN MoMo', 'Telecel Cash', 'AirtelTigo Money']),
+  saveForLater: z.boolean().optional()
+})
 
 export async function POST(req: NextRequest) {
     try {
@@ -20,22 +30,16 @@ export async function POST(req: NextRequest) {
         }
 
         const body = await req.json()
-        const { amount, accountName, momoNumber, network, saveForLater } = body
 
-        // 2. Format and validate inputs
-        const amountNum = parseFloat(amount)
-        if (!amount || amountNum <= 0 || isNaN(amountNum)) {
-            return NextResponse.json({ error: 'Enter a valid amount' }, { status: 400 })
+        // 2. Format and validate inputs rigorously with Zod
+        const validation = withdrawSchema.safeParse(body)
+        if (!validation.success) {
+            const errorDetails = validation.error.errors.map(err => `${err.path.join('.')}: ${err.message}`)
+            console.warn(`[Security] Withdrawal input rejected for User: ${user.id} — ${errorDetails.join(', ')}`)
+            return NextResponse.json({ error: 'Invalid input', details: errorDetails }, { status: 400 })
         }
-        if (!network || !['MTN MoMo', 'Telecel Cash', 'AirtelTigo Money'].includes(network)) {
-            return NextResponse.json({ error: 'Select a valid mobile money network' }, { status: 400 })
-        }
-        if (!accountName?.trim()) {
-            return NextResponse.json({ error: 'Enter the account holder name' }, { status: 400 })
-        }
-        if (!momoNumber?.trim()) {
-            return NextResponse.json({ error: 'Enter your MoMo number' }, { status: 400 })
-        }
+
+        const { amount: amountNum, accountName, momoNumber, network, saveForLater } = validation.data
 
         // 3. Fetch current wallet balance and settings server-side
         const { data: wallet } = await supabase

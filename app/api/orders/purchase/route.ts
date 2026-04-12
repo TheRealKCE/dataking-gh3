@@ -422,6 +422,9 @@ async function triggerFulfillment(orderId: string, network: string, user: { emai
             if (isCodeCraftEnabled && (result.transactionId || result.reference)) {
                 ordersUpdate.codecraft_reference = result.transactionId || result.reference
             }
+            if (!isCodeCraftEnabled && (result.transactionId || result.reference)) {
+                ordersUpdate.dakazina_reference = result.transactionId || result.reference
+            }
 
             const { error: updateError } = await (supabase.from('orders') as any)
                 .update(ordersUpdate)

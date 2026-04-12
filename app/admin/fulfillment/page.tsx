@@ -98,6 +98,10 @@ export default function FulfillmentPage() {
     // Sync CodeCraft Status state
     const [isSyncing, setIsSyncing] = useState(false)
     const [syncCooldown, setSyncCooldown] = useState(false)
+    
+    // Sync Dakazina Status state
+    const [isSyncingDakazina, setIsSyncingDakazina] = useState(false)
+    const [dakazinaSyncCooldown, setDakazinaSyncCooldown] = useState(false)
 
     useEffect(() => {
         if (dbUser?.role === 'admin') {
@@ -249,6 +253,29 @@ export default function FulfillmentPage() {
             setIsSyncing(false)
             setSyncCooldown(true)
             setTimeout(() => setSyncCooldown(false), 30000)
+        }
+    }
+
+    const handleSyncDakazina = async () => {
+        if (isSyncingDakazina || dakazinaSyncCooldown) return
+        setIsSyncingDakazina(true)
+        try {
+            const response = await fetch('/api/admin/fulfillment/sync-dakazina', {
+                method: 'POST',
+            })
+            const result = await response.json()
+            if (!response.ok) {
+                toast.error('Sync failed: ' + (result.error || 'Unknown error'))
+            } else {
+                toast.success(`${result.checked} checked, ${result.updated} updated, ${result.failed} failed`)
+                await fetchOrders(true)
+            }
+        } catch (err: any) {
+            toast.error('Sync error: ' + err.message)
+        } finally {
+            setIsSyncingDakazina(false)
+            setDakazinaSyncCooldown(true)
+            setTimeout(() => setDakazinaSyncCooldown(false), 30000)
         }
     }
 
@@ -483,6 +510,34 @@ export default function FulfillmentPage() {
                                 : syncCooldown
                                     ? <><RefreshCw className="w-4 h-4 mr-2" />Cooling down...</>
                                     : <><RefreshCw className="w-4 h-4 mr-2" />Sync CodeCraft Status</>
+                            }
+                        </Button>
+                    </CardContent>
+                </Card>
+
+                <Card className="bg-gradient-to-br from-emerald-700 to-green-800 text-white border-none shadow-lg">
+                    <CardContent className="p-4 md:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                            <div className="bg-white/20 p-2.5 rounded-lg">
+                                <RefreshCw className="w-5 h-5 md:w-6 md:h-6" />
+                            </div>
+                            <div>
+                                <p className="text-[10px] md:text-xs font-bold uppercase tracking-wider opacity-90">DataKazina Status Sync</p>
+                                <p className="text-xs text-white/70 mt-0.5">Pulls live status for pending DataKazina orders</p>
+                            </div>
+                        </div>
+                        <Button
+                            onClick={handleSyncDakazina}
+                            disabled={isSyncingDakazina || dakazinaSyncCooldown}
+                            variant="secondary"
+                            size="sm"
+                            className="bg-white/20 hover:bg-white/30 text-white border-white/30 disabled:opacity-50"
+                        >
+                            {isSyncingDakazina
+                                ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Syncing...</>
+                                : dakazinaSyncCooldown
+                                    ? <><RefreshCw className="w-4 h-4 mr-2" />Cooling down...</>
+                                    : <><RefreshCw className="w-4 h-4 mr-2" />Sync DataKazina Status</>
                             }
                         </Button>
                     </CardContent>

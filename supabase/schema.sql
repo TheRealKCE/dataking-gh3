@@ -88,6 +88,7 @@ CREATE TABLE IF NOT EXISTS public.orders (
   reference_code TEXT NOT NULL UNIQUE,
   fulfillment_method TEXT DEFAULT 'auto' CHECK (fulfillment_method IN ('auto', 'manual', 'codecraft', 'datakazina')),
   codecraft_reference TEXT,
+  dakazina_reference TEXT,
   error_message TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()

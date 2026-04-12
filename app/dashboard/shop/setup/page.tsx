@@ -185,6 +185,7 @@ export default function ShopSetupPage() {
     const [showAllDividers, setShowAllDividers] = useState(false)
     const [communityLinkError, setCommunityLinkError] = useState('')
     const [activeStep, setActiveStep] = useState(0)
+    const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({})
 
     // Collapsible sections
     const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
@@ -367,46 +368,61 @@ export default function ShopSetupPage() {
 
     // ─── Save ─────────────────────────────────────────────────────────────────
     const handleSave = async (thenNavigate?: string) => {
-        if (!form.shop_name.trim()) { toast.error('Shop name is required'); return }
-        if (!form.shop_slug.trim() || form.shop_slug.length < 3) { toast.error('Slug must be at least 3 characters'); return }
-        if (!form.owner_phone.trim()) { toast.error('Owner phone is required'); return }
-        if (slugTaken) { toast.error('This slug is already taken'); return }
-        if (form.whatsapp_number && !waValid) { toast.error('Invalid WhatsApp number format'); return }
+        setFieldErrors({}) // clear previous errors
+        
+        // Basic frontend guards
+        if (!form.shop_name.trim()) { setFieldErrors(prev => ({ ...prev, shop_name: 'Shop name is required' })); return }
+        if (!form.shop_slug.trim() || form.shop_slug.length < 3) { setFieldErrors(prev => ({ ...prev, shop_slug: 'Slug must be at least 3 characters' })); return }
+        if (!form.owner_phone.trim()) { setFieldErrors(prev => ({ ...prev, owner_phone: 'Owner phone is required' })); return }
+        if (slugTaken) { setFieldErrors(prev => ({ ...prev, shop_slug: 'This slug is already taken' })); return }
+        if (form.whatsapp_number && !waValid) { setFieldErrors(prev => ({ ...prev, whatsapp_number: 'Invalid WhatsApp number format' })); return }
         if (form.community_link && !form.community_link.startsWith('https://')) {
-            toast.error('Community link must start with https://'); return
+            setFieldErrors(prev => ({ ...prev, community_link: 'Community link must start with https://' })); return
         }
 
         setSaving(true)
         try {
             const finalWA = normalizeWhatsAppNumber(form.whatsapp_number)
             const payload = {
-                owner_id: dbUser!.id,
                 shop_name: form.shop_name.trim(),
                 shop_slug: form.shop_slug.trim(),
                 description: form.description.trim().slice(0, 400),
                 owner_phone: form.owner_phone.trim(),
-                owner_email: form.owner_email.trim() || null,
-                whatsapp_number: finalWA || null,
-                community_link: form.community_link.trim() || null,
+                owner_email: form.owner_email.trim() || '',
+                whatsapp_number: finalWA || '',
+                community_link: form.community_link.trim() || '',
                 brand_color: form.brand_color,
                 brand_accent: form.brand_accent,
-                logo_url: logoUrl,
-                banner_url: bannerUrl,
+                logo_url: logoUrl || '',
+                banner_url: bannerUrl || '',
                 banner_pos_x: form.banner_pos_x,
                 banner_pos_y: form.banner_pos_y,
                 banner_zoom: form.banner_zoom,
                 divider_style: form.divider_style,
-                is_active: form.is_active,
-                approval_status: 'approved',
-                updated_at: new Date().toISOString(),
             }
 
-            if (existingShopId) {
-                const { error } = await ((supabase as any).from('shop_profiles').update(payload).eq('id', existingShopId))
-                if (error) throw error
-            } else {
-                const { error } = await ((supabase as any).from('shop_profiles').insert(payload))
-                if (error) throw error
+            const method = existingShopId ? 'PUT' : 'POST'
+            const res = await fetch('/api/shop/profile', {
+                method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            })
+
+            const data = await res.json()
+
+            if (!res.ok) {
+                if (data.details && Array.isArray(data.details)) {
+                    const newErrors: Record<string, string> = {}
+                    data.details.forEach((err: string) => {
+                        const [field, ...rest] = err.split(':')
+                        if (field && rest.length) {
+                            newErrors[field.trim()] = rest.join(':').trim()
+                        }
+                    })
+                    setFieldErrors(newErrors)
+                    throw new Error('Please fix the errors in the form.')
+                }
+                throw new Error(data.error || 'Failed to save shop')
             }
 
             toast.success(existingShopId ? 'Shop updated!' : 'Shop created successfully!')
@@ -554,10 +570,14 @@ export default function ShopSetupPage() {
                             <Input
                                 id="shop_name"
                                 value={form.shop_name}
-                                onChange={(e) => handleNameChange(e.target.value)}
+                                onChange={(e) => { 
+                                    handleNameChange(e.target.value) 
+                                    setFieldErrors(p => ({ ...p, shop_name: '' })) 
+                                }}
                                 placeholder="e.g. Kofi's Data Shop"
-                                className="mt-1"
+                                className={cn("mt-1", fieldErrors.shop_name && "border-red-500 focus-visible:ring-red-500")}
                             />
+                            {fieldErrors.shop_name && <p className="text-xs text-red-500 mt-1">{fieldErrors.shop_name}</p>}
                             <p className="text-xs text-muted-foreground mt-1">This will be the browser title on your shop page.</p>
                         </div>
 
@@ -571,15 +591,17 @@ export default function ShopSetupPage() {
                                     onChange={(e) => {
                                         const slug = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '')
                                         updateForm({ shop_slug: slug })
+                                        setFieldErrors(p => ({ ...p, shop_slug: '' }))
                                         checkSlug(slug)
                                     }}
                                     placeholder="kofi-data-shop"
-                                    className={cn(slugTaken && 'border-red-500 focus-visible:ring-red-500')}
+                                    className={cn((slugTaken || fieldErrors.shop_slug) && 'border-red-500 focus-visible:ring-red-500')}
                                 />
                                 {slugChecking && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
                             </div>
                             {slugTaken && <p className="text-xs text-red-500 mt-1">This slug is already taken. Choose another.</p>}
-                            {form.shop_slug && !slugTaken && (
+                            {fieldErrors.shop_slug && !slugTaken && <p className="text-xs text-red-500 mt-1">{fieldErrors.shop_slug}</p>}
+                            {form.shop_slug && !slugTaken && !fieldErrors.shop_slug && (
                                 <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
                                     Preview: <span className="font-mono">{shopUrl}</span>
                                     <a href={shopUrl} target="_blank" rel="noopener noreferrer" className="ml-1" title="Open storefront" aria-label="Open storefront">
@@ -601,12 +623,16 @@ export default function ShopSetupPage() {
                             <Textarea
                                 id="description"
                                 value={form.description}
-                                onChange={(e) => updateForm({ description: e.target.value })}
+                                onChange={(e) => {
+                                    updateForm({ description: e.target.value })
+                                    setFieldErrors(p => ({ ...p, description: '' }))
+                                }}
                                 placeholder="Describe your shop (shown as subtitle and meta description)"
                                 rows={3}
                                 maxLength={400}
-                                className="mt-0"
+                                className={cn("mt-0", fieldErrors.description && "border-red-500 focus-visible:ring-red-500")}
                             />
+                            {fieldErrors.description && <p className="text-xs text-red-500 mt-1">{fieldErrors.description}</p>}
                         </div>
 
                         {/* Open/Close Toggle */}
@@ -679,10 +705,14 @@ export default function ShopSetupPage() {
                             <Input
                                 id="owner_phone"
                                 value={form.owner_phone}
-                                onChange={(e) => updateForm({ owner_phone: e.target.value })}
+                                onChange={(e) => {
+                                    updateForm({ owner_phone: e.target.value })
+                                    setFieldErrors(p => ({ ...p, owner_phone: '' }))
+                                }}
                                 placeholder="0244123456"
-                                className="mt-1"
+                                className={cn("mt-1", fieldErrors.owner_phone && "border-red-500 focus-visible:ring-red-500")}
                             />
+                            {fieldErrors.owner_phone && <p className="text-xs text-red-500 mt-1">{fieldErrors.owner_phone}</p>}
                             <p className="text-xs text-muted-foreground mt-1">Displayed as contact on your shop page.</p>
                         </div>
 
@@ -694,10 +724,14 @@ export default function ShopSetupPage() {
                                 id="owner_email"
                                 type="email"
                                 value={form.owner_email}
-                                onChange={(e) => updateForm({ owner_email: e.target.value })}
+                                onChange={(e) => {
+                                    updateForm({ owner_email: e.target.value })
+                                    setFieldErrors(p => ({ ...p, owner_email: '' }))
+                                }}
                                 placeholder="yourname@email.com"
-                                className="mt-1"
+                                className={cn("mt-1", fieldErrors.owner_email && "border-red-500 focus-visible:ring-red-500")}
                             />
+                            {fieldErrors.owner_email && <p className="text-xs text-red-500 mt-1">{fieldErrors.owner_email}</p>}
                         </div>
 
                         <div>
@@ -707,11 +741,15 @@ export default function ShopSetupPage() {
                             <Input
                                 id="whatsapp_number"
                                 value={form.whatsapp_number}
-                                onChange={(e) => updateForm({ whatsapp_number: e.target.value })}
+                                onChange={(e) => {
+                                    updateForm({ whatsapp_number: e.target.value })
+                                    setFieldErrors(p => ({ ...p, whatsapp_number: '' }))
+                                }}
                                 placeholder="0244123456 or +233244123456"
-                                className="mt-1"
+                                className={cn("mt-1", fieldErrors.whatsapp_number && "border-red-500 focus-visible:ring-red-500")}
                             />
-                            {form.whatsapp_number && (
+                            {fieldErrors.whatsapp_number && <p className="text-xs text-red-500 mt-1">{fieldErrors.whatsapp_number}</p>}
+                            {form.whatsapp_number && !fieldErrors.whatsapp_number && (
                                 <p className={cn('text-xs mt-1 flex items-center gap-1', waValid ? 'text-emerald-600' : 'text-red-500')}>
                                     {waValid ? (
                                         <><CheckCircle2 className="w-3 h-3" /> Will be saved as: <span className="font-mono">{normalizedWA}</span>
@@ -723,7 +761,7 @@ export default function ShopSetupPage() {
                                     )}
                                 </p>
                             )}
-                            {!form.whatsapp_number && (
+                            {!form.whatsapp_number && !fieldErrors.whatsapp_number && (
                                 <p className="text-xs text-muted-foreground mt-1">
                                     Format: <span className="font-mono">0244123456</span> → becomes a floating WhatsApp button on your shop.
                                 </p>
@@ -756,16 +794,21 @@ export default function ShopSetupPage() {
                                 id="community_link"
                                 type="url"
                                 value={form.community_link}
-                                onChange={(e) => { updateForm({ community_link: e.target.value }); setCommunityLinkError('') }}
+                                onChange={(e) => { 
+                                    updateForm({ community_link: e.target.value }); 
+                                    setCommunityLinkError('');
+                                    setFieldErrors(p => ({ ...p, community_link: '' }))
+                                }}
                                 onBlur={() => {
                                     if (form.community_link && !form.community_link.startsWith('https://')) {
                                         setCommunityLinkError('Link must start with https://')
                                     }
                                 }}
                                 placeholder="https://chat.whatsapp.com/... or https://t.me/... or https://fb.com/groups/..."
-                                className={cn('mt-1', communityLinkError && 'border-red-500 focus-visible:ring-red-500')}
+                                className={cn('mt-1', (communityLinkError || fieldErrors.community_link) && 'border-red-500 focus-visible:ring-red-500')}
                             />
                             {communityLinkError && <p className="text-xs text-red-500 mt-1">{communityLinkError}</p>}
+                            {fieldErrors.community_link && <p className="text-xs text-red-500 mt-1">{fieldErrors.community_link}</p>}
                             <p className="text-xs text-muted-foreground mt-1">
                                 Share your WhatsApp group, Telegram channel, Facebook group, or any community link where customers can follow your updates.
                             </p>
