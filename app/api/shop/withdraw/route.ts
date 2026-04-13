@@ -2,23 +2,40 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import { z } from 'zod'
-import { nameSchema, phoneSchema } from '@/lib/validation'
+import { phoneSchema } from '@/lib/validation'
+import { validateAccountName, MOOLRE_CHANNEL_MAP } from '@/lib/moolre-transfer-service'
+import { sendAdminShopWithdrawalRequestAlert } from '@/lib/email-service'
 
 const withdrawSchema = z.object({
-  amount: z.union([z.number().positive(), z.string().regex(/^\d+(\.\d{1,2})?$/).transform(Number)]),
-  accountName: nameSchema,
-  momoNumber: phoneSchema,
-  network: z.enum(['MTN MoMo', 'Telecel Cash', 'AirtelTigo Money']),
-  saveForLater: z.boolean().optional()
+    amount: z.union([
+        z.number().positive(),
+        z.string().regex(/^\d+(\.\d{1,2})?$/).transform(Number)
+    ]),
+    momoNumber: z.string().min(8, 'Number is too short').max(30, 'Number is too long').regex(/^\d+$/, 'Must contain only digits'),
+    network: z.enum(['MTN MoMo', 'Telecel Cash', 'AirtelTigo Money', 'Bank']),
+    payment_type: z.enum(['momo', 'bank']).default('momo'),
+    bankId: z.string().optional(),
+    saveForLater: z.boolean().optional(),
+}).superRefine((data, ctx) => {
+    if (data.network !== 'Bank') {
+        if (!phoneSchema.safeParse(data.momoNumber).success) {
+            ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ['momoNumber'],
+                message: 'Must be a valid Ghanaian MoMo number (e.g. 0241234567)'
+            })
+        }
+    }
 })
 
 export async function POST(req: NextRequest) {
     try {
-        const supabase = createRouteHandlerClient({ cookies })
+        const cookieStore = await cookies()
+        const supabase = createRouteHandlerClient({ cookies: () => cookieStore as any })
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-        // 1. Validate caller has the correct role
+        // 1. Validate caller role
         const { data: dbUser } = await supabase
             .from('users')
             .select('role, id')
@@ -31,35 +48,42 @@ export async function POST(req: NextRequest) {
 
         const body = await req.json()
 
-        // 2. Format and validate inputs rigorously with Zod
+        // 2. Validate input shape with Zod
         const validation = withdrawSchema.safeParse(body)
         if (!validation.success) {
-            const errorDetails = validation.error.errors.map(err => `${err.path.join('.')}: ${err.message}`)
+            const errorDetails = validation.error.errors.map(e => `${e.path.join('.')}: ${e.message}`)
             console.warn(`[Security] Withdrawal input rejected for User: ${user.id} — ${errorDetails.join(', ')}`)
             return NextResponse.json({ error: 'Invalid input', details: errorDetails }, { status: 400 })
         }
 
-        const { amount: amountNum, accountName, momoNumber, network, saveForLater } = validation.data
+        // Apply .trim() to all string inputs after Zod validation
+        const amountNum = validation.data.amount
+        const momoNumber = validation.data.momoNumber.trim()
+        const network = validation.data.network.trim()
+        const payment_type = validation.data.payment_type.trim()
+        const bankId = validation.data.bankId ? validation.data.bankId.trim() : undefined
+        const saveForLater = validation.data.saveForLater
 
-        // 3. Fetch current wallet balance and settings server-side
-        const { data: wallet } = await supabase
-            .from('shop_wallets')
-            .select('id, balance, total_withdrawn')
-            .eq('owner_id', user.id)
-            .single()
+        // 3. Fetch wallet and shop profile
+        const [walletRes, shopProfileRes] = await Promise.all([
+            supabase
+                .from('shop_wallets')
+                .select('id, balance, total_withdrawn')
+                .eq('owner_id', user.id)
+                .single(),
+            supabase
+                .from('shop_profiles')
+                .select('shop_name, paystack_fee_percent, withdrawal_fee_percent, withdrawal_fee_flat, min_withdrawal_amount')
+                .eq('owner_id', user.id)
+                .single(),
+        ])
 
-        if (!wallet) return NextResponse.json({ error: 'Shop wallet not found' }, { status: 404 })
+        if (!walletRes.data) return NextResponse.json({ error: 'Shop wallet not found' }, { status: 404 })
+        const wallet = walletRes.data
+        const shopProfile = shopProfileRes.data
 
-        // Fetch the shop's per-shop fee overrides (set by admin)
-        const { data: shopProfile } = await supabase
-            .from('shop_profiles')
-            .select('paystack_fee_percent, withdrawal_fee_percent, withdrawal_fee_flat, min_withdrawal_amount')
-            .eq('owner_id', user.id)
-            .single()
-
-        const ownerRole = dbUser.role || 'customer' // 'customer' or 'agent'
-
-        // Fetch all relevant global settings keys in one query
+        // 4. Fetch global settings
+        const ownerRole = dbUser.role || 'customer'
         const { data: settingsRows } = await supabase
             .from('shop_global_settings')
             .select('key, value')
@@ -77,9 +101,6 @@ export async function POST(req: NextRequest) {
             globalMap[row.key] = parseFloat(row.value)
         }
 
-        // --- Role-Aware Fee Resolution ---
-        // Priority: per-shop override (if not null) → role-specific global → legacy global → hardcoded default
-        // Per-shop override of 0 means "deliberately free". Only null means "inherit global".
         function resolveWithdrawalFee(
             perShopValue: number | null | undefined,
             roleKey: string,
@@ -113,41 +134,68 @@ export async function POST(req: NextRequest) {
             ),
         }
 
-        // 4. Security Checks: Server-side validation
+        // 5. Basic balance and minimum checks
         if (amountNum < settings.min_withdrawal_amount) {
-            return NextResponse.json({ error: `Minimum withdrawal is GH₵${settings.min_withdrawal_amount.toFixed(2)}` }, { status: 400 })
+            return NextResponse.json(
+                { error: `Minimum withdrawal is GH₵${settings.min_withdrawal_amount.toFixed(2)}` },
+                { status: 400 }
+            )
         }
         if (amountNum > wallet.balance) {
             return NextResponse.json({ error: 'Insufficient shop wallet balance' }, { status: 400 })
         }
 
-        // 5. Calculate fees and balances server-side
+        // 6. Server-side account name validation via Moolre — NEVER trust client-submitted name
+        const channel = MOOLRE_CHANNEL_MAP[network]
+        if (channel === undefined) {
+            return NextResponse.json({ error: `Unsupported network: ${network}` }, { status: 400 })
+        }
+
+        const nameValidation = await validateAccountName(momoNumber, channel, bankId)
+        if (!nameValidation.success || !nameValidation.name) {
+            return NextResponse.json(
+                { error: nameValidation.error || 'Could not verify account name with Moolre. Please check the number and try again.' },
+                { status: 400 }
+            )
+        }
+
+        const verifiedAccountName = nameValidation.name
+
+        // 8. Calculate fees and new balance
         const feePercent = (amountNum * settings.withdrawal_fee_percent) / 100
         const totalFee = feePercent + settings.withdrawal_fee_flat
         const netAmount = amountNum - totalFee
         const newBalance = wallet.balance - amountNum
 
-        // 6. Execute atomic operations (or sequential writes if RPC is not immediately available)
-        // Insert transaction and update balance
-        
-        // Step 6a: Insert the pending transaction with the snapshot
-        const { error: txError } = await supabase.from('shop_wallet_transactions').insert({
-            shop_wallet_id: wallet.id,
-            type: 'withdrawal',
-            amount: amountNum,
-            fee: totalFee,
-            net_amount: netAmount,
-            account_name: accountName.trim(),
-            momo_number: momoNumber.trim(),
-            network: network,
-            description: `Withdrawal request for ${accountName.trim()} — ${network}: ${momoNumber.trim()}`,
-            status: 'pending',
-            balance_snapshot: newBalance,
-        })
+        // Define our separated account string fields
+        const safeMomoNumber = payment_type === 'momo' ? momoNumber : null
+        const safeAccountNumber = payment_type === 'bank' ? momoNumber : null
+
+        // 9a. Insert the pending transaction
+        const { data: txData, error: txError } = await (supabase as any)
+            .from('shop_wallet_transactions')
+            .insert({
+                shop_wallet_id: wallet.id,
+                type: 'withdrawal',
+                amount: amountNum,
+                fee: totalFee,
+                net_amount: netAmount,
+                account_name: verifiedAccountName, // Moolre-verified, not client-submitted
+                momo_number: safeMomoNumber,
+                account_number: safeAccountNumber,
+                network,
+                payment_type,
+                bank_id: bankId ?? null,
+                description: `Withdrawal request — ${network}: ${momoNumber}`,
+                status: 'pending',
+                balance_snapshot: newBalance,
+            })
+            .select('id')
+            .single()
 
         if (txError) throw txError
 
-        // Step 6b: Deduct from balance immediately (pending)
+        // 9b. Deduct from balance immediately
         const { error: walletError } = await supabase.from('shop_wallets').update({
             balance: newBalance,
             total_withdrawn: (wallet.total_withdrawn || 0) + amountNum,
@@ -156,27 +204,61 @@ export async function POST(req: NextRequest) {
 
         if (walletError) throw walletError
 
-        // Step 6c: Save detail for later if requested
+        // 9c. Save payment detail for later if requested
         if (saveForLater) {
-            // Check if they already have 5
             const { count } = await supabase
                 .from('shop_payment_details')
                 .select('*', { count: 'exact', head: true })
                 .eq('shop_owner_id', user.id)
-            
+
             if (count !== null && count < 5) {
-                await supabase.from('shop_payment_details').insert({
+                await (supabase as any).from('shop_payment_details').insert({
                     shop_owner_id: user.id,
-                    account_name: accountName.trim(),
-                    momo_number: momoNumber.trim(),
-                    network: network,
+                    account_name: verifiedAccountName,
+                    momo_number: safeMomoNumber,
+                    account_number: safeAccountNumber,
+                    network,
+                    payment_type,
+                    bank_id: bankId ?? null,
                     is_default: false,
                 })
             }
+        } else {
+            // Auto-update saved detail if the Moolre-verified name differs from stored name
+            // We search using whichever number was submitted to identify the matching record
+            const { data: savedDetail } = await (supabase as any)
+                .from('shop_payment_details')
+                .select('id, account_name')
+                .eq('shop_owner_id', user.id)
+                .or(`momo_number.eq.${momoNumber},account_number.eq.${momoNumber}`)
+                .single()
+
+            if (savedDetail && savedDetail.account_name !== verifiedAccountName) {
+                await (supabase as any)
+                    .from('shop_payment_details')
+                    .update({ account_name: verifiedAccountName })
+                    .eq('id', savedDetail.id)
+            }
         }
 
-        // Return success with calculated values to the client if needed
-        return NextResponse.json({ success: true, newBalance })
+        // 10. Fire admin alert (non-blocking) - Use direct import
+        const shopName = shopProfile?.shop_name || 'Unknown Shop'
+        const finalBalance = newBalance
+
+        sendAdminShopWithdrawalRequestAlert({
+            shopName,
+            shopId: wallet.id,
+            ownerName: '', // Admin panel shows full details from DB
+            accountName: verifiedAccountName,
+            amount: amountNum,
+            momoNumber: momoNumber,
+            network,
+            balanceSnapshot: finalBalance,
+            date: new Date().toLocaleString('en-GB'),
+            isResubmission: false,
+        }).catch(err => console.warn('[ShopAlert Email Hook Error]:', err))
+
+        return NextResponse.json({ success: true, newBalance, verifiedName: verifiedAccountName })
 
     } catch (error: any) {
         console.error('[Shop Withdraw API]', error)

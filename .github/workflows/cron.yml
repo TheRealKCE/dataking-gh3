@@ -3,7 +3,7 @@ name: Scheduled API Pings
 on:
   schedule:
     - cron: '*/5 * * * *'    # Every 5 min → verify-pending-payments
-    - cron: '*/10 * * * *'   # Every 10 min → sync-codecraft-status
+    - cron: '*/10 * * * *'   # Every 10 min → sync-codecraft-status + sync-moolre-withdrawals
     - cron: '0 7 * * *'      # Daily 7AM UTC (8AM Ghana) → agent-renewal-reminder
     - cron: '0 0 * * *'      # Daily midnight UTC → delete-old-notifications
     - cron: '0 1 * * 0'      # Sundays at 1AM UTC → delete-old-orders + delete-old-complaints
@@ -27,6 +27,16 @@ jobs:
       - name: Ping sync-codecraft-status
         run: |
           curl -sf -X GET "https://www.kingflexygh.com/api/cron/sync-codecraft-status" \
+          -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+          -H "User-Agent: GitHub-Actions-Cron"
+
+  sync-moolre-withdrawals:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '*/10 * * * *'
+    steps:
+      - name: Ping sync-moolre-withdrawals
+        run: |
+          curl -sf -X GET "https://www.kingflexygh.com/api/cron/sync-moolre-withdrawals" \
           -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
           -H "User-Agent: GitHub-Actions-Cron"
 

@@ -29,6 +29,7 @@ const rateLimiters = {
     signup: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(3, '1 h') }),
     forgotPassword: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(3, '1 h') }),
     // ── Admin routes (broad) ───────────────────────────────────
+    adminProcessWithdrawal: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, '1 m') }),
     admin: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(30, '1 m') }),
     adminSettings: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(10, '1 m') }),
     supplierBalance: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(10, '1 m') }),
@@ -40,6 +41,7 @@ const rateLimiters = {
     paymentsInitialize: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(10, '1 m') }),
     paymentsVerify: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(30, '1 m') }),
     // ── Shop ──────────────────────────────────────────────────
+    shopValidateAccount: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, '1 m') }),
     shopInitialize: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(10, '1 m') }),
     shopVerifyOrder: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(20, '1 m') }),
     shopPricing: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(20, '1 m') }),
@@ -169,7 +171,15 @@ export async function middleware(request: NextRequest) {
         let limiter: Ratelimit | null = null
         let identifier: string = ip
 
-        if (pathname === '/api/auth/login') {
+        if (pathname === '/api/cron/sync-moolre-withdrawals') {
+            limiter = null // Excluded entirely; protected by CRON_SECRET only
+        } else if (pathname === '/api/shop/validate-account') {
+            limiter = rateLimiters.shopValidateAccount
+            identifier = authUser?.id ? `${authUser.id}-${ip}` : ip
+        } else if (pathname === '/api/admin/process-withdrawal') {
+            limiter = rateLimiters.adminProcessWithdrawal
+            identifier = authUser?.id ? `${authUser.id}-${ip}` : ip
+        } else if (pathname === '/api/auth/login') {
             limiter = rateLimiters.login
             identifier = ip
         } else if (pathname === '/api/auth/signup') {

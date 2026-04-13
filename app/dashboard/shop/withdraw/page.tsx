@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { useAuth } from '@/contexts/auth-context'
@@ -19,8 +19,8 @@ import {
 } from '@/components/ui/dialog'
 import {
     Banknote, Loader2, Clock, CheckCircle2, XCircle, AlertCircle,
-    Wallet, ArrowLeft, Star, Trash2, Plus, BookUser, RefreshCcw,
-    CreditCard, Shield, Info,
+    Wallet, ArrowLeft, Star, Trash2, Plus, BookUser,
+    CreditCard, Shield, Info, CheckCircle, Landmark,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -65,10 +65,12 @@ interface WithdrawalRequest {
     account_name: string
     momo_number: string
     network: string | null
-    status: 'pending' | 'completed' | 'rejected'
+    status: 'pending' | 'completed' | 'moolre_pending'
     admin_note: string | null
     created_at: string
     balance_snapshot: number | null
+    payment_type: 'momo' | 'bank' | null
+    moolre_transaction_id: string | null
 }
 
 interface GlobalSettings {
@@ -83,12 +85,20 @@ interface SavedDetail {
     momo_number: string
     network: Network
     is_default: boolean
+    payment_type?: 'momo' | 'bank'
+    bank_id?: string
+    bank_name?: string
+}
+
+interface BankEntry {
+    id: string
+    name: string
 }
 
 const statusConfig = {
     pending: { label: 'Pending', color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400', icon: Clock },
     completed: { label: 'Paid', color: 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400', icon: CheckCircle2 },
-    rejected: { label: 'Rejected', color: 'bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400', icon: XCircle },
+    moolre_pending: { label: 'Processing', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400', icon: Loader2 },
 }
 
 // ─────────────────────────────────────────────
@@ -106,14 +116,22 @@ export default function ShopWithdrawPage() {
     const [loading, setLoading] = useState(true)
     const [submitting, setSubmitting] = useState(false)
     const [shopName, setShopName] = useState('')
+    const [banks, setBanks] = useState<BankEntry[]>([])
 
     // Form state
     const [amount, setAmount] = useState('')
     const [selectedSavedId, setSelectedSavedId] = useState<string>('manual')
     const [network, setNetwork] = useState<Network | ''>('')
-    const [accountName, setAccountName] = useState('')
     const [momoNumber, setMomoNumber] = useState('')
+    const [paymentType, setPaymentType] = useState<'momo' | 'bank'>('momo')
+    const [selectedBankId, setSelectedBankId] = useState<string>('')
     const [saveForLater, setSaveForLater] = useState(false)
+
+    // Validation state
+    const [verifiedName, setVerifiedName] = useState<string | null>(null)
+    const [validating, setValidating] = useState(false)
+    const [validationError, setValidationError] = useState<string | null>(null)
+    const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
     // Saved Details manager modal
     const [savedModalOpen, setSavedModalOpen] = useState(false)
@@ -121,14 +139,6 @@ export default function ShopWithdrawPage() {
     const [newAccountName, setNewAccountName] = useState('')
     const [newMomoNumber, setNewMomoNumber] = useState('')
     const [addingDetail, setAddingDetail] = useState(false)
-
-    // Resubmit modal
-    const [resubmitTarget, setResubmitTarget] = useState<WithdrawalRequest | null>(null)
-    const [resubmitSelectedId, setResubmitSelectedId] = useState<string>('manual')
-    const [resubmitNetwork, setResubmitNetwork] = useState<Network | ''>('')
-    const [resubmitAccountName, setResubmitAccountName] = useState('')
-    const [resubmitMomoNumber, setResubmitMomoNumber] = useState('')
-    const [resubmitting, setResubmitting] = useState(false)
 
     useEffect(() => {
         if (dbUser && !isAdmin && !isSubAdmin && dbUser?.role !== 'agent') {
@@ -164,17 +174,12 @@ export default function ShopWithdrawPage() {
             if (shopRes.data?.shop_name) setShopName(shopRes.data.shop_name)
             setSavedDetails(savedRes.data || [])
 
-            // Parse global settings — role-aware
             if (settingsRes.data) {
                 const s: Record<string, any> = {}
                 for (const row of settingsRes.data) {
                     s[row.key] = typeof row.value === 'string' ? parseFloat(row.value) : row.value
                 }
-
-                // Role of the current user (agent or customer)
                 const ownerRole = dbUser!.role || 'customer'
-
-                // Resolve fee: role-specific key → legacy global key → safe neutral default
                 const resolveGlobal = (baseKey: string, fallback: number): number => {
                     const roleVal = s[`${baseKey}_${ownerRole}`]
                     if (roleVal != null && !isNaN(roleVal)) return roleVal
@@ -182,14 +187,11 @@ export default function ShopWithdrawPage() {
                     if (legacyVal != null && !isNaN(legacyVal)) return legacyVal
                     return fallback
                 }
-
                 setSettings({
                     withdrawal_fee_percent: resolveGlobal('withdrawal_fee_percent', 0),
                     withdrawal_fee_flat: resolveGlobal('withdrawal_fee_flat', 0),
                     min_withdrawal_amount: resolveGlobal('min_withdrawal_amount', 0),
                 })
-
-                // Overlay shop-specific overrides (highest priority)
                 if (shopRes.data) {
                     const sp = shopRes.data
                     setSettings(prev => ({
@@ -200,13 +202,16 @@ export default function ShopWithdrawPage() {
                 }
             }
 
-            // Pre-fill with default payment detail if exists
+            // Pre-fill with default payment detail
             const defaultDetail = savedRes.data?.find((d: SavedDetail) => d.is_default)
             if (defaultDetail) {
                 setSelectedSavedId(defaultDetail.id)
                 setNetwork(defaultDetail.network)
-                setAccountName(defaultDetail.account_name)
                 setMomoNumber(defaultDetail.momo_number)
+                setPaymentType(defaultDetail.payment_type || 'momo')
+                if (defaultDetail.bank_id) setSelectedBankId(defaultDetail.bank_id)
+                // Auto-validate the pre-filled number
+                triggerValidation(defaultDetail.momo_number, defaultDetail.network, defaultDetail.bank_id)
             }
         } catch (err) {
             console.error(err)
@@ -215,19 +220,70 @@ export default function ShopWithdrawPage() {
         }
     }, [dbUser])
 
-    // When user picks a saved detail in the form
+    // Fetch bank list lazily when switching to bank mode
+    useEffect(() => {
+        if (paymentType === 'bank' && banks.length === 0) {
+            fetch('/api/shop/banks')
+                .then(r => r.json())
+                .then(d => { if (d.banks) setBanks(d.banks) })
+                .catch(err => console.warn('[banks]', err))
+        }
+    }, [paymentType])
+
+    // ─── Account name validation ──────────────────────────────────────────────
+    const triggerValidation = useCallback((phone: string, net: string, bankId?: string) => {
+        if (!phone || !net) {
+            setVerifiedName(null)
+            setValidationError(null)
+            return
+        }
+
+        setValidating(true)
+        setVerifiedName(null)
+        setValidationError(null)
+
+        fetch('/api/shop/validate-account', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phone: phone.trim(), network: net, bankId }),
+        })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success && data.name) {
+                    setVerifiedName(data.name)
+                    setValidationError(null)
+                } else {
+                    setVerifiedName(null)
+                    setValidationError(data.error || 'Could not verify account name')
+                }
+            })
+            .catch(() => {
+                setVerifiedName(null)
+                setValidationError('Network error during validation')
+            })
+            .finally(() => setValidating(false))
+    }, [])
+
+
+
+    // When a saved detail is selected
     const handleSavedSelect = (id: string) => {
         setSelectedSavedId(id)
         if (id === 'manual') {
             setNetwork('')
-            setAccountName('')
             setMomoNumber('')
+            setSelectedBankId('')
+            setVerifiedName(null)
+            setValidationError(null)
         } else {
             const d = savedDetails.find(s => s.id === id)
             if (d) {
                 setNetwork(d.network)
-                setAccountName(d.account_name)
                 setMomoNumber(d.momo_number)
+                setPaymentType(d.payment_type || 'momo')
+                if (d.bank_id) setSelectedBankId(d.bank_id)
+                // Silent re-validation — name may have changed on the network
+                triggerValidation(d.momo_number, d.network, d.bank_id)
             }
         }
     }
@@ -237,14 +293,18 @@ export default function ShopWithdrawPage() {
     const totalFee = feePercent + settings.withdrawal_fee_flat
     const netAmount = amountNum - totalFee
 
+    const canSubmit =
+        amountNum > 0 &&
+        amountNum >= settings.min_withdrawal_amount &&
+        amountNum <= (wallet?.balance || 0) &&
+        !!network &&
+        !!momoNumber &&
+        !!verifiedName &&
+        !validating &&
+        !submitting
+
     const handleSubmit = async () => {
-        const amountNum = parseFloat(amount) || 0
-        if (!amount || amountNum <= 0) { toast.error('Enter a valid amount'); return }
-        if (amountNum < settings.min_withdrawal_amount) { toast.error(`Minimum withdrawal is ${formatCurrency(settings.min_withdrawal_amount)}`); return }
-        if (amountNum > (wallet?.balance || 0)) { toast.error('Insufficient shop wallet balance'); return }
-        if (!network) { toast.error('Select a mobile money network'); return }
-        if (!accountName.trim()) { toast.error('Enter the account holder name'); return }
-        if (!momoNumber.trim()) { toast.error('Enter your MoMo number'); return }
+        if (!canSubmit) return
 
         setSubmitting(true)
         try {
@@ -253,43 +313,23 @@ export default function ShopWithdrawPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     amount: amountNum,
-                    accountName: accountName.trim(),
                     momoNumber: momoNumber.trim(),
-                    network: network,
-                    saveForLater: saveForLater && selectedSavedId === 'manual'
-                })
+                    network,
+                    payment_type: paymentType,
+                    bankId: selectedBankId || undefined,
+                    saveForLater: saveForLater && selectedSavedId === 'manual',
+                }),
             })
 
             const data = await res.json()
             if (!res.ok) throw new Error(data.error || 'Failed to submit request')
 
-            toast.success('Withdrawal request submitted! Admin will process within 24 hours.')
+            toast.success(`Withdrawal submitted! Admin will process shortly.`)
             setAmount('')
             setSaveForLater(false)
+            setVerifiedName(null)
             fetchData()
 
-            const finalBalance = data.newBalance ?? (wallet!.balance - amountNum)
-
-            fetch('/api/shop/alerts', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    type: 'admin_withdrawal_request',
-                    payload: {
-                        shopName: shopName || 'Unknown Shop',
-                        shopId: wallet?.id || '',
-                        ownerName: `${dbUser?.first_name || ''} ${dbUser?.last_name || ''}`.trim(),
-                        ownerPhone: (dbUser as any)?.phone || '',
-                        accountName: accountName.trim(),
-                        amount: amountNum,
-                        momoNumber: momoNumber.trim(),
-                        network: network,
-                        balanceSnapshot: finalBalance,
-                        date: new Date().toLocaleString('en-GB'),
-                        isResubmission: false,
-                    },
-                }),
-            }).catch(err => console.warn('[ShopAlert]', err))
         } catch (err: any) {
             toast.error(err.message || 'Failed to submit request')
         } finally {
@@ -297,83 +337,45 @@ export default function ShopWithdrawPage() {
         }
     }
 
-    const openResubmit = (item: WithdrawalRequest) => {
-        setResubmitTarget(item)
-        setResubmitSelectedId('manual')
-        setResubmitNetwork('')
-        setResubmitAccountName('')
-        setResubmitMomoNumber('')
-    }
-
-    const handleResubmit = async () => {
-        if (!resubmitTarget) return
-        if (!resubmitNetwork) { toast.error('Select a mobile money network'); return }
-        if (!resubmitAccountName.trim()) { toast.error('Enter the account holder name'); return }
-        if (!resubmitMomoNumber.trim()) { toast.error('Enter the MoMo number'); return }
-
-        setResubmitting(true)
-        try {
-            const { error } = await (supabase as any).rpc('resubmit_withdrawal', {
-                p_transaction_id: resubmitTarget.id,
-                p_account_name:   resubmitAccountName.trim(),
-                p_momo_number:    resubmitMomoNumber.trim(),
-                p_network:        resubmitNetwork,
-            })
-
-            if (error) throw error
-
-            toast.success('Resubmission sent successfully!')
-            setResubmitTarget(null)
-            fetchData()
-
-            fetch('/api/shop/alerts', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    type: 'admin_withdrawal_request',
-                    payload: {
-                        shopName: shopName || 'Unknown Shop',
-                        shopId: wallet?.id || '',
-                        ownerName: `${dbUser?.first_name || ''} ${dbUser?.last_name || ''}`.trim(),
-                        ownerPhone: (dbUser as any)?.phone || '',
-                        accountName: resubmitAccountName.trim(),
-                        amount: resubmitTarget.amount,
-                        momoNumber: resubmitMomoNumber.trim(),
-                        network: resubmitNetwork,
-                        balanceSnapshot: resubmitTarget.balance_snapshot ?? 0,
-                        date: new Date().toLocaleString('en-GB'),
-                        isResubmission: true,
-                    },
-                }),
-            }).catch(err => console.warn('[ShopAlert]', err))
-        } catch (err: any) {
-            toast.error(err.message || 'Failed to resubmit')
-        } finally {
-            setResubmitting(false)
-        }
-    }
-
     const handleAddSavedDetail = async () => {
         if (!newNetwork) { toast.error('Select a network'); return }
-        if (!newAccountName.trim()) { toast.error('Enter account name'); return }
         if (!newMomoNumber.trim()) { toast.error('Enter MoMo number'); return }
         if (savedDetails.length >= 5) { toast.error('Maximum of 5 saved details reached'); return }
 
         setAddingDetail(true)
         try {
+            // First, verify the account with Moolre to ensure accuracy
+            const validateRes = await fetch('/api/shop/validate-account', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    phone: newMomoNumber.trim(), 
+                    network: newNetwork 
+                }),
+            })
+            const validateData = await validateRes.json()
+            if (!validateData.success || !validateData.name) {
+                toast.error(validateData.error || 'Could not verify account name')
+                return
+            }
+
+            const verifiedModalName = validateData.name
+
+            // Only insert if validation succeeds
             const { error } = await (supabase as any).from('shop_payment_details').insert({
                 shop_owner_id: dbUser!.id,
-                account_name: newAccountName.trim(),
+                account_name: verifiedModalName,
                 momo_number: newMomoNumber.trim(),
                 network: newNetwork,
                 is_default: savedDetails.length === 0,
             })
             if (error) throw error
-            toast.success('Payment method saved!')
+            toast.success('Payment method verified & saved!')
             setNewNetwork('')
-            setNewAccountName('')
+            setNewAccountName('') // Keep this just for backwards compat if needed, even though it's hidden now
             setNewMomoNumber('')
             fetchData()
+            setSavedModalOpen(false)
         } catch (err: any) {
             toast.error(err.message || 'Failed to save')
         } finally {
@@ -404,12 +406,8 @@ export default function ShopWithdrawPage() {
 
     const isManual = selectedSavedId === 'manual'
 
-    // ─────────────────────────────────────────────
-    // Render
-    // ─────────────────────────────────────────────
-
     return (
-        <div className="space-y-6 max-w-2xl">
+        <div className="space-y-6">
 
             {/* ── Header ── */}
             <div>
@@ -425,7 +423,7 @@ export default function ShopWithdrawPage() {
                         Withdraw Earnings
                     </h1>
                     <p className="text-muted-foreground text-sm mt-1">
-                        Request a payout from your shop wallet to your mobile money account.
+                        Request a payout from your shop wallet to your mobile money or bank account.
                     </p>
                 </div>
             </div>
@@ -481,30 +479,20 @@ export default function ShopWithdrawPage() {
                         )}
                     </div>
 
-                    {/* ── Payout Summary (always visible, reacts live to amount) */}
+                    {/* Payout Summary */}
                     <div className={cn(
                         'rounded-xl border-2 overflow-hidden transition-all duration-300',
-                        amountNum > 0
-                            ? 'border-emerald-200 dark:border-emerald-800'
-                            : 'border-dashed border-muted'
+                        amountNum > 0 ? 'border-emerald-200 dark:border-emerald-800' : 'border-dashed border-muted'
                     )}>
-                        {/* Header row */}
                         <div className="bg-emerald-50 dark:bg-emerald-950/40 px-4 py-2.5 flex items-center gap-2 border-b border-emerald-100 dark:border-emerald-900">
                             <Shield className="w-4 h-4 text-emerald-600" />
-                            <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">
-                                Payout Breakdown
-                            </p>
+                            <p className="text-xs font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Payout Breakdown</p>
                         </div>
-                        {/* Breakdown rows */}
                         <div className="p-4 bg-white dark:bg-card space-y-3 text-sm">
-                            {/* Withdrawal Amount */}
                             <div className="flex justify-between items-center">
                                 <span className="text-muted-foreground">Withdrawal Amount</span>
-                                <span className="font-semibold tabular-nums">
-                                    {amountNum > 0 ? formatCurrency(amountNum) : '—'}
-                                </span>
+                                <span className="font-semibold tabular-nums">{amountNum > 0 ? formatCurrency(amountNum) : '—'}</span>
                             </div>
-                            {/* Processing Fee */}
                             <div className="flex justify-between items-center">
                                 <span className="flex items-center gap-2 text-red-500 dark:text-red-400">
                                     Processing Fee
@@ -516,7 +504,6 @@ export default function ShopWithdrawPage() {
                                     {amountNum > 0 ? `− ${formatCurrency(feePercent)}` : '—'}
                                 </span>
                             </div>
-                            {/* Flat Fee — only shown if > 0 */}
                             {settings.withdrawal_fee_flat > 0 && (
                                 <div className="flex justify-between items-center">
                                     <span className="text-red-500 dark:text-red-400">Flat Processing Fee</span>
@@ -525,13 +512,11 @@ export default function ShopWithdrawPage() {
                                     </span>
                                 </div>
                             )}
-                            {/* Divider */}
                             <div className="border-t border-dashed" />
-                            {/* Final Payout — hero row */}
                             <div className="flex justify-between items-center pt-0.5">
                                 <div>
                                     <p className="font-bold">You Receive</p>
-                                    <p className="text-[11px] text-muted-foreground">Sent directly to your MoMo account</p>
+                                    <p className="text-[11px] text-muted-foreground">Sent directly to your account</p>
                                 </div>
                                 <span className={cn(
                                     'text-3xl font-black tabular-nums leading-none',
@@ -543,26 +528,80 @@ export default function ShopWithdrawPage() {
                         </div>
                     </div>
 
-                    {/* STEP 2 — Payment Method */}
+                    {/* STEP 2 — Payment Type Toggle */}
+                    <div className="space-y-3">
+                        <div className="flex items-center gap-2">
+                            <span className="w-5 h-5 rounded-full bg-emerald-600 text-white text-[10px] font-black flex items-center justify-center flex-shrink-0">2</span>
+                            <Label className="text-sm font-semibold">Payment Method Type</Label>
+                        </div>
+                        <div className="flex p-1 bg-muted rounded-xl gap-1">
+                            <button
+                                type="button"
+                                onClick={() => { 
+                                    setPaymentType('momo')
+                                    setSelectedBankId('')
+                                    setVerifiedName(null)
+                                    setValidationError(null)
+                                    setSelectedSavedId('manual')
+                                    setMomoNumber('') 
+                                }}
+                                className={cn(
+                                    'flex-1 flex items-center justify-center gap-2 h-9 rounded-lg text-xs font-bold transition-all',
+                                    paymentType === 'momo'
+                                        ? 'bg-white dark:bg-card shadow-sm text-foreground'
+                                        : 'text-muted-foreground hover:text-foreground'
+                                )}
+                            >
+                                <CreditCard className="w-3.5 h-3.5" />
+                                Mobile Money
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => { 
+                                    setPaymentType('bank')
+                                    setNetwork('Bank' as any)
+                                    setSelectedSavedId('manual')
+                                    setVerifiedName(null)
+                                    setValidationError(null)
+                                    setMomoNumber('') 
+                                }}
+                                className={cn(
+                                    'flex-1 flex items-center justify-center gap-2 h-9 rounded-lg text-xs font-bold transition-all',
+                                    paymentType === 'bank'
+                                        ? 'bg-white dark:bg-card shadow-sm text-foreground'
+                                        : 'text-muted-foreground hover:text-foreground'
+                                )}
+                            >
+                                <Landmark className="w-3.5 h-3.5" />
+                                Bank Transfer
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* STEP 3 — Payment Method */}
                     <div className="space-y-3">
                         <div className="flex items-center justify-between">
                             <div className="flex items-center gap-2">
-                                <span className="w-5 h-5 rounded-full bg-emerald-600 text-white text-[10px] font-black flex items-center justify-center flex-shrink-0">2</span>
-                                <Label className="text-sm font-semibold">Payment Method</Label>
+                                <span className="w-5 h-5 rounded-full bg-emerald-600 text-white text-[10px] font-black flex items-center justify-center flex-shrink-0">3</span>
+                                <Label className="text-sm font-semibold">
+                                    {paymentType === 'momo' ? 'Mobile Money Account' : 'Bank Account'}
+                                </Label>
                             </div>
-                            <Button
-                                variant="ghost"
-                                size="sm"
-                                className="h-7 gap-1.5 text-xs text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 px-2"
-                                onClick={() => setSavedModalOpen(true)}
-                            >
-                                <Plus className="w-3.5 h-3.5" />
-                                {savedDetails.length === 0 ? 'Add Payment Method' : 'Manage Saved Methods'}
-                            </Button>
+                            {paymentType === 'momo' && (
+                                <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-7 gap-1.5 text-xs text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 dark:hover:bg-emerald-950/30 px-2"
+                                    onClick={() => setSavedModalOpen(true)}
+                                >
+                                    <Plus className="w-3.5 h-3.5" />
+                                    {savedDetails.length === 0 ? 'Add Payment Method' : 'Manage Saved Methods'}
+                                </Button>
+                            )}
                         </div>
 
-                        {/* Saved detail cards — clickable radio-style */}
-                        {savedDetails.length > 0 && (
+                        {/* Saved detail cards for MoMo */}
+                        {paymentType === 'momo' && savedDetails.length > 0 && (
                             <div className="space-y-2.5">
                                 {savedDetails.map(d => (
                                     <button
@@ -576,11 +615,7 @@ export default function ShopWithdrawPage() {
                                                 : 'border-border hover:border-emerald-300 hover:bg-muted/30'
                                         )}
                                     >
-                                        {/* Network avatar */}
-                                        <div className={cn(
-                                            'w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-white font-extrabold text-xs',
-                                            NETWORK_BG[d.network]
-                                        )}>
+                                        <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-white font-extrabold text-xs', NETWORK_BG[d.network])}>
                                             {NETWORK_SHORT[d.network]}
                                         </div>
                                         <div className="flex-1 min-w-0">
@@ -594,19 +629,16 @@ export default function ShopWithdrawPage() {
                                             </div>
                                             <p className="text-xs text-muted-foreground font-mono mt-0.5">{d.momo_number} · {d.network}</p>
                                         </div>
-                                        {/* Radio dot */}
                                         <div className={cn(
                                             'w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors',
-                                            selectedSavedId === d.id
-                                                ? 'border-emerald-500 bg-emerald-500'
-                                                : 'border-muted-foreground/30'
+                                            selectedSavedId === d.id ? 'border-emerald-500 bg-emerald-500' : 'border-muted-foreground/30'
                                         )}>
                                             {selectedSavedId === d.id && <div className="w-2 h-2 rounded-full bg-white" />}
                                         </div>
                                     </button>
                                 ))}
 
-                                {/* Manual entry option card */}
+                                {/* Manual entry option */}
                                 <button
                                     type="button"
                                     onClick={() => handleSavedSelect('manual')}
@@ -626,9 +658,7 @@ export default function ShopWithdrawPage() {
                                     </div>
                                     <div className={cn(
                                         'w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-colors',
-                                        selectedSavedId === 'manual'
-                                            ? 'border-emerald-500 bg-emerald-500'
-                                            : 'border-muted-foreground/30'
+                                        selectedSavedId === 'manual' ? 'border-emerald-500 bg-emerald-500' : 'border-muted-foreground/30'
                                     )}>
                                         {selectedSavedId === 'manual' && <div className="w-2 h-2 rounded-full bg-white" />}
                                     </div>
@@ -636,103 +666,197 @@ export default function ShopWithdrawPage() {
                             </div>
                         )}
 
-                        {/* ── Manual entry fields (shown when manual or no saved details) */}
-                        {isManual && (
+                        {/* Manual entry fields */}
+                        {(isManual || paymentType === 'bank') && (
                             <div className="space-y-3 p-4 rounded-xl bg-muted/30 border border-dashed">
-                                <p className="text-xs font-semibold text-muted-foreground">
-                                    {savedDetails.length === 0
-                                        ? 'Enter your mobile money account details below.'
-                                        : 'Enter an alternate mobile money account below.'}
-                                </p>
-                                <div>
-                                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                                        Mobile Money Network
-                                    </Label>
-                                    <Select value={network} onValueChange={(v) => setNetwork(v as Network)}>
-                                        <SelectTrigger className="mt-1.5 h-11">
-                                            <SelectValue placeholder="Select network (MTN MoMo, Telecel...)" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            {NETWORKS.map(n => <SelectItem key={n} value={n}>{n}</SelectItem>)}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                                <div>
-                                    <Label htmlFor="accountName" className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                                        Account Holder Name
-                                    </Label>
-                                    <Input
-                                        id="accountName"
-                                        value={accountName}
-                                        onChange={(e) => setAccountName(e.target.value)}
-                                        placeholder="e.g. Kwame Mensah"
-                                        className="mt-1.5 h-11"
-                                    />
-                                </div>
+
+                                {/* Network selector — MoMo only */}
+                                {paymentType === 'momo' && (
+                                    <div>
+                                        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                                            Mobile Money Network
+                                        </Label>
+                                        <Select value={network} onValueChange={(v) => {
+                                            setNetwork(v as Network)
+                                            setVerifiedName(null)
+                                            setValidationError(null)
+                                        }}>
+                                            <SelectTrigger className="mt-1.5 h-11">
+                                                <SelectValue placeholder="Select network (MTN MoMo, Telecel...)" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {NETWORKS.map(n => <SelectItem key={n} value={n}>{n}</SelectItem>)}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                )}
+
+                                {/* Bank selector */}
+                                {paymentType === 'bank' && (
+                                    <div>
+                                        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                                            Select Bank
+                                        </Label>
+                                        <Select value={selectedBankId} onValueChange={(v) => {
+                                            setSelectedBankId(v)
+                                            setNetwork('Bank' as any)
+                                            setVerifiedName(null)
+                                            setValidationError(null)
+                                        }}>
+                                            <SelectTrigger className="mt-1.5 h-11">
+                                                <SelectValue placeholder="Select your bank" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {banks.length === 0 ? (
+                                                    <SelectItem value="loading" disabled>Loading banks...</SelectItem>
+                                                ) : (
+                                                    banks.map(b => <SelectItem key={b.id} value={b.id}>{b.name}</SelectItem>)
+                                                )}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                )}
+
+                                {/* MoMo / Bank Account Number */}
                                 <div>
                                     <Label htmlFor="momo" className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                                        MoMo Number
+                                        {paymentType === 'momo' ? 'MoMo Number' : 'Bank Account Number'}
                                     </Label>
                                     <Input
                                         id="momo"
                                         value={momoNumber}
-                                        onChange={(e) => setMomoNumber(e.target.value)}
-                                        placeholder="0244123456"
+                                        onChange={(e) => {
+                                            setMomoNumber(e.target.value)
+                                            setVerifiedName(null)
+                                            setValidationError(null)
+                                        }}
+                                        placeholder={paymentType === 'momo' ? '0244123456' : 'Account number'}
                                         className="mt-1.5 h-11 font-mono"
                                     />
                                 </div>
-                                {savedDetails.length < 5 && (
-                                    <label className="flex items-center gap-2 cursor-pointer text-sm text-muted-foreground select-none">
+
+                                {/* Verified account name — read-only, auto-filled */}
+                                <div>
+                                    <div className="flex items-center justify-between">
+                                        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                                            Account Holder Name
+                                        </Label>
+                                        {(!verifiedName || validationError) && (
+                                            <Button 
+                                                size="sm" 
+                                                className="h-7 text-[11px] bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm font-bold px-3 uppercase tracking-wide transition-all"
+                                                onClick={() => triggerValidation(momoNumber, network || '', selectedBankId || undefined)}
+                                                disabled={validating || !momoNumber || !network}
+                                                type="button"
+                                            >
+                                                Verify Manually
+                                            </Button>
+                                        )}
+                                    </div>
+                                    <div className="mt-1.5 relative">
+                                        <Input
+                                            value={verifiedName || ''}
+                                            readOnly
+                                            placeholder={
+                                                validating
+                                                    ? 'Verifying...'
+                                                    : validationError
+                                                        ? 'Verification failed'
+                                                        : 'Enter number above to verify name'
+                                            }
+                                            className={cn(
+                                                'h-11 bg-muted/50 font-semibold pr-10',
+                                                verifiedName ? 'text-emerald-600 border-emerald-300 dark:border-emerald-700' : '',
+                                                validationError ? 'border-red-300 dark:border-red-700 text-red-500' : ''
+                                            )}
+                                        />
+                                        <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                            {validating && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
+                                            {verifiedName && !validating && <CheckCircle className="w-4 h-4 text-emerald-500" />}
+                                            {validationError && !validating && <AlertCircle className="w-4 h-4 text-red-500" />}
+                                        </div>
+                                    </div>
+                                    {validationError && (
+                                        <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                                            <AlertCircle className="w-3 h-3" /> {validationError}
+                                        </p>
+                                    )}
+                                </div>
+
+                                {/* Save for later */}
+                                {!!verifiedName && !validating && savedDetails.length < 5 && (
+                                    <label className="flex items-center gap-2 cursor-pointer text-sm text-muted-foreground select-none mt-4 p-3 rounded-xl border border-emerald-100 bg-emerald-50/50 dark:border-emerald-900/30 dark:bg-emerald-950/20">
                                         <input
                                             type="checkbox"
                                             checked={saveForLater}
                                             onChange={e => setSaveForLater(e.target.checked)}
                                             className="accent-emerald-600 w-4 h-4"
                                         />
-                                        Save these details for future withdrawals
+                                        Save these verified details for future withdrawals
                                     </label>
                                 )}
                             </div>
                         )}
 
-                        {/* Selected saved detail — read-only display strip */}
+                        {/* Read-only saved detail display strip */}
                         {!isManual && (() => {
                             const d = savedDetails.find(s => s.id === selectedSavedId)
                             if (!d) return null
                             return (
-                                <div className="grid grid-cols-3 gap-2 p-3 rounded-xl bg-muted/30 border text-xs">
-                                    <div>
-                                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Network</p>
-                                        <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded-full', NETWORK_COLORS[d.network])}>
-                                            {d.network}
-                                        </span>
+                                <div className="p-3 rounded-xl bg-muted/30 border space-y-3">
+                                    <div className="grid grid-cols-3 gap-2 text-xs">
+                                        <div>
+                                            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Network</p>
+                                            <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded-full', NETWORK_COLORS[d.network] || 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300')}>
+                                                {d.network}
+                                            </span>
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Account</p>
+                                            <p className="font-medium truncate">
+                                                {validating ? '...' : verifiedName || d.account_name}
+                                            </p>
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Number</p>
+                                            <p className="font-mono">{d.momo_number}</p>
+                                        </div>
                                     </div>
-                                    <div>
-                                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Account</p>
-                                        <p className="font-medium truncate">{d.account_name}</p>
-                                    </div>
-                                    <div>
-                                        <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Number</p>
-                                        <p className="font-mono">{d.momo_number}</p>
-                                    </div>
+                                    
+                                    {(!verifiedName || validationError) && (
+                                        <div className="flex items-center justify-between pt-2 border-t border-dashed">
+                                            <p className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold">{validationError || 'Needs verification'}</p>
+                                            <Button 
+                                                size="sm" 
+                                                className="h-7 text-[11px] bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm font-bold uppercase tracking-wide px-3 transition-all"
+                                                onClick={() => triggerValidation(d.momo_number, d.network, d.bank_id || undefined)}
+                                                disabled={validating}
+                                                type="button"
+                                            >
+                                                {validating ? 'Verifying...' : 'Verify Saved Account'}
+                                            </Button>
+                                        </div>
+                                    )}
                                 </div>
                             )
                         })()}
                     </div>
 
                     {/* ── Notice */}
-                    <div className="flex items-start gap-2 p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-300">
-                        <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
-                        <span>
-                            Withdrawals are processed manually by our team within 24 hours.
-                            The <strong>Payout Breakdown</strong> above shows exactly what will be sent to your MoMo account.
-                        </span>
-                    </div>
+                    {(!verifiedName || validationError) && (
+                        <div className="flex items-start gap-2 p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-300">
+                            <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
+                            <span>
+                                Account name must be manually verified via Moolre. 
+                                Please click the verification button before submitting your request.
+                            </span>
+                        </div>
+                    )}
 
                     {/* ── Submit Button */}
                     <Button
                         onClick={handleSubmit}
-                        disabled={submitting || !amount || amountNum <= 0 || amountNum > (wallet?.balance || 0)}
+                        disabled={!canSubmit}
                         className="w-full bg-emerald-600 hover:bg-emerald-700 text-white h-12 font-bold gap-2 text-base shadow-lg shadow-emerald-600/20"
                     >
                         {submitting ? (
@@ -742,9 +866,11 @@ export default function ShopWithdrawPage() {
                         )}
                         {submitting
                             ? 'Submitting...'
-                            : amountNum > 0 && netAmount > 0
-                                ? `Request ${formatCurrency(Math.max(0, netAmount))} Payout`
-                                : 'Request Withdrawal'}
+                            : !verifiedName
+                                ? 'Verify Account to Continue'
+                                : amountNum > 0 && netAmount > 0
+                                    ? `Request ${formatCurrency(Math.max(0, netAmount))} Payout`
+                                    : 'Request Withdrawal'}
                     </Button>
 
                 </CardContent>
@@ -779,7 +905,7 @@ export default function ShopWithdrawPage() {
                                     </thead>
                                     <tbody>
                                         {history.map((row) => {
-                                            const cfg = statusConfig[row.status]
+                                            const cfg = statusConfig[row.status] ?? statusConfig['pending']
                                             const Icon = cfg.icon
                                             return (
                                                 <tr key={row.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
@@ -800,21 +926,13 @@ export default function ShopWithdrawPage() {
                                                     </td>
                                                     <td className="px-4 py-3">
                                                         <span className={cn('inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-full', cfg.color)}>
-                                                            <Icon className="w-3 h-3" />
+                                                            <Icon className={cn("w-3 h-3", row.status === 'moolre_pending' && 'animate-spin')} />
                                                             {cfg.label}
                                                         </span>
-                                                        {row.admin_note && row.status === 'rejected' && (
-                                                            <div className="mt-1.5 space-y-1">
-                                                                <p className="text-xs text-red-500">{row.admin_note}</p>
-                                                                <Button
-                                                                    size="sm"
-                                                                    variant="outline"
-                                                                    className="h-7 text-xs border-emerald-500 text-emerald-600 gap-1"
-                                                                    onClick={() => openResubmit(row)}
-                                                                >
-                                                                    <RefreshCcw className="w-3 h-3" /> Resubmit
-                                                                </Button>
-                                                            </div>
+                                                        {row.moolre_transaction_id && (
+                                                            <p className="text-[10px] font-mono text-muted-foreground mt-0.5 truncate max-w-[120px]" title={row.moolre_transaction_id}>
+                                                                {row.moolre_transaction_id.slice(0, 12)}…
+                                                            </p>
                                                         )}
                                                     </td>
                                                 </tr>
@@ -827,11 +945,10 @@ export default function ShopWithdrawPage() {
                             {/* Mobile Cards */}
                             <div className="md:hidden divide-y">
                                 {history.map((row) => {
-                                    const cfg = statusConfig[row.status]
+                                    const cfg = statusConfig[row.status] ?? statusConfig['pending']
                                     const Icon = cfg.icon
                                     return (
                                         <div key={row.id} className="p-4 space-y-3">
-                                            {/* Top row — payout amount + status */}
                                             <div className="flex justify-between items-start">
                                                 <div>
                                                     <p className="text-xs text-muted-foreground mb-0.5">
@@ -845,11 +962,10 @@ export default function ShopWithdrawPage() {
                                                     </p>
                                                 </div>
                                                 <span className={cn('inline-flex items-center gap-1 text-[10px] font-bold px-2 py-1 rounded-full shrink-0', cfg.color)}>
-                                                    <Icon className="w-2.5 h-2.5" />
+                                                    <Icon className={cn("w-2.5 h-2.5", row.status === 'moolre_pending' && 'animate-spin')} />
                                                     {cfg.label.toUpperCase()}
                                                 </span>
                                             </div>
-                                            {/* Detail grid */}
                                             <div className="grid grid-cols-2 gap-2 bg-muted/30 p-3 rounded-xl text-xs">
                                                 <div>
                                                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Account Name</p>
@@ -858,10 +974,7 @@ export default function ShopWithdrawPage() {
                                                 <div>
                                                     <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Network</p>
                                                     {row.network ? (
-                                                        <span className={cn(
-                                                            'text-[10px] font-bold px-1.5 py-0.5 rounded-full mt-0.5 inline-block',
-                                                            NETWORK_COLORS[row.network as Network] || 'bg-gray-100 text-gray-700'
-                                                        )}>
+                                                        <span className={cn('text-[10px] font-bold px-1.5 py-0.5 rounded-full mt-0.5 inline-block', NETWORK_COLORS[row.network as Network] || 'bg-gray-100 text-gray-700')}>
                                                             {row.network}
                                                         </span>
                                                     ) : (
@@ -873,22 +986,6 @@ export default function ShopWithdrawPage() {
                                                     <p className="font-mono mt-0.5">{row.momo_number}</p>
                                                 </div>
                                             </div>
-                                            {/* Rejection section */}
-                                            {row.admin_note && row.status === 'rejected' && (
-                                                <div className="space-y-2">
-                                                    <div className="p-2.5 bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-900 rounded-lg text-xs text-red-600 dark:text-red-300">
-                                                        <strong>Admin Note:</strong> {row.admin_note}
-                                                    </div>
-                                                    <Button
-                                                        size="sm"
-                                                        variant="outline"
-                                                        className="w-full h-10 border-emerald-500 text-emerald-600 gap-2"
-                                                        onClick={() => openResubmit(row)}
-                                                    >
-                                                        <RefreshCcw className="w-3.5 h-3.5" /> Edit Details &amp; Resubmit
-                                                    </Button>
-                                                </div>
-                                            )}
                                         </div>
                                     )
                                 })}
@@ -898,9 +995,7 @@ export default function ShopWithdrawPage() {
                 </CardContent>
             </Card>
 
-            {/* ──────────────────────────────────────────
-                Saved Payment Details Modal
-            ────────────────────────────────────────── */}
+            {/* ── Saved Payment Details Modal ── */}
             <Dialog open={savedModalOpen} onOpenChange={setSavedModalOpen}>
                 <DialogContent className="max-w-md">
                     <DialogHeader>
@@ -918,11 +1013,7 @@ export default function ShopWithdrawPage() {
                         )}
                         {savedDetails.map(d => (
                             <div key={d.id} className="flex items-center gap-3 p-3 rounded-xl border bg-muted/30">
-                                {/* Network avatar */}
-                                <div className={cn(
-                                    'w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 text-white font-bold text-xs',
-                                    NETWORK_BG[d.network]
-                                )}>
+                                <div className={cn('w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0 text-white font-bold text-xs', NETWORK_BG[d.network])}>
                                     {NETWORK_SHORT[d.network]}
                                 </div>
                                 <div className="flex-1 min-w-0 space-y-0">
@@ -969,24 +1060,21 @@ export default function ShopWithdrawPage() {
                                 </SelectContent>
                             </Select>
                             <Input
-                                placeholder="Account holder name"
-                                value={newAccountName}
-                                onChange={e => setNewAccountName(e.target.value)}
-                                className="h-10"
-                            />
-                            <Input
                                 placeholder="MoMo number (e.g. 0244123456)"
                                 value={newMomoNumber}
                                 onChange={e => setNewMomoNumber(e.target.value)}
                                 className="h-10 font-mono"
                             />
+                            <p className="text-[10px] text-amber-600 dark:text-amber-400 font-medium px-1">
+                                Notice: The account name will be auto-verified before saving.
+                            </p>
                             <Button
                                 className="w-full bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
                                 onClick={handleAddSavedDetail}
                                 disabled={addingDetail}
                             >
                                 {addingDetail ? <Loader2 className="w-4 h-4 animate-spin" /> : <Plus className="w-4 h-4" />}
-                                Save Payment Method
+                                {addingDetail ? 'Verifying & Saving...' : 'Verify & Save Payment Method'}
                             </Button>
                         </div>
                     ) : (
@@ -997,122 +1085,6 @@ export default function ShopWithdrawPage() {
 
                     <DialogFooter>
                         <Button variant="ghost" onClick={() => setSavedModalOpen(false)}>Done</Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
-
-            {/* ──────────────────────────────────────────
-                Resubmit Modal
-            ────────────────────────────────────────── */}
-            <Dialog open={!!resubmitTarget} onOpenChange={open => !open && setResubmitTarget(null)}>
-                <DialogContent className="max-w-md">
-                    <DialogHeader>
-                        <DialogTitle className="flex items-center gap-2">
-                            <RefreshCcw className="w-4 h-4 text-emerald-600" />
-                            Edit Details &amp; Resubmit
-                        </DialogTitle>
-                    </DialogHeader>
-
-                    {resubmitTarget && (
-                        <div className="space-y-4">
-                            {/* Rejection reason */}
-                            <div className="p-3 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900 rounded-xl text-sm">
-                                <p className="font-semibold text-red-700 dark:text-red-400 text-xs uppercase tracking-wide mb-1">Rejection Reason</p>
-                                <p className="text-red-600 dark:text-red-300">{resubmitTarget.admin_note}</p>
-                            </div>
-
-                            {/* Locked amount + payout */}
-                            <div className="p-3.5 bg-muted/40 rounded-xl text-sm space-y-2">
-                                <div className="flex justify-between">
-                                    <span className="text-muted-foreground text-xs">Withdrawal Amount (locked)</span>
-                                    <span className="font-bold">{formatCurrency(resubmitTarget.amount)}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span className="text-muted-foreground text-xs">Fee</span>
-                                    <span className="text-red-500 text-xs">−{formatCurrency(resubmitTarget.fee)}</span>
-                                </div>
-                                <div className="border-t pt-2 flex justify-between">
-                                    <span className="font-bold text-sm">You Receive</span>
-                                    <span className="font-black text-emerald-600 text-lg">{formatCurrency(resubmitTarget.net_amount)}</span>
-                                </div>
-                            </div>
-
-                            {/* Saved selector */}
-                            {savedDetails.length > 0 && (
-                                <div>
-                                    <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Select Payment Method</Label>
-                                    <Select value={resubmitSelectedId} onValueChange={id => {
-                                        setResubmitSelectedId(id)
-                                        if (id === 'manual') {
-                                            setResubmitNetwork('')
-                                            setResubmitAccountName('')
-                                            setResubmitMomoNumber('')
-                                        } else {
-                                            const d = savedDetails.find(s => s.id === id)
-                                            if (d) {
-                                                setResubmitNetwork(d.network)
-                                                setResubmitAccountName(d.account_name)
-                                                setResubmitMomoNumber(d.momo_number)
-                                            }
-                                        }
-                                    }}>
-                                        <SelectTrigger className="mt-1.5 h-10">
-                                            <SelectValue placeholder="Select or enter manually" />
-                                        </SelectTrigger>
-                                        <SelectContent>
-                                            <SelectItem value="manual">Enter manually</SelectItem>
-                                            {savedDetails.map(d => (
-                                                <SelectItem key={d.id} value={d.id}>
-                                                    {d.is_default ? '⭐ ' : ''}{d.account_name} — {d.network}
-                                                </SelectItem>
-                                            ))}
-                                        </SelectContent>
-                                    </Select>
-                                </div>
-                            )}
-
-                            <div>
-                                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Network</Label>
-                                <Select value={resubmitNetwork} onValueChange={v => setResubmitNetwork(v as Network)} disabled={resubmitSelectedId !== 'manual'}>
-                                    <SelectTrigger className="mt-1.5 h-10"><SelectValue placeholder="Select network" /></SelectTrigger>
-                                    <SelectContent>
-                                        {NETWORKS.map(n => <SelectItem key={n} value={n}>{n}</SelectItem>)}
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div>
-                                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Account Holder Name</Label>
-                                <Input
-                                    className="mt-1.5 h-10"
-                                    value={resubmitAccountName}
-                                    onChange={e => setResubmitAccountName(e.target.value)}
-                                    disabled={resubmitSelectedId !== 'manual'}
-                                    placeholder="e.g. Kwame Mensah"
-                                />
-                            </div>
-                            <div>
-                                <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">MoMo Number</Label>
-                                <Input
-                                    className="mt-1.5 h-10 font-mono"
-                                    value={resubmitMomoNumber}
-                                    onChange={e => setResubmitMomoNumber(e.target.value)}
-                                    disabled={resubmitSelectedId !== 'manual'}
-                                    placeholder="0244123456"
-                                />
-                            </div>
-                        </div>
-                    )}
-
-                    <DialogFooter className="gap-2 pt-2">
-                        <Button variant="ghost" onClick={() => setResubmitTarget(null)}>Cancel</Button>
-                        <Button
-                            className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
-                            onClick={handleResubmit}
-                            disabled={resubmitting}
-                        >
-                            {resubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCcw className="w-4 h-4" />}
-                            {resubmitting ? 'Resubmitting...' : 'Resubmit Request'}
-                        </Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
