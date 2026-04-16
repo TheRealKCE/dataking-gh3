@@ -326,7 +326,15 @@ export default function AFAOrdersPage() {
     }
 
     const handleIdTypeChange = (type: string) => {
-        setFormData(p => ({ ...p, id_type: type, id_number: '' }))
+        // Pre-seed prefix for ID types that have a fixed format prefix,
+        // so the field is never blank and users know immediately what format to follow.
+        const prefixMap: Record<string, string> = {
+            'Ghana Card':       'GHA-',
+            "Driver's License": 'DVLA-',
+        }
+        const initialValue = prefixMap[type] ?? ''
+
+        setFormData(p => ({ ...p, id_type: type, id_number: initialValue }))
         setIdError(null)
         setPassportHint(null)   // Finding 10 fix — clear hint when switching ID type
     }
