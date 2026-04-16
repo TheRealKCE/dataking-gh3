@@ -298,7 +298,7 @@ export async function middleware(request: NextRequest) {
     const isAdminAPI = pathname.startsWith('/api/admin')
 
     // Whitelisted admin endpoints accessible to all authenticated users
-    const adminPublicEndpoints = ['/api/admin/get-prices']
+    const adminPublicEndpoints = ['/api/admin/get-prices', '/api/admin-settings']
     const isAdminPublicEndpoint = adminPublicEndpoints.some(ep => pathname === ep)
 
     if ((isAdminUI || isAdminAPI) && !isAdminPublicEndpoint) {
