@@ -26,7 +26,8 @@
         "./*"
       ]
     },
-    "target": "ES2017"
+    "target": "ES2017",
+    "forceConsistentCasingInFileNames": true
   },
   "include": [
     "next-env.d.ts",
@@ -37,6 +38,7 @@
   "exclude": [
     "node_modules",
     "scripts",
-    "kingflexy-mobile"
+    "kingflexy-mobile",
+    "scratch"
   ]
 }

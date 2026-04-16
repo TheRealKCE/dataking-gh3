@@ -101,6 +101,42 @@ function validateId(idType: string, idNumber: string): string | null {
     return null
 }
 
+// ─── ID Number Masking ────────────────────────────────────
+// Auto-formats the id_number field as the user types, matching Ghana ID formats.
+// Handles backspace correctly by always re-deriving the formatted value from raw digits.
+function maskIdNumber(idType: string, raw: string): string {
+    switch (idType) {
+        case 'Ghana Card': {
+            // User types digits only; GHA- and trailing dash are auto-inserted
+            const digits = raw.replace(/\D/g, '').slice(0, 10)
+            if (digits.length === 0) return ''
+            if (digits.length <= 9) return 'GHA-' + digits
+            return 'GHA-' + digits.slice(0, 9) + '-' + digits[9]
+        }
+        case 'Passport': {
+            // First char must be an uppercase letter; rest are digits (max 7)
+            const upper = raw.toUpperCase()
+            const letter = upper[0]?.match(/[A-Z]/) ? upper[0] : ''
+            const digits = upper.slice(1).replace(/\D/g, '').slice(0, 7)
+            return letter + digits
+        }
+        case "Driver's License": {
+            // Strip any existing DVLA- prefix, keep only up to 10 digits, re-add prefix
+            const stripped = raw.replace(/^DVLA-?/i, '')
+            const digits = stripped.replace(/\D/g, '').slice(0, 10)
+            // Finding 9 fix — return '' when no digits so field is fully clearable
+            if (digits.length === 0) return ''
+            return 'DVLA-' + digits
+        }
+        case 'Voter ID': {
+            // Digits only, max 10
+            return raw.replace(/\D/g, '').slice(0, 10)
+        }
+        default:
+            return raw
+    }
+}
+
 // ─── Receipt Generator ────────────────────────────────────
 function downloadReceipt(app: AfarOrder) {
     const idNumber = app.id_number || app.ghana_card || 'N/A'
@@ -156,6 +192,7 @@ export default function AFAOrdersPage() {
     const [applicationPrice, setApplicationPrice] = useState(0)
     const [walletBalance, setWalletBalance] = useState(0)
     const [loadingPrice, setLoadingPrice] = useState(true)
+    const [hasPricingError, setHasPricingError] = useState(false)
     const [loadingApps, setLoadingApps] = useState(true)
 
     // Filter state
@@ -166,6 +203,8 @@ export default function AFAOrdersPage() {
     const [showForm, setShowForm] = useState(false)
     const [formData, setFormData] = useState({ ...EMPTY_FORM })
     const [idError, setIdError] = useState<string | null>(null)
+    // Finding 10 fix — inline warning when Passport first character is a digit
+    const [passportHint, setPassportHint] = useState<string | null>(null)
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [showConfirmDialog, setShowConfirmDialog] = useState(false)
 
@@ -185,33 +224,31 @@ export default function AFAOrdersPage() {
     }, [dbUser?.id])
 
     const fetchApplicationPrice = useCallback(async () => {
+        // Finding 6 fix — 8 second abort timeout prevents loadingPrice hanging forever
+        const controller = new AbortController()
+        const timeout = setTimeout(() => controller.abort(), 8000)
         try {
             const res = await fetch(
                 `/api/admin-settings?keys=afa_price_customer,afa_price_agent&t=${Date.now()}`,
-                { cache: 'no-store' }
+                { cache: 'no-store', signal: controller.signal }
             )
-            if (res.ok) {
-                const json = await res.json()
-                const userRole = dbUser?.role || 'customer'
-                const price = userRole === 'agent'
-                    ? parseFloat(json?.afa_price_agent || '10')
-                    : parseFloat(json?.afa_price_customer || '10')
-                setApplicationPrice(isNaN(price) ? 15 : price)
-            } else throw new Error()
-        } catch {
-            try {
-                const { data } = await (supabase.from('admin_settings') as any)
-                    .select('key, value')
-                    .in('key', ['afa_price_customer', 'afa_price_agent'])
-                const s: Record<string, string> = (data || []).reduce((acc: any, curr: any) => {
-                    acc[curr.key] = curr.value; return acc
-                }, {})
-                const price = dbUser?.role === 'agent'
-                    ? parseFloat(s?.afa_price_agent || '10')
-                    : parseFloat(s?.afa_price_customer || '10')
-                setApplicationPrice(isNaN(price) ? 15 : price)
-            } catch { setApplicationPrice(15) }
-        } finally { setLoadingPrice(false) }
+            if (!res.ok) throw new Error(`Settings API returned ${res.status}`)
+            const json = await res.json()
+            const priceKey = dbUser?.role === 'agent' ? 'afa_price_agent' : 'afa_price_customer'
+            const rawPrice = json?.[priceKey]
+            const price = parseFloat(rawPrice)
+            if (!rawPrice || isNaN(price) || price <= 0) {
+                throw new Error(`Invalid or missing price for key: ${priceKey}`)
+            }
+            setApplicationPrice(price)
+            setHasPricingError(false)
+        } catch (err) {
+            console.error('[AFA] Failed to load registration price:', err)
+            setHasPricingError(true)
+        } finally {
+            clearTimeout(timeout)
+            setLoadingPrice(false)
+        }
     }, [dbUser?.role])
 
     const fetchWalletBalance = useCallback(async () => {
@@ -267,9 +304,22 @@ export default function AFAOrdersPage() {
 
     // ── ID Validation ──────────────────────────────────────
     const handleIdNumberChange = (value: string) => {
-        setFormData(p => ({ ...p, id_number: value }))
-        if (formData.id_type && value.length > 3) {
-            setIdError(validateId(formData.id_type, value))
+        const masked = maskIdNumber(formData.id_type, value)
+        setFormData(p => ({ ...p, id_number: masked }))
+
+        // Finding 10 fix — show inline hint when Passport first char is not a letter
+        if (formData.id_type === 'Passport') {
+            if (value.length > 0 && !value.toUpperCase()[0]?.match(/[A-Z]/)) {
+                setPassportHint('First character must be a letter (e.g. G1234567)')
+            } else {
+                setPassportHint(null)
+            }
+        } else {
+            setPassportHint(null)
+        }
+
+        if (formData.id_type && masked.length > 3) {
+            setIdError(validateId(formData.id_type, masked))
         } else {
             setIdError(null)
         }
@@ -278,6 +328,7 @@ export default function AFAOrdersPage() {
     const handleIdTypeChange = (type: string) => {
         setFormData(p => ({ ...p, id_type: type, id_number: '' }))
         setIdError(null)
+        setPassportHint(null)   // Finding 10 fix — clear hint when switching ID type
     }
 
     // ── Form actions ───────────────────────────────────────
@@ -410,8 +461,9 @@ export default function AFAOrdersPage() {
                     <div className="relative z-10 shrink-0">
                         <Button
                             size="lg"
-                            className="bg-white text-yellow-600 hover:bg-yellow-50 font-bold shadow-lg shadow-yellow-900/20"
+                            className="bg-white text-yellow-600 hover:bg-yellow-50 font-bold shadow-lg shadow-yellow-900/20 disabled:opacity-60 disabled:cursor-not-allowed"
                             onClick={openNewForm}
+                            disabled={hasPricingError || loadingPrice}
                         >
                             <Plus className="w-5 h-5 mr-2" />
                             New Registration
@@ -424,6 +476,7 @@ export default function AFAOrdersPage() {
 
             {/* ── Wallet & Fee Summary ── */}
             {!showForm && (
+                <>
                 <div className="grid grid-cols-2 gap-4">
                     <Card className="border border-yellow-200 dark:border-yellow-900/40 bg-yellow-50/50 dark:bg-yellow-900/10">
                         <CardContent className="p-4 flex items-center gap-3">
@@ -436,18 +489,50 @@ export default function AFAOrdersPage() {
                             </div>
                         </CardContent>
                     </Card>
-                    <Card className="border">
+                    <Card className={cn("border", hasPricingError && "border-red-300 dark:border-red-800")}>
                         <CardContent className="p-4 flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-xl bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center shrink-0">
-                                <ShieldCheck className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                            <div className={cn(
+                                "w-10 h-10 rounded-xl flex items-center justify-center shrink-0",
+                                hasPricingError ? "bg-red-100 dark:bg-red-900/30" : "bg-blue-100 dark:bg-blue-900/30"
+                            )}>
+                                <ShieldCheck className={cn(
+                                    "w-5 h-5",
+                                    hasPricingError ? "text-red-600 dark:text-red-400" : "text-blue-600 dark:text-blue-400"
+                                )} />
                             </div>
                             <div className="min-w-0">
                                 <p className="text-xs text-muted-foreground">Registration Fee</p>
-                                <p className="text-xl font-bold truncate">GHS {loadingPrice ? '...' : applicationPrice.toFixed(2)}</p>
+                                {loadingPrice ? (
+                                    <p className="text-xl font-bold truncate text-muted-foreground">Loading...</p>
+                                ) : hasPricingError ? (
+                                    <p className="text-sm font-semibold text-red-600 dark:text-red-400 leading-tight">Price unavailable</p>
+                                ) : (
+                                    <p className="text-xl font-bold truncate">GHS {applicationPrice.toFixed(2)}</p>
+                                )}
                             </div>
                         </CardContent>
                     </Card>
                 </div>
+                {hasPricingError && (
+                    <Alert className="bg-red-50 dark:bg-red-950/30 border-red-200 dark:border-red-800">
+                        <AlertCircle className="h-4 w-4 text-red-600 dark:text-red-400" />
+                        <AlertDescription className="text-sm text-red-800 dark:text-red-300 flex items-center justify-between gap-3 flex-wrap">
+                            <span>Registration pricing could not be loaded. Please try again or contact support.</span>
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-7 text-xs border-red-300 text-red-700 hover:bg-red-100 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-900/30 shrink-0"
+                                onClick={() => {
+                                    setLoadingPrice(true)
+                                    fetchApplicationPrice()
+                                }}
+                            >
+                                Retry
+                            </Button>
+                        </AlertDescription>
+                    </Alert>
+                )}
+                </>
             )}
 
             {/* ── Application List ── */}
@@ -651,13 +736,19 @@ export default function AFAOrdersPage() {
                                         className={cn('h-11', idError ? 'border-red-500 focus-visible:ring-red-500' : '')}
                                     />
                                     {/* Format hint */}
-                                    {idMeta?.hint && !idError && (
+                                    {idMeta?.hint && !idError && !passportHint && (
                                         <p className="text-[11px] text-muted-foreground flex items-center gap-1">
                                             <AlertCircle className="w-3 h-3" /> {idMeta.hint}
                                         </p>
                                     )}
+                                    {/* Finding 10 fix — Passport digit-first inline warning */}
+                                    {passportHint && (
+                                        <p className="text-[11px] text-yellow-600 dark:text-yellow-400 flex items-center gap-1">
+                                            <AlertTriangle className="w-3 h-3" /> {passportHint}
+                                        </p>
+                                    )}
                                     {/* Validation error */}
-                                    {idError && (
+                                    {idError && !passportHint && (
                                         <p className="text-[11px] text-red-500 flex items-center gap-1">
                                             <XCircle className="w-3 h-3" /> {idError}
                                         </p>
