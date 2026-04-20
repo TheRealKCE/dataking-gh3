@@ -2,35 +2,35 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const badgeVariants = cva(
-    "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+    "inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold transition-all duration-300 focus:outline-none focus:ring-2 focus:ring-primary/50 focus:ring-offset-2",
     {
         variants: {
             variant: {
                 default:
-                    "border-transparent bg-primary text-primary-foreground hover:bg-primary/80",
+                    "border-primary/30 bg-gradient-to-r from-primary/20 to-primary/10 text-primary hover:border-primary/50 hover:from-primary/30",
                 secondary:
-                    "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80",
+                    "border-secondary/30 bg-gradient-to-r from-secondary/20 to-secondary/10 text-secondary hover:border-secondary/50",
                 destructive:
-                    "border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80",
-                outline: "text-foreground",
+                    "border-destructive/30 bg-destructive/10 text-destructive hover:bg-destructive/20",
+                outline: "border-border text-foreground hover:border-primary/50",
                 success:
-                    "border-transparent bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400",
+                    "border-emerald-500/30 bg-emerald-500/10 text-emerald-400 dark:text-emerald-300 hover:border-emerald-500/50 hover:bg-emerald-500/20",
                 warning:
-                    "border-transparent bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
+                    "border-amber-500/30 bg-amber-500/10 text-amber-400 dark:text-amber-300 hover:border-amber-500/50 hover:bg-amber-500/20",
                 pending:
-                    "border-transparent bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400",
+                    "border-amber-500/30 bg-amber-500/10 text-amber-400 dark:text-amber-300 hover:border-amber-500/50",
                 processing:
-                    "border-transparent bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400",
+                    "border-blue-500/30 bg-blue-500/10 text-blue-400 dark:text-blue-300 animate-pulse",
                 completed:
-                    "border-transparent bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400",
+                    "border-emerald-500/30 bg-emerald-500/10 text-emerald-400 dark:text-emerald-300",
                 failed:
-                    "border-transparent bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+                    "border-red-500/30 bg-red-500/10 text-red-400 dark:text-red-300",
                 mtn:
-                    "border-transparent bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400",
+                    "border-yellow-500/30 bg-yellow-500/10 text-yellow-400 dark:text-yellow-300",
                 telecel:
-                    "border-transparent bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+                    "border-red-500/30 bg-red-500/10 text-red-400 dark:text-red-300",
                 airteltigo:
-                    "border-transparent bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400",
+                    "border-orange-500/30 bg-orange-500/10 text-orange-400 dark:text-orange-300",
             },
         },
         defaultVariants: {

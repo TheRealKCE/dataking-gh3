@@ -2,53 +2,56 @@
 @tailwind components;
 @tailwind utilities;
 
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap');
+
 @layer base {
   :root {
+    /* Light mode - premium */
     --background: 248 250 252;
-    --foreground: 15 23 42;
+    --foreground: 10 10 10;
     --card: 255 255 255;
-    --card-foreground: 15 23 42;
+    --card-foreground: 10 10 10;
     --popover: 255 255 255;
-    --popover-foreground: 15 23 42;
-    --primary: 239 68% 60%;
-    --primary-foreground: 255 255 255;
-    --secondary: 262 80% 57%;
+    --popover-foreground: 10 10 10;
+    --primary: 212 175 55;
+    --primary-foreground: 10 10 10;
+    --secondary: 123 104 238;
     --secondary-foreground: 255 255 255;
     --muted: 214.3 31.8% 91.4%;
     --muted-foreground: 215.4 16.3% 46.9%;
-    --accent: 173 80% 32%;
+    --accent: 6 182 212;
     --accent-foreground: 255 255 255;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 239 68 68;
+    --destructive-foreground: 255 255 255;
     --border: 214 32% 91%;
     --input: 214 32% 91%;
-    --ring: 239 68% 60%;
-    --radius: 0.75rem;
+    --ring: 212 175 55;
+    --radius: 0.875rem;
     --font-heading: 'Outfit', sans-serif;
     --font-body: 'Inter', sans-serif;
   }
 
   .dark {
-    --background: 0 0% 4%;
-    --foreground: 210 40% 98%;
-    /* Card: #111111 surface for depth */
-    --card: 0 0% 7%;
-    --card-foreground: 210 40% 98%;
-    --popover: 0 0% 4%;
-    --popover-foreground: 210 40% 98%;
-    --primary: 239 68% 60%;
-    --primary-foreground: 255 255 255;
-    --secondary: 262 80% 57%;
+    /* Dark mode - luxury */
+    --background: 10 10 10;
+    --foreground: 245 245 245;
+    --card: 26 26 26;
+    --card-foreground: 245 245 245;
+    --popover: 10 10 10;
+    --popover-foreground: 245 245 245;
+    --primary: 212 175 55;
+    --primary-foreground: 10 10 10;
+    --secondary: 123 104 238;
     --secondary-foreground: 255 255 255;
-    --muted: 0 0% 12%;
-    --muted-foreground: 215 20.2% 55%;
-    --accent: 173 80% 32%;
+    --muted: 64 64 64;
+    --muted-foreground: 165 165 165;
+    --accent: 6 182 212;
     --accent-foreground: 255 255 255;
-    --destructive: 0 62.8% 30.6%;
-    --destructive-foreground: 210 40% 98%;
-    --border: 0 0% 12%;
-    --input: 0 0% 12%;
-    --ring: 239 68% 60%;
+    --destructive: 239 68 68;
+    --destructive-foreground: 255 255 255;
+    --border: 45 45 45;
+    --input: 45 45 45;
+    --ring: 212 175 55;
   }
 }
 
@@ -59,6 +62,7 @@
 
   html {
     scroll-behavior: smooth;
+    scroll-padding-top: 60px;
   }
 
   body {
@@ -68,7 +72,7 @@
     width: 100%;
     max-width: 100vw;
     overscroll-behavior-y: none;
-    /* Prevents pull-to-refresh on accidental swipes */
+    letter-spacing: -0.01em;
   }
 
   h1,
@@ -78,6 +82,122 @@
   h5,
   h6,
   .CardTitle {
+    font-family: var(--font-heading);
+    font-weight: 700;
+  }
+
+  h1 {
+    @apply text-4xl md:text-5xl lg:text-6xl font-bold tracking-tight;
+  }
+
+  h2 {
+    @apply text-3xl md:text-4xl font-bold tracking-tight;
+  }
+
+  h3 {
+    @apply text-2xl md:text-3xl font-bold tracking-tight;
+  }
+
+  h4 {
+    @apply text-xl md:text-2xl font-bold tracking-tight;
+  }
+
+  h5 {
+    @apply text-lg font-bold tracking-tight;
+  }
+
+  h6 {
+    @apply text-base font-bold tracking-tight;
+  }
+
+  p {
+    font-family: var(--font-body);
+    @apply leading-relaxed;
+  }
+
+  /* Luxury glass effect */
+  .glass-effect {
+    @apply bg-white/5 backdrop-blur-xl border border-white/10;
+  }
+
+  .dark .glass-effect {
+    @apply bg-white/5 backdrop-blur-xl border border-white/10;
+  }
+
+  /* Premium card styles */
+  .card-luxury {
+    @apply rounded-2xl border border-border bg-card shadow-lg transition-all duration-300 hover:shadow-xl hover:border-primary/50;
+  }
+
+  /* Premium button */
+  .btn-luxury {
+    @apply relative inline-flex items-center justify-center overflow-hidden rounded-lg font-semibold transition-all duration-300 hover:shadow-gold;
+  }
+
+  /* Gradient text */
+  .gradient-text {
+    @apply bg-gradient-to-r from-primary via-secondary to-accent bg-clip-text text-transparent;
+  }
+
+  /* Shimmer effect for loading */
+  .shimmer {
+    background: linear-gradient(
+      90deg,
+      rgba(255, 255, 255, 0.1) 0%,
+      rgba(255, 255, 255, 0.3) 50%,
+      rgba(255, 255, 255, 0.1) 100%
+    );
+    background-size: 1000px 100%;
+    animation: shimmer-slow 8s linear infinite;
+  }
+
+  /* Luxury divider */
+  .divider-luxury {
+    @apply h-px bg-gradient-to-r from-transparent via-border to-transparent;
+  }
+
+  /* Premium input focus */
+  input:focus,
+  textarea:focus,
+  select:focus {
+    @apply ring-2 ring-primary/50 ring-offset-0;
+  }
+
+  /* Scrollbar styling */
+  ::-webkit-scrollbar {
+    @apply w-2;
+  }
+
+  ::-webkit-scrollbar-track {
+    @apply bg-background;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    @apply bg-border rounded-full hover:bg-muted;
+  }
+
+  /* Selection color */
+  ::selection {
+    @apply bg-primary text-primary-foreground;
+  }
+}
+
+@layer components {
+  /* Luxury badge */
+  .badge-luxury {
+    @apply inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-semibold bg-primary/10 text-primary border border-primary/30;
+  }
+
+  /* Premium link */
+  .link-luxury {
+    @apply text-primary transition-colors duration-300 hover:text-primary/80 font-medium;
+  }
+
+  /* Luxury section */
+  .section-luxury {
+    @apply py-16 md:py-24 lg:py-32;
+  }
+}
     text-align: center !important;
     color: #1A1A1A;
   }
