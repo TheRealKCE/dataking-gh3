@@ -20,7 +20,9 @@ export async function GET(request: NextRequest) {
         const cookieStore = await cookies()
         const supabaseUserClient = createRouteHandlerClient({
             // @ts-expect-error
-            cookies: () => cookieStore
+            cookies: () => cookieStore,
+            supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
+            supabaseKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder'
         })
         const admin = await verifyAdmin(supabaseUserClient)
         if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -75,7 +77,9 @@ export async function PATCH(request: NextRequest) {
         const cookieStore = await cookies()
         const supabaseUserClient = createRouteHandlerClient({
             // @ts-expect-error
-            cookies: () => cookieStore
+            cookies: () => cookieStore,
+            supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
+            supabaseKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder'
         })
         const admin = await verifyAdmin(supabaseUserClient)
         if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
