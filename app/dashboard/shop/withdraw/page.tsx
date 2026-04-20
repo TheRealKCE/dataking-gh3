@@ -125,6 +125,7 @@ export default function ShopWithdrawPage() {
     const [momoNumber, setMomoNumber] = useState('')
     const [paymentType, setPaymentType] = useState<'momo' | 'bank'>('momo')
     const [selectedBankId, setSelectedBankId] = useState<string>('')
+    const [branch, setBranch] = useState<string>('')
     const [saveForLater, setSaveForLater] = useState(false)
 
     // Validation state
@@ -273,6 +274,7 @@ export default function ShopWithdrawPage() {
             setNetwork('')
             setMomoNumber('')
             setSelectedBankId('')
+            setBranch('')
             setVerifiedName(null)
             setValidationError(null)
         } else {
@@ -282,6 +284,8 @@ export default function ShopWithdrawPage() {
                 setMomoNumber(d.momo_number)
                 setPaymentType(d.payment_type || 'momo')
                 if (d.bank_id) setSelectedBankId(d.bank_id)
+                // Clear branch — saved details never store branch; avoids stale bank session data
+                setBranch('')
                 // Silent re-validation — name may have changed on the network
                 triggerValidation(d.momo_number, d.network, d.bank_id)
             }
@@ -317,6 +321,7 @@ export default function ShopWithdrawPage() {
                     network,
                     payment_type: paymentType,
                     bankId: selectedBankId || undefined,
+                    branch: branch.trim() || undefined,
                     saveForLater: saveForLater && selectedSavedId === 'manual',
                 }),
             })
@@ -540,6 +545,7 @@ export default function ShopWithdrawPage() {
                                 onClick={() => { 
                                     setPaymentType('momo')
                                     setSelectedBankId('')
+                                    setBranch('')
                                     setVerifiedName(null)
                                     setValidationError(null)
                                     setSelectedSavedId('manual')
@@ -714,6 +720,21 @@ export default function ShopWithdrawPage() {
                                                 )}
                                             </SelectContent>
                                         </Select>
+                                    </div>
+                                )}
+
+                                {/* Branch — Bank only, optional */}
+                                {paymentType === 'bank' && (
+                                    <div>
+                                        <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                                            Branch <span className="normal-case font-normal">(Optional)</span>
+                                        </Label>
+                                        <Input
+                                            value={branch}
+                                            onChange={(e) => setBranch(e.target.value)}
+                                            placeholder="e.g. Accra Main"
+                                            className="mt-1.5 h-11"
+                                        />
                                     </div>
                                 )}
 

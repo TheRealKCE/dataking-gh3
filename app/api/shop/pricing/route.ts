@@ -134,16 +134,30 @@ export async function POST(req: Request) {
             }
         }
 
+        // Only enforce go-live guard when items are submitted
+        if (items !== undefined) {
+            const hasValidPrice = Array.isArray(items) && items.some(
+                (item: any) => typeof item.selling_price === 'number' && item.selling_price > 0
+            )
+            if (!hasValidPrice) {
+                return NextResponse.json(
+                    { error: 'At least one item must have a valid price before your shop can go live.' },
+                    { status: 400 }
+                )
+            }
+        }
+
         // Instantly make the shop live and save the new airtime prices inline
         const profileUpdates = {
             pricing_status: 'approved',
             approval_status: 'approved',
+            is_active: true,
             pricing_submitted_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
             ...airtimeUpdates
         }
 
-        const { error: updateError } = await supabase
+        const { error: updateError } = await (adminDb as any)
             .from('shop_profiles')
             .update(profileUpdates)
             .eq('id', shopId)

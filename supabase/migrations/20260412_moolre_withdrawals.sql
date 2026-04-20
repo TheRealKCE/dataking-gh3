@@ -75,6 +75,14 @@ ALTER TABLE public.shop_payment_details
 ALTER TABLE public.shop_payment_details
     ADD COLUMN IF NOT EXISTS bank_name TEXT;
 
+-- Human-readable bank name, stored at insert time (looked up server-side from bankId via Moolre cache)
+ALTER TABLE public.shop_wallet_transactions
+    ADD COLUMN IF NOT EXISTS bank_name TEXT;
+
+-- Optional branch name for bank transfers
+ALTER TABLE public.shop_wallet_transactions
+    ADD COLUMN IF NOT EXISTS branch TEXT;
+
 -- ─── Indexes for cron performance ────────────────────────────────────────────
 -- Cron job queries exclusively on moolre_pending — make it fast
 CREATE INDEX IF NOT EXISTS idx_shop_wallet_tx_moolre_pending

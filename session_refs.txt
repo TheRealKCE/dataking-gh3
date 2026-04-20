@@ -1,9 +1,0 @@
-C:\Users\KING FLEXY GH\.gemini\antigravity\KingFlexyGh Site Files\KingFlexyGh\app\api\admin\fulfillment\refulfill\route.ts
-C:\Users\KING FLEXY GH\.gemini\antigravity\KingFlexyGh Site Files\KingFlexyGh\app\api\admin\orders\update-status\route.ts
-C:\Users\KING FLEXY GH\.gemini\antigravity\KingFlexyGh Site Files\KingFlexyGh\app\api\admin\packages\route.ts
-C:\Users\KING FLEXY GH\.gemini\antigravity\KingFlexyGh Site Files\KingFlexyGh\app\api\admin\top-up\user-lists\route.ts
-C:\Users\KING FLEXY GH\.gemini\antigravity\KingFlexyGh Site Files\KingFlexyGh\app\api\admin\users\delete\route.ts
-C:\Users\KING FLEXY GH\.gemini\antigravity\KingFlexyGh Site Files\KingFlexyGh\app\api\admin\users\update-status\route.ts
-C:\Users\KING FLEXY GH\.gemini\antigravity\KingFlexyGh Site Files\KingFlexyGh\app\api\shop\announcements\route.ts
-C:\Users\KING FLEXY GH\.gemini\antigravity\KingFlexyGh Site Files\KingFlexyGh\app\api\shop\pricing\route.ts
-C:\Users\KING FLEXY GH\.gemini\antigravity\KingFlexyGh Site Files\KingFlexyGh\app\api\users\delete-account\route.ts

@@ -1,6 +1,0 @@
-﻿ΓÜá∩╕Å  SKIPPED (has remaining getSession): app\api\admin\airtime\orders\route.ts
-ΓÜá∩╕Å  SKIPPED (has remaining getSession): app\api\admin\airtime\settings\route.ts
-
-=== Done ===
-Updated : 0 files
-Skipped : 2 files (check manually)

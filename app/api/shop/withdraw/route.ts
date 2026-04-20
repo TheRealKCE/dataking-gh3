@@ -3,7 +3,7 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import { z } from 'zod'
 import { phoneSchema } from '@/lib/validation'
-import { validateAccountName, MOOLRE_CHANNEL_MAP } from '@/lib/moolre-transfer-service'
+import { validateAccountName, MOOLRE_CHANNEL_MAP, getBanks } from '@/lib/moolre-transfer-service'
 import { sendAdminShopWithdrawalRequestAlert } from '@/lib/email-service'
 
 const withdrawSchema = z.object({
@@ -14,7 +14,8 @@ const withdrawSchema = z.object({
     momoNumber: z.string().min(8, 'Number is too short').max(30, 'Number is too long').regex(/^\d+$/, 'Must contain only digits'),
     network: z.enum(['MTN MoMo', 'Telecel Cash', 'AirtelTigo Money', 'Bank']),
     payment_type: z.enum(['momo', 'bank']).default('momo'),
-    bankId: z.string().optional(),
+    bankId: z.string().regex(/^[A-Za-z0-9_-]+$/, 'Invalid bank ID format').optional(),
+    branch: z.string().max(100).optional(),
     saveForLater: z.boolean().optional(),
 }).superRefine((data, ctx) => {
     if (data.network !== 'Bank') {
@@ -62,6 +63,7 @@ export async function POST(req: NextRequest) {
         const network = validation.data.network.trim()
         const payment_type = validation.data.payment_type.trim()
         const bankId = validation.data.bankId ? validation.data.bankId.trim() : undefined
+        const branch = validation.data.branch ? validation.data.branch.trim() : undefined
         const saveForLater = validation.data.saveForLater
 
         // 3. Fetch wallet and shop profile
@@ -161,6 +163,18 @@ export async function POST(req: NextRequest) {
 
         const verifiedAccountName = nameValidation.name
 
+        // 7b. Resolve bank_name server-side from Moolre banks cache (never trust client)
+        let resolvedBankName: string | null = null
+        if (payment_type === 'bank' && bankId) {
+            try {
+                const banks = await getBanks()
+                const match = banks.find(b => b.id === bankId)
+                resolvedBankName = match?.name ?? null
+            } catch {
+                // Non-blocking — bank_name will be null if lookup fails
+            }
+        }
+
         // 8. Calculate fees and new balance
         const feePercent = (amountNum * settings.withdrawal_fee_percent) / 100
         const totalFee = feePercent + settings.withdrawal_fee_flat
@@ -186,6 +200,8 @@ export async function POST(req: NextRequest) {
                 network,
                 payment_type,
                 bank_id: bankId ?? null,
+                bank_name: resolvedBankName,
+                branch: branch ?? null,
                 description: `Withdrawal request — ${network}: ${momoNumber}`,
                 status: 'pending',
                 balance_snapshot: newBalance,

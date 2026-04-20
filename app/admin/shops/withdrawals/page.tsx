@@ -37,6 +37,9 @@ interface WithdrawalRequest {
     account_name: string
     momo_number: string | null
     account_number: string | null
+    bank_name: string | null
+    branch: string | null
+    bank_id: string | null
     network: string | null
     balance_snapshot: number | null
     description: string
@@ -423,7 +426,21 @@ export default function AdminWithdrawalsPage() {
                                                             </td>
                                                             <td className="px-4 py-4">
                                                                 <p className="font-medium">{w.account_name}</p>
-                                                                <p className="font-mono text-xs text-muted-foreground">{w.momo_number}</p>
+                                                                {w.payment_type === 'bank' ? (
+                                                                    <>
+                                                                        {w.account_number && (
+                                                                            <p className="font-mono text-xs text-muted-foreground">{w.account_number}</p>
+                                                                        )}
+                                                                        {w.bank_name && (
+                                                                            <p className="text-xs text-muted-foreground">{w.bank_name}</p>
+                                                                        )}
+                                                                        {w.branch && (
+                                                                            <p className="text-[10px] text-muted-foreground italic">{w.branch}</p>
+                                                                        )}
+                                                                    </>
+                                                                ) : (
+                                                                    <p className="font-mono text-xs text-muted-foreground">{w.momo_number || '—'}</p>
+                                                                )}
                                                                 {w.moolre_transaction_id && (
                                                                     <p className="text-[10px] font-mono text-emerald-600 mt-0.5" title={w.moolre_transaction_id}>
                                                                         ID: {w.moolre_transaction_id.slice(0, 10)}…
@@ -581,14 +598,33 @@ export default function AdminWithdrawalsPage() {
                                                                 <span className="uppercase tracking-wider text-[10px] font-bold text-gray-500">Account</span>
                                                                 <span className="font-bold truncate max-w-[150px]">{w.account_name}</span>
                                                             </div>
-                                                            <div className="flex justify-between items-center text-gray-300">
-                                                                <span className="uppercase tracking-wider text-[10px] font-bold text-gray-500">Network</span>
-                                                                <span>{w.network || '—'}</span>
-                                                            </div>
-                                                            <div className="flex justify-between items-center text-gray-300">
-                                                                <span className="uppercase tracking-wider text-[10px] font-bold text-gray-500">MoMo Number</span>
-                                                                <span className="font-mono text-emerald-400">{w.momo_number}</span>
-                                                            </div>
+                                                            {w.payment_type === 'bank' ? (
+                                                                <>
+                                                                    <div className="flex justify-between items-center text-gray-300">
+                                                                        <span className="uppercase tracking-wider text-[10px] font-bold text-gray-500">Bank Name</span>
+                                                                        <span>{w.bank_name || '—'}</span>
+                                                                    </div>
+                                                                    <div className="flex justify-between items-center text-gray-300">
+                                                                        <span className="uppercase tracking-wider text-[10px] font-bold text-gray-500">Account Number</span>
+                                                                        <span className="font-mono text-emerald-400">{w.account_number || '—'}</span>
+                                                                    </div>
+                                                                    <div className="flex justify-between items-center text-gray-300">
+                                                                        <span className="uppercase tracking-wider text-[10px] font-bold text-gray-500">Branch</span>
+                                                                        <span>{w.branch || '—'}</span>
+                                                                    </div>
+                                                                </>
+                                                            ) : (
+                                                                <>
+                                                                    <div className="flex justify-between items-center text-gray-300">
+                                                                        <span className="uppercase tracking-wider text-[10px] font-bold text-gray-500">Network</span>
+                                                                        <span>{w.network || '—'}</span>
+                                                                    </div>
+                                                                    <div className="flex justify-between items-center text-gray-300">
+                                                                        <span className="uppercase tracking-wider text-[10px] font-bold text-gray-500">MoMo Number</span>
+                                                                        <span className="font-mono text-emerald-400">{w.momo_number || '—'}</span>
+                                                                    </div>
+                                                                </>
+                                                            )}
                                                             {w.moolre_transaction_id && (
                                                                 <div className="flex justify-between items-center text-gray-300">
                                                                     <span className="uppercase tracking-wider text-[10px] font-bold text-gray-500">Moolre ID</span>
