@@ -379,6 +379,10 @@ export default function ShopSetupPage() {
         if (form.community_link && !form.community_link.startsWith('https://')) {
             setFieldErrors(prev => ({ ...prev, community_link: 'Community link must start with https://' })); return
         }
+        if (form.owner_email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.owner_email.trim())) {
+            setFieldErrors(prev => ({ ...prev, owner_email: 'Must be a valid email address' }))
+            return
+        }
 
         setSaving(true)
         try {
@@ -420,7 +424,7 @@ export default function ShopSetupPage() {
                         }
                     })
                     setFieldErrors(newErrors)
-                    throw new Error('Please fix the errors in the form.')
+                    throw new Error(data.error || 'Please fix the highlighted fields.')
                 }
                 throw new Error(data.error || 'Failed to save shop')
             }
@@ -722,7 +726,7 @@ export default function ShopSetupPage() {
                             </Label>
                             <Input
                                 id="owner_email"
-                                type="email"
+                                type="text"
                                 value={form.owner_email}
                                 onChange={(e) => {
                                     updateForm({ owner_email: e.target.value })
@@ -749,7 +753,7 @@ export default function ShopSetupPage() {
                                 className={cn("mt-1", fieldErrors.whatsapp_number && "border-red-500 focus-visible:ring-red-500")}
                             />
                             {fieldErrors.whatsapp_number && <p className="text-xs text-red-500 mt-1">{fieldErrors.whatsapp_number}</p>}
-                            {form.whatsapp_number && !fieldErrors.whatsapp_number && (
+                            {form.whatsapp_number.trim() !== '' && !fieldErrors.whatsapp_number && (
                                 <p className={cn('text-xs mt-1 flex items-center gap-1', waValid ? 'text-emerald-600' : 'text-red-500')}>
                                     {waValid ? (
                                         <><CheckCircle2 className="w-3 h-3" /> Will be saved as: <span className="font-mono">{normalizedWA}</span>

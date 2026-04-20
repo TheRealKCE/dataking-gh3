@@ -71,17 +71,15 @@ export default function AdminShopsPage() {
         e.stopPropagation()
         setActioning(shopId + action)
         try {
-            const updates: any = {
-                approval_status: action,
-                updated_at: new Date().toISOString(),
+            const res = await fetch('/api/admin/shops', {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ shopId, status: action })
+            })
+            if (!res.ok) {
+                const data = await res.json()
+                throw new Error(data.error || 'Failed to update shop status')
             }
-            // On approval, reset pricing status so owner can now set prices
-            if (action === 'approved') {
-                updates.pricing_status = 'not_submitted'
-                updates.is_active = false
-            }
-            const { error } = await (supabase as any).from('shop_profiles').update(updates).eq('id', shopId)
-            if (error) throw error
             toast.success(action === 'approved' ? 'Shop profile approved! Owner can now set prices.' : 'Shop rejected.')
             fetchShops()
 

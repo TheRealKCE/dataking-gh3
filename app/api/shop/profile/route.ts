@@ -141,7 +141,7 @@ async function handleShopProfileWrite(request: NextRequest, mode: 'create' | 'up
 
             const { error: insertError } = await (supabaseAdmin as any)
                 .from('shop_profiles')
-                .insert({ ...dbPayload, owner_id: userId })
+                .insert({ ...dbPayload, owner_id: userId, approval_status: 'approved', is_active: false })
 
             if (insertError) {
                 console.error('[ShopProfile] Insert error:', insertError)
