@@ -229,7 +229,7 @@ export default function ShopSetupPage() {
             .from('shop_profiles')
             .select('*')
             .eq('owner_id', dbUser!.id)
-            .single())
+            .maybeSingle())
 
         if (data) {
             setExistingShopId(data.id)
@@ -277,7 +277,7 @@ export default function ShopSetupPage() {
             .select('id')
             .eq('shop_slug', slug)
             .neq('owner_id', dbUser!.id)
-            .single())
+            .maybeSingle())
         setSlugTaken(!!data)
         setSlugChecking(false)
     }
