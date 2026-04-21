@@ -220,6 +220,9 @@ export async function middleware(request: NextRequest) {
         } else if (pathname === '/api/user/upgrade/initialize') {
             limiter = rateLimiters.userUpgrade
             identifier = authUser?.id ? `${authUser.id}-${ip}` : ip
+        } else if (pathname === '/api/user/upgrade/verify') {
+            limiter = rateLimiters.userUpgrade
+            identifier = authUser?.id ? `${authUser.id}-${ip}` : ip
         } else if (pathname === '/api/shop/pricing') {
             limiter = rateLimiters.shopPricing
             identifier = authUser?.id ? `${authUser.id}-${ip}` : ip

@@ -78,64 +78,67 @@ export default function UpgradePage() {
 
     const [isVerifying, setIsVerifying] = useState(false)
 
-    // Detect successful payment and show congrats modal
+    // Detect successful payment redirect and verify directly with Paystack
     useEffect(() => {
         const success = searchParams.get('success') === 'true'
+        const reference = searchParams.get('reference') || searchParams.get('trxref')
 
-        if (success) {
-            const verifyAndShowCongrats = async () => {
-                // Check if upgrade is actually confirmed in DB
-                // We check if the user is an agent AND if the profile was updated recently (within last 5 mins)
-                // This handles the page reload case where we lose the "previous" state
-                const isAgent = dbUser?.role === 'agent'
+        if (!success) {
+            verifyRetryCount.current = 0
+            setShowFallbackButton(false)
+            return
+        }
 
-                let isRecentlyUpdated = false
-                if (dbUser?.updated_at) {
-                    const updateTime = new Date(dbUser.updated_at).getTime()
-                    const fiveMinutesAgo = Date.now() - (5 * 60 * 1000)
-                    isRecentlyUpdated = updateTime > fiveMinutesAgo
-                }
+        const verifyAndActivate = async () => {
+            setIsVerifying(true)
 
-                // If role is agent and updated recently, it's our successful transaction
-                // OR if we still have initialExpiry state (no reload) and it changed
-                const isConfirmed = isAgent && (
-                    isRecentlyUpdated ||
-                    (initialExpiry && dbUser.agent_expires_at !== initialExpiry)
-                )
-
-                if (isConfirmed) {
-                    verifyRetryCount.current = 0
+            // Step 1: If already an agent and recently updated, just show congrats
+            if (dbUser?.role === 'agent') {
+                const updateTime = dbUser.updated_at ? new Date(dbUser.updated_at).getTime() : 0
+                const fiveMinutesAgo = Date.now() - (5 * 60 * 1000)
+                if (updateTime > fiveMinutesAgo || (initialExpiry && dbUser.agent_expires_at !== initialExpiry)) {
                     setShowCongrats(true)
                     setIsVerifying(false)
-                    // Clean URL without reloading
                     window.history.replaceState({}, '', '/dashboard/upgrade')
-                } else {
-                    // Guard: after 5 retries, stop polling and show fallback buttons immediately
-                    if (verifyRetryCount.current >= 5) {
-                        setIsVerifying(false)
-                        setShowFallbackButton(true)
-                        return
-                    }
-                    verifyRetryCount.current += 1
-                    setIsVerifying(true)
-                    // Refresh data or reload until confirmed
-                    const timer = setTimeout(() => {
-                        if (dbUser) {
-                            refreshUser()
-                        } else {
-                            window.location.reload()
-                        }
-                    }, 3000)
-                    return () => clearTimeout(timer)
+                    return
                 }
             }
 
-            verifyAndShowCongrats()
-        } else {
-            // Reset state if not in success/verifying mode
-            verifyRetryCount.current = 0
-            setShowFallbackButton(false)
+            // Step 2: Call our direct verification endpoint with the payment reference
+            if (reference?.startsWith('agent_upgrade_')) {
+                try {
+                    const res = await fetch(`/api/user/upgrade/verify?reference=${reference}`, {
+                        headers: { 'Accept': 'application/json' }
+                    })
+                    const data = await res.json()
+
+                    if (res.ok && data.success) {
+                        // Payment confirmed — refresh session to get new role
+                        await refreshUser()
+                        setShowCongrats(true)
+                        setIsVerifying(false)
+                        window.history.replaceState({}, '', '/dashboard/upgrade')
+                        return
+                    }
+                } catch (err) {
+                    console.error('[UpgradePage] Verification error:', err)
+                }
+            }
+
+            // Step 3: Fallback — retry polling if direct verify unavailable
+            if (verifyRetryCount.current >= 5) {
+                setIsVerifying(false)
+                setShowFallbackButton(true)
+                return
+            }
+            verifyRetryCount.current += 1
+            const timer = setTimeout(() => {
+                refreshUser()
+            }, 3000)
+            return () => clearTimeout(timer)
         }
+
+        verifyAndActivate()
     }, [searchParams, dbUser, initialExpiry, refreshUser])
 
     // Timer for fallback button during verification
