@@ -177,12 +177,17 @@ export async function processCompletedUpgradePayment(reference: string, provider
         return { success: false, error: 'Payment not found' }
     }
 
+    // Safely parse original metadata
+    const originalMetadata = typeof payment.metadata === 'string' 
+        ? JSON.parse(payment.metadata) 
+        : (payment.metadata || {});
+
     // 2. Atomic Update (Idempotency Check)
     const { data: updatedPayment, error: updatePaymentError } = await (supabase
         .from('wallet_payments') as any)
         .update({
             status: 'completed',
-            metadata: providerMetadata,
+            metadata: { ...originalMetadata, provider_data: providerMetadata },
             updated_at: new Date().toISOString(),
         })
         .eq('id', payment.id)
@@ -215,8 +220,8 @@ export async function processCompletedUpgradePayment(reference: string, provider
     }
 
     // 4. Calculate new expiry
-    const isPermanent = (payment.metadata as any)?.plan_type === 'permanent';
-    const planDays = (payment.metadata as any)?.plan_days || 30
+    const isPermanent = originalMetadata?.plan_type === 'permanent';
+    const planDays = originalMetadata?.plan_days || 30
     const now = new Date()
     let currentExpiry = user.agent_expires_at ? new Date(user.agent_expires_at) : null
     let newExpiry: Date | null = null;
@@ -264,7 +269,7 @@ export async function processCompletedUpgradePayment(reference: string, provider
                 // Send Permanent/Lifetime notification (static import at top-level)
                 await sendPermanentAgentUpgradeSuccessSMS(user.phone_number)
             } else if (newExpiry) {
-                const planLabelText = (payment.metadata as any)?.plan_label ||
+                const planLabelText = originalMetadata?.plan_label ||
                     (planDays === 3 ? '3 Days' : planDays === 14 ? '14 Days' : '30 Days')
 
                 // Calculate remaining days from now
