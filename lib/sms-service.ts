@@ -48,11 +48,9 @@ export async function sendSMS(options: SMSOptions): Promise<SMSResult> {
     const apiKey = process.env.MOOLRE_API_KEY
     const defaultSender = process.env.MOOLRE_SENDER_ID || 'ARHMS'
 
-    // Strict validation - no fallback
     if (!apiKey) {
-        const error = 'MOOLRE_API_KEY not configured in environment variables. Get it from https://app.moolre.com'
-        console.error('[SMS Service] ERROR:', error)
-        return { success: false, error }
+        console.error('[SMS Service] MOOLRE_API_KEY not configured. Falling back to mNotify.')
+        return await sendMnotifySMS(options)
     }
 
     try {
@@ -145,29 +143,17 @@ export async function sendSMS(options: SMSOptions): Promise<SMSResult> {
             // Log failure details
             console.error('[SMS Service] ❌ FAILED - Moolre rejected the message')
             console.error('[SMS Service] Error data:', JSON.stringify(data, null, 2))
-            console.error('[SMS Service] Status code:', response.status)
-
-            // Extract error message from various possible formats
-            const errorMessage =
-                data.message ||
-                data.error ||
-                data.error_message ||
-                data.msg ||
-                `Moolre API error (status ${response.status})`
-
-            return {
-                success: false,
-                error: errorMessage
-            }
+            
+            // Fallback to mNotify
+            console.log('[SMS Service] Attempting fallback to mNotify...')
+            return await sendMnotifySMS(options)
         }
     } catch (error: any) {
         console.error('[SMS Service] ❌ EXCEPTION occurred:', error)
-        console.error('[SMS Service] Exception message:', error.message)
-        console.error('[SMS Service] Exception stack:', error.stack)
-        return {
-            success: false,
-            error: `Network or system error: ${error.message}`
-        }
+        
+        // Fallback to mNotify
+        console.log('[SMS Service] Attempting fallback to mNotify...')
+        return await sendMnotifySMS(options)
     }
 }
 

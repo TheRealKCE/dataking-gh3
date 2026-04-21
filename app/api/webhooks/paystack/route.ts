@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
             }
 
             // Route by payment type based on metadata
-            if (metadata?.upgrade_type === 'agent') {
+            if (reference.startsWith('agent_upgrade_') || metadata?.upgrade_type === 'agent') {
                 // Agent membership upgrades
                 const { processCompletedUpgradePayment } = await import('@/lib/payments')
                 await processCompletedUpgradePayment(reference, event.data)
