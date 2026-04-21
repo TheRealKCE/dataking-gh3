@@ -222,12 +222,17 @@
 
 @layer utilities {
   .text-balance {
-    text-wrap: balance;
+    overflow-wrap: break-word;
+    word-break: break-word;
+  }
+  @supports (text-wrap: balance) {
+    .text-balance { text-wrap: balance; }
   }
 
   .scrollbar-hide {
     -ms-overflow-style: none;
-    scrollbar-width: none;
+    /* scrollbar-width has limited support; webkit fallback below handles Safari */
+    scrollbar-width: none; /* stylelint-disable-line */
   }
 
   .scrollbar-hide::-webkit-scrollbar {
