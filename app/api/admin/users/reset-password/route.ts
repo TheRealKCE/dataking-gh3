@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
 
         // Trigger the standard Supabase password reset email
         // This sends the user an email with a link pointing to our /auth/update-password page
-        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.kingflexygh.com'
+        const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://www.ARHMS.com'
         const redirectTo = `${siteUrl}/auth/update-password`
 
         const { error: resetError } = await supabase.auth.resetPasswordForEmail(

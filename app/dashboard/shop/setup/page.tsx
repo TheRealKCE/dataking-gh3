@@ -468,7 +468,7 @@ export default function ShopSetupPage() {
         )
     }
 
-    const shopUrl = form.shop_slug ? `https://kingflexygh.com/shop/${form.shop_slug}` : ''
+    const shopUrl = form.shop_slug ? `https://ARHMS.com/shop/${form.shop_slug}` : ''
     const dividerList = showAllDividers ? DIVIDER_PRESETS : POPULAR_DIVIDERS
     const platform = detectPlatform(form.community_link)
 

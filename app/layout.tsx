@@ -5,10 +5,10 @@ export const viewport: Viewport = {
     initialScale: 1,
     maximumScale: 1,
     userScalable: false,
-    themeColor: '#0f172a',
-    interactiveWidget: 'resizes-content', // Helps with virtual keyboard handling
+    themeColor: '#0A0A0A',
+    interactiveWidget: 'resizes-content',
 }
-import { Fira_Sans } from 'next/font/google'
+import { Outfit, Inter } from 'next/font/google'
 import { Suspense } from 'react'
 import './globals.css'
 import { AuthProvider } from '@/contexts/auth-context'
@@ -16,21 +16,30 @@ import { Toaster } from '@/components/ui/sonner'
 import { ThemeProvider } from '@/components/theme-provider'
 import { GlobalLoader } from '@/components/ui/global-loader'
 
-const firaSans = Fira_Sans({
-    weight: ['300', '400', '500', '600', '700'],
+const outfit = Outfit({
+    weight: ['400', '600', '700'],
     subsets: ['latin'],
-    display: 'swap'
+    display: 'swap',
+    variable: '--font-heading',
+})
+
+const inter = Inter({
+    weight: ['400', '500', '600'],
+    subsets: ['latin'],
+    display: 'swap',
+    variable: '--font-body',
 })
 
 export const metadata: Metadata = {
-    title: 'KING FLEXY DATA LTD - Mobile Data & Airtime Platform',
-    description: 'Purchase data packages for MTN, Telecel, and AirtelTigo networks in Ghana. Fast, reliable, and affordable.',
-    keywords: ['Ghana', 'mobile data', 'airtime', 'MTN', 'Telecel', 'AirtelTigo', 'data bundles'],
-    authors: [{ name: 'KING FLEXY DATA LTD' }],
+    title: 'ARHMS DATA LTD',
+    description: "Ghana's trusted data bundle reselling platform. Buy and resell MTN, Telecel and AirtelTigo bundles instantly.",
+    keywords: ['Ghana', 'mobile data', 'airtime', 'MTN', 'Telecel', 'AirtelTigo', 'data bundles', 'reseller'],
+    authors: [{ name: 'ARHMS DATA LTD' }],
     openGraph: {
-        title: 'KING FLEXY DATA LTD - Mobile Data & Airtime Platform',
-        description: 'Purchase data packages for all Ghanaian networks',
+        title: 'ARHMS DATA LTD',
+        description: "Ghana's trusted data bundle reselling platform",
         type: 'website',
+        images: ['/opengraph-image.png'],
     },
 }
 
@@ -42,11 +51,11 @@ export default function RootLayout({
     children: React.ReactNode
 }) {
     return (
-        <html lang="en" suppressHydrationWarning>
-            <body className={firaSans.className}>
+        <html lang="en" suppressHydrationWarning className={`${outfit.variable} ${inter.variable}`}>
+            <body className={inter.className}>
                 <ThemeProvider
                     attribute="class"
-                    defaultTheme="system"
+                    defaultTheme="dark"
                     enableSystem
                     disableTransitionOnChange
                 >

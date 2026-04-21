@@ -34,7 +34,7 @@ export default function SignupPage() {
     const [lockoutMinutes, setLockoutMinutes] = useState<number | null>(null)
     const { signUp } = useAuth()
     const router = useRouter()
-    const [guestUrl, setGuestUrl] = useState('https://kingflexygh.com/shop/felix-s-shop')
+    const [guestUrl, setGuestUrl] = useState('https://arhmsdata.com/shop/demo')
 
     useEffect(() => {
         getCachedPricing().then(data => {
@@ -150,7 +150,7 @@ export default function SignupPage() {
                             We've sent a verification link to <strong className="text-slate-900">{formData.email}</strong>.
                         </p>
                         <Link href="/auth/login">
-                            <Button className="w-full h-12 text-base font-bold bg-[#0056B3] hover:bg-[#004494] text-white shadow-lg rounded-xl">
+                            <Button className="w-full h-12 text-base font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg rounded-xl">
                                 Go to Login
                             </Button>
                         </Link>
@@ -172,7 +172,7 @@ export default function SignupPage() {
                             <div className="w-full h-full rounded-2xl bg-slate-900 flex items-center justify-center shadow-xl">
                                 <Image
                                     src="/logo.png"
-                                    alt="KING FLEXY DATA LTD"
+                                    alt="ARHMS DATA LTD"
                                     fill
                                     className="object-contain p-1.5"
                                     priority
@@ -183,7 +183,7 @@ export default function SignupPage() {
                             Create Your Account
                         </h1>
                         <p className="text-sm text-slate-600 mt-0.5">
-                            Join KING FLEXY DATA LTD
+                            Join ARHMS DATA LTD
                         </p>
                     </Link>
                 </div>
@@ -320,7 +320,7 @@ export default function SignupPage() {
                             <Button
                                 type="submit"
                                 disabled={isLoading || lockoutMinutes !== null}
-                                className="w-full sm:w-auto sm:min-w-[200px] sm:mx-auto h-12 text-base font-bold bg-sky-500 hover:bg-sky-600 text-white shadow-lg rounded-xl mt-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                                className="w-full sm:w-auto sm:min-w-[200px] sm:mx-auto h-12 text-base font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg rounded-xl mt-1 disabled:opacity-50 disabled:cursor-not-allowed"
                             >
                                 {lockoutMinutes !== null ? (
                                     `Locked — try again in ${lockoutMinutes}m`
@@ -368,7 +368,7 @@ export default function SignupPage() {
                             <Button
                                 asChild
                                 variant="default"
-                                className="w-full sm:w-auto sm:min-w-[200px] sm:mx-auto h-12 text-base font-bold bg-sky-500 hover:bg-sky-600 text-white shadow-lg rounded-xl flex items-center justify-center"
+                                className="w-full sm:w-auto sm:min-w-[200px] sm:mx-auto h-12 text-base font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg rounded-xl flex items-center justify-center"
                             >
                                 <Link href="/auth/login">
                                     Sign In

@@ -83,11 +83,11 @@ export function RecentOrdersWidget() {
     const hasRecentFailedOrder = orders.slice(0, 3).some(o => o.status === 'failed')
 
     return (
-        <Card className="flex flex-col overflow-hidden border-2 shadow-sm rounded-xl bg-white dark:bg-gray-950/50">
-            <CardHeader className="flex flex-row items-center justify-between pb-3 bg-gray-50/50 dark:bg-gray-900/20 border-b">
+        <Card className="flex flex-col overflow-hidden border shadow-sm rounded-xl bg-white dark:bg-[#111111] border-slate-200 dark:border-[#1f1f1f]">
+            <CardHeader className="flex flex-row items-center justify-between pb-3 bg-slate-50 dark:bg-[#111111] border-b border-slate-200 dark:border-[#1f1f1f]">
                 <div className="flex items-center gap-2">
-                    <div className="p-1.5 bg-blue-100 dark:bg-blue-900/30 rounded-md">
-                        <ShoppingCart className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                    <div className="p-1.5 bg-indigo-100 dark:bg-indigo-900/30 rounded-md">
+                        <ShoppingCart className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
                     </div>
                     <div>
                         <CardTitle className="text-lg font-bold">Recent Orders</CardTitle>
@@ -95,7 +95,7 @@ export function RecentOrdersWidget() {
                     </div>
                 </div>
                 <Link href="/dashboard/my-orders">
-                    <Button variant="ghost" size="sm" className="hidden sm:flex text-xs h-8 text-blue-600 hover:text-blue-700 dark:text-blue-400">
+                    <Button variant="ghost" size="sm" className="hidden sm:flex text-xs h-8 text-indigo-600 hover:text-indigo-700 dark:text-indigo-400">
                         View All
                         <ArrowRight className="w-3.5 h-3.5 ml-1" />
                     </Button>

@@ -16,9 +16,9 @@ const supabaseAdmin = createClient(
 
 export async function GET(request: Request) {
     try {
-        // Authenticate the request (optional, e.g., via a secret header from the cron provider)
+        // Authenticate the request via CRON_SECRET bearer token
         const authHeader = request.headers.get('authorization')
-        if (process.env.CRON_SECRET && authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+        if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 

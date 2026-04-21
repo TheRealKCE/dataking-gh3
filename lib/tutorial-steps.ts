@@ -53,7 +53,7 @@ export function getDashboardTutorialSteps(userRole: UserRole): DriveStep[] {
     // Welcome
     {
       popover: {
-        title: userRole === 'agent' ? '👋 Welcome Agent!' : '👋 Welcome to KingFlexy Data!',
+        title: userRole === 'agent' ? '👋 Welcome Agent!' : '👋 Welcome to ARHMS Data!',
         description: `
           <div>
             <p>${userRole === 'agent' ? 'Welcome to your Agent Dashboard! Let\'s explore the features available to you.' : 'Let\'s take a quick tour of your dashboard and learn how to use the platform.'}</p>

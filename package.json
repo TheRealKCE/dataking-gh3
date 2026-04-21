@@ -1,7 +1,8 @@
 {
-  "name": "ghdata",
+  "name": "arhms",
   "version": "1.0.0",
   "private": true,
+  "description": "ARHMS DATA LTD - Ghana Data Bundle Reselling Platform",
   "scripts": {
     "dev": "next dev",
     "build": "next build",

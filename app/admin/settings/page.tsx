@@ -73,13 +73,13 @@ export default function AdminSettingsPage() {
             setAfaPriceCustomer(settingsMap.afa_price_customer || '15')
             setAfaPriceAgent(settingsMap.afa_price_agent || '15')
             setSupportEmail(settingsMap.support_email || '')
-            setGuestStorefrontUrl(settingsMap.guest_storefront_url || 'https://kingflexygh.com/shop/felix-s-shop')
+            setGuestStorefrontUrl(settingsMap.guest_storefront_url || 'https://ARHMS.com/shop/felix-s-shop')
             setWhatsappGroupLink(settingsMap.whatsapp_group_link || '')
             setWhatsappChannelLink(settingsMap.whatsapp_channel_link || '')
             setWhatsappAdminNumber(settingsMap.whatsapp_admin_number || '')
             setWhatsappCommunityLink(settingsMap.whatsapp_community_link || '')
-            setFooterCopyrightText(settingsMap.footer_copyright_text || `2025 KING FLEXY DATA LIMITED`)
-            setFooterBrandingText(settingsMap.footer_branding_text || 'KingFlexyGh')
+            setFooterCopyrightText(settingsMap.footer_copyright_text || `2025 ARHMS DATA LIMITED`)
+            setFooterBrandingText(settingsMap.footer_branding_text || 'ARHMS')
             setAutoFulfillment(settingsMap.auto_fulfillment_enabled === 'true')
 
             // Initialize page access values
@@ -186,7 +186,7 @@ export default function AdminSettingsPage() {
                                 <Input
                                     value={supportEmail}
                                     onChange={(e) => setSupportEmail(e.target.value)}
-                                    placeholder="support@kingflexydataltd.com"
+                                    placeholder="support@ARHMSdataltd.com"
                                 />
                             </div>
                         </CardContent>
@@ -248,7 +248,7 @@ export default function AdminSettingsPage() {
                                 <Input
                                     value={guestStorefrontUrl}
                                     onChange={(e) => setGuestStorefrontUrl(e.target.value)}
-                                    placeholder="https://kingflexygh.com/shop/your-shop"
+                                    placeholder="https://ARHMS.com/shop/your-shop"
                                 />
                                 <p className="text-xs text-muted-foreground">Changes to this link will instantly update the unauthenticated app pages.</p>
                             </div>
@@ -266,7 +266,7 @@ export default function AdminSettingsPage() {
                                 <Input
                                     value={footerCopyrightText}
                                     onChange={(e) => setFooterCopyrightText(e.target.value)}
-                                    placeholder="e.g. 2025 KING FLEXY DATA LIMITED"
+                                    placeholder="e.g. 2025 ARHMS DATA LIMITED"
                                 />
                                 <p className="text-xs text-muted-foreground">Used on Dashboard and Admin footer: © [Text]. All rights reserved.</p>
                             </div>
@@ -275,7 +275,7 @@ export default function AdminSettingsPage() {
                                 <Input
                                     value={footerBrandingText}
                                     onChange={(e) => setFooterBrandingText(e.target.value)}
-                                    placeholder="e.g. KingFlexyGh"
+                                    placeholder="e.g. ARHMS"
                                 />
                                 <p className="text-xs text-muted-foreground">Plain text label shown on shop footers: Powered by [Text].</p>
                             </div>

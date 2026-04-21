@@ -55,18 +55,16 @@ export function DashboardHeader() {
     return (
         <header className={cn(
             "fixed top-0 left-0 z-40 h-16 backdrop-blur-xl border-b transition-all duration-300 ease-in-out",
-            "w-full lg:left-80 lg:w-[calc(100%-20rem)]",
+            "w-full lg:left-[240px] lg:w-[calc(100%-240px)]",
             isCollapsed && "lg:left-20 lg:w-[calc(100%-5rem)]",
-            dbUser?.role === 'agent'
-                ? "bg-gradient-to-b from-yellow-400 via-amber-500 to-amber-600 border-amber-600/20 shadow-sm"
-                : "bg-white/80 dark:bg-gray-900/80 border-gray-200 dark:border-gray-800"
+            "bg-white/80 dark:bg-[#111111]/90 border-[#e2e8f0] dark:border-[#1f1f1f]"
         )}>
             <div className="h-full px-4 lg:px-8 pl-14 lg:pl-16 flex items-center justify-between">
                 {/* Mobile Menu Button */}
                 <Button
                     variant="ghost"
                     size="icon"
-                    className="lg:hidden bg-[#FFCE00] hover:bg-[#E6B800] text-black shrink-0 border border-black/10 shadow-sm transition-colors"
+                    className="lg:hidden bg-indigo-600 hover:bg-indigo-700 text-white shrink-0 border border-indigo-700 shadow-sm transition-colors"
                     onClick={toggleSidebar}
                 >
                     <Menu className="w-5 h-5 text-black" />
@@ -74,16 +72,10 @@ export function DashboardHeader() {
 
                 {/* Welcome Message */}
                 <div className="hidden lg:block">
-                    <h1 className={cn(
-                        "text-lg font-semibold",
-                        dbUser?.role === 'agent' ? "text-black drop-shadow-sm font-bold" : "text-gray-900 dark:text-white"
-                    )}>
+                    <h1 className="text-lg font-heading font-semibold text-slate-900 dark:text-white">
                         Welcome back, {dbUser?.first_name || 'User'}! 👋
                     </h1>
-                    <p className={cn(
-                        "text-sm",
-                        dbUser?.role === 'agent' ? "text-black/80 font-medium" : "text-gray-500 dark:text-gray-400"
-                    )}>
+                    <p className="text-sm text-slate-500 dark:text-zinc-400">
                         Here's what's happening with your account
                     </p>
                 </div>
@@ -112,10 +104,7 @@ export function DashboardHeader() {
                         >
                             <Bell className={cn("w-5 h-5", dbUser?.role === 'agent' ? "text-black" : "text-gray-500 dark:text-gray-400")} />
                             {unreadCount > 0 && (
-                                <span className={cn(
-                                    "absolute -top-1 -right-1 w-5 h-5 text-xs rounded-full flex items-center justify-center",
-                                    dbUser?.role === 'agent' ? "bg-black text-[#FFCE00]" : "bg-red-500 text-white"
-                                )}>
+                                <span className="absolute -top-1 -right-1 w-5 h-5 text-xs rounded-full flex items-center justify-center bg-indigo-600 text-white">
                                     {unreadCount > 9 ? '9+' : unreadCount}
                                 </span>
                             )}

@@ -174,7 +174,7 @@ export default function AdminAfaManagementPage() {
                 `Submitted On     : ${format(new Date(app.created_at), 'dd MMM yyyy, hh:mm a')}`,
                 '',
                 '============================================',
-                'Submitted via KingFlexy Dashboard',
+                'Submitted via ARHMS Dashboard',
                 '============================================',
             ]
 

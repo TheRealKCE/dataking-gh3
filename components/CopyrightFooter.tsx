@@ -41,8 +41,8 @@ export function CopyrightFooter({
     }, [initialSettings])
     
     // Fallbacks for settings
-    const footerText = settings?.footer_copyright_text || `2025 KING FLEXY DATA LIMITED`
-    const brandingText = settings?.footer_branding_text || 'KingFlexyGh'
+    const footerText = settings?.footer_copyright_text || `2025 ARHMS DATA LIMITED`
+    const brandingText = settings?.footer_branding_text || 'ARHMS'
 
     return (
         <footer className={cn(

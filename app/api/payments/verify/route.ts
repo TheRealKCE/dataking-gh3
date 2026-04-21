@@ -1,10 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { processCompletedWalletPayment } from '@/lib/payments'
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { cookies } from 'next/headers'
 
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY!
 
 export async function GET(request: NextRequest) {
     try {
+        // Auth check — only the wallet owner (an authenticated user) may trigger verification
+        const cookieStore = await cookies()
+        const supabase = createRouteHandlerClient({ cookies: () => cookieStore as any })
+        const { data: { user }, error: authError } = await supabase.auth.getUser()
+
+        if (authError || !user) {
+            return NextResponse.json(
+                { error: 'Unauthorized' },
+                { status: 401 }
+            )
+        }
+
         const { searchParams } = new URL(request.url)
         const reference = searchParams.get('reference')
         const isInline = request.headers.get('accept')?.includes('application/json')

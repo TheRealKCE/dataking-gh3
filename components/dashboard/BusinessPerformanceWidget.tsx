@@ -161,7 +161,7 @@ export function BusinessPerformanceWidget() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
             
             {/* Success Rate Circle */}
-            <Card className="bg-white dark:bg-gray-950/50 border-2 shadow-sm overflow-hidden group">
+            <Card className="bg-white dark:bg-[#111111] border border-slate-200 dark:border-[#1f1f1f] shadow-sm overflow-hidden group">
                 <CardContent className="p-5 flex items-center gap-5">
                     <div className="relative w-16 h-16 flex items-center justify-center shrink-0">
                         <svg className="w-full h-full -rotate-90 transform" viewBox="0 0 36 36">
@@ -175,7 +175,7 @@ export function BusinessPerformanceWidget() {
                             />
                             {/* Progress Circle */}
                             <path
-                                className="text-blue-500 transition-all duration-1000 ease-out"
+                                className="text-indigo-500 transition-all duration-1000 ease-out"
                                 strokeWidth="4"
                                 strokeDasharray={`${data.successRate}, 100`}
                                 strokeLinecap="round"
@@ -199,7 +199,7 @@ export function BusinessPerformanceWidget() {
             </Card>
 
             {/* Revenue Block */}
-            <Card className="bg-white dark:bg-gray-950/50 border-2 shadow-sm relative overflow-hidden group">
+            <Card className="bg-white dark:bg-[#111111] border border-slate-200 dark:border-[#1f1f1f] shadow-sm relative overflow-hidden group">
                 <div className="absolute -right-6 -top-6 w-24 h-24 bg-gradient-to-br from-emerald-100 to-emerald-200 dark:from-emerald-900/30 dark:to-emerald-800/30 rounded-full blur-2xl opacity-50 group-hover:opacity-100 transition-opacity" />
                 <CardContent className="p-5 flex flex-col justify-center h-full relative z-10">
                     <div className="flex items-center gap-2 mb-2 text-muted-foreground">
@@ -224,7 +224,7 @@ export function BusinessPerformanceWidget() {
             </Card>
 
             {/* 7-Day Trend Sparkline */}
-            <Card className="bg-white dark:bg-gray-950/50 border-2 shadow-sm font-sans flex flex-col">
+            <Card className="bg-white dark:bg-[#111111] border border-slate-200 dark:border-[#1f1f1f] shadow-sm font-sans flex flex-col">
                 <CardContent className="p-5 flex flex-col h-full justify-between">
                     <div className="flex items-center justify-between mb-3">
                         <div className="flex items-center gap-1.5 text-muted-foreground">

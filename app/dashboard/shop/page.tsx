@@ -215,7 +215,7 @@ export default function ShopOverviewPage() {
         }
     }, [dbUser, isAdmin, isSubAdmin, filter])
 
-    const shopUrl = shop ? `https://kingflexygh.com/shop/${shop.shop_slug}` : ''
+    const shopUrl = shop ? `https://ARHMS.com/shop/${shop.shop_slug}` : ''
 
     const copyLink = async () => {
         await navigator.clipboard.writeText(shopUrl)

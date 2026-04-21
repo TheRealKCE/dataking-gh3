@@ -13,8 +13,8 @@ interface Announcement {
     created_at: string
 }
 
-const STORAGE_KEY = 'kingflexy_last_viewed_announcements'
-const HIDE_KEY = 'kingflexy_bell_dismissed_at'
+const STORAGE_KEY = 'ARHMS_last_viewed_announcements'
+const HIDE_KEY = 'ARHMS_bell_dismissed_at'
 
 export function AnnouncementBell() {
     const [isOpen, setIsOpen] = useState(false)
@@ -222,7 +222,7 @@ export function AnnouncementBell() {
                 <div className="p-4 bg-gray-50/80 dark:bg-gray-900/50 text-center border-t border-gray-100 dark:border-gray-800/50">
                     <p className="text-[10px] text-gray-400 dark:text-gray-500 font-bold tracking-wider uppercase flex items-center justify-center gap-2">
                         <span className="w-1 h-1 bg-primary rounded-full"></span>
-                        Stay Connected • KingFlexy
+                        Stay Connected • ARHMS
                         <span className="w-1 h-1 bg-primary rounded-full"></span>
                     </p>
                 </div>

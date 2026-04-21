@@ -72,7 +72,7 @@ export default function ResetPasswordPage() {
                             <div className="w-full h-full rounded-2xl bg-slate-900 flex items-center justify-center shadow-xl">
                                 <Image
                                     src="/logo.png"
-                                    alt="KING FLEXY DATA LTD"
+                                    alt="ARHMS DATA LTD"
                                     fill
                                     className="object-contain p-2"
                                     priority
@@ -80,7 +80,7 @@ export default function ResetPasswordPage() {
                             </div>
                         </div>
                         <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight drop-shadow-lg">
-                            KING FLEXY DATA LTD
+                            ARHMS DATA LTD
                         </h1>
                         <p className="text-base text-white/80 mt-1 drop-shadow">
                             Reset your password
@@ -121,7 +121,7 @@ export default function ResetPasswordPage() {
                                 <Button
                                     type="submit"
                                     disabled={isLoading || lockoutMinutes !== null}
-                                    className="w-full h-12 text-base font-bold bg-[#0056B3] hover:bg-[#004494] text-white shadow-lg rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                                    className="w-full h-12 text-base font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg rounded-xl disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     {lockoutMinutes !== null ? (
                                         `Locked — try again in ${lockoutMinutes}m`
@@ -151,7 +151,7 @@ export default function ResetPasswordPage() {
                         )}
 
                         <div className="mt-5 text-center">
-                            <Link href="/auth/login" className="text-base text-[#0056B3] font-semibold hover:underline">
+                            <Link href="/auth/login" className="text-base text-indigo-500 font-semibold hover:underline">
                                 ← Back to Login
                             </Link>
                         </div>

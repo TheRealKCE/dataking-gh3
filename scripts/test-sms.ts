@@ -14,7 +14,7 @@ async function testSMS() {
 
     // Test with a sample phone number
     const testPhone = '0501234567' // Replace with a real test number
-    const testMessage = 'Hello from King Flexy Data! This is a test message from your SMS service.'
+    const testMessage = 'Hello from ARHMS Data! This is a test message from your SMS service.'
 
     console.log('Test Configuration:')
     console.log('- Phone:', testPhone)

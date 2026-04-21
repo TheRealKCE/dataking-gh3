@@ -40,7 +40,7 @@ export function SuspendedAccount() {
                     </div>
 
                     <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-bold pt-4 border-t border-slate-100 dark:border-slate-800">
-                        KingFlexyGh Support System
+                        ARHMS Support System
                     </p>
                 </CardContent>
             </Card>

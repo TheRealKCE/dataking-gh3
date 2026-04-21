@@ -2,7 +2,7 @@
  * Brevo Email Service
  * 
  * This service handles all transactional emails using Brevo (formerly Sendinblue).
- * Premium high-end email templates for KING FLEXY DATA LTD.
+ * Premium high-end email templates for ARHMS DATA LTD.
  */
 
 // @ts-ignore - Brevo SDK doesn't have complete type definitions
@@ -18,8 +18,8 @@ apiInstance.setApiKey(SibApiV3Sdk.TransactionalEmailsApiApiKeys.apiKey, process.
 
 // Sender configuration
 const DEFAULT_SENDER = {
-    name: process.env.BREVO_SENDER_NAME || 'KING FLEXY DATA LTD',
-    email: process.env.BREVO_SENDER_EMAIL || 'kingflexydatalimited@gmail.com'
+    name: process.env.BREVO_SENDER_NAME || 'ARHMS DATA LTD',
+    email: process.env.BREVO_SENDER_EMAIL || 'ARHMSdatalimited@gmail.com'
 }
 
 interface SendEmailOptions {
@@ -429,7 +429,7 @@ function generatePremiumTemplate(title: string, content: string, accentColor: st
                     <div class="logo-icon">
                         <span class="logo-text">K</span>
                     </div>
-                    <div class="brand-name">KING FLEXY DATA</div>
+                    <div class="brand-name">ARHMS DATA</div>
                     <div class="brand-tagline">Premium Data Solutions</div>
                 </div>
             </div>
@@ -440,14 +440,14 @@ function generatePremiumTemplate(title: string, content: string, accentColor: st
                 <div class="footer-links">
                     <a href="${process.env.NEXT_PUBLIC_APP_URL}" class="footer-link">Website</a>
                     <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard" class="footer-link">Dashboard</a>
-                    <a href="mailto:kingflexydatalimited@gmail.com" class="footer-link">Support</a>
+                    <a href="mailto:ARHMSdatalimited@gmail.com" class="footer-link">Support</a>
                 </div>
                 <p class="footer-text">
                     Questions? Reply to this email or contact us at<br>
-                    <strong>kingflexydatalimited@gmail.com</strong>
+                    <strong>ARHMSdatalimited@gmail.com</strong>
                 </p>
                 <p class="footer-copyright">
-                    © ${new Date().getFullYear()} KING FLEXY DATA LTD. All rights reserved.<br>
+                    © ${new Date().getFullYear()} ARHMS DATA LTD. All rights reserved.<br>
                     Ghana's Premium Data Reseller Platform
                 </p>
             </div>
@@ -473,7 +473,7 @@ export async function sendWelcomeEmail(
         <p class="subtitle">Your premium data journey begins now</p>
         
         <p class="message-text">
-            Thank you for joining <strong>KING FLEXY DATA LTD</strong> – Ghana's most trusted 
+            Thank you for joining <strong>ARHMS DATA LTD</strong> – Ghana's most trusted 
             premium data reseller platform. Your account has been successfully created and 
             you're now part of an exclusive community.
         </p>
@@ -518,7 +518,7 @@ export async function sendWelcomeEmail(
     return sendEmail({
         to: email,
         toName: firstName,
-        subject: `Welcome to KING FLEXY DATA LTD, ${firstName}! 🎉`,
+        subject: `Welcome to ARHMS DATA LTD, ${firstName}! 🎉`,
         htmlContent: generatePremiumTemplate('Welcome', content)
     })
 }
@@ -888,7 +888,7 @@ export async function sendAdminNewComplaintAlert(
         priority: string
     }
 ): Promise<EmailResult> {
-    const adminEmail = process.env.ADMIN_EMAIL || 'kingflexydatalimited@gmail.com'
+    const adminEmail = process.env.ADMIN_EMAIL || 'ARHMSdatalimited@gmail.com'
 
     const content = `
         <h1 class="greeting">New Complaint Alert 🚨</h1>
@@ -958,7 +958,7 @@ export async function sendPermanentAgentUpgradeSuccessEmail(
     email: string,
     firstName: string
 ): Promise<EmailResult> {
-    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.kingflexygh.com'
+    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.ARHMSgh.com'
     const content = `
         <h1 class="greeting">Permanent Agent Unlocked! 💎</h1>
         <p class="subtitle">Lifetime access to premium data rates</p>
@@ -969,7 +969,7 @@ export async function sendPermanentAgentUpgradeSuccessEmail(
         
         <div class="highlight-box">
             <p class="highlight-text">
-                👑 You now have <strong>unlimited, lifetime access</strong> to King Flexy Data's lowest agent pricing. Your account will never expire, and you will never need to renew your subscription again.
+                👑 You now have <strong>unlimited, lifetime access</strong> to ARHMS Data's lowest agent pricing. Your account will never expire, and you will never need to renew your subscription again.
             </p>
         </div>
         
@@ -1257,7 +1257,7 @@ export async function sendAdminNewUserAlert(
         phoneNumber: string
     }
 ): Promise<EmailResult> {
-    const adminEmail = process.env.ADMIN_EMAIL || 'kingflexydatalimited@gmail.com'
+    const adminEmail = process.env.ADMIN_EMAIL || 'ARHMSdatalimited@gmail.com'
 
     const content = `
         <h1 class="greeting">New User Registration! 👤</h1>
@@ -1313,7 +1313,7 @@ export async function sendShopPricingApprovedEmail(
     firstName: string,
     shopName: string
 ): Promise<EmailResult> {
-    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.kingflexygh.com'
+    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.ARHMSgh.com'
     const content = `
         <h1 class="greeting">Pricing Approved! ✅</h1>
         <p class="subtitle">Your shop prices are now live</p>
@@ -1336,7 +1336,7 @@ export async function sendShopPricingRejectedEmail(
     shopName: string,
     reason: string
 ): Promise<EmailResult> {
-    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.kingflexygh.com'
+    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.ARHMSgh.com'
     const content = `
         <h1 class="greeting">Pricing Needs Revision ⚠️</h1>
         <p class="subtitle">Your pricing submission was returned</p>
@@ -1357,10 +1357,10 @@ export async function sendShopProfileApprovedEmail(
     firstName: string,
     shopName: string
 ): Promise<EmailResult> {
-    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.kingflexygh.com'
+    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.ARHMSgh.com'
     const content = `
         <h1 class="greeting">Your Shop is Approved! 🎉</h1>
-        <p class="subtitle">Welcome to the King Flexy Shop Network</p>
+        <p class="subtitle">Welcome to the ARHMS Shop Network</p>
         <p class="message-text">Hi ${firstName}, your shop <strong>${shopName}</strong> has been approved. Set your prices to go live!</p>
         <div class="info-card">
             <div class="info-card-header"><div class="info-card-icon">🚀</div><span class="info-card-title">Next Steps</span></div>
@@ -1383,7 +1383,7 @@ export async function sendShopProfileRejectedEmail(
     shopName: string,
     reason: string
 ): Promise<EmailResult> {
-    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.kingflexygh.com'
+    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.ARHMSgh.com'
     const content = `
         <h1 class="greeting">Shop Application — Action Required ❌</h1>
         <p class="subtitle">Your shop application needs attention</p>
@@ -1407,7 +1407,7 @@ export async function sendShopWithdrawalProcessedEmail(
     momoNumber: string,
     network: string
 ): Promise<EmailResult> {
-    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.kingflexygh.com'
+    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.ARHMSgh.com'
     const content = `
         <h1 class="greeting">Payout Successful! 💰</h1>
         <p class="subtitle">Your funds have been sent</p>
@@ -1424,7 +1424,7 @@ export async function sendShopWithdrawalProcessedEmail(
             <div class="info-row"><span class="info-label">Date</span><span class="info-value">${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span></div>
         </div>
         <div style="text-align: center; margin: 25px 0;"><span class="status-badge status-success">Completed</span></div>
-        <p class="message-text">Thank you for selling with KingFlexyGh. Keep growing!</p>
+        <p class="message-text">Thank you for selling with ARHMSGh. Keep growing!</p>
         <div class="cta-container"><a href="${siteUrl}/dashboard/shop/withdraw" class="cta-button">View Withdrawal History</a></div>
     `
     return sendEmail({ to: email, toName: firstName, subject: `💰 Net Payout of GH${netAmount.toFixed(2)} Sent — ${shopName}`, htmlContent: generatePremiumTemplate('Payout Successful', content, '#10b981') })
@@ -1440,7 +1440,7 @@ export async function sendShopWithdrawalRejectedEmail(
     amount: number,
     adminNote: string
 ): Promise<EmailResult> {
-    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.kingflexygh.com'
+    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.ARHMSgh.com'
     const content = `
         <h1 class="greeting">Withdrawal Request — Action Required ⚠️</h1>
         <p class="subtitle">Your withdrawal request was not approved</p>
@@ -1467,8 +1467,8 @@ export async function sendShopWithdrawalRejectedEmail(
 export async function sendAdminShopPricingSubmissionAlert(details: {
     shopName: string; ownerName: string; ownerEmail: string; shopId: string; date: string
 }): Promise<EmailResult> {
-    const adminEmail = process.env.ADMIN_EMAIL || 'kingflexydatalimited@gmail.com'
-    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.kingflexygh.com'
+    const adminEmail = process.env.ADMIN_EMAIL || 'ARHMSdatalimited@gmail.com'
+    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.ARHMSgh.com'
     const content = `
         <h1 class="greeting">New Pricing Submission 🔔</h1>
         <p class="subtitle">A shop owner has submitted pricing for review</p>
@@ -1490,8 +1490,8 @@ export async function sendAdminShopPricingSubmissionAlert(details: {
 export async function sendAdminNewShopRegistrationAlert(details: {
     shopName: string; ownerName: string; ownerEmail: string; date: string
 }): Promise<EmailResult> {
-    const adminEmail = process.env.ADMIN_EMAIL || 'kingflexydatalimited@gmail.com'
-    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.kingflexygh.com'
+    const adminEmail = process.env.ADMIN_EMAIL || 'ARHMSdatalimited@gmail.com'
+    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.ARHMSgh.com'
     const content = `
         <h1 class="greeting">New Shop Registration 🏪</h1>
         <p class="subtitle">A new shop is awaiting your approval</p>
@@ -1524,8 +1524,8 @@ export async function sendAdminShopWithdrawalRequestAlert(details: {
     shopId: string
     isResubmission?: boolean
 }): Promise<EmailResult> {
-    const adminEmail = process.env.ADMIN_EMAIL || 'kingflexydatalimited@gmail.com'
-    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.kingflexygh.com'
+    const adminEmail = process.env.ADMIN_EMAIL || 'ARHMSdatalimited@gmail.com'
+    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.ARHMSgh.com'
     const badge = details.isResubmission
         ? `<div style="text-align:center;margin:20px 0;"><span style="background:#7c3aed;color:#fff;padding:6px 16px;border-radius:50px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">♻️ Resubmission</span></div>`
         : ''
@@ -1563,8 +1563,8 @@ export async function sendAdminNewAfaApplicationAlert(details: {
     phone: string
     region: string
 }, toEmail?: string): Promise<EmailResult> {
-    const adminEmail = toEmail || process.env.ADMIN_EMAIL || 'kingflexydatalimited@gmail.com'
-    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.kingflexygh.com'
+    const adminEmail = toEmail || process.env.ADMIN_EMAIL || 'ARHMSdatalimited@gmail.com'
+    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.ARHMSgh.com'
     const content = `
         <h1 class="greeting">New AFA Membership Application 🔔</h1>
         <p class="subtitle">A new application has been submitted for review</p>
@@ -1625,7 +1625,7 @@ export async function sendAdminAirtimeOrderEmail(details: {
         const adminEmails = new Set<string>()
         
         // Add default/support email
-        const supportEmail = (settings as any)?.value?.replace(/"/g, '') || process.env.ADMIN_EMAIL || 'kingflexydatalimited@gmail.com'
+        const supportEmail = (settings as any)?.value?.replace(/"/g, '') || process.env.ADMIN_EMAIL || 'ARHMSdatalimited@gmail.com'
         adminEmails.add(supportEmail)
 
         // Add all fetched main admins
@@ -1640,7 +1640,7 @@ export async function sendAdminAirtimeOrderEmail(details: {
             return { success: false, error: 'No recipients found' }
         }
 
-        const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://kingflexygh.com'
+        const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://ARHMSgh.com'
         
         // Helper to parse numbers if string
         const parseNum = (val: any) => typeof val === 'string' ? parseFloat(val) : val;

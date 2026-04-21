@@ -155,14 +155,16 @@ export async function POST(request: NextRequest) {
 
         if (orderError) {
             console.error('Order creation error:', orderError)
-            // Refund the deducted amount since order failed
-            await (supabase.from('wallets') as any)
-                .update({
-                    balance: (newBalance ?? 0) + priceToCharge,
-                    total_spent: (walletRow?.new_total_spent ?? 0) - priceToCharge,
-                    updated_at: new Date().toISOString(),
+            // Refund the deducted amount atomically since order failed
+            const { error: refundError } = await (supabase as any)
+                .rpc('credit_wallet_balance', {
+                    p_user_id: userId,
+                    p_amount: priceToCharge
                 })
-                .eq('id', walletId)
+
+            if (refundError) {
+                console.error('CRITICAL: Refund RPC failed', refundError)
+            }
             return NextResponse.json({ error: 'Failed to create order' }, { status: 500 })
         }
 

@@ -94,7 +94,7 @@ export default function UpdatePasswordPage() {
                             <div className="w-full h-full rounded-2xl bg-slate-900 flex items-center justify-center shadow-xl">
                                 <Image
                                     src="/logo.png"
-                                    alt="KING FLEXY DATA LTD"
+                                    alt="ARHMS DATA LTD"
                                     fill
                                     className="object-contain p-2"
                                     priority
@@ -102,7 +102,7 @@ export default function UpdatePasswordPage() {
                             </div>
                         </div>
                         <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight drop-shadow-lg">
-                            KING FLEXY DATA LTD
+                            ARHMS DATA LTD
                         </h1>
                         <p className="text-base text-white/80 mt-1 drop-shadow">
                             Set a new password
@@ -123,7 +123,7 @@ export default function UpdatePasswordPage() {
                                     This password reset link has expired or is invalid. Please request a new one.
                                 </p>
                                 <Link href="/auth/reset-password">
-                                    <Button className="w-full h-12 text-base font-bold bg-[#0056B3] hover:bg-[#004494] text-white shadow-lg rounded-xl">
+                                    <Button className="w-full h-12 text-base font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg rounded-xl">
                                         Request a New Link
                                     </Button>
                                 </Link>
@@ -133,7 +133,7 @@ export default function UpdatePasswordPage() {
                         {/* Loading session check */}
                         {isValidSession === null && (
                             <div className="flex justify-center items-center py-10">
-                                <Loader2 className="w-8 h-8 animate-spin text-[#0056B3]" />
+                                <Loader2 className="w-8 h-8 animate-spin text-indigo-600" />
                             </div>
                         )}
 
@@ -147,7 +147,7 @@ export default function UpdatePasswordPage() {
                                 <p className="text-slate-600 text-sm">
                                     Your password has been changed. Redirecting you to login...
                                 </p>
-                                <Loader2 className="w-5 h-5 animate-spin text-[#0056B3] mx-auto" />
+                                <Loader2 className="w-5 h-5 animate-spin text-indigo-600 mx-auto" />
                             </div>
                         )}
 
@@ -215,7 +215,7 @@ export default function UpdatePasswordPage() {
                                 <Button
                                     type="submit"
                                     disabled={isLoading}
-                                    className="w-full h-12 text-base font-bold bg-[#0056B3] hover:bg-[#004494] text-white shadow-lg rounded-xl"
+                                    className="w-full h-12 text-base font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg rounded-xl"
                                 >
                                     {isLoading ? (
                                         <>
@@ -233,7 +233,7 @@ export default function UpdatePasswordPage() {
                         )}
 
                         <div className="mt-5 text-center">
-                            <Link href="/auth/login" className="text-base text-[#0056B3] font-semibold hover:underline">
+                            <Link href="/auth/login" className="text-base text-indigo-500 font-semibold hover:underline">
                                 ← Back to Login
                             </Link>
                         </div>

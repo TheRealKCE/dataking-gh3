@@ -151,8 +151,8 @@ export async function initiateTransfer(
         const accountNumber = getAccountNumber()
         const headers = getAuthHeaders()
 
-        // Build the reference: "KingFlexy - {shop_name truncated to 20 chars}"
-        const reference = `KingFlexy - ${params.shopName.substring(0, 20)}`
+        // Build the reference: "ARHMS - {shop_name truncated to 20 chars}"
+        const reference = `ARHMS - ${params.shopName.substring(0, 20)}`
 
         const body: Record<string, unknown> = {
             type: 1,

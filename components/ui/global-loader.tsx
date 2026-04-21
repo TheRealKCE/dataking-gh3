@@ -68,7 +68,7 @@ export function GlobalLoader() {
 
                 <div className="text-center space-y-3">
                     <h3 className="text-lg font-medium text-white/90 tracking-[0.2em] uppercase animate-pulse">
-                        KingFlexyGh
+                        ARHMS
                     </h3>
                     <p className="text-xs text-white/50 font-light">
                         Loading Experience...

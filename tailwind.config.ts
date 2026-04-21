@@ -25,12 +25,12 @@ const config = {
                 background: "hsl(var(--background))",
                 foreground: "hsl(var(--foreground))",
                 primary: {
-                    DEFAULT: "hsl(var(--primary))",
-                    foreground: "hsl(var(--primary-foreground))",
+                    DEFAULT: '#4F46E5',
+                    foreground: '#ffffff',
                 },
                 secondary: {
-                    DEFAULT: "hsl(var(--secondary))",
-                    foreground: "hsl(var(--secondary-foreground))",
+                    DEFAULT: '#7C3AED',
+                    foreground: '#ffffff',
                 },
                 destructive: {
                     DEFAULT: "hsl(var(--destructive))",
@@ -41,8 +41,8 @@ const config = {
                     foreground: "hsl(var(--muted-foreground))",
                 },
                 accent: {
-                    DEFAULT: "hsl(var(--accent))",
-                    foreground: "hsl(var(--accent-foreground))",
+                    DEFAULT: '#0D9488',
+                    foreground: '#ffffff',
                 },
                 popover: {
                     DEFAULT: "hsl(var(--popover))",
@@ -51,6 +51,19 @@ const config = {
                 card: {
                     DEFAULT: "hsl(var(--card))",
                     foreground: "hsl(var(--card-foreground))",
+                },
+                brand: {
+                    dark: '#0A0A0A',
+                    surface: '#111111',
+                    border: '#1f1f1f',
+                    light: '#F8FAFC',
+                    'light-surface': '#ffffff',
+                    'light-border': '#e2e8f0',
+                },
+                network: {
+                    mtn: '#FFCC00',
+                    telecel: '#E30613',
+                    airteltigo: '#ED1C24',
                 },
                 mtn: {
                     DEFAULT: "#FFCC00",
@@ -72,6 +85,10 @@ const config = {
                     DEFAULT: "#F59E0B",
                     foreground: "#FFFFFF",
                 },
+            },
+            fontFamily: {
+                heading: ['Outfit', 'sans-serif'],
+                body: ['Inter', 'sans-serif'],
             },
             borderRadius: {
                 lg: "var(--radius)",

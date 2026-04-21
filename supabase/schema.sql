@@ -1,4 +1,4 @@
--- GHData Database Schema for Supabase
+-- ARHMS Database Schema for Supabase
 -- Run this in the SQL Editor of your Supabase project
 
 -- Enable UUID extension
@@ -206,6 +206,12 @@ ALTER TABLE public.users ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.wallets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.wallet_transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.wallet_payments ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Users can view own payments"
+  ON public.wallet_payments
+  FOR SELECT
+  USING (auth.uid() = user_id);
+
 ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.complaints ENABLE ROW LEVEL SECURITY;
@@ -293,7 +299,7 @@ INSERT INTO public.admin_settings (key, value) VALUES
   ('paystack_fee_percent', '1.95'),
   ('auto_fulfillment_enabled', 'true'),
   ('support_whatsapp', '""'),
-  ('support_email', '"support@ghdata.com"'),
+  ('support_email', '"support@arhmsdata.com"'),
   ('support_phone', '""'),
   ('announcement_enabled', 'false'),
   ('announcement_title', '""'),

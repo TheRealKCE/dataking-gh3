@@ -169,7 +169,7 @@ function downloadReceipt(app: AfarOrder) {
         '══════════════════════════════════════════════',
         '  AFA membership is permanent. You do not need',
         '  to register again after completion.',
-        '  Processed by: KingFlexy Dashboard',
+        '  Processed by: ARHMS Dashboard',
         '══════════════════════════════════════════════',
     ]
     const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8' })

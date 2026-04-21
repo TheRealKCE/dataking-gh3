@@ -80,7 +80,7 @@ export function ThemeToggle() {
                     })}
                 </div>
                 <div className="bg-muted/30 p-4 text-[10px] text-center text-muted-foreground font-medium uppercase tracking-widest border-t">
-                    KING FLEXY DATA LTD • UI PRESET
+                    ARHMS DATA LTD • UI PRESET
                 </div>
             </DialogContent>
         </Dialog>

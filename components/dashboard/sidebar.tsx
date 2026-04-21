@@ -172,21 +172,19 @@ export function DashboardSidebar() {
             <aside
                 className={cn(
                     "fixed left-0 top-0 z-50 h-full flex flex-col transition-all duration-300 ease-in-out",
-                    (dbUser?.role === 'agent')
-                        ? "bg-gradient-to-br from-yellow-400 via-amber-500 to-yellow-600 dark:from-yellow-900 dark:via-amber-900 dark:to-yellow-800"
-                        : "bg-[#E5E7EB] dark:bg-[#000000]",
-                    isCollapsed ? "w-20" : "w-80",
+                    "bg-white dark:bg-[#111111] border-r border-[#e2e8f0] dark:border-[#1f1f1f]",
+                    isCollapsed ? "w-20" : "w-[240px]",
                     "transform lg:transform-none",
                     isInternalSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
                 )}
             >
                 {/* Logo Header */}
-                <div className="h-20 flex items-center justify-between px-6 border-b border-gray-300 dark:border-gray-800">
+                <div className="h-16 flex items-center justify-between px-4 border-b border-[#e2e8f0] dark:border-[#1f1f1f]">
                     <Link href="/dashboard" className="flex items-center gap-3 group">
                         <div className="relative w-10 h-10 flex-shrink-0 transition-transform group-hover:scale-110">
                             <Image
                                 src="/logo.png"
-                                alt="KING FLEXY"
+                                alt="ARHMS DATA"
                                 fill
                                 className="object-contain"
                                 priority
@@ -196,11 +194,10 @@ export function DashboardSidebar() {
                             )}
                         </div>
                         {!isCollapsed && (
-                            <div className="flex flex-col transition-transform group-hover:scale-105">
-                                <span className="text-xl font-extrabold tracking-tight text-black dark:text-white font-display drop-shadow-sm">
-                                    KING FLEXY
+                            <div className="flex flex-col">
+                                <span className="font-heading font-bold text-sm text-slate-900 dark:text-white tracking-tight">
+                                    ARHMS DATA
                                 </span>
-                                <span className="text-[11px] font-bold text-[#E60000] -mt-1 tracking-widest drop-shadow-sm">DATA LIMITED</span>
                             </div>
                         )}
                     </Link>
@@ -380,22 +377,17 @@ export function DashboardSidebar() {
                                 }}>
                                     <div
                                         className={cn(
-                                            "flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-all duration-200",
+                                            "flex items-center gap-2.5 px-3 py-2 rounded-md transition-all duration-200",
                                             isActive
-                                                ? dbUser?.role === 'agent'
-                                                    ? "bg-black text-[#FFCE00] shadow-lg"
-                                                    : "bg-yellow-500/20 dark:bg-yellow-500/10 text-yellow-600 dark:text-yellow-400"
-                                                : dbUser?.role === 'agent'
-                                                    ? "text-black hover:text-[#FFCE00] hover:bg-black/10"
-                                                    : "text-gray-600 dark:text-gray-400 hover:bg-gray-300/60 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-gray-200",
+                                                ? "bg-indigo-600 text-white shadow-sm"
+                                                : "text-slate-600 dark:text-zinc-400 hover:bg-indigo-500/10 hover:text-slate-900 dark:hover:text-white",
                                             isCollapsed && "justify-center px-2"
                                         )}
                                     >
                                         <item.icon className={cn(
-                                            "w-5 h-5 flex-shrink-0",
-                                            isActive && (dbUser?.role === 'agent' ? "text-[#FFCE00]" : "text-yellow-600 dark:text-yellow-400")
+                                            "w-4 h-4 flex-shrink-0",
                                         )} />
-                                        {!isCollapsed && <span className="text-base font-medium">{item.label}</span>}
+                                        {!isCollapsed && <span className="text-sm font-body font-medium">{item.label}</span>}
                                     </div>
                                 </Link>
                             )
@@ -409,10 +401,10 @@ export function DashboardSidebar() {
                                 if (window.innerWidth < 1024) closeSidebar()
                             }}>
                                 <div className={cn(
-                                    "flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition-all duration-200",
+                                    "flex items-center gap-2.5 px-3 py-2 rounded-md transition-all duration-200",
                                     isActive
-                                        ? "bg-emerald-500/20 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400"
-                                        : "text-gray-600 dark:text-gray-400 hover:bg-gray-300/60 dark:hover:bg-gray-800/60 hover:text-gray-900 dark:hover:text-gray-200",
+                                        ? "bg-indigo-600 text-white shadow-sm"
+                                        : "text-slate-600 dark:text-zinc-400 hover:bg-indigo-500/10 hover:text-slate-900 dark:hover:text-white",
                                     isCollapsed && "justify-center px-2"
                                 )}>
                                     <Store className={cn("w-5 h-5 flex-shrink-0", isActive && "text-emerald-600 dark:text-emerald-400")} />

@@ -227,9 +227,9 @@ export async function POST(request: NextRequest) {
         const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY
         if (!PAYSTACK_SECRET_KEY) return NextResponse.json({ error: 'Payment service unavailable' }, { status: 503 })
 
-        const paystackEmail = validatedGuestEmail || `guest-${cleanPhone}-${Date.now()}@shop.kingflexygh.com`
+        const paystackEmail = validatedGuestEmail || `guest-${cleanPhone}-${Date.now()}@shop.ARHMS.com`
         const paystackRef = `SHOP-${shop.id.slice(0, 8)}-${Date.now()}`
-        const callbackUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://kingflexygh.com'}/api/shop/verify?ref=${paystackRef}&slug=${shopSlug}`
+        const callbackUrl = `${process.env.NEXT_PUBLIC_APP_URL || 'https://ARHMS.com'}/api/shop/verify?ref=${paystackRef}&slug=${shopSlug}`
 
         const idemKey = `${shop.id}-${cleanPhone}-${totalAmount}`
         const cachedIdem = idempotencyCache.get(idemKey)
