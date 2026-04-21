@@ -153,7 +153,7 @@ export default function ShopWithdrawPage() {
         try {
             const db = supabase as any
             const [walletRes, historyRes, settingsRes, shopRes, savedRes] = await Promise.all([
-                db.from('shop_wallets').select('*').eq('owner_id', dbUser!.id).single(),
+                db.from('shop_wallets').select('*').eq('owner_id', dbUser!.id).maybeSingle(),
                 db.from('shop_wallet_transactions')
                     .select('*')
                     .eq('type', 'withdrawal')
@@ -163,7 +163,7 @@ export default function ShopWithdrawPage() {
                 db.from('shop_profiles')
                     .select('shop_name, withdrawal_fee_percent, withdrawal_fee_flat, min_withdrawal_amount')
                     .eq('owner_id', dbUser!.id)
-                    .single(),
+                    .maybeSingle(),
                 db.from('shop_payment_details')
                     .select('*')
                     .eq('shop_owner_id', dbUser!.id)

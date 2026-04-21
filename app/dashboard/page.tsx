@@ -194,7 +194,7 @@ export default function DashboardPage() {
                 ])
                 : Promise.resolve(null),
             isApproved
-                ? (supabase as any).from('shop_wallets').select('*').eq('owner_id', dbUser?.id).single()
+                ? (supabase as any).from('shop_wallets').select('*').eq('owner_id', dbUser?.id).maybeSingle()
                 : Promise.resolve({ data: null })
         ])
 

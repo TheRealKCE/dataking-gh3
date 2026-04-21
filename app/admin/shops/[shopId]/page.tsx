@@ -147,7 +147,7 @@ export default function AdminShopDetailPage() {
                 setIsActive(s.is_active ?? true)
 
                 // Now fetch wallet by owner_id
-                const walletRes2 = await (supabase as any).from('shop_wallets').select('*').eq('owner_id', s.owner_id).single()
+                const walletRes2 = await (supabase as any).from('shop_wallets').select('*').eq('owner_id', s.owner_id).maybeSingle()
                 if (walletRes2.data) setWallet(walletRes2.data)
             }
             setOrderCount(ordersRes.count || 0)

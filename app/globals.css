@@ -231,8 +231,9 @@
 
   .scrollbar-hide {
     -ms-overflow-style: none;
-    /* scrollbar-width has limited support; webkit fallback below handles Safari */
-    scrollbar-width: none; /* stylelint-disable-line */
+  }
+  @supports (scrollbar-width: none) {
+    .scrollbar-hide { scrollbar-width: none; }
   }
 
   .scrollbar-hide::-webkit-scrollbar {

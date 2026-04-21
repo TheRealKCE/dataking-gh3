@@ -143,7 +143,7 @@ export default function ShopOverviewPage() {
         }
 
         const [walletSettled, ordersSettled] = await Promise.allSettled([
-            (supabase as any).from('shop_wallets').select('*').eq('owner_id', dbUser!.id).single(),
+            (supabase as any).from('shop_wallets').select('*').eq('owner_id', dbUser!.id).maybeSingle(),
             query.order('created_at', { ascending: false }),
         ])
 
@@ -370,7 +370,7 @@ export default function ShopOverviewPage() {
                                 <Button onClick={copyLink} variant="secondary" className="flex-1 sm:flex-none h-10 sm:h-9 bg-white dark:bg-zinc-900 text-emerald-600 gap-2 rounded-xl font-bold">
                                     {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />} {copied ? 'Copied!' : 'Copy Link'}
                                 </Button>
-                                <a href={shopUrl} target="_blank" rel="noopener noreferrer"><Button className="w-full sm:w-9 h-10 sm:h-9 bg-emerald-600 text-white rounded-xl"><ExternalLink className="w-4 h-4" /></Button></a>
+                                <a href={shopUrl} target="_blank" rel="noopener noreferrer" aria-label="Visit shop"><Button className="w-full sm:w-9 h-10 sm:h-9 bg-emerald-600 text-white rounded-xl"><ExternalLink className="w-4 h-4" /></Button></a>
                             </div>
                         </div>
                     )}
@@ -426,7 +426,7 @@ export default function ShopOverviewPage() {
                     </div>
                     <div className="bg-white dark:bg-zinc-950 rounded-3xl border border-gray-200 dark:border-gray-800 p-5 space-y-4">
                         <div className="flex items-center gap-2 font-bold text-sm"><MessageCircle className="w-4 h-4 text-emerald-600" /> Storefront Notice</div>
-                        <textarea className="w-full min-h-[100px] p-3 text-sm rounded-xl border border-gray-100 dark:border-zinc-800 bg-gray-50 focus:ring-1 focus:ring-emerald-500" value={annMsg} onChange={(e) => setAnnMsg(e.target.value)} disabled={adminAnnActive} />
+                        <textarea aria-label="Storefront Notice" placeholder="Write a notice for your storefront..." className="w-full min-h-[100px] p-3 text-sm rounded-xl border border-gray-100 dark:border-zinc-800 bg-gray-50 focus:ring-1 focus:ring-emerald-500" value={annMsg} onChange={(e) => setAnnMsg(e.target.value)} disabled={adminAnnActive} />
                         <Button className="w-full bg-black text-white rounded-xl h-10 font-bold" onClick={handleSaveAnnouncement} disabled={adminAnnActive || !annMsg.trim()}>Save Notice</Button>
                     </div>
                 </div>

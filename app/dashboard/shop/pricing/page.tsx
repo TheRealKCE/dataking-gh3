@@ -80,7 +80,7 @@ export default function ShopPricingPage() {
                 .from('shop_profiles')
                 .select('id, shop_name, owner_id, approval_status, pricing_status, pricing_note, pricing_rejection_acknowledged, airtime_fee_mtn, airtime_fee_telecel, airtime_fee_at')
                 .eq('owner_id', dbUser!.id)
-                .single())
+                .maybeSingle())
 
             if (shopData && shopData.owner_id) {
                 const { data: uData } = await (supabase as any).from('users').select('role').eq('id', shopData.owner_id).single()
