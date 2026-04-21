@@ -75,7 +75,7 @@ const config = {
                 brand: {
                     dark: '#0A0A0A',
                     surface: '#1a1a1a',
-                    surface-light: '#252525',
+                    'surface-light': '#252525',
                     border: '#2d2d2d',
                     light: '#F8FAFC',
                     'light-surface': '#ffffff',

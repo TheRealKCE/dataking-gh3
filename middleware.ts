@@ -9,8 +9,9 @@ import { Ratelimit } from '@upstash/ratelimit'
 // NEVER add a wildcard (*) here. Never reflect the raw Origin.
 // ============================================================
 const ALLOWED_ORIGINS: ReadonlySet<string> = new Set([
-    'https://arhmsdata.com',
-    'https://www.arhmsdata.com',
+    'https://arhms-data-ltd.vercel.app',
+    'http://localhost:3000',
+    'http://localhost:8081',
 ])
 
 // ============================================================
