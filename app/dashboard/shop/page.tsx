@@ -176,9 +176,10 @@ export default function ShopOverviewPage() {
         setLoading(false)
     }
 
-    const fetchShopAnnouncement = async () => {
+    const fetchShopAnnouncement = async (signal?: AbortSignal) => {
         try {
-            const res = await fetch('/api/shop/announcements')
+            const res = await fetch('/api/shop/announcements', { signal })
+            if (signal?.aborted) return
             const data = await res.json()
             if (data.announcement) {
                 setShopAnnouncement(data.announcement)
@@ -186,7 +187,7 @@ export default function ShopOverviewPage() {
             }
 
             // Also check if admin has one active to show "Locked" state
-            const { data: adminAnn } = await supabase
+            const { data: adminAnn, error: adminAnnError } = await supabase
                 .from('system_announcements')
                 .select('id')
                 .eq('is_active', true)
@@ -194,9 +195,12 @@ export default function ShopOverviewPage() {
                 .limit(1)
                 .maybeSingle()
 
+            if (adminAnnError?.message?.includes('AbortError')) return
             setAdminAnnActive(!!adminAnn)
-        } catch (err) {
-            console.error('Error fetching announcement:', err)
+        } catch (err: any) {
+            // Silently ignore abort errors — they are expected on unmount/re-render
+            if (err?.name === 'AbortError' || err?.message?.includes('AbortError') || err?.message?.includes('aborted')) return
+            console.error('Error fetching announcements:', err)
         }
     }
 
@@ -211,11 +215,13 @@ export default function ShopOverviewPage() {
         // Shop feature is available to all authenticated users
         if (dbUser) {
             fetchShopData()
-            fetchShopAnnouncement()
+            const controller = new AbortController()
+            fetchShopAnnouncement(controller.signal)
+            return () => controller.abort()
         }
     }, [dbUser, isAdmin, isSubAdmin, filter])
 
-    const shopUrl = shop ? `https://ARHMS.com/shop/${shop.shop_slug}` : ''
+    const shopUrl = shop ? `${process.env.NEXT_PUBLIC_APP_URL || (typeof window !== 'undefined' ? window.location.origin : '')}/shop/${shop.shop_slug}` : ''
 
     const copyLink = async () => {
         await navigator.clipboard.writeText(shopUrl)

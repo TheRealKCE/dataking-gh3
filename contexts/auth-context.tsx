@@ -120,6 +120,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const refreshUser = useCallback(async () => {
         if (user) {
+            // Refresh the JWT session first so the new role is reflected in the token
+            await supabase.auth.refreshSession()
             await fetchDbUser(user.id)
         }
     }, [user, fetchDbUser])

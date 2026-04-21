@@ -13,7 +13,7 @@ interface ShopQuickShareProps {
 
 export function ShopQuickShare({ shopSlug }: ShopQuickShareProps) {
     const [copied, setCopied] = useState(false)
-    const shopUrl = `https://ARHMS.com/shop/${shopSlug}`
+    const shopUrl = `${process.env.NEXT_PUBLIC_APP_URL || (typeof window !== 'undefined' ? window.location.origin : '')}/shop/${shopSlug}`
 
     const handleCopy = async () => {
         try {

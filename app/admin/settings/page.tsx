@@ -73,7 +73,7 @@ export default function AdminSettingsPage() {
             setAfaPriceCustomer(settingsMap.afa_price_customer || '15')
             setAfaPriceAgent(settingsMap.afa_price_agent || '15')
             setSupportEmail(settingsMap.support_email || '')
-            setGuestStorefrontUrl(settingsMap.guest_storefront_url || 'https://ARHMS.com/shop/felix-s-shop')
+            setGuestStorefrontUrl(settingsMap.guest_storefront_url || `${process.env.NEXT_PUBLIC_APP_URL || ''}/shop/demo`)
             setWhatsappGroupLink(settingsMap.whatsapp_group_link || '')
             setWhatsappChannelLink(settingsMap.whatsapp_channel_link || '')
             setWhatsappAdminNumber(settingsMap.whatsapp_admin_number || '')
@@ -248,7 +248,7 @@ export default function AdminSettingsPage() {
                                 <Input
                                     value={guestStorefrontUrl}
                                     onChange={(e) => setGuestStorefrontUrl(e.target.value)}
-                                    placeholder="https://ARHMS.com/shop/your-shop"
+                                    placeholder={`${process.env.NEXT_PUBLIC_APP_URL || ''}/shop/your-shop`}
                                 />
                                 <p className="text-xs text-muted-foreground">Changes to this link will instantly update the unauthenticated app pages.</p>
                             </div>

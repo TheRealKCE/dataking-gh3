@@ -5,7 +5,6 @@ import { Megaphone, Loader2, CheckCircle2 } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
-import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 
 interface ShopAnnouncementBoxProps {
@@ -24,12 +23,20 @@ export function ShopAnnouncementBox({ shopId, currentAnnouncement }: ShopAnnounc
         setIsSaving(true)
         setSaved(false)
         try {
-            const { error } = await (supabase as any)
-                .from('shop_profiles')
-                .update({ announcement: announcement.trim() || null, updated_at: new Date().toISOString() })
-                .eq('id', shopId)
-
-            if (error) throw error
+            if (!announcement.trim()) {
+                // Clear announcement
+                const res = await fetch('/api/shop/announcements', { method: 'DELETE' })
+                if (!res.ok) throw new Error('Failed to remove announcement')
+            } else {
+                // Set announcement
+                const res = await fetch('/api/shop/announcements', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: announcement.trim() })
+                })
+                const data = await res.json()
+                if (!res.ok) throw new Error(data.message || data.error || 'Failed to save announcement')
+            }
 
             setSaved(true)
             toast.success('Announcement updated!')

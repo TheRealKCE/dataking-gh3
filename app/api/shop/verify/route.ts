@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.redirect(new URL(`/shop/${slug || ''}?error=invalid_ref`, request.url))
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://ARHMS.com'
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || ''
 
     try {
         const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY

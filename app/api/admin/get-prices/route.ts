@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
         }
 
         const showStrikethrough = data?.find(s => s.key === 'show_price_strikethrough')?.value === 'true'
-        const guestStorefrontUrl = data?.find(s => s.key === 'guest_storefront_url')?.value || 'https://ARHMS.com/shop/felix-s-shop'
+        const guestStorefrontUrl = data?.find(s => s.key === 'guest_storefront_url')?.value || `${process.env.NEXT_PUBLIC_APP_URL || ''}/shop/demo`
         
         // Add WhatsApp links (No hardcoded fallbacks to prevent leaks and allow hiding)
         const whatsappGroupLink = data?.find(s => s.key === 'whatsapp_group_link')?.value || ''

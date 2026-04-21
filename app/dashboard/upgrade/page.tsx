@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/contexts/auth-context'
 import { supabase } from '@/lib/supabase'
@@ -27,6 +27,7 @@ export default function UpgradePage() {
     const [showCongrats, setShowCongrats] = useState(false)
     const [initialExpiry, setInitialExpiry] = useState<string | null>(null)
     const [showFallbackButton, setShowFallbackButton] = useState(false)
+    const verifyRetryCount = React.useRef(0)
 
     // Prices for tiers
     const [prices, setPrices] = useState({
@@ -103,11 +104,19 @@ export default function UpgradePage() {
                 )
 
                 if (isConfirmed) {
+                    verifyRetryCount.current = 0
                     setShowCongrats(true)
                     setIsVerifying(false)
                     // Clean URL without reloading
                     window.history.replaceState({}, '', '/dashboard/upgrade')
                 } else {
+                    // Guard: after 5 retries, stop polling and show fallback buttons immediately
+                    if (verifyRetryCount.current >= 5) {
+                        setIsVerifying(false)
+                        setShowFallbackButton(true)
+                        return
+                    }
+                    verifyRetryCount.current += 1
                     setIsVerifying(true)
                     // Refresh data or reload until confirmed
                     const timer = setTimeout(() => {
@@ -123,7 +132,8 @@ export default function UpgradePage() {
 
             verifyAndShowCongrats()
         } else {
-            // Reset fallback button if not in success/verifying mode
+            // Reset state if not in success/verifying mode
+            verifyRetryCount.current = 0
             setShowFallbackButton(false)
         }
     }, [searchParams, dbUser, initialExpiry, refreshUser])

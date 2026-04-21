@@ -263,9 +263,8 @@ function WalletContent() {
                                 Send payment via Mobile Money:
                                 <div className="mt-2 space-y-2">
                                     {[
-                                        { label: 'MTN', value: '0551617309' },
-                                        { label: 'Telecel', value: '0507193592' },
-                                        { label: 'Name', value: 'Felix Boahen' }
+                                        { label: 'MTN', value: '0597313605' },
+                                        { label: 'Name', value: 'AWUAH DERRICK' }
                                     ].map((item) => (
                                         <div key={item.label} className="flex items-center justify-between p-2 rounded-lg bg-gray-50 border border-gray-200 group">
                                             <span className="text-xs font-bold text-gray-500 uppercase">{item.label}</span>
@@ -319,7 +318,7 @@ function WalletContent() {
 
                                 <div className="flex flex-wrap items-center gap-6 mt-4">
                                     <Link
-                                        href={`sms:0551617309?body=Please I have sent the money so credit my account for me, account name is: ${dbUser?.first_name} ${dbUser?.last_name || dbUser?.email || 'N/A'}`}
+                                        href={`sms:0597313605?body=Please I have sent the money so credit my account for me, account name is: ${dbUser?.first_name} ${dbUser?.last_name || dbUser?.email || 'N/A'}`}
                                         className="group flex flex-col items-center gap-2"
                                     >
                                         <div className="p-3 rounded-full hover:bg-blue-50 transition-colors">
@@ -328,7 +327,7 @@ function WalletContent() {
                                         <span className="text-[10px] font-bold text-gray-500 uppercase tracking-tighter group-hover:text-[#007AFF]">tap here to send sms</span>
                                     </Link>
                                     <Link
-                                        href={`https://wa.me/233551617309?text=${encodeURIComponent(`Please I have sent the money so credit my account for me, account name is: ${dbUser?.first_name} ${dbUser?.last_name || dbUser?.email || 'N/A'}`)}`}
+                                        href={`https://wa.me/233597313605?text=${encodeURIComponent(`Please I have sent the money so credit my account for me, account name is: ${dbUser?.first_name} ${dbUser?.last_name || dbUser?.email || 'N/A'}`)}`}
                                         target="_blank"
                                         className="group flex flex-col items-center gap-2"
                                     >
