@@ -31,9 +31,9 @@ export function SystemAnnouncementModal() {
                 .eq('is_active', true)
                 .order('created_at', { ascending: false })
                 .limit(1)
-                .single()
+                .maybeSingle()
 
-            if (error && error.code !== 'PGRST116') { // Ignore 'no rows found' error
+            if (error) {
                 console.error('Error fetching announcement:', error)
                 return
             }
