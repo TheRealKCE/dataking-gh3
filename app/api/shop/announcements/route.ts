@@ -17,10 +17,10 @@ export async function GET() {
         .from('shop_profiles')
         .select('id')
         .eq('owner_id', authUser.id)
-        .single()
+        .maybeSingle()
 
     if (!shop) {
-        return NextResponse.json({ error: 'Shop not found' }, { status: 404 })
+        return NextResponse.json({ announcements: [], announcement: null })
     }
 
     const { data: announcement } = await supabase
@@ -62,7 +62,7 @@ export async function POST(req: Request) {
         .from('shop_profiles')
         .select('id')
         .eq('owner_id', authUser.id)
-        .single()
+        .maybeSingle()
 
     if (!shop) {
         return NextResponse.json({ error: 'Shop not found' }, { status: 404 })
@@ -120,7 +120,7 @@ export async function DELETE() {
         .from('shop_profiles')
         .select('id')
         .eq('owner_id', authUser.id)
-        .single()
+        .maybeSingle()
 
     if (!shop) {
         return NextResponse.json({ error: 'Shop not found' }, { status: 404 })
