@@ -3,7 +3,10 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import { Button } from '@/components/ui/button'
+import { Card } from '@/components/ui/card'
+import { cn } from '@/lib/utils'
 import {
     Zap,
     Shield,
@@ -40,297 +43,260 @@ export function LandingClientShell({ initialGuestUrl, initialAdminPhone }: Landi
     }, [router])
 
     return (
-        <div className="min-h-screen bg-brand-dark text-white overflow-x-hidden">
+        <div className="min-h-screen bg-background text-foreground overflow-x-hidden selection:bg-primary/30 selection:text-primary-foreground">
 
-            {/* Navigation */}
-            <nav className={`fixed top-0 w-full z-50 transition-all duration-500 ${headerScrolled
-                ? 'bg-brand-dark/95 backdrop-blur-lg border-b border-brand-border shadow-xl'
-                : 'bg-transparent'
-                }`}>
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex items-center justify-between h-16">
-                        <div className="flex items-center space-x-2">
-                            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-xs font-bold">
-                                A
-                            </div>
-                            <span className="font-heading font-bold text-white text-lg tracking-tight">ARHMS</span>
+            {/* Navigation - Premium Glassmorphism */}
+            <nav className={cn(
+                "fixed top-0 w-full z-[100] transition-all duration-700 h-20 flex items-center",
+                headerScrolled
+                    ? "bg-background/80 backdrop-blur-2xl border-b border-border/40 shadow-premium"
+                    : "bg-transparent"
+            )}>
+                <div className="max-w-7xl mx-auto px-6 lg:px-10 w-full flex items-center justify-between">
+                    <div className="flex items-center gap-3 group cursor-pointer">
+                        <div className="w-10 h-10 rounded-2xl bg-primary flex items-center justify-center shadow-blue-premium transition-transform group-hover:scale-110">
+                            <Image src="/logo.png" alt="A" width={24} height={24} className="object-contain" />
                         </div>
-                        <div className="flex items-center space-x-3">
-                            <Link href="/auth/login">
-                                <Button variant="ghost" className="text-gray-400 hover:text-white hover:bg-white/5 font-medium transition-all duration-300">
-                                    Login
-                                </Button>
-                            </Link>
-                            <Link href="/auth/signup">
-                                <Button className="bg-gradient-to-r from-primary to-primary/80 hover:shadow-gold text-primary-foreground font-semibold rounded-xl px-6 transition-all duration-300">
-                                    Get Started
-                                </Button>
-                            </Link>
-                        </div>
+                        <span className="font-heading font-black text-2xl tracking-tighter text-foreground group-hover:text-primary transition-colors">
+                            ARHMS <span className="text-primary">DATA</span>
+                        </span>
+                    </div>
+                    
+                    <div className="hidden md:flex items-center gap-8">
+                        <a href="#features" className="text-xs font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors">Features</a>
+                        <a href="#networks" className="text-xs font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors">Networks</a>
+                        <a href="#support" className="text-xs font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors">Support</a>
+                    </div>
+
+                    <div className="flex items-center gap-4">
+                        <Link href="/auth/login">
+                            <Button variant="ghost" className="hidden sm:flex text-xs font-black uppercase tracking-widest hover:bg-secondary/50">
+                                Login
+                            </Button>
+                        </Link>
+                        <Link href="/auth/signup">
+                            <Button className="bg-primary text-primary-foreground font-black uppercase tracking-widest text-[10px] h-12 px-8 rounded-2xl shadow-blue-premium hover:scale-105 active:scale-95 transition-all">
+                                Open Account
+                            </Button>
+                        </Link>
                     </div>
                 </div>
             </nav>
 
-            {/* SECTION 1 — SPLIT HERO */}
-            <section className="pt-32 pb-20 px-4 sm:px-6 lg:px-8">
-                <div className="max-w-7xl mx-auto">
-                    <div className="grid lg:grid-cols-2 gap-16 items-center">
+            {/* Hero Section — Cinematic & Professional */}
+            <section className="relative pt-40 pb-32 px-6 lg:px-10 overflow-hidden">
+                {/* Visual Anchors */}
+                <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-primary/10 rounded-full blur-[120px] -mr-96 -mt-96 pointer-events-none" />
+                <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-secondary/5 rounded-full blur-[100px] -ml-72 -mb-72 pointer-events-none" />
 
-                        {/* Left Column */}
-                        <div className="flex flex-col space-y-8">
-                            <div className="badge-luxury">
-                                <Zap className="w-3.5 h-3.5" />
-                                Ghana&apos;s Premium Data Reselling Platform
-                            </div>
+                <div className="max-w-7xl mx-auto relative z-10">
+                    <div className="flex flex-col items-center text-center space-y-10">
+                        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/50 border border-border/50 backdrop-blur-md animate-slow-fade">
+                            <Zap className="w-4 h-4 text-primary fill-primary" />
+                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/80">Ghana&apos;s #1 Reselling Terminal</span>
+                        </div>
 
-                            <div>
-                                <h1 className="font-heading font-bold text-5xl md:text-7xl leading-tight text-white text-left mb-6">
-                                    Power Your <span className="gradient-text">Business</span>
-                                </h1>
-                                <p className="font-body text-lg text-gray-300 max-w-lg leading-relaxed">
-                                    Buy and resell MTN, Telecel &amp; AirtelTigo bundles instantly with industry-leading rates and premium support.
-                                </p>
-                            </div>
+                        <div className="space-y-6 max-w-4xl">
+                            <h1 className="font-heading font-black text-6xl md:text-8xl lg:text-9xl tracking-tighter leading-[0.9] text-foreground">
+                                Scale Your <br />
+                                <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-primary/80 to-primary/60">Digital Assets</span>
+                            </h1>
+                            <p className="max-w-2xl mx-auto text-lg md:text-xl font-medium text-muted-foreground/80 leading-relaxed">
+                                Join the elite network of data resellers in Ghana. Deploy instant bundles, track every pesewa, and manage your business from a state-of-the-art terminal.
+                            </p>
+                        </div>
 
-                            <div className="flex flex-col sm:flex-row gap-4 pt-4">
-                                <Link href="/auth/signup">
-                                    <Button className="btn-luxury bg-gradient-to-r from-primary to-primary/90 hover:shadow-gold text-primary-foreground font-semibold rounded-xl px-8 py-3 h-auto text-base w-full sm:w-auto">
-                                        Get Started Free
-                                        <ArrowRight className="ml-2 w-4 h-4" />
-                                    </Button>
-                                </Link>
-                                <Link href="/auth/login">
-                                    <Button className="btn-luxury border-2 border-primary/30 hover:border-primary/60 text-primary hover:bg-primary/10 font-semibold rounded-xl px-8 py-3 h-auto text-base w-full sm:w-auto transition-all duration-300">
-                                        View Packages
-                                    </Button>
-                                </Link>
-                            </div>
-
-                            {initialAdminPhone && (
-                                <a
-                                    href={`https://wa.me/${initialAdminPhone}`}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex w-fit items-center space-x-2 px-4 py-2 rounded-xl bg-[#25D366]/10 border border-[#25D366]/30 text-[#25D366] hover:bg-[#25D366]/20 transition-all duration-300 text-sm font-semibold"
-                                >
-                                    <span>💬 WhatsApp Support Available 24/7</span>
-                                </a>
-                            )}
-
-                            <a href={initialGuestUrl} className="link-luxury text-sm font-medium flex items-center gap-2 group">
-                                <Store className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-                                Try as Guest (No Account Required)
+                        <div className="flex flex-col sm:flex-row gap-5 pt-6 w-full sm:w-auto">
+                            <Link href="/auth/signup" className="w-full sm:w-auto">
+                                <Button className="w-full sm:w-auto h-16 px-12 rounded-2xl bg-primary text-primary-foreground font-black text-lg uppercase tracking-widest shadow-blue-premium hover:scale-105 active:scale-95 transition-all">
+                                    Get Started Free
+                                    <ArrowRight className="ml-3 w-5 h-5 stroke-[3]" />
+                                </Button>
+                            </Link>
+                            <a href={initialGuestUrl} className="w-full sm:w-auto">
+                                <Button variant="outline" className="w-full sm:w-auto h-16 px-12 rounded-2xl border-border/50 bg-background/50 backdrop-blur-md font-black text-lg uppercase tracking-widest hover:bg-secondary/50 transition-all">
+                                    <Store className="mr-3 w-5 h-5" />
+                                    Guest Store
+                                </Button>
                             </a>
                         </div>
 
-                        {/* Right Column — Premium Stats Cluster */}
-                        <div className="grid grid-cols-1 gap-5 animate-fadeIn">
-                            {[
-                                { label: '50K+', sublabel: 'Orders Fulfilled', icon: BarChart3, color: 'from-primary to-primary/60', glow: 'shadow-gold' },
-                                { label: '3 Networks', sublabel: 'MTN · Telecel · AT', icon: Layers, color: 'from-secondary to-secondary/60', glow: 'shadow-xl' },
-                                { label: 'Instant', sublabel: 'Delivery Speed', icon: Zap, color: 'from-accent to-accent/60', glow: 'shadow-xl' },
-                            ].map((stat, idx) => (
-                                <div
-                                    key={stat.label}
-                                    className={`glass-effect rounded-2xl p-7 flex items-center gap-5 ${stat.glow} transition-all duration-500 hover:shadow-gold hover:border-primary/30 group`}
-                                    style={{ animationDelay: `${idx * 100}ms` }}
-                                >
-                                    <div className={`w-14 h-14 rounded-xl bg-gradient-to-br ${stat.color} flex items-center justify-center flex-shrink-0 shadow-lg`}>
-                                        <stat.icon className="w-7 h-7 text-white" />
-                                    </div>
-                                    <div className="text-left">
-                                        <div className="font-heading font-bold text-2xl text-white group-hover:text-primary transition-colors">{stat.label}</div>
-                                        <div className="font-body text-sm text-gray-400">{stat.sublabel}</div>
-                                    </div>
-                                </div>
-                            ))}
+                        {/* Social Proof */}
+                        <div className="pt-12 flex flex-col items-center gap-6">
+                            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-muted-foreground opacity-50">Trusted by over 50,000 users</p>
+                            <div className="flex flex-wrap justify-center items-center gap-8 md:gap-16 opacity-30 grayscale hover:grayscale-0 transition-all duration-500">
+                                <span className="font-black text-2xl tracking-tighter">PAYSTACK</span>
+                                <span className="font-black text-2xl tracking-tighter">MTN</span>
+                                <span className="font-black text-2xl tracking-tighter">TELECEL</span>
+                                <span className="font-black text-2xl tracking-tighter">AT</span>
+                            </div>
                         </div>
                     </div>
                 </div>
             </section>
 
-            {/* SECTION 2 — TRUST BAR */}
-            <section className="divider-luxury py-6">
-                <p className="text-center text-sm text-gray-500 font-body tracking-widest uppercase font-semibold">
-                    Secured by Paystack &nbsp;·&nbsp; MTN &nbsp;·&nbsp; Telecel &nbsp;·&nbsp; AirtelTigo
-                </p>
-            </section>
-
-            {/* SECTION 3 — FEATURES GRID */}
-            <section className="section-luxury px-4 sm:px-6 lg:px-8">
+            {/* Features Grid — Structured Excellence */}
+            <section id="features" className="py-32 px-6 lg:px-10 bg-secondary/20">
                 <div className="max-w-7xl mx-auto">
-                    <div className="text-center mb-16">
-                        <h2 className="font-heading font-bold text-4xl md:text-5xl text-white mb-4">
-                            Why Choose <span className="gradient-text">ARHMS</span>?
-                        </h2>
-                        <p className="font-body text-lg text-gray-400 max-w-2xl mx-auto">
-                            Premium features built for agents, resellers, and everyday buyers across Ghana
-                        </p>
+                    <div className="text-center mb-24 space-y-4">
+                        <h2 className="text-xs font-black uppercase tracking-[0.5em] text-primary">Capabilities</h2>
+                        <h3 className="text-4xl md:text-6xl font-black tracking-tighter text-foreground">Engineered for <span className="text-primary">Performance</span></h3>
                     </div>
 
-                    <div className="grid md:grid-cols-3 gap-6">
+                    <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
                         {[
-                            {
-                                icon: Zap,
-                                title: 'Lightning Fast',
-                                description: 'Orders delivered in seconds with 99.9% uptime guaranteed',
-                            },
-                            {
-                                icon: BarChart3,
-                                title: 'Best Rates',
-                                description: 'Competitive wholesale pricing with exclusive agent tiers',
-                            },
-                            {
-                                icon: Store,
-                                title: 'Your Store',
-                                description: 'Branded storefront URL to scale your reselling business',
-                            },
-                            {
-                                icon: Wallet,
-                                title: 'Smart Wallet',
-                                description: 'Top up once, order anytime with instant balance updates',
-                            },
-                            {
-                                icon: Shield,
-                                title: 'Real-time Tracking',
-                                description: 'Live order status from placement to customer delivery',
-                            },
-                            {
-                                icon: HeadphonesIcon,
-                                title: 'Premium Support',
-                                description: 'Dedicated WhatsApp and email support 24/7',
-                            },
-                        ].map((feature, idx) => (
-                            <div
-                                key={feature.title}
-                                className="card-luxury p-8 group hover:scale-105 transition-all duration-500"
-                                style={{ animationDelay: `${idx * 50}ms` }}
-                            >
-                                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary/30 to-secondary/30 flex items-center justify-center mb-5 group-hover:from-primary/50 group-hover:to-secondary/50 transition-all">
-                                    <feature.icon className="w-6 h-6 text-primary" />
+                            { icon: Zap, title: 'Instant Delivery', desc: 'Proprietary routing ensures data hits the target number in under 3 seconds.' },
+                            { icon: BarChart3, title: 'Elite Pricing', desc: 'Wholesale rates optimized for maximum profit margins on every transaction.' },
+                            { icon: Store, title: 'Branded Stores', desc: 'Launch your own white-label storefront and build your independent brand.' },
+                            { icon: Wallet, title: 'Unified Wallet', desc: 'Secure, high-speed funding with instant balance settlement across all networks.' },
+                            { icon: Shield, title: 'Enterprise Security', desc: 'Military-grade encryption and real-time fraud monitoring for every order.' },
+                            { icon: HeadphonesIcon, title: '24/7 Command', desc: 'Dedicated terminal support via WhatsApp and secure internal ticketing.' },
+                        ].map((feature, i) => (
+                            <div key={i} className="card-premium p-10 group hover:border-primary/50 transition-all duration-500">
+                                <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mb-8 group-hover:bg-primary transition-colors">
+                                    <feature.icon className="w-6 h-6 text-primary group-hover:text-primary-foreground transition-colors" />
                                 </div>
-                                <h3 className="font-heading font-bold text-lg text-white mb-3 group-hover:text-primary transition-colors">{feature.title}</h3>
-                                <p className="font-body text-sm text-gray-400 leading-relaxed">{feature.description}</p>
+                                <h4 className="text-2xl font-black text-foreground mb-4 tracking-tight">{feature.title}</h4>
+                                <p className="text-muted-foreground font-medium leading-relaxed">{feature.desc}</p>
                             </div>
                         ))}
                     </div>
                 </div>
             </section>
 
-            {/* SECTION 4 — NETWORKS GRID */}
-            <section className="section-luxury px-4 sm:px-6 lg:px-8 bg-brand-surface/50">
+            {/* Network Section — High Visibility */}
+            <section id="networks" className="py-32 px-6 lg:px-10">
                 <div className="max-w-7xl mx-auto">
-                    <div className="text-center mb-16">
-                        <h2 className="font-heading font-bold text-4xl md:text-5xl text-white mb-4">
-                            Supported <span className="gradient-text">Networks</span>
-                        </h2>
-                        <p className="font-body text-lg text-gray-400">All major Ghanaian networks with premium coverage</p>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-                        {[
-                            {
-                                name: 'MTN',
-                                subtitle: 'Mobile Data Bundles',
-                                borderColor: 'border-l-4 border-mtn',
-                                textColor: 'text-mtn',
-                            },
-                            {
-                                name: 'Telecel',
-                                subtitle: 'Data & Airtime',
-                                borderColor: 'border-l-4 border-telecel',
-                                textColor: 'text-telecel',
-                            },
-                            {
-                                name: 'AirtelTigo',
-                                subtitle: 'Data Bundles',
-                                borderColor: 'border-l-4 border-airteltigo',
-                                textColor: 'text-airteltigo',
-                            },
-                        ].map((network) => (
-                            <div
-                                key={network.name}
-                                className={`card-luxury ${network.borderColor} p-8 text-center hover:scale-105 transition-transform`}
-                            >
-                                <h3 className={`font-heading font-bold text-3xl mb-2 ${network.textColor}`}>{network.name}</h3>
-                                <p className="font-body text-sm text-gray-400">{network.subtitle}</p>
+                    <div className="grid lg:grid-cols-2 gap-20 items-center">
+                        <div className="space-y-10">
+                            <div className="space-y-6">
+                                <h2 className="text-5xl md:text-7xl font-black tracking-tighter leading-none">
+                                    Universal <br />
+                                    <span className="text-primary">Connectivity.</span>
+                                </h2>
+                                <p className="text-xl text-muted-foreground font-medium max-w-lg">
+                                    One terminal, every network. We provide deep integration with all major Ghanaian carriers.
+                                </p>
                             </div>
-                        ))}
+                            
+                            <div className="space-y-4">
+                                {[
+                                    { name: 'MTN Ghana', status: 'Optimal', color: 'bg-yellow-400' },
+                                    { name: 'Telecel Ghana', status: 'Stable', color: 'bg-red-500' },
+                                    { name: 'AirtelTigo', status: 'Stable', color: 'bg-blue-500' },
+                                ].map((net, i) => (
+                                    <div key={i} className="flex items-center justify-between p-6 rounded-2xl bg-secondary/50 border border-border/50">
+                                        <div className="flex items-center gap-4">
+                                            <div className={cn("w-3 h-3 rounded-full animate-pulse", net.color)} />
+                                            <span className="font-bold text-lg">{net.name}</span>
+                                        </div>
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-primary">{net.status}</span>
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="relative">
+                            <div className="absolute inset-0 bg-primary/20 rounded-3xl blur-[100px] -z-10" />
+                            <Card className="card-premium p-10 overflow-hidden relative">
+                                <div className="absolute top-0 right-0 p-8 opacity-10">
+                                    <Layers className="w-40 h-40" />
+                                </div>
+                                <div className="relative z-10 space-y-8">
+                                    <div className="space-y-2">
+                                        <p className="text-[10px] font-black uppercase tracking-[0.4em] text-primary">System Status</p>
+                                        <p className="text-4xl font-black">99.9% Uptime</p>
+                                    </div>
+                                    <div className="grid grid-cols-2 gap-8">
+                                        <div>
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Response Time</p>
+                                            <p className="text-2xl font-black">1.2s</p>
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-1">Success Rate</p>
+                                            <p className="text-2xl font-black">99.98%</p>
+                                        </div>
+                                    </div>
+                                    <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
+                                        <div className="h-full w-[99%] bg-primary shadow-gold" />
+                                    </div>
+                                </div>
+                            </Card>
+                        </div>
                     </div>
                 </div>
             </section>
 
-            {/* SECTION 5 — CTA BANNER */}
-            <section className="section-luxury px-4 sm:px-6 lg:px-8">
-                <div className="max-w-5xl mx-auto">
-                    <div className="relative overflow-hidden rounded-3xl p-12 md:p-16 bg-gradient-to-br from-primary/20 via-secondary/10 to-brand-dark border border-primary/30 shadow-gold-lg">
-                        {/* Decorative background */}
-                        <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary/10 rounded-full blur-3xl"></div>
-                        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-secondary/10 rounded-full blur-3xl"></div>
+            {/* Final CTA — The Close */}
+            <section className="py-32 px-6 lg:px-10">
+                <div className="max-w-7xl mx-auto">
+                    <Card className="relative overflow-hidden rounded-[40px] border-0 bg-foreground p-12 md:p-24 text-background text-center shadow-2xl">
+                        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-primary/20 rounded-full blur-[100px] -mr-64 -mt-64" />
                         
-                        <div className="relative z-10">
-                            <h2 className="font-heading font-bold text-4xl md:text-5xl text-white mb-6 text-center leading-tight">
-                                Ready to Start <span className="gradient-text">Earning Today?</span>
+                        <div className="relative z-10 space-y-12">
+                            <h2 className="text-5xl md:text-8xl font-black tracking-tighter leading-[0.9]">
+                                Ready to Upgrade <br />
+                                <span className="text-primary">Your Business?</span>
                             </h2>
-                            <p className="font-body text-lg text-gray-300 max-w-2xl mx-auto mb-10 text-center">
-                                Join thousands of successful agents earning daily with ARHMS DATA. Get started with instant wallet top-up and begin reselling within minutes.
+                            <p className="max-w-2xl mx-auto text-xl font-medium opacity-70">
+                                Stop struggling with slow deliveries and poor rates. Step into the future of data reselling with ARHMS DATA Terminal.
                             </p>
-                            <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                                <Link href="/auth/signup">
-                                    <Button className="btn-luxury bg-gradient-to-r from-primary to-primary/90 hover:shadow-gold-lg text-primary-foreground font-bold rounded-xl px-10 py-4 h-auto text-lg w-full sm:w-auto">
-                                        Create Free Account
-                                        <ArrowRight className="ml-2 w-5 h-5" />
+                            <div className="flex flex-col sm:flex-row gap-6 justify-center">
+                                <Link href="/auth/signup" className="w-full sm:w-auto">
+                                    <Button className="w-full sm:w-auto h-20 px-16 rounded-3xl bg-primary text-primary-foreground font-black text-xl uppercase tracking-widest shadow-blue-premium hover:scale-105 active:scale-95 transition-all">
+                                        Create Account
                                     </Button>
                                 </Link>
-                                <Link href="/auth/login">
-                                    <Button className="btn-luxury border-2 border-white/30 hover:border-white/60 text-white hover:bg-white/10 font-semibold rounded-xl px-10 py-4 h-auto text-lg w-full sm:w-auto transition-all">
-                                        Login
+                                <Link href="/auth/login" className="w-full sm:w-auto">
+                                    <Button variant="outline" className="w-full sm:w-auto h-20 px-16 rounded-3xl border-background/20 bg-background/5 text-background font-black text-xl uppercase tracking-widest hover:bg-background/10 transition-all">
+                                        Sign In
                                     </Button>
                                 </Link>
                             </div>
                         </div>
-                    </div>
+                    </Card>
                 </div>
             </section>
 
-            {/* SECTION 6 — FOOTER */}
-            <footer className="border-t border-brand-border py-12 px-4">
+            {/* Footer — Professional & Detailed */}
+            <footer className="py-20 px-6 lg:px-10 border-t border-border/40">
                 <div className="max-w-7xl mx-auto">
-                    <div className="grid md:grid-cols-2 gap-8 mb-8">
-                        <div>
-                            <div className="flex items-center space-x-2 mb-4">
-                                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-xs font-bold text-primary-foreground">
-                                    A
+                    <div className="grid md:grid-cols-4 gap-16 mb-20">
+                        <div className="md:col-span-2 space-y-8">
+                            <div className="flex items-center gap-3">
+                                <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center shadow-gold">
+                                    <Image src="/logo.png" alt="A" width={20} height={20} className="object-contain" />
                                 </div>
-                                <span className="font-heading font-bold text-white text-lg">ARHMS</span>
+                                <span className="font-heading font-black text-xl tracking-tighter">ARHMS DATA</span>
                             </div>
-                            <p className="font-body text-gray-400 max-w-xs">
-                                Ghana&apos;s leading premium data reselling platform. Buy, resell, and earn.
+                            <p className="text-muted-foreground font-medium max-w-sm">
+                                The definitive platform for digital asset reselling in West Africa. Built for speed, security, and absolute reliability.
                             </p>
                         </div>
-                        <div className="grid grid-cols-2 gap-8">
-                            <div>
-                                <h4 className="font-heading font-semibold text-white mb-4">Product</h4>
-                                <ul className="space-y-2 font-body text-sm text-gray-400">
-                                    <li><a href="#" className="link-luxury">Features</a></li>
-                                    <li><a href="#" className="link-luxury">Pricing</a></li>
-                                    <li><a href="#" className="link-luxury">Networks</a></li>
-                                </ul>
-                            </div>
-                            <div>
-                                <h4 className="font-heading font-semibold text-white mb-4">Support</h4>
-                                <ul className="space-y-2 font-body text-sm text-gray-400">
-                                    <li><a href="#" className="link-luxury">Help Center</a></li>
-                                    <li><a href="#" className="link-luxury">Contact</a></li>
-                                    <li><a href="#" className="link-luxury">Status</a></li>
-                                </ul>
-                            </div>
+                        <div className="space-y-6">
+                            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-primary">Terminal</p>
+                            <ul className="space-y-4 text-sm font-bold text-muted-foreground">
+                                <li><a href="#" className="hover:text-primary transition-colors">Platform Features</a></li>
+                                <li><a href="#" className="hover:text-primary transition-colors">Pricing Structure</a></li>
+                                <li><a href="#" className="hover:text-primary transition-colors">Network Status</a></li>
+                            </ul>
+                        </div>
+                        <div className="space-y-6">
+                            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-primary">Legal</p>
+                            <ul className="space-y-4 text-sm font-bold text-muted-foreground">
+                                <li><Link href="/terms" className="hover:text-primary transition-colors">Terms of Service</Link></li>
+                                <li><Link href="/privacy" className="hover:text-primary transition-colors">Privacy Protocol</Link></li>
+                                <li><Link href="/contact" className="hover:text-primary transition-colors">Secure Contact</Link></li>
+                            </ul>
                         </div>
                     </div>
-                    <div className="divider-luxury my-8"></div>
-                    <p className="text-center font-body text-sm text-gray-500">
-                        © 2025 ARHMS DATA LTD. All rights reserved.
-                    </p>
+                    <div className="flex flex-col md:flex-row justify-between items-center gap-8 pt-10 border-t border-border/40 opacity-50">
+                        <p className="text-[10px] font-black uppercase tracking-widest">© 2025 ARHMS DATA LTD • ALL RIGHTS RESERVED</p>
+                        <div className="flex gap-8 text-[10px] font-black uppercase tracking-widest">
+                            <span>WEST AFRICA</span>
+                            <span>HQ: ACCRA, GHANA</span>
+                        </div>
+                    </div>
                 </div>
             </footer>
 

@@ -54,118 +54,102 @@ export function DashboardHeader() {
 
     return (
         <header className={cn(
-            "fixed top-0 left-0 z-40 h-16 backdrop-blur-xl border-b transition-all duration-300 ease-in-out",
-            "w-full lg:left-[240px] lg:w-[calc(100%-240px)]",
-            isCollapsed && "lg:left-20 lg:w-[calc(100%-5rem)]",
-            "bg-white/80 dark:bg-[#111111]/90 border-[#e2e8f0] dark:border-[#1f1f1f]"
+            "fixed top-0 right-0 z-40 h-20 transition-all duration-300 ease-in-out",
+            "bg-background/80 backdrop-blur-xl border-b border-border/50",
+            isCollapsed ? "left-20" : "left-[260px]",
+            "lg:left-auto lg:right-0",
+            !isCollapsed ? "lg:w-[calc(100%-260px)]" : "lg:w-[calc(100%-80px)]",
+            "w-full"
         )}>
-            <div className="h-full px-4 lg:px-8 pl-14 lg:pl-16 flex items-center justify-between">
-                {/* Mobile Menu Button */}
-                <Button
-                    variant="ghost"
-                    size="icon"
-                    className="lg:hidden bg-indigo-600 hover:bg-indigo-700 text-white shrink-0 border border-indigo-700 shadow-sm transition-colors"
-                    onClick={toggleSidebar}
-                >
-                    <Menu className="w-5 h-5 text-black" />
-                </Button>
-
-                {/* Welcome Message */}
-                <div className="hidden lg:block">
-                    <h1 className="text-lg font-heading font-semibold text-slate-900 dark:text-white">
-                        Welcome back, {dbUser?.first_name || 'User'}! 👋
-                    </h1>
-                    <p className="text-sm text-slate-500 dark:text-zinc-400">
-                        Here's what's happening with your account
-                    </p>
+            <div className="h-full px-6 lg:px-10 flex items-center justify-between">
+                {/* Left Side: Context / Welcome */}
+                <div className="flex items-center gap-4">
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        className="lg:hidden text-foreground"
+                        onClick={toggleSidebar}
+                    >
+                        <Menu className="w-5 h-5" />
+                    </Button>
+                    
+                    <div className="hidden sm:block">
+                        <h1 className="text-xl font-heading font-black tracking-tight text-foreground">
+                            Welcome, <span className="text-primary">{dbUser?.first_name || 'User'}</span>
+                        </h1>
+                        <p className="text-xs font-medium text-muted-foreground tracking-wide uppercase">
+                            Platform Overview • {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}
+                        </p>
+                    </div>
                 </div>
 
-                {/* Right Side Actions */}
-                <div className="flex items-center gap-2">
-                    <ThemeToggle />
+                {/* Right Side: Actions & Profile */}
+                <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2 pr-4 border-r border-border/50">
+                        <ThemeToggle />
+                        <Link href="/dashboard/notifications">
+                            <Button
+                                variant="ghost"
+                                size="icon"
+                                className="relative text-muted-foreground hover:text-foreground hover:bg-secondary/10"
+                            >
+                                <Bell className="w-5 h-5" />
+                                {unreadCount > 0 && (
+                                    <span className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full ring-2 ring-background animate-pulse" />
+                                )}
+                            </Button>
+                        </Link>
+                    </div>
 
-                    {/* Role Badge */}
-                    <Badge
-                        className="hidden sm:flex text-xs"
-                        style={{
-                            backgroundColor: currentRole.color,
-                            color: isSubAdmin ? 'black' : 'white'
-                        }}
-                    >
-                        {currentRole.label}
-                    </Badge>
-
-                    {/* Notifications */}
-                    <Link href="/dashboard/notifications">
-                        <Button
-                            variant="ghost"
-                            size="icon"
-                            className={cn("relative", dbUser?.role === 'agent' ? "text-black hover:bg-black/10" : "")}
-                        >
-                            <Bell className={cn("w-5 h-5", dbUser?.role === 'agent' ? "text-black" : "text-gray-500 dark:text-gray-400")} />
-                            {unreadCount > 0 && (
-                                <span className="absolute -top-1 -right-1 w-5 h-5 text-xs rounded-full flex items-center justify-center bg-indigo-600 text-white">
-                                    {unreadCount > 9 ? '9+' : unreadCount}
-                                </span>
-                            )}
-                        </Button>
-                    </Link>
-
-                    {/* User Menu */}
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="relative h-10 w-10 rounded-full">
-                                <Avatar className="h-10 w-10 ring-2 ring-primary/20 transition-transform hover:scale-105 active:scale-95">
-                                    <AvatarFallback className="text-white font-semibold flex items-center justify-center delay-0 duration-0" style={{ backgroundColor: currentRole.color }}>
-                                        <RoleIcon className="w-5 h-5" />
+                            <Button variant="ghost" className="flex items-center gap-3 px-2 h-12 rounded-xl hover:bg-secondary/10 transition-all group">
+                                <div className="flex flex-col items-end hidden md:flex">
+                                    <span className="text-sm font-bold text-foreground group-hover:text-primary transition-colors">
+                                        {dbUser?.first_name} {dbUser?.last_name?.[0]}.
+                                    </span>
+                                    <span className="text-[10px] font-black text-muted-foreground/70 uppercase tracking-widest">
+                                        {currentRole.label}
+                                    </span>
+                                </div>
+                                <Avatar className="h-9 w-9 rounded-lg border-2 border-border/50 group-hover:border-primary/50 transition-all">
+                                    <AvatarFallback className="bg-primary/10 text-primary font-black text-xs">
+                                        {getInitials()}
                                     </AvatarFallback>
                                 </Avatar>
                             </Button>
                         </DropdownMenuTrigger>
-                        <DropdownMenuContent className="w-56" align="end" forceMount>
-                            <DropdownMenuLabel className="font-normal">
-                                <div className="flex flex-col space-y-1">
-                                    <p className="text-sm font-medium leading-none">
-                                        {dbUser?.first_name} {dbUser?.last_name}
-                                    </p>
-                                    <p className="text-xs leading-none text-muted-foreground">
-                                        {dbUser?.email}
-                                    </p>
-                                    <Badge
-                                        className="w-fit mt-1 text-[10px] px-1.5 py-0"
-                                        style={{
-                                            backgroundColor: isAdmin ? '#E60000' : isSubAdmin ? '#FACC15' : dbUser?.role === 'agent' ? '#25D366' : '#0056B3',
-                                            color: isSubAdmin ? 'black' : 'white'
-                                        }}
-                                    >
-                                        {isAdmin ? 'Admin' : isSubAdmin ? 'Sub-Admin' : dbUser?.role === 'agent' ? 'Agent' : 'Customer'}
-                                    </Badge>
+                        <DropdownMenuContent className="w-64 mt-2 p-2 rounded-2xl border-border/50 shadow-premium" align="end">
+                            <DropdownMenuLabel className="p-3">
+                                <div className="flex flex-col gap-1">
+                                    <p className="text-sm font-bold leading-none">{dbUser?.first_name} {dbUser?.last_name}</p>
+                                    <p className="text-xs text-muted-foreground font-medium truncate">{dbUser?.email}</p>
                                 </div>
                             </DropdownMenuLabel>
-                            <DropdownMenuSeparator />
+                            <DropdownMenuSeparator className="bg-border/50" />
                             <Link href="/dashboard/profile">
-                                <DropdownMenuItem>
-                                    <User className="mr-2 h-4 w-4" />
-                                    <span>Profile</span>
+                                <DropdownMenuItem className="p-3 rounded-xl cursor-pointer">
+                                    <User className="mr-3 h-4 w-4 text-primary" />
+                                    <span className="font-semibold">My Profile</span>
                                 </DropdownMenuItem>
                             </Link>
                             {isAdmin && (
                                 <Link href="/admin/settings">
-                                    <DropdownMenuItem>
-                                        <Settings className="mr-2 h-4 w-4" />
-                                        <span>Admin Settings</span>
+                                    <DropdownMenuItem className="p-3 rounded-xl cursor-pointer">
+                                        <Settings className="mr-3 h-4 w-4 text-primary" />
+                                        <span className="font-semibold">System Settings</span>
                                     </DropdownMenuItem>
                                 </Link>
                             )}
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem onClick={signOut} className="text-red-600">
-                                <LogOut className="mr-2 h-4 w-4" />
-                                <span className="cursor-pointer">Log out</span>
+                            <DropdownMenuSeparator className="bg-border/50" />
+                            <DropdownMenuItem onClick={signOut} className="p-3 rounded-xl cursor-pointer text-red-500 focus:text-red-500 focus:bg-red-500/10">
+                                <LogOut className="mr-3 h-4 w-4" />
+                                <span className="font-bold">Sign Out</span>
                             </DropdownMenuItem>
                         </DropdownMenuContent>
                     </DropdownMenu>
                 </div>
             </div>
-        </header >
+        </header>
     )
 }

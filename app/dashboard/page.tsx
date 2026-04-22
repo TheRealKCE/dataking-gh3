@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useAuth } from '@/contexts/auth-context'
 import { supabase } from '@/lib/supabase'
-import { formatCurrency } from '@/lib/utils'
+import { cn, formatCurrency } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -256,96 +256,129 @@ export default function DashboardPage() {
 
 
     return (
-        <div className="space-y-6">
-            {/* Tutorial Help Button */}
-            <div className="flex justify-end">
+        <div className="space-y-8 animate-slow-fade">
+            {/* Header Section with Tutorial Button */}
+            <div className="flex items-center justify-between">
+                <div>
+                    <h2 className="text-3xl font-black tracking-tight text-foreground">Dashboard</h2>
+                    <p className="text-sm font-medium text-muted-foreground mt-1">Manage your business and track your performance</p>
+                </div>
                 <HelpButton onClick={startTutorial} />
             </div>
 
             {/* Dynamic Role Greeting Box */}
             <RoleGreetingBox stats={stats!} />
 
-            {/* Main Wallet Balance Card moved to top as requested */}
-            <Card id="wallet-card" className="overflow-hidden shadow-lg border-0 hover:shadow-xl transition-all duration-300">
-                <div className="bg-[#FACC15] p-6 text-[#1A1A1A] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
-                    <div>
-                        <div className="flex items-center gap-2 mb-2">
-                            <Wallet className="w-5 h-5 text-[#1A1A1A]/80" />
-                            <p className="text-[#1A1A1A]/80 font-medium">Wallet Balance</p>
+            {/* Premium Wallet & Business Card */}
+            <div className="grid lg:grid-cols-3 gap-6">
+                <Card id="wallet-card" className="lg:col-span-2 overflow-hidden border-0 shadow-blue-premium bg-gradient-to-br from-primary to-primary/80 group">
+                    <CardContent className="p-8 relative">
+                        {/* Decorative pattern */}
+                        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none" />
+                        <div className="absolute bottom-0 left-0 w-32 h-32 bg-black/5 rounded-full blur-2xl -ml-16 -mb-16 pointer-events-none" />
+                        
+                        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-8">
+                            <div>
+                                <div className="flex items-center gap-2 mb-3 opacity-90">
+                                    <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
+                                        <Wallet className="w-4 h-4 text-primary-foreground" />
+                                    </div>
+                                    <p className="text-primary-foreground font-bold tracking-widest text-xs uppercase">Available Balance</p>
+                                </div>
+                                <p className="text-5xl md:text-6xl font-black text-primary-foreground tracking-tighter">
+                                    {formatCurrency(stats?.walletBalance || 0)}
+                                </p>
+                            </div>
+                            
+                            <Link href="/dashboard/wallet" className="w-full md:w-auto">
+                                <Button className="w-full md:w-auto bg-primary-foreground text-primary hover:bg-primary-foreground/90 font-black h-14 px-10 rounded-2xl shadow-xl shadow-black/10 text-lg transition-all hover:scale-[1.02] active:scale-95">
+                                    <Plus className="w-6 h-6 mr-2 stroke-[3]" />
+                                    Refill Wallet
+                                </Button>
+                            </Link>
                         </div>
-                        <p className="text-4xl md:text-5xl font-black tracking-tight">{formatCurrency(stats?.walletBalance || 0)}</p>
+                    </CardContent>
+                </Card>
+
+                <Card className="card-premium p-8 flex flex-col justify-between group overflow-hidden relative">
+                    <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
+                        <Store className="w-24 h-24" />
                     </div>
-                    <Link href="/dashboard/wallet" className="w-full sm:w-auto">
-                        <Button size="lg" className="w-full sm:w-auto bg-[#1A1A1A] hover:bg-black text-white border-0 shadow-lg rounded-xl font-bold h-12 px-8">
-                            <Plus className="w-5 h-5 mr-2" />
-                            Top Up Wallet
+                    <div className="relative z-10">
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground mb-4">Quick Stats</p>
+                        <h3 className="text-2xl font-black text-foreground mb-2">My Shop</h3>
+                        <p className="text-sm text-muted-foreground font-medium leading-relaxed">
+                            {shopStatus.hasShop ? `Managing "${shopStatus.shopName}"` : "You haven't set up your shop yet."}
+                        </p>
+                    </div>
+                    <Link href="/dashboard/shop" className="relative z-10 mt-6">
+                        <Button variant="secondary" className="w-full font-bold rounded-xl h-12">
+                            {shopStatus.hasShop ? "Go to Shop Profile" : "Create My Shop"}
                         </Button>
                     </Link>
-                </div>
-            </Card>
-            {/* Stats Cards */}
-            <div className="grid grid-cols-2 gap-3 sm:gap-4">
-                <Card className="bg-gradient-to-br from-blue-600 to-blue-800 text-white border-0 shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
-                    <CardContent className="p-4 sm:p-6">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-white/80 text-xs sm:text-sm font-medium">Total Orders</p>
-                                <p className="text-xl md:text-2xl lg:text-3xl font-bold mt-1">{stats?.totalOrders}</p>
-                            </div>
-                            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center group-hover:scale-110 transition-transform">
-                                <ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6" />
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card className="bg-gradient-to-br from-emerald-500 to-emerald-600 text-white border-0 shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
-                    <CardContent className="p-4 sm:p-6">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-white/90 text-xs sm:text-sm font-medium">Completed</p>
-                                <p className="text-xl md:text-2xl lg:text-3xl font-bold mt-1">{stats?.completedOrders}</p>
-                            </div>
-                            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-black/10 backdrop-blur-sm flex items-center justify-center group-hover:scale-110 transition-transform">
-                                <CheckCircle2 className="w-5 h-5 sm:w-6 sm:h-6" />
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card className="bg-gradient-to-br from-amber-400 to-amber-500 text-black border-0 shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
-                    <CardContent className="p-4 sm:p-6">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-black/80 text-xs sm:text-sm font-medium">Processing</p>
-                                <p className="text-xl md:text-2xl lg:text-3xl font-bold mt-1">{stats?.processingOrders}</p>
-                            </div>
-                            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-white/30 backdrop-blur-sm flex items-center justify-center group-hover:scale-110 transition-transform">
-                                <Clock className="w-5 h-5 sm:w-6 sm:h-6" />
-                            </div>
-                        </div>
-                    </CardContent>
-                </Card>
-
-                <Card className="bg-gradient-to-br from-red-600 to-red-800 text-white border-0 shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group">
-                    <CardContent className="p-4 sm:p-6">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-white/80 text-xs sm:text-sm font-medium">Failed</p>
-                                <p className="text-xl md:text-2xl lg:text-3xl font-bold mt-1">{stats?.failedOrders}</p>
-                            </div>
-                            <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center group-hover:scale-110 transition-transform">
-                                <XCircle className="w-5 h-5 sm:w-6 sm:h-6" />
-                            </div>
-                        </div>
-                    </CardContent>
                 </Card>
             </div>
 
-            {/* Premium Business Analytics Widget */}
-            <BusinessPerformanceWidget />
+            {/* Core Stats Section */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-6">
+                {[
+                    { label: 'Total Orders', value: stats?.totalOrders, icon: ShoppingCart, color: 'bg-blue-500', text: 'text-blue-500' },
+                    { label: 'Completed', value: stats?.completedOrders, icon: CheckCircle2, color: 'bg-emerald-500', text: 'text-emerald-500' },
+                    { label: 'Processing', value: stats?.processingOrders, icon: Clock, color: 'bg-amber-500', text: 'text-amber-500' },
+                    { label: 'Failed', value: stats?.failedOrders, icon: XCircle, color: 'bg-red-500', text: 'text-red-500' },
+                ].map((stat, idx) => (
+                    <Card key={idx} className="card-premium group hover:border-primary/30">
+                        <CardContent className="p-6">
+                            <div className="flex flex-col gap-4">
+                                <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-lg", stat.color)}>
+                                    <stat.icon className="w-6 h-6" />
+                                </div>
+                                <div>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{stat.label}</p>
+                                    <p className="text-3xl font-black text-foreground mt-1 tracking-tight">{stat.value}</p>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+                ))}
+            </div>
 
-            {/* Shop Dashboard Section */}
+            {/* Business Performance & Recent Activity */}
+            <div className="grid lg:grid-cols-3 gap-8">
+                <div className="lg:col-span-2 space-y-8">
+                    <BusinessPerformanceWidget />
+                    <RecentOrdersWidget />
+                </div>
+                <div className="space-y-8">
+                    <TodaysOrdersSummary />
+                    
+                    {/* Simplified Quick Actions */}
+                    <Card className="card-premium">
+                        <CardHeader className="pb-4">
+                            <CardTitle className="text-lg font-black tracking-tight">Quick Links</CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-2">
+                            {[
+                                { href: '/dashboard/data-packages', label: 'Buy Data Bundles', icon: Package },
+                                { href: '/dashboard/wallet', label: 'Wallet History', icon: Wallet },
+                                { href: '/dashboard/complaints', label: 'Help & Support', icon: AlertCircle },
+                                { href: '/dashboard/shop', label: 'Store Settings', icon: Store },
+                            ].map((link, i) => (
+                                <Link key={i} href={link.href}>
+                                    <div className="flex items-center gap-3 p-3 rounded-xl hover:bg-secondary/50 transition-colors group cursor-pointer">
+                                        <div className="w-9 h-9 rounded-lg bg-secondary flex items-center justify-center group-hover:bg-primary/10 group-hover:text-primary transition-colors">
+                                            <link.icon className="w-4 h-4" />
+                                        </div>
+                                        <span className="text-sm font-bold text-foreground/80 group-hover:text-foreground transition-colors">{link.label}</span>
+                                    </div>
+                                </Link>
+                            ))}
+                        </CardContent>
+                    </Card>
+                </div>
+            </div>
+
+            {/* Shop Management (If applicable) */}
             <ShopDashboardSection
                 isLoading={shopStatus.isLoading}
                 hasShop={shopStatus.hasShop}
@@ -359,71 +392,6 @@ export default function DashboardPage() {
                 graphData={shopStatus.graphData}
                 orderStats={shopStatus.orderStats}
             />
-
-            {/* Recent Orders Widget */}
-            <RecentOrdersWidget />
-
-            {/* Today's Orders Summary */}
-            <TodaysOrdersSummary />
-
-            {/* Quick Actions (Moved to bottom) */}
-            <Card className="border-0 shadow-sm mt-8">
-                <CardHeader className="pb-3 border-b border-gray-100 dark:border-gray-800">
-                    <CardTitle className="text-lg font-bold">Quick Links</CardTitle>
-                </CardHeader>
-                <CardContent className="pt-4">
-                    <div id="data-packages" className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-3">
-                        <Link href="/dashboard/data-packages">
-                            <div className="p-4 rounded-xl bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-900/20 dark:to-yellow-800/20 border border-yellow-200 dark:border-yellow-800 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer group text-center flex flex-col items-center">
-                                <div className="w-10 h-10 rounded-lg bg-yellow-500 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-                                    <Package className="w-5 h-5 text-white" />
-                                </div>
-                                <p className="font-bold text-xs sm:text-sm">Buy Data</p>
-                            </div>
-                        </Link>
-                        <Link href="/dashboard/my-orders">
-                            <div id="order-history" className="p-4 rounded-xl bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/20 dark:to-blue-800/20 border border-blue-200 dark:border-blue-800 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer group text-center flex flex-col items-center">
-                                <div className="w-10 h-10 rounded-lg bg-blue-500 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-                                    <ShoppingCart className="w-5 h-5 text-white" />
-                                </div>
-                                <p className="font-bold text-xs sm:text-sm">Orders</p>
-                            </div>
-                        </Link>
-                        <Link href="/dashboard/wallet">
-                            <div className="p-4 rounded-xl bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/20 dark:to-green-800/20 border border-green-200 dark:border-green-800 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer group text-center flex flex-col items-center">
-                                <div className="w-10 h-10 rounded-lg bg-green-500 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-                                    <Wallet className="w-5 h-5 text-white" />
-                                </div>
-                                <p className="font-bold text-xs sm:text-sm">Top Up</p>
-                            </div>
-                        </Link>
-                        <Link href="/dashboard/complaints">
-                            <div id="complaint-button" className="p-4 rounded-xl bg-gradient-to-br from-red-50 to-red-100 dark:from-red-900/20 dark:to-red-800/20 border border-red-200 dark:border-red-800 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer group text-center flex flex-col items-center">
-                                <div className="w-10 h-10 rounded-lg bg-red-500 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-                                    <AlertCircle className="w-5 h-5 text-white" />
-                                </div>
-                                <p className="font-bold text-xs sm:text-sm">Support</p>
-                            </div>
-                        </Link>
-                        <Link href="/dashboard/afa-orders">
-                            <div className="p-4 rounded-xl bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/20 dark:to-purple-800/20 border border-purple-200 dark:border-purple-800 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer group text-center flex flex-col items-center">
-                                <div className="w-10 h-10 rounded-lg bg-purple-500 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-                                    <Star className="w-5 h-5 text-white" />
-                                </div>
-                                <p className="font-bold text-xs sm:text-sm">AFA Orders</p>
-                            </div>
-                        </Link>
-                        <Link href="/dashboard/shop">
-                            <div className="p-4 rounded-xl bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-800/20 border border-indigo-200 dark:border-indigo-800 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200 cursor-pointer group text-center flex flex-col items-center">
-                                <div className="w-10 h-10 rounded-lg bg-indigo-500 flex items-center justify-center mb-2 group-hover:scale-110 transition-transform">
-                                    <Store className="w-5 h-5 text-white" />
-                                </div>
-                                <p className="font-bold text-xs sm:text-sm">My Shop</p>
-                            </div>
-                        </Link>
-                    </div>
-                </CardContent>
-            </Card>
         </div>
     )
 }
