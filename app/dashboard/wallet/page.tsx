@@ -106,14 +106,13 @@ function WalletContent() {
                 // Fetch settings
                 supabase
                     .from('admin_settings')
-                    .select('value')
-                    .eq('key', 'paystack_fee_percent')
-                    .single()
+                    .select('key, value')
+                    .in('key', ['paystack_fee_percent', 'agent_paystack_fee_percent'])
             ])
 
             const wallet = walletRes.data
             const txns = txnsRes.data
-            const feeSetting = feeSettingRes.data
+            const feeSettings = feeSettingRes.data
 
             if (wallet) {
                 setWalletBalance((wallet as any).balance)
@@ -123,11 +122,20 @@ function WalletContent() {
 
             setTransactions(txns || [])
 
-            if ((feeSetting as any)?.value) {
-                const val = (feeSetting as any).value
-                // Handle possible string "1.95" or number 1.95
-                const parsed = typeof val === 'string' ? parseFloat(val) : (typeof val === 'number' ? val : 1.95)
-                if (!isNaN(parsed)) setPaystackFeePercent(parsed)
+            if (feeSettings && Array.isArray(feeSettings)) {
+                let targetKey = 'paystack_fee_percent'
+                if (dbUser?.role === 'agent') {
+                    targetKey = 'agent_paystack_fee_percent'
+                }
+                
+                const feeSetting = feeSettings.find(s => s.key === targetKey) || feeSettings.find(s => s.key === 'paystack_fee_percent')
+
+                if (feeSetting && feeSetting.value) {
+                    const val = feeSetting.value
+                    // Handle possible string "1.95" or number 1.95
+                    const parsed = typeof val === 'string' ? parseFloat(val) : (typeof val === 'number' ? val : 1.95)
+                    if (!isNaN(parsed)) setPaystackFeePercent(parsed)
+                }
             }
         } catch (error) {
             console.error('Error fetching wallet data:', error)
