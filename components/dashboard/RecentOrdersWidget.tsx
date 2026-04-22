@@ -83,21 +83,21 @@ export function RecentOrdersWidget() {
     const hasRecentFailedOrder = orders.slice(0, 3).some(o => o.status === 'failed')
 
     return (
-        <Card className="flex flex-col overflow-hidden border shadow-sm rounded-xl bg-white dark:bg-[#111111] border-slate-200 dark:border-[#1f1f1f]">
-            <CardHeader className="flex flex-row items-center justify-between pb-3 bg-slate-50 dark:bg-[#111111] border-b border-slate-200 dark:border-[#1f1f1f]">
-                <div className="flex items-center gap-2">
-                    <div className="p-1.5 bg-indigo-100 dark:bg-indigo-900/30 rounded-md">
-                        <ShoppingCart className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+        <Card className="flex flex-col overflow-hidden border-0 shadow-blue-premium rounded-[2rem] bg-white dark:bg-[#111111] group">
+            <CardHeader className="flex flex-row items-center justify-between p-8 bg-slate-50/50 dark:bg-[#111111] border-b border-border/50">
+                <div className="flex items-center gap-4">
+                    <div className="p-3 bg-indigo-500/10 dark:bg-indigo-900/30 rounded-xl shadow-inner group-hover:bg-indigo-500/20 transition-colors">
+                        <ShoppingCart className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
                     </div>
                     <div>
-                        <CardTitle className="text-lg font-bold">Recent Orders</CardTitle>
-                        <p className="text-xs text-muted-foreground">Your last 10 transactions</p>
+                        <CardTitle className="text-xl font-black tracking-tight">Recent Orders</CardTitle>
+                        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground opacity-60">Last 10 transactions</p>
                     </div>
                 </div>
                 <Link href="/dashboard/my-orders">
-                    <Button variant="ghost" size="sm" className="hidden sm:flex text-xs h-8 text-indigo-600 hover:text-indigo-700 dark:text-indigo-400">
+                    <Button variant="outline" size="sm" className="hidden sm:flex font-black text-[10px] uppercase tracking-widest h-10 px-6 rounded-xl border-indigo-200 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50">
                         View All
-                        <ArrowRight className="w-3.5 h-3.5 ml-1" />
+                        <ArrowRight className="w-4 h-4 ml-2" />
                     </Button>
                 </Link>
             </CardHeader>
@@ -180,22 +180,22 @@ export function RecentOrdersWidget() {
                                                     {order.network.substring(0, 3).toUpperCase()}
                                                 </div>
                                                 <div>
-                                                    <p className="font-bold text-sm sm:text-base text-gray-900 dark:text-gray-100">
+                                                    <p className="font-black text-sm sm:text-lg text-gray-900 dark:text-gray-100 tracking-tight">
                                                         {order.size} Data
                                                     </p>
-                                                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground mt-0.5">
+                                                    <div className="flex items-center gap-2 text-[10px] sm:text-xs text-muted-foreground font-black uppercase tracking-widest mt-1 opacity-70">
                                                         <span>{order.phone_number}</span>
-                                                        <span>•</span>
+                                                        <span className="opacity-30">•</span>
                                                         <span>{format(new Date(order.created_at), 'MMM d, h:mm a')}</span>
                                                     </div>
                                                 </div>
                                             </div>
 
-                                            <div className="flex flex-col items-end gap-1.5">
-                                                <p className="font-bold text-sm sm:text-base">
+                                            <div className="flex flex-col items-end gap-2">
+                                                <p className="font-black text-base sm:text-xl tracking-tighter drop-shadow-sm">
                                                     {formatCurrency(order.price)}
                                                 </p>
-                                                <Badge variant="outline" className={cn("px-1.5 py-0 sm:px-2.5 sm:py-0.5 text-[10px] sm:text-xs capitalize flex items-center gap-1 font-semibold", getStatusConfig(order.status).color)}>
+                                                <Badge variant="outline" className={cn("px-2 py-0.5 text-[9px] sm:text-[10px] uppercase tracking-widest flex items-center gap-1.5 font-black border-0 shadow-sm", getStatusConfig(order.status).color)}>
                                                     <StatusIcon className="w-3 h-3 hidden sm:inline-block" />
                                                     {order.status}
                                                 </Badge>

@@ -23,47 +23,41 @@ export function ShopWalletWidget({ wallet }: ShopWalletWidgetProps) {
                 {/* Left side: Balance Info */}
                 <div className="space-y-4 w-full sm:w-auto">
                     <div className="flex items-center gap-2">
-                        <div className="p-1.5 bg-emerald-500/20 rounded-md">
-                            <Wallet className="w-4 h-4 text-emerald-400" />
+                        <div className="p-2 bg-emerald-500/20 backdrop-blur-md rounded-lg shadow-inner">
+                            <Wallet className="w-5 h-5 text-emerald-400" />
                         </div>
-                        <h3 className="text-gray-300 font-medium text-sm">Shop Profit Balance</h3>
+                        <h3 className="text-white font-black text-sm tracking-widest uppercase drop-shadow-sm">Shop Profit Balance</h3>
                     </div>
                     
                     <div>
-                        <p className="text-3xl sm:text-4xl font-black tracking-tight text-white mb-1">
+                        <p className="text-4xl sm:text-5xl font-black tracking-tighter text-white mb-2 drop-shadow-lg">
                             {formatCurrency(balance)}
                         </p>
-                        <div className="flex items-center gap-3 text-xs text-gray-400 font-medium">
-                            <span className="flex items-center gap-1">
-                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-                                Available
+                        <div className="flex items-center gap-4 text-[10px] text-gray-300 font-black uppercase tracking-widest">
+                            <span className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-white/5 border border-white/10 shadow-sm">
+                                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                                Available to Withdraw
                             </span>
-                            {pendingWithdrawal > 0 && (
-                                <span className="flex items-center gap-1">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-amber-400" />
-                                    {formatCurrency(pendingWithdrawal)} pending
-                                </span>
-                            )}
                         </div>
                     </div>
                 </div>
 
                 {/* Right Side: Action & Mini Stats */}
-                <div className="w-full sm:w-auto flex flex-col items-end gap-4 border-t border-white/10 sm:border-t-0 sm:border-l pl-0 sm:pl-6 pt-4 sm:pt-0">
+                <div className="w-full sm:w-auto flex flex-col items-end gap-5 border-t border-white/10 sm:border-t-0 sm:border-l pl-0 sm:pl-8 pt-6 sm:pt-0">
                     <Link href="/dashboard/shop/withdraw" className="w-full sm:w-auto">
-                        <Button className="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-600 text-white border-0 shadow-lg shadow-emerald-500/20 group-hover:shadow-emerald-500/30 transition-all font-semibold rounded-xl h-11 px-6">
+                        <Button className="w-full sm:w-auto bg-emerald-500 hover:bg-emerald-600 text-white border-0 shadow-xl shadow-emerald-500/30 hover:scale-[1.02] active:scale-95 transition-all font-black uppercase tracking-widest text-xs h-12 px-8 rounded-2xl">
                             Withdraw Earnings
-                            <ArrowUpRight className="w-4 h-4 ml-2 opacity-70 group-hover:opacity-100 transition-opacity" />
+                            <ArrowUpRight className="w-5 h-5 ml-2 stroke-[3]" />
                         </Button>
                     </Link>
                     
-                    <div className="flex items-center gap-4 text-xs font-medium text-gray-400">
+                    <div className="flex items-center gap-6 text-[10px] font-black uppercase tracking-widest">
                         <div className="text-right">
-                            <p className="text-gray-500 mb-0.5">Total Earned</p>
-                            <p className="text-gray-300">{formatCurrency(totalEarned)}</p>
+                            <p className="text-gray-400 mb-1">Total Lifetime Earned</p>
+                            <p className="text-white text-sm drop-shadow-sm">{formatCurrency(totalEarned)}</p>
                         </div>
-                        <Link href="/dashboard/shop/withdrawals" className="text-emerald-400 hover:text-emerald-300 transition-colors flex items-center gap-1 group/link">
-                            History <ArrowRight className="w-3 h-3 group-hover/link:translate-x-0.5 transition-transform" />
+                        <Link href="/dashboard/shop/withdrawals" className="text-emerald-400 hover:text-emerald-300 transition-colors flex items-center gap-2 group/link bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/20">
+                            History <ArrowRight className="w-4 h-4 group-hover/link:translate-x-1 transition-transform" />
                         </Link>
                     </div>
                 </div>

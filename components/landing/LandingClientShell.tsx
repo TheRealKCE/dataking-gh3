@@ -16,6 +16,8 @@ import {
     BarChart3,
     HeadphonesIcon,
     Layers,
+    LogOut,
+    UserCircle,
 } from 'lucide-react'
 
 interface LandingClientShellProps {
@@ -86,8 +88,8 @@ export function LandingClientShell({ initialGuestUrl, initialAdminPhone }: Landi
             {/* Hero Section — Clean & Action-Oriented */}
             <section className="relative pt-32 pb-20 px-6 lg:px-10">
                 <div className="max-w-7xl mx-auto flex flex-col items-center">
-                    <p className="text-sm font-bold text-muted-foreground mb-6">
-                        Already an Agent? <span className="text-primary hover:underline cursor-pointer">Log In to your account.</span>
+                    <p className="text-xs sm:text-sm font-black uppercase tracking-[0.2em] text-muted-foreground mb-8 drop-shadow-sm opacity-80">
+                        Already an Agent? <Link href="/auth/login" className="text-primary hover:underline cursor-pointer decoration-2 underline-offset-4 decoration-primary/30 transition-all">Log In to your account.</Link>
                     </p>
                     
                     <div className="flex gap-4 w-full max-w-md">
@@ -119,8 +121,8 @@ export function LandingClientShell({ initialGuestUrl, initialAdminPhone }: Landi
                                 <div className="w-16 h-16 rounded-full bg-black/5 flex items-center justify-center mb-6">
                                     <Zap className="w-8 h-8 text-black/60" />
                                 </div>
-                                <h3 className="text-2xl font-black text-black tracking-tight mb-2 uppercase">MTN Non-Expiry Bundles</h3>
-                                <p className="text-black/60 font-bold text-sm">15 bundles available</p>
+                                <h3 className="text-2xl font-black text-black tracking-tight mb-2 uppercase drop-shadow-sm">MTN Non-Expiry Bundles</h3>
+                                <p className="text-black/70 font-black text-sm drop-shadow-sm">15 bundles available</p>
                                 <div className="absolute top-0 right-0 p-8 opacity-5">
                                     <Zap className="w-32 h-32 text-black" />
                                 </div>
@@ -129,12 +131,12 @@ export function LandingClientShell({ initialGuestUrl, initialAdminPhone }: Landi
 
                         {/* Telecel Card */}
                         <div className="group cursor-pointer">
-                            <div className="relative overflow-hidden rounded-[2.5rem] bg-[#E60000] p-10 flex flex-col items-center text-center transition-all hover:scale-[1.02] active:scale-95 shadow-xl shadow-red-500/10">
-                                <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center mb-6">
-                                    <Zap className="w-8 h-8 text-white/60" />
+                            <div className="relative overflow-hidden rounded-[2.5rem] bg-[#E60000] p-10 flex flex-col items-center text-center transition-all hover:scale-[1.02] active:scale-95 shadow-xl shadow-red-500/20">
+                                <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center mb-6 shadow-inner">
+                                    <Zap className="w-8 h-8 text-white" />
                                 </div>
-                                <h3 className="text-2xl font-black text-white tracking-tight mb-2 uppercase">TELECEL</h3>
-                                <p className="text-white/60 font-bold text-sm">9 bundles available</p>
+                                <h3 className="text-2xl font-black text-white tracking-tight mb-2 uppercase drop-shadow-md">TELECEL</h3>
+                                <p className="text-white/80 font-black text-sm drop-shadow-md">9 bundles available</p>
                                 <div className="absolute top-0 right-0 p-8 opacity-5">
                                     <Zap className="w-32 h-32 text-white" />
                                 </div>
@@ -143,12 +145,12 @@ export function LandingClientShell({ initialGuestUrl, initialAdminPhone }: Landi
 
                         {/* AT Card */}
                         <div className="group cursor-pointer">
-                            <div className="relative overflow-hidden rounded-[2.5rem] bg-[#0066FF] p-10 flex flex-col items-center text-center transition-all hover:scale-[1.02] active:scale-95 shadow-xl shadow-blue-500/10">
-                                <div className="w-16 h-16 rounded-full bg-white/10 flex items-center justify-center mb-6">
-                                    <Zap className="w-8 h-8 text-white/60" />
+                            <div className="relative overflow-hidden rounded-[2.5rem] bg-[#0066FF] p-10 flex flex-col items-center text-center transition-all hover:scale-[1.02] active:scale-95 shadow-xl shadow-blue-500/20">
+                                <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center mb-6 shadow-inner">
+                                    <Zap className="w-8 h-8 text-white" />
                                 </div>
-                                <h3 className="text-2xl font-black text-white tracking-tight mb-2 uppercase">AT PREMIUM BUNDLES</h3>
-                                <p className="text-white/60 font-bold text-sm">14 bundles available</p>
+                                <h3 className="text-2xl font-black text-white tracking-tight mb-2 uppercase drop-shadow-md">AT PREMIUM BUNDLES</h3>
+                                <p className="text-white/80 font-black text-sm drop-shadow-md">14 bundles available</p>
                                 <div className="absolute top-0 right-0 p-8 opacity-5">
                                     <Zap className="w-32 h-32 text-white" />
                                 </div>

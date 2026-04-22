@@ -120,67 +120,70 @@ export function TodaysOrdersSummary() {
     if (isLoading) return null
 
     return (
-        <Card className="border shadow-none rounded-xl bg-white dark:bg-gray-950 overflow-hidden relative mb-2">
-            <CardContent className="p-5">
+        <Card className="border-0 shadow-blue-premium rounded-[2rem] bg-white dark:bg-gray-950 overflow-hidden relative mb-4 group hover:shadow-xl transition-all duration-500">
+            <CardContent className="p-8">
                 <div className="flex justify-between items-start">
                     {/* Left side info */}
-                    <div className="space-y-3 flex-1">
+                    <div className="space-y-6 flex-1">
                         <div>
-                            <p className="text-gray-500 font-medium text-sm">Today&apos;s Orders</p>
-                            <div className="flex items-center gap-2 mt-1">
-                                <ShoppingCart className="w-8 h-8 text-blue-600 fill-blue-600" />
-                                <span className="text-3xl font-black text-gray-900 dark:text-gray-100 leading-none">
-                                    {stats.totalCount}
-                                </span>
+                            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground opacity-60 mb-2">Today&apos;s Performance</p>
+                            <div className="flex items-center gap-4">
+                                <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center shadow-inner group-hover:bg-primary/20 transition-colors">
+                                    <ShoppingCart className="w-7 h-7 text-primary" />
+                                </div>
+                                <div>
+                                    <span className="text-4xl md:text-5xl font-black text-foreground tracking-tighter drop-shadow-sm">
+                                        {stats.totalCount}
+                                    </span>
+                                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mt-1">Total Orders</p>
+                                </div>
                             </div>
                         </div>
 
-                        <div className="space-y-1.5 pt-2">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-y-3 gap-x-8 pt-4 border-t border-border/50">
                             {/* Completed */}
-                            <div className="flex items-center gap-2 text-sm">
-                                <CheckCircle2 className="w-4 h-4 text-green-500 fill-green-500/20" />
-                                <span className="text-green-600 font-medium">
-                                    {stats.completed.count} completed ({stats.completed.gb}GB) ({formatCurrency(stats.completed.amount)})
+                            <div className="flex items-center gap-3 text-sm group/item">
+                                <div className="w-2 h-2 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]" />
+                                <span className="text-green-600 dark:text-green-400 font-black tracking-tight drop-shadow-sm">
+                                    {stats.completed.count} Completed <span className="opacity-60 font-medium">({stats.completed.gb}GB • {formatCurrency(stats.completed.amount)})</span>
                                 </span>
                             </div>
                             
                             {/* Processing */}
-                            <div className="flex items-center gap-2 text-sm">
-                                <Truck className="w-4 h-4 text-blue-500" />
-                                <span className="text-blue-600 font-medium">
-                                    {stats.processing.count} processing ({stats.processing.gb}GB) ({formatCurrency(stats.processing.amount)})
+                            <div className="flex items-center gap-3 text-sm group/item">
+                                <div className="w-2 h-2 rounded-full bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
+                                <span className="text-blue-600 dark:text-blue-400 font-black tracking-tight drop-shadow-sm">
+                                    {stats.processing.count} Processing <span className="opacity-60 font-medium">({stats.processing.gb}GB • {formatCurrency(stats.processing.amount)})</span>
                                 </span>
                             </div>
 
                             {/* Pending */}
-                            <div className="flex items-center gap-2 text-sm">
-                                <Clock className="w-4 h-4 text-amber-500 fill-amber-500/20" />
-                                <span className="text-amber-600 font-medium">
-                                    {stats.pending.count} pending ({stats.pending.gb}GB) ({formatCurrency(stats.pending.amount)})
+                            <div className="flex items-center gap-3 text-sm group/item">
+                                <div className="w-2 h-2 rounded-full bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]" />
+                                <span className="text-amber-600 dark:text-amber-400 font-black tracking-tight drop-shadow-sm">
+                                    {stats.pending.count} Pending <span className="opacity-60 font-medium">({stats.pending.gb}GB • {formatCurrency(stats.pending.amount)})</span>
                                 </span>
                             </div>
 
                             {/* AFA */}
-                            <div className="flex items-center gap-2 text-sm">
-                                <Star className="w-4 h-4 text-purple-600 fill-purple-600" />
-                                <span className="text-purple-600 font-medium">
-                                    {stats.afa.count} AFA orders ({formatCurrency(stats.afa.amount)})
+                            <div className="flex items-center gap-3 text-sm group/item">
+                                <div className="w-2 h-2 rounded-full bg-purple-600 shadow-[0_0_8px_rgba(147,51,234,0.5)]" />
+                                <span className="text-purple-600 dark:text-purple-400 font-black tracking-tight drop-shadow-sm">
+                                    {stats.afa.count} AFA Orders <span className="opacity-60 font-medium">({formatCurrency(stats.afa.amount)})</span>
                                 </span>
                             </div>
 
                             {/* Total Spent */}
-                            <div className="flex items-center gap-2 text-sm pt-0.5">
-                                <Banknote className="w-4 h-4 text-blue-700 fill-blue-700" />
-                                <span className="text-blue-700 font-bold">
-                                    {formatCurrency(stats.totalSpent)} spent
+                            <div className="md:col-span-2 mt-2 p-4 rounded-2xl bg-primary/5 border border-primary/10 flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <Banknote className="w-5 h-5 text-primary" />
+                                    <span className="text-xs font-black uppercase tracking-widest text-primary/80">Daily Expenditure</span>
+                                </div>
+                                <span className="text-xl font-black text-primary drop-shadow-sm">
+                                    {formatCurrency(stats.totalSpent)}
                                 </span>
                             </div>
                         </div>
-                    </div>
-
-                    {/* Right side decorative cart */}
-                    <div className="hidden sm:flex shrink-0 ml-4 items-center justify-center w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900/30">
-                        <ShoppingCart className="w-7 h-7 text-blue-600" />
                     </div>
                 </div>
             </CardContent>

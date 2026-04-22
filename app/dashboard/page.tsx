@@ -279,13 +279,13 @@ export default function DashboardPage() {
                         
                         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-8">
                             <div>
-                                <div className="flex items-center gap-2 mb-3 opacity-90">
-                                    <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
-                                        <Wallet className="w-4 h-4 text-primary-foreground" />
+                                <div className="flex items-center gap-2 mb-3">
+                                    <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-md flex items-center justify-center shadow-inner">
+                                        <Wallet className="w-5 h-5 text-white" />
                                     </div>
-                                    <p className="text-primary-foreground font-bold tracking-widest text-xs uppercase">Available Balance</p>
+                                    <p className="text-white font-black tracking-[0.2em] text-[10px] uppercase drop-shadow-md">Available Balance</p>
                                 </div>
-                                <p className="text-5xl md:text-6xl font-black text-primary-foreground tracking-tighter">
+                                <p className="text-5xl md:text-7xl font-black text-white tracking-tighter drop-shadow-lg">
                                     {formatCurrency(stats?.walletBalance || 0)}
                                 </p>
                             </div>
@@ -327,15 +327,15 @@ export default function DashboardPage() {
                     { label: 'Processing', value: stats?.processingOrders, icon: Clock, color: 'bg-amber-500', text: 'text-amber-500' },
                     { label: 'Failed', value: stats?.failedOrders, icon: XCircle, color: 'bg-red-500', text: 'text-red-500' },
                 ].map((stat, idx) => (
-                    <Card key={idx} className="card-premium group hover:border-primary/30">
+                    <Card key={idx} className="card-premium group hover:border-primary/50 shadow-md hover:shadow-xl transition-all duration-300">
                         <CardContent className="p-6">
                             <div className="flex flex-col gap-4">
-                                <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-lg", stat.color)}>
-                                    <stat.icon className="w-6 h-6" />
+                                <div className={cn("w-14 h-14 rounded-[1.25rem] flex items-center justify-center text-white shadow-lg transform group-hover:scale-110 transition-transform", stat.color)}>
+                                    <stat.icon className="w-7 h-7" />
                                 </div>
                                 <div>
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">{stat.label}</p>
-                                    <p className="text-3xl font-black text-foreground mt-1 tracking-tight">{stat.value}</p>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground opacity-70">{stat.label}</p>
+                                    <p className="text-3xl font-black text-foreground mt-1 tracking-tight drop-shadow-sm">{stat.value}</p>
                                 </div>
                             </div>
                         </CardContent>

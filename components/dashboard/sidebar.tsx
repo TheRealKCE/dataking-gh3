@@ -61,7 +61,7 @@ const adminNavItems = [
     { href: '/admin/top-up', label: 'Top-Up', icon: Wallet },
     { href: '/admin/orders', label: 'Orders', icon: ShoppingCart },
     { href: '/admin/fulfillment', label: 'Fulfillment', icon: Activity },
-    { href: '/admin/datagod', label: 'DataGod Terminal', icon: Activity },
+    { href: '/admin/datagod', label: 'DataGod Dashboard', icon: Activity },
     { href: '/admin/airtime', label: 'Airtime', icon: Phone },
     { href: '/admin/shops', label: 'Shops', icon: Store },
     { href: '/admin/shops/withdrawals', label: 'Shop Withdrawals', icon: Banknote },
@@ -249,9 +249,9 @@ export function DashboardSidebar() {
                         </div>
 
                         {/* Wallet Balance - Clean Look */}
-                        <div className="p-3 rounded-xl bg-background/50 border border-border/50 flex items-center justify-between">
+                        <div className="p-3 rounded-xl bg-card border border-border shadow-md flex items-center justify-between">
                             <div>
-                                <p className="text-[9px] uppercase tracking-widest text-muted-foreground font-bold mb-0.5">Balance</p>
+                                <p className="text-[9px] uppercase tracking-widest text-muted-foreground font-black mb-0.5 opacity-80">Current Balance</p>
                                 <p className="text-lg font-black text-foreground tracking-tight">{formatCurrency(walletBalance)}</p>
                             </div>
                             {isPageAccessible('/dashboard/wallet') && (
