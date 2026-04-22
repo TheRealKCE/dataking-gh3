@@ -128,7 +128,8 @@ function WalletContent() {
                     targetKey = 'agent_paystack_fee_percent'
                 }
                 
-                const feeSetting = feeSettings.find(s => s.key === targetKey) || feeSettings.find(s => s.key === 'paystack_fee_percent')
+                const settings = feeSettings as any[]
+                const feeSetting = settings.find(s => s.key === targetKey) || settings.find(s => s.key === 'paystack_fee_percent')
 
                 if (feeSetting && feeSetting.value) {
                     const val = feeSetting.value

@@ -13,6 +13,10 @@ export async function GET(request: NextRequest) {
         return NextResponse.redirect(new URL(`/shop/${slug || ''}?error=invalid_ref`, request.url))
     }
 
+    if (!ref.startsWith('SHOP-') || ref.length > 50) {
+        return NextResponse.redirect(new URL(`/shop/${slug}?error=invalid_ref`, request.url))
+    }
+
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || ''
 
     try {

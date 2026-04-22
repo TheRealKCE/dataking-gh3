@@ -56,31 +56,14 @@ export async function processCompletedWalletPayment(reference: string, providerM
         return { success: true, alreadyProcessed: true }
     }
 
-    // 4. Credit wallet
-    const { data: walletData, error: walletError } = await supabase
-        .from('wallets')
-        .select('*')
-        .eq('id', payment.wallet_id)
-        .single()
+    // 4. Credit wallet atomically
+    const { data: newBalance, error: walletError } = await (supabase as any).rpc('topup_wallet_balance', {
+        p_user_id: payment.user_id,
+        p_amount: payment.amount
+    })
 
-    const wallet = walletData as any
-
-    if (walletError || !wallet) {
-        console.error('[PaymentProcess] Wallet not found:', payment.wallet_id)
-        return { success: false, error: 'Wallet not found' }
-    }
-
-    const { error: updateWalletError } = await (supabase
-        .from('wallets') as any)
-        .update({
-            balance: wallet.balance + payment.amount,
-            total_credited: (wallet.total_credited || 0) + payment.amount,
-            updated_at: new Date().toISOString(),
-        })
-        .eq('id', wallet.id)
-
-    if (updateWalletError) {
-        console.error('[PaymentProcess] Update wallet error:', updateWalletError)
+    if (walletError || newBalance === null) {
+        console.error('[PaymentProcess] Failed to credit wallet atomically:', walletError)
         return { success: false, error: 'Failed to credit wallet' }
     }
 
@@ -123,13 +106,12 @@ export async function processCompletedWalletPayment(reference: string, providerM
             .single()
 
         if (userData) {
-            const newBalance = wallet.balance + payment.amount
             await sendWalletTopupSuccessEmail(
                 (userData as any).email,
                 (userData as any).first_name || 'Customer',
                 payment.amount,
                 reference,
-                newBalance
+                newBalance as number
             )
 
             // Send SMS notification

@@ -47,14 +47,35 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
         }
 
-        const { orders } = body
+        const { orders: rawOrders } = body
 
-        if (!Array.isArray(orders) || orders.length === 0) {
+        if (!Array.isArray(rawOrders) || rawOrders.length === 0) {
             return NextResponse.json({ error: 'No orders provided' }, { status: 400 })
         }
 
-        if (orders.length > 500) {
-            return NextResponse.json({ error: 'Maximum 500 orders per batch' }, { status: 400 })
+        if (rawOrders.length > 20) {
+            return NextResponse.json({ error: 'Maximum 20 orders per batch' }, { status: 400 })
+        }
+
+        // === SECURITY: Per-item validation and deduplication ===
+        const uniqueKeys = new Set<string>()
+        const orders: BulkOrderItem[] = []
+        for (const order of rawOrders) {
+            if (!order.phoneNumber || typeof order.phoneNumber !== 'string' || order.phoneNumber.replace(/\D/g, '').length < 9) {
+                return NextResponse.json({ error: `Invalid phone number format for ${order.phoneNumber || 'unknown'}` }, { status: 400 })
+            }
+            if (!order.packageId || typeof order.packageId !== 'string') {
+                return NextResponse.json({ error: 'Invalid package ID format' }, { status: 400 })
+            }
+            if (typeof order.packagePrice !== 'number' || order.packagePrice <= 0 || order.packagePrice > 1000) {
+                return NextResponse.json({ error: `Invalid price for ${order.phoneNumber || 'unknown'}` }, { status: 400 })
+            }
+            
+            const key = `${order.phoneNumber}-${order.packageId}`
+            if (!uniqueKeys.has(key)) {
+                uniqueKeys.add(key)
+                orders.push(order)
+            }
         }
 
         const supabase = createServerClient()

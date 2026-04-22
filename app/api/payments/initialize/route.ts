@@ -20,8 +20,9 @@ export async function POST(request: NextRequest) {
         const supabaseAdmin = createServerClient() // For database operations
         const { amount } = await request.json()
 
-        if (!amount || amount < 5) {
-            return NextResponse.json({ error: 'Minimum amount is GHS 5' }, { status: 400 })
+        const MAX_TOPUP_AMOUNT = Number(process.env.MAX_WALLET_TOPUP_AMOUNT) || 10000
+        if (!amount || typeof amount !== 'number' || amount < 5 || amount > MAX_TOPUP_AMOUNT) {
+            return NextResponse.json({ error: `Amount must be between GHS 5 and GHS ${MAX_TOPUP_AMOUNT.toLocaleString()}` }, { status: 400 })
         }
 
         // Get current user
