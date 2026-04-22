@@ -53,6 +53,7 @@ const userNavItems = [
     { href: '/dashboard/complaints', label: 'Complaints', icon: MessageSquare },
     { href: '/dashboard/profile', label: 'Profile', icon: User },
     { href: '/dashboard/afa-orders', label: 'AFA Application', icon: BadgeCheck },
+    { href: '/dashboard/shop', label: 'My Shop', icon: Store },
 ]
 
 const adminNavItems = [
@@ -60,7 +61,7 @@ const adminNavItems = [
     { href: '/admin/top-up', label: 'Top-Up', icon: Wallet },
     { href: '/admin/orders', label: 'Orders', icon: ShoppingCart },
     { href: '/admin/fulfillment', label: 'Fulfillment', icon: Activity },
-    { href: '/admin/datagod', label: 'DataGod Dashboard', icon: Activity },
+    { href: '/admin/datagod', label: 'DataGod Terminal', icon: Activity },
     { href: '/admin/airtime', label: 'Airtime', icon: Phone },
     { href: '/admin/shops', label: 'Shops', icon: Store },
     { href: '/admin/shops/withdrawals', label: 'Shop Withdrawals', icon: Banknote },
@@ -199,7 +200,7 @@ export function DashboardSidebar() {
                             </div>
                         )}
                     </Link>
-                    
+
                     {/* Mobile Close Button */}
                     <Button
                         variant="ghost"
@@ -227,7 +228,7 @@ export function DashboardSidebar() {
                             <div className={cn(
                                 "relative w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg ring-1 ring-white/10 overflow-hidden",
                                 dbUser?.role === 'admin' ? "bg-red-500" :
-                                dbUser?.role === 'agent' ? "bg-primary" : "bg-secondary"
+                                    dbUser?.role === 'agent' ? "bg-primary" : "bg-secondary"
                             )}>
                                 <RoleIcon className="w-6 h-6 text-white" />
                                 <div className="absolute inset-0 bg-gradient-to-tr from-black/20 to-transparent pointer-events-none" />
