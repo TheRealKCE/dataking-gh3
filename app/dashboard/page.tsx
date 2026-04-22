@@ -258,10 +258,10 @@ export default function DashboardPage() {
     return (
         <div className="space-y-8 animate-slow-fade">
             {/* Header Section with Tutorial Button */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
-                    <h2 className="text-3xl font-black tracking-tight text-foreground">Dashboard</h2>
-                    <p className="text-sm font-medium text-muted-foreground mt-1">Manage your business and track your performance</p>
+                    <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">Dashboard</h2>
+                    <p className="text-xs sm:text-sm font-medium text-muted-foreground mt-1">Manage your business and track your performance</p>
                 </div>
                 <HelpButton onClick={startTutorial} />
             </div>

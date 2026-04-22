@@ -45,7 +45,7 @@ interface Order {
 
 const NETWORKS = ['MTN', 'Telecel', 'AT-iShare', 'AT-BigTime']
 
-export default function DataGodTerminalPage() {
+export default function DataGodDashboardPage() {
     const { dbUser } = useAuth()
 
     // Data State
@@ -203,7 +203,7 @@ export default function DataGodTerminalPage() {
                 <div>
                     <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight flex items-center gap-3">
                         <DatabaseZap className="w-8 h-8 text-indigo-500" />
-                        DataGod Terminal
+                        DataGod Dashboard
                     </h1>
                     <p className="text-xs md:text-sm text-muted-foreground mt-1">
                         Isolated manual fulfillment system for DataGod provider.

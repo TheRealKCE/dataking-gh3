@@ -93,16 +93,16 @@ export function LandingClientShell({ initialGuestUrl, initialAdminPhone }: Landi
                     <div className="flex flex-col items-center text-center space-y-10">
                         <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/50 border border-border/50 backdrop-blur-md animate-slow-fade">
                             <Zap className="w-4 h-4 text-primary fill-primary" />
-                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/80">Ghana&apos;s #1 Reselling Terminal</span>
+                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/80">Ghana&apos;s #1 Reselling Platform</span>
                         </div>
 
                         <div className="space-y-6 max-w-4xl">
-                            <h1 className="font-heading font-black text-6xl md:text-8xl lg:text-9xl tracking-tighter leading-[0.9] text-foreground">
+                            <h1 className="font-heading font-black text-5xl md:text-8xl lg:text-9xl tracking-tighter leading-[0.9] text-foreground">
                                 Scale Your <br />
                                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-primary/80 to-primary/60">Digital Assets</span>
                             </h1>
                             <p className="max-w-2xl mx-auto text-lg md:text-xl font-medium text-muted-foreground/80 leading-relaxed">
-                                Join the elite network of data resellers in Ghana. Deploy instant bundles, track every pesewa, and manage your business from a state-of-the-art terminal.
+                                Join the elite network of data resellers in Ghana. Deploy instant bundles, track every pesewa, and manage your business from a state-of-the-art dashboard.
                             </p>
                         </div>
 
@@ -150,7 +150,7 @@ export function LandingClientShell({ initialGuestUrl, initialAdminPhone }: Landi
                             { icon: Store, title: 'Branded Stores', desc: 'Launch your own white-label storefront and build your independent brand.' },
                             { icon: Wallet, title: 'Unified Wallet', desc: 'Secure, high-speed funding with instant balance settlement across all networks.' },
                             { icon: Shield, title: 'Enterprise Security', desc: 'Military-grade encryption and real-time fraud monitoring for every order.' },
-                            { icon: HeadphonesIcon, title: '24/7 Command', desc: 'Dedicated terminal support via WhatsApp and secure internal ticketing.' },
+                            { icon: HeadphonesIcon, title: '24/7 Command', desc: 'Dedicated support via WhatsApp and secure internal ticketing.' },
                         ].map((feature, i) => (
                             <div key={i} className="card-premium p-10 group hover:border-primary/50 transition-all duration-500">
                                 <div className="w-14 h-14 rounded-2xl bg-primary/10 flex items-center justify-center mb-8 group-hover:bg-primary transition-colors">
@@ -175,7 +175,7 @@ export function LandingClientShell({ initialGuestUrl, initialAdminPhone }: Landi
                                     <span className="text-primary">Connectivity.</span>
                                 </h2>
                                 <p className="text-xl text-muted-foreground font-medium max-w-lg">
-                                    One terminal, every network. We provide deep integration with all major Ghanaian carriers.
+                                    One dashboard, every network. We provide deep integration with all major Ghanaian carriers.
                                 </p>
                             </div>
                             
@@ -239,7 +239,7 @@ export function LandingClientShell({ initialGuestUrl, initialAdminPhone }: Landi
                                 <span className="text-primary">Your Business?</span>
                             </h2>
                             <p className="max-w-2xl mx-auto text-xl font-medium opacity-70">
-                                Stop struggling with slow deliveries and poor rates. Step into the future of data reselling with ARHMS DATA Terminal.
+                                Stop struggling with slow deliveries and poor rates. Step into the future of data reselling with ARHMS DATA Dashboard.
                             </p>
                             <div className="flex flex-col sm:flex-row gap-6 justify-center">
                                 <Link href="/auth/signup" className="w-full sm:w-auto">
@@ -274,7 +274,7 @@ export function LandingClientShell({ initialGuestUrl, initialAdminPhone }: Landi
                             </p>
                         </div>
                         <div className="space-y-6">
-                            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-primary">Terminal</p>
+                            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-primary">Dashboard</p>
                             <ul className="space-y-4 text-sm font-bold text-muted-foreground">
                                 <li><a href="#" className="hover:text-primary transition-colors">Platform Features</a></li>
                                 <li><a href="#" className="hover:text-primary transition-colors">Pricing Structure</a></li>

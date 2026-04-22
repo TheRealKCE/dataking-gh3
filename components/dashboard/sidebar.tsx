@@ -32,7 +32,8 @@ import {
     Banknote,
     Store,
     Tag,
-    Phone
+    Phone,
+    XCircle
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -59,7 +60,7 @@ const adminNavItems = [
     { href: '/admin/top-up', label: 'Top-Up', icon: Wallet },
     { href: '/admin/orders', label: 'Orders', icon: ShoppingCart },
     { href: '/admin/fulfillment', label: 'Fulfillment', icon: Activity },
-    { href: '/admin/datagod', label: 'DataGod Terminal', icon: Activity },
+    { href: '/admin/datagod', label: 'DataGod Dashboard', icon: Activity },
     { href: '/admin/airtime', label: 'Airtime', icon: Phone },
     { href: '/admin/shops', label: 'Shops', icon: Store },
     { href: '/admin/shops/withdrawals', label: 'Shop Withdrawals', icon: Banknote },
@@ -198,6 +199,17 @@ export function DashboardSidebar() {
                             </div>
                         )}
                     </Link>
+                    
+                    {/* Mobile Close Button */}
+                    <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={closeSidebar}
+                        className="lg:hidden text-muted-foreground hover:text-foreground"
+                    >
+                        <XCircle className="w-6 h-6" />
+                    </Button>
+
                     <Button
                         variant="ghost"
                         size="icon"
