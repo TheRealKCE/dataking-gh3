@@ -65,9 +65,9 @@ export function LandingClientShell({ initialGuestUrl, initialAdminPhone }: Landi
                     </div>
                     
                     <div className="hidden md:flex items-center gap-8">
-                        <a href="#features" className="text-xs font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors">Features</a>
-                        <a href="#networks" className="text-xs font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors">Networks</a>
-                        <a href="#support" className="text-xs font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors">Support</a>
+                        <a href="#features" className="text-xs font-black uppercase tracking-widest text-foreground/70 hover:text-primary transition-colors">Features</a>
+                        <a href="#networks" className="text-xs font-black uppercase tracking-widest text-foreground/70 hover:text-primary transition-colors">Networks</a>
+                        <a href="#support" className="text-xs font-black uppercase tracking-widest text-foreground/70 hover:text-primary transition-colors">Support</a>
                     </div>
 
                     <div className="flex items-center gap-4">
@@ -88,7 +88,7 @@ export function LandingClientShell({ initialGuestUrl, initialAdminPhone }: Landi
             {/* Hero Section — Clean & Action-Oriented */}
             <section className="relative pt-32 pb-20 px-6 lg:px-10">
                 <div className="max-w-7xl mx-auto flex flex-col items-center">
-                    <p className="text-xs sm:text-sm font-black uppercase tracking-[0.2em] text-muted-foreground mb-8 drop-shadow-sm opacity-80">
+                    <p className="text-xs sm:text-sm font-black uppercase tracking-[0.2em] text-foreground/75 mb-8 drop-shadow-sm">
                         Already an Agent? <Link href="/auth/login" className="text-primary hover:underline cursor-pointer decoration-2 underline-offset-4 decoration-primary/30 transition-all">Log In to your account.</Link>
                     </p>
                     
@@ -176,7 +176,7 @@ export function LandingClientShell({ initialGuestUrl, initialAdminPhone }: Landi
                                     <feature.icon className="w-6 h-6 text-primary group-hover:text-primary-foreground transition-colors" />
                                 </div>
                                 <h4 className="text-2xl font-black text-foreground mb-4 tracking-tight">{feature.title}</h4>
-                                <p className="text-muted-foreground font-medium leading-relaxed">{feature.desc}</p>
+                                <p className="text-foreground/80 font-medium leading-relaxed">{feature.desc}</p>
                             </div>
                         ))}
                     </div>
@@ -192,7 +192,7 @@ export function LandingClientShell({ initialGuestUrl, initialAdminPhone }: Landi
                                 Ready to Upgrade <br />
                                 Your Business?
                             </h2>
-                            <p className="text-lg font-medium opacity-80">
+                            <p className="text-lg font-medium text-primary-foreground/90">
                                 Join the elite network of data resellers in Ghana today.
                             </p>
                             <Link href="/auth/signup">
@@ -216,13 +216,13 @@ export function LandingClientShell({ initialGuestUrl, initialAdminPhone }: Landi
                                 </div>
                                 <span className="font-heading font-black text-xl tracking-tighter">ARHMS DATA</span>
                             </div>
-                            <p className="text-muted-foreground font-medium max-w-sm">
+                            <p className="text-foreground/85 font-medium max-w-sm">
                                 The definitive platform for digital asset reselling in West Africa. Built for speed, security, and absolute reliability.
                             </p>
                         </div>
                         <div className="space-y-6">
                             <p className="text-[10px] font-black uppercase tracking-[0.4em] text-primary">Dashboard</p>
-                            <ul className="space-y-4 text-sm font-bold text-muted-foreground">
+                            <ul className="space-y-4 text-sm font-bold text-foreground/80">
                                 <li><a href="#" className="hover:text-primary transition-colors">Platform Features</a></li>
                                 <li><a href="#" className="hover:text-primary transition-colors">Pricing Structure</a></li>
                                 <li><a href="#" className="hover:text-primary transition-colors">Network Status</a></li>
@@ -230,14 +230,14 @@ export function LandingClientShell({ initialGuestUrl, initialAdminPhone }: Landi
                         </div>
                         <div className="space-y-6">
                             <p className="text-[10px] font-black uppercase tracking-[0.4em] text-primary">Legal</p>
-                            <ul className="space-y-4 text-sm font-bold text-muted-foreground">
+                            <ul className="space-y-4 text-sm font-bold text-foreground/80">
                                 <li><Link href="/terms" className="hover:text-primary transition-colors">Terms of Service</Link></li>
                                 <li><Link href="/privacy" className="hover:text-primary transition-colors">Privacy Protocol</Link></li>
                                 <li><Link href="/contact" className="hover:text-primary transition-colors">Secure Contact</Link></li>
                             </ul>
                         </div>
                     </div>
-                    <div className="flex flex-col md:flex-row justify-between items-center gap-8 pt-10 border-t border-border/40 opacity-50">
+                    <div className="flex flex-col md:flex-row justify-between items-center gap-8 pt-10 border-t border-border/40 text-foreground/75">
                         <p className="text-[10px] font-black uppercase tracking-widest">© 2025 ARHMS DATA LTD • ALL RIGHTS RESERVED</p>
                         <div className="flex gap-8 text-[10px] font-black uppercase tracking-widest">
                             <span>WEST AFRICA</span>
