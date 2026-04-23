@@ -15,7 +15,6 @@ import { cn } from '@/lib/utils'
 import { useUI } from '@/contexts/ui-context'
 // import { SupportChatWidget } from '@/components/dashboard/support-chat-widget'
 import { SuspendedAccount } from '@/components/dashboard/SuspendedAccount'
-import { AnnouncementBell } from '@/components/dashboard/AnnouncementBell'
 import { CopyrightFooter } from '@/components/CopyrightFooter'
 
 
@@ -54,19 +53,18 @@ export default function DashboardLayout({
 
     if (isSuspended) {
         return (
-            <div className="min-h-screen bg-[#E5E7EB] dark:bg-[#000000] relative">
+            <div className="min-h-screen bg-background relative">
                 <DashboardSidebar />
                 <div className={cn(
                     "relative transition-all duration-300 ease-in-out min-h-screen flex flex-col w-full max-w-[100vw] overflow-x-hidden",
                     isCollapsed ? "lg:pl-20" : "lg:pl-80"
                 )}>
-                    <AnnouncementBell />
                     <DashboardHeader />
                     <div className="h-16 flex-shrink-0" />
                     <main className="p-4 lg:p-6 flex-1">
                         <SuspendedAccount />
                     </main>
-                    <CopyrightFooter className="bg-[#E5E7EB]/50 dark:bg-[#000000]/50" />
+                    <CopyrightFooter className="bg-background/60" />
                 </div>
                 <FloatingWhatsApp variant="auth" />
                 {/* <SupportChatWidget /> */}
@@ -75,7 +73,7 @@ export default function DashboardLayout({
     }
 
     return (
-        <div className="min-h-screen bg-[#E5E7EB] dark:bg-[#000000] relative">
+        <div className="min-h-screen bg-background relative">
             <SystemAnnouncementModal />
             <AgentExpiryModal />
             <DashboardSidebar />
@@ -83,7 +81,6 @@ export default function DashboardLayout({
                 "relative transition-all duration-300 ease-in-out min-h-screen flex flex-col w-full max-w-[100vw] overflow-x-hidden",
                 isCollapsed ? "lg:pl-20" : "lg:pl-80"
             )}>
-                <AnnouncementBell />
                 <DashboardHeader />
                 <div className="h-16 flex-shrink-0" />
                 <main className="p-4 lg:p-6 flex-1">
@@ -91,7 +88,7 @@ export default function DashboardLayout({
                         {children}
                     </PageAccessGuard>
                 </main>
-                <CopyrightFooter className="bg-[#E5E7EB]/50 dark:bg-[#000000]/50" />
+                <CopyrightFooter className="bg-background/60" />
             </div>
             <FloatingWhatsApp variant="auth" />
             {/* <SupportChatWidget /> */}

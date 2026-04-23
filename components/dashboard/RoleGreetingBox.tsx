@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
@@ -89,89 +89,82 @@ export function RoleGreetingBox({ stats }: RoleGreetingBoxProps) {
         return `${years} ${years === 1 ? 'year' : 'years'} ago`
     }
 
-    // Role specific configurations
-    let themeClasses = ''
     let roleLabel = ''
     let Icon = Sparkles
-    let textColor = ''
+    let accentClass = 'text-primary'
+    let pillClass = 'bg-primary/15 text-primary'
 
     if (isAdmin) {
-        themeClasses = 'bg-gradient-to-br from-red-600 to-red-800 border-red-500/30'
         roleLabel = 'System Administrator'
         Icon = Shield
-        textColor = 'text-white'
+        accentClass = 'text-rose-500'
+        pillClass = 'bg-rose-500/15 text-rose-500'
     } else if (isSubAdmin) {
-        themeClasses = 'bg-gradient-to-br from-indigo-600 to-indigo-800 border-indigo-500/30'
         roleLabel = 'Sub-Administrator'
         Icon = Shield
-        textColor = 'text-white'
+        accentClass = 'text-indigo-500'
+        pillClass = 'bg-indigo-500/15 text-indigo-500'
     } else if (dbUser.role === 'agent') {
-        themeClasses = 'bg-gradient-to-br from-[#FFCE00] to-yellow-600 border-yellow-600/30'
         roleLabel = 'Authorized Agent'
         Icon = Crown
-        textColor = 'text-black'
+        accentClass = 'text-amber-500'
+        pillClass = 'bg-amber-500/15 text-amber-500'
     } else {
-        // Customer
-        themeClasses = 'bg-gradient-to-br from-blue-600 to-blue-800 border-blue-500/30'
         roleLabel = 'Valued Customer'
         Icon = Star
-        textColor = 'text-white'
+        accentClass = 'text-blue-500'
+        pillClass = 'bg-blue-500/15 text-blue-500'
     }
 
     return (
-        <div className={cn("rounded-2xl p-4 sm:p-6 border-2 shadow-lg hover:shadow-xl transition-all overflow-hidden relative", themeClasses)}>
-            
-            {/* Background decoration */ }
+        <div className="rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-border/70 bg-card shadow-sm hover:shadow-md transition-all overflow-hidden relative">
+            <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_top_right,hsl(var(--primary)/0.12),transparent_45%)]" />
             <div className="absolute top-0 right-0 -mt-10 -mr-10 opacity-10 pointer-events-none">
-                <Icon className={cn("w-48 h-48", textColor)} />
+                <Icon className={cn('w-40 h-40', accentClass)} />
             </div>
 
-            {/* Greeting and Date/Time Row */}
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6 relative z-10">
-                <div className="flex flex-col gap-1">
-                    <div className="flex items-center gap-2">
-                        <Icon className={cn("w-6 h-6 sm:w-8 sm:h-8", textColor, dbUser.role === 'agent' ? "fill-black" : "fill-white/20")} />
-                        <h2 className={cn("text-xl sm:text-2xl font-black", textColor)}>
+            <div className="relative z-10 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-5">
+                <div className="flex flex-col gap-2 min-w-0">
+                    <div className="flex items-center gap-2 min-w-0">
+                        <Icon className={cn('w-5 h-5 sm:w-6 sm:h-6 shrink-0', accentClass)} />
+                        <h2 className="text-xl sm:text-2xl font-black text-foreground truncate">
                             {getGreeting()}, {dbUser.first_name}!
                         </h2>
                     </div>
-                    <p className={cn("text-xs sm:text-sm font-medium opacity-90 pl-1", textColor)}>
-                        Here's an overview of your transactions, shop performance, and recent activity.
+                    <p className="text-xs sm:text-sm text-muted-foreground pl-0.5">
+                        Here is an overview of your transactions, shop performance, and recent activity.
                     </p>
                 </div>
-                <div className={cn("flex flex-row sm:flex-col items-center sm:items-end gap-2 sm:gap-0", textColor)}>
-                    <p className="text-xs sm:text-base font-bold opacity-90">{dateStr}</p>
-                    <p className="text-sm sm:text-xl font-black">{timeStr}</p>
+                <div className="flex flex-row sm:flex-col items-start sm:items-end gap-2 sm:gap-0 text-foreground">
+                    <p className="text-xs sm:text-sm font-semibold text-muted-foreground">{dateStr}</p>
+                    <p className="text-sm sm:text-lg font-black">{timeStr}</p>
                 </div>
             </div>
 
-            {/* Information Rows */}
-            <div className="flex flex-col gap-3 relative z-10">
-                {/* Row 1: Role */}
-                <div className="bg-black/20 backdrop-blur-sm rounded-xl p-3 sm:p-4 flex items-center justify-between border border-white/10">
+            <div className="relative z-10 flex flex-col gap-3">
+                <div className="bg-secondary/35 rounded-xl p-3 sm:p-4 flex items-center justify-between border border-border/60">
                     <div className="flex items-center gap-3">
-                        <Shield className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-                        <p className="text-xs sm:text-sm text-white/90 font-semibold">Your Role</p>
+                        <Shield className="w-5 h-5 sm:w-6 sm:h-6 text-muted-foreground" />
+                        <p className="text-xs sm:text-sm text-muted-foreground font-semibold">Your Role</p>
                     </div>
-                    <p className="text-sm sm:text-lg font-black text-white">
+                    <p className={cn('text-sm sm:text-base font-black px-3 py-1 rounded-full', pillClass)}>
                         {roleLabel}
                     </p>
                 </div>
 
-                {/* Conditional Row 2 */}
                 {dbUser.role === 'agent' ? (
-                    <div className="bg-black/20 backdrop-blur-sm rounded-xl p-3 sm:p-4 flex items-center justify-between border border-white/10">
+                    <div className="bg-secondary/35 rounded-xl p-3 sm:p-4 flex items-center justify-between border border-border/60">
                         <div className="flex items-center gap-3">
-                            <Clock className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                            <Clock className="w-5 h-5 sm:w-6 sm:h-6 text-muted-foreground" />
                             <div className="flex flex-col">
-                                <p className="text-xs sm:text-sm text-white/90 font-semibold">Membership</p>
+                                <p className="text-xs sm:text-sm text-muted-foreground font-semibold">Membership</p>
                                 <div className={cn(
-                                    "inline-block px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-bold w-fit mt-0.5",
+                                    'inline-block px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-bold w-fit mt-0.5',
                                     daysRemaining !== null && daysRemaining <= 3
-                                        ? "bg-red-500 text-white"
+                                        ? 'bg-red-500/20 text-red-500'
                                         : daysRemaining !== null && daysRemaining <= 7
-                                            ? "bg-yellow-500 text-black"
-                                            : "bg-green-500 text-white"
+                                            ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400'
+                                            : 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400'
                                 )}>
                                     Active
                                 </div>
@@ -180,12 +173,12 @@ export function RoleGreetingBox({ stats }: RoleGreetingBoxProps) {
                         <div className="flex flex-col items-end gap-1">
                             {daysRemaining !== null && (
                                 <p className={cn(
-                                    "text-sm sm:text-lg font-black",
+                                    'text-sm sm:text-lg font-black',
                                     daysRemaining <= 3
-                                        ? "text-red-400"
+                                        ? 'text-red-500'
                                         : daysRemaining <= 7
-                                            ? "text-yellow-400"
-                                            : "text-white"
+                                            ? 'text-amber-600 dark:text-amber-400'
+                                            : 'text-foreground'
                                 )}>
                                     {daysRemaining} {daysRemaining === 1 ? 'day' : 'days'} left
                                 </p>
@@ -200,43 +193,42 @@ export function RoleGreetingBox({ stats }: RoleGreetingBoxProps) {
                         </div>
                     </div>
                 ) : isAdmin || isSubAdmin ? (
-                    <div className="bg-black/20 backdrop-blur-sm rounded-xl p-3 sm:p-4 flex items-center justify-between border border-white/10">
+                    <div className="bg-secondary/35 rounded-xl p-3 sm:p-4 flex items-center justify-between border border-border/60">
                         <div className="flex items-center gap-3">
-                            <Settings className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-                            <p className="text-xs sm:text-sm text-white/90 font-semibold">System Access</p>
+                            <Settings className="w-5 h-5 sm:w-6 sm:h-6 text-muted-foreground" />
+                            <p className="text-xs sm:text-sm text-muted-foreground font-semibold">System Access</p>
                         </div>
                         <Link href="/admin">
-                            <Button size="sm" className="h-8 px-4 text-xs font-bold bg-white text-red-600 hover:bg-gray-100 shadow-md transition-transform hover:scale-105">
+                            <Button size="sm" className="h-8 px-4 text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 shadow-md transition-transform hover:scale-105">
                                 Go to Admin Panel
                             </Button>
                         </Link>
                     </div>
                 ) : (
-                    <div className="bg-black/20 backdrop-blur-sm rounded-xl p-3 sm:p-4 flex items-center justify-between border border-white/10">
+                    <div className="bg-secondary/35 rounded-xl p-3 sm:p-4 flex items-center justify-between border border-border/60">
                         <div className="flex items-center gap-3">
-                            <ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
-                            <p className="text-xs sm:text-sm text-white/90 font-semibold">Total Orders</p>
+                            <ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6 text-muted-foreground" />
+                            <p className="text-xs sm:text-sm text-muted-foreground font-semibold">Total Orders</p>
                         </div>
-                        <p className="text-sm sm:text-lg font-black text-white">
+                        <p className="text-sm sm:text-lg font-black text-foreground">
                             {stats?.totalOrders || 0}
                         </p>
                     </div>
                 )}
 
-                {/* Row 3: Member Since / Extra Info */}
-                <div className="bg-black/20 backdrop-blur-sm rounded-xl p-3 sm:p-4 flex items-center justify-between border border-white/10">
+                <div className="bg-secondary/35 rounded-xl p-3 sm:p-4 flex items-center justify-between border border-border/60">
                     <div className="flex items-center gap-3">
                         {dbUser.role === 'customer' ? (
-                            <Wallet className="w-5 h-5 sm:w-6 sm:h-6 text-white" />
+                            <Wallet className="w-5 h-5 sm:w-6 sm:h-6 text-muted-foreground" />
                         ) : (
-                            <Star className="w-5 h-5 sm:w-6 sm:h-6 text-white fill-white/50" />
+                            <Star className="w-5 h-5 sm:w-6 sm:h-6 text-muted-foreground" />
                         )}
-                        <p className="text-xs sm:text-sm text-white/90 font-semibold">
+                        <p className="text-xs sm:text-sm text-muted-foreground font-semibold">
                             {dbUser.role === 'customer' ? 'Wallet Balance' : 'Member Since'}
                         </p>
                     </div>
-                    <p className="text-sm sm:text-lg font-black text-white">
-                        {dbUser.role === 'customer' 
+                    <p className="text-sm sm:text-lg font-black text-foreground">
+                        {dbUser.role === 'customer'
                             ? formatCurrency(stats?.walletBalance || 0)
                             : getTimeSinceJoined()
                         }
@@ -246,3 +238,4 @@ export function RoleGreetingBox({ stats }: RoleGreetingBoxProps) {
         </div>
     )
 }
+

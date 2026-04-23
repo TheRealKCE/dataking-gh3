@@ -258,9 +258,9 @@ export default function DashboardPage() {
     return (
         <div className="space-y-8 animate-slow-fade">
             {/* Header Section with Tutorial Button */}
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-4">
                 <div>
-                    <h2 className="text-3xl font-black tracking-tight text-foreground">Dashboard</h2>
+                    <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">Dashboard</h2>
                     <p className="text-sm font-medium text-muted-foreground mt-1">Manage your business and track your performance</p>
                 </div>
                 <HelpButton onClick={startTutorial} />
@@ -271,11 +271,11 @@ export default function DashboardPage() {
 
             {/* Premium Wallet & Business Card */}
             <div className="grid lg:grid-cols-3 gap-6">
-                <Card id="wallet-card" className="lg:col-span-2 overflow-hidden border-0 shadow-blue-premium bg-gradient-to-br from-primary to-primary/80 group">
+                <Card id="wallet-card" className="lg:col-span-2 overflow-hidden border border-border/70 shadow-sm bg-gradient-to-br from-primary to-blue-700 dark:to-blue-800 group">
                     <CardContent className="p-8 relative">
                         {/* Decorative pattern */}
                         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none" />
-                        <div className="absolute bottom-0 left-0 w-32 h-32 bg-black/5 rounded-full blur-2xl -ml-16 -mb-16 pointer-events-none" />
+                        <div className="absolute bottom-0 left-0 w-32 h-32 bg-black/20 rounded-full blur-2xl -ml-16 -mb-16 pointer-events-none" />
                         
                         <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-8">
                             <div>
@@ -291,7 +291,7 @@ export default function DashboardPage() {
                             </div>
                             
                             <Link href="/dashboard/wallet" className="w-full md:w-auto">
-                                <Button className="w-full md:w-auto bg-primary-foreground text-primary hover:bg-primary-foreground/90 font-black h-14 px-10 rounded-2xl shadow-xl shadow-black/10 text-lg transition-all hover:scale-[1.02] active:scale-95">
+                                <Button className="w-full md:w-auto bg-white text-primary hover:bg-white/90 font-black h-14 px-10 rounded-2xl shadow-xl shadow-black/15 text-lg transition-all hover:scale-[1.02] active:scale-95">
                                     <Plus className="w-6 h-6 mr-2 stroke-[3]" />
                                     Refill Wallet
                                 </Button>
@@ -300,7 +300,7 @@ export default function DashboardPage() {
                     </CardContent>
                 </Card>
 
-                <Card className="card-premium p-8 flex flex-col justify-between group overflow-hidden relative">
+                <Card className="card-premium p-8 flex flex-col justify-between group overflow-hidden relative bg-card">
                     <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
                         <Store className="w-24 h-24" />
                     </div>

@@ -16,7 +16,11 @@ interface Announcement {
 const STORAGE_KEY = 'ARHMS_last_viewed_announcements'
 const HIDE_KEY = 'ARHMS_bell_dismissed_at'
 
-export function AnnouncementBell() {
+interface AnnouncementBellProps {
+    inline?: boolean
+}
+
+export function AnnouncementBell({ inline = false }: AnnouncementBellProps) {
     const [isOpen, setIsOpen] = useState(false)
     const [announcements, setAnnouncements] = useState<Announcement[]>([])
     const [lastViewed, setLastViewed] = useState<string | null>(null)
@@ -108,7 +112,12 @@ export function AnnouncementBell() {
     if (!isVisible) return null
 
     return (
-        <div ref={containerRef} className="fixed top-20 right-4 z-[100] lg:right-8">
+        <div
+            ref={containerRef}
+            className={cn(
+                inline ? "relative z-10" : "fixed top-20 right-4 z-[100] lg:right-8"
+            )}
+        >
             {/* --- Alert Popover (shown when unread and closed) --- */}
             {hasUnread && !isOpen && (
                 <div className="absolute top-1/2 -left-3 -translate-x-full -translate-y-1/2 hidden md:flex items-center">
@@ -154,7 +163,8 @@ export function AnnouncementBell() {
 
             {/* --- Announcements Popover --- */}
             <div className={cn(
-                "absolute top-16 right-0 w-[340px] max-h-[550px] overflow-hidden bg-white/98 dark:bg-gray-950/98 border border-gray-200 dark:border-gray-800 rounded-[2rem] shadow-2xl backdrop-blur-2xl transition-all duration-500 origin-top-right",
+                "absolute right-0 w-[340px] max-w-[calc(100vw-1.5rem)] max-h-[550px] overflow-hidden bg-white/98 dark:bg-gray-950/98 border border-gray-200 dark:border-gray-800 rounded-[2rem] shadow-2xl backdrop-blur-2xl transition-all duration-500 origin-top-right",
+                inline ? "top-14" : "top-16",
                 isOpen ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-95 -translate-y-4 pointer-events-none"
             )}>
                 {/* Header */}
