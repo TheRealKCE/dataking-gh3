@@ -90,7 +90,7 @@ export default function LoginPage() {
                             ARHMS <span className="text-primary">DATA</span>
                         </h1>
                         <p className="text-sm font-bold text-muted-foreground tracking-widest uppercase mt-2 opacity-70">
-                            Secure Terminal Access
+                            Secure Account Access
                         </p>
                     </Link>
                 </div>
@@ -106,13 +106,13 @@ export default function LoginPage() {
                             )}
 
                             <div className="space-y-2">
-                                <Label htmlFor="email" className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">Email Terminal</Label>
+                                <Label htmlFor="email" className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">Email Address</Label>
                                 <div className="relative">
                                     <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                                     <Input
                                         id="email"
                                         type="email"
-                                        placeholder="terminal@arhms.com"
+                                        placeholder="you@arhmsdata.com"
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}
                                         required
@@ -122,7 +122,7 @@ export default function LoginPage() {
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="password" className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">Access Key</Label>
+                                <Label htmlFor="password" className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">Password</Label>
                                 <div className="relative">
                                     <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                                     <Input
@@ -144,7 +144,7 @@ export default function LoginPage() {
                                 </div>
                                 <div className="flex justify-end px-1">
                                     <Link href="/auth/reset-password" title="reset-password-link" className="text-[10px] font-black uppercase tracking-widest text-primary hover:text-primary/80 transition-colors">
-                                        Forgot Key?
+                                        Forgot Password?
                                     </Link>
                                 </div>
                             </div>
@@ -159,7 +159,7 @@ export default function LoginPage() {
                                 ) : isLoading ? (
                                     <Loader2 className="w-6 h-6 animate-spin" />
                                 ) : (
-                                    "Enter Terminal"
+                                    "Sign In"
                                 )}
                             </Button>
                         </form>

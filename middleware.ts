@@ -8,10 +8,34 @@ import { Ratelimit } from '@upstash/ratelimit'
 // STRICT CORS ALLOWLIST - Only these origins are trusted.
 // NEVER add a wildcard (*) here. Never reflect the raw Origin.
 // ============================================================
-const ALLOWED_ORIGINS: ReadonlySet<string> = new Set([
+const STATIC_ALLOWED_ORIGINS = [
     'https://arhms-data-ltd.vercel.app',
+    'https://arhmsdata.com',
+    'https://www.arhmsdata.com',
     'http://localhost:3000',
     'http://localhost:8081',
+] as const
+
+function normalizeOrigin(value?: string | null): string | null {
+    if (!value) return null
+    try {
+        return new URL(value).origin
+    } catch {
+        return null
+    }
+}
+
+const envAllowedOrigins = [
+    normalizeOrigin(process.env.NEXT_PUBLIC_APP_URL),
+    normalizeOrigin(process.env.NEXT_PUBLIC_SITE_URL),
+    process.env.VERCEL_PROJECT_PRODUCTION_URL
+        ? normalizeOrigin(`https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`)
+        : null,
+].filter((origin): origin is string => Boolean(origin))
+
+const ALLOWED_ORIGINS: ReadonlySet<string> = new Set([
+    ...STATIC_ALLOWED_ORIGINS,
+    ...envAllowedOrigins,
 ])
 
 // ============================================================
@@ -94,8 +118,13 @@ function getIP(request: NextRequest): string {
 
 // Sets CORS headers ONLY for explicitly allowlisted origins.
 // Never reflects the raw origin. Never uses wildcard with credentials.
-function setCORSHeaders(response: NextResponse, origin: string | null): NextResponse {
-    if (origin && ALLOWED_ORIGINS.has(origin)) {
+function isTrustedOrigin(request: NextRequest, origin: string | null): boolean {
+    if (!origin) return false
+    return ALLOWED_ORIGINS.has(origin) || origin === request.nextUrl.origin
+}
+
+function setCORSHeaders(response: NextResponse, request: NextRequest, origin: string | null): NextResponse {
+    if (origin && isTrustedOrigin(request, origin)) {
         response.headers.set('Access-Control-Allow-Origin', origin)
         response.headers.set('Access-Control-Allow-Credentials', 'true')
         response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, PATCH, DELETE, OPTIONS')
@@ -113,10 +142,10 @@ export async function middleware(request: NextRequest) {
     // === CORS PREFLIGHT HANDLER ===
     // Handle OPTIONS preflight FIRST, before any Supabase logic.
     if (request.method === 'OPTIONS') {
-        if (origin && ALLOWED_ORIGINS.has(origin)) {
+        if (isTrustedOrigin(request, origin)) {
             // Trusted origin: approve the preflight
             const preflightResponse = new NextResponse(null, { status: 204 })
-            return addNoCacheHeaders(setCORSHeaders(preflightResponse, origin))
+            return addNoCacheHeaders(setCORSHeaders(preflightResponse, request, origin))
         } else {
             // Untrusted origin: reject the preflight entirely
             return new NextResponse(null, { status: 403 })
@@ -126,7 +155,7 @@ export async function middleware(request: NextRequest) {
     // === ORIGIN ENFORCEMENT FOR API ROUTES ===
     // For cross-origin requests (Origin header present) to API routes,
     // block the request if origin is not in the allowlist.
-    if (origin && pathname.startsWith('/api') && !ALLOWED_ORIGINS.has(origin)) {
+    if (origin && pathname.startsWith('/api') && !isTrustedOrigin(request, origin)) {
         console.warn(`[CORS] Blocked request from untrusted origin: ${origin} → ${pathname}`)
         return new NextResponse(
             JSON.stringify({ error: 'CORS: Origin not allowed' }),
@@ -359,7 +388,7 @@ export async function middleware(request: NextRequest) {
         }
     }
 
-    return addNoCacheHeaders(setCORSHeaders(res, origin))
+    return addNoCacheHeaders(setCORSHeaders(res, request, origin))
 }
 
 export const config = {

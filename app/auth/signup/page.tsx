@@ -186,7 +186,7 @@ export default function SignupPage() {
                             ARHMS <span className="text-primary">DATA</span>
                         </h1>
                         <p className="text-[10px] font-black text-muted-foreground tracking-[0.3em] uppercase mt-1 opacity-60">
-                            Create Terminal Profile
+                            Create Your Account
                         </p>
                     </Link>
                 </div>
@@ -235,14 +235,14 @@ export default function SignupPage() {
                             </div>
 
                             <div className="space-y-2">
-                                <Label htmlFor="email" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Email Terminal</Label>
+                                <Label htmlFor="email" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Email Address</Label>
                                 <div className="relative">
                                     <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                                     <Input
                                         id="email"
                                         name="email"
                                         type="email"
-                                        placeholder="agent@arhms.com"
+                                        placeholder="you@arhmsdata.com"
                                         value={formData.email}
                                         onChange={handleChange}
                                         required
@@ -270,7 +270,7 @@ export default function SignupPage() {
 
                             <div className="grid grid-cols-2 gap-4">
                                 <div className="space-y-2">
-                                    <Label htmlFor="password" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Secret Key</Label>
+                                    <Label htmlFor="password" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Password</Label>
                                     <div className="relative">
                                         <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                                         <Input
@@ -293,7 +293,7 @@ export default function SignupPage() {
                                     </div>
                                 </div>
                                 <div className="space-y-2">
-                                    <Label htmlFor="confirmPassword" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Confirm Key</Label>
+                                    <Label htmlFor="confirmPassword" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Confirm Password</Label>
                                     <div className="relative">
                                         <Lock className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                                         <Input
@@ -318,7 +318,7 @@ export default function SignupPage() {
                                 {isLoading ? (
                                     <Loader2 className="w-6 h-6 animate-spin" />
                                 ) : (
-                                    "Initialize Account"
+                                    "Create Account"
                                 )}
                             </Button>
                         </form>
@@ -338,7 +338,7 @@ export default function SignupPage() {
                             className="w-full h-14 rounded-2xl border-border/50 hover:bg-secondary/50 font-black uppercase tracking-widest text-xs transition-all"
                         >
                             <Link href="/auth/login">
-                                Back to Login Terminal
+                                Back to Login
                             </Link>
                         </Button>
 
