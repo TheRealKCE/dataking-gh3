@@ -32,8 +32,7 @@ import {
     Banknote,
     Store,
     Tag,
-    Phone,
-    XCircle
+    Phone
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -53,7 +52,6 @@ const userNavItems = [
     { href: '/dashboard/complaints', label: 'Complaints', icon: MessageSquare },
     { href: '/dashboard/profile', label: 'Profile', icon: User },
     { href: '/dashboard/afa-orders', label: 'AFA Application', icon: BadgeCheck },
-    { href: '/dashboard/shop', label: 'My Shop', icon: Store },
 ]
 
 const adminNavItems = [
@@ -61,7 +59,7 @@ const adminNavItems = [
     { href: '/admin/top-up', label: 'Top-Up', icon: Wallet },
     { href: '/admin/orders', label: 'Orders', icon: ShoppingCart },
     { href: '/admin/fulfillment', label: 'Fulfillment', icon: Activity },
-    { href: '/admin/datagod', label: 'DataGod Dashboard', icon: Activity },
+    { href: '/admin/datagod', label: 'DataGod Terminal', icon: Activity },
     { href: '/admin/airtime', label: 'Airtime', icon: Phone },
     { href: '/admin/shops', label: 'Shops', icon: Store },
     { href: '/admin/shops/withdrawals', label: 'Shop Withdrawals', icon: Banknote },
@@ -200,17 +198,6 @@ export function DashboardSidebar() {
                             </div>
                         )}
                     </Link>
-
-                    {/* Mobile Close Button */}
-                    <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={closeSidebar}
-                        className="lg:hidden text-muted-foreground hover:text-foreground"
-                    >
-                        <XCircle className="w-6 h-6" />
-                    </Button>
-
                     <Button
                         variant="ghost"
                         size="icon"
@@ -228,7 +215,7 @@ export function DashboardSidebar() {
                             <div className={cn(
                                 "relative w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg ring-1 ring-white/10 overflow-hidden",
                                 dbUser?.role === 'admin' ? "bg-red-500" :
-                                    dbUser?.role === 'agent' ? "bg-primary" : "bg-secondary"
+                                dbUser?.role === 'agent' ? "bg-primary" : "bg-secondary"
                             )}>
                                 <RoleIcon className="w-6 h-6 text-white" />
                                 <div className="absolute inset-0 bg-gradient-to-tr from-black/20 to-transparent pointer-events-none" />
@@ -249,9 +236,9 @@ export function DashboardSidebar() {
                         </div>
 
                         {/* Wallet Balance - Clean Look */}
-                        <div className="p-3 rounded-xl bg-card border border-border shadow-md flex items-center justify-between">
+                        <div className="p-3 rounded-xl bg-background/50 border border-border/50 flex items-center justify-between">
                             <div>
-                                <p className="text-[9px] uppercase tracking-widest text-muted-foreground font-black mb-0.5 opacity-80">Current Balance</p>
+                                <p className="text-[9px] uppercase tracking-widest text-muted-foreground font-bold mb-0.5">Balance</p>
                                 <p className="text-lg font-black text-foreground tracking-tight">{formatCurrency(walletBalance)}</p>
                             </div>
                             {isPageAccessible('/dashboard/wallet') && (

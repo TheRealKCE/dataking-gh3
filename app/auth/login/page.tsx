@@ -90,7 +90,7 @@ export default function LoginPage() {
                             ARHMS <span className="text-primary">DATA</span>
                         </h1>
                         <p className="text-sm font-bold text-muted-foreground tracking-widest uppercase mt-2 opacity-70">
-                            LOGIN TO CONTINUE
+                            Secure Terminal Access
                         </p>
                     </Link>
                 </div>
@@ -106,13 +106,13 @@ export default function LoginPage() {
                             )}
 
                             <div className="space-y-2">
-                                <Label htmlFor="email" className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">Email Address</Label>
+                                <Label htmlFor="email" className="text-xs font-black uppercase tracking-widest text-muted-foreground ml-1">Email Terminal</Label>
                                 <div className="relative">
                                     <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                                     <Input
                                         id="email"
                                         type="email"
-                                        placeholder="user@arhmsgh.com"
+                                        placeholder="terminal@arhms.com"
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}
                                         required
@@ -159,7 +159,7 @@ export default function LoginPage() {
                                 ) : isLoading ? (
                                     <Loader2 className="w-6 h-6 animate-spin" />
                                 ) : (
-                                    "Sign In"
+                                    "Enter Terminal"
                                 )}
                             </Button>
                         </form>

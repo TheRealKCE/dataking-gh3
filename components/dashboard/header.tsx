@@ -56,28 +56,29 @@ export function DashboardHeader() {
         <header className={cn(
             "fixed top-0 right-0 z-40 h-20 transition-all duration-300 ease-in-out",
             "bg-background/80 backdrop-blur-xl border-b border-border/50",
-            "w-full lg:w-auto",
-            isCollapsed ? "lg:left-20" : "lg:left-[260px]",
-            "left-0"
+            isCollapsed ? "left-20" : "left-[260px]",
+            "lg:left-auto lg:right-0",
+            !isCollapsed ? "lg:w-[calc(100%-260px)]" : "lg:w-[calc(100%-80px)]",
+            "w-full"
         )}>
             <div className="h-full px-6 lg:px-10 flex items-center justify-between">
                 {/* Left Side: Context / Welcome */}
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-4">
                     <Button
                         variant="ghost"
                         size="icon"
-                        className="lg:hidden text-foreground hover:bg-secondary/10 -ml-2"
+                        className="lg:hidden text-foreground"
                         onClick={toggleSidebar}
                     >
-                        <Menu className="w-6 h-6" />
+                        <Menu className="w-5 h-5" />
                     </Button>
                     
-                    <div>
-                        <h1 className="text-lg lg:text-xl font-heading font-black tracking-tight text-foreground truncate max-w-[150px] sm:max-w-none">
+                    <div className="hidden sm:block">
+                        <h1 className="text-xl font-heading font-black tracking-tight text-foreground">
                             Welcome, <span className="text-primary">{dbUser?.first_name || 'User'}</span>
                         </h1>
-                        <p className="hidden xs:block text-[10px] lg:text-xs font-medium text-muted-foreground tracking-wide uppercase">
-                            {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}
+                        <p className="text-xs font-medium text-muted-foreground tracking-wide uppercase">
+                            Platform Overview • {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}
                         </p>
                     </div>
                 </div>
