@@ -10,8 +10,8 @@ import { Ratelimit } from '@upstash/ratelimit'
 // ============================================================
 const STATIC_ALLOWED_ORIGINS = [
     'https://arhms-data-ltd.vercel.app',
-    'https://arhmsdata.com',
-    'https://www.arhmsdata.com',
+    'https://arhmsgh.com',
+    'https://www.arhmsgh.com',
     'http://localhost:3000',
     'http://localhost:8081',
 ] as const

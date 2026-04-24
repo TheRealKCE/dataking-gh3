@@ -299,7 +299,7 @@ INSERT INTO public.admin_settings (key, value) VALUES
   ('paystack_fee_percent', '1.95'),
   ('auto_fulfillment_enabled', 'true'),
   ('support_whatsapp', '""'),
-  ('support_email', '"support@arhmsdata.com"'),
+  ('support_email', '"support@arhmsgh.com"'),
   ('support_phone', '""'),
   ('announcement_enabled', 'false'),
   ('announcement_title', '""'),

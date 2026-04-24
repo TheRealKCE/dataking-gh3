@@ -34,7 +34,7 @@ export default function SignupPage() {
     const [lockoutMinutes, setLockoutMinutes] = useState<number | null>(null)
     const { signUp } = useAuth()
     const router = useRouter()
-    const [guestUrl, setGuestUrl] = useState('https://arhmsdata.com/shop/demo')
+    const [guestUrl, setGuestUrl] = useState('https://arhmsgh.com/shop/demo')
 
     useEffect(() => {
         getCachedPricing().then(data => {
@@ -242,7 +242,7 @@ export default function SignupPage() {
                                         id="email"
                                         name="email"
                                         type="email"
-                                        placeholder="you@arhmsdata.com"
+                                        placeholder="you@arhmsgh.com"
                                         value={formData.email}
                                         onChange={handleChange}
                                         required
