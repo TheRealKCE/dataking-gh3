@@ -25,7 +25,7 @@ export default function LoginPage() {
     const [lockoutMinutes, setLockoutMinutes] = useState<number | null>(null)
     const { signIn } = useAuth()
     const router = useRouter()
-    const [guestUrl, setGuestUrl] = useState('https://kingflexygh.com/shop/felix-s-shop')
+    const [guestUrl, setGuestUrl] = useState('https://arhmsgh.com/shop/demo')
 
     useEffect(() => {
         getCachedPricing().then(data => {
