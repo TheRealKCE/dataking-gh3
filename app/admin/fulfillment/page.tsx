@@ -168,7 +168,7 @@ export default function FulfillmentPage() {
             const dbCodecraftNetworks: Record<string, boolean> = dbFulfillmentSettings.codecraft_networks || {}
 
             setSettings({
-                is_global_enabled: map.auto_fulfillment_enabled !== 'false',
+                is_global_enabled: String(map.auto_fulfillment_enabled) !== 'false',
                 networks: NETWORKS.reduce((acc, n) => ({
                     ...acc,
                     [n]: dbNetworks[n] === true

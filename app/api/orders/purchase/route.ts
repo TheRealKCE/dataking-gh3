@@ -338,7 +338,7 @@ async function triggerFulfillment(orderId: string, network: string, user: { emai
             reason: ''
         }
 
-        if (settingsMap.auto_fulfillment_enabled === 'false') {
+        if (String(settingsMap.auto_fulfillment_enabled) === 'false') {
             await sendAdminNewOrderAlert({ ...alertDetails, reason: 'Global auto-fulfillment is disabled' })
                 .catch(err => console.error('[Fulfillment] Admin alert (global disabled) failed:', err))
             return

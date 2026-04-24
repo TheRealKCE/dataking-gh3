@@ -145,6 +145,11 @@ export async function creditShopProfit(shopOrderId: string) {
 
         if (error) {
             console.error(`[Profit] RPC Error for order ${shopOrderId}:`, error)
+            // PGRST202 means function not found
+            if (error.code === 'PGRST202' || error.message?.includes('Could not find the function')) {
+                console.log(`[Profit] Falling back to manual JS credit for order ${shopOrderId}...`)
+                await creditShopProfitFallback(shopOrderId, db)
+            }
             return
         }
 
@@ -156,5 +161,69 @@ export async function creditShopProfit(shopOrderId: string) {
 
     } catch (err) {
         console.error('[Profit] Unexpected error:', err)
+    }
+}
+
+/**
+ * Fallback to manually credit profit if the RPC function is missing from the database.
+ */
+async function creditShopProfitFallback(shopOrderId: string, db: any) {
+    try {
+        const { data: order } = await db
+            .from('shop_orders')
+            .select('profit, network, package_size, guest_phone, shop_id')
+            .eq('id', shopOrderId)
+            .single()
+
+        if (!order || !order.profit || order.profit <= 0) {
+            console.log('[Profit Fallback] No profit to credit or order not found')
+            return
+        }
+
+        const { data: shop } = await db.from('shop_profiles').select('owner_id, shop_name').eq('id', order.shop_id).single()
+        if (!shop) return console.log('[Profit Fallback] Shop not found')
+
+        const { data: existingTx } = await db
+            .from('shop_wallet_transactions')
+            .select('id')
+            .eq('shop_order_id', shopOrderId)
+            .eq('type', 'profit')
+            .maybeSingle()
+
+        if (existingTx) {
+            console.log(`[Profit Fallback] Already credited (Order ${shopOrderId})`)
+            return
+        }
+
+        let { data: wallet } = await db.from('shop_wallets').select('id, balance, total_earned').eq('owner_id', shop.owner_id).maybeSingle()
+
+        if (!wallet) {
+            const { data: newWallet } = await db.from('shop_wallets').insert({ owner_id: shop.owner_id, balance: 0, total_earned: 0 }).select().single()
+            wallet = newWallet
+        }
+
+        if (!wallet) return console.log('[Profit Fallback] Wallet not found/created')
+
+        const newBalance = parseFloat((wallet.balance || 0).toString()) + parseFloat(order.profit.toString())
+        const newTotal = parseFloat((wallet.total_earned || 0).toString()) + parseFloat(order.profit.toString())
+
+        await db.from('shop_wallets').update({ 
+            balance: newBalance, 
+            total_earned: newTotal, 
+            updated_at: new Date().toISOString() 
+        }).eq('id', wallet.id)
+
+        await db.from('shop_wallet_transactions').insert({
+            shop_wallet_id: wallet.id,
+            shop_order_id: shopOrderId,
+            type: 'profit',
+            amount: order.profit,
+            description: `Sale: ${order.network} ${order.package_size || 'Airtime'} to ${order.guest_phone || 'Guest'}`,
+            status: 'completed'
+        })
+
+        console.log(`[Profit Fallback] Success: Credited ${order.profit} to wallet ${wallet.id}`)
+    } catch (fallbackErr) {
+        console.error('[Profit Fallback] Critical error:', fallbackErr)
     }
 }

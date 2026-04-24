@@ -412,7 +412,7 @@ async function triggerShopFulfillment(
             return acc
         }, {})
 
-        if (settingsMap.auto_fulfillment_enabled === 'false') {
+        if (String(settingsMap.auto_fulfillment_enabled) === 'false') {
             console.log(`[Shop Order Processor] Auto-fulfillment globally disabled`)
             await sendAdminNewOrderAlert({ ...alertDetails, reason: 'Global auto-fulfillment is disabled' })
             return

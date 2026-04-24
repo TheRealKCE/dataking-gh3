@@ -321,7 +321,7 @@ async function triggerFulfillment(
         }, {})
 
         // Check global fulfillment switch
-        if (settingsMap.auto_fulfillment_enabled === 'false') {
+        if (String(settingsMap.auto_fulfillment_enabled) === 'false') {
             return { ...base, failed: true, type: 'skipped', reason: 'Global auto-fulfillment is disabled' }
         }
 

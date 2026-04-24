@@ -80,7 +80,7 @@ export default function AdminSettingsPage() {
             setWhatsappCommunityLink(settingsMap.whatsapp_community_link || '')
             setFooterCopyrightText(settingsMap.footer_copyright_text || `2025 ARHMS DATA LIMITED`)
             setFooterBrandingText(settingsMap.footer_branding_text || 'ARHMS')
-            setAutoFulfillment(settingsMap.auto_fulfillment_enabled === 'true')
+            setAutoFulfillment(String(settingsMap.auto_fulfillment_enabled) !== 'false')
 
             // Initialize page access values
             setPageAccessDashboard(settingsMap.page_access_dashboard !== 'false')
