@@ -118,9 +118,21 @@ function getIP(request: NextRequest): string {
 
 // Sets CORS headers ONLY for explicitly allowlisted origins.
 // Never reflects the raw origin. Never uses wildcard with credentials.
+// Requests with NO Origin header are same-site by definition and are never
+// blocked by the CORS guard below (the guard only fires when origin is truthy).
 function isTrustedOrigin(request: NextRequest, origin: string | null): boolean {
     if (!origin) return false
-    return ALLOWED_ORIGINS.has(origin) || origin === request.nextUrl.origin
+    // Static allowlist + env-derived origins
+    if (ALLOWED_ORIGINS.has(origin) || origin === request.nextUrl.origin) return true
+    // x-forwarded-host check: Vercel proxy may normalize the host so the Origin
+    // header matches the forwarded host rather than nextUrl.origin.
+    const forwardedHost = request.headers.get('x-forwarded-host')
+    const forwardedProto = request.headers.get('x-forwarded-proto') ?? 'https'
+    if (forwardedHost) {
+        const derivedOrigin = normalizeOrigin(`${forwardedProto}://${forwardedHost}`)
+        if (derivedOrigin && origin === derivedOrigin) return true
+    }
+    return false
 }
 
 function setCORSHeaders(response: NextResponse, request: NextRequest, origin: string | null): NextResponse {

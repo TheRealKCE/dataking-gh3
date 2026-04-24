@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
@@ -18,12 +18,12 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { roleConfig } from '@/lib/roles'
 import { supabase } from '@/lib/supabase'
-import { Menu, Bell, User, Settings, LogOut } from 'lucide-react'
+import { Menu, X, Bell, User, Settings, LogOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 export function DashboardHeader() {
     const { dbUser, signOut, isAdmin, isSubAdmin } = useAuth()
-    const { toggleSidebar, isCollapsed } = useUI()
+    const { toggleSidebar, isCollapsed, isInternalSidebarOpen } = useUI()
     const [unreadCount, setUnreadCount] = useState(0)
 
     useEffect(() => {
@@ -52,12 +52,10 @@ export function DashboardHeader() {
 
     return (
         <header className={cn(
-            'fixed top-0 right-0 z-40 h-16 transition-all duration-300 ease-in-out',
+            'fixed top-0 left-0 right-0 z-40 h-16 transition-all duration-300 ease-in-out',
             'bg-card/85 backdrop-blur-xl border-b border-border/60',
-            isCollapsed ? 'left-20' : 'left-[260px]',
-            'lg:left-auto lg:right-0',
-            !isCollapsed ? 'lg:w-[calc(100%-260px)]' : 'lg:w-[calc(100%-80px)]',
-            'w-full'
+            // Desktop only: offset header by sidebar width
+            isCollapsed ? 'lg:left-20' : 'lg:left-[260px]',
         )}>
             <div className="h-full px-4 sm:px-6 lg:px-8 flex items-center justify-between">
                 <div className="flex items-center gap-3 min-w-0">
@@ -67,7 +65,9 @@ export function DashboardHeader() {
                         className="lg:hidden text-foreground hover:bg-secondary/50 rounded-xl"
                         onClick={toggleSidebar}
                     >
-                        <Menu className="w-5 h-5" />
+                        {isInternalSidebarOpen
+                            ? <X className="w-5 h-5" />
+                            : <Menu className="w-5 h-5" />}
                     </Button>
 
                     <div className="hidden sm:block min-w-0">
@@ -116,9 +116,12 @@ export function DashboardHeader() {
                                         {currentRole.label}
                                     </span>
                                 </div>
-                                <Avatar className="h-8 w-8 sm:h-9 sm:w-9 rounded-lg border-2 border-border/50 group-hover:border-primary/50 transition-all">
-                                    <AvatarFallback className="bg-primary/10 text-primary font-black text-xs">
-                                        {getInitials()}
+                                <Avatar className="h-8 w-8 sm:h-9 sm:w-9 rounded-lg border-2 border-border/50 group-hover:border-primary/50 transition-all overflow-hidden">
+                                    <AvatarFallback className={cn(
+                                        'bg-gradient-to-br text-white font-black text-xs flex items-center justify-center',
+                                        currentRole.gradient
+                                    )}>
+                                        <currentRole.icon className="w-4 h-4" />
                                     </AvatarFallback>
                                 </Avatar>
                             </Button>

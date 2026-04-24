@@ -90,7 +90,7 @@ export default function LoginPage() {
                             ARHMS <span className="text-primary">DATA</span>
                         </h1>
                         <p className="text-sm font-bold text-muted-foreground tracking-widest uppercase mt-2 opacity-70">
-                            Secure Account Access
+                            Login to Continue
                         </p>
                     </Link>
                 </div>
@@ -159,7 +159,7 @@ export default function LoginPage() {
                                 ) : isLoading ? (
                                     <Loader2 className="w-6 h-6 animate-spin" />
                                 ) : (
-                                    "Sign In"
+                                    "Login"
                                 )}
                             </Button>
                         </form>

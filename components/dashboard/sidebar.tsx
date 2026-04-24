@@ -20,6 +20,7 @@ import {
     Users,
     ChevronLeft,
     ChevronRight,
+    ChevronDown,
     LogOut,
     Settings,
     Shield,
@@ -75,6 +76,14 @@ const adminNavItems = [
     { href: '/admin/settings', label: 'Settings', icon: Settings },
 ]
 
+const shopNavItems = [
+    { href: '/dashboard/shop', label: 'Overview', icon: LayoutDashboard },
+    { href: '/dashboard/shop/setup', label: 'Shop Setup', icon: Settings },
+    { href: '/dashboard/shop/pricing', label: 'Pricing', icon: Tag },
+    { href: '/dashboard/shop/orders', label: 'Orders', icon: ShoppingCart },
+    { href: '/dashboard/shop/withdraw', label: 'Withdraw', icon: Banknote },
+]
+
 import { roleConfig } from '@/lib/roles'
 
 export function DashboardSidebar() {
@@ -86,6 +95,13 @@ export function DashboardSidebar() {
     const [walletBalance, setWalletBalance] = useState(0)
     const [communityLink, setCommunityLink] = useState('https://chat.whatsapp.com/GY8X8nUkNgYATUiOY5gXAb')
     const { counts: adminCounts } = useAdminCounts()
+
+    // My Shop accordion — auto-expands on any /dashboard/shop route
+    const isOnShopRoute = pathname?.startsWith('/dashboard/shop') ?? false
+    const [shopGroupOpen, setShopGroupOpen] = useState(isOnShopRoute)
+    useEffect(() => {
+        if (isOnShopRoute) setShopGroupOpen(true)
+    }, [isOnShopRoute])
 
     // Calculate days remaining for agents
     const calculateDaysRemaining = () => {
@@ -147,7 +163,8 @@ export function DashboardSidebar() {
     }, [])
 
     const isLinkActive = (href: string) => {
-        if (href === '/dashboard' || href === '/admin') {
+        // Exact-match routes that would otherwise greedily match all children
+        if (href === '/dashboard' || href === '/admin' || href === '/dashboard/shop') {
             return pathname === href
         }
         return pathname?.startsWith(href)
@@ -213,9 +230,8 @@ export function DashboardSidebar() {
                     <div className="mx-4 mt-6 p-5 rounded-2xl bg-secondary/5 border border-border/50 shadow-sm">
                         <div className="flex items-center gap-4 mb-4">
                             <div className={cn(
-                                "relative w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg ring-1 ring-white/10 overflow-hidden",
-                                dbUser?.role === 'admin' ? "bg-red-500" :
-                                dbUser?.role === 'agent' ? "bg-primary" : "bg-secondary"
+                                "relative w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg ring-1 ring-white/10 overflow-hidden bg-gradient-to-br",
+                                currentRole.gradient
                             )}>
                                 <RoleIcon className="w-6 h-6 text-white" />
                                 <div className="absolute inset-0 bg-gradient-to-tr from-black/20 to-transparent pointer-events-none" />
@@ -288,6 +304,70 @@ export function DashboardSidebar() {
                             </Link>
                         )
                     })}
+
+                    {/* My Shop Group — only shown when shop access is enabled */}
+                    {isPageAccessible('/dashboard/shop') && (
+                        <>
+                            {!isCollapsed && (
+                                <p className="text-[10px] font-black text-muted-foreground/50 uppercase tracking-[0.2em] mt-8 mb-4 px-3">
+                                    My Shop
+                                </p>
+                            )}
+
+                            {isCollapsed ? (
+                                // Collapsed sidebar: single Store icon links to shop overview
+                                <Link href="/dashboard/shop" onClick={() => {
+                                    if (window.innerWidth < 1024) closeSidebar()
+                                }}>
+                                    <div className={cn(
+                                        "nav-link justify-center px-0",
+                                        isOnShopRoute && "nav-link-active shadow-sm shadow-primary/5"
+                                    )}>
+                                        <Store className="w-5 h-5 flex-shrink-0" />
+                                    </div>
+                                </Link>
+                            ) : (
+                                // Expanded sidebar: accordion with child links
+                                <>
+                                    <button
+                                        onClick={() => setShopGroupOpen(prev => !prev)}
+                                        className={cn(
+                                            "nav-link w-full",
+                                            isOnShopRoute && "nav-link-active shadow-sm shadow-primary/5"
+                                        )}
+                                    >
+                                        <Store className="w-5 h-5 flex-shrink-0" />
+                                        <span className="text-sm font-semibold tracking-tight flex-1 text-left">My Shop</span>
+                                        <ChevronDown className={cn(
+                                            "w-4 h-4 transition-transform duration-200",
+                                            shopGroupOpen && "rotate-180"
+                                        )} />
+                                    </button>
+
+                                    {shopGroupOpen && (
+                                        <div className="ml-4 pl-4 border-l border-border/30 space-y-0.5 mt-0.5">
+                                            {shopNavItems.map((item) => {
+                                                const isActive = isLinkActive(item.href)
+                                                return (
+                                                    <Link key={item.href} href={item.href} onClick={() => {
+                                                        if (window.innerWidth < 1024) closeSidebar()
+                                                    }}>
+                                                        <div className={cn(
+                                                            "nav-link",
+                                                            isActive && "nav-link-active shadow-sm shadow-primary/5"
+                                                        )}>
+                                                            <item.icon className="w-4 h-4 flex-shrink-0" />
+                                                            <span className="text-sm font-semibold tracking-tight">{item.label}</span>
+                                                        </div>
+                                                    </Link>
+                                                )
+                                            })}
+                                        </div>
+                                    )}
+                                </>
+                            )}
+                        </>
+                    )}
 
                     {/* Admin Section - If applicable */}
                     {(isAdmin || isSubAdmin) && (

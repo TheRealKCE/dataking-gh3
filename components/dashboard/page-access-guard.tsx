@@ -39,7 +39,7 @@ export function PageAccessGuard({ children }: { children: React.ReactNode }) {
                     Our team is working to restore it as quickly as possible. Thank you for your patience!
                 </p>
                 <Link href="/dashboard">
-                    <Button className="bg-[#FFCE00] hover:bg-[#E6B800] text-black font-semibold shadow-md transition-all">
+                    <Button className="bg-primary hover:bg-primary/90 text-primary-foreground font-semibold shadow-md transition-all">
                         <Home className="w-4 h-4 mr-2" />
                         Return to Dashboard
                     </Button>
