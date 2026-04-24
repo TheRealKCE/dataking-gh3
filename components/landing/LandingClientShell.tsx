@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { getCachedPricing } from '@/lib/pricing-cache'
+import { ThemeToggle } from '@/components/ui/theme-toggle'
 import {
     ArrowRight,
     BarChart3,
@@ -161,14 +162,15 @@ export function LandingClientShell({ initialGuestUrl, initialAdminPhone }: Landi
                         </a>
                     </div>
 
-                    <div className="flex items-center gap-4">
+                    <div className="flex items-center gap-2 sm:gap-4">
+                        <ThemeToggle />
                         <Link href="/auth/login">
-                            <Button variant="ghost" className="hidden sm:flex text-xs font-black uppercase tracking-widest hover:bg-secondary/50">
+                            <Button variant="ghost" className="flex text-[10px] sm:text-xs font-black uppercase tracking-widest hover:bg-secondary/50 px-2 sm:px-4">
                                 Login
                             </Button>
                         </Link>
                         <Link href="/auth/signup">
-                            <Button className="bg-primary text-primary-foreground font-black uppercase tracking-widest text-[10px] h-12 px-8 rounded-2xl shadow-blue-premium hover:scale-105 active:scale-95 transition-all">
+                            <Button className="bg-primary text-primary-foreground font-black uppercase tracking-widest text-[10px] h-10 sm:h-12 px-4 sm:px-8 rounded-2xl shadow-blue-premium hover:scale-105 active:scale-95 transition-all">
                                 Open Account
                             </Button>
                         </Link>
