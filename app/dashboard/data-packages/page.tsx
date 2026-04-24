@@ -1021,6 +1021,7 @@ export default function DataPackagesPage() {
                                             {/* Bottom: Full Width Button */}
                                             <div className="mt-auto pt-2">
                                                 <Button
+                                                    variant="outline"
                                                     className={`w-full rounded-t-none rounded-b-xl h-12 text-md font-bold uppercase tracking-widest border-0 rounded-none transition-colors shadow-none ${pkg.network === 'MTN' ? 'bg-black text-white hover:bg-black/90' :
                                                         pkg.network === 'Telecel' ? 'bg-white text-[#E60000] hover:bg-gray-100' :
                                                             'bg-white text-[#0056B3] hover:bg-gray-100'
@@ -1080,6 +1081,7 @@ export default function DataPackagesPage() {
                                             <div className="flex items-center gap-6">
                                                 <span className="text-xl font-black">{formatCurrency(getEffectivePrice(pkg))}</span>
                                                 <Button
+                                                    variant="outline"
                                                     size="sm"
                                                     className={getBuyButtonStyle()}
                                                 >

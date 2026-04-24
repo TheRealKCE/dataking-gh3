@@ -260,18 +260,10 @@ export default function ProfilePage() {
                         {(() => {
                             const userRole = (dbUser?.role || 'customer') as UserRole
                             const config = roleConfig[userRole] || roleConfig['customer']
-                            const roleBgClass = {
-                                'admin': 'bg-[#E60000]',
-                                'sub-admin': 'bg-[#FACC15]',
-                                'agent': 'bg-[#25D366]',
-                                'customer': 'bg-[#0056B3]',
-                            }[userRole] || 'bg-[#0056B3]'
-
                             const RoleIcon = config.icon
-
                             return (
                                 <div
-                                    className={cn("w-20 h-20 rounded-full flex items-center justify-center text-white shadow-lg ring-4 ring-white dark:ring-gray-800", roleBgClass)}
+                                    className={cn("w-20 h-20 rounded-full flex items-center justify-center text-white shadow-lg ring-4 ring-white dark:ring-gray-800 bg-gradient-to-br", config.gradient)}
                                 >
                                     <RoleIcon className="w-10 h-10" />
                                 </div>

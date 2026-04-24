@@ -189,7 +189,7 @@ export function DashboardSidebar() {
             <aside
                 className={cn(
                     "fixed left-0 top-0 z-50 h-full flex flex-col transition-all duration-300 ease-in-out",
-                    "bg-card/80 backdrop-blur-xl border-r border-border/50",
+                    dbUser?.role === 'agent' ? "bg-gradient-to-b from-amber-50/90 to-yellow-100/50 dark:from-amber-950/40 dark:to-yellow-900/20 border-r border-r-amber-400/50 dark:border-r-amber-700/50 backdrop-blur-xl" : "bg-card/80 backdrop-blur-xl border-r border-border/50",
                     isCollapsed ? "w-20" : "w-[260px]",
                     "transform lg:transform-none shadow-premium",
                     isInternalSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
