@@ -735,6 +735,7 @@ export default function DataPackagesPage() {
                                                             accept=".xlsx, .xls, .csv"
                                                             className="hidden"
                                                             onChange={handleFileChange}
+                                                            title="Upload Excel File"
                                                         />
                                                         <div className="flex flex-col items-center gap-2">
                                                             <div className="p-3 bg-white dark:bg-zinc-900 rounded-xl shadow-sm border border-gray-100 dark:border-zinc-800">
@@ -831,6 +832,8 @@ export default function DataPackagesPage() {
                                                                         <button
                                                                             onClick={() => deleteResult(i)}
                                                                             className="p-1.5 opacity-0 group-hover:opacity-100 hover:bg-red-50 hover:text-red-600 rounded-lg transition-all"
+                                                                            title="Delete result"
+                                                                            aria-label="Delete result"
                                                                         >
                                                                             <X className="w-3.5 h-3.5" />
                                                                         </button>
@@ -968,7 +971,7 @@ export default function DataPackagesPage() {
                                 return (
                                     <Card
                                         key={pkg.id}
-                                        className={`overflow-hidden relative transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl border-0 shadow-lg shadow-black/40 dark:shadow-[#E5E7EB]/20 ${pkg.network === 'MTN' ? 'bg-[#FFCC00] text-black' :
+                                        className={`overflow-hidden relative transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl border border-border/50 shadow-md shadow-black/40 dark:shadow-[#E5E7EB]/20 ${pkg.network === 'MTN' ? 'bg-[#FFCC00] text-black' :
                                             pkg.network === 'Telecel' ? 'bg-[#E60000] text-white' :
                                                 'bg-[#0056B3] text-white'
                                             }`}
@@ -1018,7 +1021,7 @@ export default function DataPackagesPage() {
                                             {/* Bottom: Full Width Button */}
                                             <div className="mt-auto pt-2">
                                                 <Button
-                                                    className={`w-full rounded-t-none rounded-b-xl h-12 text-md font-bold uppercase tracking-widest border-0 rounded-none transition-colors shadow-none ${pkg.network === 'MTN' ? 'bg-[#1a1a1a] text-white hover:bg-black' :
+                                                    className={`w-full rounded-t-none rounded-b-xl h-12 text-md font-bold uppercase tracking-widest border-0 rounded-none transition-colors shadow-none ${pkg.network === 'MTN' ? 'bg-black text-white hover:bg-black/90' :
                                                         pkg.network === 'Telecel' ? 'bg-white text-[#E60000] hover:bg-gray-100' :
                                                             'bg-white text-[#0056B3] hover:bg-gray-100'
                                                         }`}
@@ -1038,18 +1041,18 @@ export default function DataPackagesPage() {
                             {filteredPackages.map((pkg) => {
                                 const getBuyButtonStyle = () => {
                                     if (pkg.network === 'Telecel') {
-                                        return 'bg-[#FFFFFF] text-[#E60000] hover:bg-gray-100 border-0 shadow-md hover:shadow-lg transition-all hover:scale-105 font-bold px-6'
+                                        return 'bg-white text-[#E60000] hover:bg-gray-100 border-0 shadow-md hover:shadow-lg transition-all hover:scale-105 font-bold px-6'
                                     }
                                     if (pkg.network.startsWith('AT')) {
-                                        return 'bg-[#FFFFFF] text-[#0056B3] hover:bg-gray-100 border-0 shadow-md hover:shadow-lg transition-all hover:scale-105 font-bold px-6'
+                                        return 'bg-white text-[#0056B3] hover:bg-gray-100 border-0 shadow-md hover:shadow-lg transition-all hover:scale-105 font-bold px-6'
                                     }
-                                    return 'bg-[#1a1a1a] text-white hover:bg-black border-0 shadow-md hover:shadow-lg transition-all hover:scale-105 font-bold px-6'
+                                    return 'bg-black text-white hover:bg-black/90 border-0 shadow-md hover:shadow-lg transition-all hover:scale-105 font-bold px-6'
                                 }
 
                                 return (
                                     <Card
                                         key={pkg.id}
-                                        className={`group hover:shadow-lg transition-all cursor-pointer border-0 mb-3 overflow-hidden ${pkg.network === 'MTN' ? 'bg-[#FACC15] text-black' :
+                                        className={`group hover:shadow-lg transition-all cursor-pointer border border-border/50 mb-3 overflow-hidden ${pkg.network === 'MTN' ? 'bg-[#FACC15] text-black' :
                                             pkg.network === 'Telecel' ? 'bg-[#E60000] text-white' :
                                                 'bg-[#0056B3] text-white'
                                             }`}

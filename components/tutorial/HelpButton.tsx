@@ -20,6 +20,7 @@ interface HelpButtonProps {
 export function HelpButton({ onClick, className = '' }: HelpButtonProps) {
     return (
         <Button
+            variant="outline"
             onClick={onClick}
             className={`flex items-center gap-2 bg-primary/10 hover:bg-primary/20 text-primary border-2 border-primary/30 hover:border-primary/50 px-4 py-2 rounded-full font-semibold transition-all duration-200 shadow-sm hover:shadow-md ${className}`}
             aria-label="Click to replay the interactive tutorial"

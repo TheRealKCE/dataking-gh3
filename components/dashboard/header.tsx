@@ -109,10 +109,7 @@ export function DashboardHeader() {
                         <DropdownMenuTrigger asChild>
                             <Button variant="ghost" className="flex items-center gap-2 sm:gap-3 px-2 h-10 sm:h-11 rounded-xl hover:bg-secondary/50 transition-all group">
                                 <div className="flex flex-col items-end hidden md:flex">
-                                    <span className="text-sm font-bold text-foreground group-hover:text-primary transition-colors">
-                                        {dbUser?.first_name} {dbUser?.last_name?.[0]}.
-                                    </span>
-                                    <span className="text-[10px] font-black text-muted-foreground/70 uppercase tracking-widest">
+                                    <span className="text-[10px] font-black text-muted-foreground/70 uppercase tracking-widest mt-0.5">
                                         {currentRole.label}
                                     </span>
                                 </div>

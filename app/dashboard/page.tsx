@@ -291,7 +291,7 @@ export default function DashboardPage() {
                             </div>
                             
                             <Link href="/dashboard/wallet" className="w-full md:w-auto">
-                                <Button className="w-full md:w-auto bg-white text-primary hover:bg-white/90 font-black h-14 px-10 rounded-2xl shadow-xl shadow-black/15 text-lg transition-all hover:scale-[1.02] active:scale-95">
+                                <Button variant="outline" className="w-full md:w-auto bg-white text-primary hover:bg-white/90 border-0 font-black h-14 px-10 rounded-2xl shadow-xl shadow-black/15 text-lg transition-all hover:scale-[1.02] active:scale-95">
                                     <Plus className="w-6 h-6 mr-2 stroke-[3]" />
                                     Refill Wallet
                                 </Button>
