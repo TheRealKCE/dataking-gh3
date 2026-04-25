@@ -175,17 +175,32 @@ export async function POST(req: NextRequest) {
             }
         }
 
-        // 8. Calculate fees and new balance
+        // 8. Calculate fees
         const feePercent = (amountNum * settings.withdrawal_fee_percent) / 100
         const totalFee = feePercent + settings.withdrawal_fee_flat
         const netAmount = amountNum - totalFee
-        const newBalance = wallet.balance - amountNum
 
         // Define our separated account string fields
         const safeMomoNumber = payment_type === 'momo' ? momoNumber : null
         const safeAccountNumber = payment_type === 'bank' ? momoNumber : null
 
-        // 9a. Insert the pending transaction
+        // 9a. Deduct from balance atomically
+        const { data: deductResult, error: deductError } = await (supabase as any)
+            .rpc('deduct_shop_wallet_balance', {
+                p_user_id: user.id,
+                p_amount: amountNum
+            })
+
+        if (deductError) {
+            if (deductError.message?.includes('INSUFFICIENT_BALANCE')) {
+                return NextResponse.json({ error: 'Insufficient shop wallet balance' }, { status: 400 })
+            }
+            throw deductError
+        }
+
+        const newBalance = deductResult?.[0]?.new_balance ?? deductResult?.new_balance ?? (wallet.balance - amountNum)
+
+        // 9b. Insert the pending transaction
         const { data: txData, error: txError } = await (supabase as any)
             .from('shop_wallet_transactions')
             .insert({
@@ -209,16 +224,14 @@ export async function POST(req: NextRequest) {
             .select('id')
             .single()
 
-        if (txError) throw txError
-
-        // 9b. Deduct from balance immediately
-        const { error: walletError } = await supabase.from('shop_wallets').update({
-            balance: newBalance,
-            total_withdrawn: (wallet.total_withdrawn || 0) + amountNum,
-            updated_at: new Date().toISOString(),
-        }).eq('id', wallet.id)
-
-        if (walletError) throw walletError
+        if (txError) {
+            // Revert deduction on failure
+            await (supabase as any).rpc('credit_shop_wallet_balance', {
+                p_user_id: user.id,
+                p_amount: amountNum
+            })
+            throw txError
+        }
 
         // 9c. Save payment detail for later if requested
         if (saveForLater) {
