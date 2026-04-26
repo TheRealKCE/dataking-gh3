@@ -1,11 +1,11 @@
-import { getCachedPricing } from '@/lib/pricing-cache'
+import { getPublicConfig } from '@/lib/public-config'
 import { LandingClientShell } from '@/components/landing/LandingClientShell'
 
 export default async function HomePage() {
-    // Fetch pricing server-side — serializable data only passed to client
-    const pricing = await getCachedPricing().catch(() => null)
-    const guestUrl = pricing?.guestStorefrontUrl ?? 'https://arhmsgh.com/shop/demo'
-    const adminPhone = pricing?.whatsappAdminNumber ?? ''
+    // Fetch public config server-side — serializable data only passed to client
+    const config = await getPublicConfig()
+    const guestUrl = config.guestStorefrontUrl
+    const adminPhone = config.whatsappAdminNumber
 
     return <LandingClientShell initialGuestUrl={guestUrl} initialAdminPhone={adminPhone} />
 }

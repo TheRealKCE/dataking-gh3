@@ -15,7 +15,7 @@ import { toast } from 'sonner'
 import { validateGhanaianPhone } from '@/lib/phone-validation'
 import { BackgroundBubbles } from '@/components/background-bubbles'
 import { FloatingWhatsApp } from '@/components/floating-whatsapp'
-import { getCachedPricing } from '@/lib/pricing-cache'
+import { getPublicConfig } from '@/lib/public-config'
 
 export default function SignupPage() {
     const [formData, setFormData] = useState({
@@ -37,7 +37,7 @@ export default function SignupPage() {
     const [guestUrl, setGuestUrl] = useState('https://arhmsgh.com/shop/demo')
 
     useEffect(() => {
-        getCachedPricing().then(data => {
+        getPublicConfig().then(data => {
             if (data?.guestStorefrontUrl) {
                 setGuestUrl(data.guestStorefrontUrl)
             }

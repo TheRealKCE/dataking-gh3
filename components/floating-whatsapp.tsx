@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react'
 import { X, HelpCircle } from 'lucide-react'
 import { Button } from './ui/button'
-import { getCachedPricing } from '@/lib/pricing-cache'
+import { getPublicConfig } from '@/lib/public-config'
 import { cn } from '@/lib/utils'
 
 interface FloatingWhatsAppProps {
@@ -22,7 +22,7 @@ export function FloatingWhatsApp({ variant = 'default' }: FloatingWhatsAppProps)
     const PREMIUM_MESSAGE = "Hi! 👋 Need help with your data or account? Our support team is online. Tap the WhatsApp icon to chat with an administrator instantly!"
 
     useEffect(() => {
-        getCachedPricing().then(data => {
+        getPublicConfig().then(data => {
             if (data?.whatsappAdminNumber) {
                 setPhoneNumber(data.whatsappAdminNumber)
             }
