@@ -115,7 +115,7 @@ export function AnnouncementBell({ inline = false }: AnnouncementBellProps) {
                 inline ? "relative z-10" : "fixed top-20 right-4 z-[100] lg:right-8"
             )}
         >
-            {/* --- Alert Popover (Desktop only) --- */}
+            {/* --- Alert Popover (shown when unread and closed) --- */}
             {hasUnread && !isOpen && (
                 <div className="absolute top-1/2 -left-3 -translate-x-full -translate-y-1/2 hidden md:flex items-center">
                     <div className="bg-primary text-white text-[10px] font-bold px-3 py-1.5 rounded-full shadow-lg animate-bounce-x flex items-center gap-1 whitespace-nowrap">
@@ -130,7 +130,7 @@ export function AnnouncementBell({ inline = false }: AnnouncementBellProps) {
             <button
                 onClick={toggleOpen}
                 className={cn(
-                    "relative w-11 h-11 md:w-12 md:h-12 flex items-center justify-center rounded-2xl bg-white/95 dark:bg-gray-900/95 border border-gray-200 dark:border-gray-800 shadow-xl backdrop-blur-xl transition-all duration-300",
+                    "relative w-12 h-12 flex items-center justify-center rounded-2xl bg-white/95 dark:bg-gray-900/95 border border-gray-200 dark:border-gray-800 shadow-xl backdrop-blur-xl transition-all duration-300",
                     "hover:scale-110 active:scale-95 group",
                     isOpen ? "ring-2 ring-amber-400 ring-offset-2 dark:ring-offset-black" : ""
                 )}
@@ -140,7 +140,7 @@ export function AnnouncementBell({ inline = false }: AnnouncementBellProps) {
                     hasUnread && "animate-elastic-ring"
                 )}>
                     <Bell className={cn(
-                        "w-5 h-5 md:w-6 md:h-6 transition-colors duration-300",
+                        "w-6 h-6 transition-colors duration-300",
                         hasUnread 
                             ? "text-[#FFD700] fill-[#FFD700]/30 drop-shadow-[0_0_8px_rgba(255,215,0,0.4)]" 
                             : "text-gray-400 dark:text-gray-500 hover:text-amber-500"
@@ -160,29 +160,29 @@ export function AnnouncementBell({ inline = false }: AnnouncementBellProps) {
 
             {/* --- Announcements Popover --- */}
             <div className={cn(
-                "fixed md:absolute inset-x-4 md:inset-auto md:right-0 w-auto md:w-[340px] max-h-[80vh] md:max-h-[550px] overflow-hidden bg-white/98 dark:bg-gray-950/98 border border-gray-200 dark:border-gray-800 rounded-[2rem] shadow-2xl backdrop-blur-2xl transition-all duration-500 origin-top md:origin-top-right z-50",
-                inline ? "top-[72px] md:top-14" : "top-20 md:top-16",
+                "fixed top-[72px] inset-x-2 w-auto sm:absolute sm:inset-auto sm:right-0 sm:w-[340px] max-w-[calc(100vw-1rem)] max-h-[80vh] sm:max-h-[550px] overflow-hidden bg-white/98 dark:bg-gray-950/98 border border-gray-200 dark:border-gray-800 rounded-[2rem] shadow-2xl backdrop-blur-2xl transition-all duration-500 sm:origin-top-right z-50",
+                inline ? "sm:top-14" : "sm:top-16",
                 isOpen ? "opacity-100 scale-100 translate-y-0" : "opacity-0 scale-95 -translate-y-4 pointer-events-none"
             )}>
                 {/* Header */}
-                <div className="p-4 md:p-5 border-b border-gray-100 dark:border-gray-800/50 flex items-center justify-between bg-gray-50/50 dark:bg-gray-900/40">
+                <div className="p-5 border-b border-gray-100 dark:border-gray-800/50 flex items-center justify-between bg-gray-50/50 dark:bg-gray-900/40">
                     <div className="flex items-center gap-2.5">
-                        <div className="w-7 h-7 md:w-8 md:h-8 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
-                            <Megaphone className="w-3.5 h-3.5 md:w-4 md:h-4 text-amber-600 dark:text-amber-400" />
+                        <div className="w-8 h-8 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                            <Megaphone className="w-4 h-4 text-amber-600 dark:text-amber-400" />
                         </div>
-                        <h2 className="text-xs md:text-sm font-black tracking-tight uppercase text-gray-800 dark:text-gray-100">Announcements</h2>
+                        <h2 className="text-sm font-black tracking-tight uppercase text-gray-800 dark:text-gray-100">Announcements</h2>
                     </div>
                     <button 
                         onClick={dismissBell}
-                        className="text-[10px] md:text-[11px] font-bold text-gray-400 hover:text-primary dark:hover:text-primary-foreground transition-colors flex items-center gap-1"
+                        className="text-[11px] font-bold text-gray-400 hover:text-primary dark:hover:text-primary-foreground transition-colors flex items-center gap-1"
                     >
                         <CheckCircle2 className="w-3 h-3" />
-                        Got it
+                        Got it, thanks
                     </button>
                 </div>
 
                 {/* Content */}
-                <div className="overflow-y-auto max-h-[calc(80vh-140px)] md:max-h-[380px] p-4 space-y-4 custom-scrollbar">
+                <div className="overflow-y-auto max-h-[calc(80vh-140px)] sm:max-h-[380px] p-4 space-y-4 custom-scrollbar">
                     {announcements.length > 0 ? (
                         announcements.map((announcement) => {
                             const isNew = !lastViewed || new Date(announcement.created_at) > new Date(lastViewed);
@@ -190,28 +190,31 @@ export function AnnouncementBell({ inline = false }: AnnouncementBellProps) {
                                 <div
                                     key={announcement.id}
                                     className={cn(
-                                        "p-4 md:p-5 rounded-2xl md:rounded-3xl transition-all duration-300 relative group border",
+                                        "p-5 rounded-3xl transition-all duration-300 relative group border overflow-hidden",
                                         isNew
-                                            ? "bg-amber-50/40 dark:bg-amber-900/10 border-amber-200/50 dark:border-amber-800/30 shadow-sm"
-                                            : "bg-white dark:bg-gray-900 border-gray-100 dark:border-gray-800/50 text-gray-500 opacity-80"
+                                            ? "bg-amber-50 dark:bg-amber-900/40 border-amber-200 dark:border-amber-800/60 shadow-sm"
+                                            : "bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800"
                                     )}
                                 >
-                                    <div className="flex flex-col gap-2 mb-2 md:mb-3">
+                                    <div className="flex flex-col gap-2 mb-3">
                                         <div className="flex items-start justify-between gap-3">
                                             <h3 className={cn(
-                                                "text-[13px] md:text-[14px] font-extrabold leading-tight",
-                                                isNew ? "text-gray-900 dark:text-white" : "text-gray-700 dark:text-gray-300"
+                                                "text-[14px] font-extrabold leading-tight break-words",
+                                                isNew ? "text-gray-900 dark:text-gray-100" : "text-gray-600 dark:text-gray-400"
                                             )}>
                                                 {announcement.title}
                                             </h3>
-                                            <span className="text-[9px] md:text-[10px] bg-gray-100 dark:bg-gray-800 px-1.5 md:px-2 py-0.5 rounded-full font-bold whitespace-nowrap shrink-0">
+                                            <span className="text-[10px] bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full font-bold whitespace-nowrap shrink-0">
                                                 {formatDate(announcement.created_at)}
                                             </span>
                                         </div>
                                     </div>
-                                    <p className="text-[12px] md:text-[13px] leading-relaxed break-words whitespace-pre-wrap text-gray-600 dark:text-gray-400">
+                                    <div className={cn(
+                                        "text-[13px] leading-relaxed w-full break-words whitespace-pre-wrap",
+                                        isNew ? "text-gray-800 dark:text-gray-300" : "text-gray-500 dark:text-gray-500"
+                                    )}>
                                         {announcement.message}
-                                    </p>
+                                    </div>
                                 </div>
                             );
                         })
