@@ -5,11 +5,11 @@ import { createServerClient } from '@/lib/supabase'
 
 export async function POST(request: Request) {
     try {
-        const { password } = await request.json()
+        const { token } = await request.json()
 
-        if (!password) {
+        if (!token) {
             return NextResponse.json(
-                { error: 'Password is required' },
+                { error: 'Confirmation code is required' },
                 { status: 400 }
             )
         }
@@ -39,15 +39,16 @@ export async function POST(request: Request) {
             )
         }
 
-        // 2. Verify password by attempting to sign in
-        const { error: signInError } = await supabase.auth.signInWithPassword({
+        // 2. Verify token via OTP
+        const { error: otpError } = await supabase.auth.verifyOtp({
             email: userEmail,
-            password: password,
+            token,
+            type: 'email'
         })
 
-        if (signInError) {
+        if (otpError) {
             return NextResponse.json(
-                { error: 'Current password is incorrect' },
+                { error: 'Invalid or expired confirmation code' },
                 { status: 401 }
             )
         }

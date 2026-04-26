@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { checkTransferStatus } from '@/lib/moolre-transfer-service'
+import { sendShopWithdrawalProcessedSMS } from '@/lib/sms-service'
+import { sendShopWithdrawalProcessedEmail } from '@/lib/email-service'
 
 export async function GET(req: NextRequest) {
     // 1. Secure with CRON_SECRET
@@ -99,23 +101,27 @@ export async function GET(req: NextRequest) {
                             .single()
 
                         if (shopProfile && ownerUser) {
-                            // Fire SMS non-blocking
-                            fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/shop/alerts`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                    type: 'withdrawal_processed',
-                                    payload: {
-                                        phone: shopProfile.owner_phone,
-                                        email: ownerUser.email,
-                                        firstName: ownerUser.first_name,
-                                        shopName: shopProfile.shop_name,
-                                        amount: tx.net_amount,
-                                        momoNumber: tx.momo_number,
-                                        network: tx.network || 'MoMo',
-                                    },
-                                }),
-                            }).catch(err => console.warn(`[sync-moolre] SMS error for tx ${tx.id}:`, err))
+                            try {
+                                await Promise.allSettled([
+                                    sendShopWithdrawalProcessedSMS(
+                                        shopProfile.owner_phone,
+                                        ownerUser.first_name,
+                                        tx.net_amount,
+                                        tx.network || 'MoMo',
+                                        tx.momo_number
+                                    ),
+                                    sendShopWithdrawalProcessedEmail(
+                                        ownerUser.email,
+                                        ownerUser.first_name,
+                                        shopProfile.shop_name,
+                                        tx.net_amount,
+                                        tx.momo_number,
+                                        tx.network || 'MoMo'
+                                    )
+                                ])
+                            } catch (notifyErr) {
+                                console.warn(`[sync-moolre] SMS error for tx ${tx.id}:`, notifyErr)
+                            }
                         }
                     } catch (smsErr) {
                         // Non-fatal — transaction is already marked completed

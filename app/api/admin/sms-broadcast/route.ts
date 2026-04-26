@@ -3,12 +3,16 @@ import { createServerClient } from '@/lib/supabase'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import { sendSMS } from '@/lib/sms-service'
+import { z } from 'zod'
+import { adminLongTextSchema } from '@/lib/validation'
+import { Ratelimit } from '@upstash/ratelimit'
+import { Redis } from '@upstash/redis'
 
-interface BroadcastRequest {
-    userIds?: string[]
-    roleFilter?: 'all' | 'user' | 'sub-admin'
-    message: string
-}
+const broadcastRateLimit = new Ratelimit({
+    redis: Redis.fromEnv(),
+    limiter: Ratelimit.slidingWindow(5, '1 h'),
+    prefix: 'rl:sms-broadcast',
+})
 
 export async function POST(request: NextRequest) {
     try {
@@ -34,12 +38,24 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Forbidden - Admin only' }, { status: 403 })
         }
 
-        const body: BroadcastRequest = await request.json()
-        const { userIds, roleFilter, message } = body
-
-        if (!message || message.trim().length === 0) {
-            return NextResponse.json({ error: 'Message is required' }, { status: 400 })
+        const { success: rlOk } = await broadcastRateLimit.limit(authUser.id)
+        if (!rlOk) {
+            return NextResponse.json({ error: 'Rate limit: max 5 broadcasts per hour' }, { status: 429 })
         }
+
+        const body = await request.json()
+        const broadcastSchema = z.object({
+            message: adminLongTextSchema,
+            userIds: z.array(z.string().uuid()).max(500).optional(),
+            roleFilter: z.enum(['all', 'user', 'sub-admin']).optional(),
+        })
+        
+        const validation = broadcastSchema.safeParse(body)
+        if (!validation.success) {
+            return NextResponse.json({ error: 'Invalid input', details: validation.error.errors }, { status: 400 })
+        }
+        
+        const { userIds, roleFilter, message } = validation.data
 
         if (!userIds && !roleFilter) {
             return NextResponse.json({ error: 'Either userIds or roleFilter is required' }, { status: 400 })

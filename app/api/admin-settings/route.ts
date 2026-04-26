@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { cookies } from 'next/headers'
 
 export const dynamic = 'force-dynamic' // Force Next.js not to cache this API route
 
@@ -13,9 +15,44 @@ const supabase = createClient(supabaseUrl, supabaseServiceKey)
 
 export async function GET(request: Request) {
     try {
+        const cookieStore = await cookies()
+        const supabaseAuth = createRouteHandlerClient({ cookies: () => cookieStore as any })
+        const { data: { user }, error: authError } = await supabaseAuth.auth.getUser()
+
+        if (authError || !user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+
+        const { data: dbUser } = await supabaseAuth.from('users').select('role').eq('id', user.id).single()
+        const role = dbUser?.role
+
+        const PUBLIC_SAFE_KEYS = [
+            'paystack_fee_percent',
+            'agent_paystack_fee_percent',
+            'announcement_enabled',
+            'announcement_title',
+            'announcement_message',
+            'auto_fulfillment_enabled',
+            'afa_price_customer',
+            'afa_price_agent'
+        ]
+
+        const isAdmin = role === 'admin' || role === 'sub-admin'
+
         const { searchParams } = new URL(request.url)
         const keysParam = searchParams.get('keys')
         
+        if (!isAdmin && keysParam) {
+            const requestedKeys = keysParam.split(',').map(k => k.trim())
+            const disallowed = requestedKeys.filter(k => !PUBLIC_SAFE_KEYS.includes(k))
+            if (disallowed.length > 0) {
+                return NextResponse.json({ error: 'Forbidden: key not permitted' }, { status: 403 })
+            }
+        }
+        if (!isAdmin && !keysParam) {
+            return NextResponse.json({ error: 'Forbidden: must specify allowed keys' }, { status: 403 })
+        }
+
         // Build the query
         let query = supabase.from('admin_settings').select('key, value')
         

@@ -1,30 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
+import { validateAdminAccess } from '@/lib/auth-utils'
 
 export async function GET(request: NextRequest) {
     try {
-        const cookieStore = await cookies()
-        const supabaseUserClient = createRouteHandlerClient({
-            // @ts-expect-error - auth-helpers types
-            cookies: () => cookieStore
-        })
-        const { data: { user: authUser }, error: authError } = await supabaseUserClient.auth.getUser()
-
-        if (authError || !authUser) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-        }
-
-        // Check if user is admin
-        const { data: userData } = await supabaseUserClient
-            .from('users')
-            .select('role')
-            .eq('id', authUser.id)
-            .single()
-
-        if (userData?.role !== 'admin' && userData?.role !== 'sub-admin') {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        const authResult = await validateAdminAccess(false, request)
+        if (authResult.error) {
+            return NextResponse.json({ error: authResult.error }, { status: authResult.status })
         }
 
         const { searchParams } = new URL(request.url)
@@ -60,31 +42,21 @@ export async function GET(request: NextRequest) {
             .from('data_packages')
             .select('network, size, price, cost_price')
 
-        // Fetch all users to know who are admins
-        const { data: users } = await supabase
-            .from('users')
-            .select('id, role') as any
+        // Fetch user wallet total from atomic RPC instead of loading all users/wallets into memory
+        const { data: statsData, error: statsError } = await (supabase.rpc('get_wallet_overview') as any)
+        if (statsError) {
+            console.error('[ProfitStats] RPC Error:', statsError)
+            throw statsError
+        }
 
-        const adminIds = new Set((users || [])
-            .filter((u: any) => u.role === 'admin' || u.role === 'sub-admin')
-            .map((u: any) => u.id))
-
-        // Fetch all wallet balances from wallets table
-        const { data: wallets } = await supabase
-            .from('wallets')
-            .select('user_id, balance') as any
-
-        // Filter out admin wallets and sum balances
-        const regularWallets = (wallets || []).filter((w: any) => !adminIds.has(w.user_id))
-        const userWalletTotal = regularWallets.reduce((sum: number, wallet: any) =>
-            sum + (Number(wallet.balance) || 0), 0
-        )
+        const userWalletTotal = statsData?.total_user_balance || 0
+        const regularWalletsLength = statsData?.user_count || 0
 
         return NextResponse.json({
             orders: orders || [],
             packages: packages || [],
             userWalletTotal,
-            userCount: regularWallets.length,
+            userCount: regularWalletsLength,
             totalOrdersCount: orders?.length || 0
         })
     } catch (error: any) {

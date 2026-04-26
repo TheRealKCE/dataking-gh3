@@ -4,7 +4,14 @@ import { generateReferenceCode } from '@/lib/utils'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import { waitUntil } from '@vercel/functions'
-// import { isRateLimited, checkFraudSignals, logSuspiciousActivity } from '@/lib/security'
+import { Ratelimit } from '@upstash/ratelimit'
+import { Redis } from '@upstash/redis'
+
+const bulkRateLimit = new Ratelimit({
+    redis: Redis.fromEnv(),
+    limiter: Ratelimit.slidingWindow(1, '5 s'),
+    prefix: 'rl:bulk-purchase',
+})
 
 interface BulkOrderItem {
     packageId: string
@@ -36,9 +43,10 @@ export async function POST(request: NextRequest) {
         const userId = authUser.id
 
         // === SECURITY: Rate limit purchases ===
-        // if (isRateLimited(userId, 'bulk')) {
-        //     return NextResponse.json({ error: 'Too many requests. Please wait a few seconds.' }, { status: 429 })
-        // }
+        const { success: rateLimitOk } = await bulkRateLimit.limit(userId)
+        if (!rateLimitOk) {
+            return NextResponse.json({ error: 'Too many requests. Please wait a few seconds.' }, { status: 429 })
+        }
 
         let body: { orders: BulkOrderItem[] }
         try {

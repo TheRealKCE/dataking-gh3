@@ -13,10 +13,17 @@ export async function GET(request: NextRequest) {
         const { supabase: supabaseUserClient } = authResult
 
         const { searchParams } = new URL(request.url)
-        const limit = parseInt(searchParams.get('limit') || '50')
-        const offset = parseInt(searchParams.get('offset') || '0')
-        const search = searchParams.get('search')
+        const rawLimit = parseInt(searchParams.get('limit') || '50')
+        const limit = Math.min(Math.max(rawLimit, 1), 200)
+        const offset = Math.max(parseInt(searchParams.get('offset') || '0'), 0)
+        const rawSearch = searchParams.get('search')
+        const search = rawSearch ? rawSearch.trim().slice(0, 100) : null
         const role = searchParams.get('role')
+
+        const VALID_ROLES = ['customer', 'agent', 'sub-admin', 'admin', 'all']
+        if (role && !VALID_ROLES.includes(role)) {
+            return NextResponse.json({ error: 'Invalid role filter' }, { status: 400 })
+        }
 
         // Service role client to bypass RLS
         const supabase = createServerClient()

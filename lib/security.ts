@@ -13,6 +13,11 @@ const FRAUD_FAST_ORDER_COUNT = 5
 const FRAUD_FAST_ORDER_WINDOW_MS = 60_000 // 1 minute
 
 // --- 1. Rate Limiting ---
+/**
+ * @deprecated DO NOT USE in serverless (Vercel) environments.
+ * State is per-process and not shared across lambda instances.
+ * Use Upstash Ratelimit directly in the route handler instead.
+ */
 export function isRateLimited(userId: string, type: 'single' | 'bulk'): boolean {
     const now = Date.now()
     let record = rateLimitMap.get(userId)

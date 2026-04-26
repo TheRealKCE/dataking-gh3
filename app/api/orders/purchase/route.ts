@@ -5,6 +5,14 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import { sendOrderSuccessEmail, sendAdminNewOrderAlert } from '@/lib/email-service'
 import { sendOrderSuccessSMS, sendAdminAgentOrderAlert } from '@/lib/sms-service'
+import { Ratelimit } from '@upstash/ratelimit'
+import { Redis } from '@upstash/redis'
+
+const purchaseRateLimit = new Ratelimit({
+    redis: Redis.fromEnv(),
+    limiter: Ratelimit.slidingWindow(3, '10 s'),
+    prefix: 'rl:purchase',
+})
 
 export async function POST(request: NextRequest) {
     try {
@@ -21,6 +29,11 @@ export async function POST(request: NextRequest) {
 
         const user = authUser
         const userId = user.id
+
+        const { success: rateLimitOk } = await purchaseRateLimit.limit(userId)
+        if (!rateLimitOk) {
+            return NextResponse.json({ error: 'Too many requests. Please wait.' }, { status: 429 })
+        }
 
         let body: any;
         try {

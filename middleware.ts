@@ -110,6 +110,8 @@ function rateLimitExceeded(retryAfter: number): NextResponse {
 
 // Extracts the real client IP from Vercel/proxy headers.
 // x-forwarded-for is the most reliable source on Vercel.
+// CAVEAT (SEC-017): x-forwarded-for can be spoofed by clients if not stripped by the upstream proxy. 
+// Vercel properly overwrites/appends the real IP, but relying solely on IP for hard security guarantees is discouraged.
 function getIP(request: NextRequest): string {
     return request.headers.get('x-forwarded-for')?.split(',')[0].trim()
         ?? (request as any).ip

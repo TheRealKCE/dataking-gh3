@@ -36,7 +36,8 @@ export async function POST(request: NextRequest) {
             notes,
             deductFromDebt = false,
             deductAmount = 0,
-            settlementId
+            settlementId,
+            idempotency_key
         } = body
 
         // Input validation
@@ -52,7 +53,15 @@ export async function POST(request: NextRequest) {
 
         const supabase = createServerClient() as any
 
-        // --- IDEMPOTENCY CHECK ---
+        if (idempotency_key) {
+            const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+            if (!uuidRegex.test(idempotency_key)) return NextResponse.json({ error: 'Invalid key' }, { status: 400 })
+            
+            const { data: existing } = await supabase.from('wallet_transactions').select('id').eq('reference', idempotency_key).single()
+            if (existing) return NextResponse.json({ error: 'DUPLICATE', id: existing.id }, { status: 409 })
+        }
+
+        // --- TIME-BASED IDEMPOTENCY CHECK ---
         // Block if same user_id + amount was already credited by admin in the last 5 seconds
         const fiveSecondsAgo = new Date(Date.now() - 5000).toISOString()
         const { data: recentTx } = await supabase
@@ -108,7 +117,8 @@ export async function POST(request: NextRequest) {
                     ? `${description} (GHS ${amount} cash received, GHS ${deductAmount} debt deducted)`
                     : description,
                 source: 'admin',
-                status: 'completed'
+                status: 'completed',
+                reference: idempotency_key || null
             })
             .select('id')
             .single()
@@ -118,39 +128,18 @@ export async function POST(request: NextRequest) {
         }
 
         // --- UPDATE WALLET BALANCE ---
+        // ATOMIC: single RPC handles balance + total_credited in one transaction
+        const { error: rpcError } = await supabase.rpc('admin_credit_wallet', {
+            p_wallet_id: wallet.id,
+            p_amount: netCredit
+        })
+        if (rpcError) {
+            throw new Error(`Atomic credit failed: ${rpcError.message}`)
+        }
+        
+        // Note: newBalance is computed client-side from the pre-read value.
+        // This is only used for the SMS notification payload, not for the actual DB update (which is handled atomically via RPC).
         const newBalance = wallet.balance + netCredit
-        const { error: walletUpdateError } = await supabase
-            .from('wallets')
-            .update({
-                balance: newBalance
-            })
-            .eq('id', wallet.id)
-
-        // Use direct increment for total_credited to avoid race conditions
-        try {
-            await supabase.rpc('increment_wallet_credited', {
-                p_wallet_id: wallet.id,
-                p_amount: netCredit
-            })
-        } catch (e) {
-            // Fallback: fetch and update manually if RPC doesn't exist
-        }
-
-
-
-        // Also update total_credited safely
-        const { data: currentWallet } = await supabase
-            .from('wallets')
-            .select('total_credited')
-            .eq('id', wallet.id)
-            .single()
-
-        if (currentWallet) {
-            await supabase
-                .from('wallets')
-                .update({ total_credited: (currentWallet.total_credited || 0) + netCredit })
-                .eq('id', wallet.id)
-        }
 
         // --- CREATE DEBT RECORD IF UNPAID ---
         if (markAsUnpaid) {

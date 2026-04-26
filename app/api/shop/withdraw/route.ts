@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-        // 1. Validate caller role
+        // 1a. Role check
         const { data: dbUser } = await supabase
             .from('users')
             .select('role, id')
@@ -44,7 +44,20 @@ export async function POST(req: NextRequest) {
             .single()
 
         if (!dbUser || dbUser.role !== 'agent') {
-            return NextResponse.json({ error: 'Forbidden. Only shop owners can withdraw.' }, { status: 403 })
+            return NextResponse.json({ error: 'Forbidden. Only approved shop owners can withdraw.' }, { status: 403 })
+        }
+
+        // 1b. Shop ownership check — must own an approved, active shop
+        const { data: shopOwnership } = await supabase
+            .from('shop_profiles')
+            .select('id, approval_status, is_active')
+            .eq('owner_id', user.id)
+            .single()
+
+        if (!shopOwnership || shopOwnership.approval_status !== 'approved' || !shopOwnership.is_active) {
+            return NextResponse.json({ 
+                error: 'Forbidden. No approved active shop found for this account.' 
+            }, { status: 403 })
         }
 
         const body = await req.json()
