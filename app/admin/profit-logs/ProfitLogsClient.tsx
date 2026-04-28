@@ -120,7 +120,7 @@ export default function ProfitLogsClient() {
         try {
             let query = supabase
                 .from('admin_profit_logs')
-                .select('*')
+                .select('*', { count: 'exact' })
                 .order('created_at', { ascending: false })
 
             // Apply Filters
@@ -137,7 +137,7 @@ export default function ProfitLogsClient() {
             const offset = (pageToFetch - 1) * limit
             query = query.range(offset, offset + limit - 1)
 
-            const { data, count, error } = await query.select('*', { count: 'exact' })
+            const { data, count, error } = await query
 
             if (error) throw error
 
