@@ -43,7 +43,8 @@ export async function POST(req: NextRequest) {
             .eq('id', user.id)
             .single()
 
-        if (!dbUser || dbUser.role !== 'agent') {
+        const allowedRoles = ['agent', 'admin', 'sub-admin']
+        if (!dbUser || !allowedRoles.includes(dbUser.role)) {
             return NextResponse.json({ error: 'Forbidden. Only approved shop owners can withdraw.' }, { status: 403 })
         }
 
