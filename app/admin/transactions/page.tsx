@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
@@ -13,7 +13,7 @@ import {
     TableRow,
 } from '@/components/ui/table'
 import { Input } from '@/components/ui/input'
-import { Search } from 'lucide-react'
+import { Search, Loader2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import {
     Pagination,
@@ -24,7 +24,6 @@ import {
     PaginationPrevious,
     PaginationEllipsis
 } from '@/components/ui/pagination'
-import { Loader2 } from 'lucide-react'
 
 export default function AdminTransactionsPage() {
     const [transactions, setTransactions] = useState<any[]>([])
@@ -44,11 +43,7 @@ export default function AdminTransactionsPage() {
         return () => clearTimeout(timer)
     }, [searchTerm])
 
-    useEffect(() => {
-        fetchTransactions()
-    }, [currentPage, debouncedSearch])
-
-    const fetchTransactions = async () => {
+    const fetchTransactions = useCallback(async () => {
         try {
             setLoading(true)
             const from = (currentPage - 1) * ITEMS_PER_PAGE
@@ -67,8 +62,6 @@ export default function AdminTransactionsPage() {
                 `, { count: 'exact' })
 
             if (debouncedSearch) {
-                // Since users is a joined table, we might need to handle search differently 
-                // but for wallet_transactions fields:
                 query = query.or(`reference.ilike.%${debouncedSearch}%,description.ilike.%${debouncedSearch}%`)
             }
 
@@ -84,7 +77,11 @@ export default function AdminTransactionsPage() {
         } finally {
             setLoading(false)
         }
-    }
+    }, [currentPage, debouncedSearch])
+
+    useEffect(() => {
+        fetchTransactions()
+    }, [fetchTransactions])
 
     const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE)
 
@@ -101,7 +98,7 @@ export default function AdminTransactionsPage() {
         if (startPage > 1) {
             items.push(
                 <PaginationItem key="1">
-                    <PaginationLink onClick={() => setCurrentPage(1)}>1</PaginationLink>
+                    <PaginationLink onClick={() => setCurrentPage(1)} className="cursor-pointer">1</PaginationLink>
                 </PaginationItem>
             )
             if (startPage > 2) items.push(<PaginationEllipsis key="e1" />)
@@ -113,6 +110,7 @@ export default function AdminTransactionsPage() {
                     <PaginationLink
                         isActive={currentPage === i}
                         onClick={() => setCurrentPage(i)}
+                        className="cursor-pointer"
                     >
                         {i}
                     </PaginationLink>
@@ -124,14 +122,13 @@ export default function AdminTransactionsPage() {
             if (endPage < totalPages - 1) items.push(<PaginationEllipsis key="e2" />)
             items.push(
                 <PaginationItem key={totalPages}>
-                    <PaginationLink onClick={() => setCurrentPage(totalPages)}>{totalPages}</PaginationLink>
+                    <PaginationLink onClick={() => setCurrentPage(totalPages)} className="cursor-pointer">{totalPages}</PaginationLink>
                 </PaginationItem>
             )
         }
 
         return items
     }
-
 
     return (
         <div className="space-y-6">
@@ -172,55 +169,56 @@ export default function AdminTransactionsPage() {
                                 <TableRow>
                                     <TableCell colSpan={7} className="h-24 text-center">
                                         <div className="flex items-center justify-center gap-2">
-                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                            <Loader2 className="h-4 w-4 animate-spin text-primary" />
                                             <span>Loading transactions...</span>
                                         </div>
                                     </TableCell>
                                 </TableRow>
                             ) : transactions.length === 0 ? (
                                 <TableRow>
-                                    <TableCell colSpan={7} className="h-24 text-center">
+                                    <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
                                         No transactions found.
                                     </TableCell>
                                 </TableRow>
                             ) : (
                                 transactions.map((txn) => (
-                                <TableRow key={txn.id}>
-                                    <TableCell>
-                                        <div className="flex flex-col">
-                                            <span className="font-medium">{txn.users?.first_name} {txn.users?.last_name}</span>
-                                            <span className="text-xs text-muted-foreground">{txn.users?.phone_number || txn.users?.email}</span>
-                                        </div>
-                                    </TableCell>
-                                    <TableCell className="font-mono text-xs">{txn.reference}</TableCell>
-                                    <TableCell>
-                                        <Badge variant={txn.type === 'credit' ? 'completed' : 'destructive'}>
-                                            {txn.type.toUpperCase()}
-                                        </Badge>
-                                    </TableCell>
-                                    <TableCell className="max-w-xs truncate">{txn.description}</TableCell>
-                                    <TableCell className={txn.type === 'credit' ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
-                                        {txn.type === 'credit' ? '+' : '-'}{formatCurrency(txn.amount)}
-                                    </TableCell>
-                                    <TableCell>
-                                        <span className={`text-xs capitalize ${txn.status === 'completed' ? 'text-green-600' :
-                                            txn.status === 'failed' ? 'text-red-600' : 'text-amber-600'
-                                            }`}>
-                                            {txn.status}
-                                        </span>
-                                    </TableCell>
-                                    <TableCell className="text-sm text-muted-foreground">
-                                        {formatDate(txn.created_at)}
-                                    </TableCell>
-                                </TableRow>
-                            ))}
+                                    <TableRow key={txn.id}>
+                                        <TableCell>
+                                            <div className="flex flex-col">
+                                                <span className="font-medium">{txn.users?.first_name} {txn.users?.last_name}</span>
+                                                <span className="text-xs text-muted-foreground">{txn.users?.phone_number || txn.users?.email}</span>
+                                            </div>
+                                        </TableCell>
+                                        <TableCell className="font-mono text-xs">{txn.reference}</TableCell>
+                                        <TableCell>
+                                            <Badge variant={txn.type === 'credit' ? 'default' : 'destructive'} className={txn.type === 'credit' ? 'bg-green-100 text-green-700 hover:bg-green-100' : ''}>
+                                                {txn.type.toUpperCase()}
+                                            </Badge>
+                                        </TableCell>
+                                        <TableCell className="max-w-xs truncate">{txn.description}</TableCell>
+                                        <TableCell className={txn.type === 'credit' ? 'text-green-600 font-medium' : 'text-red-600 font-medium'}>
+                                            {txn.type === 'credit' ? '+' : '-'}{formatCurrency(txn.amount)}
+                                        </TableCell>
+                                        <TableCell>
+                                            <span className={`text-xs capitalize font-medium ${txn.status === 'completed' ? 'text-green-600' :
+                                                txn.status === 'failed' ? 'text-red-600' : 'text-amber-600'
+                                                }`}>
+                                                {txn.status}
+                                            </span>
+                                        </TableCell>
+                                        <TableCell className="text-sm text-muted-foreground whitespace-nowrap">
+                                            {formatDate(txn.created_at)}
+                                        </TableCell>
+                                    </TableRow>
+                                ))
+                            )}
                         </TableBody>
                     </Table>
                 </CardContent>
             </Card>
 
             {totalPages > 1 && (
-                <div className="flex flex-col md:flex-row items-center justify-between gap-4 mt-4">
+                <div className="flex flex-col md:flex-row items-center justify-between gap-4 py-4">
                     <p className="text-sm text-muted-foreground">
                         Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1} to {Math.min(currentPage * ITEMS_PER_PAGE, totalCount)} of {totalCount} transactions
                     </p>
