@@ -1,10 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { processCompletedWalletPayment } from '@/lib/payments'
+import { areCronJobsEnabled, cronDisabledResponse } from '@/lib/cron-control'
 
 const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY!
 
 export async function GET(request: NextRequest) {
+    if (!areCronJobsEnabled()) return cronDisabledResponse()
+
     // Verify cron secret
     const authHeader = request.headers.get('authorization')
     if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {

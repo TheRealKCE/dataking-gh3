@@ -38,9 +38,9 @@ import {
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
 import { usePageAccess } from '@/hooks/use-page-access'
-import { differenceInDays } from 'date-fns'
 import { useAdminCounts } from '@/hooks/use-admin-counts'
-import { getCachedPricing } from '@/lib/pricing-cache'
+import { roleConfig } from '@/lib/roles'
+import { BrandLogo } from '@/components/BrandLogo'
 
 const userNavItems = [
     { href: '/dashboard', label: 'Home', icon: LayoutDashboard },
@@ -84,14 +84,11 @@ const shopNavItems = [
     { href: '/dashboard/shop/withdraw', label: 'Withdraw', icon: Banknote },
 ]
 
-import { roleConfig } from '@/lib/roles'
-
 export function DashboardSidebar() {
     const pathname = usePathname()
     const { dbUser, isAdmin, isSubAdmin, signOut } = useAuth()
     const { isInternalSidebarOpen, closeSidebar, isCollapsed, toggleCollapse } = useUI()
     const { isPageAccessible, loading: pageAccessLoading } = usePageAccess()
-    // Remove local state: const [isCollapsed, setIsCollapsed] = useState(false)
     const [walletBalance, setWalletBalance] = useState(0)
     const [communityLink, setCommunityLink] = useState('https://chat.whatsapp.com/GY8X8nUkNgYATUiOY5gXAb')
     const { counts: adminCounts } = useAdminCounts()
@@ -155,7 +152,7 @@ export function DashboardSidebar() {
 
     // Fetch community link
     useEffect(() => {
-        getCachedPricing().then(data => {
+        fetch('/api/public/config').then(response => response.ok ? response.json() : null).then(data => {
             if (data?.whatsappCommunityLink) {
                 setCommunityLink(data.whatsappCommunityLink)
             }
@@ -163,7 +160,6 @@ export function DashboardSidebar() {
     }, [])
 
     const isLinkActive = (href: string) => {
-        // Exact-match routes that would otherwise greedily match all children
         if (href === '/dashboard' || href === '/admin' || href === '/dashboard/shop') {
             return pathname === href
         }
@@ -197,23 +193,8 @@ export function DashboardSidebar() {
             >
                 {/* Logo Header */}
                 <div className="h-20 flex items-center justify-between px-6 border-b border-border/50">
-                    <Link href="/dashboard" className="flex items-center gap-3 group">
-                        <div className="relative w-9 h-9 flex-shrink-0 transition-transform group-hover:scale-105">
-                            <Image
-                                src="/logo.png"
-                                alt="ARHMS"
-                                fill
-                                className="object-contain"
-                                priority
-                            />
-                        </div>
-                        {!isCollapsed && (
-                            <div className="flex flex-col">
-                                <span className="font-heading font-black text-lg tracking-tighter text-foreground">
-                                    ARHMS
-                                </span>
-                            </div>
-                        )}
+                    <Link href="/dashboard">
+                        <BrandLogo collapsed={isCollapsed} />
                     </Link>
                     <Button
                         variant="ghost"
@@ -315,7 +296,6 @@ export function DashboardSidebar() {
                             )}
 
                             {isCollapsed ? (
-                                // Collapsed sidebar: single Store icon links to shop overview
                                 <Link href="/dashboard/shop" onClick={() => {
                                     if (window.innerWidth < 1024) closeSidebar()
                                 }}>
@@ -327,7 +307,6 @@ export function DashboardSidebar() {
                                     </div>
                                 </Link>
                             ) : (
-                                // Expanded sidebar: accordion with child links
                                 <>
                                     <button
                                         onClick={() => setShopGroupOpen(prev => !prev)}

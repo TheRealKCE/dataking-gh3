@@ -1,7 +1,6 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
 
 interface CopyrightFooterProps {
@@ -23,17 +22,13 @@ export function CopyrightFooter({
     useEffect(() => {
         if (!initialSettings) {
             const fetchSettings = async () => {
-                const { data } = await supabase
-                    .from('admin_settings')
-                    .select('key, value')
-                    .or('key.eq.footer_copyright_text,key.eq.footer_branding_text')
-
-                if (data) {
-                    const mapped = data.reduce((acc: any, curr: any) => {
-                        acc[curr.key] = curr.value
-                        return acc
-                    }, {})
-                    setSettings(mapped)
+                const response = await fetch('/api/public/config')
+                if (response.ok) {
+                    const data = await response.json()
+                    setSettings({
+                        footer_copyright_text: data.footerCopyrightText,
+                        footer_branding_text: data.footerBrandingText,
+                    })
                 }
             }
             fetchSettings()

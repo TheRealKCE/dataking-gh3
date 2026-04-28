@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
+import { revalidateTag } from 'next/cache'
+import { PUBLIC_CONFIG_CACHE_TAG } from '@/lib/cache-tags'
 
 export async function POST(request: NextRequest) {
     try {
@@ -127,6 +129,8 @@ export async function POST(request: NextRequest) {
             '30d': (verifyData as any)?.find((s: any) => s.key === 'agent_upgrade_price_30d')?.value || prices['30d'],
             'permanent': (verifyData as any)?.find((s: any) => s.key === 'agent_upgrade_price_permanent')?.value || prices['permanent']
         }
+
+        revalidateTag(PUBLIC_CONFIG_CACHE_TAG)
 
         return NextResponse.json({
             success: true,

@@ -3,8 +3,11 @@ import { createServerClient } from '@/lib/supabase'
 import { checkTransferStatus } from '@/lib/moolre-transfer-service'
 import { sendShopWithdrawalProcessedSMS } from '@/lib/sms-service'
 import { sendShopWithdrawalProcessedEmail } from '@/lib/email-service'
+import { areCronJobsEnabled, cronDisabledResponse } from '@/lib/cron-control'
 
 export async function GET(req: NextRequest) {
+    if (!areCronJobsEnabled()) return cronDisabledResponse()
+
     // 1. Secure with CRON_SECRET
     const authHeader = req.headers.get('authorization')
     const cronSecret = process.env.CRON_SECRET

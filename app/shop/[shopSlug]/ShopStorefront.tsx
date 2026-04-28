@@ -5,7 +5,6 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { formatCurrency } from '@/lib/utils'
-import { supabase } from '@/lib/supabase'
 import { cn } from '@/lib/utils'
 import {
     Phone, Mail, MessageCircle, ShoppingCart, Loader2,
@@ -83,6 +82,13 @@ interface Props {
     shop: ShopData
     packages: Package[]
     adminSettings: Record<string, string>
+    initialAnnouncement?: StorefrontAnnouncement | null
+}
+
+interface StorefrontAnnouncement {
+    type: 'admin' | 'shop'
+    message: string
+    title?: string
 }
 
 // Fixed network order + brand colors (matches main platform)
@@ -129,7 +135,7 @@ const NetworkLogo = ({ id }: { id: string }) => {
     return <ATLogo />
 }
 
-export default function ShopStorefront({ shop, packages, adminSettings }: Props) {
+export default function ShopStorefront({ shop, packages, adminSettings, initialAnnouncement = null }: Props) {
     const searchParams = useSearchParams()
     
     // Data State
@@ -156,7 +162,7 @@ export default function ShopStorefront({ shop, packages, adminSettings }: Props)
     const [pageLoading, setPageLoading] = useState(true)
     const [errorMsg, setErrorMsg] = useState<string | null>(null)
     const [contactInfo, setContactInfo] = useState<{ phone?: string; whatsapp?: string; email?: string } | null>(null)
-    const [announcement, setAnnouncement] = useState<{ type: 'admin' | 'shop'; message: string; title?: string } | null>(null)
+    const [announcement] = useState<StorefrontAnnouncement | null>(initialAnnouncement)
     const [announcementDismissed, setAnnouncementDismissed] = useState(false)
     const [scrolled, setScrolled] = useState(false)
 
@@ -194,51 +200,15 @@ export default function ShopStorefront({ shop, packages, adminSettings }: Props)
     }, [])
 
     useEffect(() => {
-        const fetchAnnouncements = async () => {
-            try {
-                const { data: adminAnn } = await (supabase as any)
-                    .from('system_announcements')
-                    .select('title, message')
-                    .eq('is_active', true)
-                    .in('visible_on', ['storefronts', 'both'])
-                    .order('created_at', { ascending: false })
-                    .limit(1)
-                    .maybeSingle()
+        if (!announcement) return
 
-                const showAutoPopup = () => {
-                    const seenKey = `announcement_seen_${shop.id}`
-                    if (!sessionStorage.getItem(seenKey)) {
-                        setShowAnnouncementModal(true)
-                        setAnnouncementDismissed(true)
-                        sessionStorage.setItem(seenKey, 'true')
-                    }
-                }
-
-                if (adminAnn) {
-                    setAnnouncement({ type: 'admin', title: (adminAnn as any).title, message: (adminAnn as any).message })
-                    showAutoPopup()
-                    return
-                }
-
-                const { data: shopAnn } = await (supabase as any)
-                    .from('shop_announcements')
-                    .select('message')
-                    .eq('shop_id', shop.id)
-                    .eq('is_active', true)
-                    .order('created_at', { ascending: false })
-                    .limit(1)
-                    .maybeSingle()
-
-                if (shopAnn) {
-                    setAnnouncement({ type: 'shop', message: (shopAnn as any).message })
-                    showAutoPopup()
-                }
-            } catch (err) {
-                console.error('Error fetching announcements:', err)
-            }
+        const seenKey = `announcement_seen_${shop.id}`
+        if (!sessionStorage.getItem(seenKey)) {
+            setShowAnnouncementModal(true)
+            setAnnouncementDismissed(true)
+            sessionStorage.setItem(seenKey, 'true')
         }
-        fetchAnnouncements()
-    }, [shop.id])
+    }, [announcement, shop.id])
 
     useEffect(() => {
         const error = searchParams.get('error')
@@ -937,7 +907,7 @@ export default function ShopStorefront({ shop, packages, adminSettings }: Props)
                         }
                         .animate-prompt-peek { animation: promptPeek 4s ease-in-out infinite; }
                     ` }} />
-                    <div className="absolute right-[4.5rem] bg-white dark:bg-gray-800 text-gray-800 dark:text-white px-3 py-1.5 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity animate-prompt-peek whitespace-nowrap">
+                    <div className="absolute right-[4.5rem] hidden sm:block bg-white dark:bg-gray-800 text-gray-800 dark:text-white px-3 py-1.5 rounded-xl shadow-lg border border-gray-100 dark:border-gray-700 pointer-events-none opacity-0 group-hover:opacity-100 transition-opacity animate-prompt-peek whitespace-nowrap">
                         <span className="font-bold text-xs sm:text-sm tracking-tight text-gray-700 dark:text-gray-200">Need Help?</span>
                         <div className="absolute top-1/2 -mt-1 -right-1.5 w-3 h-3 bg-white dark:bg-gray-800 border-r border-t border-gray-100 dark:border-gray-700 rotate-45" />
                     </div>
@@ -957,7 +927,7 @@ export default function ShopStorefront({ shop, packages, adminSettings }: Props)
             {/* ── Sidebar Navigation Overlay ── */}
             <div className={cn("fixed inset-0 z-[100] transition-opacity duration-200", isSidebarOpen ? "opacity-100" : "opacity-0 pointer-events-none")}>
                 <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setIsSidebarOpen(false)} />
-                <div className={cn("absolute top-0 left-0 w-[300px] h-full bg-gray-50 dark:bg-gray-950 shadow-2xl transition-transform duration-200 transform flex flex-col will-change-transform", isSidebarOpen ? "translate-x-0" : "-translate-x-full")}>
+                <div className={cn("absolute top-0 left-0 w-[min(300px,88vw)] h-full bg-gray-50 dark:bg-gray-950 shadow-2xl transition-transform duration-200 transform flex flex-col will-change-transform", isSidebarOpen ? "translate-x-0" : "-translate-x-full")}>
                     <div className="p-5 relative flex flex-col items-center justify-center bg-[var(--brand-color)] h-32 overflow-hidden shadow-inner border-b border-black/10">
                         <div className="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/carbon-fibre.png')]" />
                         {shop.logo_url ? (

@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
+import { areCronJobsEnabled, cronDisabledResponse } from '@/lib/cron-control'
 
 export async function GET(request: NextRequest) {
+    if (!areCronJobsEnabled()) return cronDisabledResponse()
+
     // Verify cron secret
     const authHeader = request.headers.get('authorization')
     if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {

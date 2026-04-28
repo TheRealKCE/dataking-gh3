@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
-import * as XLSX from 'xlsx'
 import { useAuth } from '@/contexts/auth-context'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
@@ -436,7 +435,7 @@ export default function DataPackagesPage() {
 
         setIsValidating(true)
         const reader = new FileReader()
-        reader.onload = (e) => {
+        reader.onload = async (e) => {
             const data = e.target?.result
             if (!data) {
                 setIsValidating(false)
@@ -444,6 +443,7 @@ export default function DataPackagesPage() {
             }
 
             try {
+                const XLSX = await import('xlsx')
                 const workbook = XLSX.read(data, { type: 'binary' })
                 const sheetName = workbook.SheetNames[0]
                 const worksheet = workbook.Sheets[sheetName]

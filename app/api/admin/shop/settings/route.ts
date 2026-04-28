@@ -3,6 +3,8 @@ import { createServerClient } from '@/lib/supabase'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import { validateAdminAccess } from '@/lib/auth-utils'
+import { revalidateTag } from 'next/cache'
+import { PUBLIC_CONFIG_CACHE_TAG } from '@/lib/cache-tags'
 
 export async function POST(request: NextRequest) {
     try {
@@ -27,6 +29,8 @@ export async function POST(request: NextRequest) {
             .upsert(rows, { onConflict: 'key' })
 
         if (error) throw error
+
+        revalidateTag(PUBLIC_CONFIG_CACHE_TAG)
 
         return NextResponse.json({ success: true })
     } catch (error: any) {

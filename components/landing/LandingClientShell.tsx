@@ -7,7 +7,6 @@ import Image from 'next/image'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
-import { getCachedPricing } from '@/lib/pricing-cache'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import {
     ArrowRight,
@@ -28,6 +27,9 @@ import {
 interface LandingClientShellProps {
     initialGuestUrl: string
     initialAdminPhone: string
+    initialPlanPrices?: Record<TierId, number>
+    initialWhatsappGroupLink?: string
+    initialWhatsappChannelLink?: string
 }
 
 type TierId = '3d' | '14d' | '30d' | 'permanent'
@@ -88,12 +90,18 @@ const faqItems = [
     },
 ]
 
-export function LandingClientShell({ initialGuestUrl, initialAdminPhone }: LandingClientShellProps) {
+import { BrandLogo } from '@/components/BrandLogo'
+
+export function LandingClientShell({
+    initialGuestUrl,
+    initialAdminPhone,
+    initialPlanPrices,
+}: LandingClientShellProps) {
     const router = useRouter()
     const [headerScrolled, setHeaderScrolled] = useState(false)
-    const [guestUrl, setGuestUrl] = useState(initialGuestUrl)
-    const [adminPhone, setAdminPhone] = useState(initialAdminPhone)
-    const [planPrices, setPlanPrices] = useState<Record<TierId, number>>(DEFAULT_PLAN_PRICES)
+    const [guestUrl] = useState(initialGuestUrl)
+    const [adminPhone] = useState(initialAdminPhone)
+    const [planPrices] = useState<Record<TierId, number>>(initialPlanPrices || DEFAULT_PLAN_PRICES)
 
     useEffect(() => {
         const handleScroll = () => setHeaderScrolled(window.scrollY > 50)
@@ -110,26 +118,6 @@ export function LandingClientShell({ initialGuestUrl, initialAdminPhone }: Landi
         } catch (_) {}
     }, [router])
 
-    useEffect(() => {
-        let mounted = true
-        getCachedPricing()
-            .then((pricing) => {
-                if (!mounted) return
-                setPlanPrices({
-                    '3d': pricing.prices['3d'],
-                    '14d': pricing.prices['14d'],
-                    '30d': pricing.prices['30d'],
-                    permanent: pricing.prices.permanent,
-                })
-                if (pricing.guestStorefrontUrl) setGuestUrl(pricing.guestStorefrontUrl)
-                if (pricing.whatsappAdminNumber) setAdminPhone(pricing.whatsappAdminNumber)
-            })
-            .catch(() => {})
-        return () => {
-            mounted = false
-        }
-    }, [])
-
     return (
         <div className="min-h-screen bg-background text-foreground overflow-x-hidden selection:bg-primary/30 selection:text-primary-foreground">
             <nav
@@ -142,9 +130,7 @@ export function LandingClientShell({ initialGuestUrl, initialAdminPhone }: Landi
             >
                 <div className="max-w-7xl mx-auto px-6 lg:px-10 w-full flex items-center justify-between">
                     <a href="#" className="flex items-center gap-3 group cursor-pointer">
-                        <div className="w-10 h-10 rounded-2xl bg-primary flex items-center justify-center shadow-blue-premium transition-transform group-hover:scale-110">
-                            <Image src="/logo.png" alt="A" width={24} height={24} className="object-contain" />
-                        </div>
+                        <BrandLogo hideText />
                         <span className="font-heading font-black text-2xl tracking-tighter text-foreground group-hover:text-primary transition-colors">
                             ARHMS <span className="text-primary">DATA</span>
                         </span>
@@ -190,30 +176,30 @@ export function LandingClientShell({ initialGuestUrl, initialAdminPhone }: Landi
                         </div>
 
                         <div className="space-y-6 max-w-5xl">
-                            <h1 className="font-heading font-black text-5xl md:text-7xl lg:text-8xl tracking-tighter leading-[0.9] text-foreground">
+                            <h1 className="font-heading font-black text-4xl sm:text-5xl md:text-7xl lg:text-8xl tracking-tight leading-[0.95] text-foreground">
                                 Sell Data and Airtime <br />
                                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-primary/80 to-primary/60">Faster in Ghana</span>
                             </h1>
-                            <p className="max-w-3xl mx-auto text-lg md:text-xl font-medium text-muted-foreground/80 leading-relaxed">
+                            <p className="max-w-3xl mx-auto text-base sm:text-lg md:text-xl font-medium text-muted-foreground/80 leading-relaxed">
                                 Launch your reseller account, fund one wallet, and deliver MTN, Telecel, and AT orders from one platform built for storefronts, tracking, and growth.
                             </p>
                         </div>
 
                         <div className="flex flex-col sm:flex-row gap-5 pt-4 w-full sm:w-auto">
                             <Link href="/auth/signup" className="w-full sm:w-auto">
-                                <Button className="w-full sm:w-auto h-16 px-10 rounded-2xl bg-primary text-primary-foreground font-black text-base uppercase tracking-widest shadow-blue-premium hover:scale-105 active:scale-95 transition-all">
+                                <Button className="w-full sm:w-auto min-h-14 sm:h-16 px-5 sm:px-10 rounded-2xl bg-primary text-primary-foreground font-black text-sm sm:text-base uppercase tracking-wide sm:tracking-widest shadow-blue-premium hover:scale-105 active:scale-95 transition-all whitespace-normal">
                                     Create Free Account
                                     <ArrowRight className="ml-3 w-5 h-5 stroke-[3]" />
                                 </Button>
                             </Link>
                             <a href={guestUrl} className="w-full sm:w-auto">
-                                <Button variant="outline" className="w-full sm:w-auto h-16 px-10 rounded-2xl border-border/50 bg-background/50 backdrop-blur-md font-black text-base uppercase tracking-widest hover:bg-secondary/50 transition-all">
+                                <Button variant="outline" className="w-full sm:w-auto min-h-14 sm:h-16 px-5 sm:px-10 rounded-2xl border-border/50 bg-background/50 backdrop-blur-md font-black text-sm sm:text-base uppercase tracking-wide sm:tracking-widest hover:bg-secondary/50 transition-all whitespace-normal">
                                     <Store className="mr-3 w-5 h-5" />
                                     Open Guest Store
                                 </Button>
                             </a>
                             <Link href="/shop/status" className="w-full sm:w-auto">
-                                <Button variant="outline" className="w-full sm:w-auto h-16 px-10 rounded-2xl border-border/50 bg-background/50 backdrop-blur-md font-black text-base uppercase tracking-widest hover:bg-secondary/50 transition-all">
+                                <Button variant="outline" className="w-full sm:w-auto min-h-14 sm:h-16 px-5 sm:px-10 rounded-2xl border-border/50 bg-background/50 backdrop-blur-md font-black text-sm sm:text-base uppercase tracking-wide sm:tracking-widest hover:bg-secondary/50 transition-all whitespace-normal">
                                     <CheckCircle2 className="mr-3 w-5 h-5" />
                                     Track an Order
                                 </Button>
@@ -629,9 +615,7 @@ export function LandingClientShell({ initialGuestUrl, initialAdminPhone }: Landi
                     <div className="grid md:grid-cols-4 gap-16 mb-20">
                         <div className="md:col-span-2 space-y-8">
                             <div className="flex items-center gap-3">
-                                <div className="w-8 h-8 rounded-xl bg-primary flex items-center justify-center shadow-gold">
-                                    <Image src="/logo.png" alt="A" width={20} height={20} className="object-contain" />
-                                </div>
+                                <BrandLogo hideText className="scale-75 origin-left" />
                                 <span className="font-heading font-black text-xl tracking-tighter">ARHMS DATA</span>
                             </div>
                             <p className="text-muted-foreground font-medium max-w-sm">

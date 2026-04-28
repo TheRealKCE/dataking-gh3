@@ -1,21 +1,30 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { sendAgentRenewalReminderSMS } from '@/lib/sms-service'
+import { areCronJobsEnabled, cronDisabledResponse } from '@/lib/cron-control'
 
-// Initialize Supabase admin client
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    {
-        auth: {
-            autoRefreshToken: false,
-            persistSession: false
-        }
+let supabaseAdmin: SupabaseClient | null = null
+
+function getSupabaseAdmin(): SupabaseClient {
+    if (!supabaseAdmin) {
+        supabaseAdmin = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.SUPABASE_SERVICE_ROLE_KEY!,
+            {
+                auth: {
+                    autoRefreshToken: false,
+                    persistSession: false
+                }
+            }
+        )
     }
-)
+    return supabaseAdmin!
+}
 
 export async function GET(request: Request) {
     try {
+        if (!areCronJobsEnabled()) return cronDisabledResponse()
+
         // Authenticate the request via CRON_SECRET bearer token
         const authHeader = request.headers.get('authorization')
         if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -31,10 +40,11 @@ export async function GET(request: Request) {
         dayAfterTomorrow.setDate(dayAfterTomorrow.getDate() + 2)
 
         const tomorrowISO = tomorrow.toISOString().split('T')[0] // Just the date part
+        const supabase = getSupabaseAdmin()
 
         // 2. Fetch agents expiring tomorrow
         // Since agent_expires_at is a timestamp, we check for the entire day tomorrow
-        const { data: expiringAgents, error: fetchError } = await supabaseAdmin
+        const { data: expiringAgents, error: fetchError } = await supabase
             .from('users')
             .select('id, first_name, phone_number, agent_expires_at')
             .eq('role', 'agent')
@@ -60,7 +70,7 @@ export async function GET(request: Request) {
             const twoDaysAgo = new Date()
             twoDaysAgo.setDate(twoDaysAgo.getDate() - 2)
 
-            const { data: existingNotification } = await supabaseAdmin
+            const { data: existingNotification } = await supabase
                 .from('notifications')
                 .select('id')
                 .eq('user_id', agent.id)
@@ -83,7 +93,7 @@ export async function GET(request: Request) {
 
                 if (smsResult.success) {
                     // 5. Log notification to prevent duplicate reminders
-                    await supabaseAdmin
+                    await supabase
                         .from('notifications')
                         .insert({
                             user_id: agent.id,

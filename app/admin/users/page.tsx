@@ -1,7 +1,5 @@
 'use client'
 
-import * as XLSX from 'xlsx'
-
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency, formatDate } from '@/lib/utils'
@@ -261,7 +259,7 @@ export default function AdminUsersPage() {
 
     // Server-side filtered data is directly in 'users' state
 
-    const exportForMNotify = () => {
+    const exportForMNotify = async () => {
         try {
             // mNotify requires: firstname, lastname, phone, email, date_of_birth (in this exact order)
             const usersWithPhones = (Array.isArray(users) ? users : []).filter(user => user.phone_number)
@@ -281,6 +279,7 @@ export default function AdminUsersPage() {
             }))
 
             // Generate XLSX workbook
+            const XLSX = await import('xlsx')
             const worksheet = XLSX.utils.json_to_sheet(rows, {
                 header: ['firstname', 'lastname', 'phone', 'email', 'date_of_birth']
             })

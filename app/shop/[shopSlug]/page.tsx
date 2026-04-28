@@ -1,4 +1,5 @@
 import { Metadata } from 'next'
+import Image from 'next/image'
 import { notFound } from 'next/navigation'
 import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
@@ -92,7 +93,7 @@ export default async function ShopPage({ params }: Props) {
             <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-6">
                 <div className="max-w-md w-full text-center space-y-6">
                     {shop.logo_url ? (
-                        <img src={shop.logo_url} alt={shop.shop_name} className="w-20 h-20 rounded-2xl object-cover mx-auto shadow-lg" />
+                        <Image src={shop.logo_url} alt={shop.shop_name} width={80} height={80} className="w-20 h-20 rounded-2xl object-cover mx-auto shadow-lg" />
                     ) : (
                         <div className="w-20 h-20 rounded-2xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center mx-auto shadow-lg">
                             <span className="text-3xl font-black text-emerald-600">{shop.shop_name[0]}</span>
@@ -138,7 +139,7 @@ export default async function ShopPage({ params }: Props) {
                 <div className="max-w-md w-full text-center space-y-6">
                     {/* Logo / Icon */}
                     {shop.logo_url ? (
-                        <img src={shop.logo_url} alt={shop.shop_name} className="w-20 h-20 rounded-2xl object-cover mx-auto shadow-lg" />
+                        <Image src={shop.logo_url} alt={shop.shop_name} width={80} height={80} className="w-20 h-20 rounded-2xl object-cover mx-auto shadow-lg" />
                     ) : (
                         <div className="w-20 h-20 rounded-2xl bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center mx-auto shadow-lg">
                             <span className="text-3xl font-black text-emerald-600">{shop.shop_name[0]}</span>
@@ -206,5 +207,44 @@ export default async function ShopPage({ params }: Props) {
         ownerRole = (uData as any)?.role || 'customer'
     }
 
-    return <ShopStorefront shop={{ ...shop, ownerRole }} packages={packages} adminSettings={adminSettingsMap} />
+    const { data: adminAnnouncement } = await (supabaseAdmin as any)
+        .from('system_announcements')
+        .select('title, message')
+        .eq('is_active', true)
+        .in('visible_on', ['storefronts', 'both'])
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+    let initialAnnouncement: {
+        type: 'admin' | 'shop'
+        title?: string
+        message: string
+    } | null = adminAnnouncement
+        ? {
+            type: 'admin' as const,
+            title: (adminAnnouncement as any).title,
+            message: (adminAnnouncement as any).message,
+        }
+        : null
+
+    if (!initialAnnouncement) {
+        const { data: shopAnnouncement } = await (supabaseAdmin as any)
+            .from('shop_announcements')
+            .select('message')
+            .eq('shop_id', shop.id)
+            .eq('is_active', true)
+            .order('created_at', { ascending: false })
+            .limit(1)
+            .maybeSingle()
+
+        if (shopAnnouncement) {
+            initialAnnouncement = {
+                type: 'shop' as const,
+                message: (shopAnnouncement as any).message,
+            }
+        }
+    }
+
+    return <ShopStorefront shop={{ ...shop, ownerRole }} packages={packages} adminSettings={adminSettingsMap} initialAnnouncement={initialAnnouncement} />
 }

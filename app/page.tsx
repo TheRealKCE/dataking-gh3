@@ -7,5 +7,13 @@ export default async function HomePage() {
     const guestUrl = config.guestStorefrontUrl
     const adminPhone = config.whatsappAdminNumber
 
-    return <LandingClientShell initialGuestUrl={guestUrl} initialAdminPhone={adminPhone} />
+    return (
+        <LandingClientShell
+            initialGuestUrl={guestUrl}
+            initialAdminPhone={adminPhone}
+            initialPlanPrices={config.upgradePrices}
+            initialWhatsappGroupLink={config.whatsappGroupLink}
+            initialWhatsappChannelLink={config.whatsappChannelLink}
+        />
+    )
 }

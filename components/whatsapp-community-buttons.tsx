@@ -3,16 +3,30 @@
 import React, { useEffect, useState } from 'react'
 import { MessagesSquare, Tv } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { getCachedPricing } from '@/lib/pricing-cache'
 
-export function WhatsAppCommunityButtons({ className, compact = false }: { className?: string, compact?: boolean }) {
+export function WhatsAppCommunityButtons({
+    className,
+    compact = false,
+    groupLink = '',
+    channelLink = '',
+}: {
+    className?: string
+    compact?: boolean
+    groupLink?: string
+    channelLink?: string
+}) {
     const [links, setLinks] = useState({
-        group: "",
-        channel: ""
+        group: groupLink,
+        channel: channelLink
     })
 
     useEffect(() => {
-        getCachedPricing().then(data => {
+        if (groupLink || channelLink) {
+            setLinks({ group: groupLink, channel: channelLink })
+            return
+        }
+
+        fetch('/api/public/config').then(response => response.ok ? response.json() : null).then(data => {
             if (data) {
                 setLinks({
                     group: data.whatsappGroupLink || "",
@@ -20,7 +34,7 @@ export function WhatsAppCommunityButtons({ className, compact = false }: { class
                 })
             }
         }).catch(console.error)
-    }, [])
+    }, [groupLink, channelLink])
 
     if (!links.group && !links.channel) return null
 

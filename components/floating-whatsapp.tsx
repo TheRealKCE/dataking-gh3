@@ -2,16 +2,14 @@
 
 import React, { useState, useEffect } from 'react'
 import { X, HelpCircle } from 'lucide-react'
-import { Button } from './ui/button'
-import { getPublicConfig } from '@/lib/public-config'
-import { cn } from '@/lib/utils'
 
 interface FloatingWhatsAppProps {
     variant?: 'default' | 'auth'
+    phoneNumber?: string
 }
 
-export function FloatingWhatsApp({ variant = 'default' }: FloatingWhatsAppProps) {
-    const [phoneNumber, setPhoneNumber] = useState('')
+export function FloatingWhatsApp({ variant = 'default', phoneNumber: initialPhoneNumber = '' }: FloatingWhatsAppProps) {
+    const [phoneNumber, setPhoneNumber] = useState(initialPhoneNumber)
     const [isVisible, setIsVisible] = useState(true)
     const [showNote, setShowNote] = useState(false)
     const [isHovered, setIsHovered] = useState(false)
@@ -22,12 +20,17 @@ export function FloatingWhatsApp({ variant = 'default' }: FloatingWhatsAppProps)
     const PREMIUM_MESSAGE = "Hi! 👋 Need help with your data or account? Our support team is online. Tap the WhatsApp icon to chat with an administrator instantly!"
 
     useEffect(() => {
-        getPublicConfig().then(data => {
-            if (data?.whatsappAdminNumber) {
-                setPhoneNumber(data.whatsappAdminNumber)
-            }
-        }).catch(console.error)
-    }, [])
+        if (initialPhoneNumber) return
+
+        fetch('/api/public/config')
+            .then(response => response.ok ? response.json() : null)
+            .then(data => {
+                if (data?.whatsappAdminNumber) {
+                    setPhoneNumber(data.whatsappAdminNumber)
+                }
+            })
+            .catch(console.error)
+    }, [initialPhoneNumber])
 
     useEffect(() => {
         if (showNote) {
@@ -68,13 +71,13 @@ export function FloatingWhatsApp({ variant = 'default' }: FloatingWhatsAppProps)
     if (variant === 'auth') {
         return (
             <div
-                className="fixed bottom-4 right-4 z-50 flex flex-col items-end gap-2"
+                className="fixed bottom-4 right-3 sm:right-4 z-50 flex max-w-[calc(100vw-1.5rem)] flex-col items-end gap-2"
                 onMouseEnter={() => setIsHovered(true)}
                 onMouseLeave={() => setIsHovered(false)}
             >
                 {/* Professional Help Note */}
                 {showNote && (
-                    <div className="bg-white/95 backdrop-blur-md p-4 rounded-2xl shadow-2xl max-w-[280px] animate-in slide-in-from-right-5 fade-in duration-500 border border-emerald-100 dark:border-emerald-900/30 relative overflow-hidden group/note">
+                    <div className="bg-white/95 backdrop-blur-md p-4 rounded-2xl shadow-2xl w-[min(280px,calc(100vw-1.5rem))] animate-in slide-in-from-right-5 fade-in duration-500 border border-emerald-100 dark:border-emerald-900/30 relative overflow-hidden group/note">
                         {/* Premium Gradient Bar */}
                         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#25D366] to-[#128C7E]" />
                         

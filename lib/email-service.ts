@@ -427,7 +427,7 @@ function generatePremiumTemplate(title: string, content: string, accentColor: st
             <div class="header">
                 <div class="logo-container">
                     <div class="logo-icon">
-                        <span class="logo-text">K</span>
+                        <span class="logo-text">A</span>
                     </div>
                     <div class="brand-name">ARHMS DATA</div>
                     <div class="brand-tagline">Premium Data Solutions</div>

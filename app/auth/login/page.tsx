@@ -14,7 +14,6 @@ import { Eye, EyeOff, Loader2, LogIn, Mail, Lock, Store, ExternalLink, AlertCirc
 import { toast } from 'sonner'
 import { BackgroundBubbles } from '@/components/background-bubbles'
 import { FloatingWhatsApp } from '@/components/floating-whatsapp'
-import { getPublicConfig } from '@/lib/public-config'
 
 export default function LoginPage() {
     const [email, setEmail] = useState('')
@@ -28,7 +27,7 @@ export default function LoginPage() {
     const [guestUrl, setGuestUrl] = useState('https://arhmsgh.com/shop/demo')
 
     useEffect(() => {
-        getPublicConfig().then(data => {
+        fetch('/api/public/config').then(response => response.ok ? response.json() : null).then(data => {
             if (data?.guestStorefrontUrl) {
                 setGuestUrl(data.guestStorefrontUrl)
             }

@@ -1,10 +1,13 @@
 import { createServerClient } from '@/lib/supabase'
 import { NextResponse } from 'next/server'
+import { areCronJobsEnabled, cronDisabledResponse } from '@/lib/cron-control'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(request: Request) {
     try {
+        if (!areCronJobsEnabled()) return cronDisabledResponse()
+
         const authHeader = request.headers.get('authorization')
         if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
             return NextResponse.json(

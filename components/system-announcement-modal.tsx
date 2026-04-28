@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
 import {
     Dialog,
     DialogContent,
@@ -10,12 +9,11 @@ import {
     DialogTitle,
 } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
-import { Megaphone, MessageCircle } from 'lucide-react'
+import { Megaphone } from 'lucide-react'
 import { SystemAnnouncement } from '@/types/supabase'
-import { cn } from '@/lib/utils'
 
-export function SystemAnnouncementModal() {
-    const [announcement, setAnnouncement] = useState<SystemAnnouncement | null>(null)
+export function SystemAnnouncementModal({ initialAnnouncement = null }: { initialAnnouncement?: Partial<SystemAnnouncement> | null }) {
+    const [announcement, setAnnouncement] = useState<Partial<SystemAnnouncement> | null>(initialAnnouncement)
     const [isOpen, setIsOpen] = useState(false)
 
     useEffect(() => {
@@ -24,21 +22,13 @@ export function SystemAnnouncementModal() {
 
     const checkAnnouncements = async () => {
         try {
-            // Fetch the most recent ACTIVE announcement
-            const { data, error } = await supabase
-                .from('system_announcements')
-                .select('*')
-                .eq('is_active', true)
-                .order('created_at', { ascending: false })
-                .limit(1)
-                .maybeSingle()
-
-            if (error) {
-                console.error('Error fetching announcement:', error)
-                return
+            let announcementData = initialAnnouncement as any
+            if (!announcementData) {
+                const response = await fetch('/api/public/config')
+                if (!response.ok) return
+                const config = await response.json()
+                announcementData = config.activeSystemAnnouncements?.find((item: any) => item.visible_on === 'main_site' || item.visible_on === 'both')
             }
-
-            const announcementData = data as any
 
             if (announcementData) {
                 // Check if this specific announcement has been seen in this session

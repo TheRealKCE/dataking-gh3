@@ -2,16 +2,24 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
+import { revalidateTag } from 'next/cache'
+import { PUBLIC_CONFIG_CACHE_TAG } from '@/lib/cache-tags'
 
 export const dynamic = 'force-dynamic' // Force Next.js not to cache this API route
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!
-if (!supabaseServiceKey) {
-  throw new Error('[AdminSettings] SUPABASE_SERVICE_ROLE_KEY is not configured')
-}
+let supabase: ReturnType<typeof createClient> | null = null
 
-const supabase = createClient(supabaseUrl, supabaseServiceKey)
+function getAdminSettingsClient(): ReturnType<typeof createClient> {
+    if (!supabase) {
+        if (!supabaseServiceKey) {
+            throw new Error('[AdminSettings] SUPABASE_SERVICE_ROLE_KEY is not configured')
+        }
+        supabase = createClient(supabaseUrl, supabaseServiceKey)
+    }
+    return supabase!
+}
 
 export async function GET(request: Request) {
     try {
@@ -62,7 +70,7 @@ export async function GET(request: Request) {
         }
 
         // Build the query
-        let query = supabase.from('admin_settings').select('key, value')
+        let query = getAdminSettingsClient().from('admin_settings').select('key, value')
         
         if (keysParam) {
             const keys = keysParam.split(',').map(k => k.trim())
@@ -93,6 +101,57 @@ export async function GET(request: Request) {
         console.error('Error fetching admin settings:', error)
         return NextResponse.json(
             { error: 'Failed to fetch settings' },
+            { status: 500 }
+        )
+    }
+}
+
+export async function POST(request: Request) {
+    try {
+        const cookieStore = await cookies()
+        const supabaseAuth = createRouteHandlerClient({ cookies: () => cookieStore as any })
+        const { data: { user }, error: authError } = await supabaseAuth.auth.getUser()
+
+        if (authError || !user) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+
+        const { data: dbUser } = await supabaseAuth.from('users').select('role').eq('id', user.id).single()
+        if (dbUser?.role !== 'admin') {
+            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        }
+
+        const body = await request.json()
+        const updates = Array.isArray(body?.updates) ? body.updates : null
+        if (!updates || updates.length === 0) {
+            return NextResponse.json({ error: 'updates array is required' }, { status: 400 })
+        }
+
+        const cleanUpdates = updates
+            .filter((item: any) => typeof item?.key === 'string')
+            .map((item: any) => ({ key: item.key, value: String(item.value ?? '') }))
+
+        if (cleanUpdates.length === 0) {
+            return NextResponse.json({ error: 'No valid settings provided' }, { status: 400 })
+        }
+
+        const { error } = await getAdminSettingsClient()
+            .from('admin_settings')
+            .upsert(cleanUpdates, { onConflict: 'key' })
+
+        if (error) throw error
+
+        revalidateTag(PUBLIC_CONFIG_CACHE_TAG)
+
+        return NextResponse.json({ success: true }, {
+            headers: {
+                'Cache-Control': 'private, no-store',
+            },
+        })
+    } catch (error) {
+        console.error('Error saving admin settings:', error)
+        return NextResponse.json(
+            { error: 'Failed to save settings' },
             { status: 500 }
         )
     }

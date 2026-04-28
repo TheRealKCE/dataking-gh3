@@ -18,6 +18,46 @@ const nextConfig: NextConfig = {
         },
     },
     async headers() {
+        const securityHeaders = [
+            {
+                key: 'X-Frame-Options',
+                value: 'DENY',
+            },
+            {
+                key: 'X-Content-Type-Options',
+                value: 'nosniff',
+            },
+            {
+                key: 'Referrer-Policy',
+                value: 'strict-origin-when-cross-origin',
+            },
+            {
+                key: 'X-XSS-Protection',
+                value: '1; mode=block',
+            },
+            {
+                key: 'Permissions-Policy',
+                value: 'camera=(), microphone=(), geolocation=(), interest-cohort=()',
+            },
+            {
+                key: 'Strict-Transport-Security',
+                value: 'max-age=31536000; includeSubDomains',
+            },
+            {
+                key: 'Content-Security-Policy',
+                value: [
+                    "default-src 'self'",
+                    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.paystack.co",
+                    "style-src 'self' 'unsafe-inline'",
+                    "font-src 'self'",
+                    "img-src 'self' data: https://*.supabase.co https://cdn.jsdelivr.net blob:",
+                    "connect-src 'self' https://*.supabase.co https://api.paystack.co wss://*.supabase.co",
+                    "frame-src https://js.paystack.co",
+                    "frame-ancestors 'none'",
+                ].join('; '),
+            },
+        ]
+
         return [
             // Static assets - cache aggressively
             {
@@ -39,62 +79,20 @@ const nextConfig: NextConfig = {
                     },
                 ],
             },
-            // Dynamic pages and API routes - no cache for user-specific content
+            // Shared public config - safe CDN cache with short TTL
             {
-                source: '/:path*',
+                source: '/api/public/config',
                 headers: [
-                    // Cache Control
                     {
                         key: 'Cache-Control',
-                        value: 'no-store, no-cache, max-age=0, must-revalidate, proxy-revalidate',
-                    },
-                    {
-                        key: 'Pragma',
-                        value: 'no-cache',
-                    },
-                    {
-                        key: 'Expires',
-                        value: '0',
-                    },
-                    // Security Headers
-                    {
-                        key: 'X-Frame-Options',
-                        value: 'DENY',
-                    },
-                    {
-                        key: 'X-Content-Type-Options',
-                        value: 'nosniff',
-                    },
-                    {
-                        key: 'Referrer-Policy',
-                        value: 'strict-origin-when-cross-origin',
-                    },
-                    {
-                        key: 'X-XSS-Protection',
-                        value: '1; mode=block',
-                    },
-                    {
-                        key: 'Permissions-Policy',
-                        value: 'camera=(), microphone=(), geolocation=(), interest-cohort=()',
-                    },
-                    {
-                        key: 'Strict-Transport-Security',
-                        value: 'max-age=31536000; includeSubDomains',
-                    },
-                    {
-                        key: 'Content-Security-Policy',
-                        value: [
-                            "default-src 'self'",
-                            "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.paystack.co",
-                            "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-                            "font-src 'self' https://fonts.gstatic.com",
-                            "img-src 'self' data: https://*.supabase.co https://cdn.jsdelivr.net blob:",
-                            "connect-src 'self' https://*.supabase.co https://api.paystack.co wss://*.supabase.co",
-                            "frame-src https://js.paystack.co",
-                            "frame-ancestors 'none'",
-                        ].join('; '),
+                        value: 'public, s-maxage=300, stale-while-revalidate=3600',
                     },
                 ],
+            },
+            // Security headers for application routes. Cache policy is set per route/API.
+            {
+                source: '/:path*',
+                headers: securityHeaders,
             },
         ]
     },

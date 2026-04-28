@@ -1,16 +1,11 @@
 'use client'
 
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react'
-import { createClient } from '@supabase/supabase-js'
 import type { SystemAnnouncement } from '@/types/supabase'
 
 // ---------------------------------------------------------------------------
 // Client-side Supabase (uses the public anon key — read-only operations only)
 // ---------------------------------------------------------------------------
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-const supabase = createClient(supabaseUrl, supabaseAnonKey)
-
 // ---------------------------------------------------------------------------
 // Context
 // ---------------------------------------------------------------------------
@@ -52,28 +47,26 @@ function markReadInSession(id: string) {
 // ---------------------------------------------------------------------------
 // Provider
 // ---------------------------------------------------------------------------
-export function AnnouncementProvider({ children }: { children: React.ReactNode }) {
-    const [announcements, setAnnouncements] = useState<SystemAnnouncement[]>([])
+export function AnnouncementProvider({
+    children,
+    initialAnnouncements = [],
+}: {
+    children: React.ReactNode
+    initialAnnouncements?: SystemAnnouncement[]
+}) {
+    const [announcements, setAnnouncements] = useState<SystemAnnouncement[]>(initialAnnouncements)
     const [unreadIds, setUnreadIds] = useState<Set<string>>(new Set())
     const [isLoading, setIsLoading] = useState(true)
 
     useEffect(() => {
         async function fetchAnnouncements() {
             try {
-                const { data, error } = await supabase
-                    .from('system_announcements')
-                    .select('*')
-                    .eq('is_active', true)
-                    .in('visible_on', ['main_site', 'both'])
-                    .order('created_at', { ascending: false })
-                    .limit(20)
+                const response = await fetch('/api/public/config')
+                if (!response.ok) return
 
-                if (error) {
-                    console.error('[Announcements] Fetch error:', error)
-                    return
-                }
-
-                const list = (data ?? []) as SystemAnnouncement[]
+                const config = await response.json()
+                const list = ((config.activeSystemAnnouncements ?? []) as SystemAnnouncement[])
+                    .filter((announcement) => announcement.visible_on === 'main_site' || announcement.visible_on === 'both')
                 setAnnouncements(list)
 
                 // Compute unread set by comparing against sessionStorage
@@ -89,8 +82,18 @@ export function AnnouncementProvider({ children }: { children: React.ReactNode }
             }
         }
 
+        if (initialAnnouncements.length > 0) {
+            const unread = new Set<string>()
+            initialAnnouncements.forEach((a) => {
+                if (!isRead(a.id)) unread.add(a.id)
+            })
+            setUnreadIds(unread)
+            setIsLoading(false)
+            return
+        }
+
         fetchAnnouncements()
-    }, [])
+    }, [initialAnnouncements])
 
     const markRead = useCallback((id: string) => {
         markReadInSession(id)

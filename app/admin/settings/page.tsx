@@ -134,11 +134,16 @@ export default function AdminSettingsPage() {
                 { key: 'page_access_airtime', value: String(pageAccessAirtime) }
             ]
 
-            const { error } = await (supabase
-                .from('admin_settings') as any)
-                .upsert(updates)
+            const response = await fetch('/api/admin-settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ updates }),
+            })
 
-            if (error) throw error
+            if (!response.ok) {
+                const data = await response.json().catch(() => null)
+                throw new Error(data?.error || 'Failed to save settings')
+            }
             toast.success('Settings saved successfully')
         } catch (error) {
             console.error('Error saving settings:', error)
