@@ -233,7 +233,7 @@ export default function ShopWithdrawPage() {
 
     // ─── Account name validation ──────────────────────────────────────────────
     const triggerValidation = useCallback((phone: string, net: string, bankId?: string) => {
-        if (!phone || !net) {
+        if (!phone || !net || phone.length < 9) {
             setVerifiedName(null)
             setValidationError(null)
             return
@@ -264,6 +264,26 @@ export default function ShopWithdrawPage() {
             })
             .finally(() => setValidating(false))
     }, [])
+
+    // Auto-verify debounce
+    useEffect(() => {
+        if (selectedSavedId !== 'manual') return
+
+        if (debounceRef.current) clearTimeout(debounceRef.current)
+        
+        if (momoNumber.length >= 9 && network) {
+            debounceRef.current = setTimeout(() => {
+                triggerValidation(momoNumber, network, selectedBankId || undefined)
+            }, 800)
+        } else {
+            setVerifiedName(null)
+            setValidationError(null)
+        }
+
+        return () => {
+            if (debounceRef.current) clearTimeout(debounceRef.current)
+        }
+    }, [momoNumber, network, selectedBankId, selectedSavedId, triggerValidation])
 
 
 
@@ -762,15 +782,20 @@ export default function ShopWithdrawPage() {
                                         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                                             Account Holder Name
                                         </Label>
-                                        {(!verifiedName || validationError) && (
+                                        {validating && (
+                                            <span className="text-[10px] text-emerald-600 font-bold animate-pulse uppercase tracking-tight">
+                                                Auto-verifying...
+                                            </span>
+                                        )}
+                                        {validationError && !validating && (
                                             <Button 
                                                 size="sm" 
-                                                className="h-7 text-[11px] bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm font-bold px-3 uppercase tracking-wide transition-all"
+                                                className="h-7 text-[11px] bg-red-100 hover:bg-red-200 text-red-600 shadow-none border-none font-bold px-3 uppercase tracking-wide transition-all"
                                                 onClick={() => triggerValidation(momoNumber, network || '', selectedBankId || undefined)}
                                                 disabled={validating || !momoNumber || !network}
                                                 type="button"
                                             >
-                                                Verify Manually
+                                                Retry Verification
                                             </Button>
                                         )}
                                     </div>
@@ -865,11 +890,11 @@ export default function ShopWithdrawPage() {
 
                     {/* ── Notice */}
                     {(!verifiedName || validationError) && (
-                        <div className="flex items-start gap-2 p-3.5 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 text-xs text-amber-800 dark:text-amber-300">
+                        <div className="flex items-start gap-2 p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-300">
                             <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
                             <span>
-                                Account name must be manually verified via Moolre. 
-                                Please click the verification button before submitting your request.
+                                Your account name will be automatically verified once you enter a valid number. 
+                                This ensures your payout is sent to the correct person.
                             </span>
                         </div>
                     )}
