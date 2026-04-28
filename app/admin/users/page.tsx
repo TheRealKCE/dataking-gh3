@@ -48,6 +48,15 @@ import {
     SelectTrigger,
     SelectValue,
 } from '@/components/ui/select'
+import {
+    Pagination,
+    PaginationContent,
+    PaginationItem,
+    PaginationLink,
+    PaginationNext,
+    PaginationPrevious,
+    PaginationEllipsis
+} from '@/components/ui/pagination'
 import { roleConfig, UserRole } from '@/lib/roles'
 
 export default function AdminUsersPage() {
@@ -56,10 +65,9 @@ export default function AdminUsersPage() {
     const [searchTerm, setSearchTerm] = useState('')
     const [debouncedSearch, setDebouncedSearch] = useState('')
     const [roleFilter, setRoleFilter] = useState('all')
-    const [page, setPage] = useState(0)
+    const [currentPage, setCurrentPage] = useState(1)
     const [totalCount, setTotalCount] = useState(0)
-    const [hasMore, setHasMore] = useState(true)
-    const ITEMS_PER_PAGE = 20
+    const ITEMS_PER_PAGE = 24
 
     // Wallet Adjustment Dialog State
     const [adjustmentDialogUser, setAdjustmentDialogUser] = useState<any>(null)
@@ -78,14 +86,18 @@ export default function AdminUsersPage() {
 
     // Fetch initial data or when filters change
     useEffect(() => {
-        setPage(0)
-        fetchUsers(0, true)
+        setCurrentPage(1)
+        fetchUsers(1)
     }, [debouncedSearch, roleFilter])
 
-    const fetchUsers = async (pageToFetch: number, isNewSearch = false) => {
+    useEffect(() => {
+        fetchUsers(currentPage)
+    }, [currentPage])
+
+    const fetchUsers = async (pageToFetch: number) => {
         try {
             setLoading(true)
-            const offset = pageToFetch * ITEMS_PER_PAGE
+            const offset = (pageToFetch - 1) * ITEMS_PER_PAGE
             const url = `/api/admin/users?limit=${ITEMS_PER_PAGE}&offset=${offset}&search=${encodeURIComponent(debouncedSearch)}&role=${roleFilter}`
 
             const response = await fetch(url)
@@ -95,15 +107,8 @@ export default function AdminUsersPage() {
             }
             const data = await response.json()
 
-            const newUsers = data.users || []
-            if (isNewSearch) {
-                setUsers(newUsers)
-            } else {
-                setUsers(prev => [...prev, ...newUsers])
-            }
-
+            setUsers(data.users || [])
             setTotalCount(data.totalCount || 0)
-            setHasMore(newUsers.length === ITEMS_PER_PAGE)
         } catch (error: any) {
             console.error('Error fetching users:', error)
             toast.error(error.message || 'Failed to load users')
@@ -112,12 +117,51 @@ export default function AdminUsersPage() {
         }
     }
 
-    const loadMore = () => {
-        if (!loading && hasMore) {
-            const nextPage = page + 1
-            setPage(nextPage)
-            fetchUsers(nextPage)
+    const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE)
+
+    const renderPaginationItems = () => {
+        const items = []
+        const maxVisible = 5
+        let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2))
+        let endPage = Math.min(totalPages, startPage + maxVisible - 1)
+
+        if (endPage - startPage + 1 < maxVisible) {
+            startPage = Math.max(1, endPage - maxVisible + 1)
         }
+
+        if (startPage > 1) {
+            items.push(
+                <PaginationItem key="1">
+                    <PaginationLink onClick={() => setCurrentPage(1)} className="cursor-pointer">1</PaginationLink>
+                </PaginationItem>
+            )
+            if (startPage > 2) items.push(<PaginationEllipsis key="e1" />)
+        }
+
+        for (let i = startPage; i <= endPage; i++) {
+            items.push(
+                <PaginationItem key={i}>
+                    <PaginationLink
+                        isActive={currentPage === i}
+                        onClick={() => setCurrentPage(i)}
+                        className="cursor-pointer"
+                    >
+                        {i}
+                    </PaginationLink>
+                </PaginationItem>
+            )
+        }
+
+        if (endPage < totalPages) {
+            if (endPage < totalPages - 1) items.push(<PaginationEllipsis key="e2" />)
+            items.push(
+                <PaginationItem key={totalPages}>
+                    <PaginationLink onClick={() => setCurrentPage(totalPages)} className="cursor-pointer">{totalPages}</PaginationLink>
+                </PaginationItem>
+            )
+        }
+
+        return items
     }
 
     const handleStatusChange = async (userId: string, newStatus: string) => {
@@ -144,7 +188,6 @@ export default function AdminUsersPage() {
 
     const handleRoleChange = async (userId: string, newRole: string) => {
         if (!confirm(`Are you sure you want to make this user ${newRole}?`)) return
-
         try {
             setLoading(true)
             const response = await fetch('/api/admin/users/role', {
@@ -152,10 +195,8 @@ export default function AdminUsersPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ userId, role: newRole })
             })
-
             const result = await response.json()
             if (!response.ok) throw new Error(result.error || 'Failed to update user role')
-
             setUsers(prevUsers => Array.isArray(prevUsers) ? prevUsers.map(u => u.id === userId ? { ...u, role: newRole } : u) : [])
             toast.success(`User role updated to ${newRole}`)
         } catch (error: any) {
@@ -168,13 +209,11 @@ export default function AdminUsersPage() {
 
     const handleManualAdjustment = async () => {
         if (!adjustmentDialogUser || !adjustmentAmount) return
-
         const amount = parseFloat(adjustmentAmount)
         if (isNaN(amount) || amount <= 0) {
             toast.error('Invalid amount')
             return
         }
-
         setIsAdjusting(true)
         try {
             const response = await fetch('/api/admin/users/wallet/adjustment', {
@@ -187,22 +226,10 @@ export default function AdminUsersPage() {
                     description: adjustmentDescription
                 })
             })
-
             const result = await response.json()
             if (!response.ok) throw new Error(result.error || 'Failed to adjust wallet')
-
             toast.success(`Wallet ${adjustmentType === 'credit' ? 'credited' : 'debited'} successfully`)
-
-            if (result.debug && adjustmentType === 'credit') {
-                const { userFound, phoneFound, smsAttempted, smsResult } = result.debug
-                if (!userFound) toast.error('DEBUG: User not found in DB')
-                else if (!phoneFound) toast.error('DEBUG: No phone number on user record')
-                else if (!smsAttempted) toast.error('DEBUG: SMS logic skipped (unknown reason)')
-                else if (smsResult?.success) toast.success(`DEBUG: SMS Sent to ${phoneFound}`)
-                else toast.error(`DEBUG: SMS Failed: ${smsResult?.error || 'Unknown error'}`)
-            }
-
-            fetchUsers(0, true) // Refresh list to show new balance
+            fetchUsers(currentPage)
             setAdjustmentDialogUser(null)
             setAdjustmentAmount('')
         } catch (error: any) {
@@ -214,18 +241,15 @@ export default function AdminUsersPage() {
     }
 
     const handleResetPassword = async (userId: string, userName: string) => {
-        if (!confirm(`Send a password reset email to ${userName}?\n\nThey will receive an email with a link to set a new password.`)) return
-
+        if (!confirm(`Send a password reset email to ${userName}?`)) return
         try {
             const response = await fetch('/api/admin/users/reset-password', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ userId })
             })
-
             const result = await response.json()
             if (!response.ok) throw new Error(result.error || 'Failed to send reset email')
-
             toast.success(`Password reset email sent to ${userName}`)
         } catch (error: any) {
             console.error('Reset password error:', error)
@@ -234,8 +258,7 @@ export default function AdminUsersPage() {
     }
 
     const handleDeleteUser = async (userId: string) => {
-        if (!confirm('EXTREMELY IMPORTANT:\n\nThis will PERMANENTLY delete the user from both Authentication and Database records.\nThis includes their wallet, orders, and history.\nThis action CANNOT be undone.\n\nAre you sure you want to proceed?')) return
-
+        if (!confirm('EXTREMELY IMPORTANT:\n\nThis will PERMANENTLY delete the user.')) return
         try {
             setLoading(true)
             const response = await fetch('/api/admin/users/delete', {
@@ -243,10 +266,8 @@ export default function AdminUsersPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ userId })
             })
-
             const result = await response.json()
             if (!response.ok) throw new Error(result.error || 'Failed to delete user')
-
             setUsers(prevUsers => Array.isArray(prevUsers) ? prevUsers.filter(u => u.id !== userId) : [])
             toast.success('User permanently deleted')
         } catch (error: any) {
@@ -257,38 +278,28 @@ export default function AdminUsersPage() {
         }
     }
 
-    // Server-side filtered data is directly in 'users' state
-
     const exportForMNotify = async () => {
         try {
-            // mNotify requires: firstname, lastname, phone, email, date_of_birth (in this exact order)
             const usersWithPhones = (Array.isArray(users) ? users : []).filter(user => user.phone_number)
-
             if (usersWithPhones.length === 0) {
                 toast.error('No users with phone numbers to export')
                 return
             }
-
-            // Build rows in mNotify's required column order
             const rows = usersWithPhones.map(user => ({
                 firstname: user.first_name || 'Unknown',
                 lastname: user.last_name || '',
                 phone: user.phone_number,
                 email: user.email || '',
-                date_of_birth: '', // Not collected — mNotify accepts blank
+                date_of_birth: '',
             }))
-
-            // Generate XLSX workbook
             const XLSX = await import('xlsx')
             const worksheet = XLSX.utils.json_to_sheet(rows, {
                 header: ['firstname', 'lastname', 'phone', 'email', 'date_of_birth']
             })
             const workbook = XLSX.utils.book_new()
             XLSX.utils.book_append_sheet(workbook, worksheet, 'Contacts')
-
             const timestamp = new Date().toISOString().split('T')[0]
             XLSX.writeFile(workbook, `mnotify_contacts_${timestamp}.xlsx`)
-
             toast.success(`Exported ${rows.length} contacts for mNotify`)
         } catch (error) {
             console.error('Export error:', error)
@@ -298,7 +309,6 @@ export default function AdminUsersPage() {
 
     return (
         <div className="space-y-6 pb-20">
-            {/* Header Area */}
             <div className="flex flex-col items-center gap-4 sticky top-0 bg-background/95 backdrop-blur z-30 py-4 border-b text-center">
                 <div>
                     <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
@@ -343,7 +353,6 @@ export default function AdminUsersPage() {
                 </div>
             </div>
 
-            {/* Content Area */}
             {loading ? (
                 <div className="flex justify-center py-20">
                     <Loader2 className="w-8 h-8 animate-spin text-purple-600" />
@@ -355,17 +364,9 @@ export default function AdminUsersPage() {
             ) : (
                 <>
                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                        {Array.isArray(users) && users.map((user) => (
-                            <Card
-                                key={user.id}
-                                className="group relative overflow-hidden border border-purple-100 dark:border-purple-900/30 lg:hover:border-purple-500/50 transition-all duration-200 shadow-md lg:hover:shadow-xl lg:hover:-translate-y-1 bg-white dark:bg-slate-900/50"
-                            >
-                                <div className="absolute top-0 right-0 p-4 opacity-50 font-black text-6xl text-slate-100 dark:text-slate-800/50 -z-10 select-none pointer-events-none">
-                                    {user.first_name?.[0]}
-                                </div>
-
+                        {users.map((user) => (
+                            <Card key={user.id} className="group relative overflow-hidden border border-purple-100 dark:border-purple-900/30 lg:hover:border-purple-500/50 transition-all duration-200 shadow-md lg:hover:shadow-xl lg:hover:-translate-y-1 bg-white dark:bg-slate-900/50">
                                 <CardContent className="p-6 space-y-6">
-                                    {/* Header / ID Card Style */}
                                     <div className="flex justify-between items-start">
                                         <div className="flex gap-4 items-center">
                                             {(() => {
@@ -373,10 +374,7 @@ export default function AdminUsersPage() {
                                                 const config = roleConfig[userRole] || roleConfig['customer']
                                                 const RoleIcon = config.icon
                                                 return (
-                                                    <div
-                                                        className="h-16 w-16 rounded-full flex items-center justify-center text-white shadow-lg ring-4 ring-white dark:ring-gray-800 transition-transform hover:scale-105"
-                                                        style={{ backgroundColor: config.color }}
-                                                    >
+                                                    <div className="h-16 w-16 rounded-full flex items-center justify-center text-white shadow-lg ring-4 ring-white dark:ring-gray-800 transition-transform hover:scale-105" style={{ backgroundColor: config.color }}>
                                                         <RoleIcon className="w-8 h-8" />
                                                     </div>
                                                 )
@@ -384,15 +382,9 @@ export default function AdminUsersPage() {
                                             <div>
                                                 <h3 className="font-bold text-xl text-slate-900 dark:text-white line-clamp-1">{user.first_name} {user.last_name}</h3>
                                                 <div className="flex items-center gap-2 mt-1">
-                                                    {user.role === 'admin' ? (
-                                                        <Badge className="text-white" style={{ backgroundColor: '#E60000' }}>Admin</Badge>
-                                                    ) : user.role === 'sub-admin' ? (
-                                                        <Badge className="text-black" style={{ backgroundColor: '#FACC15' }}>Sub-Admin</Badge>
-                                                    ) : user.role === 'agent' ? (
-                                                        <Badge className="text-white" style={{ backgroundColor: '#25D366' }}>Agent</Badge>
-                                                    ) : (
-                                                        <Badge className="text-white" style={{ backgroundColor: '#0056B3' }}>Customer</Badge>
-                                                    )}
+                                                    <Badge className="text-white" style={{ backgroundColor: roleConfig[user.role as UserRole]?.color || '#0056B3' }}>
+                                                        {user.role.toUpperCase()}
+                                                    </Badge>
                                                     <div className={`h-2 w-2 rounded-full ${user.status === 'active' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-red-500'}`} />
                                                 </div>
                                             </div>
@@ -405,171 +397,104 @@ export default function AdminUsersPage() {
                                             </DropdownMenuTrigger>
                                             <DropdownMenuContent align="end" className="w-52">
                                                 <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                                <DropdownMenuItem onClick={() => {
-                                                    setAdjustmentDialogUser(user)
-                                                    setAdjustmentType('credit')
-                                                    setAdjustmentDescription('Admin manual credit')
-                                                }}>
-                                                    <Wallet className="w-4 h-4 mr-2" />
-                                                    Credit Wallet
+                                                <DropdownMenuItem onClick={() => { setAdjustmentDialogUser(user); setAdjustmentType('credit'); setAdjustmentDescription('Admin manual credit'); }}>
+                                                    <Wallet className="w-4 h-4 mr-2" /> Credit Wallet
                                                 </DropdownMenuItem>
-                                                <DropdownMenuItem onClick={() => {
-                                                    setAdjustmentDialogUser(user)
-                                                    setAdjustmentType('debit')
-                                                    setAdjustmentDescription('Admin manual debit')
-                                                }}>
-                                                    <Wallet className="w-4 h-4 mr-2 text-red-500" />
-                                                    Debit Wallet
+                                                <DropdownMenuItem onClick={() => { setAdjustmentDialogUser(user); setAdjustmentType('debit'); setAdjustmentDescription('Admin manual debit'); }}>
+                                                    <Wallet className="w-4 h-4 mr-2 text-red-500" /> Debit Wallet
                                                 </DropdownMenuItem>
-                                                <DropdownMenuItem
-                                                    onClick={() => handleStatusChange(user.id, user.status === 'suspended' ? 'active' : 'suspended')}
-                                                >
-                                                    {user.status === 'suspended' ? (
-                                                        <>
-                                                            <CheckCircle className="w-4 h-4 mr-2 text-green-500" />
-                                                            Activate Account
-                                                        </>
-                                                    ) : (
-                                                        <>
-                                                            <Ban className="w-4 h-4 mr-2 text-orange-500" />
-                                                            Suspend Account
-                                                        </>
-                                                    )}
+                                                <DropdownMenuItem onClick={() => handleStatusChange(user.id, user.status === 'suspended' ? 'active' : 'suspended')}>
+                                                    {user.status === 'suspended' ? <><CheckCircle className="w-4 h-4 mr-2 text-green-500" /> Activate Account</> : <><Ban className="w-4 h-4 mr-2 text-orange-500" /> Suspend Account</>}
                                                 </DropdownMenuItem>
-                                                {/* Role Change Menu */}
                                                 <DropdownMenuLabel className="text-xs text-muted-foreground pt-2">Change Role</DropdownMenuLabel>
-                                                {user.role !== 'customer' && (
-                                                    <DropdownMenuItem onClick={() => handleRoleChange(user.id, 'customer')}>
-                                                        <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: '#0056B3' }} />
-                                                        Make Customer
+                                                {['customer', 'agent', 'sub-admin', 'admin'].filter(r => r !== user.role).map(role => (
+                                                    <DropdownMenuItem key={role} onClick={() => handleRoleChange(user.id, role)}>
+                                                        <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: roleConfig[role as UserRole].color }} />
+                                                        Make {role.charAt(0).toUpperCase() + role.slice(1)}
                                                     </DropdownMenuItem>
-                                                )}
-                                                {user.role !== 'agent' && (
-                                                    <DropdownMenuItem onClick={() => handleRoleChange(user.id, 'agent')}>
-                                                        <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: '#25D366' }} />
-                                                        Make Agent
-                                                    </DropdownMenuItem>
-                                                )}
-                                                {user.role !== 'sub-admin' && (
-                                                    <DropdownMenuItem onClick={() => handleRoleChange(user.id, 'sub-admin')}>
-                                                        <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: '#FACC15' }} />
-                                                        Make Sub-Admin
-                                                    </DropdownMenuItem>
-                                                )}
-                                                {user.role !== 'admin' && (
-                                                    <DropdownMenuItem onClick={() => handleRoleChange(user.id, 'admin')}>
-                                                        <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: '#E60000' }} />
-                                                        Make Admin
-                                                    </DropdownMenuItem>
-                                                )}
-
+                                                ))}
                                                 <div className="h-px bg-border my-1" />
-
-                                                <DropdownMenuItem
-                                                    onClick={() => handleResetPassword(user.id, `${user.first_name} ${user.last_name}`.trim())}
-                                                    className="text-blue-600 focus:text-blue-700 focus:bg-blue-50"
-                                                >
-                                                    <KeyRound className="w-4 h-4 mr-2" />
-                                                    Reset Password
+                                                <DropdownMenuItem onClick={() => handleResetPassword(user.id, `${user.first_name} ${user.last_name}`)} className="text-blue-600">
+                                                    <KeyRound className="w-4 h-4 mr-2" /> Reset Password
                                                 </DropdownMenuItem>
-
-                                                <div className="h-px bg-border my-1" />
-
-                                                <DropdownMenuItem
-                                                    onClick={() => handleDeleteUser(user.id)}
-                                                    className="text-red-600 focus:text-red-700 focus:bg-red-50"
-                                                >
-                                                    <Trash2 className="w-4 h-4 mr-2" />
-                                                    Delete User
+                                                <DropdownMenuItem onClick={() => handleDeleteUser(user.id)} className="text-red-600">
+                                                    <Trash2 className="w-4 h-4 mr-2" /> Delete User
                                                 </DropdownMenuItem>
                                             </DropdownMenuContent>
                                         </DropdownMenu>
                                     </div>
-
-                                    {/* Details Grid */}
                                     <div className="space-y-3">
                                         <div className="flex items-center gap-3 text-slate-600 dark:text-slate-300 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
-                                            <div className="p-2 bg-white dark:bg-slate-800 rounded-lg shadow-sm">
-                                                <Mail className="w-4 h-4 text-blue-500" />
-                                            </div>
+                                            <Mail className="w-4 h-4 text-blue-500" />
                                             <span className="truncate text-sm font-medium">{user.email}</span>
                                         </div>
                                         <div className="grid grid-cols-2 gap-3">
                                             <div className="flex items-center gap-3 text-slate-600 dark:text-slate-300 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
-                                                <div className="p-2 bg-white dark:bg-slate-800 rounded-lg shadow-sm">
-                                                    <Phone className="w-4 h-4 text-emerald-500" />
-                                                </div>
+                                                <Phone className="w-4 h-4 text-emerald-500" />
                                                 <span className="text-sm font-medium">{user.phone_number || 'N/A'}</span>
                                             </div>
                                             <div className="flex items-center gap-3 text-slate-600 dark:text-slate-300 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
-                                                <div className="p-2 bg-white dark:bg-slate-800 rounded-lg shadow-sm">
-                                                    <Calendar className="w-4 h-4 text-orange-500" />
-                                                </div>
+                                                <Calendar className="w-4 h-4 text-orange-500" />
                                                 <span className="text-sm font-medium">{formatDate(user.created_at).split(',')[0]}</span>
                                             </div>
                                         </div>
                                     </div>
-
-                                    {/* Wallet Section */}
-                                    <div className="pt-4 flex justify-between items-center">
+                                    <div className="pt-4 flex justify-between items-center border-t border-slate-100 dark:border-slate-800">
                                         <div className="flex flex-col">
-                                            <span className="text-xs uppercase font-extrabold text-muted-foreground tracking-widest mb-1">Wallet Balance</span>
+                                            <span className="text-xs uppercase font-extrabold text-muted-foreground tracking-widest mb-1">Balance</span>
                                             <span className="font-black text-2xl text-transparent bg-clip-text bg-gradient-to-r from-emerald-600 to-green-500">
                                                 {formatCurrency((Array.isArray(user.wallets) ? user.wallets[0]?.balance : user.wallets?.balance) || 0)}
                                             </span>
                                         </div>
-                                        <Button
-                                            size="sm"
-                                            className="h-10 px-4 rounded-xl bg-slate-900 text-white hover:bg-slate-800 shadow-md hover:shadow-lg transition-all"
-                                            onClick={() => {
-                                                setAdjustmentDialogUser(user)
-                                                setAdjustmentType('credit')
-                                                setAdjustmentDescription('Admin manual credit')
-                                            }}
-                                        >
-                                            <Wallet className="w-4 h-4 mr-2" />
-                                            Top up
+                                        <Button size="sm" className="h-10 px-4 rounded-xl bg-slate-900 text-white" onClick={() => { setAdjustmentDialogUser(user); setAdjustmentType('credit'); setAdjustmentDescription('Admin manual credit'); }}>
+                                            <Wallet className="w-4 h-4 mr-2" /> Top up
                                         </Button>
                                     </div>
                                 </CardContent>
                             </Card>
                         ))}
                     </div>
-                    {hasMore && (
-                        <div className="flex justify-center py-8">
-                            <Button
-                                onClick={loadMore}
-                                disabled={loading}
-                                variant="outline"
-                                className="min-w-[200px] rounded-xl border-purple-200 hover:border-purple-500 hover:bg-purple-50"
-                            >
-                                {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                                Load More Users ({users.length} of {totalCount})
-                            </Button>
+
+                    {totalPages > 1 && (
+                        <div className="flex flex-col md:flex-row items-center justify-between gap-4 py-8">
+                            <p className="text-sm text-muted-foreground">
+                                Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1} to {Math.min(currentPage * ITEMS_PER_PAGE, totalCount)} of {totalCount} users
+                            </p>
+                            <Pagination>
+                                <PaginationContent>
+                                    <PaginationItem>
+                                        <PaginationPrevious
+                                            onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                            className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                                        />
+                                    </PaginationItem>
+                                    {renderPaginationItems()}
+                                    <PaginationItem>
+                                        <PaginationNext
+                                            onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                            className={currentPage === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                                        />
+                                    </PaginationItem>
+                                </PaginationContent>
+                            </Pagination>
                         </div>
                     )}
                 </>
             )}
 
-            {/* Wallet Adjustment Dialog */}
             <Dialog open={!!adjustmentDialogUser} onOpenChange={() => setAdjustmentDialogUser(null)}>
-                <DialogContent aria-describedby="adjustment-description">
+                <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>{adjustmentType === 'credit' ? 'Credit' : 'Debit'} User Wallet</DialogTitle>
-                        <DialogDescription id="adjustment-description">
-                            {adjustmentType === 'credit' ? 'Add funds to' : 'Deduct funds from'} {adjustmentDialogUser?.first_name} {adjustmentDialogUser?.last_name}'s wallet.
+                        <DialogTitle>{adjustmentType === 'credit' ? 'Credit' : 'Debit'} Wallet</DialogTitle>
+                        <DialogDescription>
+                            {adjustmentType === 'credit' ? 'Add funds to' : 'Deduct funds from'} {adjustmentDialogUser?.first_name}'s wallet.
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
                         <div className="space-y-2">
-                            <Label>Adjustment Type</Label>
-                            <Select
-                                value={adjustmentType}
-                                onValueChange={(value: 'credit' | 'debit') => setAdjustmentType(value)}
-                            >
-                                <SelectTrigger id="adjustment-type" name="adjustment-type">
-                                    <SelectValue />
-                                </SelectTrigger>
+                            <Label>Type</Label>
+                            <Select value={adjustmentType} onValueChange={(v: any) => setAdjustmentType(v)}>
+                                <SelectTrigger><SelectValue /></SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="credit">Credit (+)</SelectItem>
                                     <SelectItem value="debit">Debit (-)</SelectItem>
@@ -578,33 +503,17 @@ export default function AdminUsersPage() {
                         </div>
                         <div className="space-y-2">
                             <Label>Amount (GHS)</Label>
-                            <Input
-                                id="adjustment-amount"
-                                name="adjustment-amount"
-                                type="number"
-                                value={adjustmentAmount}
-                                onChange={(e) => setAdjustmentAmount(e.target.value)}
-                                placeholder="0.00"
-                            />
+                            <Input type="number" value={adjustmentAmount} onChange={(e) => setAdjustmentAmount(e.target.value)} placeholder="0.00" />
                         </div>
                         <div className="space-y-2">
                             <Label>Description</Label>
-                            <Input
-                                id="adjustment-description"
-                                name="adjustment-description"
-                                value={adjustmentDescription}
-                                onChange={(e) => setAdjustmentDescription(e.target.value)}
-                            />
+                            <Input value={adjustmentDescription} onChange={(e) => setAdjustmentDescription(e.target.value)} />
                         </div>
                     </div>
                     <DialogFooter>
                         <Button variant="outline" onClick={() => setAdjustmentDialogUser(null)}>Cancel</Button>
-                        <Button
-                            variant={adjustmentType === 'debit' ? 'destructive' : 'default'}
-                            onClick={handleManualAdjustment}
-                            disabled={isAdjusting}
-                        >
-                            {isAdjusting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                        <Button variant={adjustmentType === 'debit' ? 'destructive' : 'default'} onClick={handleManualAdjustment} disabled={isAdjusting}>
+                            {isAdjusting && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                             {adjustmentType === 'credit' ? 'Credit Wallet' : 'Debit Wallet'}
                         </Button>
                     </DialogFooter>

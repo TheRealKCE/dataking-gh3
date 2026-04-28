@@ -5,7 +5,16 @@ import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { Loader2, ShieldCheck, TrendingDown, Store, User, Smartphone, RefreshCw } from 'lucide-react'
+import { Loader2, ShieldCheck, TrendingDown, Store, User, Smartphone, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react'
+import {
+    Pagination,
+    PaginationContent,
+    PaginationItem,
+    PaginationLink,
+    PaginationNext,
+    PaginationPrevious,
+    PaginationEllipsis
+} from '@/components/ui/pagination'
 
 type DateFilter = 'All' | 'Today' | 'Yesterday' | 'This Week' | 'This Month'
 type DateRange = { start: string, end: string } | null
@@ -22,8 +31,8 @@ export default function ProfitLogsClient() {
     const [losses, setLosses] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
     const [loadingMore, setLoadingMore] = useState(false)
-    const [hasMore, setHasMore] = useState(true)
-    const [page, setPage] = useState(0)
+    const [totalCount, setTotalCount] = useState(0)
+    const [currentPage, setCurrentPage] = useState(1)
 
     const limit = 50
 
@@ -105,14 +114,8 @@ export default function ProfitLogsClient() {
         }))
     }
 
-    const loadLogs = useCallback(async (isLoadMore = false, currentPage = 0) => {
-        if (!isLoadMore) {
-            setLoading(true)
-            setPage(0)
-            setHasMore(true)
-        } else {
-            setLoadingMore(true)
-        }
+    const loadLogs = useCallback(async (pageToFetch = 1) => {
+        setLoading(true)
 
         try {
             let query = supabase
@@ -131,25 +134,16 @@ export default function ProfitLogsClient() {
             }
 
             // Pagination
-            const offset = currentPage * limit
+            const offset = (pageToFetch - 1) * limit
             query = query.range(offset, offset + limit - 1)
 
-            const { data, error } = await query
+            const { data, count, error } = await query.select('*', { count: 'exact' })
 
             if (error) throw error
 
             const enrichedData = await enrichLogs(data || [])
-
-            if (isLoadMore) {
-                setLogs(prev => [...prev, ...enrichedData])
-            } else {
-                setLogs(enrichedData)
-            }
-
-            // Check if there's more data
-            if (enrichedData.length < limit) {
-                setHasMore(false)
-            }
+            setLogs(enrichedData)
+            if (count !== null) setTotalCount(count)
 
         } catch (error) {
             console.error('Error fetching logs:', error)
@@ -173,15 +167,56 @@ export default function ProfitLogsClient() {
         loadLosses()
     }, [dateFilter])
 
-    // Load main data when filters change
+    // Load main data when filters or page change
     useEffect(() => {
-        loadLogs(false, 0)
-    }, [dateFilter, typeFilter, loadLogs])
+        loadLogs(currentPage)
+    }, [dateFilter, typeFilter, currentPage, loadLogs])
 
-    const handleLoadMore = () => {
-        const nextPage = page + 1
-        setPage(nextPage)
-        loadLogs(true, nextPage)
+    const totalPages = Math.ceil(totalCount / limit)
+
+    const renderPaginationItems = () => {
+        const items = []
+        const maxVisible = 5
+        let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2))
+        let endPage = Math.min(totalPages, startPage + maxVisible - 1)
+
+        if (endPage - startPage + 1 < maxVisible) {
+            startPage = Math.max(1, endPage - maxVisible + 1)
+        }
+
+        if (startPage > 1) {
+            items.push(
+                <PaginationItem key="1">
+                    <PaginationLink onClick={() => setCurrentPage(1)} className="cursor-pointer">1</PaginationLink>
+                </PaginationItem>
+            )
+            if (startPage > 2) items.push(<PaginationEllipsis key="e1" />)
+        }
+
+        for (let i = startPage; i <= endPage; i++) {
+            items.push(
+                <PaginationItem key={i}>
+                    <PaginationLink
+                        isActive={currentPage === i}
+                        onClick={() => setCurrentPage(i)}
+                        className="cursor-pointer"
+                    >
+                        {i}
+                    </PaginationLink>
+                </PaginationItem>
+            )
+        }
+
+        if (endPage < totalPages) {
+            if (endPage < totalPages - 1) items.push(<PaginationEllipsis key="e2" />)
+            items.push(
+                <PaginationItem key={totalPages}>
+                    <PaginationLink onClick={() => setCurrentPage(totalPages)} className="cursor-pointer">{totalPages}</PaginationLink>
+                </PaginationItem>
+            )
+        }
+
+        return items
     }
 
     const calculateTotals = () => {
@@ -376,25 +411,28 @@ export default function ProfitLogsClient() {
                     </div>
                 </CardContent>
                 
-                {/* Pagination Load More */}
-                {logs.length > 0 && hasMore && (
-                    <div className="p-4 border-t bg-slate-50 flex justify-center">
-                        <button
-                            onClick={handleLoadMore}
-                            disabled={loadingMore}
-                            className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold py-2.5 px-6 rounded-full shadow-sm flex items-center gap-2 transition-all active:scale-95 disabled:opacity-50 disabled:active:scale-100"
-                        >
-                            {loadingMore ? (
-                                <><Loader2 className="w-4 h-4 animate-spin text-indigo-500" /> Fetching records...</>
-                            ) : (
-                                <><RefreshCw className="w-4 h-4 text-slate-400" /> Load More Records</>
-                            )}
-                        </button>
-                    </div>
-                )}
-                {logs.length > 0 && !hasMore && (
-                    <div className="p-4 border-t bg-slate-50 text-center text-xs font-bold text-slate-400 uppercase tracking-widest">
-                        End of ledgers
+                {totalPages > 1 && (
+                    <div className="p-4 border-t bg-slate-50 flex flex-col md:flex-row items-center justify-between gap-4">
+                        <p className="text-xs font-bold text-slate-500 uppercase tracking-widest">
+                            Showing {(currentPage - 1) * limit + 1} to {Math.min(currentPage * limit, totalCount)} of {totalCount} logs
+                        </p>
+                        <Pagination>
+                            <PaginationContent>
+                                <PaginationItem>
+                                    <PaginationPrevious
+                                        onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                        className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                                    />
+                                </PaginationItem>
+                                {renderPaginationItems()}
+                                <PaginationItem>
+                                    <PaginationNext
+                                        onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                        className={currentPage === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                                    />
+                                </PaginationItem>
+                            </PaginationContent>
+                        </Pagination>
                     </div>
                 )}
             </Card>

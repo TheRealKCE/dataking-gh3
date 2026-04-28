@@ -15,6 +15,15 @@ import {
     SelectValue,
 } from '@/components/ui/select'
 import {
+    Pagination,
+    PaginationContent,
+    PaginationItem,
+    PaginationLink,
+    PaginationNext,
+    PaginationPrevious,
+    PaginationEllipsis
+} from '@/components/ui/pagination'
+import {
     Tabs,
     TabsContent,
     TabsList,
@@ -77,10 +86,9 @@ export default function AdminOrdersPage() {
     const [isCustomDialogOpen, setIsCustomDialogOpen] = useState(false)
 
     // Batch pagination state
-    const [batchPage, setBatchPage] = useState(0)
+    const [batchPage, setBatchPage] = useState(1)
     const [batchTotalCount, setBatchTotalCount] = useState(0)
-    const [hasMoreBatches, setHasMoreBatches] = useState(true)
-    const BATCHES_PER_PAGE = 10
+    const BATCHES_PER_PAGE = 12
 
     // Download protection states
     const [isDownloading, setIsDownloading] = useState(false)
@@ -98,7 +106,7 @@ export default function AdminOrdersPage() {
     useEffect(() => {
         const loadInitialData = async () => {
             setLoading(true)
-            await Promise.all([fetchOrders(), fetchBatches(0, true)])
+            await Promise.all([fetchOrders(), fetchBatches(1, true)])
             setLoading(false)
         }
         loadInitialData()
@@ -128,8 +136,12 @@ export default function AdminOrdersPage() {
     // Reset batches when network or date filter changes
     useEffect(() => {
         if (loading) return // Avoid double fetch on mount
-        fetchBatches(0, true, false)
+        fetchBatches(1, true, false)
     }, [historyNetworkFilter, historyFilter, customStart, customEnd])
+
+    useEffect(() => {
+        fetchBatches(batchPage)
+    }, [batchPage])
 
     const fetchOrders = async (force = false) => {
         // Use cache if available and not forced
@@ -184,7 +196,7 @@ export default function AdminOrdersPage() {
             }
         }
 
-        const offset = pageToFetch * BATCHES_PER_PAGE
+        const offset = (pageToFetch - 1) * BATCHES_PER_PAGE
         let url = `/api/admin/batches?limit=${BATCHES_PER_PAGE}&offset=${offset}&network=${historyNetworkFilter}`
         if (startDate) url += `&startDate=${startDate}`
         if (endDate) url += `&endDate=${endDate}`
@@ -199,14 +211,8 @@ export default function AdminOrdersPage() {
         const currentTime = Date.now()
         if (!force && adminCache.batches[cacheKey] && (currentTime - adminCache.batches[cacheKey].timestamp < CACHE_DURATION)) {
             const cached = adminCache.batches[cacheKey]
-            if (isNewFilter) {
-                setBatches(cached.data)
-                setBatchPage(0)
-            } else {
-                // If it's pagination, we might need more complex logic, but for now we skip or append
-            }
+            setBatches(cached.data)
             setBatchTotalCount(cached.total)
-            setHasMoreBatches(cached.data.length === BATCHES_PER_PAGE)
             return
         }
 
@@ -217,31 +223,65 @@ export default function AdminOrdersPage() {
                 throw new Error(result.error || 'Failed to fetch batches')
             }
             const data = await response.json()
-
             const newBatches = data.batches || []
-            if (isNewFilter) {
-                setBatches(newBatches)
-                setBatchPage(0)
-            } else {
-                setBatches(prev => [...prev, ...newBatches])
-            }
+
+            setBatches(newBatches)
+            if (isNewFilter) setBatchPage(1)
 
             // Update Cache
             adminCache.batches[cacheKey] = { data: newBatches, total: data.totalCount || 0, timestamp: currentTime as any }
 
             setBatchTotalCount(data.totalCount || 0)
-            setHasMoreBatches(newBatches.length === BATCHES_PER_PAGE)
         } catch (error: any) {
             console.error('Error fetching batches:', error)
         }
     }
 
-    const loadMoreBatches = () => {
-        if (hasMoreBatches) {
-            const nextPage = batchPage + 1
-            setBatchPage(nextPage)
-            fetchBatches(nextPage)
+    const totalBatchPages = Math.ceil(batchTotalCount / BATCHES_PER_PAGE)
+
+    const renderBatchPaginationItems = () => {
+        const items = []
+        const maxVisible = 5
+        let startPage = Math.max(1, batchPage - Math.floor(maxVisible / 2))
+        let endPage = Math.min(totalBatchPages, startPage + maxVisible - 1)
+
+        if (endPage - startPage + 1 < maxVisible) {
+            startPage = Math.max(1, endPage - maxVisible + 1)
         }
+
+        if (startPage > 1) {
+            items.push(
+                <PaginationItem key="1">
+                    <PaginationLink onClick={() => setBatchPage(1)} className="cursor-pointer">1</PaginationLink>
+                </PaginationItem>
+            )
+            if (startPage > 2) items.push(<PaginationEllipsis key="e1" />)
+        }
+
+        for (let i = startPage; i <= endPage; i++) {
+            items.push(
+                <PaginationItem key={i}>
+                    <PaginationLink
+                        isActive={batchPage === i}
+                        onClick={() => setBatchPage(i)}
+                        className="cursor-pointer"
+                    >
+                        {i}
+                    </PaginationLink>
+                </PaginationItem>
+            )
+        }
+
+        if (endPage < totalBatchPages) {
+            if (endPage < totalBatchPages - 1) items.push(<PaginationEllipsis key="e2" />)
+            items.push(
+                <PaginationItem key={totalBatchPages}>
+                    <PaginationLink onClick={() => setBatchPage(totalBatchPages)} className="cursor-pointer">{totalBatchPages}</PaginationLink>
+                </PaginationItem>
+            )
+        }
+
+        return items
     }
 
     const handleUpdateStatus = async (orderId: string, newStatus: string) => {
@@ -261,7 +301,7 @@ export default function AdminOrdersPage() {
 
             // Refresh both orders and batches to reflect the change
             fetchOrders(true)
-            fetchBatches(0, true, true)
+            fetchBatches(1, true, true)
         } catch (error: any) {
             console.error('Update status error:', error)
             toast.error(`Error: ${error.message || 'Failed to update status'}`)
@@ -359,7 +399,7 @@ export default function AdminOrdersPage() {
 
             // Refresh both orders and batches to reflect the change
             fetchOrders(true)
-            fetchBatches(0, true, true)
+            fetchBatches(1, true, true)
 
         } catch (error: any) {
             console.error('Refund error:', error)
@@ -485,7 +525,7 @@ export default function AdminOrdersPage() {
 
             setLastDownloadTime(Date.now())
             fetchOrders()
-            fetchBatches(0, true)
+            fetchBatches(1, true)
         } catch (error: any) {
             console.error('Export error:', error)
             // Only show error if download actually failed (not after successful download)
@@ -633,7 +673,7 @@ export default function AdminOrdersPage() {
                 // Refresh local orders
                 const updatedOrders = (Array.isArray(batchOrders) ? batchOrders : []).map(o => ({ ...o, status }))
                 setBatchOrders(updatedOrders)
-                fetchBatches(0, true) // Update global counts if needed
+                fetchBatches(1, true) // Update global counts if needed
             } catch (error) {
                 toast.error('Failed to update batch status')
             } finally {
@@ -664,7 +704,7 @@ export default function AdminOrdersPage() {
 
                 toast.success(result.message || 'Failed orders deleted')
                 fetchOrders() // Refresh available orders
-                fetchBatches(0, true) // Refresh batches list
+                fetchBatches(1, true) // Refresh batches list
             } catch (error: any) {
                 toast.error(error.message || 'Failed to delete failed orders')
             } finally {
@@ -680,7 +720,7 @@ export default function AdminOrdersPage() {
         }, [batch.network, batchOrders])
 
         return (
-            <Card className="group relative overflow-hidden border-muted/40 shadow-lg hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 flex flex-col h-auto min-h-[300px] max-h-[600px] bg-gradient-to-br from-white to-slate-50 dark:from-slate-950 dark:to-slate-900/50 dark:border-blue-900/20">
+            <Card key={batch.id} className="group relative overflow-hidden border-muted/40 shadow-lg hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 flex flex-col h-auto min-h-[300px] max-h-[600px] bg-gradient-to-br from-white to-slate-50 dark:from-slate-950 dark:to-slate-900/50 dark:border-blue-900/20">
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent translate-x-[-200%] group-hover:animate-shine pointer-events-none" />
                 <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2 flex-shrink-0">
                     <div className="flex flex-col overflow-hidden">
@@ -911,7 +951,7 @@ export default function AdminOrdersPage() {
                         )}
                     </Button>
                     <Button
-                        onClick={() => { fetchOrders(); fetchBatches(0, true); }}
+                        onClick={() => { fetchOrders(); fetchBatches(1, true); }}
                         variant="outline"
                         disabled={loading}
                         className="transition-all duration-150 active:scale-95 hover:bg-primary/10 active:bg-primary/20 disabled:opacity-70"
@@ -1179,17 +1219,28 @@ export default function AdminOrdersPage() {
                                 ))}
                             </div>
 
-                            {hasMoreBatches && (
-                                <div className="flex justify-center py-8">
-                                    <Button
-                                        onClick={loadMoreBatches}
-                                        disabled={loading}
-                                        variant="outline"
-                                        className="min-w-[200px] rounded-xl"
-                                    >
-                                        {loading ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
-                                        Load More Batches ({batches.length} of {batchTotalCount})
-                                    </Button>
+                            {totalBatchPages > 1 && (
+                                <div className="flex flex-col md:flex-row items-center justify-between gap-4 py-8">
+                                    <p className="text-sm text-muted-foreground">
+                                        Showing {(batchPage - 1) * BATCHES_PER_PAGE + 1} to {Math.min(batchPage * BATCHES_PER_PAGE, batchTotalCount)} of {batchTotalCount} batches
+                                    </p>
+                                    <Pagination>
+                                        <PaginationContent>
+                                            <PaginationItem>
+                                                <PaginationPrevious
+                                                    onClick={() => setBatchPage(prev => Math.max(1, prev - 1))}
+                                                    className={batchPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                                                />
+                                            </PaginationItem>
+                                            {renderBatchPaginationItems()}
+                                            <PaginationItem>
+                                                <PaginationNext
+                                                    onClick={() => setBatchPage(prev => Math.min(totalBatchPages, prev + 1))}
+                                                    className={batchPage === totalBatchPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                                                />
+                                            </PaginationItem>
+                                        </PaginationContent>
+                                    </Pagination>
                                 </div>
                             )}
                         </>

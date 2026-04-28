@@ -15,34 +15,70 @@ import {
 import { Input } from '@/components/ui/input'
 import { Search } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
+import {
+    Pagination,
+    PaginationContent,
+    PaginationItem,
+    PaginationLink,
+    PaginationNext,
+    PaginationPrevious,
+    PaginationEllipsis
+} from '@/components/ui/pagination'
+import { Loader2 } from 'lucide-react'
 
 export default function AdminTransactionsPage() {
     const [transactions, setTransactions] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
     const [searchTerm, setSearchTerm] = useState('')
+    const [debouncedSearch, setDebouncedSearch] = useState('')
+    const [currentPage, setCurrentPage] = useState(1)
+    const [totalCount, setTotalCount] = useState(0)
+    const ITEMS_PER_PAGE = 20
+
+    // Debounce search
+    useEffect(() => {
+        const timer = setTimeout(() => {
+            setDebouncedSearch(searchTerm)
+            setCurrentPage(1) // Reset to first page on search
+        }, 500)
+        return () => clearTimeout(timer)
+    }, [searchTerm])
 
     useEffect(() => {
         fetchTransactions()
-    }, [])
+    }, [currentPage, debouncedSearch])
 
     const fetchTransactions = async () => {
         try {
-            const { data, error } = await (supabase
-                .from('wallet_transactions') as any)
+            setLoading(true)
+            const from = (currentPage - 1) * ITEMS_PER_PAGE
+            const to = from + ITEMS_PER_PAGE - 1
+
+            let query = supabase
+                .from('wallet_transactions')
                 .select(`
-          *,
-          users (
-            first_name,
-            last_name,
-            email,
-            phone_number
-          )
-        `)
+                    *,
+                    users (
+                        first_name,
+                        last_name,
+                        email,
+                        phone_number
+                    )
+                `, { count: 'exact' })
+
+            if (debouncedSearch) {
+                // Since users is a joined table, we might need to handle search differently 
+                // but for wallet_transactions fields:
+                query = query.or(`reference.ilike.%${debouncedSearch}%,description.ilike.%${debouncedSearch}%`)
+            }
+
+            const { data, count, error } = await query
                 .order('created_at', { ascending: false })
-                .limit(100)
+                .range(from, to)
 
             if (error) throw error
             setTransactions(data || [])
+            setTotalCount(count || 0)
         } catch (error) {
             console.error('Error fetching transactions:', error)
         } finally {
@@ -50,12 +86,52 @@ export default function AdminTransactionsPage() {
         }
     }
 
-    const filteredTransactions = transactions.filter(txn =>
-        txn.users?.first_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        txn.users?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        txn.reference?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        txn.description?.toLowerCase().includes(searchTerm.toLowerCase())
-    )
+    const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE)
+
+    const renderPaginationItems = () => {
+        const items = []
+        const maxVisible = 5
+        let startPage = Math.max(1, currentPage - Math.floor(maxVisible / 2))
+        let endPage = Math.min(totalPages, startPage + maxVisible - 1)
+
+        if (endPage - startPage + 1 < maxVisible) {
+            startPage = Math.max(1, endPage - maxVisible + 1)
+        }
+
+        if (startPage > 1) {
+            items.push(
+                <PaginationItem key="1">
+                    <PaginationLink onClick={() => setCurrentPage(1)}>1</PaginationLink>
+                </PaginationItem>
+            )
+            if (startPage > 2) items.push(<PaginationEllipsis key="e1" />)
+        }
+
+        for (let i = startPage; i <= endPage; i++) {
+            items.push(
+                <PaginationItem key={i}>
+                    <PaginationLink
+                        isActive={currentPage === i}
+                        onClick={() => setCurrentPage(i)}
+                    >
+                        {i}
+                    </PaginationLink>
+                </PaginationItem>
+            )
+        }
+
+        if (endPage < totalPages) {
+            if (endPage < totalPages - 1) items.push(<PaginationEllipsis key="e2" />)
+            items.push(
+                <PaginationItem key={totalPages}>
+                    <PaginationLink onClick={() => setCurrentPage(totalPages)}>{totalPages}</PaginationLink>
+                </PaginationItem>
+            )
+        }
+
+        return items
+    }
+
 
     return (
         <div className="space-y-6">
@@ -92,7 +168,23 @@ export default function AdminTransactionsPage() {
                             </TableRow>
                         </TableHeader>
                         <TableBody>
-                            {filteredTransactions.map((txn) => (
+                            {loading ? (
+                                <TableRow>
+                                    <TableCell colSpan={7} className="h-24 text-center">
+                                        <div className="flex items-center justify-center gap-2">
+                                            <Loader2 className="h-4 w-4 animate-spin" />
+                                            <span>Loading transactions...</span>
+                                        </div>
+                                    </TableCell>
+                                </TableRow>
+                            ) : transactions.length === 0 ? (
+                                <TableRow>
+                                    <TableCell colSpan={7} className="h-24 text-center">
+                                        No transactions found.
+                                    </TableCell>
+                                </TableRow>
+                            ) : (
+                                transactions.map((txn) => (
                                 <TableRow key={txn.id}>
                                     <TableCell>
                                         <div className="flex flex-col">
@@ -126,6 +218,31 @@ export default function AdminTransactionsPage() {
                     </Table>
                 </CardContent>
             </Card>
+
+            {totalPages > 1 && (
+                <div className="flex flex-col md:flex-row items-center justify-between gap-4 mt-4">
+                    <p className="text-sm text-muted-foreground">
+                        Showing {(currentPage - 1) * ITEMS_PER_PAGE + 1} to {Math.min(currentPage * ITEMS_PER_PAGE, totalCount)} of {totalCount} transactions
+                    </p>
+                    <Pagination>
+                        <PaginationContent>
+                            <PaginationItem>
+                                <PaginationPrevious
+                                    onClick={() => setCurrentPage(prev => Math.max(1, prev - 1))}
+                                    className={currentPage === 1 ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                                />
+                            </PaginationItem>
+                            {renderPaginationItems()}
+                            <PaginationItem>
+                                <PaginationNext
+                                    onClick={() => setCurrentPage(prev => Math.min(totalPages, prev + 1))}
+                                    className={currentPage === totalPages ? 'pointer-events-none opacity-50' : 'cursor-pointer'}
+                                />
+                            </PaginationItem>
+                        </PaginationContent>
+                    </Pagination>
+                </div>
+            )}
         </div>
     )
 }
