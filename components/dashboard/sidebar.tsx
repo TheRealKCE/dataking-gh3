@@ -223,8 +223,10 @@ export function DashboardSidebar() {
                                 </p>
                                 <div className="flex items-center gap-1.5 mt-0.5">
                                     <span
-                                        className="text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest"
-                                        style={{ backgroundColor: currentRole.bgColor, color: currentRole.textColor }}
+                                        className={cn(
+                                            "text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest",
+                                            currentRole.badgeClass
+                                        )}
                                     >
                                         {currentRole.label}
                                     </span>

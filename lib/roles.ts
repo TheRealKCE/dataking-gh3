@@ -10,6 +10,7 @@ interface RoleConfigItem {
     bgColor: string
     textColor: string
     gradient: string
+    badgeClass: string
 }
 
 export const roleConfig: Record<UserRole, RoleConfigItem> = {
@@ -21,6 +22,7 @@ export const roleConfig: Record<UserRole, RoleConfigItem> = {
         bgColor: 'rgba(230, 0, 0, 0.1)',
         textColor: '#E60000',
         gradient: 'from-rose-700 to-red-900',
+        badgeClass: 'bg-rose-500/15 text-rose-600 dark:text-rose-400',
     },
     'sub-admin': {
         icon: ShieldCheck,
@@ -30,6 +32,7 @@ export const roleConfig: Record<UserRole, RoleConfigItem> = {
         bgColor: 'rgba(16, 185, 129, 0.15)',
         textColor: '#10B981',
         gradient: 'from-emerald-500 to-teal-700',
+        badgeClass: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
     },
     'agent': {
         icon: BadgeCheck,
@@ -39,6 +42,7 @@ export const roleConfig: Record<UserRole, RoleConfigItem> = {
         bgColor: 'rgba(0, 86, 179, 0.1)',
         textColor: '#0056B3',
         gradient: 'from-blue-600 to-sky-700',
+        badgeClass: 'bg-blue-500/15 text-blue-600 dark:text-blue-400',
     },
     'customer': {
         icon: UserCircle,
@@ -48,5 +52,6 @@ export const roleConfig: Record<UserRole, RoleConfigItem> = {
         bgColor: 'rgba(234, 179, 8, 0.1)',
         textColor: '#CA8A04',
         gradient: 'from-yellow-400 to-yellow-600',
+        badgeClass: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
     }
 }

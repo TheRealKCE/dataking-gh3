@@ -110,8 +110,10 @@ export function DashboardHeader() {
                             <Button variant="ghost" className="flex items-center gap-2 sm:gap-3 px-2 h-10 sm:h-11 rounded-xl hover:bg-secondary/50 transition-all group">
                                 <div className="flex flex-col items-end hidden md:flex">
                                     <span
-                                        className="text-[10px] font-black uppercase tracking-widest mt-0.5"
-                                        style={{ color: currentRole.textColor }}
+                                        className={cn(
+                                            "text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest mt-0.5",
+                                            currentRole.badgeClass
+                                        )}
                                     >
                                         {currentRole.label}
                                     </span>
