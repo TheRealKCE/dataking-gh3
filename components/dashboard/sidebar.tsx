@@ -222,10 +222,10 @@ export function DashboardSidebar() {
                                     {dbUser?.first_name} {dbUser?.last_name}
                                 </p>
                                 <div className="flex items-center gap-1.5 mt-0.5">
-                                    <span className={cn(
-                                        "text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest",
-                                        dbUser?.role === 'agent' ? "bg-primary/20 text-primary" : "bg-secondary/20 text-secondary-foreground/70"
-                                    )}>
+                                    <span
+                                        className="text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest"
+                                        style={{ backgroundColor: currentRole.bgColor, color: currentRole.textColor }}
+                                    >
                                         {currentRole.label}
                                     </span>
                                 </div>
