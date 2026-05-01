@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
@@ -205,29 +205,29 @@ export function RoleGreetingBox({ stats }: RoleGreetingBoxProps) {
                         </Link>
                     </div>
                 ) : (
-                    <div className="bg-secondary/35 rounded-xl p-3 sm:p-4 flex items-center justify-between border border-border/60">
-                        <div className="flex items-center gap-3">
-                            <ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6 text-muted-foreground" />
+                    <div className="bg-secondary/35 rounded-xl p-3 sm:p-4 flex items-center justify-between gap-2 border border-border/60">
+                        <div className="flex items-center gap-3 min-w-0">
+                            <ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6 text-muted-foreground shrink-0" />
                             <p className="text-xs sm:text-sm text-muted-foreground font-semibold">Total Orders</p>
                         </div>
-                        <p className="text-sm sm:text-lg font-black text-foreground">
+                        <p className="text-sm sm:text-lg font-black text-foreground shrink-0">
                             {stats?.totalOrders || 0}
                         </p>
                     </div>
                 )}
 
-                <div className="bg-secondary/35 rounded-xl p-3 sm:p-4 flex items-center justify-between border border-border/60">
-                    <div className="flex items-center gap-3">
+                <div className="bg-secondary/35 rounded-xl p-3 sm:p-4 flex items-center justify-between gap-2 border border-border/60">
+                    <div className="flex items-center gap-3 min-w-0">
                         {dbUser.role === 'customer' ? (
-                            <Wallet className="w-5 h-5 sm:w-6 sm:h-6 text-muted-foreground" />
+                            <Wallet className="w-5 h-5 sm:w-6 sm:h-6 text-muted-foreground shrink-0" />
                         ) : (
-                            <Star className="w-5 h-5 sm:w-6 sm:h-6 text-muted-foreground" />
+                            <Star className="w-5 h-5 sm:w-6 sm:h-6 text-muted-foreground shrink-0" />
                         )}
                         <p className="text-xs sm:text-sm text-muted-foreground font-semibold">
                             {dbUser.role === 'customer' ? 'Wallet Balance' : 'Member Since'}
                         </p>
                     </div>
-                    <p className="text-sm sm:text-lg font-black text-foreground">
+                    <p className="text-xs sm:text-sm md:text-lg font-black text-foreground shrink-0 text-right max-w-[50%] break-all">
                         {dbUser.role === 'customer'
                             ? formatCurrency(stats?.walletBalance || 0)
                             : getTimeSinceJoined()

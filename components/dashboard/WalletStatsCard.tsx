@@ -20,26 +20,26 @@ export function WalletStatsCard({ balance, totalCredited, totalSpent }: WalletSt
                         <span className="font-semibold uppercase tracking-widest text-xs text-indigo-400">Lifetime Wallet Stats</span>
                     </div>
                 </div>
-                <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-                    <div>
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 md:gap-6">
+                    <div className="min-w-0">
                         <p className="text-sm text-gray-400 mb-1">Active Balance</p>
-                        <p className="text-4xl font-black">{formatCurrency(balance)}</p>
+                        <p className="text-2xl sm:text-3xl md:text-4xl font-black break-all leading-tight">{formatCurrency(balance)}</p>
                     </div>
 
-                    <div className="flex flex-col sm:flex-row gap-8 pt-4 md:pt-0 border-t md:border-t-0 border-gray-800">
-                        <div>
+                    <div className="flex flex-row gap-4 sm:gap-8 pt-4 md:pt-0 border-t md:border-t-0 border-gray-800">
+                        <div className="min-w-0">
                             <div className="flex items-center gap-1 text-gray-400 text-xs mb-1">
-                                <TrendingUp className="w-3.5 h-3.5 text-green-500" />
+                                <TrendingUp className="w-3.5 h-3.5 text-green-500 shrink-0" />
                                 <span>Total Credited</span>
                             </div>
-                            <p className="font-bold text-xl text-green-400">{formatCurrency(totalCredited)}</p>
+                            <p className="font-bold text-base sm:text-xl text-green-400 break-all">{formatCurrency(totalCredited)}</p>
                         </div>
-                        <div>
+                        <div className="min-w-0">
                             <div className="flex items-center gap-1 text-gray-400 text-xs mb-1">
-                                <TrendingDown className="w-3.5 h-3.5 text-red-500" />
+                                <TrendingDown className="w-3.5 h-3.5 text-red-500 shrink-0" />
                                 <span>Total Spent</span>
                             </div>
-                            <p className="font-bold text-xl text-red-400">{formatCurrency(totalSpent)}</p>
+                            <p className="font-bold text-base sm:text-xl text-red-400 break-all">{formatCurrency(totalSpent)}</p>
                         </div>
                     </div>
                 </div>

@@ -206,16 +206,16 @@ export function BusinessPerformanceWidget() {
                         <Wallet className="w-4 h-4 text-emerald-500" />
                         <p className="text-xs font-semibold uppercase tracking-wider">Revenue Insight</p>
                     </div>
-                    <div className="flex items-end justify-between">
-                        <div>
+                    <div className="flex items-end justify-between gap-2">
+                        <div className="min-w-0">
                             <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">Today</p>
-                            <p className="text-2xl font-black text-gray-900 dark:text-white">
+                            <p className="text-xl sm:text-2xl font-black text-gray-900 dark:text-white break-all leading-tight">
                                 {formatCurrency(data.todayRevenue)}
                             </p>
                         </div>
-                        <div className="text-right border-l border-gray-200 dark:border-gray-800 pl-4">
+                        <div className="text-right border-l border-gray-200 dark:border-gray-800 pl-3 sm:pl-4 shrink-0">
                             <p className="text-xs font-medium text-gray-500 dark:text-gray-400 mb-0.5">This Week</p>
-                            <p className="text-lg font-bold text-gray-700 dark:text-gray-300">
+                            <p className="text-base sm:text-lg font-bold text-gray-700 dark:text-gray-300 break-all">
                                 {formatCurrency(data.weekRevenue)}
                             </p>
                         </div>
