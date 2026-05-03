@@ -36,7 +36,7 @@ import { WalletTransaction } from '@/types/supabase'
 import { useTutorial } from '@/hooks/useTutorial'
 import { HelpButton } from '@/components/tutorial/HelpButton'
 
-const QUICK_AMOUNTS = [50, 100, 200, 500]
+const QUICK_AMOUNTS = [5, 10, 20, 50]
 const MIN_AMOUNT = 5
 
 function WalletContent() {
@@ -428,14 +428,14 @@ function WalletContent() {
                                 {/* Quick Amounts */}
                                 <div>
                                     <Label className="text-sm text-muted-foreground mb-3 block">Quick Select</Label>
-                                    <div className="grid grid-cols-4 gap-3">
+                                    <div className="flex overflow-x-auto gap-3 pb-2 w-full sm:grid sm:grid-cols-4">
                                         {QUICK_AMOUNTS.map((amount) => (
                                             <Button
                                                 key={amount}
                                                 type="button"
                                                 variant={topUpAmount === amount.toString() ? 'default' : 'outline'}
                                                 onClick={() => handleQuickAmount(amount)}
-                                                className="h-12"
+                                                className="h-12 flex-shrink-0 min-w-[80px] sm:min-w-0"
                                             >
                                                 {formatCurrency(amount)}
                                             </Button>
