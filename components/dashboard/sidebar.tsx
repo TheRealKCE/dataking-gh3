@@ -33,7 +33,8 @@ import {
     Banknote,
     Store,
     Tag,
-    Phone
+    Phone,
+    Zap
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -47,6 +48,7 @@ const userNavItems = [
     { href: '/dashboard/upgrade', label: 'Membership', icon: Crown },
     { href: '/dashboard/data-packages', label: 'Data Packages', icon: Package },
     { href: '/dashboard/airtime', label: 'Buy Airtime', icon: Phone },
+    { href: '/dashboard/airtime?mode=mashup', label: 'Mashup', icon: Zap },
     { href: '/dashboard/my-orders', label: 'Orders', icon: ShoppingCart },
     { href: '/dashboard/wallet', label: 'Wallet', icon: Wallet },
     { href: '/dashboard/transactions', label: 'Transactions', icon: Activity },

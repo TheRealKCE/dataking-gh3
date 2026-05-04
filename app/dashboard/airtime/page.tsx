@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { Phone, CheckCircle, Copy, Wallet, AlertTriangle, Loader2, ChevronRight, Info, History, X, ArrowRight, RefreshCw, Search, Calendar, Filter, TrendingUp, Coins, Clock, CalendarRange } from 'lucide-react'
 import { useAuth } from '@/contexts/auth-context'
+import { useSearchParams } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -244,6 +245,7 @@ function estimateMashupBundle(amount: number, pref: 'balanced' | 'data' | 'voice
 // ─── Main Page ────────────────────────────────────────────────────────────────
 export default function AirtimePage() {
     const { dbUser } = useAuth()
+    const searchParams = useSearchParams()
     const [activeTab, setActiveTab] = useState<'buy' | 'history'>('buy')
 
     // Settings & wallet
@@ -265,6 +267,16 @@ export default function AirtimePage() {
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [showConfirm, setShowConfirm] = useState(false)
     const [successOrder, setSuccessOrder] = useState<AirtimeOrder | null>(null)
+
+    // Handle query params
+    useEffect(() => {
+        const modeParam = searchParams.get('mode')
+        if (modeParam === 'mashup') {
+            setMode('mashup')
+            setSelectedNetwork('MTN')
+            setIsManualSelection(true)
+        }
+    }, [searchParams])
 
     // History & Filtering
     const [orders, setOrders] = useState<AirtimeOrder[]>([])

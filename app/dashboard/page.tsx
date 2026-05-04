@@ -19,6 +19,8 @@ import {
     Plus,
     Star,
     Store,
+    Phone,
+    Zap,
 } from 'lucide-react'
 import { useTutorial } from '@/hooks/useTutorial'
 import { HelpButton } from '@/components/tutorial/HelpButton'
@@ -359,6 +361,8 @@ export default function DashboardPage() {
                         </CardHeader>
                         <CardContent className="space-y-2">
                             {[
+                                { href: '/dashboard/airtime', label: 'Buy Airtime', icon: Phone },
+                                { href: '/dashboard/airtime?mode=mashup', label: 'Mashup Bundle', icon: Zap },
                                 { href: '/dashboard/data-packages', label: 'Buy Data Bundles', icon: Package },
                                 { href: '/dashboard/wallet', label: 'Wallet History', icon: Wallet },
                                 { href: '/dashboard/complaints', label: 'Help & Support', icon: AlertCircle },
