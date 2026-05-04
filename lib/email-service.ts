@@ -1601,6 +1601,8 @@ export async function sendAdminAirtimeOrderEmail(details: {
     walletBalanceAfter?: number | string | null
     useExactAmount: boolean
     source?: string
+    orderType?: 'airtime' | 'mashup'
+    bundlePreference?: 'balanced' | 'data' | 'voice'
 }): Promise<EmailResult> {
     const supabase = createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -1641,25 +1643,47 @@ export async function sendAdminAirtimeOrderEmail(details: {
         }
 
         const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://ARHMSgh.com'
-        
+        const isMashup = details.orderType === 'mashup'
+        const themeColor = isMashup ? '#f59e0b' : '#25D366'
+        const headerIcon = isMashup ? '🎯' : '📱'
+        const orderLabel = isMashup ? 'Mashup Bundle Order' : 'Airtime Order'
+
+        // Preference label for mashup
+        const prefLabelMap: Record<string, string> = {
+            balanced: 'Balanced (Data & Voice)',
+            data: 'Data Focus 📊',
+            voice: 'Voice Focus 🎙️',
+        }
+        const prefLabel = details.bundlePreference ? prefLabelMap[details.bundlePreference] || 'Balanced (Data & Voice)' : null
+
         // Helper to parse numbers if string
         const parseNum = (val: any) => typeof val === 'string' ? parseFloat(val) : val;
-        
+
         const content = `
-            <h1 class="greeting">New Airtime Order 📱</h1>
-            <p class="subtitle">A new airtime order requires your attention</p>
+            <h1 class="greeting">New ${orderLabel} ${headerIcon}</h1>
+            <p class="subtitle">A new ${isMashup ? 'MTN Mashup bundle order' : 'airtime order'} requires your attention</p>
             <p class="message-text">
-                A new airtime order has been placed and is awaiting fulfillment. Please process it as soon as possible.
+                A new ${isMashup ? 'Mashup bundle' : 'airtime'} order has been placed and is awaiting fulfillment. Please process it as soon as possible.
             </p>
+
+            ${isMashup ? `
+            <div class="highlight-box" style="background: rgba(245, 158, 11, 0.12); border-left: 4px solid #f59e0b; padding: 14px 18px; border-radius: 8px; margin: 16px 0;">
+                <p class="highlight-text" style="color: #92400e; font-weight: 700; margin: 0;">
+                    🎯 <strong>Mashup Bundle:</strong> Open the <strong>My MTN App</strong>, purchase the bundle for ${details.beneficiaryPhone}, then mark this order as Completed in the admin panel.
+                </p>
+            </div>` : ''}
+
             <div class="info-card">
                 <div class="info-card-header"><div class="info-card-icon">📋</div><span class="info-card-title">Order Details</span></div>
                 <div class="info-row"><span class="info-label">Reference</span><span class="info-value">${details.referenceCode}</span></div>
+                <div class="info-row"><span class="info-label">Order Type</span><span class="info-value" style="color: ${themeColor}; font-weight: 700;">${isMashup ? '🎯 Mashup Bundle' : '📱 Standard Airtime'}</span></div>
                 ${details.source ? `<div class="info-row"><span class="info-label">Source</span><span class="info-value">${details.source}</span></div>` : ''}
                 <div class="info-row"><span class="info-label">Customer</span><span class="info-value">${details.userName} (${details.userRole})</span></div>
                 <div class="info-row"><span class="info-label">Email</span><span class="info-value">${details.userEmail}</span></div>
                 <div class="info-row"><span class="info-label">Beneficiary Phone</span><span class="info-value">${details.beneficiaryPhone}</span></div>
                 <div class="info-row"><span class="info-label">Network</span><span class="info-value">${details.network}</span></div>
-                <div class="info-row"><span class="info-label">Airtime to Send</span><span class="info-value" style="color: #10b981; font-size: 16px;">GHS ${parseNum(details.airtimeAmount).toFixed(2)}</span></div>
+                ${isMashup && prefLabel ? `<div class="info-row"><span class="info-label">Bundle Preference</span><span class="info-value" style="color: #f59e0b; font-weight: 700;">${prefLabel}</span></div>` : ''}
+                <div class="info-row"><span class="info-label">${isMashup ? 'Bundle Value' : 'Airtime to Send'}</span><span class="info-value" style="color: #10b981; font-size: 16px;">GHS ${parseNum(details.airtimeAmount).toFixed(2)}</span></div>
                 ${details.feeRate !== undefined ? `<div class="info-row"><span class="info-label">Fee Rate</span><span class="info-value">${details.feeRate}%</span></div>` : ''}
                 ${details.feeAmount !== undefined ? `<div class="info-row"><span class="info-label">Fee Charged</span><span class="info-value">GHS ${parseNum(details.feeAmount).toFixed(2)}</span></div>` : ''}
                 <div class="info-row"><span class="info-label">Total Paid by User</span><span class="info-value" style="color: #D4AF37; font-size: 16px;">GHS ${parseNum(details.totalPaid).toFixed(2)}</span></div>
@@ -1668,14 +1692,16 @@ export async function sendAdminAirtimeOrderEmail(details: {
                 <div class="info-row"><span class="info-label">Timestamp</span><span class="info-value">${new Date().toLocaleString('en-GB', { timeZone: 'Africa/Accra' })}</span></div>
             </div>
             <div style="text-align: center; margin: 25px 0;"><span class="status-badge status-pending">Action Required</span></div>
-            <div class="cta-container"><a href="${siteUrl}/admin/airtime" class="cta-button">Manage Airtime Orders</a></div>
+            <div class="cta-container"><a href="${siteUrl}/admin/airtime" class="cta-button" style="background: linear-gradient(135deg, ${themeColor} 0%, ${isMashup ? '#d97706' : '#16a34a'} 100%); color: #ffffff !important;">Manage ${isMashup ? 'Mashup' : 'Airtime'} Orders</a></div>
             <div class="highlight-box">
-                <p class="highlight-text">⚠️ <strong>Action Required:</strong> Log in to your admin panel, process the airtime for ${details.beneficiaryPhone} on ${details.network}, then mark the order as Completed.</p>
+                <p class="highlight-text">⚠️ <strong>Action Required:</strong> ${isMashup ? `Open My MTN App, buy the <strong>${prefLabel || 'Balanced'}</strong> bundle for <strong>${details.beneficiaryPhone}</strong>, then mark the order as Completed.` : `Log in to your admin panel, process the airtime for ${details.beneficiaryPhone} on ${details.network}, then mark the order as Completed.`}</p>
             </div>
         `
 
-        const htmlContent = generatePremiumTemplate('New Airtime Order', content, '#25D366')
-        const subject = `📱 ${details.source ? `[${details.source.split(' ')[0]}] ` : ''}New Airtime Order — ${details.referenceCode} | ${details.network} | GHS ${parseNum(details.airtimeAmount).toFixed(2)}`
+        const htmlContent = generatePremiumTemplate(`New ${orderLabel}`, content, themeColor)
+        const subject = isMashup
+            ? `🎯 [MASHUP] New Bundle Order — ${details.referenceCode} | MTN | GHS ${parseNum(details.airtimeAmount).toFixed(2)}`
+            : `📱 ${details.source ? `[${details.source.split(' ')[0]}] ` : ''}New Airtime Order — ${details.referenceCode} | ${details.network} | GHS ${parseNum(details.airtimeAmount).toFixed(2)}`
 
         // Send to all unique admins
         const emailPromises = Array.from(adminEmails).map(email => 

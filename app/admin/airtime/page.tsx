@@ -118,6 +118,7 @@ interface Order {
     users?: { first_name: string; last_name: string; email: string; phone_number?: string }
     fulfillment_note?: string; fulfilled_at?: string
     shop_id?: string; shop_name?: string
+    type?: string; bundle_preference?: string
 }
 
 interface AirtimeSettings {
@@ -335,6 +336,10 @@ export default function AdminAirtimePage() {
             // Status
             if (statusFilter !== 'all' && order.status !== statusFilter) return false
 
+            // Type filter (airtime vs mashup)
+            const typeFilter = (window as any).__adminAirtimeTypeFilter || 'all'
+            if (typeFilter !== 'all' && (order.type || 'airtime') !== typeFilter) return false
+
             // Time Period
             if (timePeriod === 'All') return true
             const date = parseISO(order.created_at)
@@ -525,6 +530,20 @@ export default function AdminAirtimePage() {
                                         )}
                                     >{s}</button>
                                 ))}
+                                {/* Type filter pills */}
+                                <div className="w-px bg-slate-200 dark:bg-slate-700 mx-1 self-stretch" />
+                                {(['all', 'airtime', 'mashup'] as const).map(t => (
+                                    <button
+                                        key={t}
+                                        onClick={() => { (window as any).__adminAirtimeTypeFilter = t; setSearch(s => s + ' ') ; setTimeout(() => setSearch(s => s.trimEnd()), 10) }}
+                                        className={cn(
+                                            'px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border-2 shrink-0',
+                                            ((window as any).__adminAirtimeTypeFilter || 'all') === t
+                                                ? (t === 'mashup' ? 'bg-amber-500 border-amber-500 text-white shadow-lg scale-[0.98]' : 'bg-indigo-600 border-indigo-600 text-white shadow-lg scale-[0.98]')
+                                                : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-800 text-slate-400 hover:border-slate-200'
+                                        )}
+                                    >{t === 'all' ? 'All Types' : t === 'mashup' ? '🎯 Mashup' : '📱 Airtime'}</button>
+                                ))}
                             </div>
                         </div>
 
@@ -560,8 +579,13 @@ export default function AdminAirtimePage() {
                                                 </div>
                                                 <div>
                                                     <div className="flex items-center gap-2 mb-1 flex-wrap">
-                                                        <span className="font-black text-slate-900 dark:text-white uppercase tracking-tighter text-lg">{order.network} Order</span>
+                                                        <span className="font-black text-slate-900 dark:text-white uppercase tracking-tighter text-lg">{order.network} {order.type === 'mashup' ? 'Mashup' : 'Order'}</span>
                                                         <StatusBadge status={order.status} />
+                                                        {order.type === 'mashup' && (
+                                                            <Badge variant="outline" className="bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-800 uppercase tracking-widest text-[9px] font-black shadow-sm">
+                                                                🎯 Mashup
+                                                            </Badge>
+                                                        )}
                                                         {order.shop_name && (
                                                             <Badge variant="outline" className="bg-purple-100 dark:bg-purple-900/30 text-purple-700 dark:text-purple-400 border-purple-200 dark:border-purple-800 uppercase tracking-widest text-[9px] font-black shadow-sm">
                                                                 Shop: {order.shop_name}
@@ -573,6 +597,11 @@ export default function AdminAirtimePage() {
                                                             </Badge>
                                                         )}
                                                     </div>
+                                                    {order.type === 'mashup' && order.bundle_preference && (
+                                                        <p className="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest mb-0.5">
+                                                            Pref: {order.bundle_preference === 'data' ? 'Data Focus 📊' : order.bundle_preference === 'voice' ? 'Voice Focus 🎙️' : 'Balanced ⚖️'}
+                                                        </p>
+                                                    )}
                                                     <p className="font-mono text-[10px] font-black text-slate-400 uppercase tracking-widest">REF: {order.reference_code}</p>
                                                 </div>
                                             </div>

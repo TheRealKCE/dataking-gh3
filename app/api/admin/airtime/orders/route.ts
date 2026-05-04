@@ -32,6 +32,7 @@ export async function GET(request: NextRequest) {
         const status = searchParams.get('status')
         const network = searchParams.get('network')
         const search = searchParams.get('search')
+        const orderType = searchParams.get('type') // 'airtime' | 'mashup' | null (all)
         const page = parseInt(searchParams.get('page') || '1')
         const limit = parseInt(searchParams.get('limit') || '30')
         const offset = (page - 1) * limit
@@ -39,6 +40,8 @@ export async function GET(request: NextRequest) {
         let query = (supabase.from('airtime_orders') as any)
             .select(`
                 *,
+                type,
+                bundle_preference,
                 users!airtime_orders_user_id_fkey(first_name, last_name, email, phone_number),
                 fulfilled_by_user:users!airtime_orders_fulfilled_by_fkey(first_name, last_name)
             `, { count: 'exact' })
@@ -47,6 +50,7 @@ export async function GET(request: NextRequest) {
 
         if (status && status !== 'all') query = query.eq('status', status)
         if (network && network !== 'all') query = query.eq('network', network)
+        if (orderType && orderType !== 'all') query = query.eq('type', orderType)
         if (search) {
             query = query.or(`reference_code.ilike.%${search}%,beneficiary_phone.ilike.%${search}%`)
         }
@@ -140,13 +144,18 @@ export async function PATCH(request: NextRequest) {
             }
         }
 
-        // Update the user's in-app notification
+        // Update the user's in-app notification (Mashup-aware titles)
+        const isMashup = existing.type === 'mashup'
         ;(supabase.from('notifications') as any).insert({
             user_id: existing.user_id,
-            title: status === 'completed' ? 'Airtime Sent ✅' : 'Airtime Order Failed',
+            title: status === 'completed'
+                ? (isMashup ? 'Mashup Bundle Sent ✅' : 'Airtime Sent ✅')
+                : (isMashup ? 'Mashup Order Failed' : 'Airtime Order Failed'),
             message: status === 'completed'
-                ? `GHS ${existing.airtime_amount.toFixed(2)} airtime for ${existing.beneficiary_phone} has been sent successfully. Ref: ${existing.reference_code}`
-                : `Your airtime order ${existing.reference_code} could not be completed. Please contact support.`,
+                ? (isMashup
+                    ? `Your MTN Mashup bundle for ${existing.beneficiary_phone} has been activated. Ref: ${existing.reference_code}`
+                    : `GHS ${existing.airtime_amount.toFixed(2)} airtime for ${existing.beneficiary_phone} has been sent successfully. Ref: ${existing.reference_code}`)
+                : `Your ${isMashup ? 'Mashup' : 'airtime'} order ${existing.reference_code} could not be completed. Please contact support.`,
             type: 'order_update',
             action_url: '/dashboard/airtime',
         }).then(() => {}).catch((e: any) => console.error('[Admin Airtime] Notification error:', e))

@@ -577,10 +577,25 @@ export async function sendAdminAirtimeAlertSMS(
         receiver: string
         amount: number | string
         network: string
+        orderType?: 'airtime' | 'mashup'
+        bundlePreference?: 'balanced' | 'data' | 'voice'
     }
 ): Promise<void> {
     const amountNum = typeof details.amount === 'string' ? parseFloat(details.amount) : details.amount;
-    const message = `NEW AIRTIME ORDER:
+
+    // Anti-spam: Mashup uses a different title to bypass carrier keyword filters
+    const isMashup = details.orderType === 'mashup'
+    const prefCodeMap: Record<string, string> = { balanced: 'B', data: 'D', voice: 'V' }
+    const prefCode = isMashup && details.bundlePreference ? prefCodeMap[details.bundlePreference] || 'B' : null
+
+    const message = isMashup
+        ? `NEW MASHUP ORDER:
+Source : ${details.source}
+Receiver : ${details.receiver}
+Amount: GH ${amountNum.toFixed(2)}
+Network: ${details.network}
+Pref: ${prefCode} Focus`
+        : `NEW AIRTIME ORDER:
 Source : ${details.source}
 Receiver : ${details.receiver}
 Amount: GH ${amountNum.toFixed(2)}

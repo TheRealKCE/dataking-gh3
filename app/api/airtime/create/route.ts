@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
         }
 
-        const { beneficiaryPhone, network, amount, useExactAmount, referenceCode: clientReferenceCode } = body
+        const { beneficiaryPhone, network, amount, useExactAmount, referenceCode: clientReferenceCode, type: orderType, bundlePreference } = body
 
         // ── Validate required fields ──────────────────────────────────────────
         if (!beneficiaryPhone || !network || !amount) {
@@ -43,6 +43,16 @@ export async function POST(request: NextRequest) {
         }
         if (!['MTN', 'Telecel', 'AT'].includes(network)) {
             return NextResponse.json({ error: 'Invalid network' }, { status: 400 })
+        }
+
+        // ── Mashup is MTN-exclusive ───────────────────────────────────────────
+        const resolvedType: 'airtime' | 'mashup' = orderType === 'mashup' ? 'mashup' : 'airtime'
+        const resolvedPreference: 'balanced' | 'data' | 'voice' = ['balanced', 'data', 'voice'].includes(bundlePreference)
+            ? bundlePreference
+            : 'balanced'
+
+        if (resolvedType === 'mashup' && network !== 'MTN') {
+            return NextResponse.json({ error: 'Mashup orders are only available for MTN' }, { status: 400 })
         }
 
         // ── Tier 1 phone validation (hard) ────────────────────────────────────
@@ -191,6 +201,8 @@ export async function POST(request: NextRequest) {
                 use_exact_amount: useExactAmount || false,
                 status: 'pending',
                 reference_code: referenceCode,
+                type: resolvedType,
+                bundle_preference: resolvedType === 'mashup' ? resolvedPreference : null,
             })
             .select()
             .single()
@@ -210,26 +222,35 @@ export async function POST(request: NextRequest) {
             user_id: userId,
             type: 'debit',
             amount: totalPaid,
-            description: `Airtime: GHS ${airtimeAmount.toFixed(2)} for ${cleanPhone} (${network})`,
+            description: resolvedType === 'mashup'
+                ? `Mashup Bundle: GHS ${airtimeAmount.toFixed(2)} for ${cleanPhone} (MTN)`
+                : `Airtime: GHS ${airtimeAmount.toFixed(2)} for ${cleanPhone} (${network})`,
             reference: referenceCode,
-            source: 'airtime',
+            source: resolvedType === 'mashup' ? 'mashup' : 'airtime',
             status: 'completed',
         }).then(() => {}).catch((e: any) => console.error('[Airtime] Tx insert error:', e))
 
         // ── In-app notification (fire-and-forget) ─────────────────────────────
         ;(supabase.from('notifications') as any).insert({
             user_id: userId,
-            title: 'Airtime Order Placed',
-            message: `GHS ${airtimeAmount.toFixed(2)} airtime for ${cleanPhone} (${network}) is pending. Ref: ${referenceCode}`,
+            title: resolvedType === 'mashup' ? 'Mashup Order Placed 🎯' : 'Airtime Order Placed',
+            message: resolvedType === 'mashup'
+                ? `MTN Bundle request of GHS ${airtimeAmount.toFixed(2)} for ${cleanPhone} is pending. Ref: ${referenceCode}`
+                : `GHS ${airtimeAmount.toFixed(2)} airtime for ${cleanPhone} (${network}) is pending. Ref: ${referenceCode}`,
             type: 'order_update',
             action_url: '/dashboard/airtime',
         }).then(() => {}).catch((e: any) => console.error('[Airtime] Notification error:', e))
 
         // ── Post-order notifications (awaited to prevent Vercel from killing) ──
         try {
-            // 1. Beneficiary SMS — sent immediately on wallet deduction
-            await sendAirtimeBeneficiarySMS(cleanPhone, airtimeAmount)
-                .catch((err: any) => console.error('[Airtime] Beneficiary SMS failed:', err))
+            // Preference code map for anti-spam SMS
+            const prefCode: Record<string, string> = { balanced: 'B', data: 'D', voice: 'V' }
+
+            // 1. Beneficiary SMS — only sent for standard airtime (not mashup)
+            if (resolvedType !== 'mashup') {
+                await sendAirtimeBeneficiarySMS(cleanPhone, airtimeAmount)
+                    .catch((err: any) => console.error('[Airtime] Beneficiary SMS failed:', err))
+            }
 
             // 2. Admin email alert
             await sendAdminAirtimeOrderEmail({
@@ -245,21 +266,25 @@ export async function POST(request: NextRequest) {
                 totalPaid,
                 walletBalanceAfter: newBalance,
                 useExactAmount: useExactAmount || false,
+                orderType: resolvedType,
+                bundlePreference: resolvedType === 'mashup' ? resolvedPreference : undefined,
             }).catch((err: any) => console.error('[Airtime] Admin email failed:', err))
 
-            // 3. Admin SMS alert
+            // 3. Admin SMS alert (mashup uses anti-spam title + preference code)
             try {
                 const { data: admins } = await (supabase.from('users') as any)
                     .select('phone_number')
                     .eq('role', 'admin')
                 const adminPhones = admins?.map((a: any) => a.phone_number).filter(Boolean) || []
-                
+
                 if (adminPhones.length > 0) {
                     await sendAdminAirtimeAlertSMS(adminPhones, {
                         source: `${userData.first_name || ''} ${userData.last_name || ''}`.trim() || 'Guest',
                         receiver: cleanPhone,
                         amount: airtimeAmount,
-                        network: network
+                        network: network,
+                        orderType: resolvedType,
+                        bundlePreference: resolvedType === 'mashup' ? resolvedPreference : undefined,
                     })
                 }
             } catch (smsErr) {
@@ -281,6 +306,8 @@ export async function POST(request: NextRequest) {
                 fee_amount: feeAmount,
                 total_paid: totalPaid,
                 new_balance: newBalance,
+                type: resolvedType,
+                bundle_preference: resolvedType === 'mashup' ? resolvedPreference : null,
             }
         })
     } catch (error) {

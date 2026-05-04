@@ -21,14 +21,21 @@ export async function GET(request: NextRequest) {
 
         const { searchParams } = new URL(request.url)
         const page = parseInt(searchParams.get('page') || '1')
-        const limit = parseInt(searchParams.get('limit') || '20')
+        const limit = parseInt(searchParams.get('limit') || '50')
         const offset = (page - 1) * limit
+        const typeFilter = searchParams.get('type') // 'airtime' | 'mashup' | null (all)
 
-        const { data: orders, error, count } = await (supabase.from('airtime_orders') as any)
-            .select('*', { count: 'exact' })
+        let query = (supabase.from('airtime_orders') as any)
+            .select('id, reference_code, network, beneficiary_phone, airtime_amount, fee_amount, total_paid, status, created_at, use_exact_amount, type, bundle_preference', { count: 'exact' })
             .eq('user_id', userId)
             .order('created_at', { ascending: false })
             .range(offset, offset + limit - 1)
+
+        if (typeFilter && typeFilter !== 'all') {
+            query = query.eq('type', typeFilter)
+        }
+
+        const { data: orders, error, count } = await query
 
         if (error) {
             console.error('[Airtime History] Error:', error)
