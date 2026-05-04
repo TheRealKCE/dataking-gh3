@@ -352,7 +352,31 @@ export function DashboardSidebar() {
                         </>
                     )}
 
-                    {/* Admin Section - If applicable */}
+                    {/* Join Community — appears below My Shop */}
+                    {!isCollapsed && communityLink && (
+                        <a
+                            href={communityLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={() => { if (window.innerWidth < 1024) closeSidebar() }}
+                            className="nav-link text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 mt-1 block"
+                        >
+                            <Users className="w-5 h-5 flex-shrink-0" />
+                            <span className="text-sm font-semibold tracking-tight">Join Community</span>
+                        </a>
+                    )}
+                    {isCollapsed && communityLink && (
+                        <a
+                            href={communityLink}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            onClick={() => { if (window.innerWidth < 1024) closeSidebar() }}
+                            className="nav-link justify-center px-0 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 block"
+                        >
+                            <Users className="w-5 h-5 flex-shrink-0" />
+                        </a>
+                    )}
+
                     {(isAdmin || isSubAdmin) && (
                         <>
                             {!isCollapsed && (
