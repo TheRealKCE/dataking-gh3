@@ -257,6 +257,7 @@ export default function AdminAirtimePage() {
     const [orders, setOrders] = useState<Order[]>([])
     const [ordersLoading, setOrdersLoading] = useState(true)
     const [statusFilter, setStatusFilter] = useState('all')
+    const [typeFilter, setTypeFilter] = useState('all')
     const [networkFilter, setNetworkFilter] = useState('all')
     const [search, setSearch] = useState('')
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
@@ -336,8 +337,7 @@ export default function AdminAirtimePage() {
             // Status
             if (statusFilter !== 'all' && order.status !== statusFilter) return false
 
-            // Type filter (airtime vs mashup)
-            const typeFilter = (window as any).__adminAirtimeTypeFilter || 'all'
+            // Type filter (airtime vs mashup) — driven by typeFilter state
             if (typeFilter !== 'all' && (order.type || 'airtime') !== typeFilter) return false
 
             // Time Period
@@ -535,10 +535,10 @@ export default function AdminAirtimePage() {
                                 {(['all', 'airtime', 'mashup'] as const).map(t => (
                                     <button
                                         key={t}
-                                        onClick={() => { (window as any).__adminAirtimeTypeFilter = t; setSearch(s => s + ' ') ; setTimeout(() => setSearch(s => s.trimEnd()), 10) }}
+                                        onClick={() => setTypeFilter(t)}
                                         className={cn(
                                             'px-5 py-2.5 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border-2 shrink-0',
-                                            ((window as any).__adminAirtimeTypeFilter || 'all') === t
+                                            typeFilter === t
                                                 ? (t === 'mashup' ? 'bg-amber-500 border-amber-500 text-white shadow-lg scale-[0.98]' : 'bg-indigo-600 border-indigo-600 text-white shadow-lg scale-[0.98]')
                                                 : 'bg-white dark:bg-slate-800 border-slate-100 dark:border-slate-800 text-slate-400 hover:border-slate-200'
                                         )}

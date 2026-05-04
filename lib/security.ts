@@ -67,17 +67,9 @@ export async function checkFraudSignals(userId: string, phone: string, db: any):
     try {
         const now = Date.now()
 
-        // Signal 1: Fast Repeated Orders (In-Memory Check)
-        // Check if this specific user has made 5+ attempts in the last 1 minute
-        const record = rateLimitMap.get(userId)
-        if (record) {
-            const recentAttempts = record.single.filter(t => now - t < FRAUD_FAST_ORDER_WINDOW_MS).length
-            if (recentAttempts >= FRAUD_FAST_ORDER_COUNT) {
-                flaggedPhones.add(phone)
-                await logSuspiciousActivity(userId, 'CREATE_ORDER', 'Too many attempts in 1 minute (Fast repeated orders)', db)
-                return true
-            }
-        }
+        // Signal 1 (in-memory fast-order check) was removed.
+        // In-memory Maps reset on every Vercel cold start and provide zero protection
+        // in serverless environments. Use Upstash Redis if a fast-order signal is needed.
 
         // Signal 2: Repeated Failed Transactions (DB Check)
         // Check orders table for 5+ failed transactions in the last 10 minutes
@@ -97,7 +89,6 @@ export async function checkFraudSignals(userId: string, phone: string, db: any):
         }
 
         if (count && count >= 5) {
-            flaggedPhones.add(phone)
             await logSuspiciousActivity(userId, 'CREATE_ORDER', `Detected ${count} failed transactions within 10 minutes`, db)
             return true
         }
@@ -125,6 +116,9 @@ export async function logSuspiciousActivity(userId: string, action: string, reas
     }
 }
 // --- 4. Lightweight Pre-Fulfillment Check ---
+// NOTE: flaggedPhones is an in-memory Set that resets on every Vercel cold start.
+// This function is currently a no-op in serverless environments.
+// Wire up a Redis-backed check here if persistent phone flagging is required.
 export function isPhoneFlagged(phone: string): boolean {
     return flaggedPhones.has(phone)
 }

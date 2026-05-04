@@ -1,0 +1,190 @@
+﻿   Γû▓ Next.js 15.1.9
+   - Environments: .env.local
+
+   Creating an optimized production build ...
+ Γ£ô Compiled successfully
+   Linting and checking validity of types ...
+   Collecting page data ...
+   Generating static pages (0/141) ...
+node :  ΓÜá metadataBase property in metadata export is not set for resolving social open graph or twitter images, 
+using "http://localhost:3000". See https://nextjs.org/docs/app/api-reference/functions/generate-metadata#metadatabase
+At line:1 char:1
++ node node_modules/next/dist/bin/next build 2>&1 | Out-File -FilePath  ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: ( ΓÜá metadataBa...ta#metadatabase:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+ ΓÜá metadataBase property in metadata export is not set for resolving social open graph or twitter images, using 
+"http://localhost:3000". See https://nextjs.org/docs/app/api-reference/functions/generate-metadata#metadatabase
+   Generating static pages (35/141) 
+   Generating static pages (70/141) 
+   Generating static pages (105/141) 
+ Γ£ô Generating static pages (141/141)
+   Finalizing page optimization ...
+   Collecting build traces ...
+
+Route (app)                                     Size     First Load JS
+Γöî Γùï /                                           14.6 kB         160 kB
+Γö£ Γùï /_not-found                                 990 B           107 kB
+Γö£ Γùï /admin                                      4.64 kB         179 kB
+Γö£ Γùï /admin/afa-management                       8.64 kB         224 kB
+Γö£ Γùï /admin/airtime                              13.4 kB         177 kB
+Γö£ Γùï /admin/announcements                        7.95 kB         187 kB
+Γö£ Γùï /admin/complaints                           5.58 kB         142 kB
+Γö£ Γùï /admin/datagod                              3.84 kB         191 kB
+Γö£ Γùï /admin/finance                              6.82 kB         158 kB
+Γö£ ╞Æ /admin/finance/[userId]                     4.93 kB         160 kB
+Γö£ Γùï /admin/fulfillment                          7.97 kB         195 kB
+Γö£ Γùï /admin/memberships                          7.64 kB         220 kB
+Γö£ Γùï /admin/mtn-logs                             2.94 kB         170 kB
+Γö£ Γùï /admin/orders                               11.4 kB         224 kB
+Γö£ Γùï /admin/packages                             8.05 kB         163 kB
+Γö£ ╞Æ /admin/profit-logs                          7.97 kB         175 kB
+Γö£ Γùï /admin/profits-history                      123 kB          247 kB
+Γö£ Γùï /admin/settings                             11.6 kB         192 kB
+Γö£ Γùï /admin/shops                                9.15 kB         190 kB
+Γö£ ╞Æ /admin/shops/[shopId]                       12.9 kB         196 kB
+Γö£ Γùï /admin/shops/settings                       9.09 kB         192 kB
+Γö£ Γùï /admin/shops/withdrawals                    6.33 kB         221 kB
+Γö£ Γùï /admin/sms-broadcast                        9.45 kB         161 kB
+Γö£ Γùï /admin/top-up                               17.3 kB         163 kB
+Γö£ Γùï /admin/transactions                         6.47 kB         174 kB
+Γö£ Γùï /admin/users                                8.62 kB         174 kB
+Γö£ ╞Æ /api/admin-settings                         388 B           107 kB
+Γö£ ╞Æ /api/admin/agents                           388 B           107 kB
+Γö£ ╞Æ /api/admin/airtime/orders                   388 B           107 kB
+Γö£ ╞Æ /api/admin/airtime/settings                 388 B           107 kB
+Γö£ ╞Æ /api/admin/batches                          388 B           107 kB
+Γö£ ╞Æ /api/admin/complaints                       388 B           107 kB
+Γö£ ╞Æ /api/admin/complaints/resolve               388 B           107 kB
+Γö£ ╞Æ /api/admin/datagod/balance                  388 B           107 kB
+Γö£ ╞Æ /api/admin/datagod/fulfill                  388 B           107 kB
+Γö£ ╞Æ /api/admin/datagod/history                  388 B           107 kB
+Γö£ ╞Æ /api/admin/datagod/orders                   388 B           107 kB
+Γö£ ╞Æ /api/admin/datagod/sync                     388 B           107 kB
+Γö£ ╞Æ /api/admin/extend-agent                     388 B           107 kB
+Γö£ ╞Æ /api/admin/extend-agent/permanent           388 B           107 kB
+Γö£ ╞Æ /api/admin/finance/stats                    388 B           107 kB
+Γö£ ╞Æ /api/admin/finance/users                    388 B           107 kB
+Γö£ ╞Æ /api/admin/finance/users/[id]/transactions  388 B           107 kB
+Γö£ ╞Æ /api/admin/fulfillment                      388 B           107 kB
+Γö£ ╞Æ /api/admin/fulfillment/balance              388 B           107 kB
+Γö£ ╞Æ /api/admin/fulfillment/refulfill            388 B           107 kB
+Γö£ ╞Æ /api/admin/fulfillment/sync-codecraft       388 B           107 kB
+Γö£ ╞Æ /api/admin/fulfillment/sync-dakazina        388 B           107 kB
+Γö£ ╞Æ /api/admin/get-prices                       388 B           107 kB
+Γö£ ╞Æ /api/admin/maintenance/fix-batches          388 B           107 kB
+Γö£ ╞Æ /api/admin/orders                           388 B           107 kB
+Γö£ ╞Æ /api/admin/orders/batch                     388 B           107 kB
+Γö£ ╞Æ /api/admin/orders/delete-failed             388 B           107 kB
+Γö£ ╞Æ /api/admin/orders/refund                    388 B           107 kB
+Γö£ ╞Æ /api/admin/orders/update-status             388 B           107 kB
+Γö£ ╞Æ /api/admin/packages                         388 B           107 kB
+Γö£ ╞Æ /api/admin/packages/network-description     388 B           107 kB
+Γö£ ╞Æ /api/admin/process-withdrawal               388 B           107 kB
+Γö£ ╞Æ /api/admin/profit-analytics                 388 B           107 kB
+Γö£ ╞Æ /api/admin/profit-stats                     388 B           107 kB
+Γö£ ╞Æ /api/admin/shop/[shopId]/settings           388 B           107 kB
+Γö£ ╞Æ /api/admin/shop/settings                    388 B           107 kB
+Γö£ ╞Æ /api/admin/shops                            388 B           107 kB
+Γö£ ╞Æ /api/admin/sms-broadcast                    388 B           107 kB
+Γö£ ╞Æ /api/admin/sms-broadcast/users              388 B           107 kB
+Γö£ ╞Æ /api/admin/stats                            388 B           107 kB
+Γö£ ╞Æ /api/admin/supplier-balance                 388 B           107 kB
+Γö£ ╞Æ /api/admin/top-up/credit                    388 B           107 kB
+Γö£ ╞Æ /api/admin/top-up/credits-history           388 B           107 kB
+Γö£ ╞Æ /api/admin/top-up/debt-summary              388 B           107 kB
+Γö£ ╞Æ /api/admin/top-up/frequent-users            388 B           107 kB
+Γö£ ╞Æ /api/admin/top-up/manual-debt               388 B           107 kB
+Γö£ ╞Æ /api/admin/top-up/page-stats                388 B           107 kB
+Γö£ ╞Æ /api/admin/top-up/search-users              388 B           107 kB
+Γö£ ╞Æ /api/admin/top-up/settle                    388 B           107 kB
+Γö£ ╞Æ /api/admin/top-up/settlements               388 B           107 kB
+Γö£ ╞Æ /api/admin/top-up/sms-reminder              388 B           107 kB
+Γö£ ╞Æ /api/admin/top-up/user-debt/[userId]        388 B           107 kB
+Γö£ ╞Æ /api/admin/top-up/user-lists                388 B           107 kB
+Γö£ ╞Æ /api/admin/update-prices                    388 B           107 kB
+Γö£ ╞Æ /api/admin/users                            388 B           107 kB
+Γö£ ╞Æ /api/admin/users/delete                     388 B           107 kB
+Γö£ ╞Æ /api/admin/users/reset-password             388 B           107 kB
+Γö£ ╞Æ /api/admin/users/role                       388 B           107 kB
+Γö£ ╞Æ /api/admin/users/update-status              388 B           107 kB
+Γö£ ╞Æ /api/admin/users/wallet/adjustment          388 B           107 kB
+Γö£ ╞Æ /api/agent/downgrade                        388 B           107 kB
+Γö£ ╞Æ /api/airtime/create                         388 B           107 kB
+Γö£ ╞Æ /api/airtime/history                        388 B           107 kB
+Γö£ ╞Æ /api/auth/forgot-password                   388 B           107 kB
+Γö£ ╞Æ /api/auth/login                             388 B           107 kB
+Γö£ ╞Æ /api/auth/signup                            388 B           107 kB
+Γö£ ╞Æ /api/complaints/submit                      388 B           107 kB
+Γö£ ╞Æ /api/cron/agent-renewal-reminder            388 B           107 kB
+Γö£ ╞Æ /api/cron/delete-old-complaints             388 B           107 kB
+Γö£ ╞Æ /api/cron/delete-old-notifications          388 B           107 kB
+Γö£ ╞Æ /api/cron/delete-old-orders                 388 B           107 kB
+Γö£ ╞Æ /api/cron/sync-codecraft-status             388 B           107 kB
+Γö£ ╞Æ /api/cron/sync-moolre-withdrawals           388 B           107 kB
+Γö£ ╞Æ /api/cron/verify-pending-payments           388 B           107 kB
+Γö£ ╞Æ /api/emails/test                            388 B           107 kB
+Γö£ ╞Æ /api/emails/welcome                         388 B           107 kB
+Γö£ ╞Æ /api/orders/bulk-purchase                   388 B           107 kB
+Γö£ ╞Æ /api/orders/purchase                        388 B           107 kB
+Γö£ ╞Æ /api/payments/initialize                    388 B           107 kB
+Γö£ ╞Æ /api/payments/verify                        388 B           107 kB
+Γö£ ╞Æ /api/public/config                          388 B           107 kB
+Γö£ ╞Æ /api/settings/page-access                   388 B           107 kB
+Γö£ ╞Æ /api/shop/alerts                            388 B           107 kB
+Γö£ ╞Æ /api/shop/announcements                     388 B           107 kB
+Γö£ ╞Æ /api/shop/banks                             388 B           107 kB
+Γö£ ╞Æ /api/shop/initialize                        388 B           107 kB
+Γö£ ╞Æ /api/shop/lookup-orders                     388 B           107 kB
+Γö£ ╞Æ /api/shop/my-orders                         388 B           107 kB
+Γö£ ╞Æ /api/shop/pricing                           388 B           107 kB
+Γö£ ╞Æ /api/shop/profile                           388 B           107 kB
+Γö£ ╞Æ /api/shop/validate-account                  388 B           107 kB
+Γö£ ╞Æ /api/shop/verify                            388 B           107 kB
+Γö£ ╞Æ /api/shop/withdraw                          388 B           107 kB
+Γö£ ╞Æ /api/support-chat                           388 B           107 kB
+Γö£ ╞Æ /api/user/afa-registration                  388 B           107 kB
+Γö£ ╞Æ /api/user/upgrade/initialize                388 B           107 kB
+Γö£ ╞Æ /api/user/upgrade/verify                    388 B           107 kB
+Γö£ ╞Æ /api/users/delete-account                   388 B           107 kB
+Γö£ ╞Æ /api/users/delete-account/request-otp       388 B           107 kB
+Γö£ ╞Æ /api/users/update-profile                   388 B           107 kB
+Γö£ ╞Æ /api/webhooks/dakazina                      388 B           107 kB
+Γö£ ╞Æ /api/webhooks/paystack                      388 B           107 kB
+Γö£ Γùï /auth/login                                 5.09 kB         201 kB
+Γö£ Γùï /auth/reset-password                        4.16 kB         146 kB
+Γö£ Γùï /auth/signup                                5.97 kB         202 kB
+Γö£ Γùï /auth/update-password                       3.15 kB         199 kB
+Γö£ Γùï /dashboard                                  19.1 kB         227 kB
+Γö£ Γùï /dashboard/afa-orders                       14 kB           230 kB
+Γö£ Γùï /dashboard/airtime                          14.5 kB         233 kB
+Γö£ Γùï /dashboard/complaints                       4.99 kB         180 kB
+Γö£ Γùï /dashboard/data-packages                    15.2 kB         223 kB
+Γö£ Γùï /dashboard/my-orders                        7.9 kB          236 kB
+Γö£ Γùï /dashboard/notifications                    7.26 kB         184 kB
+Γö£ Γùï /dashboard/profile                          7.48 kB         205 kB
+Γö£ Γùï /dashboard/shop                             13.8 kB         194 kB
+Γö£ Γùï /dashboard/shop/orders                      10.2 kB         204 kB
+Γö£ Γùï /dashboard/shop/pricing                     12.7 kB         193 kB
+Γö£ Γùï /dashboard/shop/setup                       17.7 kB         200 kB
+Γö£ Γùï /dashboard/shop/withdraw                    9.36 kB         228 kB
+Γö£ Γùï /dashboard/transactions                     5.2 kB          205 kB
+Γö£ Γùï /dashboard/upgrade                          11.5 kB         196 kB
+Γö£ Γùï /dashboard/wallet                           9.31 kB         197 kB
+Γö£ Γùï /icon.png                                   0 B                0 B
+Γö£ ╞Æ /shop/[shopSlug]                            18.6 kB         179 kB
+Γö£ ╞Æ /shop/[shopSlug]/about                      1.3 kB          123 kB
+Γö£ ╞Æ /shop/[shopSlug]/success                    1.15 kB         116 kB
+Γöö Γùï /shop/status                                11.1 kB         226 kB
++ First Load JS shared by all                   106 kB
+  Γö£ chunks/1517-f0afe699704e7886.js             50.8 kB
+  Γö£ chunks/4bd1b696-f1bbb0c31453b6bf.js         53 kB
+  Γöö other shared chunks (total)                 2.64 kB
+
+
+╞Æ Middleware                                    104 kB
+
+Γùï  (Static)   prerendered as static content
+╞Æ  (Dynamic)  server-rendered on demand
+

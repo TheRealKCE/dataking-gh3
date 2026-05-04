@@ -4,6 +4,7 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import { revalidateTag } from 'next/cache'
 import { PUBLIC_CONFIG_CACHE_TAG } from '@/lib/cache-tags'
+import { z } from 'zod'
 
 export async function POST(request: NextRequest) {
     try {
@@ -38,6 +39,25 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Prices are required' }, { status: 400 })
         }
 
+        // === SECURITY: Validate all price values before writing to DB ===
+        const pricesSchema = z.object({
+            '3d':        z.number({ invalid_type_error: 'Price for 3d must be a number' }).min(1, 'Price must be at least 1').max(10000, 'Price cannot exceed 10000'),
+            '14d':       z.number({ invalid_type_error: 'Price for 14d must be a number' }).min(1, 'Price must be at least 1').max(10000, 'Price cannot exceed 10000'),
+            '30d':       z.number({ invalid_type_error: 'Price for 30d must be a number' }).min(1, 'Price must be at least 1').max(10000, 'Price cannot exceed 10000'),
+            'permanent': z.number({ invalid_type_error: 'Price for permanent must be a number' }).min(1, 'Price must be at least 1').max(10000, 'Price cannot exceed 10000'),
+        })
+
+        const pricesResult = pricesSchema.safeParse(prices)
+        if (!pricesResult.success) {
+            const details = pricesResult.error.errors.map((e: any) => `${e.path.join('.')}: ${e.message}`)
+            return NextResponse.json({ error: 'Invalid price values', details }, { status: 400 })
+        }
+        if (showStrikethrough !== undefined && typeof showStrikethrough !== 'boolean') {
+            return NextResponse.json({ error: 'showStrikethrough must be a boolean' }, { status: 400 })
+        }
+
+        const validatedPrices = pricesResult.data
+
         // Create admin client with service role key to bypass RLS
         const supabaseAdmin = createClient(
             process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -64,16 +84,16 @@ export async function POST(request: NextRequest) {
             const current30d = currentData.find(s => s.key === 'agent_upgrade_price_30d')?.value
             const currentPermanent = currentData.find(s => s.key === 'agent_upgrade_price_permanent')?.value
 
-            if (current3d && current3d !== String(prices['3d'])) {
+            if (current3d && current3d !== String(validatedPrices['3d'])) {
                 oldPriceUpdates.push({ key: 'agent_upgrade_price_3d_old', value: current3d })
             }
-            if (current14d && current14d !== String(prices['14d'])) {
+            if (current14d && current14d !== String(validatedPrices['14d'])) {
                 oldPriceUpdates.push({ key: 'agent_upgrade_price_14d_old', value: current14d })
             }
-            if (current30d && current30d !== String(prices['30d'])) {
+            if (current30d && current30d !== String(validatedPrices['30d'])) {
                 oldPriceUpdates.push({ key: 'agent_upgrade_price_30d_old', value: current30d })
             }
-            if (currentPermanent && currentPermanent !== String(prices['permanent'])) {
+            if (currentPermanent && currentPermanent !== String(validatedPrices['permanent'])) {
                 oldPriceUpdates.push({ key: 'agent_upgrade_price_permanent_old', value: currentPermanent })
             }
         }
@@ -84,12 +104,12 @@ export async function POST(request: NextRequest) {
             await supabaseAdmin.from('admin_settings').insert({ key, value } as any)
         }
 
-        // Update new prices
+        // Update new prices — use validatedPrices (Zod-parsed), not raw input
         const updates = [
-            { key: 'agent_upgrade_price_3d', value: String(prices['3d']) },
-            { key: 'agent_upgrade_price_14d', value: String(prices['14d']) },
-            { key: 'agent_upgrade_price_30d', value: String(prices['30d']) },
-            { key: 'agent_upgrade_price_permanent', value: String(prices['permanent']) }
+            { key: 'agent_upgrade_price_3d', value: String(validatedPrices['3d']) },
+            { key: 'agent_upgrade_price_14d', value: String(validatedPrices['14d']) },
+            { key: 'agent_upgrade_price_30d', value: String(validatedPrices['30d']) },
+            { key: 'agent_upgrade_price_permanent', value: String(validatedPrices['permanent']) }
         ]
 
         // Update strikethrough toggle if provided
@@ -124,10 +144,10 @@ export async function POST(request: NextRequest) {
         }
 
         const verified = {
-            '3d': (verifyData as any)?.find((s: any) => s.key === 'agent_upgrade_price_3d')?.value || prices['3d'],
-            '14d': (verifyData as any)?.find((s: any) => s.key === 'agent_upgrade_price_14d')?.value || prices['14d'],
-            '30d': (verifyData as any)?.find((s: any) => s.key === 'agent_upgrade_price_30d')?.value || prices['30d'],
-            'permanent': (verifyData as any)?.find((s: any) => s.key === 'agent_upgrade_price_permanent')?.value || prices['permanent']
+            '3d': (verifyData as any)?.find((s: any) => s.key === 'agent_upgrade_price_3d')?.value || validatedPrices['3d'],
+            '14d': (verifyData as any)?.find((s: any) => s.key === 'agent_upgrade_price_14d')?.value || validatedPrices['14d'],
+            '30d': (verifyData as any)?.find((s: any) => s.key === 'agent_upgrade_price_30d')?.value || validatedPrices['30d'],
+            'permanent': (verifyData as any)?.find((s: any) => s.key === 'agent_upgrade_price_permanent')?.value || validatedPrices['permanent']
         }
 
         revalidateTag(PUBLIC_CONFIG_CACHE_TAG)

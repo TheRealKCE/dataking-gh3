@@ -47,7 +47,7 @@ const nextConfig: NextConfig = {
                 key: 'Content-Security-Policy',
                 value: [
                     "default-src 'self'",
-                    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.paystack.co",
+                    "script-src 'self' 'unsafe-inline' https://js.paystack.co",
                     "style-src 'self' 'unsafe-inline'",
                     "font-src 'self'",
                     "img-src 'self' data: https://*.supabase.co https://cdn.jsdelivr.net https://www.transparenttextures.com blob:",

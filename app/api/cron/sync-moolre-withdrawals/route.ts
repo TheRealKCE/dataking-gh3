@@ -3,9 +3,10 @@ import { createServerClient } from '@/lib/supabase'
 import { checkTransferStatus } from '@/lib/moolre-transfer-service'
 import { sendShopWithdrawalProcessedSMS } from '@/lib/sms-service'
 import { sendShopWithdrawalProcessedEmail } from '@/lib/email-service'
-import { areCronJobsEnabled, cronDisabledResponse } from '@/lib/cron-control'
+import { areCronJobsEnabled, cronDisabledResponse, validateCronSecret } from '@/lib/cron-control'
 
 export async function GET(req: NextRequest) {
+    validateCronSecret() // Throws if CRON_SECRET is missing or shorter than 32 chars
     if (!areCronJobsEnabled()) return cronDisabledResponse()
 
     // 1. Secure with CRON_SECRET

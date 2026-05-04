@@ -51,7 +51,9 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({ received: true })
             }
 
-            // ✅ IDEMPOTENCY CHECK: Prevent duplicate webhook processing
+            // ✅ IDEMPOTENCY CHECK: Prevent duplicate webhook processing for ALL payment types
+            // This guard covers both wallet top-ups and agent upgrades.
+            // Paystack guarantees at-least-once delivery, so this is critical.
             if ((payment as any).status === 'completed') {
                 console.log(`[PaystackWebhook] Payment ${reference} already processed, ignoring duplicate webhook`)
                 return NextResponse.json({ received: true })

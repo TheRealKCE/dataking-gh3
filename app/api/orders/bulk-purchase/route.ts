@@ -6,6 +6,7 @@ import { cookies } from 'next/headers'
 import { waitUntil } from '@vercel/functions'
 import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
+import { checkFraudSignals, logSuspiciousActivity } from '@/lib/security'
 
 const bulkRateLimit = new Ratelimit({
     redis: Redis.fromEnv(),
@@ -143,11 +144,11 @@ export async function POST(request: NextRequest) {
         const totalCost = validatedOrders.reduce((sum, o: any) => sum + o.packagePrice, 0)
 
         // === SECURITY: Fraud Check for Admin/Agent ===
-        // const isFraud = await checkFraudSignals(userId, 'bulk_admin', supabase)
-        // if (isFraud) {
-        //     await logSuspiciousActivity(userId, 'bulk_purchase', 'fraud detected', supabase)
-        //     return NextResponse.json({ error: 'Bulk action blocked due to suspicious activity' }, { status: 403 })
-        // }
+        const isFraud = await checkFraudSignals(userId, 'bulk_admin', supabase)
+        if (isFraud) {
+            await logSuspiciousActivity(userId, 'bulk_purchase', 'Fraud signals detected on bulk order', supabase)
+            return NextResponse.json({ error: 'Bulk action blocked due to suspicious activity' }, { status: 403 })
+        }
 
         const { data: deductResult, error: deductError } = await (supabase as any)
             .rpc('deduct_wallet_balance', {
@@ -194,14 +195,15 @@ export async function POST(request: NextRequest) {
 
         if (ordersError) {
             console.error('Bulk order insert error:', ordersError)
-            // Refund the full amount since order creation failed
-            await (supabase.from('wallets') as any)
-                .update({
-                    balance: (newBalance ?? 0) + totalCost,
-                    total_spent: (walletRow?.new_total_spent ?? 0) - totalCost,
-                    updated_at: new Date().toISOString(),
+            // Refund the full amount atomically using the RPC (same as single purchase)
+            const { error: refundError } = await (supabase as any)
+                .rpc('credit_wallet_balance', {
+                    p_user_id: userId,
+                    p_amount: totalCost,
                 })
-                .eq('id', walletId)
+            if (refundError) {
+                console.error('CRITICAL: Bulk refund RPC failed after order insert error', refundError)
+            }
             return NextResponse.json({ error: 'Failed to create orders' }, { status: 500 })
         }
 

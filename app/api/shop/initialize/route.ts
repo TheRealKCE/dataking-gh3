@@ -1,34 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
+import { Redis } from '@upstash/redis'
 
-const rateLimitCache = new Map<string, { count: number, resetTime: number }>()
-const idempotencyCache = new Map<string, { authUrl: string, ref: string, expireAt: number }>()
-
-function cleanupCaches() {
-    const now = Date.now()
-    for (const [key, val] of rateLimitCache.entries()) if (val.resetTime < now) rateLimitCache.delete(key)
-    for (const [key, val] of idempotencyCache.entries()) if (val.expireAt < now) idempotencyCache.delete(key)
-}
+// Redis client for distributed idempotency across all serverless instances.
+// In-memory Maps were removed — they reset on every Vercel cold start.
+const redis = Redis.fromEnv()
 
 export async function POST(request: NextRequest) {
     try {
-        cleanupCaches()
-        const ip = request.headers.get('x-forwarded-for') || 'unknown'
         const body = await request.json()
         const { shopSlug, packageId, guestPhone, guestEmail, orderType, network, amount, useExactAmount } = body
 
         if (!shopSlug || !guestPhone) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
         }
-        
-        const rlKey = `${ip}-${shopSlug}`
-        const rlEntry = rateLimitCache.get(rlKey) || { count: 0, resetTime: Date.now() + 60000 }
-        if (rlEntry.count > 5 && rlEntry.resetTime > Date.now()) {
-            return NextResponse.json({ error: 'Too many requests. Please try again in a minute.' }, { status: 429 })
-        }
-        rlEntry.count++
-        rateLimitCache.set(rlKey, rlEntry)
+        // Note: rate limiting for this route is enforced by the Upstash middleware limiter (shopInitialize: 10/min by IP).
 
         if (orderType === 'airtime' && (!network || !amount)) {
             return NextResponse.json({ error: 'Missing airtime fields' }, { status: 400 })
@@ -231,9 +218,9 @@ export async function POST(request: NextRequest) {
         const paystackRef = `SHOP-${shop.id.slice(0, 8)}-${Date.now()}`
         const callbackUrl = `${process.env.NEXT_PUBLIC_APP_URL || ''}/api/shop/verify?ref=${paystackRef}&slug=${shopSlug}`
 
-        const idemKey = `${shop.id}-${cleanPhone}-${totalAmount}`
-        const cachedIdem = idempotencyCache.get(idemKey)
-        if (cachedIdem && cachedIdem.expireAt > Date.now()) {
+        const idemKey = `shop:idem:${shop.id}-${cleanPhone}-${totalAmount}`
+        const cachedIdem = await redis.get<{ authUrl: string, ref: string }>(idemKey)
+        if (cachedIdem) {
             return NextResponse.json({ success: true, authorization_url: cachedIdem.authUrl, reference: cachedIdem.ref })
         }
 
@@ -266,7 +253,8 @@ export async function POST(request: NextRequest) {
         const paystackData = await paystackRes.json()
         if (!paystackData.status) return NextResponse.json({ error: 'Payment initialization failed' }, { status: 500 })
 
-        idempotencyCache.set(idemKey, { authUrl: paystackData.data.authorization_url, ref: paystackRef, expireAt: Date.now() + 60000 })
+        // Cache the Paystack URL for 60 seconds to prevent duplicate transactions on retries.
+        await redis.set(idemKey, { authUrl: paystackData.data.authorization_url, ref: paystackRef }, { ex: 60 })
 
         return NextResponse.json({ success: true, authorization_url: paystackData.data.authorization_url, reference: paystackRef })
     } catch (error) {

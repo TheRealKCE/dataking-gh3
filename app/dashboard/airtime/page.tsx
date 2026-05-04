@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useCallback, useMemo } from 'react'
+import React, { useState, useEffect, useCallback, useMemo, Suspense } from 'react'
 import { Phone, CheckCircle, Copy, Wallet, AlertTriangle, Loader2, ChevronRight, Info, History, X, ArrowRight, RefreshCw, Search, Calendar, Filter, TrendingUp, Coins, Clock, CalendarRange } from 'lucide-react'
 import { useAuth } from '@/contexts/auth-context'
 import { useSearchParams } from 'next/navigation'
@@ -243,7 +243,7 @@ function estimateMashupBundle(amount: number, pref: 'balanced' | 'data' | 'voice
 }
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
-export default function AirtimePage() {
+function AirtimePageInner() {
     const { dbUser } = useAuth()
     const searchParams = useSearchParams()
     const [activeTab, setActiveTab] = useState<'buy' | 'history'>('buy')
@@ -999,5 +999,14 @@ export default function AirtimePage() {
                 </DialogContent>
             </Dialog>
         </div>
+    )
+}
+
+// ─── Suspense wrapper (required by Next.js 15 for useSearchParams) ────────────
+export default function AirtimePage() {
+    return (
+        <Suspense fallback={<div className="flex items-center justify-center min-h-[60vh]"><div className="w-8 h-8 rounded-full border-4 border-slate-200 border-t-slate-800 animate-spin" /></div>}>
+            <AirtimePageInner />
+        </Suspense>
     )
 }
