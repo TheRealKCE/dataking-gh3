@@ -73,16 +73,14 @@ export default function LoginPage() {
                 <div className="text-center mb-10">
                     <Link href="/" className="inline-flex flex-col items-center group">
                         <div className="relative w-20 h-20 mb-6 transition-transform group-hover:scale-105">
-                            <div className="w-full h-full rounded-3xl bg-primary flex items-center justify-center shadow-blue-premium overflow-hidden">
+                            <div className="relative w-full h-full rounded-3xl shadow-blue-premium overflow-hidden">
                                 <Image
                                     src="/logo.png"
                                     alt="ARHMS"
-                                    width={70}
-                                    height={70}
+                                    fill
                                     className="object-contain"
                                     priority
                                 />
-                                <div className="absolute inset-0 bg-gradient-to-tr from-black/20 to-transparent" />
                             </div>
                         </div>
                         <h1 className="text-3xl font-black text-foreground tracking-tighter uppercase">

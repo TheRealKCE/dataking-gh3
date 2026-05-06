@@ -146,7 +146,7 @@ export default function SignupPage() {
                         </div>
                         <h2 className="text-xl font-bold text-slate-900 mb-2">Check Your Email</h2>
                         <p className="text-slate-600 text-sm mb-5">
-                            We've sent a verification link to <strong className="text-slate-900">{formData.email}</strong>.
+                            We&apos;ve sent a verification link to <strong className="text-slate-900">{formData.email}</strong>.
                         </p>
                         <Link href="/auth/login">
                             <Button className="w-full h-12 text-base font-bold bg-indigo-600 hover:bg-indigo-700 text-white shadow-lg rounded-xl">
@@ -169,16 +169,14 @@ export default function SignupPage() {
                 <div className="text-center mb-8">
                     <Link href="/" className="inline-flex flex-col items-center group">
                         <div className="relative w-16 h-16 mb-4 transition-transform group-hover:scale-105">
-                            <div className="w-full h-full rounded-2xl bg-primary flex items-center justify-center shadow-blue-premium overflow-hidden">
+                            <div className="relative w-full h-full rounded-2xl shadow-blue-premium overflow-hidden">
                                 <Image
                                     src="/logo.png"
                                     alt="ARHMS"
-                                    width={55}
-                                    height={55}
+                                    fill
                                     className="object-contain"
                                     priority
                                 />
-                                <div className="absolute inset-0 bg-gradient-to-tr from-black/20 to-transparent" />
                             </div>
                         </div>
                         <h1 className="text-2xl font-black text-foreground tracking-tighter uppercase">

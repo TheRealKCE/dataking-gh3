@@ -41,10 +41,10 @@ export async function POST(request: NextRequest) {
 
         // === SECURITY: Validate all price values before writing to DB ===
         const pricesSchema = z.object({
-            '3d':        z.number({ invalid_type_error: 'Price for 3d must be a number' }).min(1, 'Price must be at least 1').max(10000, 'Price cannot exceed 10000'),
-            '14d':       z.number({ invalid_type_error: 'Price for 14d must be a number' }).min(1, 'Price must be at least 1').max(10000, 'Price cannot exceed 10000'),
-            '30d':       z.number({ invalid_type_error: 'Price for 30d must be a number' }).min(1, 'Price must be at least 1').max(10000, 'Price cannot exceed 10000'),
-            'permanent': z.number({ invalid_type_error: 'Price for permanent must be a number' }).min(1, 'Price must be at least 1').max(10000, 'Price cannot exceed 10000'),
+            '3d':        z.coerce.number({ invalid_type_error: 'Price for 3d must be a number' }).min(1, 'Price must be at least 1').max(10000, 'Price cannot exceed 10000'),
+            '14d':       z.coerce.number({ invalid_type_error: 'Price for 14d must be a number' }).min(1, 'Price must be at least 1').max(10000, 'Price cannot exceed 10000'),
+            '30d':       z.coerce.number({ invalid_type_error: 'Price for 30d must be a number' }).min(1, 'Price must be at least 1').max(10000, 'Price cannot exceed 10000'),
+            'permanent': z.coerce.number({ invalid_type_error: 'Price for permanent must be a number' }).min(1, 'Price must be at least 1').max(10000, 'Price cannot exceed 10000'),
         })
 
         const pricesResult = pricesSchema.safeParse(prices)
