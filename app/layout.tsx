@@ -4,7 +4,8 @@ export const viewport: Viewport = {
     width: 'device-width',
     initialScale: 1,
     themeColor: '#0A0A0A',
-    interactiveWidget: 'resizes-content',
+    // interactiveWidget removed: only supported in Chrome 108+, causes viewport
+    // layout issues on older Android WebView (common on low-end phones in Ghana)
 }
 import { Outfit, Inter } from 'next/font/google'
 import { Suspense } from 'react'
@@ -17,14 +18,14 @@ import { GlobalLoader } from '@/components/ui/global-loader'
 const outfit = Outfit({
     weight: ['400', '600', '700'],
     subsets: ['latin'],
-    display: 'swap',
+    display: 'optional', // 'optional' prevents FOFT double-render on slow CPUs
     variable: '--font-heading',
 })
 
 const inter = Inter({
     weight: ['400', '500', '600'],
     subsets: ['latin'],
-    display: 'swap',
+    display: 'optional', // 'optional' prevents FOFT double-render on slow CPUs
     variable: '--font-body',
 })
 

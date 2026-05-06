@@ -4,7 +4,12 @@ import { notFound } from 'next/navigation'
 import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import { createServerClient } from '@/lib/supabase'
-import ShopStorefront from './ShopStorefront'
+import dynamic from 'next/dynamic'
+
+// Fix 4: Lazy-load the 66KB ShopStorefront into a separate JS chunk
+// so the ISR-cached HTML shell renders first, then JS hydrates — prevents
+// blank-screen crashes on low-end phones with limited RAM
+const ShopStorefront = dynamic(() => import('./ShopStorefront'), { loading: () => null })
 
 interface Props {
     params: Promise<{ shopSlug: string }>

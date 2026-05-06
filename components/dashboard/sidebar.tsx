@@ -370,6 +370,8 @@ export function DashboardSidebar() {
                             href={communityLink}
                             target="_blank"
                             rel="noopener noreferrer"
+                            title="Join Community"
+                            aria-label="Join Community"
                             onClick={() => { if (window.innerWidth < 1024) closeSidebar() }}
                             className="nav-link justify-center px-0 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 block"
                         >

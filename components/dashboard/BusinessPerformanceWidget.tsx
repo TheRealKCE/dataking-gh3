@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useAuth } from '@/contexts/auth-context'
 import { formatCurrency } from '@/lib/utils'
@@ -17,6 +17,29 @@ interface PerformanceData {
     current7DaysRevenue: number
     prev7DaysRevenue: number
     dailyData: { date: string; amount: number }[]
+}
+
+// SparklineBar sets height imperatively via ref to avoid JSX inline style prop
+function SparklineBar({ heightPercent, isToday }: { heightPercent: number; isToday: boolean }) {
+    const ref = useRef<HTMLDivElement>(null)
+    useEffect(() => {
+        if (ref.current) {
+            ref.current.style.height = `${heightPercent}%`
+        }
+    }, [heightPercent])
+    return (
+        <div
+            ref={ref}
+            className={cn(
+                "w-full rounded-sm transition-all duration-500 ease-out group-hover/bar:bg-indigo-400",
+                isToday
+                    ? "bg-indigo-500 dark:bg-indigo-400 shadow-[0_0_8px_rgba(99,102,241,0.5)]"
+                    : "bg-indigo-200 dark:bg-indigo-900/50"
+            )}
+            role="presentation"
+            aria-hidden="true"
+        />
+    )
 }
 
 export function BusinessPerformanceWidget() {
@@ -251,15 +274,7 @@ export function BusinessPerformanceWidget() {
                                     <div className="absolute -top-8 bg-gray-900 text-white text-[10px] py-1 px-2 rounded opacity-0 group-hover/bar:opacity-100 transition-opacity whitespace-nowrap z-20 shadow-md transform pointer-events-none">
                                         {formatCurrency(day.amount)}
                                     </div>
-                                    <div 
-                                        className={cn(
-                                            "w-full rounded-sm transition-all duration-500 ease-out group-hover/bar:bg-indigo-400",
-                                            isToday 
-                                                ? "bg-indigo-500 dark:bg-indigo-400 shadow-[0_0_8px_rgba(99,102,241,0.5)]" 
-                                                : "bg-indigo-200 dark:bg-indigo-900/50"
-                                        )}
-                                        style={{ height: `${heightPercent}%` }}
-                                    />
+                                    <SparklineBar heightPercent={heightPercent} isToday={isToday} />
                                 </div>
                             )
                         })}

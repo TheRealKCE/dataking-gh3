@@ -91,12 +91,24 @@
   h4 { @apply text-xl md:text-2xl; }
 
   /* Premium Design Utilities */
+  /* glass: solid fallback for browsers without backdrop-filter support
+     (Android WebView < 76 / Android 9 and older) */
   .glass {
-    @apply bg-white/5 backdrop-blur-xl border border-white/10 shadow-xl;
+    @apply bg-white/15 border border-white/10 shadow-xl;
+  }
+  @supports (backdrop-filter: blur(1px)) {
+    .glass {
+      @apply bg-white/5 backdrop-blur-xl;
+    }
   }
 
   .glass-dark {
-    @apply bg-black/20 backdrop-blur-2xl border border-white/5 shadow-2xl;
+    @apply bg-black/40 border border-white/5 shadow-2xl;
+  }
+  @supports (backdrop-filter: blur(1px)) {
+    .glass-dark {
+      @apply bg-black/20 backdrop-blur-2xl;
+    }
   }
 
   .card-premium {
@@ -146,6 +158,12 @@
 @layer utilities {
   .shadow-premium {
     box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  }
+
+  /* Dynamic sparkline bar — height is driven by --sparkline-height CSS variable
+     set per-element. This avoids inline style on the height property directly. */
+  .sparkline-bar {
+    height: var(--sparkline-height, 5%);
   }
 
   .shadow-blue-premium {
@@ -480,5 +498,14 @@
     font-size: 0.75rem !important;
     min-width: 60px !important;
     height: 32px !important;
+  }
+}
+
+/* Fix 6: Disable heavy continuous animations for low-end devices and
+   users who have enabled Reduce Motion in Android accessibility settings */
+@media (prefers-reduced-motion: reduce) {
+  .animate-elastic-ring,
+  .animate-slow-fade {
+    animation: none !important;
   }
 }

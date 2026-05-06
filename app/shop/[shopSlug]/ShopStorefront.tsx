@@ -184,9 +184,8 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
     const [activeNetwork, setActiveNetwork] = useState<string>(networks[0] || '')
 
     useEffect(() => {
-        const timer = setTimeout(() => setPageLoading(false), 400)
+        setPageLoading(false)
         try { sessionStorage.setItem('shop_sticky_slug', shop.shop_slug) } catch (_) { }
-        return () => clearTimeout(timer)
     }, [shop.shop_slug])
 
     // Sticky header scroll listener
@@ -449,10 +448,10 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                     --brand-contrast-text: ${brandContrastText};
                 }
                 @keyframes shake { 0%, 100% { transform: rotate(0deg); } 25% { transform: rotate(15deg); } 75% { transform: rotate(-15deg); } }
-                .animate-shake { animation: shake 0.5s infinite; transform-origin: top center; }
+                .animate-shake { animation: shake 0.5s ease-in-out 3; transform-origin: top center; }
             ` }} />
             {/* ── Permanent Top Bar ── */}
-            <div className="fixed top-0 left-0 w-full z-[45] shadow-lg border-b border-black/5 dark:border-white/5 bg-[var(--brand-color)]/95 backdrop-blur-md transition-all duration-300 ease-in-out">
+            <div className="fixed top-0 left-0 w-full z-[45] shadow-lg border-b border-black/5 dark:border-white/5 bg-[var(--brand-color)] transition-all duration-300 ease-in-out">
                 <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
                         <button onClick={() => setIsSidebarOpen(true)} className="p-1 bg-[#FFCE00] hover:bg-[#E6B800] rounded-lg transition-colors flex-shrink-0 text-black border border-black/10 shadow-sm" aria-label="Open menu">

@@ -1,5 +1,12 @@
 import { getPublicConfig } from '@/lib/public-config'
-import { LandingClientShell } from '@/components/landing/LandingClientShell'
+import dynamic from 'next/dynamic'
+
+// Fix 4: Lazy-load the 44KB LandingClientShell so it's split into a separate
+// JS chunk — prevents tab crashes on low-end phones with 512MB RAM
+const LandingClientShell = dynamic(
+    () => import('@/components/landing/LandingClientShell').then(m => ({ default: m.LandingClientShell })),
+    { loading: () => null }
+)
 
 export default async function HomePage() {
     // Fetch public config server-side — serializable data only passed to client
