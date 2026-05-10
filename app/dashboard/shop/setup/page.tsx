@@ -403,6 +403,7 @@ export default function ShopSetupPage() {
                 banner_pos_y: form.banner_pos_y,
                 banner_zoom: form.banner_zoom,
                 divider_style: form.divider_style,
+                is_active: form.is_active,
             }
 
             const method = existingShopId ? 'PUT' : 'POST'

@@ -319,7 +319,7 @@ export default function ShopOverviewPage() {
     const cfg = statusConfig[shop.approval_status]
     const StatusIcon = cfg?.icon || Clock
     const isPending = shop.approval_status === 'pending'
-    const shopIsLive = shop.approval_status === 'approved' && shop.pricing_status === 'approved'
+    const shopIsLive = shop.approval_status === 'approved' && shop.pricing_status === 'approved' && shop.is_active
 
     return (
         <div className="space-y-6 pb-20 md:pb-6">
@@ -382,6 +382,58 @@ export default function ShopOverviewPage() {
                     )}
                 </div>
             </div>
+
+            {/* --- NEXT STEP GUIDANCE BANNER --- */}
+            {!shopIsLive && shop.approval_status === 'approved' && (() => {
+                if (!shop.is_active && shop.pricing_status === 'approved') {
+                    return (
+                        <div className="flex items-start gap-4 p-4 rounded-2xl bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800">
+                            <div className="w-9 h-9 rounded-xl bg-amber-100 dark:bg-amber-900/40 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                <XCircle className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <p className="font-bold text-sm text-amber-900 dark:text-amber-200">Your shop is set to Closed</p>
+                                <p className="text-xs text-amber-700 dark:text-amber-400 mt-0.5">Customers cannot visit your storefront. Toggle it to <strong>Open</strong> in your shop settings to go live.</p>
+                            </div>
+                            <Link href="/dashboard/shop/setup" className="shrink-0">
+                                <Button size="sm" className="h-9 bg-amber-600 hover:bg-amber-700 text-white font-bold rounded-xl gap-1.5">
+                                    <Settings className="w-3.5 h-3.5" /> Open Shop
+                                </Button>
+                            </Link>
+                        </div>
+                    )
+                }
+                if (shop.pricing_status === 'pending_review') {
+                    return (
+                        <div className="flex items-start gap-4 p-4 rounded-2xl bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800">
+                            <div className="w-9 h-9 rounded-xl bg-blue-100 dark:bg-blue-900/40 flex items-center justify-center flex-shrink-0 mt-0.5">
+                                <Clock className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                            </div>
+                            <div className="flex-1 min-w-0">
+                                <p className="font-bold text-sm text-blue-900 dark:text-blue-200">Pricing is under review</p>
+                                <p className="text-xs text-blue-700 dark:text-blue-400 mt-0.5">An admin is reviewing your submitted prices. Your shop will go live automatically once approved.</p>
+                            </div>
+                        </div>
+                    )
+                }
+                // not_submitted or rejected
+                return (
+                    <div className="flex items-start gap-4 p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800">
+                        <div className="w-9 h-9 rounded-xl bg-emerald-100 dark:bg-emerald-900/40 flex items-center justify-center flex-shrink-0 mt-0.5">
+                            <Tag className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="font-bold text-sm text-emerald-900 dark:text-emerald-200">One more step — set your prices</p>
+                            <p className="text-xs text-emerald-700 dark:text-emerald-400 mt-0.5">Your shop profile is approved. Configure your selling prices to make your storefront live and start earning.</p>
+                        </div>
+                        <Link href="/dashboard/shop/pricing" className="shrink-0">
+                            <Button size="sm" className="h-9 bg-emerald-600 hover:bg-emerald-700 text-white font-bold rounded-xl gap-1.5">
+                                <Tag className="w-3.5 h-3.5" /> Set Prices
+                            </Button>
+                        </Link>
+                    </div>
+                )
+            })()}
 
             {/* --- SMART STATS --- */}
             <div className={cn("space-y-3", isPending && "opacity-50 pointer-events-none")}>

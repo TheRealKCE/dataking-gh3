@@ -33,6 +33,7 @@ const shopProfileSchema = z.object({
     banner_pos_y:    z.number().min(0).max(100).optional(),
     banner_zoom:     z.number().min(1).max(2.5).optional(),
     divider_style:   shortTextSchema.optional(),
+    is_active:       z.boolean().optional(),
 })
 
 // Helper: convert empty strings to null for optional text fields
@@ -96,6 +97,7 @@ async function handleShopProfileWrite(request: NextRequest, mode: 'create' | 'up
             banner_pos_y?: number
             banner_zoom?: number
             divider_style?: string
+            is_active?: boolean
         }
 
         // Build safe DB payload — empty optional strings become null
@@ -141,7 +143,7 @@ async function handleShopProfileWrite(request: NextRequest, mode: 'create' | 'up
 
             const { error: insertError } = await (supabaseAdmin as any)
                 .from('shop_profiles')
-                .insert({ ...dbPayload, owner_id: userId, approval_status: 'approved', is_active: false })
+                .insert({ ...dbPayload, owner_id: userId, approval_status: 'approved', is_active: data.is_active ?? true })
 
             if (insertError) {
                 console.error('[ShopProfile] Insert error:', insertError)
@@ -166,9 +168,13 @@ async function handleShopProfileWrite(request: NextRequest, mode: 'create' | 'up
                 return NextResponse.json({ error: 'Shop not found' }, { status: 404 })
             }
 
+            const updatePayload: any = { ...dbPayload }
+            if (data.is_active !== undefined) {
+                updatePayload.is_active = data.is_active
+            }
             const { error: updateError } = await (supabaseAdmin as any)
                 .from('shop_profiles')
-                .update(dbPayload)
+                .update(updatePayload)
                 .eq('owner_id', userId)
 
             if (updateError) {
