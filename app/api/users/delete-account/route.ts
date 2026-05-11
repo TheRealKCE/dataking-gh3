@@ -71,7 +71,7 @@ export async function POST(request: Request) {
         }
 
         // Ownership confirmed: authenticated user matches the account being deleted
-        console.log(`[DeleteAccount] User ${userId} deleted their own account`)
+        console.log('[DeleteAccount] Authenticated user deleted their own account')
 
         // 4. Delete from public.users (cascade will handle related data)
         const { error: dbDeleteError } = await supabaseAdmin

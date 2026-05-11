@@ -72,7 +72,7 @@ export async function POST(request: NextRequest) {
 
             if (existingOrder) {
                 // Order already exists — this is a duplicate request. Return success with existing data.
-                console.log(`[Purchase] Duplicate request blocked for reference: ${clientReferenceCode}`)
+                console.log('[Purchase] Duplicate request blocked for client reference')
                 return NextResponse.json({
                     success: true,
                     isDuplicate: true,

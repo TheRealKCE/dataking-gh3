@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
+import { parsePagination } from '@/lib/pagination'
 
 export async function GET(request: NextRequest) {
     try {
@@ -29,7 +30,7 @@ export async function GET(request: NextRequest) {
         const { searchParams } = new URL(request.url)
         const network = searchParams.get('network')
         const search = searchParams.get('search')
-        const limit = parseInt(searchParams.get('limit') || '500')
+        const { limit } = parsePagination(searchParams, { defaultLimit: 100, maxLimit: 200 })
 
         const supabase = createServerClient()
 
@@ -99,6 +100,6 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({ orders })
     } catch (error: any) {
         console.error('DataGod Pending Orders Fetch Error:', error)
-        return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 })
+        return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 }

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
+import { parsePagination } from '@/lib/pagination'
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
@@ -31,8 +32,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
         }
 
         const { searchParams } = new URL(request.url)
-        const limit = parseInt(searchParams.get('limit') || '20')
-        const offset = parseInt(searchParams.get('offset') || '0')
+        const { limit, offset } = parsePagination(searchParams, { defaultLimit: 20, maxLimit: 100 })
         const type = searchParams.get('type') // credit, debit
         const source = searchParams.get('source') // purchase, payment, admin, refund
         const startDate = searchParams.get('startDate')
@@ -143,6 +143,6 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
     } catch (error: any) {
         console.error('Admin User Transactions Fetch Error:', error)
-        return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 })
+        return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 }

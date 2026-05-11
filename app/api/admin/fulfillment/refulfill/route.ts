@@ -154,7 +154,7 @@ export async function POST(request: Request) {
                 : await fulfillOrder(order.network, order.phone_number, order.size, order.id)
 
             if (result.success) {
-                console.log(`[ManualRefulfill] SUCCESS for order ${order.id} via ${supplierLabel}. Reference: ${result.reference || result.transactionId}`)
+                console.log(`[ManualRefulfill] SUCCESS for order ${order.id} via ${supplierLabel}`)
 
                 // Track success
                 await supabaseAdmin.from('mtn_fulfillment_tracking').insert({

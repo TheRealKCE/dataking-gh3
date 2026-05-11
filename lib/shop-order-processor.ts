@@ -33,11 +33,11 @@ export async function processShopOrder(
     const db = supabase as any
 
     try {
-        console.log(`[Shop Order Processor] Processing Ref: ${reference}, Amount: ${paidAmountPesewas} pesewas`)
+        console.log(`[Shop Order Processor] Processing paid shop order`)
 
         // 0. High-Speed Memory Lock (prevents exact-millisecond race conditions on same Vercel lambda)
         if (processingLocks.has(reference)) {
-            console.log(`[Shop Order Processor] Active lock found for ${reference}. Skipping duplicate execution.`);
+            console.log(`[Shop Order Processor] Active lock found. Skipping duplicate execution.`);
             return { success: true, isDuplicate: true }
         }
         processingLocks.add(reference);
@@ -515,7 +515,7 @@ async function triggerShopFulfillment(
                     .eq('id', orderId)
             }
 
-            console.log(`[Shop Order Processor] ✅ Fulfillment success for order ${orderId} via ${supplierLabel}. Ref: ${result.transactionId || result.reference}`)
+            console.log(`[Shop Order Processor] Fulfillment success for order ${orderId} via ${supplierLabel}`)
 
         } else {
             // ALL failures → keep order as PENDING — never mark as failed

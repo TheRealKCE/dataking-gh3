@@ -26,7 +26,6 @@ interface Order {
     created_at: string
     shop_name: string // Flattened from RPC
     shop_slug: string // Flattened from RPC
-    guest_phone: string
 }
 
 const statusConfig = {
@@ -58,20 +57,14 @@ function OrderCard({ order }: { order: Order }) {
                         </div>
                         <p className="font-black text-sm text-gray-800 dark:text-gray-200">{formatCurrency(order.selling_price)}</p>
                     </div>
-                    <div className="flex flex-col gap-1 mt-2">
-                        <p className="text-[10px] text-muted-foreground flex items-center gap-1 font-mono">
-                            <Phone className="w-3 h-3 text-emerald-500" />
-                            {order.guest_phone || 'N/A'}
+                    <div className="flex justify-between items-center mt-2">
+                        <p className="text-[10px] text-muted-foreground flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            {new Date(order.created_at).toLocaleDateString()} {new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </p>
-                        <div className="flex justify-between items-center">
-                            <p className="text-[10px] text-muted-foreground flex items-center gap-1">
-                                <Clock className="w-3 h-3" />
-                                {new Date(order.created_at).toLocaleDateString()} {new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                            </p>
-                            <span className={cn('text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full', cfg.color)}>
-                                {cfg.label}
-                            </span>
-                        </div>
+                        <span className={cn('text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full', cfg.color)}>
+                            {cfg.label}
+                        </span>
                     </div>
                 </div>
             </div>
@@ -94,6 +87,7 @@ export default function ShopStatusTracker() {
     const nameParam = searchParams.get('name')
 
     const [phone, setPhone] = useState('')
+    const [reference, setReference] = useState('')
     const [searchOrders, setSearchOrders] = useState<Order[]>([])
     const [lastShopSlug, setLastShopSlug] = useState<string | null>(null)
     
@@ -109,6 +103,8 @@ export default function ShopStatusTracker() {
         try {
             const savedPhone = localStorage.getItem('shop_last_phone')
             if (savedPhone) setPhone(savedPhone)
+            const savedReference = localStorage.getItem('shop_last_reference')
+            if (savedReference) setReference(savedReference)
             const slugFromStorage = sessionStorage.getItem('shop_sticky_slug')
             setLastShopSlug(slugFromStorage)
             
@@ -152,11 +148,18 @@ export default function ShopStatusTracker() {
     const handleSearch = async (e: React.FormEvent) => {
         e.preventDefault()
         if (!phone.trim()) { toast.error('Enter a phone number'); return }
+        if (!reference.trim()) { toast.error('Enter your payment reference'); return }
 
         const cleanPhone = phone.replace(/\s+/g, '')
+        const cleanReference = reference.trim()
         const ghanaPhoneRegex = /^(0\d{9}|233\d{9})$/
+        const referenceRegex = /^SHOP-[A-Za-z0-9_-]{3,120}$/
         if (!ghanaPhoneRegex.test(cleanPhone)) {
             toast.error('Enter a valid Ghana phone number (e.g. 0244123456)')
+            return
+        }
+        if (!referenceRegex.test(cleanReference)) {
+            toast.error('Enter a valid shop payment reference')
             return
         }
 
@@ -164,7 +167,7 @@ export default function ShopStatusTracker() {
         setHasSearched(true)
         
         // Caching Logic: Check cache and TTL
-        const cacheKey = `shop_tracker_cache_${cleanPhone}`
+        const cacheKey = `shop_tracker_cache_${cleanPhone}_${cleanReference}`
         try {
             const cachedData = localStorage.getItem(cacheKey)
             if (cachedData) {
@@ -180,7 +183,7 @@ export default function ShopStatusTracker() {
         } catch (err) { }
 
         try {
-            const res = await fetch(`/api/shop/lookup-orders?phone=${encodeURIComponent(cleanPhone)}&limit=50`)
+            const res = await fetch(`/api/shop/lookup-orders?phone=${encodeURIComponent(cleanPhone)}&reference=${encodeURIComponent(cleanReference)}`)
             if (!res.ok) throw new Error('Failed to fetch')
             const json = await res.json()
 
@@ -193,6 +196,7 @@ export default function ShopStatusTracker() {
                     orders: fetchedOrders
                 }))
                 localStorage.setItem('shop_last_phone', cleanPhone)
+                localStorage.setItem('shop_last_reference', cleanReference)
             } catch (_) {}
 
             // Filter by shop if param exists
@@ -210,7 +214,17 @@ export default function ShopStatusTracker() {
     }
 
     return (
-        <div className={cn("min-h-screen bg-gray-50 dark:bg-gray-950 pb-20", shopData && "theme-tracker")} style={shopData ? { '--brand-color': safeBrandColor, '--brand-contrast-text': brandContrastText } as any : {}}>
+        <div className={cn("min-h-screen bg-gray-50 dark:bg-gray-950 pb-20", shopData && "theme-tracker")}>
+            {shopData && (
+                <style dangerouslySetInnerHTML={{
+                    __html: `
+                        .theme-tracker {
+                            --brand-color: ${safeBrandColor};
+                            --brand-contrast-text: ${brandContrastText};
+                        }
+                    `
+                }} />
+            )}
             
             {/* ── Permanent Top Bar ── */}
             {shopData && (
@@ -261,7 +275,7 @@ export default function ShopStatusTracker() {
                 {/* ── UI Policy Descriptor Update ── */}
                 <div className="bg-blue-50 dark:bg-blue-900/20 text-blue-800 dark:text-blue-300 rounded-xl p-4 text-xs flex items-start gap-3 border border-blue-100 dark:border-blue-800/50 shadow-sm">
                     <Info className="w-5 h-5 flex-shrink-0 mt-0.5 text-blue-600 dark:text-blue-400" />
-                    <p className="leading-relaxed font-medium">Tracking operates instantly! To save on system resources, recent results are locked for 20 minutes per number, showing only orders strictly within the past 48 hours.</p>
+                    <p className="leading-relaxed font-medium">Tracking operates instantly with your phone number and payment reference. Recent results are locked for 20 minutes, showing only orders strictly within the past 48 hours.</p>
                 </div>
 
                 {/* ── Search Section ── */}
@@ -283,9 +297,24 @@ export default function ShopStatusTracker() {
                                     />
                                 </div>
                             </div>
+                            <div className="space-y-1.5">
+                                <label className="text-xs font-bold text-gray-600 dark:text-gray-400 uppercase tracking-wide">
+                                    Payment Reference
+                                </label>
+                                <div className="relative">
+                                    <Package className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                    <Input
+                                        type="text"
+                                        placeholder="SHOP-..."
+                                        value={reference}
+                                        onChange={(e) => setReference(e.target.value)}
+                                        className="pl-9 h-11 bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700 focus:ring-2 focus:ring-emerald-500/20"
+                                    />
+                                </div>
+                            </div>
                             <Button
                                 type="submit"
-                                disabled={searchLoading || !phone.trim()}
+                                disabled={searchLoading || !phone.trim() || !reference.trim()}
                                 className="w-full h-11 font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-md active:scale-[0.98] transition-all"
                             >
                                 {searchLoading ? <Loader2 className="w-5 h-5 animate-spin" /> : 'Find My Orders'}

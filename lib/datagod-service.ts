@@ -1,4 +1,5 @@
 import { createServerClient } from '@/lib/supabase'
+import { sanitizeForLog } from '@/lib/safe-log'
 
 // Isolated DataGod Fulfillment Service
 
@@ -36,7 +37,7 @@ export async function fetchDataGodBalance(): Promise<{ success: boolean; balance
         }
 
         const data = await response.json()
-        console.log('[DataGod Balance] API Response:', JSON.stringify(data))
+        console.log('[DataGod Balance] API response received', { status: response.status, ok: response.ok })
 
         if (response.ok) {
             let balance = 0
@@ -96,7 +97,7 @@ export async function fulfillDataGodOrder(
             reference: reference
         }
 
-        console.log(`[DataGod] Request payload:`, JSON.stringify(requestBody))
+        console.log(`[DataGod] Request payload:`, sanitizeForLog(requestBody))
 
         const response = await fetch(`${DATAGOD_API_BASE_URL}/orders`, {
             method: 'POST',
@@ -115,21 +116,21 @@ export async function fulfillDataGodOrder(
         }
 
         const data = await response.json()
-        console.log(`[DataGod] Full API response (HTTP ${response.status}):`, JSON.stringify(data))
+        console.log(`[DataGod] API response received`, { status: response.status, ok: response.ok })
 
         // Analyze success criteria based on status code or data success flag
         if (response.ok && data.status !== 'failed' && data.status !== 'error') {
             return {
                 success: true,
                 reference: reference, // the custom reference we sent
-                apiResponse: data,
+                apiResponse: sanitizeForLog(data),
             }
         }
 
         return {
             success: false,
             error: data.message || data.error || 'DataGod Fulfillment failed',
-            apiResponse: data,
+            apiResponse: sanitizeForLog(data),
         }
     } catch (error: any) {
         console.error('[DataGod Fulfillment] Error:', error)
@@ -155,7 +156,7 @@ export async function checkDataGodOrderStatus(reference: string): Promise<DataGo
         }
 
         const data = await response.json()
-        console.log(`[DataGod Status] Raw Response for ${reference}:`, JSON.stringify(data).slice(0, 500))
+        console.log(`[DataGod Status] API response received`, { status: response.status, ok: response.ok })
 
         if (response.ok) {
             let statusStr = ''

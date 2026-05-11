@@ -3,6 +3,7 @@ import { createServerClient } from '@/lib/supabase'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import { validateAdminAccess } from '@/lib/auth-utils'
+import { parsePagination } from '@/lib/pagination'
 
 export async function GET(request: NextRequest) {
     try {
@@ -16,8 +17,7 @@ export async function GET(request: NextRequest) {
         const available = searchParams.get('available') === 'true'
         const batchId = searchParams.get('batchId')
         const batchIds = searchParams.get('batchIds')
-        const limit = parseInt(searchParams.get('limit') || '50')
-        const offset = parseInt(searchParams.get('offset') || '0')
+        const { limit, offset } = parsePagination(searchParams, { defaultLimit: 50, maxLimit: 200 })
 
         // Service role client to bypass RLS
         const supabase = createServerClient()
@@ -83,6 +83,6 @@ export async function GET(request: NextRequest) {
         })
     } catch (error: any) {
         console.error('Admin Orders Fetch Error:', error)
-        return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 })
+        return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 }

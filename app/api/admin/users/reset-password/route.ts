@@ -1,30 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
+import { validateAdminAccess } from '@/lib/auth-utils'
 
 export async function POST(request: NextRequest) {
     try {
-        const cookieStore = await cookies()
-        const supabaseUserClient = createRouteHandlerClient({
-            // @ts-expect-error - auth-helpers types expect Promise but runtime needs synchronous object
-            cookies: () => cookieStore
-        })
-        const { data: { user: authUser }, error: authError } = await supabaseUserClient.auth.getUser()
-
-        if (authError || !authUser) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-        }
-
-        // Only admin and sub-admin can reset other users' passwords
-        const { data: callerData } = await supabaseUserClient
-            .from('users')
-            .select('role')
-            .eq('id', authUser.id)
-            .single()
-
-        if (!callerData || (callerData.role !== 'admin' && callerData.role !== 'sub-admin')) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        const authResult = await validateAdminAccess(false, request)
+        if (authResult.error) {
+            return NextResponse.json({ error: authResult.error }, { status: authResult.status })
         }
 
         const body = await request.json()
@@ -64,10 +46,8 @@ export async function POST(request: NextRequest) {
 
         if (resetError) {
             console.error('[AdminResetPassword] Reset error:', resetError)
-            return NextResponse.json({ error: resetError.message || 'Failed to send reset email' }, { status: 500 })
+            return NextResponse.json({ error: 'Failed to send reset email' }, { status: 500 })
         }
-
-        console.log(`[AdminResetPassword] Reset email sent for user ${userId} (${targetUser.email}) by admin ${authUser.id}`)
 
         return NextResponse.json({
             success: true,
@@ -75,6 +55,6 @@ export async function POST(request: NextRequest) {
         })
     } catch (error: any) {
         console.error('[AdminResetPassword] Unexpected error:', error)
-        return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 })
+        return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 }

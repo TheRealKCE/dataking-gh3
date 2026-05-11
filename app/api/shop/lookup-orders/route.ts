@@ -10,38 +10,43 @@ const supabaseAdmin = createClient(
 export async function GET(req: NextRequest) {
     const { searchParams } = new URL(req.url)
     const phone = searchParams.get('phone')
-    const limit = parseInt(searchParams.get('limit') || '50', 10)
+    const reference = searchParams.get('reference')
 
-    if (!phone) {
-        return NextResponse.json({ error: 'Phone number required' }, { status: 400 })
+    if (!phone || !reference) {
+        return NextResponse.json({ error: 'Phone number and payment reference are required' }, { status: 400 })
     }
 
-    const cleanPhone = phone.replace(/[^\d+ ]/g, '').trim()
-    if (!cleanPhone) {
+    const cleanPhone = phone.replace(/\s+/g, '').trim()
+    const cleanReference = reference.trim()
+    const ghanaPhoneRegex = /^(0\d{9}|233\d{9})$/
+    const referenceRegex = /^SHOP-[A-Za-z0-9_-]{3,120}$/
+
+    if (!ghanaPhoneRegex.test(cleanPhone)) {
         return NextResponse.json({ error: 'Invalid phone number' }, { status: 400 })
+    }
+
+    if (!referenceRegex.test(cleanReference)) {
+        return NextResponse.json({ error: 'Invalid payment reference' }, { status: 400 })
     }
 
     try {
         const { data, error } = await supabaseAdmin
-            .rpc('get_shop_orders_by_phone', {
+            .rpc('get_shop_order_by_phone_reference', {
                 phone_number: cleanPhone,
-                limit_count: Math.min(limit, 100),
+                order_reference: cleanReference,
             })
 
         if (error) {
             console.error('[ShopOrdersLookup] RPC error:', error)
-            return NextResponse.json({ error: 'Failed to fetch orders', details: error.message }, { status: 500 })
+            return NextResponse.json({ error: 'Failed to fetch orders' }, { status: 500 })
         }
 
-        const timeBoundary = Date.now() - (48 * 60 * 60 * 1000)
-        const recentOrders = (data || []).filter((order: any) => new Date(order.created_at).getTime() >= timeBoundary)
-
-        return NextResponse.json({ orders: recentOrders }, {
+        return NextResponse.json({ orders: data || [] }, {
             headers: {
                 'Cache-Control': 'private, max-age=600'
             }
         })
-    } catch (err: any) {
+    } catch (err) {
         console.error('[ShopOrdersLookup] Error:', err)
         return NextResponse.json({ error: 'Server error' }, { status: 500 })
     }

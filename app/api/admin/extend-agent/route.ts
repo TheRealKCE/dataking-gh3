@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
                         targetUser.phone_number,
                         newExpiry.toISOString()
                     )
-                    console.log(`[ExtendAgent] Extension SMS sent to ${targetUser.phone_number}`)
+                    console.log('[ExtendAgent] Extension SMS sent')
                 } else if (action === 'reduce') {
                     if (isNowExpired) {
                         // Send expiry notification if reduction causes expiry
@@ -97,7 +97,7 @@ export async function POST(request: NextRequest) {
                             targetUser.phone_number,
                             targetUser.first_name || 'Agent'
                         )
-                        console.log(`[ExtendAgent] Expiry SMS sent to ${targetUser.phone_number}`)
+                        console.log('[ExtendAgent] Expiry SMS sent')
                     } else {
                         // No SMS for reductions that don't cause expiry
                         console.log(`[ExtendAgent] No SMS sent for reduction (still active)`)

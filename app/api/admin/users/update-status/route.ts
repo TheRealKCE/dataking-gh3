@@ -73,7 +73,7 @@ export async function POST(request: Request) {
             )
         }
 
-        console.log(`[Admin] User ${userId} status updated to ${status} by ${authUser.id}`)
+        console.log('[Admin] User status updated', { status })
 
         return NextResponse.json({ success: true })
 

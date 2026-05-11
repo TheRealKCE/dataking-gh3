@@ -32,8 +32,6 @@ export async function POST(request: NextRequest) {
         const body = await request.json()
         const { userId, amount, type, description } = body
 
-        console.log('[Debug] Request:', { userId, amount, type })
-
         if (!userId || amount === undefined || !type) {
             return NextResponse.json({ error: 'userId, amount, and type are required' }, { status: 400 })
         }
@@ -53,7 +51,11 @@ export async function POST(request: NextRequest) {
 
         // ✅ AUDIT: Log large adjustments
         if (adjustmentAmount > 1000) {
-            console.warn(`[AUDIT] Large wallet adjustment: Admin ${authUser.id} ${type} GHS ${adjustmentAmount} to user ${userId}. Reason: ${description || 'No reason provided'}`)
+            console.warn('[AUDIT] Large wallet adjustment submitted', {
+                type,
+                amount: adjustmentAmount,
+                hasDescription: Boolean(description),
+            })
         }
 
         // Service role client to bypass RLS
@@ -131,25 +133,15 @@ export async function POST(request: NextRequest) {
             is_read: false
         })
 
-        let debugInfo = {
-            userFound: false,
-            phoneFound: null as string | null,
-            smsAttempted: false,
-            smsResult: null as any
-        }
-
         if (type === 'credit') {
-            // 5. Fetch user data for notification (WITH DB DEBUG LOGS)
+            // 5. Fetch user data for notification
             const { data: user, error: userFetchError } = await supabase
                 .from('users')
                 .select('email, first_name, phone_number')
                 .eq('id', userId)
                 .single()
 
-            console.log('[Debug] User Fetch Result:', { user, error: userFetchError })
-
             if (user) {
-                debugInfo.userFound = true
                 const reference = `MNL-${Date.now()}`
 
                 // Email
@@ -163,39 +155,32 @@ export async function POST(request: NextRequest) {
 
                 // SMS
                 if ((user as any).phone_number) {
-                    debugInfo.phoneFound = (user as any).phone_number
-                    debugInfo.smsAttempted = true
-                    console.log('[Debug] Sending SMS to:', (user as any).phone_number)
                     try {
-                        const smsResult = await sendWalletTopupSuccessSMS(
+                        await sendWalletTopupSuccessSMS(
                             (user as any).phone_number,
                             {
                                 amount: adjustmentAmount,
                                 newBalance
                             }
                         )
-                        console.log('[Debug] SMS Result:', smsResult)
-                        debugInfo.smsResult = smsResult
                     } catch (smsError: any) {
-                        console.error('[Debug] SMS Failed:', smsError)
-                        debugInfo.smsResult = { error: smsError.message }
+                        console.error('[AdminWalletAdjustment] SMS notification failed:', smsError)
                     }
                 } else {
-                    console.warn('[Debug] Phone number missing for user. User Object:', user)
+                    console.warn('[AdminWalletAdjustment] Phone number missing for adjusted user')
                 }
             } else {
-                console.error('[Debug] User data could not be fetched for ID:', userId)
+                console.error('[AdminWalletAdjustment] User data could not be fetched for notification:', userFetchError)
             }
         }
 
         return NextResponse.json({
             success: true,
-            newBalance,
-            debug: debugInfo
+            newBalance
         })
 
     } catch (error: any) {
         console.error('Admin Wallet Adjustment Error:', error)
-        return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 })
+        return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 }

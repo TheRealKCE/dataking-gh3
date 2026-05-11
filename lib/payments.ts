@@ -7,7 +7,7 @@ import { sendWalletTopupSuccessSMS, sendAgentUpgradeSuccessSMS, sendAgentExtensi
  * crediting the wallet, logging the transaction, and notifying the user.
  * This is designed to be idempotent.
  */
-export async function processCompletedWalletPayment(reference: string, providerMetadata?: any) {
+export async function processCompletedWalletPayment(reference: string, providerMetadata?: any, expectedUserId?: string) {
     const supabase = createServerClient()
 
     // 1. Get payment record
@@ -22,6 +22,11 @@ export async function processCompletedWalletPayment(reference: string, providerM
     if (paymentError || !payment) {
         console.error('[PaymentProcess] Payment not found:', reference)
         return { success: false, error: 'Payment not found' }
+    }
+
+    if (expectedUserId && payment.user_id !== expectedUserId) {
+        console.error('[PaymentProcess] Payment ownership mismatch')
+        return { success: false, error: 'Forbidden' }
     }
 
     // 2. Atomic Update (Idempotency Check)
@@ -116,17 +121,15 @@ export async function processCompletedWalletPayment(reference: string, providerM
 
             // Send SMS notification
             if ((userData as any).phone_number) {
-                console.log('[PaymentProcess] Found user phone:', (userData as any).phone_number)
                 await sendWalletTopupSuccessSMS(
                     (userData as any).phone_number,
                     {
                         amount: payment.amount,
                         newBalance
                     }
-                ).then(res => console.log('[PaymentProcess] SMS Result:', res))
-                    .catch(err => console.error('[PaymentProcess] SMS error:', err))
+                ).catch(err => console.error('[PaymentProcess] SMS error:', err))
             } else {
-                console.warn('[PaymentProcess] No phone number found for user:', payment.user_id)
+                console.warn('[PaymentProcess] No phone number found for payment user')
             }
 
         }

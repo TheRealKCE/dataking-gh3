@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { validateAdminAccess } from '@/lib/auth-utils'
+import { parsePagination } from '@/lib/pagination'
 
 export async function GET(request: NextRequest) {
     try {
@@ -15,7 +16,7 @@ export async function GET(request: NextRequest) {
         const startDate = searchParams.get('startDate')
         const endDate = searchParams.get('endDate')
         const search = searchParams.get('search')
-        const limit = parseInt(searchParams.get('limit') || '500')
+        const { limit } = parsePagination(searchParams, { defaultLimit: 100, maxLimit: 200 })
 
         // Use service role client to bypass RLS
         const supabase = createServerClient()
@@ -108,6 +109,6 @@ export async function GET(request: NextRequest) {
         })
     } catch (error: any) {
         console.error('Fulfillment Orders Fetch Error:', error)
-        return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 })
+        return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 }

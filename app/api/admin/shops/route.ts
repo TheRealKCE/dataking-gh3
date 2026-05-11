@@ -1,35 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
+import { validateAdminAccess } from '@/lib/auth-utils'
 
 const ALLOWED_STATUSES = ['approved', 'rejected', 'suspended'] as const
 type AllowedStatus = typeof ALLOWED_STATUSES[number]
 
 export async function PATCH(request: NextRequest) {
     try {
-        const cookieStore = await cookies()
-        const supabaseUserClient = createRouteHandlerClient({
-            // @ts-expect-error - auth-helpers types expect Promise but runtime needs synchronous object
-            cookies: () => cookieStore
-        })
-
-        // 1. Authenticate caller
-        const { data: { user: authUser }, error: authError } = await supabaseUserClient.auth.getUser()
-        if (authError || !authUser) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        const authResult = await validateAdminAccess(false, request)
+        if (authResult.error) {
+            return NextResponse.json({ error: authResult.error }, { status: authResult.status })
         }
-
-        // 2. Verify caller is admin or sub-admin
-        const { data: callerUser } = await supabaseUserClient
-            .from('users')
-            .select('role')
-            .eq('id', authUser.id)
-            .single()
-
-        if (!callerUser || !['admin', 'sub-admin'].includes(callerUser.role)) {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
-        }
+        const authUser = authResult.user!
 
         // 3. Parse and validate body
         const body = await request.json()
@@ -94,6 +76,6 @@ export async function PATCH(request: NextRequest) {
 
     } catch (error: any) {
         console.error('[AdminShops API]', error)
-        return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 })
+        return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 }

@@ -1,30 +1,13 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
 import { fulfillDataGodOrder } from '@/lib/datagod-service'
+import { validateAdminAccess } from '@/lib/auth-utils'
 
 export async function POST(request: Request) {
     try {
-        const cookieStore = await cookies()
-        const supabaseUserClient = createRouteHandlerClient({
-            // @ts-expect-error - auth-helpers types expect Promise but runtime needs synchronous object
-            cookies: () => cookieStore
-        })
-        const { data: { user: authUser }, error: authError } = await supabaseUserClient.auth.getUser()
-
-        if (authError || !authUser) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-        }
-
-        const { data: userData } = await supabaseUserClient
-            .from('users')
-            .select('role')
-            .eq('id', authUser.id)
-            .single()
-
-        if (userData?.role !== 'admin' && userData?.role !== 'sub-admin') {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        const authResult = await validateAdminAccess(false, request)
+        if (authResult.error) {
+            return NextResponse.json({ error: authResult.error }, { status: authResult.status })
         }
 
         const body = await request.json()
@@ -67,7 +50,7 @@ export async function POST(request: Request) {
 
         // Process sequentially to respect potential rate limits
         for (const order of (ordersToProcess as PendingOrder[])) {
-            console.log(`[DataGod Fulfill] Processing order: ${order.id} | ${order.network} | ${order.phone_number}`);
+            console.log(`[DataGod Fulfill] Processing order ${order.id} on ${order.network}`)
             
             // Generate unique reference (using our order ID)
             const reference = `dg_${order.id}_${Date.now().toString().slice(-6)}`
@@ -144,6 +127,6 @@ export async function POST(request: Request) {
 
     } catch (error: any) {
         console.error('DataGod Manual Fulfill Error:', error)
-        return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 })
+        return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 }

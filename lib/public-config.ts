@@ -120,13 +120,13 @@ let publicConfigClient: SupabaseClient | null = null
 function getPublicConfigClient(): SupabaseClient {
     if (!publicConfigClient) {
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-        const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+        const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-        if (!supabaseUrl || !serviceRoleKey) {
+        if (!supabaseUrl || !anonKey) {
             throw new Error('Supabase public config environment is not configured')
         }
 
-        publicConfigClient = createClient(supabaseUrl, serviceRoleKey, {
+        publicConfigClient = createClient(supabaseUrl, anonKey, {
             auth: {
                 autoRefreshToken: false,
                 persistSession: false,
@@ -154,7 +154,7 @@ async function fetchPublicConfig(): Promise<PublicConfigData> {
         const supabase = getPublicConfigClient()
         const [{ data: settingsRows, error: settingsError }, { data: announcementRows, error: announcementsError }] = await Promise.all([
             supabase
-                .from('admin_settings')
+                .from('public_admin_settings')
                 .select('key, value')
                 .in('key', [...PUBLIC_SETTING_KEYS]),
             supabase
@@ -213,8 +213,8 @@ async function fetchPublicConfig(): Promise<PublicConfigData> {
                 visible_on: announcement.visible_on,
             })),
         }
-    } catch (error) {
-        console.error('Error fetching public config:', error)
+    } catch {
+        console.error('[PublicConfig] Unable to fetch public config; using fallback values')
         return fallbackConfig
     }
 }

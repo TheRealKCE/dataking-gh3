@@ -79,7 +79,7 @@ export async function POST(request: NextRequest) {
                     updated_at: new Date().toISOString(),
                 })
                 .eq('owner_id', userId)
-            console.log(`[AdminPermanentRoleUpdate] Shop fee overrides reset for user ${userId}`)
+            console.log('[AdminPermanentRoleUpdate] Shop fee overrides reset')
         } catch (resetErr) {
             console.error('[AdminPermanentRoleUpdate] Failed to reset shop fee overrides (non-fatal):', resetErr)
         }
@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
                 await sendPermanentAgentUpgradeSuccessSMS(
                     userDetails.phone_number
                 )
-                console.log(`[AdminRoleUpdate] Permanent SMS sent to ${userDetails.phone_number}`)
+                console.log('[AdminRoleUpdate] Permanent SMS sent')
             } catch (smsError) {
                 console.error('[AdminRoleUpdate] SMS error:', smsError)
             }
@@ -103,7 +103,7 @@ export async function POST(request: NextRequest) {
                     userDetails.email,
                     userDetails.first_name || 'User'
                 )
-                console.log(`[AdminRoleUpdate] Permanent Email sent to ${userDetails.email}`)
+                console.log('[AdminRoleUpdate] Permanent email sent')
             } catch (emailError) {
                 console.error('[AdminRoleUpdate] Email error:', emailError)
             }

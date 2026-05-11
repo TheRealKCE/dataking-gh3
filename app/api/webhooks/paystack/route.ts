@@ -34,7 +34,7 @@ export async function POST(request: NextRequest) {
             // before the DB lookup to avoid "Payment not found" errors.
             if (reference && reference.startsWith('SHOP-')) {
                 const { processShopOrder } = await import('@/lib/shop-order-processor')
-                console.log(`[PaystackWebhook] Routing shop order: ${reference}`)
+                console.log('[PaystackWebhook] Routing shop order payment')
                 await processShopOrder(reference, metadata, paidAmountKobo, metadata?.slug)
                 return NextResponse.json({ received: true })
             }
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
             // This guard covers both wallet top-ups and agent upgrades.
             // Paystack guarantees at-least-once delivery, so this is critical.
             if ((payment as any).status === 'completed') {
-                console.log(`[PaystackWebhook] Payment ${reference} already processed, ignoring duplicate webhook`)
+                console.log('[PaystackWebhook] Payment already processed, ignoring duplicate webhook')
                 return NextResponse.json({ received: true })
             }
 

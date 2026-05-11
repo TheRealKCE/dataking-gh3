@@ -29,7 +29,7 @@ export async function syncShopOrderStatus(mainOrderId: string, status: string) {
             return
         }
 
-        console.log(`[ShopSync DEBUG] Fetched order:`, { shop_name: order.shop_name, shop_order_id: order.shop_order_id, ref: order.reference_code })
+        console.log(`[ShopSync DEBUG] Fetched order:`, { shop_name: order.shop_name, shop_order_id: order.shop_order_id })
 
         // If it's not a shop order, skip
         if (!order.shop_order_id && !order.shop_name) {
@@ -56,7 +56,7 @@ export async function syncShopOrderStatus(mainOrderId: string, status: string) {
 
             if (sOrder) {
                 shopOrderId = sOrder.id
-                console.log(`[ShopSync] Found matching shop order ${shopOrderId} via reference ${order.reference_code}`)
+                console.log(`[ShopSync] Found matching shop order ${shopOrderId} via reference lookup`)
                 // Self-heal: update the main order with the missing ID
                 await db.from('orders').update({ shop_order_id: shopOrderId }).eq('id', mainOrderId)
             }
@@ -64,7 +64,7 @@ export async function syncShopOrderStatus(mainOrderId: string, status: string) {
 
         // Fallback 3: Try to find shop order by shop_name + phone_number match
         if (!shopOrderId && order.shop_name && order.phone_number) {
-            console.log(`[ShopSync DEBUG] Attempting fallback lookup via shop_name/phone_number...`)
+            console.log(`[ShopSync DEBUG] Attempting fallback lookup via shop metadata...`)
             const { data: sOrder, error: lookupError } = await db
                 .from('shop_orders')
                 .select('id')
@@ -79,7 +79,7 @@ export async function syncShopOrderStatus(mainOrderId: string, status: string) {
 
             if (sOrder) {
                 shopOrderId = sOrder.id
-                console.log(`[ShopSync] Found matching shop order ${shopOrderId} via shop_name/phone_number fallback`)
+                console.log(`[ShopSync] Found matching shop order ${shopOrderId} via shop metadata fallback`)
                 // Self-heal: update the main order with the missing ID
                 await db.from('orders').update({ shop_order_id: shopOrderId }).eq('id', mainOrderId)
             }
@@ -117,7 +117,7 @@ export async function syncShopOrderStatus(mainOrderId: string, status: string) {
             if (airtimeError) {
                 console.warn(`[ShopSync] Could not sync airtime_orders for ref ${order.reference_code}:`, airtimeError)
             } else {
-                console.log(`[ShopSync] airtime_orders synced to: ${status} for ref ${order.reference_code}`)
+                console.log(`[ShopSync] airtime_orders synced to: ${status}`)
             }
         }
 

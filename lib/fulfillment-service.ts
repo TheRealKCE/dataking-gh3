@@ -1,4 +1,5 @@
 import { createServerClient } from '@/lib/supabase'
+import { sanitizeForLog } from '@/lib/safe-log'
 
 // Universal Fulfillment Service with DataKazina API Integration
 
@@ -254,7 +255,7 @@ export async function fulfillOrder(
             incoming_api_ref: orderId,
         }
 
-        console.log(`[DataKazina] Request payload:`, JSON.stringify(requestBody))
+        console.log(`[DataKazina] Request payload:`, sanitizeForLog(requestBody))
 
         let response: Response | null = null;
         let attempt = 0;
@@ -315,7 +316,7 @@ export async function fulfillOrder(
         }
 
         const data = await response.json()
-        console.log(`[DataKazina] Full API response (HTTP ${response.status}):`, JSON.stringify(data))
+        console.log(`[DataKazina] API response received`, { status: response.status, ok: response.ok })
 
         // Ensure we catch false positives where success is true but it's an error message
         const isFalsePositive = data.success && data.message &&
@@ -330,7 +331,7 @@ export async function fulfillOrder(
                 success: true,
                 reference: responseData?.reference || orderId,
                 transactionId: responseData?.transaction_code || responseData?.transaction_id,
-                apiResponse: data,
+                apiResponse: sanitizeForLog(data),
             }
         }
 
@@ -338,7 +339,7 @@ export async function fulfillOrder(
         return {
             success: false,
             error: data.message || data.error || 'Fulfillment failed',
-            apiResponse: data,
+            apiResponse: sanitizeForLog(data),
         }
     } catch (error: any) {
         recordFailure()
@@ -412,7 +413,7 @@ export async function fetchSupplierBalance(): Promise<{ success: boolean; balanc
         }
 
         const data = await response.json()
-        console.log('[DataKazina Balance] API Response:', JSON.stringify(data))
+        console.log('[DataKazina Balance] API response received', { status: response.status, ok: response.ok })
 
         if (response.ok) {
             let balance = 0

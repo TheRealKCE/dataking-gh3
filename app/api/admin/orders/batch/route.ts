@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
                 .single()
 
             if (existingBatch) {
-                console.log(`[AdminBatchCreate] Returning existing batch for idempotency key: ${idempotencyKey}`)
+                console.log('[AdminBatchCreate] Returning existing batch for idempotent request')
                 return NextResponse.json({
                     success: true,
                     batchId: (existingBatch as any).id,

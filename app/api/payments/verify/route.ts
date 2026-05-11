@@ -30,6 +30,26 @@ export async function GET(request: NextRequest) {
             return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/wallet?error=no_reference`)
         }
 
+        const { data: paymentRecord, error: paymentLookupError } = await (supabase
+            .from('wallet_payments') as any)
+            .select('id, user_id, amount, total_amount, status')
+            .eq('reference', reference)
+            .single()
+
+        if (paymentLookupError || !paymentRecord) {
+            if (isInline) {
+                return NextResponse.json({ success: false, error: 'Payment not found' }, { status: 404 })
+            }
+            return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/wallet?error=payment_not_found`)
+        }
+
+        if (paymentRecord.user_id !== user.id) {
+            if (isInline) {
+                return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
+            }
+            return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/wallet?error=forbidden`)
+        }
+
         // Verify with Paystack
         const paystackResponse = await fetch(
             `https://api.paystack.co/transaction/verify/${reference}`,
@@ -52,8 +72,19 @@ export async function GET(request: NextRequest) {
             )
         }
 
+        const expectedAmountPesewas = Math.round(Number(paymentRecord.total_amount || paymentRecord.amount) * 100)
+        if (Number(paystackData.data.amount) !== expectedAmountPesewas) {
+            console.error('[PaymentVerify] Paystack amount mismatch for payment record')
+            if (isInline) {
+                return NextResponse.json({ success: false, error: 'Payment verification failed' }, { status: 400 })
+            }
+            return NextResponse.redirect(
+                `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/wallet?error=payment_failed`
+            )
+        }
+
         // Process the payment using shared utility
-        const result = await processCompletedWalletPayment(reference, paystackData.data)
+        const result = await processCompletedWalletPayment(reference, paystackData.data, user.id)
 
         if (!result.success) {
             if (isInline) {

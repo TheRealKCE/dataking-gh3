@@ -1,30 +1,13 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
 import { checkDataGodOrderStatus } from '@/lib/datagod-service'
+import { validateAdminAccess } from '@/lib/auth-utils'
 
 export async function POST(request: Request) {
     try {
-        const cookieStore = await cookies()
-        const supabaseUserClient = createRouteHandlerClient({
-            // @ts-expect-error - auth-helpers types expect Promise but runtime needs synchronous object
-            cookies: () => cookieStore
-        })
-        const { data: { user: authUser }, error: authError } = await supabaseUserClient.auth.getUser()
-
-        if (authError || !authUser) {
-            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-        }
-
-        const { data: userData } = await supabaseUserClient
-            .from('users')
-            .select('role')
-            .eq('id', authUser.id)
-            .single()
-
-        if (userData?.role !== 'admin' && userData?.role !== 'sub-admin') {
-            return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        const authResult = await validateAdminAccess(false, request)
+        if (authResult.error) {
+            return NextResponse.json({ error: authResult.error }, { status: authResult.status })
         }
 
         const body = await request.json()
@@ -78,7 +61,7 @@ export async function POST(request: Request) {
             }
 
             const reference = datagodTracking.api_response.reference
-            console.log(`[DataGod Sync] Checking order: ${order.id} | Ref: ${reference}`)
+            console.log(`[DataGod Sync] Checking order ${order.id}`)
 
             const result = await checkDataGodOrderStatus(reference)
 
@@ -86,11 +69,11 @@ export async function POST(request: Request) {
                 const newStatus = result.status
                 // ONLY fetch without updating per user request
                 updatedCount++
-                results.push({ id: order.id, success: true, status: newStatus, raw: result.data || result })
+                results.push({ id: order.id, success: true, status: newStatus })
             } else {
                 failedCount++
-                console.error(`[DataGod Sync Debug] API Check failed for ${reference}:`, result)
-                results.push({ id: order.id, success: false, error: result.message, raw: result })
+                console.error('[DataGod Sync] API check failed:', { orderId: order.id, status: result.status })
+                results.push({ id: order.id, success: false, error: result.message })
             }
         }
 
@@ -105,6 +88,6 @@ export async function POST(request: Request) {
 
     } catch (error: any) {
         console.error('DataGod Sync Error:', error)
-        return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 })
+        return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 }

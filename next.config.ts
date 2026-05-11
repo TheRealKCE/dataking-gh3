@@ -53,14 +53,14 @@ const nextConfig: NextConfig = {
                 key: 'Content-Security-Policy',
                 value: [
                     "default-src 'self'",
-                    "script-src 'self' https://js.paystack.co",
-                    "style-src 'self'",
+                    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.paystack.co",
+                    "style-src 'self' 'unsafe-inline'",
                     "font-src 'self'",
                     `img-src 'self' data: ${supabaseImageHost ? `https://${supabaseImageHost}` : ''} https://cdn.jsdelivr.net https://www.transparenttextures.com blob:`,
                     `connect-src 'self' ${supabaseImageHost ? `https://${supabaseImageHost} wss://${supabaseImageHost}` : ''} https://api.paystack.co`,
                     "frame-src https://js.paystack.co",
                     "frame-ancestors 'none'",
-                    "worker-src 'self'",
+                    "worker-src 'self' blob:",
                 ].join('; '),
             },
         ]

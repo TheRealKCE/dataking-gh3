@@ -3,6 +3,8 @@ import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
 import { z } from 'zod'
 import { nameSchema, phoneSchema, emailSchema } from '@/lib/validation'
+import { sendWelcomeEmail, sendAdminNewUserAlert } from '@/lib/email-service'
+import { sendWelcomeSMS } from '@/lib/sms-service'
 
 export async function POST(request: NextRequest) {
   try {
@@ -45,6 +47,19 @@ export async function POST(request: NextRequest) {
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 400 })
     }
+
+    sendWelcomeEmail(email, firstName)
+      .catch(err => console.error('[Signup] Welcome email failed:', err))
+
+    sendWelcomeSMS(phoneNumber, firstName)
+      .catch(err => console.error('[Signup] Welcome SMS failed:', err))
+
+    sendAdminNewUserAlert({
+      firstName,
+      lastName,
+      email,
+      phoneNumber
+    }).catch(err => console.error('[Signup] Admin new user alert failed:', err))
 
     return NextResponse.json({ user: data.user, session: data.session })
   } catch {

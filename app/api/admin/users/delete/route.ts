@@ -1,7 +1,6 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
+import { validateAdminAccess } from '@/lib/auth-utils'
 
 export async function POST(request: Request) {
     try {
@@ -14,32 +13,11 @@ export async function POST(request: Request) {
             )
         }
 
-        // 1. Verify verify requester is admin
-        const cookieStore = await cookies()
-        // @ts-expect-error - auth-helpers types conflict with Next.js 15
-        const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
-        const { data: { user: authUser } } = await supabase.auth.getUser()
-
-        if (!authUser) {
-            return NextResponse.json(
-                { error: 'Unauthorized' },
-                { status: 401 }
-            )
+        const authResult = await validateAdminAccess(false, request)
+        if (authResult.error) {
+            return NextResponse.json({ error: authResult.error }, { status: authResult.status })
         }
-
-        // Check if requester is admin
-        const { data: requesterData, error: requesterError } = await supabase
-            .from('users')
-            .select('role')
-            .eq('id', authUser.id)
-            .single()
-
-        if (requesterError || (requesterData?.role !== 'admin' && requesterData?.role !== 'sub-admin')) {
-            return NextResponse.json(
-                { error: 'Unauthorized - Admin access required' },
-                { status: 403 }
-            )
-        }
+        const authUser = authResult.user!
 
         // Prevent self-deletion
         if (userId === authUser.id) {
@@ -53,8 +31,6 @@ export async function POST(request: Request) {
         // This client relies on SUPABASE_SERVICE_ROLE_KEY in .env.local
         const supabaseAdmin = createServerClient()
 
-        console.log(`[Admin Delete] Attempting to delete user ${userId}`)
-
         // Step A: Delete from public.users first (Database Layer)
         // Although we have ON DELETE CASCADE, explicit delete ensures we know it worked
         // and handles cases where cascade might fail or be missing
@@ -66,11 +42,9 @@ export async function POST(request: Request) {
         if (dbDeleteError) {
             console.error('[Admin Delete] Database deletion failed:', dbDeleteError)
             return NextResponse.json(
-                { error: `Database deletion failed: ${dbDeleteError.message}` },
+                { error: 'Database deletion failed' },
                 { status: 500 }
             )
-        } else {
-            console.log('[Admin Delete] Database record deleted (or will be cascaded)')
         }
 
         // Step B: Delete from Auth (Authentication Layer)
@@ -84,19 +58,17 @@ export async function POST(request: Request) {
             // If DB delete worked but Auth failed, we have an inconsistent state
             // But usually, if DB delete worked, Auth delete is less likely to fail unless ID is wrong
             return NextResponse.json(
-                { error: `Auth deletion failed: ${authDeleteError.message}` },
+                { error: 'Auth deletion failed' },
                 { status: 500 }
             )
         }
-
-        console.log('[Admin Delete] User successfully deleted from Auth and DB')
 
         return NextResponse.json({ success: true })
 
     } catch (error: any) {
         console.error('[Admin Delete] Unexpected error:', error)
         return NextResponse.json(
-            { error: error.message || 'Internal server error' },
+            { error: 'Internal server error' },
             { status: 500 }
         )
     }

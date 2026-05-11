@@ -109,7 +109,7 @@ export async function POST(request: NextRequest) {
                         updated_at: new Date().toISOString(),
                     })
                     .eq('owner_id', userId)
-                console.log(`[AdminRoleUpdate] Shop fee overrides reset for user ${userId}`)
+                console.log('[AdminRoleUpdate] Shop fee overrides reset')
             } catch (resetErr) {
                 console.error('[AdminRoleUpdate] Failed to reset shop fee overrides (non-fatal):', resetErr)
             }
@@ -135,7 +135,7 @@ export async function POST(request: NextRequest) {
                         3,
                         expiryDate.toISOString()
                     )
-                    console.log(`[AdminRoleUpdate] SMS sent to ${userDetails.phone_number}`)
+                    console.log('[AdminRoleUpdate] SMS sent')
                 } else {
                     console.warn(`[AdminRoleUpdate] No phone number for user ${userId}`)
                 }

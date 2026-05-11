@@ -1,4 +1,5 @@
 import { createServerClient } from '@/lib/supabase'
+import { sanitizeForLog } from '@/lib/safe-log'
 
 // CodeCraft Fulfillment Service — Mirrors lib/fulfillment-service.ts architecture exactly
 
@@ -288,7 +289,7 @@ export async function fulfillOrder(
             network: codecraftNetwork,
         }
 
-        console.log(`[CodeCraft] Request payload:`, JSON.stringify(requestBody))
+        console.log(`[CodeCraft] Request payload:`, sanitizeForLog(requestBody))
 
         // ── HTTP Fetch with 3-retry logic ───────────────────────────────────
         let response: Response | null = null
@@ -344,7 +345,7 @@ export async function fulfillOrder(
             recordFailure()
             return { success: false, error: `Supplier returned unexpected response format (HTTP ${response.status})` }
         }
-        console.log(`[CodeCraft] Full API response (HTTP ${response.status}):`, JSON.stringify(data))
+        console.log(`[CodeCraft] API response received`, { status: response.status, ok: response.ok })
 
         // ── Resilient Success Detection ─────────────────────────────────────
         // CodeCraft may return status as number 200, string '200', or string 'success'
@@ -361,7 +362,7 @@ export async function fulfillOrder(
                 success: true,
                 reference: data.reference_id,
                 transactionId: data.reference_id,
-                apiResponse: data,
+                apiResponse: sanitizeForLog(data),
             }
         }
 
@@ -373,7 +374,7 @@ export async function fulfillOrder(
         return {
             success: false,
             error: `[${reasonCode}] ${reasonMsg}`,
-            apiResponse: data,
+            apiResponse: sanitizeForLog(data),
         }
 
     } catch (error: any) {
@@ -477,7 +478,7 @@ export async function fetchSupplierBalance(): Promise<{
             console.error('[CodeCraft Balance] Non-JSON response (HTTP', response.status, '):', rawText.slice(0, 300))
             return { success: false, error: `Unexpected response format (HTTP ${response.status})` }
         }
-        console.log('[CodeCraft Balance] API Response:', JSON.stringify(data))
+        console.log('[CodeCraft Balance] API response received', { status: response.status, ok: response.ok })
 
         if (response.ok && data.status === 'success') {
             const balance = parseFloat(data.data?.wallet ?? 0) || 0
