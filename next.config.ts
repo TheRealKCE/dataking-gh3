@@ -1,16 +1,26 @@
 import type { NextConfig } from 'next'
+import withPWA from '@ducanh2912/next-pwa'
+
+const supabaseImageHost = (() => {
+    try {
+        const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+        return url ? new URL(url).hostname : undefined
+    } catch {
+        return undefined
+    }
+})()
 
 const nextConfig: NextConfig = {
     reactStrictMode: true,
     poweredByHeader: false,
     images: {
-        domains: ['localhost'],
-        remotePatterns: [
-            {
+        domains: process.env.NODE_ENV === 'development' ? ['localhost'] : [],
+        remotePatterns: supabaseImageHost
+            ? [{
                 protocol: 'https',
-                hostname: '**.supabase.co',
-            },
-        ],
+                hostname: supabaseImageHost,
+            }]
+            : [],
     },
     experimental: {
         serverActions: {
@@ -32,10 +42,6 @@ const nextConfig: NextConfig = {
                 value: 'strict-origin-when-cross-origin',
             },
             {
-                key: 'X-XSS-Protection',
-                value: '1; mode=block',
-            },
-            {
                 key: 'Permissions-Policy',
                 value: 'camera=(), microphone=(), geolocation=(), interest-cohort=()',
             },
@@ -47,13 +53,14 @@ const nextConfig: NextConfig = {
                 key: 'Content-Security-Policy',
                 value: [
                     "default-src 'self'",
-                    "script-src 'self' 'unsafe-inline' https://js.paystack.co",
-                    "style-src 'self' 'unsafe-inline'",
+                    "script-src 'self' https://js.paystack.co",
+                    "style-src 'self'",
                     "font-src 'self'",
-                    "img-src 'self' data: https://*.supabase.co https://cdn.jsdelivr.net https://www.transparenttextures.com blob:",
-                    "connect-src 'self' https://*.supabase.co https://api.paystack.co wss://*.supabase.co",
+                    `img-src 'self' data: ${supabaseImageHost ? `https://${supabaseImageHost}` : ''} https://cdn.jsdelivr.net https://www.transparenttextures.com blob:`,
+                    `connect-src 'self' ${supabaseImageHost ? `https://${supabaseImageHost} wss://${supabaseImageHost}` : ''} https://api.paystack.co`,
                     "frame-src https://js.paystack.co",
                     "frame-ancestors 'none'",
+                    "worker-src 'self'",
                 ].join('; '),
             },
         ]
@@ -98,4 +105,15 @@ const nextConfig: NextConfig = {
     },
 }
 
-export default nextConfig
+const withPWAConfig = withPWA({
+    dest: 'public',
+    cacheOnFrontEndNav: true,
+    aggressiveFrontEndNavCaching: true,
+    reloadOnOnline: true,
+    disable: process.env.NODE_ENV === 'development',
+    workboxOptions: {
+        disableDevLogs: true,
+    },
+})
+
+export default withPWAConfig(nextConfig)

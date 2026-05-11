@@ -14,6 +14,7 @@ import { AuthProvider } from '@/contexts/auth-context'
 import { Toaster } from '@/components/ui/sonner'
 import { ThemeProvider } from '@/components/theme-provider'
 import { GlobalLoader } from '@/components/ui/global-loader'
+import PwaInstallPrompt from '@/components/pwa-install-prompt'
 
 const outfit = Outfit({
     weight: ['400', '600', '700'],
@@ -34,6 +35,19 @@ export const metadata: Metadata = {
     description: "Ghana's trusted data bundle reselling platform. Buy and resell MTN, Telecel and AirtelTigo bundles instantly.",
     keywords: ['Ghana', 'mobile data', 'airtime', 'MTN', 'Telecel', 'AirtelTigo', 'data bundles', 'reseller'],
     authors: [{ name: 'ARHMS DATA LTD' }],
+    manifest: '/manifest.json',
+    appleWebApp: {
+        capable: true,
+        statusBarStyle: 'black-translucent',
+        title: 'ARHMS',
+    },
+    icons: {
+        apple: '/apple-touch-icon.png',
+        icon: [
+            { url: '/icon-192x192.png', sizes: '192x192', type: 'image/png' },
+            { url: '/icon-512x512.png', sizes: '512x512', type: 'image/png' },
+        ],
+    },
     openGraph: {
         title: 'ARHMS DATA LTD',
         description: "Ghana's trusted data bundle reselling platform",
@@ -64,6 +78,7 @@ export default function RootLayout({
                                 <GlobalLoader />
                             </Suspense>
                             {children}
+                            <PwaInstallPrompt />
                             <Toaster position="top-right" richColors />
                         </UIProvider>
                     </AuthProvider>
