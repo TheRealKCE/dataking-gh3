@@ -14,6 +14,9 @@ import {
 import { toast } from 'sonner'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { CopyrightFooter } from '@/components/CopyrightFooter'
+import dynamic from 'next/dynamic'
+
+const ShopPwaInstallPrompt = dynamic(() => import('@/components/ShopPwaInstallPrompt'), { ssr: false })
 
 // ─── Divider SVG paths (matching setup page) ──────────────────────────────────
 const DIVIDER_PATHS: Record<string, string> = {
@@ -1019,6 +1022,14 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 shopName={shop.shop_name} 
                 adminSettings={adminSettings}
                 className="pb-20 pt-10" // Extra padding to stay clear of floating buttons
+            />
+
+            {/* Per-shop PWA install prompt — lazy loaded, no SSR impact */}
+            <ShopPwaInstallPrompt
+                shopName={shop.shop_name}
+                shopSlug={shop.shop_slug}
+                logoUrl={shop.logo_url}
+                brandColor={shop.brand_color}
             />
         </div>
     )

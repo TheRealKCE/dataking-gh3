@@ -46,6 +46,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         icons: {
             icon: shop.logo_url || '/favicon.ico',
         },
+        manifest: `/shop/${shopSlug}/manifest.json`,
     }
 }
 
