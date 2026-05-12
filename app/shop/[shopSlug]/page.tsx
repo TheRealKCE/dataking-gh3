@@ -1,12 +1,12 @@
 import { Metadata } from 'next'
 import Image from 'next/image'
 import { notFound } from 'next/navigation'
+import { createServerClient } from '@/lib/supabase'
 import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
-import { createServerClient } from '@/lib/supabase'
 import dynamic from 'next/dynamic'
 
-// Fix 4: Lazy-load the 66KB ShopStorefront into a separate JS chunk
+// Lazy-load the 66KB ShopStorefront into a separate JS chunk
 // so the ISR-cached HTML shell renders first, then JS hydrates — prevents
 // blank-screen crashes on low-end phones with limited RAM
 const ShopStorefront = dynamic(() => import('./ShopStorefront'), { loading: () => null })
@@ -20,9 +20,10 @@ export const revalidate = 600
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
     const { shopSlug } = await params
-    const supabase = createServerComponentClient({ cookies })
+    // Use service-role so metadata is generated even for unauthenticated crawlers
+    const supabaseAdmin = createServerClient()
 
-    const { data: shop } = await (supabase
+    const { data: shop } = await (supabaseAdmin
         .from('shop_profiles')
         .select('shop_name, description, logo_url')
         .eq('shop_slug', shopSlug)
@@ -43,48 +44,60 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
             images: shop.logo_url ? [{ url: shop.logo_url }] : [],
         },
         icons: {
-            icon: shop.logo_url || '/favicon.ico', // Fallback to default if no logo, but prefer shop logo
+            icon: shop.logo_url || '/favicon.ico',
         },
     }
 }
 
 export default async function ShopPage({ params }: Props) {
     const { shopSlug } = await params
+
+    // Service-role client for all public data reads — anonymous visitors have no session cookie
+    const supabaseAdmin = createServerClient()
+    // Session client only for the admin pass-through check
     const supabase = createServerComponentClient({ cookies })
 
-    // Fetch shop — include pricing_status so we can show Under Review state
-    const { data: shop } = await (supabase
+    // Fetch shop using service-role so unauthenticated visitors can load the page
+    const { data: shop } = await (supabaseAdmin
         .from('shop_profiles')
         .select('id, shop_name, shop_slug, description, owner_phone, owner_email, whatsapp_number, logo_url, banner_url, community_link, divider_style, brand_color, brand_accent, approval_status, pricing_status, is_active, owner_id, airtime_fee_mtn, airtime_fee_telecel, airtime_fee_at')
         .eq('shop_slug', shopSlug)
         .single() as any)
-
-    // Note: session refresh is handled by middleware; no explicit call needed here
 
     // Shop doesn't exist or is not profile-approved → 404
     if (!shop || shop.approval_status !== 'approved' || !shop.is_active) {
         notFound()
     }
 
-    // Check Global Storefront Access Settings
-    const { data: adminSettings } = await (supabase
-        .from('admin_settings')
+    // Fetch global storefront access settings using service-role client
+    const { data: adminSettings } = await (supabaseAdmin
+        .from('public_admin_settings')
         .select('key, value')
-        .in('key', ['page_access_storefront', 'storefront_airtime_enabled', 'airtime_fee_mtn_customer', 'airtime_fee_mtn_agent', 'airtime_fee_telecel_customer', 'airtime_fee_telecel_agent', 'airtime_fee_at_customer', 'airtime_fee_at_agent', 'airtime_min_amount', 'airtime_max_amount']) as any)
+        .in('key', [
+            'page_access_storefront',
+            'storefront_airtime_enabled',
+            'airtime_fee_mtn_customer',
+            'airtime_fee_mtn_agent',
+            'airtime_fee_telecel_customer',
+            'airtime_fee_telecel_agent',
+            'airtime_fee_at_customer',
+            'airtime_fee_at_agent',
+            'airtime_min_amount',
+            'airtime_max_amount',
+        ]) as any)
 
     const adminSettingsMap: Record<string, string> = {}
     for (const row of adminSettings || []) {
         adminSettingsMap[row.key] = row.value
     }
-    
-    // Check Global Storefront Access Settings
+
     const storefrontSetting = adminSettingsMap['page_access_storefront']
 
-    // Admin pass-through check
+    // Admin pass-through check (uses session client — admins are always logged in)
     const { data: { user: authUser } } = await supabase.auth.getUser()
     let isAdmin = false
     if (authUser) {
-        const { data: user } = await supabase
+        const { data: user } = await supabaseAdmin
             .from('users')
             .select('role')
             .eq('id', authUser.id)
@@ -142,7 +155,6 @@ export default async function ShopPage({ params }: Props) {
         return (
             <div className="min-h-screen flex flex-col items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-6">
                 <div className="max-w-md w-full text-center space-y-6">
-                    {/* Logo / Icon */}
                     {shop.logo_url ? (
                         <Image src={shop.logo_url} alt={shop.shop_name} width={80} height={80} className="w-20 h-20 rounded-2xl object-cover mx-auto shadow-lg" />
                     ) : (
@@ -156,7 +168,6 @@ export default async function ShopPage({ params }: Props) {
                         <p className="text-muted-foreground text-sm mt-1">{shop.description || 'Data bundle shop'}</p>
                     </div>
 
-                    {/* Animated hourglass */}
                     <div className="w-16 h-16 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center mx-auto animate-pulse">
                         <span className="text-3xl">⏳</span>
                     </div>
@@ -168,7 +179,6 @@ export default async function ShopPage({ params }: Props) {
                         </p>
                     </div>
 
-                    {/* WhatsApp contact (only if set) */}
                     {shop.whatsapp_number && (
                         <a
                             href={`https://wa.me/${shop.whatsapp_number}`}
@@ -186,8 +196,7 @@ export default async function ShopPage({ params }: Props) {
     }
 
     // Fetch live approved packages with shop pricing
-    // Uses service role client to bypass RLS — only selling_price is exposed to client, never cost/profit
-    const supabaseAdmin = createServerClient()
+    // Uses service-role — only selling_price is exposed to client, never cost/profit
     const { data: pricingRows } = await (supabaseAdmin
         .from('shop_pricing')
         .select('package_id, selling_price, data_packages(id, network, size, description, sort_order, is_available)')
@@ -205,7 +214,7 @@ export default async function ShopPage({ params }: Props) {
         }))
         .sort((a: any, b: any) => a.network.localeCompare(b.network) || a.sort_order - b.sort_order)
 
-    // Append owner role to calculate correct max amount limits client side
+    // Append owner role to calculate correct airtime max amount limits client-side
     let ownerRole = 'customer'
     if (shop?.owner_id) {
         const { data: uData } = await supabaseAdmin.from('users').select('role').eq('id', shop.owner_id).single()

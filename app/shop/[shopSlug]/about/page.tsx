@@ -1,7 +1,6 @@
 import { Metadata } from 'next'
 import { notFound } from 'next/navigation'
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
+import { createServerClient } from '@/lib/supabase'
 import Image from 'next/image'
 import Link from 'next/link'
 import { ArrowLeft, Phone, Mail, MessageCircle, MapPin, ShieldCheck, Clock, CheckCircle2, AlertTriangle, Users, BookOpen } from 'lucide-react'
@@ -15,9 +14,9 @@ export const revalidate = 3600 // Revalidate once an hour
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
     const { shopSlug } = await params
-    const supabase = createServerComponentClient({ cookies })
+    const supabaseAdmin = createServerClient()
 
-    const { data: shop } = await (supabase
+    const { data: shop } = await (supabaseAdmin
         .from('shop_profiles')
         .select('shop_name, description')
         .eq('shop_slug', shopSlug)
@@ -35,9 +34,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function ShopAboutPage({ params }: Props) {
     const { shopSlug } = await params
-    const supabase = createServerComponentClient({ cookies })
+    const supabaseAdmin = createServerClient()
 
-    const { data: shop } = await (supabase
+    const { data: shop } = await (supabaseAdmin
         .from('shop_profiles')
         .select('shop_name, description, owner_phone, owner_email, whatsapp_number, logo_url, community_link, brand_color, is_active, approval_status')
         .eq('shop_slug', shopSlug)
@@ -47,8 +46,8 @@ export default async function ShopAboutPage({ params }: Props) {
         notFound()
     }
 
-    const { data: adminSettings } = await (supabase
-        .from('admin_settings')
+    const { data: adminSettings } = await (supabaseAdmin
+        .from('public_admin_settings')
         .select('key, value')
         .in('key', ['copyright_footer_enabled', 'copyright_footer_text', 'copyright_footer_link_url', 'copyright_footer_link_text']) as any)
         
