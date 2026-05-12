@@ -69,9 +69,9 @@ export default async function ShopPage({ params }: Props) {
         notFound()
     }
 
-    // Fetch global storefront access settings using service-role client
+    // Fetch global storefront access settings using service-role client (bypasses RLS)
     const { data: adminSettings } = await (supabaseAdmin
-        .from('public_admin_settings')
+        .from('admin_settings')
         .select('key, value')
         .in('key', [
             'page_access_storefront',

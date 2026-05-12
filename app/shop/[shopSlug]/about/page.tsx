@@ -47,7 +47,7 @@ export default async function ShopAboutPage({ params }: Props) {
     }
 
     const { data: adminSettings } = await (supabaseAdmin
-        .from('public_admin_settings')
+        .from('admin_settings')
         .select('key, value')
         .in('key', ['copyright_footer_enabled', 'copyright_footer_text', 'copyright_footer_link_url', 'copyright_footer_link_text']) as any)
         
