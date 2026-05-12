@@ -103,6 +103,9 @@ export function LandingClientShell({
     const [adminPhone] = useState(initialAdminPhone)
     const [planPrices] = useState<Record<TierId, number>>(initialPlanPrices || DEFAULT_PLAN_PRICES)
 
+    // Only show the guest store button when a real (non-placeholder) URL is configured
+    const isValidGuestUrl = Boolean(guestUrl && !guestUrl.endsWith('/shop/demo') && guestUrl.includes('/shop/'))
+
     useEffect(() => {
         const handleScroll = () => setHeaderScrolled(window.scrollY > 50)
         window.addEventListener('scroll', handleScroll, { passive: true })
@@ -192,12 +195,14 @@ export function LandingClientShell({
                                     <ArrowRight className="ml-3 w-5 h-5 stroke-[3]" />
                                 </Button>
                             </Link>
+                            {isValidGuestUrl && (
                             <a href={guestUrl} className="w-full sm:w-auto">
                                 <Button variant="outline" className="w-full sm:w-auto min-h-14 sm:h-16 px-5 sm:px-10 rounded-2xl border-border/50 bg-background/50 backdrop-blur-md font-black text-sm sm:text-base uppercase tracking-wide sm:tracking-widest hover:bg-secondary/50 transition-all whitespace-normal">
                                     <Store className="mr-3 w-5 h-5" />
                                     Open Guest Store
                                 </Button>
                             </a>
+                            )}
                             <Link href="/shop/status" className="w-full sm:w-auto">
                                 <Button variant="outline" className="w-full sm:w-auto min-h-14 sm:h-16 px-5 sm:px-10 rounded-2xl border-border/50 bg-background/50 backdrop-blur-md font-black text-sm sm:text-base uppercase tracking-wide sm:tracking-widest hover:bg-secondary/50 transition-all whitespace-normal">
                                     <CheckCircle2 className="mr-3 w-5 h-5" />
@@ -538,11 +543,13 @@ export function LandingClientShell({
                         <Link href="/auth/signup">
                             <Button className="h-12 px-8 rounded-2xl font-black uppercase tracking-widest">Create Free Account</Button>
                         </Link>
+                        {isValidGuestUrl && (
                         <a href={guestUrl}>
                             <Button variant="outline" className="h-12 px-8 rounded-2xl font-black uppercase tracking-widest">
                                 Open Guest Store
                             </Button>
                         </a>
+                        )}
                     </div>
                 </div>
             </section>
@@ -630,11 +637,13 @@ export function LandingClientShell({
                                         Login
                                     </Button>
                                 </Link>
+                                {isValidGuestUrl && (
                                 <a href={guestUrl}>
                                     <Button variant="outline" className="h-10 px-6 rounded-xl text-[10px] font-black uppercase tracking-widest">
                                         Open Guest Store
                                     </Button>
                                 </a>
+                                )}
                                 <Link href="/shop/status">
                                     <Button variant="outline" className="h-10 px-6 rounded-xl text-[10px] font-black uppercase tracking-widest">
                                         Track Order Status
