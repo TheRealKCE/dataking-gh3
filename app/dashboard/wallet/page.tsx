@@ -36,6 +36,14 @@ import { toast } from 'sonner'
 import { WalletTransaction } from '@/types/supabase'
 import { useTutorial } from '@/hooks/useTutorial'
 import { HelpButton } from '@/components/tutorial/HelpButton'
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter
+} from "@/components/ui/dialog"
 
 const QUICK_AMOUNTS = [5, 10, 20, 50]
 const MIN_AMOUNT = 5
@@ -54,6 +62,9 @@ function WalletContent() {
     const [pollingRef, setPollingRef] = useState<string | null>(null)
     const [isProcessing, setIsProcessing] = useState(false)
     const [paystackFeePercent, setPaystackFeePercent] = useState(1.95)
+    const [otpRequired, setOtpRequired] = useState(false)
+    const [otpCode, setOtpCode] = useState('')
+    const [paymentReference, setPaymentReference] = useState<string | null>(null)
     const searchParams = useSearchParams()
 
     // Tutorial hook
@@ -218,10 +229,54 @@ function WalletContent() {
                 throw new Error(data.error || 'Failed to initialize payment')
             }
 
+            if (data.otpRequired) {
+                setOtpRequired(true)
+                setPaymentReference(data.reference)
+                setIsProcessing(false)
+                return
+            }
+
             toast.success(data.message || 'Payment prompt sent! Please check your phone.')
             setPollingRef(data.reference)
         } catch (error: any) {
             toast.error(error.message || 'Failed to process payment')
+            setIsProcessing(false)
+        }
+    }
+
+    const handleVerifyOtp = async () => {
+        if (!otpCode || otpCode.length < 4) {
+            toast.error('Please enter a valid OTP')
+            return
+        }
+
+        setIsProcessing(true)
+        try {
+            const response = await fetch('/api/payments/initialize', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ 
+                    amount: parseFloat(topUpAmount), 
+                    phone: paymentPhone, 
+                    network: paymentNetwork,
+                    otpCode: otpCode,
+                    reference: paymentReference
+                }),
+            })
+
+            const data = await response.json()
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to verify OTP')
+            }
+
+            setOtpRequired(false)
+            setOtpCode('')
+            toast.success(data.message || 'OTP verified! Payment prompt sent.')
+            setPollingRef(data.reference)
+        } catch (error: any) {
+            toast.error(error.message || 'Failed to verify OTP')
             setIsProcessing(false)
         }
     }
@@ -644,6 +699,48 @@ function WalletContent() {
                     )}
                 </CardContent>
             </Card>
+
+            {/* OTP Modal */}
+            <Dialog open={otpRequired} onOpenChange={(open) => !open && setOtpRequired(false)}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>OTP Verification</DialogTitle>
+                        <DialogDescription>
+                            Please enter the OTP sent to your phone to complete the payment.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="flex flex-col space-y-4 py-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="otp">Enter OTP</Label>
+                            <Input
+                                id="otp"
+                                type="text"
+                                placeholder="Enter code"
+                                value={otpCode}
+                                onChange={(e) => setOtpCode(e.target.value)}
+                                className="h-12 text-center text-2xl tracking-widest font-bold"
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter className="sm:justify-end">
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={() => setOtpRequired(false)}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="button"
+                            onClick={handleVerifyOtp}
+                            disabled={isProcessing || !otpCode}
+                            className="bg-blue-600 hover:bg-blue-700"
+                        >
+                            {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Verify & Continue'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }

@@ -38,6 +38,9 @@ export default function UpgradePage() {
     const [paymentPhone, setPaymentPhone] = useState('')
     const [paymentNetwork, setPaymentNetwork] = useState('MTN')
     const [pollingRef, setPollingRef] = useState<string | null>(null)
+    const [otpRequired, setOtpRequired] = useState(false)
+    const [otpCode, setOtpCode] = useState('')
+    const [paymentReference, setPaymentReference] = useState<string | null>(null)
 
     // Prices for tiers
     const [prices, setPrices] = useState({
@@ -151,10 +154,54 @@ export default function UpgradePage() {
                 throw new Error(data.error || 'Failed to initialize upgrade')
             }
 
+            if (data.otpRequired) {
+                setOtpRequired(true)
+                setPaymentReference(data.reference)
+                setIsProcessing(null)
+                setShowPaymentModal(false)
+                return
+            }
+
             toast.success(data.message || 'Payment prompt sent! Please check your phone.')
             setPollingRef(data.reference)
         } catch (error: any) {
             toast.error(error.message || 'Failed to start upgrade process')
+            setIsProcessing(null)
+        }
+    }
+
+    const handleVerifyOtp = async () => {
+        if (!otpCode || otpCode.length < 4) {
+            toast.error('Please enter a valid OTP')
+            return
+        }
+
+        setIsProcessing(selectedPlan)
+        try {
+            const response = await fetch('/api/user/upgrade/initialize', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    plan: selectedPlan,
+                    phone: paymentPhone.replace(/\s/g, ''),
+                    network: paymentNetwork,
+                    otpCode: otpCode,
+                    reference: paymentReference
+                })
+            })
+
+            const data = await response.json()
+
+            if (!response.ok) {
+                throw new Error(data.error || 'Failed to verify OTP')
+            }
+
+            setOtpRequired(false)
+            setOtpCode('')
+            toast.success(data.message || 'OTP verified! Payment prompt sent.')
+            setPollingRef(data.reference)
+        } catch (error: any) {
+            toast.error(error.message || 'Failed to verify OTP')
             setIsProcessing(null)
         }
     }
@@ -518,6 +565,42 @@ export default function UpgradePage() {
                 )}
 
 
+                {/* OTP Modal */}
+                <Dialog open={otpRequired} onOpenChange={(open) => !open && setOtpRequired(false)}>
+                    <DialogContent className="sm:max-w-md">
+                        <DialogHeader>
+                            <DialogTitle>OTP Verification</DialogTitle>
+                            <DialogDescription>
+                                Please enter the OTP sent to your phone to complete the payment.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="flex flex-col space-y-4 py-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="otp">Enter OTP</Label>
+                                <Input
+                                    id="otp"
+                                    type="text"
+                                    placeholder="Enter code"
+                                    value={otpCode}
+                                    onChange={(e) => setOtpCode(e.target.value)}
+                                    className="h-12 text-center text-2xl tracking-widest font-bold"
+                                />
+                            </div>
+                        </div>
+                        <div className="flex gap-3 justify-end">
+                            <Button variant="outline" onClick={() => setOtpRequired(false)}>
+                                Cancel
+                            </Button>
+                            <Button
+                                onClick={handleVerifyOtp}
+                                disabled={isProcessing !== null || !otpCode}
+                                className="bg-black text-[#FFCE00] hover:bg-black/90"
+                            >
+                                {isProcessing !== null ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Verify & Continue'}
+                            </Button>
+                        </div>
+                    </DialogContent>
+                </Dialog>
             </div>
         </>
     )

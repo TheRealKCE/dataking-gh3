@@ -10,7 +10,7 @@ const redis = Redis.fromEnv()
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json()
-        const { shopSlug, packageId, guestPhone, guestEmail, orderType, network, amount, useExactAmount } = body
+        const { shopSlug, packageId, guestPhone, guestEmail, orderType, network, amount, useExactAmount, otpCode, reference: existingRef } = body
 
         if (!shopSlug || !guestPhone) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
@@ -226,7 +226,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Unsupported payment network' }, { status: 400 })
         }
 
-        const moolreRef = `SHOP-${shop.id.slice(0, 8)}-${Date.now()}`
+        const moolreRef = existingRef || `SHOP-${shop.id.slice(0, 8)}-${Date.now()}`
 
         // Complete Metadata for Webhook processing (equivalent to what was sent to Paystack)
         const fullMetadata = {
@@ -251,14 +251,30 @@ export async function POST(request: NextRequest) {
             payerPhone: cleanPhone,
             channel: channelId,
             externalRef: moolreRef,
+            otpCode: otpCode,
         })
 
         if (!moolreResponse.success) {
             return NextResponse.json({ error: moolreResponse.error || 'Payment initialization failed' }, { status: 500 })
         }
 
-        // Save metadata to Redis for Webhook
-        await redis.set(`shop:meta:${moolreRef}`, JSON.stringify(fullMetadata), { ex: 86400 }) // Keep for 24 hours
+        if (moolreResponse.status === '200_OTP_REQ') {
+            // Save metadata on first call even if OTP is required
+            if (!existingRef) {
+                await redis.set(`shop:meta:${moolreRef}`, JSON.stringify(fullMetadata), { ex: 86400 })
+            }
+            return NextResponse.json({
+                success: true,
+                otpRequired: true,
+                reference: moolreRef,
+                message: 'OTP is required to complete this payment. Please enter the code sent to your phone.'
+            })
+        }
+
+        // Save metadata if not already saved (initial non-OTP call or direct success)
+        if (!existingRef) {
+            await redis.set(`shop:meta:${moolreRef}`, JSON.stringify(fullMetadata), { ex: 86400 })
+        }
 
         // Cache the Idempotency Key for 60 seconds to prevent duplicate transactions on retries.
         await redis.set(idemKey, { ref: moolreRef }, { ex: 60 })

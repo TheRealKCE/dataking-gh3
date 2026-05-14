@@ -17,7 +17,7 @@ export async function POST(request: NextRequest) {
 
         const supabase = createRouteClient()
         const supabaseAdmin = createServerClient() // For database operations
-        const { amount, phone, network } = await request.json()
+        const { amount, phone, network, otpCode, reference: existingRef } = await request.json()
 
         const MAX_TOPUP_AMOUNT = Number(process.env.MAX_WALLET_TOPUP_AMOUNT) || 10000
         if (!amount || typeof amount !== 'number' || amount < 5 || amount > MAX_TOPUP_AMOUNT) {
@@ -93,32 +93,45 @@ export async function POST(request: NextRequest) {
 
         const fee = calculatePaystackFee(amount, feePercent)
         const totalAmount = amount + fee
-        const reference = `WAL-${generateReferenceCode()}`
+        let reference = existingRef || `WAL-${generateReferenceCode()}`
+        let paymentId: string | null = null
 
-        // Create payment record
-        const { data: payment, error: paymentError } = await (supabaseAdmin
-            .from('wallet_payments') as any)
-            .insert({
-                user_id: userId,
-                wallet_id: (wallet as any)!.id,
-                amount: amount,
-                fee: fee,
-                total_amount: totalAmount,
-                reference: reference,
-                provider: 'moolre',
-                status: 'pending',
-                metadata: {
+        if (existingRef) {
+            const { data: existingPayment } = await (supabaseAdmin
+                .from('wallet_payments') as any)
+                .select('id')
+                .eq('reference', existingRef)
+                .single()
+            if (existingPayment) paymentId = (existingPayment as any).id
+        }
+
+        if (!paymentId) {
+            // Create payment record
+            const { data: payment, error: paymentError } = await (supabaseAdmin
+                .from('wallet_payments') as any)
+                .insert({
                     user_id: userId,
+                    wallet_id: (wallet as any)!.id,
                     amount: amount,
                     fee: fee,
-                }
-            })
-            .select()
-            .single()
+                    total_amount: totalAmount,
+                    reference: reference,
+                    provider: 'moolre',
+                    status: 'pending',
+                    metadata: {
+                        user_id: userId,
+                        amount: amount,
+                        fee: fee,
+                    }
+                })
+                .select()
+                .single()
 
-        if (paymentError) {
-            console.error('Payment record error:', paymentError)
-            return NextResponse.json({ error: 'Failed to create payment' }, { status: 500 })
+            if (paymentError) {
+                console.error('Payment record error:', paymentError)
+                return NextResponse.json({ error: 'Failed to create payment' }, { status: 500 })
+            }
+            paymentId = (payment as any).id
         }
 
         // Initialize Moolre payment
@@ -129,15 +142,27 @@ export async function POST(request: NextRequest) {
             payerPhone: phone,
             channel: channelId,
             externalRef: reference,
+            otpCode: otpCode
         })
 
         if (!moolreResponse.success) {
             console.error('Moolre error:', moolreResponse.error)
-            await (supabaseAdmin
-                .from('wallet_payments') as any)
-                .update({ status: 'failed' })
-                .eq('id', (payment as any).id)
+            if (!existingRef) {
+                await (supabaseAdmin
+                    .from('wallet_payments') as any)
+                    .update({ status: 'failed' })
+                    .eq('id', paymentId)
+            }
             return NextResponse.json({ error: moolreResponse.error || 'Failed to initialize payment' }, { status: 500 })
+        }
+
+        if (moolreResponse.status === '200_OTP_REQ') {
+            return NextResponse.json({
+                success: true,
+                otpRequired: true,
+                reference: reference,
+                message: 'OTP is required to complete this payment. Please enter the code sent to your phone.'
+            })
         }
 
         return NextResponse.json({

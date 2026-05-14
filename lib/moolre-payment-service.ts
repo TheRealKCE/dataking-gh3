@@ -18,10 +18,12 @@ export interface InitiatePaymentParams {
     payerPhone: string
     channel: string
     externalRef: string
+    otpCode?: string
 }
 
 export interface InitiatePaymentResult {
     success: boolean
+    status?: string
     txstatus?: number
     error?: string
 }
@@ -74,7 +76,8 @@ export async function initiatePayment(params: InitiatePaymentParams): Promise<In
             payer: params.payerPhone,
             amount: params.amount,
             externalref: params.externalRef,
-            accountnumber: accountNumber
+            accountnumber: accountNumber,
+            ...(params.otpCode && { otpcode: params.otpCode })
         }
 
         const response = await fetch(`${MOOLRE_BASE_URL}/open/transact/payment`, {
@@ -95,6 +98,7 @@ export async function initiatePayment(params: InitiatePaymentParams): Promise<In
 
         return {
             success: true,
+            status: data.status,
             txstatus: data.txstatus ?? data.data?.txstatus,
         }
     } catch (err: any) {

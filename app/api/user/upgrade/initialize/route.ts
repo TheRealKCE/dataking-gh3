@@ -17,7 +17,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        const { plan = '30d', phone, network } = await request.json().catch(() => ({}));
+        const { plan = '30d', phone, network, otpCode, reference: existingRef } = await request.json().catch(() => ({}));
 
         if (!phone || !network) {
             return NextResponse.json({ error: 'Phone number and network are required' }, { status: 400 })
@@ -89,7 +89,7 @@ export async function POST(request: Request) {
         const totalAmount = upgradePrice
 
         // Create a pending record in wallet_payments so the webhook can find it
-        const reference = `agent_upgrade_${generateReferenceCode()}`
+        const reference = existingRef || `agent_upgrade_${generateReferenceCode()}`
 
         // Get user's wallet
         const { data: wallet } = await supabaseAdmin
@@ -113,7 +113,7 @@ export async function POST(request: Request) {
                 fee: 0,
                 total_amount: upgradePrice,
                 reference,
-                provider: 'paystack',
+                provider: 'moolre',
                 status: 'pending',
                 metadata: {
                     user_id: user.id,
@@ -126,7 +126,7 @@ export async function POST(request: Request) {
                 }
             })
 
-        if (paymentError) {
+        if (!existingRef && paymentError) {
             console.error('[UpgradeInit] Database error:', paymentError)
             throw new Error('Failed to record payment attempt')
         }
@@ -137,10 +137,20 @@ export async function POST(request: Request) {
             payerPhone: phone,
             channel: channelId,
             externalRef: reference,
+            otpCode: otpCode,
         })
 
         if (!moolreResponse.success) {
             throw new Error(moolreResponse.error || 'Failed to initialize payment')
+        }
+
+        if (moolreResponse.status === '200_OTP_REQ') {
+            return NextResponse.json({
+                success: true,
+                otpRequired: true,
+                reference,
+                message: 'OTP is required to complete this payment. Please enter the code sent to your phone.'
+            })
         }
 
         return NextResponse.json({

@@ -15,6 +15,17 @@ import { toast } from 'sonner'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { CopyrightFooter } from '@/components/CopyrightFooter'
 import dynamic from 'next/dynamic'
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter
+} from "@/components/ui/dialog"
+import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
+import { Label } from '@/components/ui/label'
 
 const ShopPwaInstallPrompt = dynamic(() => import('@/components/ShopPwaInstallPrompt'), { ssr: false })
 
@@ -169,6 +180,10 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
     const [announcement] = useState<StorefrontAnnouncement | null>(initialAnnouncement)
     const [announcementDismissed, setAnnouncementDismissed] = useState(false)
     const [scrolled, setScrolled] = useState(false)
+    const [otpRequired, setOtpRequired] = useState(false)
+    const [otpCode, setOtpCode] = useState('')
+    const [otpReference, setOtpReference] = useState<string | null>(null)
+    const [otpOrderType, setOtpOrderType] = useState<'data' | 'airtime'>('data')
 
     // Derived flags for Airtime
     const isGlobalAirtimeEnabled = adminSettings['storefront_airtime_enabled'] === 'true'
@@ -372,6 +387,14 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 return
             }
 
+            if (data.otpRequired) {
+                setOtpRequired(true)
+                setOtpReference(data.reference)
+                setOtpOrderType('data')
+                setLoading(false)
+                return
+            }
+
             try { localStorage.setItem('shop_last_phone', cleanPhone) } catch (_) { }
             toast.success(data.message || 'Payment prompt sent! Please check your phone.')
             setPollingRef(data.reference)
@@ -418,11 +441,67 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 return
             }
 
+            if (data.otpRequired) {
+                setOtpRequired(true)
+                setOtpReference(data.reference)
+                setOtpOrderType('airtime')
+                setLoading(false)
+                return
+            }
+
             try { localStorage.setItem('shop_last_phone', cleanPhone) } catch (_) { }
             toast.success(data.message || 'Payment prompt sent! Please check your phone.')
             setPollingRef(data.reference)
         } catch (err) {
             toast.error('Network error. Please try again.')
+            setLoading(false)
+        }
+    }
+
+    const handleVerifyOtp = async () => {
+        if (!otpCode || otpCode.length < 4) {
+            toast.error('Please enter a valid OTP')
+            return
+        }
+
+        setLoading(true)
+        try {
+            const body = otpOrderType === 'airtime' ? {
+                shopSlug: shop.shop_slug,
+                orderType: 'airtime',
+                network: detectedNetwork,
+                amount: parseFloat(airtimeAmount),
+                useExactAmount: useExact,
+                guestPhone: airtimePhone.replace(/\s+/g, ''),
+                guestEmail: airtimeEmail.trim() || undefined,
+                otpCode,
+                reference: otpReference
+            } : {
+                shopSlug: shop.shop_slug,
+                packageId: selectedPackage?.id,
+                guestPhone: phone.replace(/\s+/g, ''),
+                guestEmail: email.trim() || undefined,
+                otpCode,
+                reference: otpReference
+            }
+
+            const res = await fetch('/api/shop/initialize', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            })
+            const data = await res.json()
+
+            if (!res.ok) {
+                throw new Error(data.error || 'Failed to verify OTP')
+            }
+
+            setOtpRequired(false)
+            setOtpCode('')
+            toast.success(data.message || 'OTP verified! Payment prompt sent.')
+            setPollingRef(data.reference)
+        } catch (error: any) {
+            toast.error(error.message || 'Failed to verify OTP')
             setLoading(false)
         }
     }
@@ -1065,6 +1144,48 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 logoUrl={shop.logo_url}
                 brandColor={shop.brand_color}
             />
+
+            {/* OTP Modal */}
+            <Dialog open={otpRequired} onOpenChange={(open) => !open && setOtpRequired(false)}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>OTP Verification</DialogTitle>
+                        <DialogDescription>
+                            Please enter the OTP sent to your phone to complete the payment.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="flex flex-col space-y-4 py-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="otp">Enter OTP</Label>
+                            <Input
+                                id="otp"
+                                type="text"
+                                placeholder="Enter code"
+                                value={otpCode}
+                                onChange={(e) => setOtpCode(e.target.value)}
+                                className="h-12 text-center text-2xl tracking-widest font-bold"
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter className="sm:justify-end">
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={() => setOtpRequired(false)}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="button"
+                            onClick={handleVerifyOtp}
+                            disabled={loading || !otpCode}
+                            className="bg-blue-600 hover:bg-blue-700"
+                        >
+                            {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Verify & Continue'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }
