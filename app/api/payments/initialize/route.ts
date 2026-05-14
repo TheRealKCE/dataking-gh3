@@ -137,13 +137,25 @@ export async function POST(request: NextRequest) {
         // Initialize Moolre payment
         const channelId = MOOLRE_PAYMENT_CHANNEL_MAP[network]
         
-        const moolreResponse = await initiatePayment({
+        let moolreResponse = await initiatePayment({
             amount: totalAmount,
             payerPhone: phone,
             channel: channelId,
             externalRef: reference,
             otpCode: otpCode
         })
+
+        // If OTP was provided and successfully verified (Moolre returns status '1' e.g. "Phone no. Verification Successful.")
+        // Moolre does NOT automatically trigger the payment. We must call initiatePayment again without the OTP.
+        if (moolreResponse.success && String(moolreResponse.status) === '1' && otpCode) {
+            console.log('[WalletInit] OTP verified successfully. Sending follow-up payment request.')
+            moolreResponse = await initiatePayment({
+                amount: totalAmount,
+                payerPhone: phone,
+                channel: channelId,
+                externalRef: reference,
+            })
+        }
 
         if (!moolreResponse.success) {
             console.error('[WalletInit] Moolre error:', moolreResponse.error)

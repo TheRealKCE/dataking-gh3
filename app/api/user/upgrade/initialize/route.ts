@@ -132,13 +132,23 @@ export async function POST(request: Request) {
         }
 
         // Initialize Moolre payment
-        const moolreResponse = await initiatePayment({
+        let moolreResponse = await initiatePayment({
             amount: totalAmount, // GHS
             payerPhone: phone,
             channel: channelId,
             externalRef: reference,
             otpCode: otpCode,
         })
+
+        if (moolreResponse.success && String(moolreResponse.status) === '1' && otpCode) {
+            console.log('[UpgradeInit] OTP verified successfully. Sending follow-up payment request.')
+            moolreResponse = await initiatePayment({
+                amount: totalAmount,
+                payerPhone: phone,
+                channel: channelId,
+                externalRef: reference,
+            })
+        }
 
         if (!moolreResponse.success) {
             throw new Error(moolreResponse.error || 'Failed to initialize payment')

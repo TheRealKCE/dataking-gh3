@@ -248,13 +248,23 @@ export async function POST(request: NextRequest) {
         }
 
         // Initialize Moolre Payment
-        const moolreResponse = await initiatePayment({
+        let moolreResponse = await initiatePayment({
             amount: totalAmount / 100, // Convert pesewas to GHS for Moolre
             payerPhone: cleanPhone,
             channel: channelId,
             externalRef: moolreRef,
             otpCode: otpCode,
         })
+
+        if (moolreResponse.success && String(moolreResponse.status) === '1' && otpCode) {
+            console.log('[ShopInit] OTP verified successfully. Sending follow-up payment request.')
+            moolreResponse = await initiatePayment({
+                amount: totalAmount / 100,
+                payerPhone: cleanPhone,
+                channel: channelId,
+                externalRef: moolreRef,
+            })
+        }
 
         if (!moolreResponse.success) {
             return NextResponse.json({ error: moolreResponse.error || 'Payment initialization failed' }, { status: 500 })
