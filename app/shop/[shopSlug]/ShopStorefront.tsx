@@ -488,6 +488,10 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 throw new Error(data.error || 'Invalid OTP. Please try again.')
             }
 
+            if (data.otpRequired) {
+                throw new Error('Invalid OTP or OTP expired. Please try again.')
+            }
+
             setOtpRequired(false)
             setOtpCode('')
             toast.success(data.message || 'OTP verified! Please approve the prompt on your phone.')

@@ -77,7 +77,7 @@ export async function initiatePayment(params: InitiatePaymentParams): Promise<In
             amount: params.amount,
             externalref: params.externalRef,
             accountnumber: accountNumber,
-            ...(params.otpCode && { otpcode: params.otpCode })
+            ...(params.otpCode && { otpcode: params.otpCode, otp: params.otpCode })
         }
 
         const response = await fetch(`${MOOLRE_BASE_URL}/open/transact/payment`, {
