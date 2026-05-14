@@ -1,73 +1,86 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
-import { creditShopProfit } from '@/lib/shop-service'
-import { sendOrderSuccessSMS } from '@/lib/sms-service'
+import { Redis } from '@upstash/redis'
+import { checkPaymentStatus } from '@/lib/moolre-payment-service'
+
+const redis = Redis.fromEnv()
 
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
     const ref = searchParams.get('ref')
     const slug = searchParams.get('slug')
 
+    const isInline = request.headers.get('accept')?.includes('application/json')
+
     if (!ref || !slug) {
+        if (isInline) return NextResponse.json({ success: false, error: 'invalid_ref' }, { status: 400 })
         return NextResponse.redirect(new URL(`/shop/${slug || ''}?error=invalid_ref`, request.url))
     }
 
     if (!ref.startsWith('SHOP-') || ref.length > 50) {
+        if (isInline) return NextResponse.json({ success: false, error: 'invalid_ref' }, { status: 400 })
         return NextResponse.redirect(new URL(`/shop/${slug}?error=invalid_ref`, request.url))
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || ''
-
     try {
-        const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY
-        if (!PAYSTACK_SECRET_KEY) {
+        // Verify payment with Moolre
+        const moolreResponse = await checkPaymentStatus(ref)
+
+        if (!moolreResponse.success || moolreResponse.txstatus === null) {
+            console.error('[Shop Verify] Moolre check failed:', moolreResponse.error)
+            if (isInline) return NextResponse.json({ success: true, status: 'pending', error: 'Payment check failed temporarily' })
             return NextResponse.redirect(new URL(`/shop/${slug}?error=payment_error`, request.url))
         }
 
-        // 1. Verify payment with Paystack
-        const verifyRes = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(ref)}`, {
-            headers: { 'Authorization': `Bearer ${PAYSTACK_SECRET_KEY}` },
-        })
-        const verifyData = await verifyRes.json()
-
-        const cookieStore = await cookies()
-        const supabase = createRouteHandlerClient({
-            // @ts-expect-error - auth-helpers types expect Promise but runtime needs synchronous object
-            cookies: () => cookieStore,
-        })
-        const db = supabase as any
-
-        // 2. Extract order data from metadata
-        const metadata = verifyData.data?.metadata
-        if (!metadata || !metadata.shop_id) {
-            console.error('[Shop Verify] Missing metadata in Paystack response:', verifyData)
-            return NextResponse.redirect(new URL(`/shop/${slug}?error=payment_error`, request.url))
+        if (moolreResponse.txstatus === 0 || moolreResponse.txstatus === 3) {
+            if (isInline) return NextResponse.json({ success: true, status: 'pending' })
+            return NextResponse.redirect(new URL(`/shop/${slug}?error=payment_pending`, request.url))
         }
 
-        if (verifyData.data?.status !== 'success') {
-            console.error('[Shop Verify] Payment not successful:', verifyData.data?.status)
+        if (moolreResponse.txstatus === 2) {
+            if (isInline) return NextResponse.json({ success: false, status: 'failed' })
             return NextResponse.redirect(new URL(`/shop/${slug}?error=payment_failed`, request.url))
+        }
+
+        // Moolre doesn't return metadata, we fetch it from Redis
+        const metadataStr = await redis.get<string>(`shop:meta:${ref}`)
+        if (!metadataStr) {
+            console.error('[Shop Verify] Metadata not found in Redis for:', ref)
+            if (isInline) return NextResponse.json({ success: false, error: 'payment_error' }, { status: 400 })
+            return NextResponse.redirect(new URL(`/shop/${slug}?error=payment_error`, request.url))
+        }
+
+        let metadata
+        try {
+            metadata = typeof metadataStr === 'string' ? JSON.parse(metadataStr) : metadataStr
+        } catch (e) {
+            metadata = metadataStr
         }
 
         // 3. Process the order using the shared logic (Idempotent)
         const { processShopOrder } = await import('@/lib/shop-order-processor')
+        const paidAmountPesewas = Math.round(Number(metadata.selling_price || metadata.airtime_amount) * 100) + Math.round(Number(metadata.fee_amount || metadata.paystack_fee || 0) * 100)
+
         const result = await processShopOrder(
             ref,
             metadata,
-            verifyData.data?.amount || 0,
+            paidAmountPesewas,
             slug!
         )
 
         if (!result.success) {
             const errorType = result.error === 'Payment amount mismatch' ? 'payment_mismatch' : 'payment_error'
+            if (isInline) return NextResponse.json({ success: false, error: errorType }, { status: 400 })
             return NextResponse.redirect(new URL(`/shop/${slug}?error=${errorType}`, request.url))
         }
 
+        if (isInline) return NextResponse.json({ success: true, status: 'completed' })
         return NextResponse.redirect(new URL(`/shop/${slug}/success?ref=${ref}`, request.url))
 
     } catch (error) {
         console.error('[Shop Verify] Error:', error)
+        if (isInline) return NextResponse.json({ success: false, error: 'server_error' }, { status: 500 })
         return NextResponse.redirect(new URL(`/shop/${slug}?error=server_error`, request.url))
     }
 }

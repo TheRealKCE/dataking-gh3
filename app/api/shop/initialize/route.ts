@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
 import { Redis } from '@upstash/redis'
+import { initiatePayment, MOOLRE_PAYMENT_CHANNEL_MAP } from '@/lib/moolre-payment-service'
 
 // Redis client for distributed idempotency across all serverless instances.
 // In-memory Maps were removed — they reset on every Vercel cold start.
@@ -207,56 +207,63 @@ export async function POST(request: NextRequest) {
                 selling_price: sellingPrice,
                 cost_price: costPrice,
                 profit: profit,
-                paystack_fee: paystackFee
+                paystack_fee: paystackFee // Keeping this key name for backward compatibility with downstream processing
             }
         }
 
-        const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY
-        if (!PAYSTACK_SECRET_KEY) return NextResponse.json({ error: 'Payment service unavailable' }, { status: 503 })
-
-        const paystackEmail = validatedGuestEmail || `guest.${cleanPhone}@arhmsgh.com`
-        const paystackRef = `SHOP-${shop.id.slice(0, 8)}-${Date.now()}`
-        const callbackUrl = `${process.env.NEXT_PUBLIC_APP_URL || ''}/api/shop/verify?ref=${paystackRef}&slug=${shopSlug}`
-
-        const idemKey = `shop:idem:${shop.id}-${cleanPhone}-${totalAmount}`
-        const cachedIdem = await redis.get<{ authUrl: string, ref: string }>(idemKey)
-        if (cachedIdem) {
-            return NextResponse.json({ success: true, authorization_url: cachedIdem.authUrl, reference: cachedIdem.ref })
+        // Auto-detect payment network if not explicitly provided or if it's not a main network (e.g. AT-iShare)
+        let paymentNetwork = network
+        if (!paymentNetwork || !['MTN', 'Telecel', 'AT'].includes(paymentNetwork)) {
+            const prefix = cleanPhone.substring(0, 3)
+            if (['024', '054', '055', '059', '025', '053', '098'].includes(prefix)) paymentNetwork = 'MTN'
+            else if (['020', '050'].includes(prefix)) paymentNetwork = 'Telecel'
+            else if (['026', '027', '056', '028', '058', '057'].includes(prefix)) paymentNetwork = 'AT'
+            else paymentNetwork = 'MTN' // Fallback
         }
 
-        const paystackRes = await fetch('https://api.paystack.co/transaction/initialize', {
-            method: 'POST',
-            headers: { 'Authorization': `Bearer ${PAYSTACK_SECRET_KEY}`, 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                email: paystackEmail,
-                amount: totalAmount,
-                reference: paystackRef,
-                callback_url: callbackUrl,
-                metadata: {
-                    shop_id: shop.id,
-                    shop_name: shop.shop_name,
-                    shop_slug: shopSlug,
-                    guest_phone: cleanPhone,
-                    guest_email: validatedGuestEmail,
-                    fulfillment_mode: shop.fulfillment_mode,
-                    ...metadataPayload,
-                    custom_fields: [
-                        { display_name: 'Shop', variable_name: 'shop', value: shop.shop_name },
-                        { display_name: 'Phone', variable_name: 'phone', value: cleanPhone },
-                        { display_name: 'Order', variable_name: 'package', value: `${pkgNetwork} ${pkgSize}` },
-                        ...(validatedGuestEmail ? [{ display_name: 'Email', variable_name: 'email', value: validatedGuestEmail }] : []),
-                    ],
-                },
-            }),
+        const channelId = MOOLRE_PAYMENT_CHANNEL_MAP[paymentNetwork]
+        if (!channelId) {
+            return NextResponse.json({ error: 'Unsupported payment network' }, { status: 400 })
+        }
+
+        const moolreRef = `SHOP-${shop.id.slice(0, 8)}-${Date.now()}`
+
+        // Complete Metadata for Webhook processing (equivalent to what was sent to Paystack)
+        const fullMetadata = {
+            shop_id: shop.id,
+            shop_name: shop.shop_name,
+            shop_slug: shopSlug,
+            guest_phone: cleanPhone,
+            guest_email: validatedGuestEmail,
+            fulfillment_mode: shop.fulfillment_mode,
+            ...metadataPayload,
+        }
+
+        const idemKey = `shop:idem:${shop.id}-${cleanPhone}-${totalAmount}`
+        const cachedIdem = await redis.get<{ ref: string }>(idemKey)
+        if (cachedIdem) {
+            return NextResponse.json({ success: true, reference: cachedIdem.ref, message: 'Payment prompt sent to your phone.' })
+        }
+
+        // Initialize Moolre Payment
+        const moolreResponse = await initiatePayment({
+            amount: totalAmount / 100, // Convert pesewas to GHS for Moolre
+            payerPhone: cleanPhone,
+            channel: channelId,
+            externalRef: moolreRef,
         })
 
-        const paystackData = await paystackRes.json()
-        if (!paystackData.status) return NextResponse.json({ error: 'Payment initialization failed' }, { status: 500 })
+        if (!moolreResponse.success) {
+            return NextResponse.json({ error: moolreResponse.error || 'Payment initialization failed' }, { status: 500 })
+        }
 
-        // Cache the Paystack URL for 60 seconds to prevent duplicate transactions on retries.
-        await redis.set(idemKey, { authUrl: paystackData.data.authorization_url, ref: paystackRef }, { ex: 60 })
+        // Save metadata to Redis for Webhook
+        await redis.set(`shop:meta:${moolreRef}`, JSON.stringify(fullMetadata), { ex: 86400 }) // Keep for 24 hours
 
-        return NextResponse.json({ success: true, authorization_url: paystackData.data.authorization_url, reference: paystackRef })
+        // Cache the Idempotency Key for 60 seconds to prevent duplicate transactions on retries.
+        await redis.set(idemKey, { ref: moolreRef }, { ex: 60 })
+
+        return NextResponse.json({ success: true, reference: moolreRef, message: 'Payment prompt sent to your phone. Please approve to complete your order.' })
     } catch (error) {
         console.error('[Shop Initialize] Error:', error)
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

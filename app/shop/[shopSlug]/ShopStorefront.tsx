@@ -164,6 +164,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
     const [loading, setLoading] = useState(false)
     const [pageLoading, setPageLoading] = useState(true)
     const [errorMsg, setErrorMsg] = useState<string | null>(null)
+    const [pollingRef, setPollingRef] = useState<string | null>(null)
     const [contactInfo, setContactInfo] = useState<{ phone?: string; whatsapp?: string; email?: string } | null>(null)
     const [announcement] = useState<StorefrontAnnouncement | null>(initialAnnouncement)
     const [announcementDismissed, setAnnouncementDismissed] = useState(false)
@@ -224,6 +225,37 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
             setErrorMsg(messages[error] || 'An error occurred. Please try again.')
         }
     }, [searchParams])
+
+    // Poll for payment status when reference is set
+    useEffect(() => {
+        let interval: NodeJS.Timeout
+        if (pollingRef) {
+            interval = setInterval(async () => {
+                try {
+                    const res = await fetch(`/api/shop/verify?ref=${pollingRef}&slug=${shop.shop_slug}`, {
+                        headers: { 'Accept': 'application/json' }
+                    })
+                    const data = await res.json()
+                    
+                    if (data.status === 'completed') {
+                        clearInterval(interval)
+                        setPollingRef(null)
+                        setLoading(false)
+                        toast.success('Payment completed successfully!')
+                        window.location.href = `/shop/${shop.shop_slug}/success?ref=${pollingRef}`
+                    } else if (data.status === 'failed') {
+                        clearInterval(interval)
+                        setPollingRef(null)
+                        setLoading(false)
+                        setErrorMsg(data.message || 'Payment failed or cancelled.')
+                    }
+                } catch (e) {
+                    console.error('Polling error', e)
+                }
+            }, 3000)
+        }
+        return () => clearInterval(interval)
+    }, [pollingRef, shop.shop_slug])
 
     // Auto-detect network for airtime
     useEffect(() => {
@@ -333,7 +365,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
             })
             const data = await res.json()
 
-            if (!res.ok || !data.authorization_url) {
+            if (!res.ok || !data.reference) {
                 setErrorMsg(data.error || 'Failed to initialize payment')
                 if (data.contact) setContactInfo(data.contact)
                 setLoading(false)
@@ -341,7 +373,8 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
             }
 
             try { localStorage.setItem('shop_last_phone', cleanPhone) } catch (_) { }
-            window.location.href = data.authorization_url
+            toast.success(data.message || 'Payment prompt sent! Please check your phone.')
+            setPollingRef(data.reference)
         } catch (err) {
             toast.error('Network error. Please try again.')
             setLoading(false)
@@ -378,7 +411,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
             })
             const data = await res.json()
 
-            if (!res.ok || !data.authorization_url) {
+            if (!res.ok || !data.reference) {
                 setErrorMsg(data.error || 'Failed to initialize airtime payment')
                 if (data.contact) setContactInfo(data.contact)
                 setLoading(false)
@@ -386,7 +419,8 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
             }
 
             try { localStorage.setItem('shop_last_phone', cleanPhone) } catch (_) { }
-            window.location.href = data.authorization_url
+            toast.success(data.message || 'Payment prompt sent! Please check your phone.')
+            setPollingRef(data.reference)
         } catch (err) {
             toast.error('Network error. Please try again.')
             setLoading(false)
@@ -768,7 +802,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                                         onClick={handleBuyAirtime} disabled={loading || !detectedNetwork || parseFloat(airtimeAmount || '0') <= 0}
                                         className="w-full py-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-base uppercase tracking-widest shadow-lg flex justify-center items-center gap-3 transition-transform active:scale-95 disabled:opacity-50 disabled:active:scale-100"
                                     >
-                                        {loading ? <><Loader2 className="w-5 h-5 animate-spin" /> Processing...</> : <><Smartphone className="w-5 h-5"/> Recharge Airtime</>}
+                                        {loading ? <><Loader2 className="w-5 h-5 animate-spin" /> {pollingRef ? 'Waiting for Approval...' : 'Processing...'}</> : <><Smartphone className="w-5 h-5"/> Recharge Airtime</>}
                                     </button>
                                 </div>
                             </div>
@@ -892,9 +926,9 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                             onClick={handleBuyData} disabled={loading}
                             className="w-full py-3.5 rounded-xl text-white font-bold text-base flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-70 bg-[var(--brand-color)]"
                         >
-                            {loading ? <><Loader2 className="w-5 h-5 animate-spin" /> Processing...</> : <><ShoppingCart className="w-5 h-5" /> Pay {formatCurrency(selectedPackage.selling_price)}</>}
+                            {loading ? <><Loader2 className="w-5 h-5 animate-spin" /> {pollingRef ? 'Waiting for Approval...' : 'Processing...'}</> : <><ShoppingCart className="w-5 h-5" /> Pay {formatCurrency(selectedPackage.selling_price)}</>}
                         </button>
-                        <p className="text-[10px] text-center text-muted-foreground">Secured by Paystack · No account needed</p>
+                        <p className="text-[10px] text-center text-muted-foreground">Direct MoMo Prompt</p>
                     </div>
                 )}
             </div>

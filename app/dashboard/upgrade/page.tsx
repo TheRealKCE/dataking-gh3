@@ -12,6 +12,11 @@ import { toast } from 'sonner'
 import CongratsModal from '@/components/upgrade/CongratsModal'
 import { cn } from '@/lib/utils'
 import { useTutorial } from '@/hooks/useTutorial'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Loader2, Phone, Smartphone } from 'lucide-react'
 import { HelpButton } from '@/components/tutorial/HelpButton'
 
 export default function UpgradePage() {
@@ -26,8 +31,13 @@ export default function UpgradePage() {
     // Congrats modal state
     const [showCongrats, setShowCongrats] = useState(false)
     const [initialExpiry, setInitialExpiry] = useState<string | null>(null)
-    const [showFallbackButton, setShowFallbackButton] = useState(false)
-    const verifyRetryCount = React.useRef(0)
+
+    // Payment State
+    const [showPaymentModal, setShowPaymentModal] = useState(false)
+    const [selectedPlan, setSelectedPlan] = useState<string | null>(null)
+    const [paymentPhone, setPaymentPhone] = useState('')
+    const [paymentNetwork, setPaymentNetwork] = useState('MTN')
+    const [pollingRef, setPollingRef] = useState<string | null>(null)
 
     // Prices for tiers
     const [prices, setPrices] = useState({
@@ -76,102 +86,73 @@ export default function UpgradePage() {
         fetchPrices()
     }, [])
 
-    const [isVerifying, setIsVerifying] = useState(false)
 
-    // Detect successful payment redirect and verify directly with Paystack
+
+
+    // Poll for payment status when reference is set
     useEffect(() => {
-        const success = searchParams.get('success') === 'true'
-        const reference = searchParams.get('reference') || searchParams.get('trxref')
-
-        if (!success) {
-            verifyRetryCount.current = 0
-            setShowFallbackButton(false)
-            return
-        }
-
-        const verifyAndActivate = async () => {
-            setIsVerifying(true)
-
-            // Step 1: If already an agent and recently updated, just show congrats
-            if (dbUser?.role === 'agent') {
-                const updateTime = dbUser.updated_at ? new Date(dbUser.updated_at).getTime() : 0
-                const fiveMinutesAgo = Date.now() - (5 * 60 * 1000)
-                if (updateTime > fiveMinutesAgo || (initialExpiry && dbUser.agent_expires_at !== initialExpiry)) {
-                    setShowCongrats(true)
-                    setIsVerifying(false)
-                    window.history.replaceState({}, '', '/dashboard/upgrade')
-                    return
-                }
-            }
-
-            // Step 2: Call our direct verification endpoint with the payment reference
-            if (reference?.startsWith('agent_upgrade_')) {
+        let interval: NodeJS.Timeout
+        if (pollingRef) {
+            interval = setInterval(async () => {
                 try {
-                    const res = await fetch(`/api/user/upgrade/verify?reference=${reference}`, {
+                    const res = await fetch(`/api/user/upgrade/verify?reference=${pollingRef}`, {
                         headers: { 'Accept': 'application/json' }
                     })
                     const data = await res.json()
-
-                    if (res.ok && data.success) {
-                        // Payment confirmed — refresh session to get new role
+                    
+                    if (data.status === 'completed') {
+                        clearInterval(interval)
+                        setPollingRef(null)
+                        setShowPaymentModal(false)
+                        toast.success('Upgrade payment completed successfully!')
                         await refreshUser()
                         setShowCongrats(true)
-                        setIsVerifying(false)
-                        window.history.replaceState({}, '', '/dashboard/upgrade')
-                        return
+                    } else if (data.status === 'failed') {
+                        clearInterval(interval)
+                        setPollingRef(null)
+                        setShowPaymentModal(false)
+                        toast.error(data.error || 'Payment failed or cancelled.')
+                        setIsProcessing(null)
                     }
-                } catch (err) {
-                    console.error('[UpgradePage] Verification error:', err)
+                } catch (e) {
+                    console.error('Polling error', e)
                 }
-            }
-
-            // Step 3: Fallback — retry polling if direct verify unavailable
-            if (verifyRetryCount.current >= 5) {
-                setIsVerifying(false)
-                setShowFallbackButton(true)
-                return
-            }
-            verifyRetryCount.current += 1
-            const timer = setTimeout(() => {
-                refreshUser()
             }, 3000)
-            return () => clearTimeout(timer)
+        }
+        return () => clearInterval(interval)
+    }, [pollingRef, refreshUser])
+
+    const handleUpgradeSelect = (plan: string) => {
+        setSelectedPlan(plan)
+        setShowPaymentModal(true)
+    }
+
+    const handleUpgradeSubmit = async () => {
+        if (!paymentPhone || paymentPhone.replace(/\s/g, '').length < 10) {
+            toast.error('Please enter a valid phone number')
+            return
         }
 
-        verifyAndActivate()
-    }, [searchParams, dbUser, initialExpiry, refreshUser])
-
-    // Timer for fallback button during verification
-    useEffect(() => {
-        let timer: NodeJS.Timeout
-        if (isVerifying) {
-            timer = setTimeout(() => {
-                setShowFallbackButton(true)
-            }, 10000) // 10 seconds
-        } else {
-            setShowFallbackButton(false)
-        }
-        return () => {
-            if (timer) clearTimeout(timer)
-        }
-    }, [isVerifying])
-
-    const handleUpgrade = async (plan: string) => {
-        setIsProcessing(plan)
+        setIsProcessing(selectedPlan)
         try {
             const response = await fetch('/api/user/upgrade/initialize', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ plan })
+                body: JSON.stringify({ 
+                    plan: selectedPlan,
+                    phone: paymentPhone.replace(/\s/g, ''),
+                    network: paymentNetwork
+                })
             })
 
+            const data = await response.json()
+
             if (!response.ok) {
-                const error = await response.json()
-                throw new Error(error.error || 'Failed to initialize upgrade')
+                throw new Error(data.error || 'Failed to initialize upgrade')
             }
 
-            const { authorization_url } = await response.json()
-            window.location.href = authorization_url
+            toast.success(data.message || 'Payment prompt sent! Please check your phone.')
+            setPollingRef(data.reference)
         } catch (error: any) {
             toast.error(error.message || 'Failed to start upgrade process')
             setIsProcessing(null)
@@ -256,42 +237,13 @@ export default function UpgradePage() {
         'Shop Storefront Feature (Live)'
     ]
 
-    if (isLoading || isVerifying) {
+    if (isLoading) {
         return (
             <div className="fixed inset-0 bg-[#FFCE00] flex items-center justify-center z-50 p-6">
                 <div className="flex flex-col items-center gap-6 max-w-sm w-full">
                     <div className="relative">
                         <Crown className="w-16 h-16 text-yellow-600 animate-bounce relative z-10" />
                     </div>
-                    {isVerifying && (
-                        <div className="text-center space-y-4 w-full">
-                            <div className="space-y-2">
-                                <h2 className="text-2xl font-black text-yellow-800">Verifying Payment...</h2>
-                                <p className="text-yellow-700 font-bold animate-pulse">Please wait while we activate your agent status.</p>
-                            </div>
-
-                            {showFallbackButton && (
-                                <div className="pt-4 space-y-3 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                                    <p className="text-yellow-800/80 text-xs font-black uppercase tracking-widest">Taking longer than expected?</p>
-                                    <div className="grid grid-cols-1 gap-3">
-                                        <Button
-                                            onClick={() => window.location.reload()}
-                                            variant="outline"
-                                            className="bg-white/50 border-yellow-400 text-yellow-800 font-black hover:bg-white/80 rounded-xl"
-                                        >
-                                            Refresh Page
-                                        </Button>
-                                        <Button
-                                            onClick={() => router.push('/dashboard')}
-                                            className="bg-black text-[#FFCE00] font-black hover:bg-black/90 rounded-xl"
-                                        >
-                                            Go to Dashboard
-                                        </Button>
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    )}
                 </div>
             </div>
         )
@@ -454,8 +406,8 @@ export default function UpgradePage() {
                                         </div>
 
                                         <Button
-                                            onClick={() => handleUpgrade(tier.id)}
-                                            disabled={isProcessing !== null}
+                                            onClick={() => handleUpgradeSelect(tier.id)}
+                                            disabled={isProcessing !== null || pollingRef !== null}
                                             className={`w-full h-11 sm:h-12 rounded-xl text-sm sm:text-base font-black transition-all active:scale-95 text-white ${tier.buttonClass}`}
                                         >
                                             {isProcessing === tier.id ? (
@@ -476,17 +428,94 @@ export default function UpgradePage() {
                                         <span className="text-xs font-black uppercase tracking-[0.2em]">FAST & SECURE</span>
                                     </div>
                                     <p className="text-base text-gray-500 font-bold leading-relaxed max-w-xl">
-                                        Upgrade your account in seconds using card, mobile money or bank transfer via Paystack. Your benefits start immediately.
+                                        Upgrade your account in seconds using mobile money direct push. Your benefits start immediately upon approval.
                                     </p>
                                     <div className="flex items-center gap-3 pt-2 grayscale opacity-50">
                                         <div className="w-7 h-7 bg-gray-200 rounded-lg flex items-center justify-center text-[10px] font-black text-gray-500 border border-gray-300">?</div>
-                                        <span className="text-[11px] font-black text-gray-400 uppercase tracking-widest">SECURE PAYMENTS BY PAYSTACK</span>
+                                        <span className="text-[11px] font-black text-gray-400 uppercase tracking-widest">SECURE PAYMENTS BY MOOLRE</span>
                                     </div>
                                 </div>
                             </div>
                         </>
                     )}
                 </div>
+
+                <Dialog open={showPaymentModal && !pollingRef} onOpenChange={setShowPaymentModal}>
+                    <DialogContent className="sm:max-w-md">
+                        <DialogHeader>
+                            <DialogTitle>Complete Payment</DialogTitle>
+                            <DialogDescription>
+                                Enter your Mobile Money number to receive the payment prompt.
+                            </DialogDescription>
+                        </DialogHeader>
+
+                        <div className="space-y-4 py-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="network">Network</Label>
+                                <Select value={paymentNetwork} onValueChange={setPaymentNetwork}>
+                                    <SelectTrigger>
+                                        <SelectValue placeholder="Select network" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="MTN">MTN</SelectItem>
+                                        <SelectItem value="Telecel">Telecel</SelectItem>
+                                        <SelectItem value="AT">AT</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label htmlFor="phone">Mobile Money Number</Label>
+                                <div className="relative">
+                                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                    <Input
+                                        id="phone"
+                                        type="tel"
+                                        placeholder="024XXXXXXX"
+                                        className="pl-9"
+                                        value={paymentPhone}
+                                        onChange={(e) => setPaymentPhone(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="flex gap-3 justify-end">
+                            <Button variant="outline" onClick={() => setShowPaymentModal(false)}>
+                                Cancel
+                            </Button>
+                            <Button onClick={handleUpgradeSubmit} disabled={isProcessing !== null} className="bg-black text-[#FFCE00] hover:bg-black/90">
+                                {isProcessing !== null ? (
+                                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing</>
+                                ) : (
+                                    'Send Prompt'
+                                )}
+                            </Button>
+                        </div>
+                    </DialogContent>
+                </Dialog>
+
+                {/* Polling Modal (Fullscreen Spinner) */}
+                {pollingRef && (
+                    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[100] p-6 backdrop-blur-sm">
+                        <div className="flex flex-col items-center gap-6 max-w-sm w-full bg-white rounded-2xl p-8 shadow-2xl text-center">
+                            <div className="relative w-16 h-16 flex items-center justify-center">
+                                <div className="absolute inset-0 border-4 border-amber-100 rounded-full" />
+                                <div className="absolute inset-0 border-4 border-amber-500 rounded-full border-t-transparent animate-spin" />
+                                <Smartphone className="w-6 h-6 text-amber-500" />
+                            </div>
+                            <div className="space-y-2">
+                                <h2 className="text-xl font-black text-gray-900">Awaiting Approval</h2>
+                                <p className="text-sm font-medium text-gray-500">
+                                    Please check your phone ({paymentPhone}) and authorize the transaction to activate your premium membership.
+                                </p>
+                            </div>
+                            <p className="text-xs text-amber-600 bg-amber-50 px-3 py-1.5 rounded-full font-bold">
+                                Do not close this page
+                            </p>
+                        </div>
+                    </div>
+                )}
 
 
             </div>

@@ -1,9 +1,8 @@
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
-import { generateReferenceCode, calculatePaystackFee } from '@/lib/utils'
-
-const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY!
+import { generateReferenceCode } from '@/lib/utils'
+import { initiatePayment, MOOLRE_PAYMENT_CHANNEL_MAP } from '@/lib/moolre-payment-service'
 
 export async function POST(request: Request) {
     try {
@@ -18,7 +17,16 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        const { plan = '30d' } = await request.json().catch(() => ({}));
+        const { plan = '30d', phone, network } = await request.json().catch(() => ({}));
+
+        if (!phone || !network) {
+            return NextResponse.json({ error: 'Phone number and network are required' }, { status: 400 })
+        }
+
+        const channelId = MOOLRE_PAYMENT_CHANNEL_MAP[network]
+        if (!channelId) {
+            return NextResponse.json({ error: 'Unsupported payment network' }, { status: 400 })
+        }
         const user = authUser
 
         // Check if user is already an agent or admin
@@ -114,6 +122,7 @@ export async function POST(request: Request) {
                     plan_days: planDays,
                     plan_label: planLabel,
                     base_amount: upgradePrice,
+                    fee: 0,
                 }
             })
 
@@ -122,39 +131,22 @@ export async function POST(request: Request) {
             throw new Error('Failed to record payment attempt')
         }
 
-        // Initialize Paystack payment
-        const paystackResponse = await fetch('https://api.paystack.co/transaction/initialize', {
-            method: 'POST',
-            headers: {
-                Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                email: user.email,
-                amount: Math.round(totalAmount * 100), // Convert to pesewas
-                reference,
-                metadata: {
-                    user_id: user.id,
-                    upgrade_type: 'agent',
-                    plan_type: plan,
-                    plan_days: planDays,
-                    plan_label: planLabel,
-                    base_amount: upgradePrice,
-                    fee: fee,
-                },
-                callback_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/upgrade?success=true`,
-            }),
+        // Initialize Moolre payment
+        const moolreResponse = await initiatePayment({
+            amount: totalAmount, // GHS
+            payerPhone: phone,
+            channel: channelId,
+            externalRef: reference,
         })
 
-        if (!paystackResponse.ok) {
-            throw new Error('Failed to initialize payment')
+        if (!moolreResponse.success) {
+            throw new Error(moolreResponse.error || 'Failed to initialize payment')
         }
 
-        const paystackData = await paystackResponse.json()
-
         return NextResponse.json({
-            authorization_url: paystackData.data.authorization_url,
+            success: true,
             reference,
+            message: 'Payment prompt sent to your phone. Please approve to continue.'
         })
     } catch (error: any) {
         console.error('Error initializing agent upgrade:', error)

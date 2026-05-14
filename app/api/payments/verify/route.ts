@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { processCompletedWalletPayment } from '@/lib/payments'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
-
-const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY!
+import { checkPaymentStatus } from '@/lib/moolre-payment-service'
 
 export async function GET(request: NextRequest) {
     try {
@@ -50,45 +49,55 @@ export async function GET(request: NextRequest) {
             return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/wallet?error=forbidden`)
         }
 
-        // Verify with Paystack
-        const paystackResponse = await fetch(
-            `https://api.paystack.co/transaction/verify/${reference}`,
-            {
-                headers: {
-                    'Authorization': `Bearer ${PAYSTACK_SECRET_KEY}`,
-                },
-            }
-        )
-
-        const paystackData = await paystackResponse.json()
-
-        if (!paystackData.status || paystackData.data.status !== 'success') {
-            console.error('[PaymentVerify] Paystack verification failed:', paystackData)
-            if (isInline) {
-                return NextResponse.json({ success: false, error: 'Payment verification failed' }, { status: 400 })
-            }
-            return NextResponse.redirect(
-                `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/wallet?error=payment_failed`
-            )
+        // Fast-path: Check if webhook already processed it
+        if (paymentRecord.status === 'completed') {
+            if (isInline) return NextResponse.json({ success: true, status: 'completed', message: 'Payment successful' })
+            return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/wallet?success=true`)
+        } else if (paymentRecord.status === 'failed') {
+            if (isInline) return NextResponse.json({ success: false, status: 'failed', message: 'Payment failed' }, { status: 400 })
+            return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/wallet?error=payment_failed`)
         }
 
+        // Verify with Moolre
+        const moolreResponse = await checkPaymentStatus(reference)
+
+        if (!moolreResponse.success || moolreResponse.txstatus === null) {
+            console.error('[PaymentVerify] Moolre verification failed:', moolreResponse.error)
+            // Do not fail the transaction immediately on network error, just return pending so frontend keeps polling
+            if (isInline) {
+                return NextResponse.json({ success: false, status: 'pending', error: 'Payment verification pending' })
+            }
+            return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/wallet`)
+        }
+
+        if (moolreResponse.txstatus === 0 || moolreResponse.txstatus === 3) {
+            // Still pending
+            if (isInline) return NextResponse.json({ success: true, status: 'pending', message: 'Payment pending' })
+            return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/wallet`)
+        }
+
+        if (moolreResponse.txstatus === 2) {
+            // Failed
+            await (supabase.from('wallet_payments') as any).update({ status: 'failed' }).eq('id', paymentRecord.id)
+            if (isInline) return NextResponse.json({ success: false, status: 'failed', message: 'Payment failed' })
+            return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/wallet?error=payment_failed`)
+        }
+
+        // Processing successful payment (txstatus === 1)
+        // Note: processCompletedWalletPayment expects Paystack-like payload format `amount` in kobo/pesewas
         const expectedAmountPesewas = Math.round(Number(paymentRecord.total_amount || paymentRecord.amount) * 100)
-        if (Number(paystackData.data.amount) !== expectedAmountPesewas) {
-            console.error('[PaymentVerify] Paystack amount mismatch for payment record')
-            if (isInline) {
-                return NextResponse.json({ success: false, error: 'Payment verification failed' }, { status: 400 })
-            }
-            return NextResponse.redirect(
-                `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/wallet?error=payment_failed`
-            )
+        
+        const eventData = {
+            reference: reference,
+            amount: expectedAmountPesewas,
+            metadata: (paymentRecord as any).metadata || {}
         }
 
-        // Process the payment using shared utility
-        const result = await processCompletedWalletPayment(reference, paystackData.data, user.id)
+        const result = await processCompletedWalletPayment(reference, eventData, user.id)
 
         if (!result.success) {
             if (isInline) {
-                return NextResponse.json({ success: false, error: result.error || 'Processing failed' }, { status: 500 })
+                return NextResponse.json({ success: false, status: 'failed', error: result.error || 'Processing failed' }, { status: 500 })
             }
             return NextResponse.redirect(
                 `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/wallet?error=${result.error || 'processing_failed'}`
@@ -96,7 +105,7 @@ export async function GET(request: NextRequest) {
         }
 
         if (isInline) {
-            return NextResponse.json({ success: true, message: 'Payment successful' })
+            return NextResponse.json({ success: true, status: 'completed', message: 'Payment successful' })
         }
         return NextResponse.redirect(
             `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/wallet?success=true`

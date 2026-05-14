@@ -2,8 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import { processCompletedUpgradePayment } from '@/lib/payments'
-
-const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY!
+import { checkPaymentStatus } from '@/lib/moolre-payment-service'
+import { createServerClient } from '@/lib/supabase'
 
 export async function GET(request: NextRequest) {
     try {
@@ -29,32 +29,53 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ success: false, error: 'Not an upgrade reference' }, { status: 400 })
         }
 
-        // 4. Verify with Paystack directly
-        const paystackResponse = await fetch(
-            `https://api.paystack.co/transaction/verify/${reference}`,
-            {
-                headers: {
-                    'Authorization': `Bearer ${PAYSTACK_SECRET_KEY}`,
-                },
-            }
-        )
+        // 4. Verify with Moolre directly
+        const moolreResponse = await checkPaymentStatus(reference)
 
-        const paystackData = await paystackResponse.json()
+        if (!moolreResponse.success || moolreResponse.txstatus === null) {
+            console.error('[UpgradeVerify] Moolre verification failed:', moolreResponse.error)
+            return NextResponse.json({ success: true, status: 'pending', error: 'Payment check failed temporarily' })
+        }
 
-        if (!paystackData.status || paystackData.data?.status !== 'success') {
-            console.error('[UpgradeVerify] Paystack verification failed:', paystackData)
-            return NextResponse.json({ success: false, error: 'Payment not confirmed by Paystack' }, { status: 400 })
+        if (moolreResponse.txstatus === 0 || moolreResponse.txstatus === 3) {
+            return NextResponse.json({ success: true, status: 'pending' })
+        }
+
+        if (moolreResponse.txstatus === 2) {
+            return NextResponse.json({ success: false, status: 'failed' })
+        }
+
+        // Moolre doesn't return metadata, we fetch it from the database
+        const supabaseServer = createServerClient()
+        const { data: payment } = await supabaseServer
+            .from('wallet_payments')
+            .select('total_amount, metadata')
+            .eq('reference', reference)
+            .single()
+
+        if (!payment) {
+            console.error('[UpgradeVerify] Payment not found in database:', reference)
+            return NextResponse.json({ success: false, status: 'failed', error: 'Payment record not found' }, { status: 400 })
+        }
+
+        const metadata = (payment as any).metadata || {}
+        const paidAmountKobo = Math.round(Number((payment as any).total_amount) * 100)
+
+        const mappedEventData = {
+            reference: reference,
+            amount: paidAmountKobo,
+            metadata: metadata
         }
 
         // 5. Process the upgrade (idempotent — safe to call even if webhook already ran)
-        const result = await processCompletedUpgradePayment(reference, paystackData.data)
+        const result = await processCompletedUpgradePayment(reference, mappedEventData)
 
         if (!result.success && !result.alreadyProcessed) {
             console.error('[UpgradeVerify] Processing failed:', result.error)
-            return NextResponse.json({ success: false, error: result.error || 'Processing failed' }, { status: 500 })
+            return NextResponse.json({ success: false, status: 'failed', error: result.error || 'Processing failed' }, { status: 500 })
         }
 
-        return NextResponse.json({ success: true, alreadyProcessed: !!result.alreadyProcessed })
+        return NextResponse.json({ success: true, status: 'completed', alreadyProcessed: !!result.alreadyProcessed })
 
     } catch (error: any) {
         console.error('[UpgradeVerify] Error:', error)

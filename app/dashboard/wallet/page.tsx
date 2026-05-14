@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Separator } from '@/components/ui/separator'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
     Wallet,
     Plus,
@@ -48,6 +49,9 @@ function WalletContent() {
     const [transactions, setTransactions] = useState<WalletTransaction[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [topUpAmount, setTopUpAmount] = useState('')
+    const [paymentPhone, setPaymentPhone] = useState('')
+    const [paymentNetwork, setPaymentNetwork] = useState('')
+    const [pollingRef, setPollingRef] = useState<string | null>(null)
     const [isProcessing, setIsProcessing] = useState(false)
     const [paystackFeePercent, setPaystackFeePercent] = useState(1.95)
     const searchParams = useSearchParams()
@@ -82,6 +86,36 @@ function WalletContent() {
             router.replace('/dashboard/wallet')
         }
     }, [searchParams, router])
+
+    useEffect(() => {
+        let interval: NodeJS.Timeout
+        if (pollingRef) {
+            interval = setInterval(async () => {
+                try {
+                    const res = await fetch(`/api/payments/verify?reference=${pollingRef}`)
+                    const data = await res.json()
+                    
+                    if (data.status === 'completed') {
+                        clearInterval(interval)
+                        setPollingRef(null)
+                        setIsProcessing(false)
+                        toast.success('Payment completed successfully!')
+                        fetchWalletData()
+                        setTopUpAmount('')
+                        router.replace('/dashboard/wallet')
+                    } else if (data.status === 'failed') {
+                        clearInterval(interval)
+                        setPollingRef(null)
+                        setIsProcessing(false)
+                        toast.error(data.message || 'Payment failed or cancelled.')
+                    }
+                } catch (e) {
+                    console.error('Polling error', e)
+                }
+            }, 3000)
+        }
+        return () => clearInterval(interval)
+    }, [pollingRef])
 
     const fetchWalletData = async () => {
         try {
@@ -162,6 +196,11 @@ function WalletContent() {
             return
         }
 
+        if (!paymentPhone || !paymentNetwork) {
+            toast.error('Please provide a valid Mobile Money number and select a network')
+            return
+        }
+
         setIsProcessing(true)
 
         try {
@@ -170,7 +209,7 @@ function WalletContent() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
-                body: JSON.stringify({ amount }),
+                body: JSON.stringify({ amount, phone: paymentPhone, network: paymentNetwork }),
             })
 
             const data = await response.json()
@@ -179,8 +218,8 @@ function WalletContent() {
                 throw new Error(data.error || 'Failed to initialize payment')
             }
 
-            // Redirect to Paystack checkout
-            window.location.href = data.authorization_url
+            toast.success(data.message || 'Payment prompt sent! Please check your phone.')
+            setPollingRef(data.reference)
         } catch (error: any) {
             toast.error(error.message || 'Failed to process payment')
             setIsProcessing(false)
@@ -480,7 +519,38 @@ function WalletContent() {
                                     </div>
                                 )}
 
-                                {/* Payment Methods */}
+                                {/* Payment Details */}
+                                <div>
+                                    <Label className="text-sm text-muted-foreground mb-3 block">Payment Details</Label>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        <div>
+                                            <Label htmlFor="network" className="text-xs">Network</Label>
+                                            <Select value={paymentNetwork} onValueChange={setPaymentNetwork}>
+                                                <SelectTrigger id="network" className="mt-1 h-12">
+                                                    <SelectValue placeholder="Select Network" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="MTN">MTN MoMo</SelectItem>
+                                                    <SelectItem value="Telecel">Telecel Cash</SelectItem>
+                                                    <SelectItem value="AT">AT Money</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                        <div>
+                                            <Label htmlFor="phone" className="text-xs">Mobile Number</Label>
+                                            <Input
+                                                id="phone"
+                                                type="tel"
+                                                placeholder="e.g. 0540000000"
+                                                value={paymentPhone}
+                                                onChange={(e) => setPaymentPhone(e.target.value)}
+                                                className="mt-1 h-12"
+                                            />
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Payment Methods Icons (Visual Only) */}
                                 <div>
                                     <Label className="text-sm text-muted-foreground mb-3 block">Payment Methods</Label>
                                     <div className="grid grid-cols-3 gap-3">
@@ -503,17 +573,17 @@ function WalletContent() {
                                 <Button
                                     type="submit"
                                     className="w-full h-12 text-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-                                    disabled={isProcessing || !topUpAmount || parseFloat(topUpAmount) < MIN_AMOUNT}
+                                    disabled={isProcessing || !topUpAmount || parseFloat(topUpAmount) < MIN_AMOUNT || !paymentPhone || !paymentNetwork}
                                 >
                                     {isProcessing ? (
                                         <>
                                             <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                                            Processing...
+                                            {pollingRef ? 'Waiting for Approval...' : 'Processing...'}
                                         </>
                                     ) : (
                                         <>
-                                            <Plus className="w-5 h-5 mr-2" />
-                                            Top Up {topUpAmount && parseFloat(topUpAmount) >= MIN_AMOUNT && formatCurrency(parseFloat(topUpAmount))}
+                                            <Smartphone className="w-5 h-5 mr-2" />
+                                            Send Prompt
                                         </>
                                     )}
                                 </Button>

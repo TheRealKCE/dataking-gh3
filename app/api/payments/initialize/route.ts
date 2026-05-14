@@ -2,8 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createRouteClient } from '@/lib/supabase-server'
 import { createServerClient } from '@/lib/supabase'
 import { calculatePaystackFee, generateReferenceCode } from '@/lib/utils'
-
-const PAYSTACK_SECRET_KEY = process.env.PAYSTACK_SECRET_KEY!
+import { initiatePayment, MOOLRE_PAYMENT_CHANNEL_MAP } from '@/lib/moolre-payment-service'
 
 
 export async function POST(request: NextRequest) {
@@ -18,11 +17,15 @@ export async function POST(request: NextRequest) {
 
         const supabase = createRouteClient()
         const supabaseAdmin = createServerClient() // For database operations
-        const { amount } = await request.json()
+        const { amount, phone, network } = await request.json()
 
         const MAX_TOPUP_AMOUNT = Number(process.env.MAX_WALLET_TOPUP_AMOUNT) || 10000
         if (!amount || typeof amount !== 'number' || amount < 5 || amount > MAX_TOPUP_AMOUNT) {
             return NextResponse.json({ error: `Amount must be between GHS 5 and GHS ${MAX_TOPUP_AMOUNT.toLocaleString()}` }, { status: 400 })
+        }
+
+        if (!phone || !network || !MOOLRE_PAYMENT_CHANNEL_MAP[network]) {
+            return NextResponse.json({ error: 'Valid phone number and network are required' }, { status: 400 })
         }
 
         // Get current user
@@ -102,8 +105,13 @@ export async function POST(request: NextRequest) {
                 fee: fee,
                 total_amount: totalAmount,
                 reference: reference,
-                provider: 'paystack',
+                provider: 'moolre',
                 status: 'pending',
+                metadata: {
+                    user_id: userId,
+                    amount: amount,
+                    fee: fee,
+                }
             })
             .select()
             .single()
@@ -113,50 +121,29 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Failed to create payment' }, { status: 500 })
         }
 
-        // Initialize Paystack payment
-        const paystackResponse = await fetch('https://api.paystack.co/transaction/initialize', {
-            method: 'POST',
-            headers: {
-                'Authorization': `Bearer ${PAYSTACK_SECRET_KEY}`,
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                email: (user as any)?.email || authUser.email,
-                amount: Math.round(totalAmount * 100), // Paystack uses kobo/pesewas
-                currency: 'GHS',
-                reference: reference,
-                callback_url: `${process.env.NEXT_PUBLIC_APP_URL}/api/payments/verify?reference=${reference}`,
-                metadata: {
-                    user_id: userId,
-                    payment_id: payment.id,
-                    amount: amount,
-                    fee: fee,
-                },
-            }),
+        // Initialize Moolre payment
+        const channelId = MOOLRE_PAYMENT_CHANNEL_MAP[network]
+        
+        const moolreResponse = await initiatePayment({
+            amount: totalAmount,
+            payerPhone: phone,
+            channel: channelId,
+            externalRef: reference,
         })
 
-        const paystackData = await paystackResponse.json()
-
-        if (!paystackData.status) {
-            console.error('Paystack error:', paystackData)
+        if (!moolreResponse.success) {
+            console.error('Moolre error:', moolreResponse.error)
             await (supabaseAdmin
                 .from('wallet_payments') as any)
                 .update({ status: 'failed' })
                 .eq('id', (payment as any).id)
-            return NextResponse.json({ error: 'Failed to initialize payment' }, { status: 500 })
+            return NextResponse.json({ error: moolreResponse.error || 'Failed to initialize payment' }, { status: 500 })
         }
-
-        // Update payment with Paystack reference
-        await (supabaseAdmin
-            .from('wallet_payments') as any)
-            .update({ provider_reference: paystackData.data.reference })
-            .eq('id', (payment as any).id)
 
         return NextResponse.json({
             success: true,
-            authorization_url: paystackData.data.authorization_url,
-            access_code: paystackData.data.access_code,
             reference: reference,
+            message: 'Payment prompt sent to your phone. Please approve to complete top-up.'
         })
     } catch (error) {
         console.error('Payment initialization error:', error)
