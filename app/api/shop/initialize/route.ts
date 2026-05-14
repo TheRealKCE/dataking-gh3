@@ -240,9 +240,11 @@ export async function POST(request: NextRequest) {
         }
 
         const idemKey = `shop:idem:${shop.id}-${cleanPhone}-${totalAmount}`
-        const cachedIdem = await redis.get<{ ref: string }>(idemKey)
-        if (cachedIdem) {
-            return NextResponse.json({ success: true, reference: cachedIdem.ref, message: 'Payment prompt sent to your phone.' })
+        if (!otpCode) {
+            const cachedIdem = await redis.get<{ ref: string }>(idemKey)
+            if (cachedIdem) {
+                return NextResponse.json({ success: true, reference: cachedIdem.ref, message: 'Payment prompt sent to your phone.' })
+            }
         }
 
         // Initialize Moolre Payment
