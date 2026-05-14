@@ -146,7 +146,7 @@ export async function POST(request: NextRequest) {
         })
 
         if (!moolreResponse.success) {
-            console.error('Moolre error:', moolreResponse.error)
+            console.error('[WalletInit] Moolre error:', moolreResponse.error)
             if (!existingRef) {
                 await (supabaseAdmin
                     .from('wallet_payments') as any)
@@ -155,6 +155,8 @@ export async function POST(request: NextRequest) {
             }
             return NextResponse.json({ error: moolreResponse.error || 'Failed to initialize payment' }, { status: 500 })
         }
+
+        console.log('[WalletInit] Moolre response status:', moolreResponse.status, 'otpRequired check:', moolreResponse.status === '200_OTP_REQ')
 
         if (moolreResponse.status === '200_OTP_REQ') {
             return NextResponse.json({

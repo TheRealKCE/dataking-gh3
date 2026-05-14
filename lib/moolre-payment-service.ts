@@ -88,7 +88,10 @@ export async function initiatePayment(params: InitiatePaymentParams): Promise<In
 
         const data = await response.json()
 
-        // 200_OTP_REQ, 200_OTP_SUCCESS, 200_PAYMENT_REQ generally mean successful initiation
+        // Log full response to diagnose OTP and other statuses
+        console.log('[MoolrePayment] Raw API response:', JSON.stringify(data))
+
+        // Status '0' is an explicit failure from Moolre
         if (!response.ok || String(data.status) === '0') {
             return {
                 success: false,
@@ -96,9 +99,29 @@ export async function initiatePayment(params: InitiatePaymentParams): Promise<In
             }
         }
 
+        // Detect OTP requirement — Moolre can indicate this via:
+        //  • data.status === '200_OTP_REQ'  (string status code)
+        //  • data.requiresotp === true       (boolean field)
+        //  • data.txstatus === 5             (numeric code, if used)
+        const rawStatus = String(data.status ?? '')
+        const isOtpRequired = 
+            rawStatus === '200_OTP_REQ' || 
+            rawStatus.includes('OTP') ||
+            data.requiresotp === true ||
+            data.requiresotp === 'true' ||
+            data.otp_required === true
+
+        if (isOtpRequired) {
+            return {
+                success: true,
+                status: '200_OTP_REQ',
+                txstatus: data.txstatus ?? data.data?.txstatus,
+            }
+        }
+
         return {
             success: true,
-            status: data.status,
+            status: rawStatus || data.status,
             txstatus: data.txstatus ?? data.data?.txstatus,
         }
     } catch (err: any) {
