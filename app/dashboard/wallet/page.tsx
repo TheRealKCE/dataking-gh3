@@ -229,15 +229,11 @@ function WalletContent() {
                 throw new Error(data.error || 'Failed to initialize payment')
             }
 
-            if (data.otpRequired) {
-                setOtpRequired(true)
-                setPaymentReference(data.reference)
-                setIsProcessing(false)
-                return
-            }
-
-            toast.success(data.message || 'Payment prompt sent! Please check your phone.')
-            setPollingRef(data.reference)
+            // Moolre always sends an OTP for MoMo collections.
+            // Show the OTP modal immediately after a successful first-call.
+            setPaymentReference(data.reference)
+            setOtpRequired(true)
+            setIsProcessing(false)
         } catch (error: any) {
             toast.error(error.message || 'Failed to process payment')
             setIsProcessing(false)
@@ -245,8 +241,8 @@ function WalletContent() {
     }
 
     const handleVerifyOtp = async () => {
-        if (!otpCode || otpCode.length < 4) {
-            toast.error('Please enter a valid OTP')
+        if (!otpCode || otpCode.trim().length < 1) {
+            toast.error('Please enter the OTP sent to your phone')
             return
         }
 
@@ -260,7 +256,7 @@ function WalletContent() {
                     amount: parseFloat(topUpAmount), 
                     phone: paymentPhone, 
                     network: paymentNetwork,
-                    otpCode: otpCode,
+                    otpCode: otpCode.trim(),
                     reference: paymentReference
                 }),
             })
@@ -268,16 +264,17 @@ function WalletContent() {
             const data = await response.json()
 
             if (!response.ok) {
-                throw new Error(data.error || 'Failed to verify OTP')
+                throw new Error(data.error || 'Invalid OTP. Please try again.')
             }
 
             setOtpRequired(false)
             setOtpCode('')
-            toast.success(data.message || 'OTP verified! Payment prompt sent.')
+            toast.success(data.message || 'OTP verified! Please approve the prompt on your phone.')
             setPollingRef(data.reference)
         } catch (error: any) {
             toast.error(error.message || 'Failed to verify OTP')
             setIsProcessing(false)
+            // Keep modal open so user can retry
         }
     }
 

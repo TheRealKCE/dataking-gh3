@@ -387,17 +387,13 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 return
             }
 
-            if (data.otpRequired) {
-                setOtpRequired(true)
-                setOtpReference(data.reference)
-                setOtpOrderType('data')
-                setLoading(false)
-                return
-            }
-
+            // Moolre always sends an OTP for MoMo collections.
+            // Show the OTP modal immediately after a successful first-call.
             try { localStorage.setItem('shop_last_phone', cleanPhone) } catch (_) { }
-            toast.success(data.message || 'Payment prompt sent! Please check your phone.')
-            setPollingRef(data.reference)
+            setOtpReference(data.reference)
+            setOtpOrderType('data')
+            setOtpRequired(true)
+            setLoading(false)
         } catch (err) {
             toast.error('Network error. Please try again.')
             setLoading(false)
@@ -441,17 +437,13 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 return
             }
 
-            if (data.otpRequired) {
-                setOtpRequired(true)
-                setOtpReference(data.reference)
-                setOtpOrderType('airtime')
-                setLoading(false)
-                return
-            }
-
+            // Moolre always sends an OTP for MoMo collections.
+            // Show the OTP modal immediately after a successful first-call.
             try { localStorage.setItem('shop_last_phone', cleanPhone) } catch (_) { }
-            toast.success(data.message || 'Payment prompt sent! Please check your phone.')
-            setPollingRef(data.reference)
+            setOtpReference(data.reference)
+            setOtpOrderType('airtime')
+            setOtpRequired(true)
+            setLoading(false)
         } catch (err) {
             toast.error('Network error. Please try again.')
             setLoading(false)
@@ -459,8 +451,8 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
     }
 
     const handleVerifyOtp = async () => {
-        if (!otpCode || otpCode.length < 4) {
-            toast.error('Please enter a valid OTP')
+        if (!otpCode || otpCode.trim().length < 1) {
+            toast.error('Please enter the OTP sent to your phone')
             return
         }
 
@@ -474,14 +466,14 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 useExactAmount: useExact,
                 guestPhone: airtimePhone.replace(/\s+/g, ''),
                 guestEmail: airtimeEmail.trim() || undefined,
-                otpCode,
+                otpCode: otpCode.trim(),
                 reference: otpReference
             } : {
                 shopSlug: shop.shop_slug,
                 packageId: selectedPackage?.id,
                 guestPhone: phone.replace(/\s+/g, ''),
                 guestEmail: email.trim() || undefined,
-                otpCode,
+                otpCode: otpCode.trim(),
                 reference: otpReference
             }
 
@@ -493,16 +485,17 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
             const data = await res.json()
 
             if (!res.ok) {
-                throw new Error(data.error || 'Failed to verify OTP')
+                throw new Error(data.error || 'Invalid OTP. Please try again.')
             }
 
             setOtpRequired(false)
             setOtpCode('')
-            toast.success(data.message || 'OTP verified! Payment prompt sent.')
+            toast.success(data.message || 'OTP verified! Please approve the prompt on your phone.')
             setPollingRef(data.reference)
         } catch (error: any) {
             toast.error(error.message || 'Failed to verify OTP')
             setLoading(false)
+            // Keep modal open so user can retry
         }
     }
 
