@@ -19,6 +19,8 @@ export async function processShopOrder(
         package_size: string;
         fulfillment_mode?: string;
         order_type?: string;
+        type?: string;           // 'airtime' | 'mashup' — mirrors the airtime_orders.type column
+        bundle_preference?: string; // 'balanced' | 'data' | 'voice' — Mashup only
         airtime_amount?: number;
         selling_price?: number;
         cost_price?: number;
@@ -269,6 +271,9 @@ export async function processShopOrder(
                     fee_amount: totalFeeAmount,            // Total fee in GHS
                     total_paid: totalPaidGHS,              // Actual amount charged to customer
                     use_exact_amount: useExactAmountFlag,
+                    // Mashup: forward type and bundle_preference so admin page shows correct badge
+                    type: metadata.type || 'airtime',
+                    bundle_preference: metadata.bundle_preference || null,
                     status: 'pending',
                     reference_code: `SHOP-${reference.slice(-10)}`,
                     shop_id: metadata.shop_id,
@@ -308,7 +313,8 @@ export async function processShopOrder(
                 customerEmail: 'N/A',
                 shopName: shopProfile?.shop_name || slug || shopProfile?.shop_name,
                 fulfillmentMode,
-                orderType: metadata.order_type || 'data',
+                orderType: metadata.type || metadata.order_type || 'data',
+                bundlePreference: metadata.bundle_preference,
                 ...fulfillmentPayload
             })
         } catch (fulfillErr) {
@@ -341,6 +347,7 @@ async function triggerShopFulfillment(
         orderType: string
         amount?: number
         size?: string
+        bundlePreference?: string
     }
 ) {
     const { sendAdminNewOrderAlert } = await import('./email-service')
@@ -357,10 +364,10 @@ async function triggerShopFulfillment(
         shopName: extra.shopName
     }
 
-    if (extra.fulfillmentMode !== 'auto' || extra.orderType === 'airtime') {
+    if (extra.fulfillmentMode !== 'auto' || extra.orderType === 'airtime' || extra.orderType === 'mashup') {
         console.log(`[Shop Order Processor] Manual fulfillment required - sending alert`)
         
-        if (extra.orderType === 'airtime') {
+        if (extra.orderType === 'airtime' || extra.orderType === 'mashup') {
             const { sendAdminAirtimeOrderEmail } = await import('./email-service')
             await sendAdminAirtimeOrderEmail({
                 referenceCode: extra.referenceCode,
@@ -372,7 +379,10 @@ async function triggerShopFulfillment(
                 airtimeAmount: extra.amount || extra.price,
                 totalPaid: extra.price,
                 useExactAmount: false,
-                source: `Shop Storefront (${extra.shopName})`
+                source: `Shop Storefront (${extra.shopName})`,
+                // Pass through Mashup-specific fields so admin email shows correct template
+                orderType: extra.orderType as 'airtime' | 'mashup',
+                bundlePreference: extra.bundlePreference as 'balanced' | 'data' | 'voice' | undefined,
             }).catch(e => console.error('[Shop Order Processor] Admin Airtime Email Error:', e))
             
             try {
