@@ -103,7 +103,9 @@ function WalletContent() {
         if (pollingRef) {
             interval = setInterval(async () => {
                 try {
-                    const res = await fetch(`/api/payments/verify?reference=${pollingRef}`)
+                    const res = await fetch(`/api/payments/verify?reference=${pollingRef}`, {
+                        headers: { 'Accept': 'application/json' }
+                    })
                     const data = await res.json()
                     
                     if (data.status === 'completed') {
