@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
 import {
     Phone, Mail, MessageCircle, ShoppingCart, Loader2,
     CheckCircle2, AlertCircle, X, Search, Zap, Smartphone, ChevronDown, Check, Menu, Bell,
-    History, TrendingUp, Coins, Calendar, CalendarRange, RefreshCw, Info, Clock, Copy, ArrowRight, AlertTriangle, Users
+    History, TrendingUp, Coins, Calendar, CalendarRange, RefreshCw, Info, Clock, Copy, ArrowRight, AlertTriangle, Users, Target, Sparkles
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
@@ -170,7 +170,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
     
     // Global State
     const [isSidebarOpen, setIsSidebarOpen] = useState(false)
-    const [activeTab, setActiveTab] = useState<'data' | 'airtime'>('data')
+    const [activeTab, setActiveTab] = useState<'data' | 'airtime' | 'mashup'>('data')
     const [showAnnouncementModal, setShowAnnouncementModal] = useState(false)
     const [loading, setLoading] = useState(false)
     const [pageLoading, setPageLoading] = useState(true)
@@ -183,10 +183,18 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
     const [otpRequired, setOtpRequired] = useState(false)
     const [otpCode, setOtpCode] = useState('')
     const [otpReference, setOtpReference] = useState<string | null>(null)
-    const [otpOrderType, setOtpOrderType] = useState<'data' | 'airtime'>('data')
+    const [otpOrderType, setOtpOrderType] = useState<'data' | 'airtime' | 'mashup'>('data')
 
-    // Derived flags for Airtime
+    // Mashup State
+    const [mashupPhone, setMashupPhone] = useState('')
+    const [mashupEmail, setMashupEmail] = useState('')
+    const [mashupAmount, setMashupAmount] = useState('')
+    const [bundlePreference, setBundlePreference] = useState<'balanced' | 'data' | 'voice'>('balanced')
+    const [mashupUseExact, setMashupUseExact] = useState(false)
+
+    // Derived flags for Airtime & Mashup
     const isGlobalAirtimeEnabled = adminSettings['storefront_airtime_enabled'] === 'true'
+    const isGlobalMashupEnabled = adminSettings['storefront_mashup_enabled'] === 'true'
     
     const airtimeNetworks = [
         { id: 'MTN', fee: shop.airtime_fee_mtn || 0, enabled: adminSettings['airtime_enabled_mtn'] !== 'false' },
@@ -450,6 +458,91 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
         }
     }
 
+    // ─── MTN Mashup Bundle Estimator ──────────────────────────────────────────
+    const MASHUP_SKEW = {
+        balanced: { data: 1.00, voice: 1.00 },
+        data:     { data: 1.25, voice: 0.60 },
+        voice:    { data: 0.60, voice: 1.40 },
+    }
+    const MASHUP_TIERS = [
+        { amount: 1,  dataMB: 10,  voiceMin: 9  },
+        { amount: 2,  dataMB: 20,  voiceMin: 18 },
+        { amount: 5,  dataMB: 75,  voiceMin: 72 },
+    ]
+    type BundleEst = { mode: 'exact'; dataMB: number; voiceMin: number } | { mode: 'estimate'; dataLowMB: number; dataHighMB: number; voiceLowMin: number; voiceHighMin: number }
+    const estimateMashupBundle = (amount: number, pref: 'balanced' | 'data' | 'voice'): BundleEst => {
+        const skew = MASHUP_SKEW[pref]
+        if (amount >= 10) {
+            return { mode: 'exact', dataMB: Math.round(amount * 18 * skew.data), voiceMin: Math.round(amount * 17.3 * skew.voice) }
+        }
+        const lower = [...MASHUP_TIERS].reverse().find(t => t.amount <= amount) || MASHUP_TIERS[0]
+        const upper = MASHUP_TIERS.find(t => t.amount >= amount) || MASHUP_TIERS[MASHUP_TIERS.length - 1]
+        return { mode: 'estimate', dataLowMB: lower.dataMB, dataHighMB: upper.dataMB, voiceLowMin: lower.voiceMin, voiceHighMin: upper.voiceMin }
+    }
+
+    const calculateMashupFees = () => {
+        const numAmount = parseFloat(mashupAmount)
+        if (isNaN(numAmount) || numAmount <= 0) return { feeAmount: 0, totalPay: 0, bundleValue: 0 }
+        const mtnNetConfig = airtimeNetworks.find(n => n.id === 'MTN')
+        const shopFeeMultiplier = mtnNetConfig ? mtnNetConfig.fee : 0
+        const adminFeeMultiplier = parseFloat(adminSettings[`airtime_fee_mtn_${shop.ownerRole}`] || '0')
+        const totalMultiplier = (adminFeeMultiplier + shopFeeMultiplier) / 100
+        const round2 = (n: number) => Math.round(n * 100) / 100
+        if (mashupUseExact) {
+            const feeAmount = round2(numAmount * totalMultiplier)
+            return { feeAmount, totalPay: round2(numAmount + feeAmount), bundleValue: numAmount }
+        } else {
+            const feeAmount = round2(numAmount * totalMultiplier)
+            return { feeAmount, totalPay: numAmount, bundleValue: round2(numAmount - feeAmount) }
+        }
+    }
+
+    const handleBuyMashup = async () => {
+        const numAmount = parseFloat(mashupAmount)
+        const cleanPhone = mashupPhone.replace(/\s+/g, '')
+        if (!mashupPhone.trim() || !/^(0\d{9}|233\d{9})$/.test(cleanPhone)) {
+            toast.error('Enter a valid 10-digit phone number')
+            return
+        }
+        if (isNaN(numAmount) || numAmount <= 0) {
+            toast.error('Enter a valid amount')
+            return
+        }
+        setLoading(true)
+        try {
+            const res = await fetch('/api/shop/initialize', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    shopSlug: shop.shop_slug,
+                    orderType: 'airtime',
+                    network: 'MTN',
+                    amount: numAmount,
+                    useExactAmount: mashupUseExact,
+                    isMashup: true,
+                    bundlePreference,
+                    guestPhone: cleanPhone,
+                    guestEmail: mashupEmail.trim() || undefined,
+                }),
+            })
+            const data = await res.json()
+            if (!res.ok || !data.reference) {
+                setErrorMsg(data.error || 'Failed to initialize mashup payment')
+                if (data.contact) setContactInfo(data.contact)
+                setLoading(false)
+                return
+            }
+            try { localStorage.setItem('shop_last_phone', cleanPhone) } catch (_) { }
+            setOtpReference(data.reference)
+            setOtpOrderType('mashup')
+            setOtpRequired(true)
+            setLoading(false)
+        } catch (err) {
+            toast.error('Network error. Please try again.')
+            setLoading(false)
+        }
+    }
+
     const handleVerifyOtp = async () => {
         if (!otpCode || otpCode.trim().length < 1) {
             toast.error('Please enter the OTP sent to your phone')
@@ -458,14 +551,16 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
 
         setLoading(true)
         try {
-            const body = otpOrderType === 'airtime' ? {
+            const body = (otpOrderType === 'airtime' || otpOrderType === 'mashup') ? {
                 shopSlug: shop.shop_slug,
                 orderType: 'airtime',
-                network: detectedNetwork,
-                amount: parseFloat(airtimeAmount),
-                useExactAmount: useExact,
-                guestPhone: airtimePhone.replace(/\s+/g, ''),
-                guestEmail: airtimeEmail.trim() || undefined,
+                network: otpOrderType === 'mashup' ? 'MTN' : detectedNetwork,
+                amount: parseFloat(otpOrderType === 'mashup' ? mashupAmount : airtimeAmount),
+                useExactAmount: otpOrderType === 'mashup' ? mashupUseExact : useExact,
+                isMashup: otpOrderType === 'mashup',
+                bundlePreference: otpOrderType === 'mashup' ? bundlePreference : undefined,
+                guestPhone: (otpOrderType === 'mashup' ? mashupPhone : airtimePhone).replace(/\s+/g, ''),
+                guestEmail: (otpOrderType === 'mashup' ? mashupEmail : airtimeEmail).trim() || undefined,
                 otpCode: otpCode.trim(),
                 reference: otpReference
             } : {
@@ -648,6 +743,11 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                     {isShopAirtimeEnabled && (
                         <button onClick={() => setActiveTab('airtime')} className={cn("flex-1 py-3 rounded-xl font-black text-sm transition-all flex items-center justify-center gap-2", activeTab === 'airtime' ? "bg-white dark:bg-gray-900 shadow-sm text-gray-900 dark:text-white" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300")}>
                             <Smartphone className="w-4 h-4" /> Airtime Recharge
+                        </button>
+                    )}
+                    {isGlobalMashupEnabled && (
+                        <button onClick={() => setActiveTab('mashup')} className={cn("flex-1 py-3 rounded-xl font-black text-sm transition-all flex items-center justify-center gap-2", activeTab === 'mashup' ? "bg-amber-500 text-white shadow-sm" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300")}>
+                            🎯 MTN Mashup
                         </button>
                     )}
                 </div>
@@ -884,6 +984,186 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                             </div>
                         </div>
                 )}
+
+                {/* ── MTN Mashup Tab Content ── */}
+                {isGlobalMashupEnabled && activeTab === 'mashup' && (
+                    <div className="mb-6 bg-white dark:bg-gray-900 rounded-[2rem] border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden p-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
+                        <div className="flex items-center gap-3 mb-5 border-b border-gray-100 dark:border-gray-800 pb-5">
+                            <div className="w-12 h-12 rounded-xl flex items-center justify-center text-white bg-amber-500 shadow-sm">
+                                <Target className="w-6 h-6" />
+                            </div>
+                            <div className="text-left flex-1">
+                                <h3 className="text-lg font-black text-gray-900 dark:text-white uppercase tracking-tighter">MTN Mashup</h3>
+                                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest leading-tight">Create your custom bundle</p>
+                            </div>
+                            <NetworkLogo id="MTN" />
+                        </div>
+
+                        <div className="space-y-5">
+                            <div className="space-y-4">
+                                <div className="relative">
+                                    <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                    <input
+                                        type="tel" value={mashupPhone} onChange={(e) => setMashupPhone(e.target.value)}
+                                        placeholder="MTN Receiver Phone (e.g. 024XXXXXXX)"
+                                        className="w-full pl-12 pr-12 py-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-base font-bold transition-all focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                    />
+                                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                                        <div className="px-2 py-1 tracking-widest text-[10px] uppercase font-black rounded-lg shadow-sm bg-yellow-400 text-black">
+                                            MTN
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-3">
+                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Bundle Amount</p>
+                                    <div className="flex gap-2 flex-wrap mb-1">
+                                        {[1, 2, 5, 10].map(q => (
+                                            <button
+                                                key={q}
+                                                onClick={() => setMashupAmount(String(q))}
+                                                className={cn(
+                                                    "px-4 py-2 rounded-xl text-xs font-black border-2 transition-all",
+                                                    mashupAmount === String(q)
+                                                        ? "bg-amber-500 text-white border-amber-500 shadow-md scale-105"
+                                                        : "bg-gray-50 dark:bg-gray-800 text-gray-500 border-gray-100 dark:border-gray-700 hover:border-gray-300"
+                                                )}
+                                            >
+                                                {q}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <div className="relative">
+                                        <span className="absolute left-5 top-1/2 -translate-y-1/2 font-black text-gray-400 text-sm">GHS</span>
+                                        <input
+                                            type="number" min="1" step="0.5" value={mashupAmount} onChange={(e) => setMashupAmount(e.target.value)}
+                                            placeholder={`Custom Amount`}
+                                            className="w-full pl-14 pr-4 py-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-lg font-black transition-all focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                        />
+                                    </div>
+                                </div>
+
+                                <div className="space-y-3">
+                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Bundle Preference</p>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        {(['balanced', 'data', 'voice'] as const).map(pref => (
+                                            <button
+                                                key={pref}
+                                                onClick={() => setBundlePreference(pref)}
+                                                className={cn(
+                                                    "py-3 px-2 rounded-xl text-xs font-black uppercase tracking-tight transition-all border-2",
+                                                    bundlePreference === pref
+                                                        ? "bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border-amber-400 shadow-sm"
+                                                        : "bg-gray-50 dark:bg-gray-800 text-gray-500 border-gray-100 dark:border-gray-700 hover:border-gray-300"
+                                                )}
+                                            >
+                                                {pref}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="relative">
+                                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                                    <input
+                                        type="email" value={mashupEmail} onChange={(e) => setMashupEmail(e.target.value)}
+                                        placeholder="Email for receipt (Optional)"
+                                        className="w-full pl-12 pr-4 py-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-bold transition-all focus:outline-none focus:ring-2 focus:ring-amber-500"
+                                    />
+                                </div>
+
+                                {/* Pay Separately Toggle */}
+                                <div 
+                                    onClick={() => setMashupUseExact(!mashupUseExact)}
+                                    className={cn(
+                                        "flex items-start gap-3 p-4 rounded-2xl border transition-all cursor-pointer group",
+                                        mashupUseExact 
+                                            ? "bg-amber-50 dark:bg-amber-900/10 border-amber-400 shadow-sm" 
+                                            : "bg-gray-50 dark:bg-gray-800/40 border-gray-100 dark:border-gray-700 hover:border-gray-200"
+                                    )}
+                                >
+                                    <div className={cn(
+                                        "mt-0.5 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all",
+                                        mashupUseExact ? "bg-amber-500 border-amber-500 text-white" : "border-gray-300 dark:border-gray-600 group-hover:border-gray-400"
+                                    )}>
+                                        {mashupUseExact && <Check className="w-3.5 h-3.5 stroke-[3px]" />}
+                                    </div>
+                                    <div className="flex-1">
+                                        <p className={cn("text-xs font-black uppercase tracking-tight mb-0.5", mashupUseExact ? "text-amber-700 dark:text-amber-400" : "text-gray-700 dark:text-gray-300")}>
+                                            Pay processing fee separately
+                                        </p>
+                                        <p className="text-[10px] font-bold text-gray-500 leading-tight">
+                                            {mashupUseExact ? "You'll pay a bit more, but recipient gets exactly the bundle value typed." : "Standard: Fee is deducted from the bundle value."}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                {(() => {
+                                    const { feeAmount: mashupFee, totalPay: mashupTotal, bundleValue } = calculateMashupFees()
+                                    if (mashupAmount === '' || parseFloat(mashupAmount) <= 0) return null
+                                    const est = estimateMashupBundle(bundleValue, bundlePreference)
+
+                                    return (
+                                        <div className="bg-amber-50/50 dark:bg-amber-900/10 rounded-2xl p-5 border border-amber-100 dark:border-amber-800/50 shadow-inner">
+                                            <div className="space-y-3">
+                                                <div className="flex justify-between items-center text-xs font-bold text-gray-500 uppercase tracking-widest">
+                                                    <span>Bundle Value</span>
+                                                    <span className="text-gray-900 dark:text-gray-200 font-black">{formatCurrency(parseFloat(mashupAmount))}</span>
+                                                </div>
+                                                
+                                                <div className="flex justify-between items-center text-xs font-bold">
+                                                    <span className="text-gray-500 uppercase tracking-widest flex items-center gap-1">Processing Fee ({(((mashupFee) / (mashupUseExact ? parseFloat(mashupAmount) : parseFloat(mashupAmount) - mashupFee)) * 100).toFixed(0)}%)</span>
+                                                    <span className="text-gray-600 dark:text-gray-400">{mashupUseExact ? '+' : '–'} {formatCurrency(mashupFee)}</span>
+                                                </div>
+
+                                                <div className="py-3 px-3 rounded-xl bg-amber-100/50 dark:bg-amber-900/30 border border-amber-200/50 dark:border-amber-800/50 space-y-2">
+                                                    <div className="flex items-center gap-1.5 mb-1">
+                                                        <Sparkles className="w-4 h-4 text-amber-600 dark:text-amber-400" />
+                                                        <span className="text-[10px] font-black text-amber-700 dark:text-amber-400 uppercase tracking-widest">
+                                                            Estimated Package ({formatCurrency(bundleValue)})
+                                                        </span>
+                                                    </div>
+                                                    <div className="grid grid-cols-2 gap-2 text-center">
+                                                        <div className="bg-white/60 dark:bg-gray-800/60 rounded-lg py-2 border border-white/40 dark:border-gray-700/40">
+                                                            <div className="text-[9px] font-black uppercase text-gray-500 tracking-wider">Data</div>
+                                                            <div className="font-black text-sm text-gray-800 dark:text-gray-200">
+                                                                {est.mode === 'exact' ? `${est.dataMB} MB` : `${est.dataLowMB}-${est.dataHighMB} MB`}
+                                                            </div>
+                                                        </div>
+                                                        <div className="bg-white/60 dark:bg-gray-800/60 rounded-lg py-2 border border-white/40 dark:border-gray-700/40">
+                                                            <div className="text-[9px] font-black uppercase text-gray-500 tracking-wider">Voice</div>
+                                                            <div className="font-black text-sm text-gray-800 dark:text-gray-200">
+                                                                {est.mode === 'exact' ? `${est.voiceMin} Min` : `${est.voiceLowMin}-${est.voiceHighMin} Min`}
+                                                            </div>
+                                                        </div>
+                                                    </div>
+                                                    <p className="text-[9px] font-bold text-amber-600/70 dark:text-amber-500/70 text-center leading-tight mt-1">
+                                                        *Estimates based on current MTN rates. Actual bundle may vary slightly.
+                                                    </p>
+                                                </div>
+
+                                                <div className="pt-2 border-t border-amber-200/50 dark:border-amber-800/50">
+                                                    <div className="flex justify-between items-center">
+                                                        <span className="text-sm font-black text-amber-900 dark:text-amber-100 uppercase tracking-tighter">You Pay Total</span>
+                                                        <span className="text-2xl font-black text-amber-600 dark:text-amber-400">{formatCurrency(mashupTotal)}</span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )
+                                })()}
+
+                                <button
+                                    onClick={handleBuyMashup} disabled={loading || parseFloat(mashupAmount || '0') <= 0}
+                                    className="w-full py-4 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black text-base uppercase tracking-widest shadow-lg flex justify-center items-center gap-3 transition-transform active:scale-95 disabled:opacity-50 disabled:active:scale-100"
+                                >
+                                    {loading ? <><Loader2 className="w-5 h-5 animate-spin" /> {pollingRef ? 'Waiting for Approval...' : 'Processing...'}</> : <><Target className="w-5 h-5"/> Buy Mashup</>}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
 
                 {/* ── Data Packages Tab Content ── */}
                 {activeTab === 'data' && (

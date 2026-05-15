@@ -128,6 +128,7 @@ interface AirtimeSettings {
     airtime_min_amount: string; airtime_max_amount: string
     airtime_enabled_mtn: string; airtime_enabled_telecel: string; airtime_enabled_at: string
     storefront_airtime_enabled: string
+    storefront_mashup_enabled: string
 }
 
 // ─── Status Action Modal ───────────────────────────────────────────────────────
@@ -276,6 +277,7 @@ export default function AdminAirtimePage() {
         airtime_min_amount: '1', airtime_max_amount: '500',
         airtime_enabled_mtn: 'true', airtime_enabled_telecel: 'true', airtime_enabled_at: 'true',
         storefront_airtime_enabled: 'false',
+        storefront_mashup_enabled: 'false',
     })
     const [settingsLoading, setSettingsLoading] = useState(true)
     const [savingSettings, setSavingSettings] = useState(false)
@@ -827,6 +829,16 @@ export default function AdminAirtimePage() {
                                                 <Switch
                                                     checked={settings.storefront_airtime_enabled === 'true'}
                                                     onCheckedChange={v => setSettings(s => ({ ...s, storefront_airtime_enabled: v ? 'true' : 'false' }))}
+                                                />
+                                            </div>
+                                            <div className="flex items-center justify-between p-4 bg-amber-50/50 dark:bg-amber-950/10 rounded-2xl border border-amber-100 dark:border-amber-900/30">
+                                                <div>
+                                                    <Label className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-widest">🎯 Storefront Mashup (MTN Bundles)</Label>
+                                                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tight mt-1">Enable the MTN Mashup tab on all shop storefronts — admin fulfils via My MTN App.</p>
+                                                </div>
+                                                <Switch
+                                                    checked={settings.storefront_mashup_enabled === 'true'}
+                                                    onCheckedChange={v => setSettings(s => ({ ...s, storefront_mashup_enabled: v ? 'true' : 'false' }))}
                                                 />
                                             </div>
                                             <div className="space-y-3">

@@ -14,7 +14,6 @@ const nextConfig: NextConfig = {
     reactStrictMode: true,
     poweredByHeader: false,
     images: {
-        domains: process.env.NODE_ENV === 'development' ? ['localhost'] : [],
         remotePatterns: supabaseImageHost
             ? [{
                 protocol: 'https',
@@ -54,8 +53,8 @@ const nextConfig: NextConfig = {
                 value: [
                     "default-src 'self'",
                     "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://js.paystack.co",
-                    "style-src 'self' 'unsafe-inline'",
-                    "font-src 'self'",
+                    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
+                    "font-src 'self' https://fonts.gstatic.com",
                     `img-src 'self' data: ${supabaseImageHost ? `https://${supabaseImageHost}` : ''} https://cdn.jsdelivr.net https://www.transparenttextures.com blob:`,
                     `connect-src 'self' ${supabaseImageHost ? `https://${supabaseImageHost} wss://${supabaseImageHost}` : ''} https://api.paystack.co`,
                     "frame-src https://js.paystack.co",

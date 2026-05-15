@@ -15,6 +15,7 @@ import { Toaster } from '@/components/ui/sonner'
 import { ThemeProvider } from '@/components/theme-provider'
 import { GlobalLoader } from '@/components/ui/global-loader'
 import PwaInstallPrompt from '@/components/pwa-install-prompt'
+import { UIProvider } from '@/contexts/ui-context'
 
 const outfit = Outfit({
     weight: ['400', '600', '700'],
@@ -56,8 +57,6 @@ export const metadata: Metadata = {
     },
 }
 
-import { UIProvider } from '@/contexts/ui-context'
-
 export default function RootLayout({
     children,
 }: {
@@ -65,6 +64,14 @@ export default function RootLayout({
 }) {
     return (
         <html lang="en" suppressHydrationWarning className={`${outfit.variable} ${inter.variable}`}>
+            <head>
+                {/* Auto-reload once if a Next.js JS/CSS chunk fails to load on slow connections */}
+                <script
+                    dangerouslySetInnerHTML={{
+                        __html: `(function(){var h=false;window.addEventListener('error',function(e){if(!h&&e&&e.target&&(e.target.tagName==='SCRIPT'||e.target.tagName==='LINK')){var s=e.target.src||e.target.href||'';if(s.indexOf('/_next/')!==-1){h=true;setTimeout(function(){window.location.reload();},1500);}}},true);})();`,
+                    }}
+                />
+            </head>
             <body className={inter.className}>
                 <ThemeProvider
                     attribute="class"

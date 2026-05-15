@@ -63,6 +63,7 @@ const PUBLIC_SETTING_KEYS = [
     'page_access_storefront',
     'page_access_airtime',
     'storefront_airtime_enabled',
+    'storefront_mashup_enabled',
     'airtime_fee_mtn_customer',
     'airtime_fee_mtn_agent',
     'airtime_fee_telecel_customer',
@@ -79,6 +80,7 @@ const PUBLIC_SETTING_KEYS = [
 const PAGE_ACCESS_KEYS = PUBLIC_SETTING_KEYS.filter(key => key.startsWith('page_access_'))
 const STOREFRONT_AIRTIME_KEYS = PUBLIC_SETTING_KEYS.filter(key =>
     key === 'storefront_airtime_enabled' ||
+    key === 'storefront_mashup_enabled' ||
     key.startsWith('airtime_fee_') ||
     key.startsWith('airtime_enabled_') ||
     key === 'airtime_min_amount' ||

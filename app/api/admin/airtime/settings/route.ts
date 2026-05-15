@@ -18,6 +18,7 @@ const AIRTIME_SETTING_KEYS = [
     'airtime_enabled_telecel',
     'airtime_enabled_at',
     'storefront_airtime_enabled',
+    'storefront_mashup_enabled',
 ]
 
 async function verifyAdmin(supabaseUserClient: any) {

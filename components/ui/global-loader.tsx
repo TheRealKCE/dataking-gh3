@@ -7,31 +7,11 @@ export function GlobalLoader() {
     const pathname = usePathname()
     const searchParams = useSearchParams()
 
-    // Default to true for initial hard load
-    const [loading, setLoading] = useState(true)
+    // Default to false for initial hard load so we don't block SSR content
+    const [loading, setLoading] = useState(false)
 
     // Ref to track if component has mounted (to avoid clashing logic)
     const isMounted = useRef(false)
-
-    // 1. HARD REFRESH LOGIC (Window Load)
-    useEffect(() => {
-        const hideLoader = () => {
-            // Small buffer ensures smooth transition after load fires
-            setTimeout(() => setLoading(false), 500)
-        }
-
-        if (document.readyState === "complete") {
-            hideLoader()
-        } else {
-            window.addEventListener("load", hideLoader)
-            const safetyTimer = setTimeout(hideLoader, 5000) // 5s fallback
-
-            return () => {
-                window.removeEventListener("load", hideLoader)
-                clearTimeout(safetyTimer)
-            }
-        }
-    }, [])
 
     // 2. NAVIGATION LOGIC (Path Changes)
     useEffect(() => {
@@ -46,7 +26,9 @@ export function GlobalLoader() {
         setLoading(true)
 
         // Hide after delay (Simulating "Page Load" feel for soft navigation)
-        const timer = setTimeout(() => setLoading(false), 1000)
+        const timer = setTimeout(() => {
+            setLoading(false)
+        }, 300)
 
         return () => clearTimeout(timer)
     }, [pathname, searchParams])

@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { Wallet, ArrowRight, ArrowUpRight } from 'lucide-react'
 import { Card, CardContent } from '@/components/ui/card'
@@ -47,12 +47,12 @@ export function ShopWalletWidget({ wallet }: ShopWalletWidgetProps) {
                 </div>
 
                 <div className="w-full sm:w-auto flex flex-col items-end gap-4 border-t border-border/60 sm:border-t-0 sm:border-l pl-0 sm:pl-6 pt-4 sm:pt-0">
-                    <Link href="/dashboard/shop/withdraw" className="w-full sm:w-auto">
-                        <Button className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-lg shadow-emerald-500/20 transition-all font-semibold rounded-xl h-11 px-6">
+                    <Button asChild className="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white border-0 shadow-lg shadow-emerald-500/20 transition-all font-semibold rounded-xl h-11 px-6">
+                        <Link href="/dashboard/shop/withdraw">
                             Withdraw Earnings
                             <ArrowUpRight className="w-4 h-4 ml-2 opacity-70 group-hover:opacity-100 transition-opacity" />
-                        </Button>
-                    </Link>
+                        </Link>
+                    </Button>
 
                     <div className="flex items-center gap-4 text-xs font-medium text-muted-foreground">
                         <div className="text-right">

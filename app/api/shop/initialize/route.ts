@@ -10,7 +10,7 @@ const redis = Redis.fromEnv()
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json()
-        const { shopSlug, packageId, guestPhone, guestEmail, orderType, network, amount, useExactAmount, otpCode, reference: existingRef } = body
+        const { shopSlug, packageId, guestPhone, guestEmail, orderType, network, amount, useExactAmount, isMashup, bundlePreference, otpCode, reference: existingRef } = body
 
         if (!shopSlug || !guestPhone) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
@@ -75,7 +75,7 @@ export async function POST(request: NextRequest) {
             .from('admin_settings')
             .select('key, value')
             .in('key', [
-                'shop_feature_enabled', 'storefront_airtime_enabled',
+                'shop_feature_enabled', 'storefront_airtime_enabled', 'storefront_mashup_enabled',
                 'airtime_enabled_mtn', 'airtime_enabled_telecel', 'airtime_enabled_at',
                 'airtime_min_amount', 'airtime_max_amount',
                 'airtime_fee_mtn_customer', 'airtime_fee_mtn_agent',
@@ -112,6 +112,12 @@ export async function POST(request: NextRequest) {
         if (orderType === 'airtime') {
             if (settings.storefront_airtime_enabled === 'false') {
                 return NextResponse.json({ error: 'Airtime purchase is disabled' }, { status: 503 })
+            }
+            if (isMashup && settings.storefront_mashup_enabled !== 'true') {
+                return NextResponse.json({ error: 'MTN Mashup bundles are not currently available' }, { status: 503 })
+            }
+            if (isMashup && network !== 'MTN') {
+                return NextResponse.json({ error: 'Mashup bundles are only available on MTN' }, { status: 400 })
             }
             if (settings[`airtime_enabled_${network.toLowerCase()}`] === 'false') {
                 return NextResponse.json({ error: `${network} airtime is disabled` }, { status: 503 })
@@ -158,6 +164,8 @@ export async function POST(request: NextRequest) {
 
             metadataPayload = {
                 order_type: 'airtime',
+                type: isMashup ? 'mashup' : 'airtime',
+                bundle_preference: isMashup ? (bundlePreference || 'balanced') : undefined,
                 network,
                 package_size: pkgSize,
                 airtime_amount: actualAirtimeAmount,

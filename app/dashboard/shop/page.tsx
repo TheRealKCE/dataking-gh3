@@ -477,9 +477,9 @@ export default function ShopOverviewPage() {
                          <p className="text-zinc-400 text-xs font-bold uppercase tracking-widest mb-1">Available Profit</p>
                          <p className="text-5xl font-black bg-clip-text text-transparent bg-gradient-to-r from-emerald-300 to-emerald-500">{formatCurrency(wallet?.balance || 0)}</p>
                          <div className="mt-8">
-                            <Link href="/dashboard/shop/withdraw" className="block w-full">
-                                <Button className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-black rounded-xl h-12 shadow-[0_0_20px_rgba(16,185,129,0.3)] border-0">Withdraw Earnings <ArrowRight className="w-4 h-4 ml-2" /></Button>
-                            </Link>
+                             <Button asChild className="w-full bg-emerald-500 hover:bg-emerald-400 text-black font-black rounded-xl h-12 shadow-[0_0_20px_rgba(16,185,129,0.3)] border-0">
+                                 <Link href="/dashboard/shop/withdraw">Withdraw Earnings <ArrowRight className="w-4 h-4 ml-2" /></Link>
+                             </Button>
                          </div>
                     </div>
                     <div className="bg-white dark:bg-zinc-950 rounded-3xl border border-gray-200 dark:border-gray-800 p-5 space-y-4">

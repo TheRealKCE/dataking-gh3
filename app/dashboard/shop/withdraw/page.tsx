@@ -132,6 +132,8 @@ export default function ShopWithdrawPage() {
     const [verifiedName, setVerifiedName] = useState<string | null>(null)
     const [validating, setValidating] = useState(false)
     const [validationError, setValidationError] = useState<string | null>(null)
+    const [manualName, setManualName] = useState<string>('')
+    const [verificationRetried, setVerificationRetried] = useState(false)
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
     // Saved Details manager modal
@@ -149,16 +151,46 @@ export default function ShopWithdrawPage() {
         if (dbUser) fetchData()
     }, [dbUser, isAdmin, isSubAdmin])
 
+    // ─── Account name validation (declared before fetchData so it can be in its dep array) ────
+    const triggerValidation = useCallback((phone: string, net: string, bankId?: string) => {
+        if (!phone || !net || phone.length < 10) {
+            setVerifiedName(null)
+            setValidationError(null)
+            return
+        }
+
+        setValidating(true)
+        setVerifiedName(null)
+        setValidationError(null)
+
+        fetch('/api/shop/validate-account', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ phone: phone.trim(), network: net, bankId }),
+        })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success && data.name) {
+                    setVerifiedName(data.name)
+                    setValidationError(null)
+                } else {
+                    setVerifiedName(null)
+                    setValidationError(data.error || 'Could not verify account name')
+                }
+            })
+            .catch(() => {
+                setVerifiedName(null)
+                setValidationError('Network error during validation')
+            })
+            .finally(() => setValidating(false))
+    }, [])
+
     const fetchData = useCallback(async () => {
         try {
             const db = supabase as any
-            const [walletRes, historyRes, settingsRes, shopRes, savedRes] = await Promise.all([
+            // Phase 1: fetch wallet + settings + shop + saved details in parallel
+            const [walletRes, settingsRes, shopRes, savedRes] = await Promise.all([
                 db.from('shop_wallets').select('*').eq('owner_id', dbUser!.id).maybeSingle(),
-                db.from('shop_wallet_transactions')
-                    .select('*')
-                    .eq('type', 'withdrawal')
-                    .order('created_at', { ascending: false })
-                    .limit(20),
                 db.from('shop_global_settings').select('*'),
                 db.from('shop_profiles')
                     .select('shop_name, withdrawal_fee_percent, withdrawal_fee_flat, min_withdrawal_amount')
@@ -170,8 +202,19 @@ export default function ShopWithdrawPage() {
                     .order('is_default', { ascending: false }),
             ])
 
-            if (walletRes.data) setWallet(walletRes.data)
-            setHistory(historyRes.data || [])
+            const walletData = walletRes.data
+            if (walletData) setWallet(walletData)
+
+            // Phase 2: fetch history scoped to this user's wallet (requires wallet ID)
+            if (walletData?.id) {
+                const historyRes = await db.from('shop_wallet_transactions')
+                    .select('*')
+                    .eq('shop_wallet_id', walletData.id)
+                    .eq('type', 'withdrawal')
+                    .order('created_at', { ascending: false })
+                    .limit(20)
+                setHistory(historyRes.data || [])
+            }
             if (shopRes.data?.shop_name) setShopName(shopRes.data.shop_name)
             setSavedDetails(savedRes.data || [])
 
@@ -219,7 +262,7 @@ export default function ShopWithdrawPage() {
         } finally {
             setLoading(false)
         }
-    }, [dbUser])
+    }, [dbUser, triggerValidation])
 
     // Fetch bank list lazily when switching to bank mode
     useEffect(() => {
@@ -231,39 +274,6 @@ export default function ShopWithdrawPage() {
         }
     }, [paymentType])
 
-    // ─── Account name validation ──────────────────────────────────────────────
-    const triggerValidation = useCallback((phone: string, net: string, bankId?: string) => {
-        if (!phone || !net || phone.length < 9) {
-            setVerifiedName(null)
-            setValidationError(null)
-            return
-        }
-
-        setValidating(true)
-        setVerifiedName(null)
-        setValidationError(null)
-
-        fetch('/api/shop/validate-account', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phone: phone.trim(), network: net, bankId }),
-        })
-            .then(r => r.json())
-            .then(data => {
-                if (data.success && data.name) {
-                    setVerifiedName(data.name)
-                    setValidationError(null)
-                } else {
-                    setVerifiedName(null)
-                    setValidationError(data.error || 'Could not verify account name')
-                }
-            })
-            .catch(() => {
-                setVerifiedName(null)
-                setValidationError('Network error during validation')
-            })
-            .finally(() => setValidating(false))
-    }, [])
 
     // Auto-verify debounce
     useEffect(() => {
@@ -271,7 +281,7 @@ export default function ShopWithdrawPage() {
 
         if (debounceRef.current) clearTimeout(debounceRef.current)
         
-        if (momoNumber.length >= 9 && network) {
+        if (momoNumber.length >= 10 && network) {
             debounceRef.current = setTimeout(() => {
                 triggerValidation(momoNumber, network, selectedBankId || undefined)
             }, 800)
@@ -317,13 +327,15 @@ export default function ShopWithdrawPage() {
     const totalFee = feePercent + settings.withdrawal_fee_flat
     const netAmount = amountNum - totalFee
 
+    // Allow manual name entry as a fallback when auto-verification fails after a retry
+    const effectiveAccountName = verifiedName || manualName.trim()
     const canSubmit =
         amountNum > 0 &&
         amountNum >= settings.min_withdrawal_amount &&
         amountNum <= (wallet?.balance || 0) &&
         !!network &&
         !!momoNumber &&
-        !!verifiedName &&
+        !!effectiveAccountName &&
         !validating &&
         !submitting
 
@@ -353,6 +365,8 @@ export default function ShopWithdrawPage() {
             setAmount('')
             setSaveForLater(false)
             setVerifiedName(null)
+            setManualName('')
+            setVerificationRetried(false)
             fetchData()
 
         } catch (err: any) {
@@ -791,7 +805,10 @@ export default function ShopWithdrawPage() {
                                             <Button 
                                                 size="sm" 
                                                 className="h-7 text-[11px] bg-red-100 hover:bg-red-200 text-red-600 shadow-none border-none font-bold px-3 uppercase tracking-wide transition-all"
-                                                onClick={() => triggerValidation(momoNumber, network || '', selectedBankId || undefined)}
+                                                onClick={() => {
+                                                    setVerificationRetried(true)
+                                                    triggerValidation(momoNumber, network || '', selectedBankId || undefined)
+                                                }}
                                                 disabled={validating || !momoNumber || !network}
                                                 type="button"
                                             >
@@ -827,10 +844,27 @@ export default function ShopWithdrawPage() {
                                             <AlertCircle className="w-3 h-3" /> {validationError}
                                         </p>
                                     )}
+                                    {/* Manual name fallback — shown after a failed retry */}
+                                    {validationError && verificationRetried && !validating && (
+                                        <div className="mt-3 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 space-y-2">
+                                            <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-1">
+                                                <Info className="w-3 h-3 flex-shrink-0" /> Auto-verification unavailable. Enter your account name manually.
+                                            </p>
+                                            <Input
+                                                value={manualName}
+                                                onChange={e => setManualName(e.target.value)}
+                                                placeholder="Account holder name (e.g. John Mensah)"
+                                                className="h-10 text-sm font-semibold"
+                                            />
+                                            <p className="text-[10px] text-amber-600 dark:text-amber-500">
+                                                Admin will verify this name before processing your payout.
+                                            </p>
+                                        </div>
+                                    )}
                                 </div>
 
                                 {/* Save for later */}
-                                {!!verifiedName && !validating && savedDetails.length < 5 && (
+                                {!!effectiveAccountName && !validating && savedDetails.length < 5 && (
                                     <label className="flex items-center gap-2 cursor-pointer text-sm text-muted-foreground select-none mt-4 p-3 rounded-xl border border-emerald-100 bg-emerald-50/50 dark:border-emerald-900/30 dark:bg-emerald-950/20">
                                         <input
                                             type="checkbox"
@@ -912,8 +946,10 @@ export default function ShopWithdrawPage() {
                         )}
                         {submitting
                             ? 'Submitting...'
-                            : !verifiedName
-                                ? 'Verify Account to Continue'
+                            : !effectiveAccountName
+                                ? verificationRetried
+                                    ? 'Enter Account Name Above to Continue'
+                                    : 'Verify Account to Continue'
                                 : amountNum > 0 && netAmount > 0
                                     ? `Request ${formatCurrency(Math.max(0, netAmount))} Payout`
                                     : 'Request Withdrawal'}
