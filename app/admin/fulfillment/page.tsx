@@ -103,6 +103,13 @@ export default function FulfillmentPage() {
     const [isSyncingDakazina, setIsSyncingDakazina] = useState(false)
     const [dakazinaSyncCooldown, setDakazinaSyncCooldown] = useState(false)
 
+    // Cron Settings state
+    const [cronRefulfillEnabled, setCronRefulfillEnabled] = useState(false)
+    const [cronRefulfillDelay, setCronRefulfillDelay] = useState('5')
+    const [cronAutoCompleteEnabled, setCronAutoCompleteEnabled] = useState(false)
+    const [cronAutoCompleteDelay, setCronAutoCompleteDelay] = useState('30')
+    const [isSavingCronSettings, setIsSavingCronSettings] = useState(false)
+
     useEffect(() => {
         if (dbUser?.role === 'admin') {
             fetchSettings()
@@ -151,7 +158,14 @@ export default function FulfillmentPage() {
             const { data } = await supabase
                 .from('admin_settings')
                 .select('key, value')
-                .in('key', ['auto_fulfillment_enabled', 'fulfillment_settings'])
+                .in('key', [
+                    'auto_fulfillment_enabled',
+                    'fulfillment_settings',
+                    'cron_auto_refulfill_enabled',
+                    'cron_auto_refulfill_delay_minutes',
+                    'cron_auto_complete_enabled',
+                    'cron_auto_complete_delay_minutes',
+                ])
 
             const map = (data || []).reduce((acc: any, curr: any) => {
                 acc[curr.key] = curr.value
@@ -162,8 +176,6 @@ export default function FulfillmentPage() {
                 ? JSON.parse(map.fulfillment_settings)
                 : map.fulfillment_settings || {}
 
-            // Use explicit DB values only — defaults are false for both suppliers.
-            // Processor requires networks[network] === true (not !== false) so we must be explicit.
             const dbNetworks: Record<string, boolean> = dbFulfillmentSettings.networks || {}
             const dbCodecraftNetworks: Record<string, boolean> = dbFulfillmentSettings.codecraft_networks || {}
 
@@ -178,8 +190,35 @@ export default function FulfillmentPage() {
                     [n]: dbCodecraftNetworks[n] === true
                 }), {} as Record<string, boolean>)
             })
+
+            // Load cron settings
+            setCronRefulfillEnabled(map.cron_auto_refulfill_enabled === 'true')
+            setCronRefulfillDelay(map.cron_auto_refulfill_delay_minutes || '5')
+            setCronAutoCompleteEnabled(map.cron_auto_complete_enabled === 'true')
+            setCronAutoCompleteDelay(map.cron_auto_complete_delay_minutes || '30')
         } catch (error) {
             console.error('Failed to fetch settings:', error)
+        }
+    }
+
+    const saveCronSettings = async () => {
+        setIsSavingCronSettings(true)
+        try {
+            const delayRef = Math.max(1, parseInt(cronRefulfillDelay) || 5)
+            const delayComplete = Math.max(1, parseInt(cronAutoCompleteDelay) || 30)
+            const updates = [
+                { key: 'cron_auto_refulfill_enabled', value: String(cronRefulfillEnabled) },
+                { key: 'cron_auto_refulfill_delay_minutes', value: String(delayRef) },
+                { key: 'cron_auto_complete_enabled', value: String(cronAutoCompleteEnabled) },
+                { key: 'cron_auto_complete_delay_minutes', value: String(delayComplete) },
+            ]
+            const { error } = await (supabase.from('admin_settings') as any).upsert(updates)
+            if (error) throw error
+            toast.success('Cron settings saved')
+        } catch (error: any) {
+            toast.error('Failed to save cron settings: ' + error.message)
+        } finally {
+            setIsSavingCronSettings(false)
         }
     }
 
@@ -919,6 +958,86 @@ export default function FulfillmentPage() {
                     </Card>
                 </div>
             </div>
+
+            {/* Cron Settings Card */}
+            <Card className="border-2 border-dashed border-violet-300 dark:border-violet-800 bg-violet-50/50 dark:bg-violet-900/10">
+                <CardHeader className="pb-3 pt-4 px-4">
+                    <CardTitle className="text-sm font-bold flex items-center gap-2 text-violet-700 dark:text-violet-400">
+                        <Clock className="w-4 h-4" /> Cron Job Settings
+                        <span className="text-[10px] font-normal text-muted-foreground ml-1">(cron-job.org)</span>
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="px-4 pb-4 space-y-5">
+                    {/* Auto-Refulfill */}
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 bg-background rounded-xl border">
+                        <div className="flex-1">
+                            <p className="text-sm font-bold">⚡ Auto-Refulfill Pending Orders</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">Automatically retry pending data orders after the set delay. Respects global fulfillment on/off and active supplier.</p>
+                        </div>
+                        <div className="flex items-center gap-3 shrink-0">
+                            <div className="flex items-center gap-2">
+                                <label className="text-xs font-semibold text-muted-foreground whitespace-nowrap">Delay (min)</label>
+                                <Input
+                                    type="number"
+                                    min="1"
+                                    max="60"
+                                    value={cronRefulfillDelay}
+                                    onChange={e => setCronRefulfillDelay(e.target.value)}
+                                    className="w-16 h-8 text-xs text-center"
+                                    disabled={!cronRefulfillEnabled}
+                                />
+                            </div>
+                            <Switch
+                                checked={cronRefulfillEnabled}
+                                onCheckedChange={setCronRefulfillEnabled}
+                                id="cron-refulfill-toggle"
+                            />
+                            <label htmlFor="cron-refulfill-toggle" className="text-xs font-bold">
+                                {cronRefulfillEnabled ? 'ON' : 'OFF'}
+                            </label>
+                        </div>
+                    </div>
+
+                    {/* Auto-Complete */}
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 bg-background rounded-xl border">
+                        <div className="flex-1">
+                            <p className="text-sm font-bold">✅ Auto-Complete Processing Orders</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">Mark processing orders as completed after the set delay (max 50 per run). Use for suppliers without webhooks.</p>
+                        </div>
+                        <div className="flex items-center gap-3 shrink-0">
+                            <div className="flex items-center gap-2">
+                                <label className="text-xs font-semibold text-muted-foreground whitespace-nowrap">Delay (min)</label>
+                                <Input
+                                    type="number"
+                                    min="1"
+                                    max="240"
+                                    value={cronAutoCompleteDelay}
+                                    onChange={e => setCronAutoCompleteDelay(e.target.value)}
+                                    className="w-16 h-8 text-xs text-center"
+                                    disabled={!cronAutoCompleteEnabled}
+                                />
+                            </div>
+                            <Switch
+                                checked={cronAutoCompleteEnabled}
+                                onCheckedChange={setCronAutoCompleteEnabled}
+                                id="cron-autocomplete-toggle"
+                            />
+                            <label htmlFor="cron-autocomplete-toggle" className="text-xs font-bold">
+                                {cronAutoCompleteEnabled ? 'ON' : 'OFF'}
+                            </label>
+                        </div>
+                    </div>
+
+                    <Button
+                        onClick={saveCronSettings}
+                        disabled={isSavingCronSettings}
+                        size="sm"
+                        className="bg-violet-600 hover:bg-violet-700 text-white font-bold"
+                    >
+                        {isSavingCronSettings ? <><RefreshCw className="w-3.5 h-3.5 mr-2 animate-spin" />Saving...</> : 'Save Cron Settings'}
+                    </Button>
+                </CardContent>
+            </Card>
         </div>
     )
 }
