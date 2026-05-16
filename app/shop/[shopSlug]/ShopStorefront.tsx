@@ -1358,6 +1358,12 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                                 {activeTab === 'airtime' && <Check className="w-4 h-4 text-[var(--brand-color)]" />}
                             </button>
                         )}
+                        {isGlobalMashupEnabled && (
+                            <button onClick={() => { setIsSidebarOpen(false); setActiveTab('mashup'); }} className={cn("mt-2 w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all shadow-sm border", activeTab === 'mashup' ? "bg-amber-500 text-white border-amber-600" : "hover:bg-gray-100 dark:hover:bg-gray-900 text-gray-600 dark:text-gray-400 border-transparent")}>
+                                <span className={cn("text-lg", activeTab === 'mashup' ? "" : "opacity-50 grayscale")}>🎯</span> <span className="font-bold flex-1 text-left">MTN Mashup</span>
+                                {activeTab === 'mashup' && <Check className="w-4 h-4 text-white" />}
+                            </button>
+                        )}
                         <div className="my-4 border-t border-gray-200 dark:border-gray-800" />
                         <Link href={`/shop/status?shop=${shop.shop_slug}&name=${encodeURIComponent(shop.shop_name)}`} onClick={() => setIsSidebarOpen(false)} className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-900 text-left font-bold text-gray-600 dark:text-gray-400 transition-colors">
                             <History className="w-5 h-5 text-gray-400" /> Track My Orders

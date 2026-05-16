@@ -405,10 +405,10 @@ export default function ShopPricingPage() {
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8 relative z-10">
                     <div>
                         <h2 className="text-xl font-black uppercase tracking-tighter text-indigo-900 dark:text-indigo-300 flex items-center gap-2">
-                            <PhoneCall className="w-6 h-6" /> Airtime Profit Configurator
+                            <PhoneCall className="w-6 h-6" /> Airtime & Mashup Profit Configurator
                         </h2>
                         <p className="text-xs font-bold text-indigo-700/70 dark:text-indigo-400/70 uppercase tracking-widest mt-1 max-w-xl">
-                            By default, airtime profit is zero. You earn nothing until you explicitly configure your markup below. The max allowed combined total fee is strictly 10%.
+                            By default, airtime & MTN Mashup profit is zero. You earn nothing until you explicitly configure your markup below. The max allowed combined total fee is strictly 10%.
                         </p>
                     </div>
                     <Button 
@@ -434,7 +434,9 @@ export default function ShopPricingPage() {
                                 isOverLimit ? "border-red-300 shadow-md ring-2 ring-red-100" : "border-indigo-100 dark:border-slate-800 shadow-sm hover:border-indigo-300"
                             )}>
                                 <div className="flex justify-between items-center mb-6">
-                                    <Badge variant="outline" className={cn("px-4 py-1.5 uppercase font-black tracking-widest", networkColors[net] || networkColors['MTN'])}>{net}</Badge>
+                                    <Badge variant="outline" className={cn("px-4 py-1.5 uppercase font-black tracking-widest", networkColors[net] || networkColors['MTN'])}>
+                                        {net === 'MTN' ? 'MTN / MASHUP' : net}
+                                    </Badge>
                                     <div className="text-right">
                                         <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest">Max Markup</p>
                                         <p className="font-black text-slate-900 dark:text-white">{maxAllowed.toFixed(2)}%</p>
