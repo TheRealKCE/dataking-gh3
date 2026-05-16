@@ -33,7 +33,7 @@ export async function GET(request: NextRequest) {
             .select('id, reference, total_amount, amount, status, metadata, user_id')
             .eq('status', 'pending')
             .lt('created_at', threeMinutesAgo)
-            .limit(50)
+            .limit(10)
 
         if (fetchError) {
             console.error('[CronMoolre] wallet_payments query error:', fetchError)
@@ -101,15 +101,15 @@ export async function GET(request: NextRequest) {
         let cursor = 0
         const shopKeys: string[] = []
 
-        // Scan Redis for all shop:meta:* keys (max 200 to be safe)
+        // Scan Redis for shop:meta:* keys (max 15 to prevent timeout)
         do {
             const [nextCursor, keys] = await redis.scan(cursor, {
                 match: 'shop:meta:*',
-                count: 100,
+                count: 15,
             })
             cursor = typeof nextCursor === 'string' ? parseInt(nextCursor) : nextCursor
             shopKeys.push(...keys)
-            if (shopKeys.length >= 200) break
+            if (shopKeys.length >= 15) break
         } while (cursor !== 0)
 
         for (const key of shopKeys) {
