@@ -42,7 +42,7 @@ export async function GET(request: NextRequest) {
             results.errors.push(`wallet_payments query: ${fetchError.message}`)
         } else if (pendingPayments && pendingPayments.length > 0) {
             // Process wallet status checks in parallel to save time
-            const checkPromises = pendingPayments.map(async (payment) => {
+            const checkPromises = pendingPayments.map(async (payment: any) => {
                 results.walletChecked++
                 try {
                     const statusResult = await checkPaymentStatus(payment.reference)
