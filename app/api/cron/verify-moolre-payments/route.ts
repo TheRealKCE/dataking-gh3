@@ -7,6 +7,7 @@ import { Redis } from '@upstash/redis'
 const redis = Redis.fromEnv()
 
 export async function GET(request: NextRequest) {
+    const startTime = Date.now()
     // Verify cron secret
     const authHeader = request.headers.get('authorization')
     if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -22,6 +23,7 @@ export async function GET(request: NextRequest) {
         shopProcessed: 0,
         shopFailed: 0,
         errors: [] as string[],
+        totalTimeMs: 0
     }
 
     // ── Part A: Pending Wallet Top-ups & Upgrades ─────────────────────────
@@ -38,15 +40,15 @@ export async function GET(request: NextRequest) {
         if (fetchError) {
             console.error('[CronMoolre] wallet_payments query error:', fetchError)
             results.errors.push(`wallet_payments query: ${fetchError.message}`)
-        } else {
-            for (const payment of pendingPayments || []) {
+        } else if (pendingPayments && pendingPayments.length > 0) {
+            // Process wallet status checks in parallel to save time
+            const checkPromises = pendingPayments.map(async (payment) => {
                 results.walletChecked++
                 try {
                     const statusResult = await checkPaymentStatus(payment.reference)
 
                     if (!statusResult.success || statusResult.txstatus === null) {
-                        // Can't determine status — skip, try next run
-                        continue
+                        return // Can't determine status — skip
                     }
 
                     if (statusResult.txstatus === 1) {
@@ -84,12 +86,13 @@ export async function GET(request: NextRequest) {
                         results.walletFailed++
                         console.log(`[CronMoolre] ❌ Wallet payment ${payment.reference} failed`)
                     }
-                    // txstatus 0 or 3 = still pending, leave as-is
                 } catch (err: any) {
                     console.error(`[CronMoolre] Wallet error for ${payment.id}:`, err)
                     results.errors.push(`wallet ${payment.id}: ${err.message}`)
                 }
-            }
+            })
+
+            await Promise.all(checkPromises)
         }
     } catch (partAErr: any) {
         console.error('[CronMoolre] Part A (wallet) failed:', partAErr)
@@ -101,89 +104,93 @@ export async function GET(request: NextRequest) {
         let cursor = 0
         const shopKeys: string[] = []
 
-        // Scan Redis for shop:meta:* keys (max 15 to prevent timeout)
+        // Scan Redis for shop:meta:* keys (max 10 to prevent timeout)
         do {
             const [nextCursor, keys] = await redis.scan(cursor, {
                 match: 'shop:meta:*',
-                count: 15,
+                count: 10,
             })
             cursor = typeof nextCursor === 'string' ? parseInt(nextCursor) : nextCursor
             shopKeys.push(...keys)
-            if (shopKeys.length >= 15) break
+            if (shopKeys.length >= 10) break
         } while (cursor !== 0)
 
-        for (const key of shopKeys) {
-            results.shopChecked++
-            try {
-                const reference = key.replace('shop:meta:', '')
+        if (shopKeys.length > 0) {
+            const shopPromises = shopKeys.map(async (key) => {
+                results.shopChecked++
+                try {
+                    const reference = key.replace('shop:meta:', '')
 
-                // Check if this order was already processed in shop_orders
-                const { data: existingOrder } = await (supabase
-                    .from('shop_orders') as any)
-                    .select('id')
-                    .eq('reference', reference)
-                    .maybeSingle()
+                    // Check if this order was already processed in shop_orders
+                    const { data: existingOrder } = await (supabase
+                        .from('shop_orders') as any)
+                        .select('id')
+                        .eq('reference', reference)
+                        .maybeSingle()
 
-                if (existingOrder) {
-                    // Already processed — clean up Redis key
-                    await redis.del(key)
-                    continue
-                }
-
-                // Check Moolre payment status
-                const statusResult = await checkPaymentStatus(reference)
-
-                if (!statusResult.success || statusResult.txstatus === null) {
-                    continue // Can't determine, try next run
-                }
-
-                if (statusResult.txstatus === 1) {
-                    // ✅ Payment was successful but order was never created
-                    const metadataStr = await redis.get<string>(key)
-                    if (!metadataStr) continue
-
-                    let metadata: any
-                    try {
-                        metadata = typeof metadataStr === 'string'
-                            ? JSON.parse(metadataStr)
-                            : metadataStr
-                    } catch {
-                        metadata = metadataStr
+                    if (existingOrder) {
+                        // Already processed — clean up Redis key
+                        await redis.del(key)
+                        return
                     }
 
-                    // Calculate paid amount from metadata
-                    const sellingPrice = parseFloat(metadata.selling_price || '0')
-                    const paystackFee = parseFloat(metadata.paystack_fee || '0')
-                    const feeAmount = parseFloat(metadata.fee_amount || '0')
-                    const totalGHS = sellingPrice + paystackFee + feeAmount
-                    const paidAmountPesewas = Math.round(totalGHS * 100)
+                    // Check Moolre payment status
+                    const statusResult = await checkPaymentStatus(reference)
 
-                    const { processShopOrder } = await import('@/lib/shop-order-processor')
-                    console.log(`[CronMoolre] Processing missed shop order: ${reference}`)
-                    await processShopOrder(
-                        reference,
-                        metadata,
-                        paidAmountPesewas,
-                        metadata?.shop_slug
-                    )
+                    if (!statusResult.success || statusResult.txstatus === null) {
+                        return // Can't determine, try next run
+                    }
 
-                    results.shopProcessed++
-                } else if (statusResult.txstatus === 2) {
-                    // ❌ Payment failed — clean up Redis
-                    await redis.del(key)
-                    results.shopFailed++
+                    if (statusResult.txstatus === 1) {
+                        // ✅ Payment was successful but order was never created
+                        const metadataStr = await redis.get<string>(key)
+                        if (!metadataStr) return
+
+                        let metadata: any
+                        try {
+                            metadata = typeof metadataStr === 'string'
+                                ? JSON.parse(metadataStr)
+                                : metadataStr
+                        } catch {
+                            metadata = metadataStr
+                        }
+
+                        // Calculate paid amount from metadata
+                        const sellingPrice = parseFloat(metadata.selling_price || '0')
+                        const paystackFee = parseFloat(metadata.paystack_fee || '0')
+                        const feeAmount = parseFloat(metadata.fee_amount || '0')
+                        const totalGHS = sellingPrice + paystackFee + feeAmount
+                        const paidAmountPesewas = Math.round(totalGHS * 100)
+
+                        const { processShopOrder } = await import('@/lib/shop-order-processor')
+                        console.log(`[CronMoolre] Processing missed shop order: ${reference}`)
+                        await processShopOrder(
+                            reference,
+                            metadata,
+                            paidAmountPesewas,
+                            metadata?.shop_slug
+                        )
+
+                        results.shopProcessed++
+                    } else if (statusResult.txstatus === 2) {
+                        // ❌ Payment failed — clean up Redis
+                        await redis.del(key)
+                        results.shopFailed++
+                    }
+                } catch (err: any) {
+                    console.error(`[CronMoolre] Shop error for key ${key}:`, err)
+                    results.errors.push(`shop ${key}: ${err.message}`)
                 }
-                // txstatus 0 or 3 = still pending
-            } catch (err: any) {
-                console.error(`[CronMoolre] Shop error for key ${key}:`, err)
-                results.errors.push(`shop ${key}: ${err.message}`)
-            }
+            })
+
+            await Promise.all(shopPromises)
         }
     } catch (partBErr: any) {
         console.error('[CronMoolre] Part B (shop) failed:', partBErr)
         results.errors.push(`Part B: ${partBErr.message}`)
     }
 
+    results.totalTimeMs = Date.now() - startTime
     console.log('[CronMoolre] Run complete:', results)
     return NextResponse.json({ success: true, ...results })
 }
