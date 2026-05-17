@@ -108,6 +108,13 @@ export function DashboardSidebar() {
             })
             return
         }
+        if (!isInstallable) {
+            toast('Install the App', {
+                description: 'In your browser menu, tap "Add to Home Screen" or "Install App" to install.',
+                duration: 6000,
+            })
+            return
+        }
         await installPwa()
     }
 
@@ -428,8 +435,8 @@ export function DashboardSidebar() {
 
                     {/* Bottom Actions */}
                     <div className="mt-8 pt-8 border-t border-border/30 space-y-1">
-                        {/* Install App Button — visible when installable or iOS, and not already installed */}
-                        {!isInstalled && (isInstallable || isIOS) && (
+                        {/* Install App Button — always visible unless already installed in standalone mode */}
+                        {!isInstalled && (
                             <Button
                                 variant="ghost"
                                 onClick={handleInstallClick}

@@ -197,6 +197,13 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
             })
             return
         }
+        if (!isInstallable) {
+            toast('Install the Shop App', {
+                description: 'In your browser menu, tap "Add to Home Screen" or "Install App" to install this shop.',
+                duration: 6000,
+            })
+            return
+        }
         await installPwa()
     }
 
@@ -1387,8 +1394,8 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                             <Info className="w-5 h-5 text-gray-400" /> About Shop & Terms
                         </Link>
 
-                        {/* Install Shop Button — only shown when installable (or iOS) and not yet installed */}
-                        {!isInstalled && (isInstallable || isIOS) && (
+                        {/* Install Shop Button — always visible unless already installed in standalone mode */}
+                        {!isInstalled && (
                             <>
                                 <div className="my-2 border-t border-gray-200 dark:border-gray-800" />
                                 <button
