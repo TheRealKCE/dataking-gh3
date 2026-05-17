@@ -35,8 +35,7 @@ import {
     Tag,
     Phone,
     Zap,
-    Download,
-    Share2
+    Download
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -44,8 +43,6 @@ import { usePageAccess } from '@/hooks/use-page-access'
 import { useAdminCounts } from '@/hooks/use-admin-counts'
 import { roleConfig } from '@/lib/roles'
 import { BrandLogo } from '@/components/BrandLogo'
-import { usePwa } from '@/hooks/use-pwa'
-import { toast } from 'sonner'
 
 const userNavItems = [
     { href: '/dashboard', label: 'Home', icon: LayoutDashboard },
@@ -59,6 +56,7 @@ const userNavItems = [
     { href: '/dashboard/complaints', label: 'Complaints', icon: MessageSquare },
     { href: '/dashboard/profile', label: 'Profile', icon: User },
     { href: '/dashboard/afa-orders', label: 'AFA Application', icon: BadgeCheck },
+    { href: '/dashboard/install', label: 'Download App', icon: Download },
 ]
 
 const adminNavItems = [
@@ -98,25 +96,6 @@ export function DashboardSidebar() {
     const [walletBalance, setWalletBalance] = useState(0)
     const [communityLink, setCommunityLink] = useState('https://chat.whatsapp.com/GY8X8nUkNgYATUiOY5gXAb')
     const { counts: adminCounts } = useAdminCounts()
-    const { isInstallable, isInstalled, isIOS, installPwa } = usePwa()
-
-    const handleInstallClick = async () => {
-        if (isIOS) {
-            toast('Install on iOS', {
-                description: 'Tap the Share button in Safari, then select "Add to Home Screen".',
-                duration: 6000,
-            })
-            return
-        }
-        if (!isInstallable) {
-            toast('Install the App', {
-                description: 'In your browser menu, tap "Add to Home Screen" or "Install App" to install.',
-                duration: 6000,
-            })
-            return
-        }
-        await installPwa()
-    }
 
     // My Shop accordion — auto-expands on any /dashboard/shop route
     const isOnShopRoute = pathname?.startsWith('/dashboard/shop') ?? false
@@ -435,30 +414,6 @@ export function DashboardSidebar() {
 
                     {/* Bottom Actions */}
                     <div className="mt-8 pt-8 border-t border-border/30 space-y-1">
-                        {/* Install App Button — always visible unless already installed in standalone mode */}
-                        {!isInstalled && (
-                            <Button
-                                variant="ghost"
-                                onClick={handleInstallClick}
-                                title={isCollapsed ? 'Install App' : undefined}
-                                aria-label="Install App"
-                                className={cn(
-                                    "w-full nav-link text-emerald-600/80 hover:text-emerald-600 hover:bg-emerald-500/10",
-                                    isCollapsed && "justify-center px-0"
-                                )}
-                            >
-                                {isIOS ? (
-                                    <Share2 className="w-5 h-5 flex-shrink-0" />
-                                ) : (
-                                    <Download className="w-5 h-5 flex-shrink-0" />
-                                )}
-                                {!isCollapsed && (
-                                    <span className="text-sm font-semibold tracking-tight">
-                                        {isIOS ? 'Add to Home Screen' : 'Install App'}
-                                    </span>
-                                )}
-                            </Button>
-                        )}
 
                         <Button
                             variant="ghost"
