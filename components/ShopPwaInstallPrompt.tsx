@@ -1,13 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import Image from 'next/image'
 import { X, Download, Share } from 'lucide-react'
-
-interface BeforeInstallPromptEvent extends Event {
-    prompt: () => Promise<void>
-    userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
-}
+import { usePwa } from '@/hooks/use-pwa'
 
 interface ShopPwaInstallPromptProps {
     shopName: string
@@ -17,17 +13,6 @@ interface ShopPwaInstallPromptProps {
 }
 
 const DISMISS_DURATION_MS = 7 * 24 * 60 * 60 * 1000 // 7 days
-
-function isIOS() {
-    if (typeof navigator === 'undefined') return false
-    return /iphone|ipad|ipod/i.test(navigator.userAgent)
-}
-
-function isInStandaloneMode() {
-    if (typeof window === 'undefined') return false
-    return window.matchMedia('(display-mode: standalone)').matches ||
-        ('standalone' in window.navigator && (window.navigator as any).standalone === true)
-}
 
 function getStorageKey(shopSlug: string) {
     return `shop-pwa-dismissed-${shopSlug}`
@@ -52,51 +37,28 @@ export default function ShopPwaInstallPrompt({
     logoUrl,
     brandColor,
 }: ShopPwaInstallPromptProps) {
-    const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
-    const [showAndroid, setShowAndroid] = useState(false)
-    const [showIOS, setShowIOS] = useState(false)
+    const { isInstallable, isInstalled, isIOS, installPwa } = usePwa()
+    const [dismissed, setDismissed] = useState(() => {
+        if (typeof window === 'undefined') return false
+        return wasDismissedRecently(shopSlug)
+    })
 
     const isValidHex = (color: string) => /^#([A-Fa-f0-9]{3}){1,4}$/.test(color)
     const safeBrandColor = isValidHex(brandColor) ? brandColor : '#2563eb'
 
-    useEffect(() => {
-        // Already installed — don't show
-        if (isInStandaloneMode()) return
-        // Dismissed recently for this specific shop — don't show
-        if (wasDismissedRecently(shopSlug)) return
-
-        if (isIOS()) {
-            setShowIOS(true)
-            return
-        }
-
-        const handler = (e: Event) => {
-            e.preventDefault()
-            setDeferredPrompt(e as BeforeInstallPromptEvent)
-            setShowAndroid(true)
-        }
-
-        window.addEventListener('beforeinstallprompt', handler)
-        return () => window.removeEventListener('beforeinstallprompt', handler)
-    }, [shopSlug])
-
     const handleInstall = async () => {
-        if (!deferredPrompt) return
-        await deferredPrompt.prompt()
-        const { outcome } = await deferredPrompt.userChoice
-        if (outcome === 'accepted' || outcome === 'dismissed') {
-            markDismissed(shopSlug)
-            setShowAndroid(false)
-        }
+        await installPwa()
+        markDismissed(shopSlug)
+        setDismissed(true)
     }
 
     const handleDismiss = () => {
         markDismissed(shopSlug)
-        setShowAndroid(false)
-        setShowIOS(false)
+        setDismissed(true)
     }
 
-    if (!showAndroid && !showIOS) return null
+    // Don't show if: already installed, dismissed for this shop, or nothing to prompt
+    if (isInstalled || dismissed || (!isInstallable && !isIOS)) return null
 
     const shortName = shopName.length > 16 ? shopName.substring(0, 16).trim() + '…' : shopName
 
@@ -104,14 +66,14 @@ export default function ShopPwaInstallPrompt({
         <div
             role="dialog"
             aria-label={`Install ${shopName} app`}
-            className="fixed bottom-20 md:bottom-6 right-3 md:right-6 left-auto md:max-w-sm z-50
+            className={`fixed bottom-20 md:bottom-6 right-3 md:right-6 left-auto md:max-w-sm z-50
                        bg-zinc-900 border border-zinc-700 rounded-2xl shadow-2xl shadow-black/60
-                       p-4 flex items-start gap-3 animate-in slide-in-from-bottom-4 duration-300 max-w-[calc(100vw-1.5rem)]"
+                       p-4 flex items-start gap-3 animate-in slide-in-from-bottom-4 duration-300 max-w-[calc(100vw-1.5rem)]
+                       [--shop-brand:${safeBrandColor}]`}
         >
             {/* Shop icon */}
             <div
-                className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg overflow-hidden border border-white/10"
-                style={{ backgroundColor: safeBrandColor }}
+                className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0 shadow-lg overflow-hidden border border-white/10 bg-[var(--shop-brand)]"
             >
                 {logoUrl ? (
                     <Image
@@ -130,15 +92,14 @@ export default function ShopPwaInstallPrompt({
             <div className="flex-1 min-w-0">
                 <p className="text-sm font-black text-white leading-tight truncate">Install {shortName}</p>
 
-                {showAndroid && (
+                {isInstallable && (
                     <>
                         <p className="text-xs text-zinc-400 mt-0.5 leading-snug">
                             Add this shop to your home screen for instant access.
                         </p>
                         <button
                             onClick={handleInstall}
-                            className="mt-2.5 inline-flex items-center gap-1.5 text-xs font-black px-3 py-1.5 rounded-lg transition-colors text-white shadow-sm"
-                            style={{ backgroundColor: safeBrandColor }}
+                            className="mt-2.5 inline-flex items-center gap-1.5 text-xs font-black px-3 py-1.5 rounded-lg transition-colors text-white shadow-sm bg-[var(--shop-brand)]"
                         >
                             <Download className="w-3.5 h-3.5" />
                             Install App
@@ -146,7 +107,7 @@ export default function ShopPwaInstallPrompt({
                     </>
                 )}
 
-                {showIOS && (
+                {isIOS && (
                     <>
                         <p className="text-xs text-zinc-400 mt-0.5 leading-snug">
                             Tap <Share className="w-3 h-3 inline mx-0.5 text-zinc-300" />

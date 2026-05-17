@@ -9,12 +9,13 @@ import { cn } from '@/lib/utils'
 import {
     Phone, Mail, MessageCircle, ShoppingCart, Loader2,
     CheckCircle2, AlertCircle, X, Search, Zap, Smartphone, ChevronDown, Check, Menu, Bell,
-    History, TrendingUp, Coins, Calendar, CalendarRange, RefreshCw, Info, Clock, Copy, ArrowRight, AlertTriangle, Users, Target, Sparkles
+    History, TrendingUp, Coins, Calendar, CalendarRange, RefreshCw, Info, Clock, Copy, ArrowRight, AlertTriangle, Users, Target, Sparkles, Download, Share2
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { CopyrightFooter } from '@/components/CopyrightFooter'
 import dynamic from 'next/dynamic'
+import { usePwa } from '@/hooks/use-pwa'
 import {
     Dialog,
     DialogContent,
@@ -184,6 +185,20 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
     const [otpCode, setOtpCode] = useState('')
     const [otpReference, setOtpReference] = useState<string | null>(null)
     const [otpOrderType, setOtpOrderType] = useState<'data' | 'airtime' | 'mashup'>('data')
+
+    const { isInstallable, isInstalled, isIOS, installPwa } = usePwa()
+
+    const handleInstallShop = async () => {
+        setIsSidebarOpen(false)
+        if (isIOS) {
+            toast('Install on iOS', {
+                description: `Tap the Share button in Safari, then "Add to Home Screen" to install ${shop.shop_name}.`,
+                duration: 6000,
+            })
+            return
+        }
+        await installPwa()
+    }
 
     // Mashup State
     const [mashupPhone, setMashupPhone] = useState('')
@@ -1371,6 +1386,24 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                         <Link href={`/shop/${shop.shop_slug}/about`} onClick={() => setIsSidebarOpen(false)} className="w-full flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-gray-100 dark:hover:bg-gray-900 text-left font-bold text-gray-600 dark:text-gray-400 transition-colors">
                             <Info className="w-5 h-5 text-gray-400" /> About Shop & Terms
                         </Link>
+
+                        {/* Install Shop Button — only shown when installable (or iOS) and not yet installed */}
+                        {!isInstalled && (isInstallable || isIOS) && (
+                            <>
+                                <div className="my-2 border-t border-gray-200 dark:border-gray-800" />
+                                <button
+                                    onClick={handleInstallShop}
+                                    className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-left font-bold transition-colors text-emerald-600 dark:text-emerald-400 hover:bg-emerald-50 dark:hover:bg-emerald-900/20"
+                                    aria-label={isIOS ? 'Add to Home Screen' : 'Install Shop App'}
+                                >
+                                    {isIOS
+                                        ? <Share2 className="w-5 h-5" />
+                                        : <Download className="w-5 h-5" />
+                                    }
+                                    {isIOS ? 'Add to Home Screen' : 'Install Shop App'}
+                                </button>
+                            </>
+                        )}
                     </div>
                 </div>
             </div>

@@ -1,26 +1,11 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { X, Download, Share } from 'lucide-react'
-
-interface BeforeInstallPromptEvent extends Event {
-    prompt: () => Promise<void>
-    userChoice: Promise<{ outcome: 'accepted' | 'dismissed' }>
-}
+import { usePwa } from '@/hooks/use-pwa'
 
 const STORAGE_KEY = 'arhms-pwa-install-dismissed'
 const DISMISS_DURATION_MS = 7 * 24 * 60 * 60 * 1000 // 7 days
-
-function isIOS() {
-    if (typeof navigator === 'undefined') return false
-    return /iphone|ipad|ipod/i.test(navigator.userAgent)
-}
-
-function isInStandaloneMode() {
-    if (typeof window === 'undefined') return false
-    return window.matchMedia('(display-mode: standalone)').matches ||
-        ('standalone' in window.navigator && (window.navigator as any).standalone === true)
-}
 
 function wasDismissedRecently(): boolean {
     try {
@@ -36,49 +21,25 @@ function markDismissed() {
 }
 
 export default function PwaInstallPrompt() {
-    const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
-    const [showAndroid, setShowAndroid] = useState(false)
-    const [showIOS, setShowIOS] = useState(false)
-
-    useEffect(() => {
-        // Already installed — don't show
-        if (isInStandaloneMode()) return
-        // Dismissed recently — don't show
-        if (wasDismissedRecently()) return
-
-        if (isIOS()) {
-            // iOS: show share-sheet instructions
-            setShowIOS(true)
-            return
-        }
-
-        const handler = (e: Event) => {
-            e.preventDefault()
-            setDeferredPrompt(e as BeforeInstallPromptEvent)
-            setShowAndroid(true)
-        }
-
-        window.addEventListener('beforeinstallprompt', handler)
-        return () => window.removeEventListener('beforeinstallprompt', handler)
-    }, [])
+    const { isInstallable, isInstalled, isIOS, installPwa } = usePwa()
+    const [dismissed, setDismissed] = useState(() => {
+        if (typeof window === 'undefined') return false
+        return wasDismissedRecently()
+    })
 
     const handleInstall = async () => {
-        if (!deferredPrompt) return
-        await deferredPrompt.prompt()
-        const { outcome } = await deferredPrompt.userChoice
-        if (outcome === 'accepted' || outcome === 'dismissed') {
-            markDismissed()
-            setShowAndroid(false)
-        }
+        await installPwa()
+        markDismissed()
+        setDismissed(true)
     }
 
     const handleDismiss = () => {
         markDismissed()
-        setShowAndroid(false)
-        setShowIOS(false)
+        setDismissed(true)
     }
 
-    if (!showAndroid && !showIOS) return null
+    // Don't show if: already installed, already dismissed, and not installable / iOS
+    if (isInstalled || dismissed || (!isInstallable && !isIOS)) return null
 
     return (
         <div
@@ -98,7 +59,7 @@ export default function PwaInstallPrompt() {
             <div className="flex-1 min-w-0">
                 <p className="text-sm font-bold text-white leading-tight">Install ARHMS</p>
 
-                {showAndroid && (
+                {isInstallable && (
                     <>
                         <p className="text-xs text-zinc-400 mt-0.5 leading-snug">
                             Add to your home screen for the full app experience.
@@ -114,7 +75,7 @@ export default function PwaInstallPrompt() {
                     </>
                 )}
 
-                {showIOS && (
+                {isIOS && (
                     <>
                         <p className="text-xs text-zinc-400 mt-0.5 leading-snug">
                             Tap <Share className="w-3 h-3 inline mx-0.5 text-zinc-300" />
