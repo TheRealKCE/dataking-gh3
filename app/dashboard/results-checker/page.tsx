@@ -25,7 +25,7 @@ interface PurchaseSuccess {
 }
 
 export default function ResultsCheckerPage() {
-    const { dbUser } = useAuth()
+    const { dbUser, refreshUser } = useAuth()
     const [types, setTypes] = useState<RCType[]>([])
     const [loading, setLoading] = useState(true)
     
@@ -96,6 +96,7 @@ export default function ResultsCheckerPage() {
                 if (!res.ok) { throw new Error(data.error || 'Purchase failed') }
                 
                 toast.success('Purchase successful!')
+                await refreshUser()
                                 setSuccessData({ reference: refCode, type_name: selectedType.name, vouchers: data.vouchers || [] })
                 fetchTypes()
                 
@@ -355,5 +356,6 @@ export default function ResultsCheckerPage() {
         </div>
     )
 }
+
 
 
