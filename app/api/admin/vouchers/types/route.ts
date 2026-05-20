@@ -1,10 +1,11 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { createRouteClient } from '@/lib/supabase-server'
+import { createServerClient } from '@/lib/supabase'
 
 // GET: Fetch all voucher types with stock counts
 export async function GET() {
     try {
-        const supabase = createRouteClient()
+        const supabase = createServerClient()
         const { data: { session } } = await supabase.auth.getSession()
         if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -50,7 +51,7 @@ export async function GET() {
 // POST: Create a new voucher type
 export async function POST(request: NextRequest) {
     try {
-        const supabase = createRouteClient()
+        const supabase = createServerClient()
         const { data: { session } } = await supabase.auth.getSession()
         if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -65,7 +66,10 @@ export async function POST(request: NextRequest) {
         }
 
         // Server-side pricing sanity check
-        if (customer_price < cost_price || agent_price < cost_price) {
+        const cp = parseFloat(customer_price);
+        const ap = parseFloat(agent_price);
+        const cost = parseFloat(cost_price);
+        if (cp < cost || ap < cost) {
             return NextResponse.json({ error: 'Selling prices cannot be below cost price' }, { status: 400 })
         }
 
@@ -92,3 +96,4 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Failed to create type' }, { status: 500 })
     }
 }
+
