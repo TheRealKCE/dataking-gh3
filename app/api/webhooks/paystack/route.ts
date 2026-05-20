@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { processCompletedWalletPayment } from '@/lib/payments'
 import crypto from 'crypto'
@@ -29,13 +29,21 @@ export async function POST(request: NextRequest) {
             const { reference, amount: paidAmountKobo } = event.data
             const metadata = event.data.metadata
 
-            // ✅ SHOP ORDERS: References starting with SHOP- are storefront guest orders.
+            // o. SHOP ORDERS: References starting with SHOP- are storefront guest orders.
             // They are NOT stored in wallet_payments, so we must handle them separately
             // before the DB lookup to avoid "Payment not found" errors.
             if (reference && reference.startsWith('SHOP-')) {
                 const { processShopOrder } = await import('@/lib/shop-order-processor')
                 console.log('[PaystackWebhook] Routing shop order payment')
                 await processShopOrder(reference, metadata, paidAmountKobo, metadata?.slug)
+                return NextResponse.json({ received: true })
+            }
+
+            // o. RC VOUCHERS: References starting with RC- are voucher purchases
+            if (reference && reference.startsWith('RC-')) {
+                const { finalizeRCGatewayOrder } = await import('@/lib/vouchers/checkout')
+                console.log('[PaystackWebhook] Routing RC Voucher order payment')
+                await finalizeRCGatewayOrder({ reference, paidAmountKobo, metadata })
                 return NextResponse.json({ received: true })
             }
 
@@ -51,7 +59,7 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({ received: true })
             }
 
-            // ✅ IDEMPOTENCY CHECK: Prevent duplicate webhook processing for ALL payment types
+            // o. IDEMPOTENCY CHECK: Prevent duplicate webhook processing for ALL payment types
             // This guard covers both wallet top-ups and agent upgrades.
             // Paystack guarantees at-least-once delivery, so this is critical.
             if ((payment as any).status === 'completed') {
@@ -59,7 +67,7 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({ received: true })
             }
 
-            // ✅ AMOUNT VERIFICATION: Cross-check paid amount against DB-stored expected amount
+            // o. AMOUNT VERIFICATION: Cross-check paid amount against DB-stored expected amount
             const expectedAmountKobo = Math.round((payment as any).total_amount * 100)
             if (paidAmountKobo !== expectedAmountKobo) {
                 console.error(`[PaystackWebhook] AMOUNT MISMATCH: Expected ${expectedAmountKobo}, got ${paidAmountKobo}`)
