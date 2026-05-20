@@ -1,16 +1,14 @@
 ﻿import { NextRequest, NextResponse } from 'next/server'
-import { createRouteClient } from '@/lib/supabase-server'
 import { createServerClient } from '@/lib/supabase'
+import { validateAdminAccess } from '@/lib/auth-utils'
 
 // GET: Fetch all voucher types with stock counts
 export async function GET() {
     try {
-        const supabase = createServerClient()
-        const { data: { session } } = await supabase.auth.getSession()
-        if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        const auth = await validateAdminAccess(false)
+        if (auth.error) return NextResponse.json({ error: auth.error }, { status: auth.status })
 
-        const { data: user } = await supabase.from('users').select('role').eq('id', session.user.id).single()
-        if ((user as any)?.role !== 'admin') return NextResponse.json({ error: 'Admin only' }, { status: 403 })
+        const supabase = createServerClient()
 
         // Fetch all types (including inactive for admin view)
         const { data: types, error } = await (supabase.from('results_checker_types') as any)
@@ -51,12 +49,8 @@ export async function GET() {
 // POST: Create a new voucher type
 export async function POST(request: NextRequest) {
     try {
-        const supabase = createServerClient()
-        const { data: { session } } = await supabase.auth.getSession()
-        if (!session) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-        const { data: user } = await supabase.from('users').select('role').eq('id', session.user.id).single()
-        if ((user as any)?.role !== 'admin') return NextResponse.json({ error: 'Admin only' }, { status: 403 })
+        const auth = await validateAdminAccess(false)
+        if (auth.error) return NextResponse.json({ error: auth.error }, { status: auth.status })
 
         const body = await request.json()
         const { name, customer_price, agent_price, cost_price, display_order } = body
@@ -73,6 +67,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Selling prices cannot be below cost price' }, { status: 400 })
         }
 
+        const supabase = createServerClient()
         const { data, error } = await (supabase.from('results_checker_types') as any)
             .insert({
                 name,
@@ -96,4 +91,3 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Failed to create type' }, { status: 500 })
     }
 }
-
