@@ -1,112 +1,503 @@
 ﻿'use client'
 
-import { useState, useEffect } from 'react'
-import { supabase } from '@/lib/supabase'
+import { useEffect, useState, useCallback } from 'react'
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import { Badge } from '@/components/ui/badge'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
+import { Plus, Upload, RefreshCw, Loader2, Pencil, AlertTriangle, Eye, Wrench, Package, ShoppingCart, DollarSign, Clock, TrendingUp } from 'lucide-react'
+import { toast } from 'sonner'
+import { formatCurrency, formatDate } from '@/lib/utils'
+
+interface RCType { id: string; name: string; customer_price: number; agent_price: number; cost_price: number; is_active: boolean; display_order: number; created_at: string; stock?: { available: number; reserved: number; sold: number } }
+interface RCOrder { id: string; reference_code: string; customer_name: string; customer_email: string; customer_phone: string; type_name: string; quantity: number; unit_price: number; total_paid: number; status: string; payment_status: string; created_at: string; fulfilled_at: string | null }
+interface Stats { revenue: number; cost: number; profit: number; totalOrders: number; completedOrders: number; pendingOrders: number; stockSummary: Array<{ id: string; name: string; available: number; sold: number; lowStock: boolean; is_active: boolean }> }
+
+function StatusBadge({ status }: { status: string }) {
+    const map: Record<string, { label: string; cls: string }> = {
+        completed: { label: 'Completed', cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400' },
+        pending: { label: 'Pending', cls: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400' },
+        failed: { label: 'Failed', cls: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' },
+        refunded: { label: 'Refunded', cls: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400' },
+    }
+    const c = map[status] || { label: status, cls: 'bg-gray-100 text-gray-700' }
+    return <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold ${c.cls}`}>{c.label}</span>
+}
 
 export default function VouchersAdminPage() {
-    const [types, setTypes] = useState<any[]>([])
-    const [selectedType, setSelectedType] = useState<string>('')
-    const [file, setFile] = useState<File | null>(null)
-    const [loading, setLoading] = useState(false)
-    const [message, setMessage] = useState('')
+    const [types, setTypes] = useState<RCType[]>([])
+    const [orders, setOrders] = useState<RCOrder[]>([])
+    const [stats, setStats] = useState<Stats | null>(null)
+    const [loading, setLoading] = useState(true)
+    const [ordersLoading, setOrdersLoading] = useState(false)
+    const [statsLoading, setStatsLoading] = useState(false)
+    const [orderStatus, setOrderStatus] = useState('all')
+    const [orderTypeId, setOrderTypeId] = useState('all')
+    const [typeModal, setTypeModal] = useState(false)
+    const [editingType, setEditingType] = useState<RCType | null>(null)
+    const [typeForm, setTypeForm] = useState({ name: '', customer_price: '', agent_price: '', cost_price: '', display_order: '0' })
+    const [typeSaving, setTypeSaving] = useState(false)
+    const [uploadTypeId, setUploadTypeId] = useState('')
+    const [uploadFile, setUploadFile] = useState<File | null>(null)
+    const [uploading, setUploading] = useState(false)
+    const [orderDetail, setOrderDetail] = useState<RCOrder | null>(null)
+    const [fulfilling, setFulfilling] = useState(false)
 
-    useEffect(() => {
-        fetchTypes()
+    const fetchTypes = useCallback(async () => {
+        setLoading(true)
+        try {
+            const res = await fetch('/api/admin/vouchers/types')
+            const json = await res.json()
+            if (res.ok) {
+                setTypes(json.data || [])
+                if (json.data?.length > 0) setUploadTypeId((prev: string) => prev || json.data[0].id)
+            }
+        } finally { setLoading(false) }
     }, [])
 
-    async function fetchTypes() {
-        const { data, error } = await supabase
-            .from('results_checker_types')
-            .select('*')
-            .order('display_order')
+    const fetchOrders = useCallback(async () => {
+        setOrdersLoading(true)
+        try {
+            const params = new URLSearchParams()
+            if (orderStatus !== 'all') params.set('status', orderStatus)
+            if (orderTypeId !== 'all') params.set('type_id', orderTypeId)
+            const res = await fetch(`/api/admin/vouchers/orders?${params}`)
+            const json = await res.json()
+            if (res.ok) setOrders(json.data || [])
+        } finally { setOrdersLoading(false) }
+    }, [orderStatus, orderTypeId])
 
-        if (data) {
-            setTypes(data)
-            if (data.length > 0) setSelectedType((data[0] as any).id)
-        }
+    const fetchStats = useCallback(async () => {
+        const res = await fetch('/api/admin/vouchers/stats')
+        const json = await res.json()
+        if (res.ok) setStats(json)
+    }, [])
+
+    useEffect(() => { fetchTypes(); fetchStats() }, [fetchTypes, fetchStats])
+    useEffect(() => { fetchOrders() }, [fetchOrders])
+
+    const openAddType = () => {
+        setEditingType(null)
+        setTypeForm({ name: '', customer_price: '', agent_price: '', cost_price: '', display_order: '0' })
+        setTypeModal(true)
+    }
+    const openEditType = (t: RCType) => {
+        setEditingType(t)
+        setTypeForm({ name: t.name, customer_price: String(t.customer_price), agent_price: String(t.agent_price), cost_price: String(t.cost_price), display_order: String(t.display_order) })
+        setTypeModal(true)
     }
 
-    async function handleUpload(e: React.FormEvent) {
-        e.preventDefault()
-        if (!selectedType || !file) {
-            setMessage('Please select a voucher type and a CSV file.')
-            return
+    const saveType = async () => {
+        if (!typeForm.name || !typeForm.customer_price || !typeForm.agent_price || !typeForm.cost_price) {
+            toast.error('All fields are required'); return
         }
-
-        setLoading(true)
-        setMessage('')
-
-        const formData = new FormData()
-        formData.append('typeId', selectedType)
-        formData.append('file', file)
-
+        setTypeSaving(true)
         try {
-            const res = await fetch('/api/admin/vouchers/upload', {
-                method: 'POST',
-                body: formData
-            })
+            const url = editingType ? `/api/admin/vouchers/types/${editingType.id}` : '/api/admin/vouchers/types'
+            const method = editingType ? 'PUT' : 'POST'
+            const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(typeForm) })
+            const json = await res.json()
+            if (!res.ok) { toast.error(json.error || 'Failed to save'); return }
+            toast.success(editingType ? 'Type updated' : 'Type created')
+            setTypeModal(false); fetchTypes(); fetchStats()
+        } finally { setTypeSaving(false) }
+    }
 
-            const data = await res.json()
+    const toggleActive = async (t: RCType) => {
+        const res = await fetch(`/api/admin/vouchers/types/${t.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ is_active: !t.is_active }) })
+        if (res.ok) { toast.success(t.is_active ? 'Archived' : 'Activated'); fetchTypes() }
+        else toast.error('Failed to update')
+    }
 
-            if (res.ok) {
-                setMessage(data.message || 'Upload successful')
-                setFile(null)
-            } else {
-                setMessage(data.error || 'Upload failed')
-            }
-        } catch (err: any) {
-            setMessage('Network error occurred during upload')
-        } finally {
-            setLoading(false)
-        }
+    const handleUpload = async (e: React.FormEvent) => {
+        e.preventDefault()
+        if (!uploadTypeId || !uploadFile) { toast.error('Select a type and CSV file'); return }
+        setUploading(true)
+        try {
+            const fd = new FormData(); fd.append('typeId', uploadTypeId); fd.append('file', uploadFile)
+            const res = await fetch('/api/admin/vouchers/upload', { method: 'POST', body: fd })
+            const json = await res.json()
+            if (res.ok) { toast.success(json.message || 'Upload successful'); setUploadFile(null); fetchTypes(); fetchStats() }
+            else toast.error(json.error || 'Upload failed')
+        } finally { setUploading(false) }
+    }
+
+    const manualFulfill = async (orderId: string) => {
+        setFulfilling(true)
+        try {
+            const res = await fetch(`/api/admin/vouchers/orders/${orderId}/fulfill`, { method: 'POST' })
+            const json = await res.json()
+            if (res.ok) { toast.success(`Fulfilled ${json.fulfilled} voucher(s)`); setOrderDetail(null); fetchOrders(); fetchStats() }
+            else toast.error(json.error || 'Fulfillment failed')
+        } finally { setFulfilling(false) }
     }
 
     return (
-        <div className="p-6 max-w-4xl mx-auto">
-            <h1 className="text-2xl font-bold mb-6 text-gray-800">Manage Results Checker Vouchers</h1>
+        <div className="flex-1 space-y-6 p-4 md:p-8 pt-6">
+            <div className="flex items-center justify-between">
+                <div>
+                    <h1 className="text-3xl font-bold tracking-tight">Results Checker</h1>
+                    <p className="text-muted-foreground text-sm mt-1">Manage voucher types, inventory, and sales</p>
+                </div>
+                <Button onClick={() => { fetchTypes(); fetchOrders(); fetchStats() }} variant="outline" size="sm">
+                    <RefreshCw className="w-4 h-4 mr-2" /> Refresh
+                </Button>
+            </div>
 
-            <div className="bg-white p-6 rounded-lg shadow-sm border">
-                <h2 className="text-lg font-semibold mb-4">Upload Voucher Batch</h2>
-                
-                <form onSubmit={handleUpload} className="space-y-4">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">Voucher Type</label>
-                        <select
-                            value={selectedType}
-                            onChange={(e) => setSelectedType(e.target.value)}
-                            className="w-full border rounded-md p-2 focus:ring-2 focus:ring-green-500"
-                        >
+            {stats && (
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    {[
+                        { label: 'Revenue', value: formatCurrency(stats.revenue), icon: DollarSign, color: 'text-emerald-600' },
+                        { label: 'Profit', value: formatCurrency(stats.profit), icon: TrendingUp, color: 'text-blue-600' },
+                        { label: 'Orders', value: stats.totalOrders, icon: ShoppingCart, color: 'text-violet-600' },
+                        { label: 'Pending', value: stats.pendingOrders, icon: Clock, color: 'text-yellow-600' },
+                    ].map(s => (
+                        <Card key={s.label} className="border-border/50">
+                            <CardContent className="pt-4 pb-4">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">{s.label}</p>
+                                        <p className="text-2xl font-bold mt-1">{s.value}</p>
+                                    </div>
+                                    <s.icon className={`w-8 h-8 ${s.color} opacity-80`} />
+                                </div>
+                            </CardContent>
+                        </Card>
+                    ))}
+                </div>
+            )}
+
+            <Tabs defaultValue="types" className="space-y-4">
+                <TabsList className="grid grid-cols-4 w-full max-w-lg">
+                    <TabsTrigger value="types">Types</TabsTrigger>
+                    <TabsTrigger value="inventory">Inventory</TabsTrigger>
+                    <TabsTrigger value="orders">Orders</TabsTrigger>
+                    <TabsTrigger value="analytics">Analytics</TabsTrigger>
+                </TabsList>
+
+                <TabsContent value="types" className="space-y-4">
+                    <div className="flex items-center justify-between">
+                        <h2 className="text-lg font-semibold">Voucher Types</h2>
+                        <Button onClick={openAddType} size="sm"><Plus className="w-4 h-4 mr-2" />Add Type</Button>
+                    </div>
+                    {loading ? (
+                        <div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+                    ) : types.length === 0 ? (
+                        <Card><CardContent className="py-12 text-center text-muted-foreground">No voucher types yet. Create one to get started.</CardContent></Card>
+                    ) : (
+                        <div className="grid gap-3">
                             {types.map(t => (
-                                <option key={t.id} value={t.id}>{t.name}</option>
+                                <Card key={t.id} className={`border-border/50 transition-opacity ${!t.is_active ? 'opacity-50' : ''}`}>
+                                    <CardContent className="py-4">
+                                        <div className="flex items-center justify-between gap-4">
+                                            <div className="flex items-center gap-3 min-w-0">
+                                                <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+                                                    <Package className="w-5 h-5 text-primary" />
+                                                </div>
+                                                <div className="min-w-0">
+                                                    <div className="flex items-center gap-2 flex-wrap">
+                                                        <span className="font-semibold">{t.name}</span>
+                                                        {!t.is_active && <Badge variant="secondary" className="text-xs">Archived</Badge>}
+                                                        {t.stock && t.stock.available < 10 && t.is_active && (
+                                                            <Badge className="bg-orange-100 text-orange-700 text-xs border-0">
+                                                                <AlertTriangle className="w-3 h-3 mr-1" />Low Stock
+                                                            </Badge>
+                                                        )}
+                                                    </div>
+                                                    <div className="text-xs text-muted-foreground mt-0.5 flex gap-3 flex-wrap">
+                                                        <span>Customer: <b className="text-foreground">{formatCurrency(t.customer_price)}</b></span>
+                                                        <span>Agent: <b className="text-foreground">{formatCurrency(t.agent_price)}</b></span>
+                                                        <span>Cost: <b className="text-foreground">{formatCurrency(t.cost_price)}</b></span>
+                                                    </div>
+                                                </div>
+                                            </div>
+                                            <div className="flex items-center gap-4 flex-shrink-0">
+                                                {t.stock && (
+                                                    <div className="hidden md:flex gap-3 text-xs text-center">
+                                                        <div><div className="font-bold text-emerald-600">{t.stock.available}</div><div className="text-muted-foreground">Available</div></div>
+                                                        <div><div className="font-bold text-yellow-600">{t.stock.reserved}</div><div className="text-muted-foreground">Reserved</div></div>
+                                                        <div><div className="font-bold text-blue-600">{t.stock.sold}</div><div className="text-muted-foreground">Sold</div></div>
+                                                    </div>
+                                                )}
+                                                <div className="flex items-center gap-2">
+                                                    <Button variant="ghost" size="icon" onClick={() => openEditType(t)}><Pencil className="w-4 h-4" /></Button>
+                                                    <Switch checked={t.is_active} onCheckedChange={() => toggleActive(t)} />
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
                             ))}
-                        </select>
-                    </div>
-
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">CSV File (Format: PIN, SERIAL)</label>
-                        <input
-                            type="file"
-                            accept=".csv"
-                            onChange={(e) => setFile(e.target.files?.[0] || null)}
-                            className="w-full border rounded-md p-2 file:mr-4 file:py-2 file:px-4 file:rounded-md file:border-0 file:text-sm file:bg-gray-50"
-                        />
-                    </div>
-
-                    {message && (
-                        <div className={`p-3 rounded-md text-sm ${message.includes('success') ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}`}>
-                            {message}
                         </div>
                     )}
+                </TabsContent>
+                <TabsContent value="inventory" className="space-y-4">
+                    <h2 className="text-lg font-semibold">Upload Inventory (CSV)</h2>
+                    <Card className="border-border/50">
+                        <CardHeader className="pb-2">
+                            <CardTitle className="text-base">Batch Upload Vouchers</CardTitle>
+                            <CardDescription>CSV format: <code className="bg-muted px-1 py-0.5 rounded text-xs">pin,serial_number</code> (one row per voucher, header row optional)</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <form onSubmit={handleUpload} className="space-y-4">
+                                <div className="grid md:grid-cols-2 gap-4">
+                                    <div className="space-y-1.5">
+                                        <Label>Voucher Type</Label>
+                                        <Select value={uploadTypeId} onValueChange={setUploadTypeId}>
+                                            <SelectTrigger><SelectValue placeholder="Select type..." /></SelectTrigger>
+                                            <SelectContent>
+                                                {types.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-1.5">
+                                        <Label>CSV File</Label>
+                                        <Input type="file" accept=".csv" onChange={e => setUploadFile(e.target.files?.[0] || null)}
+                                            className="file:mr-3 file:py-1 file:px-3 file:rounded file:border-0 file:text-sm file:bg-primary/10 file:text-primary cursor-pointer" />
+                                    </div>
+                                </div>
+                                {uploadFile && <p className="text-xs text-muted-foreground">Selected: {uploadFile.name} ({(uploadFile.size / 1024).toFixed(1)} KB)</p>}
+                                <Button type="submit" disabled={uploading || !uploadFile || !uploadTypeId} className="w-full md:w-auto">
+                                    {uploading ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Uploading...</> : <><Upload className="w-4 h-4 mr-2" />Upload Batch</>}
+                                </Button>
+                            </form>
+                        </CardContent>
+                    </Card>
 
-                    <button
-                        type="submit"
-                        disabled={loading || !file}
-                        className="w-full bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 disabled:opacity-50 transition-colors font-medium"
-                    >
-                        {loading ? 'Uploading...' : 'Upload Batch'}
-                    </button>
-                </form>
-            </div>
+                    <h2 className="text-lg font-semibold mt-6">Stock Levels</h2>
+                    <div className="grid md:grid-cols-2 gap-3">
+                        {types.map(t => (
+                            <Card key={t.id} className={`border-border/50 ${!t.is_active ? 'opacity-50' : ''}`}>
+                                <CardContent className="py-4">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <span className="font-semibold text-sm">{t.name}</span>
+                                        {t.stock && t.stock.available < 10 && t.is_active && (
+                                            <Badge className="bg-orange-100 text-orange-700 border-0 text-xs"><AlertTriangle className="w-3 h-3 mr-1" />Low</Badge>
+                                        )}
+                                        {!t.is_active && <Badge variant="secondary" className="text-xs">Archived</Badge>}
+                                    </div>
+                                    {t.stock ? (
+                                        <div className="grid grid-cols-3 gap-2 text-center">
+                                            <div className="bg-emerald-50 dark:bg-emerald-900/20 rounded-lg p-2">
+                                                <div className="text-lg font-bold text-emerald-600">{t.stock.available}</div>
+                                                <div className="text-xs text-muted-foreground">Available</div>
+                                            </div>
+                                            <div className="bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-2">
+                                                <div className="text-lg font-bold text-yellow-600">{t.stock.reserved}</div>
+                                                <div className="text-xs text-muted-foreground">Reserved</div>
+                                            </div>
+                                            <div className="bg-blue-50 dark:bg-blue-900/20 rounded-lg p-2">
+                                                <div className="text-lg font-bold text-blue-600">{t.stock.sold}</div>
+                                                <div className="text-xs text-muted-foreground">Sold</div>
+                                            </div>
+                                        </div>
+                                    ) : <p className="text-xs text-muted-foreground">Loading stock...</p>}
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </div>
+                </TabsContent>
+
+                <TabsContent value="orders" className="space-y-4">
+                    <div className="flex items-center justify-between flex-wrap gap-3">
+                        <h2 className="text-lg font-semibold">Sales Orders</h2>
+                        <div className="flex gap-2 flex-wrap">
+                            <Select value={orderStatus} onValueChange={setOrderStatus}>
+                                <SelectTrigger className="w-36"><SelectValue /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All Statuses</SelectItem>
+                                    <SelectItem value="completed">Completed</SelectItem>
+                                    <SelectItem value="pending">Pending</SelectItem>
+                                    <SelectItem value="failed">Failed</SelectItem>
+                                </SelectContent>
+                            </Select>
+                            <Select value={orderTypeId} onValueChange={setOrderTypeId}>
+                                <SelectTrigger className="w-44"><SelectValue placeholder="All Types" /></SelectTrigger>
+                                <SelectContent>
+                                    <SelectItem value="all">All Types</SelectItem>
+                                    {types.map(t => <SelectItem key={t.id} value={t.id}>{t.name}</SelectItem>)}
+                                </SelectContent>
+                            </Select>
+                        </div>
+                    </div>
+
+                    {ordersLoading ? (
+                        <div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+                    ) : orders.length === 0 ? (
+                        <Card><CardContent className="py-12 text-center text-muted-foreground">No orders found.</CardContent></Card>
+                    ) : (
+                        <div className="rounded-lg border border-border/50 overflow-hidden">
+                            <table className="w-full text-sm">
+                                <thead className="bg-muted/40">
+                                    <tr>
+                                        {['Reference', 'Customer', 'Type', 'Qty', 'Amount', 'Status', 'Date', ''].map(h => (
+                                            <th key={h} className="px-3 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">{h}</th>
+                                        ))}
+                                    </tr>
+                                </thead>
+                                <tbody className="divide-y divide-border/30">
+                                    {orders.map(o => (
+                                        <tr key={o.id} className="hover:bg-muted/20 transition-colors">
+                                            <td className="px-3 py-3 font-mono text-xs text-muted-foreground">{o.reference_code}</td>
+                                            <td className="px-3 py-3">
+                                                <div className="font-medium text-xs">{o.customer_name || '—'}</div>
+                                                <div className="text-xs text-muted-foreground">{o.customer_phone || o.customer_email || ''}</div>
+                                            </td>
+                                            <td className="px-3 py-3 text-xs">{o.type_name}</td>
+                                            <td className="px-3 py-3 text-xs text-center">{o.quantity}</td>
+                                            <td className="px-3 py-3 text-xs font-semibold">{formatCurrency(o.total_paid)}</td>
+                                            <td className="px-3 py-3"><StatusBadge status={o.status} /></td>
+                                            <td className="px-3 py-3 text-xs text-muted-foreground whitespace-nowrap">{formatDate(o.created_at)}</td>
+                                            <td className="px-3 py-3">
+                                                <Button variant="ghost" size="icon" onClick={() => setOrderDetail(o)} title="View details">
+                                                    <Eye className="w-4 h-4" />
+                                                </Button>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    )}
+                </TabsContent>
+                <TabsContent value="analytics" className="space-y-4">
+                    <h2 className="text-lg font-semibold">Analytics & Stock Alerts</h2>
+                    {statsLoading || !stats ? (
+                        <div className="flex items-center justify-center py-12"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+                    ) : (
+                        <>
+                            <div className="grid md:grid-cols-3 gap-4">
+                                <Card className="border-border/50">
+                                    <CardContent className="pt-4">
+                                        <p className="text-xs text-muted-foreground uppercase tracking-wide font-medium">Total Revenue</p>
+                                        <p className="text-3xl font-bold mt-1 text-emerald-600">{formatCurrency(stats.revenue)}</p>
+                                    </CardContent>
+                                </Card>
+                                <Card className="border-border/50">
+                                    <CardContent className="pt-4">
+                                        <p className="text-xs text-muted-foreground uppercase tracking-wide font-medium">Total Cost</p>
+                                        <p className="text-3xl font-bold mt-1 text-red-500">{formatCurrency(stats.cost)}</p>
+                                    </CardContent>
+                                </Card>
+                                <Card className="border-border/50">
+                                    <CardContent className="pt-4">
+                                        <p className="text-xs text-muted-foreground uppercase tracking-wide font-medium">Gross Profit</p>
+                                        <p className="text-3xl font-bold mt-1 text-blue-600">{formatCurrency(stats.profit)}</p>
+                                    </CardContent>
+                                </Card>
+                            </div>
+
+                            <h3 className="font-semibold text-sm mt-2">Per-Type Breakdown</h3>
+                            <div className="rounded-lg border border-border/50 overflow-hidden">
+                                <table className="w-full text-sm">
+                                    <thead className="bg-muted/40">
+                                        <tr>
+                                            {['Type', 'Available', 'Sold', 'Status'].map(h => (
+                                                <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide">{h}</th>
+                                            ))}
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-border/30">
+                                        {stats.stockSummary.map(s => (
+                                            <tr key={s.id} className="hover:bg-muted/20">
+                                                <td className="px-4 py-3 font-medium text-sm">{s.name}</td>
+                                                <td className="px-4 py-3">
+                                                    <span className={`font-bold ${s.available < 10 ? 'text-orange-600' : 'text-emerald-600'}`}>{s.available}</span>
+                                                    {s.lowStock && <span className="ml-2 text-xs text-orange-500">? Low</span>}
+                                                </td>
+                                                <td className="px-4 py-3 text-blue-600 font-bold">{s.sold}</td>
+                                                <td className="px-4 py-3">
+                                                    {s.is_active ? <span className="text-xs text-emerald-600 font-semibold">Active</span> : <span className="text-xs text-muted-foreground">Archived</span>}
+                                                </td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            </div>
+                        </>
+                    )}
+                </TabsContent>
+            </Tabs>
+
+            <Dialog open={typeModal} onOpenChange={setTypeModal}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>{editingType ? 'Edit Voucher Type' : 'Add Voucher Type'}</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 py-2">
+                        <div className="space-y-1.5">
+                            <Label>Name <span className="text-red-500">*</span></Label>
+                            <Input placeholder="e.g. WAEC 2026" value={typeForm.name} onChange={e => setTypeForm(f => ({ ...f, name: e.target.value }))} />
+                        </div>
+                        <div className="grid grid-cols-3 gap-3">
+                            <div className="space-y-1.5">
+                                <Label>Customer Price <span className="text-red-500">*</span></Label>
+                                <Input type="number" step="0.01" placeholder="0.00" value={typeForm.customer_price} onChange={e => setTypeForm(f => ({ ...f, customer_price: e.target.value }))} />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label>Agent Price <span className="text-red-500">*</span></Label>
+                                <Input type="number" step="0.01" placeholder="0.00" value={typeForm.agent_price} onChange={e => setTypeForm(f => ({ ...f, agent_price: e.target.value }))} />
+                            </div>
+                            <div className="space-y-1.5">
+                                <Label>Cost Price <span className="text-red-500">*</span></Label>
+                                <Input type="number" step="0.01" placeholder="0.00" value={typeForm.cost_price} onChange={e => setTypeForm(f => ({ ...f, cost_price: e.target.value }))} />
+                            </div>
+                        </div>
+                        <p className="text-xs text-muted-foreground">Selling prices must be = cost price.</p>
+                        <div className="space-y-1.5">
+                            <Label>Display Order</Label>
+                            <Input type="number" value={typeForm.display_order} onChange={e => setTypeForm(f => ({ ...f, display_order: e.target.value }))} />
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setTypeModal(false)}>Cancel</Button>
+                        <Button onClick={saveType} disabled={typeSaving}>
+                            {typeSaving ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Saving...</> : 'Save'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            <Dialog open={!!orderDetail} onOpenChange={v => !v && setOrderDetail(null)}>
+                <DialogContent className="sm:max-w-lg">
+                    <DialogHeader>
+                        <DialogTitle>Order Details</DialogTitle>
+                    </DialogHeader>
+                    {orderDetail && (
+                        <div className="space-y-4 py-2">
+                            <div className="grid grid-cols-2 gap-3 text-sm">
+                                <div><span className="text-muted-foreground">Reference</span><p className="font-mono font-semibold">{orderDetail.reference_code}</p></div>
+                                <div><span className="text-muted-foreground">Status</span><p><StatusBadge status={orderDetail.status} /></p></div>
+                                <div><span className="text-muted-foreground">Customer</span><p className="font-medium">{orderDetail.customer_name || '—'}</p></div>
+                                <div><span className="text-muted-foreground">Phone</span><p>{orderDetail.customer_phone || '—'}</p></div>
+                                <div><span className="text-muted-foreground">Type</span><p>{orderDetail.type_name}</p></div>
+                                <div><span className="text-muted-foreground">Quantity</span><p className="font-bold">{orderDetail.quantity}</p></div>
+                                <div><span className="text-muted-foreground">Total Paid</span><p className="font-bold text-emerald-600">{formatCurrency(orderDetail.total_paid)}</p></div>
+                                <div><span className="text-muted-foreground">Date</span><p>{formatDate(orderDetail.created_at)}</p></div>
+                            </div>
+                            {orderDetail.status !== 'completed' && orderDetail.payment_status === 'completed' && (
+                                <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-3">
+                                    <p className="text-sm font-medium text-yellow-800 dark:text-yellow-300 flex items-center gap-2">
+                                        <AlertTriangle className="w-4 h-4" />Payment received but vouchers not yet assigned
+                                    </p>
+                                    <Button size="sm" className="mt-2 bg-yellow-600 hover:bg-yellow-700 text-white" onClick={() => manualFulfill(orderDetail.id)} disabled={fulfilling}>
+                                        {fulfilling ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Fulfilling...</> : <><Wrench className="w-4 h-4 mr-2" />Manually Fulfill</>}
+                                    </Button>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setOrderDetail(null)}>Close</Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
         </div>
     )
 }
+
