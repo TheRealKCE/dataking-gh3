@@ -32,7 +32,7 @@ export default function ResultsCheckerPage() {
     // Purchase form state
     const [selectedTypeId, setSelectedTypeId] = useState<string>('')
     const [quantity, setQuantity] = useState<number>(1)
-    const [paymentMethod, setPaymentMethod] = useState<'wallet' | 'gateway'>('wallet')
+    const paymentMethod = 'wallet'
     
     // Customer info form (pre-filled if possible)
     const [customerName, setCustomerName] = useState(dbUser ? `${dbUser.first_name || ''} ${dbUser.last_name || ''}`.trim() : '')
@@ -73,13 +73,13 @@ export default function ResultsCheckerPage() {
         e.preventDefault()
         if (!selectedType) { toast.error('Please select a voucher type'); return }
         if (!customerName || !customerPhone) { toast.error('Name and phone are required'); return }
-        if (paymentMethod === 'wallet' && !canAffordWallet) { toast.error('Insufficient wallet balance'); return }
+        if (!canAffordWallet) { toast.error('Insufficient wallet balance'); return }
 
         setIsPurchasing(true)
         try {
             const refCode = generateReferenceCode()
             
-            if (paymentMethod === 'wallet') {
+            if (true) {
                 const res = await fetch('/api/vouchers/wallet-purchase', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -100,29 +100,6 @@ export default function ResultsCheckerPage() {
                                 setSuccessData({ reference: refCode, type_name: selectedType.name, vouchers: data.vouchers || [] })
                 fetchTypes()
                 
-            } else {
-                // Gateway Init Flow
-                const res = await fetch('/api/vouchers/gateway-init', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        typeId: selectedType.id,
-                        quantity,
-                        customerName,
-                        customerEmail,
-                        customerPhone,
-                        referenceCode: refCode
-                    })
-                })
-                const data = await res.json()
-                if (!res.ok) { throw new Error(data.error || 'Failed to initialize payment') }
-                
-                // Redirect to Paystack or Moolre checkout URL
-                if (data.authorization_url) {
-                    window.location.href = data.authorization_url
-                } else {
-                    toast.error('No payment URL received from gateway')
-                }
             }
         } catch (err: any) {
             console.error('[Purchase Error]', err)
@@ -209,33 +186,9 @@ export default function ResultsCheckerPage() {
                                 <Input type="email" placeholder="Email Address (Optional)" value={customerEmail} onChange={e => setCustomerEmail(e.target.value)} />
                             </div>
 
-                            <div className="space-y-3 pt-4 border-t border-border/30">
-                                <Label>Payment Method</Label>
-                                <div className="grid grid-cols-2 gap-3">
-                                    <div 
-                                        onClick={() => setPaymentMethod('wallet')}
-                                        className={`cursor-pointer border rounded-lg p-3 flex flex-col items-center justify-center gap-2 transition-all ${paymentMethod === 'wallet' ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-border hover:bg-muted/50'}`}
-                                    >
-                                        <Wallet className={`w-6 h-6 ${paymentMethod === 'wallet' ? 'text-primary' : 'text-muted-foreground'}`} />
-                                        <div className="text-sm font-medium text-center">
-                                            Wallet
-                                            <div className="text-xs text-muted-foreground font-normal mt-0.5">Balance: {formatCurrency(walletBalance)}</div>
-                                        </div>
-                                    </div>
-                                    <div 
-                                        onClick={() => setPaymentMethod('gateway')}
-                                        className={`cursor-pointer border rounded-lg p-3 flex flex-col items-center justify-center gap-2 transition-all ${paymentMethod === 'gateway' ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'border-border hover:bg-muted/50'}`}
-                                    >
-                                        <CreditCard className={`w-6 h-6 ${paymentMethod === 'gateway' ? 'text-primary' : 'text-muted-foreground'}`} />
-                                        <div className="text-sm font-medium text-center">
-                                            Paystack / Moolre
-                                            <div className="text-xs text-muted-foreground font-normal mt-0.5">Card or Mobile Money</div>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
+                            
 
-                            {paymentMethod === 'wallet' && !canAffordWallet && (
+                            {!canAffordWallet && (
                                 <div className="bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/30 rounded-md p-3 flex gap-2">
                                     <AlertCircle className="w-5 h-5 text-red-600 mt-0.5" />
                                     <div>
@@ -249,7 +202,7 @@ export default function ResultsCheckerPage() {
                                 type="submit" 
                                 size="lg" 
                                 className="w-full h-12 text-base font-bold shadow-lg"
-                                disabled={isPurchasing || (paymentMethod === 'wallet' && !canAffordWallet)}
+                                disabled={isPurchasing || !canAffordWallet}
                             >
                                 {isPurchasing ? (
                                     <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Processing...</>
@@ -356,6 +309,7 @@ export default function ResultsCheckerPage() {
         </div>
     )
 }
+
 
 
 
