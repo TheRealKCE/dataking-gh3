@@ -57,6 +57,7 @@ const userNavItems = [
     { href: '/dashboard/profile', label: 'Profile', icon: User },
     { href: '/dashboard/afa-orders', label: 'AFA Application', icon: BadgeCheck },
     { href: '/dashboard/install', label: 'Download App', icon: Download },
+    { href: '/dashboard/results-checker', label: 'Results Checker', icon: Tag },
 ]
 
 const adminNavItems = [
@@ -78,6 +79,7 @@ const adminNavItems = [
     { href: '/admin/finance', label: 'Finance', icon: Banknote },
     { href: '/admin/profits-history', label: 'Profits', icon: Wallet },
     { href: '/admin/settings', label: 'Settings', icon: Settings },
+    { href: '/admin/vouchers', label: 'Results Checker', icon: Tag },
 ]
 
 const shopNavItems = [
