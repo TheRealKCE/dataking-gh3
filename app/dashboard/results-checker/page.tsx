@@ -75,15 +75,13 @@ export default function ResultsCheckerPage() {
         if (!dbUser?.id) return
         setLoadingOrders(true)
         try {
-            const { data, error } = await supabase
-                .from('results_checker_orders')
-                .select('*, results_checker_inventory(pin, serial_number)')
-                .eq('user_id', dbUser.id as any)
-                .order('created_at', { ascending: false })
-                
-            if (!error && data) {
-                setOrders(data)
+            const res = await fetch('/api/vouchers/history')
+            const json = await res.json()
+            if (res.ok && json.success) {
+                setOrders(json.data || [])
             }
+        } catch (error) {
+            console.error('Failed to fetch orders:', error)
         } finally {
             setLoadingOrders(false)
         }
