@@ -44,6 +44,7 @@ export default function ResultsCheckerPage() {
     const [successData, setSuccessData] = useState<PurchaseSuccess | null>(null)
     const [orders, setOrders] = useState<any[]>([])
     const [loadingOrders, setLoadingOrders] = useState(true)
+    const [ordersError, setOrdersError] = useState<string | null>(null)
 
     const isAgent = dbUser?.role === 'agent'
     const [walletBalance, setWalletBalance] = useState(0)
@@ -72,20 +73,25 @@ export default function ResultsCheckerPage() {
     }, [dbUser?.id])
 
     const fetchOrders = useCallback(async () => {
-        if (!dbUser?.id) return
         setLoadingOrders(true)
+        setOrdersError(null)
         try {
             const res = await fetch('/api/vouchers/history')
             const json = await res.json()
             if (res.ok && json.success) {
                 setOrders(json.data || [])
+            } else {
+                const msg = json.error || `Error ${res.status}`
+                console.error('[fetchOrders] API error:', msg, json.detail)
+                setOrdersError(msg)
             }
-        } catch (error) {
-            console.error('Failed to fetch orders:', error)
+        } catch (error: any) {
+            console.error('[fetchOrders] Network error:', error)
+            setOrdersError('Network error — could not load history.')
         } finally {
             setLoadingOrders(false)
         }
-    }, [dbUser?.id])
+    }, [])
 
     useEffect(() => { fetchWalletBalance() }, [fetchWalletBalance])
     useEffect(() => { fetchOrders() }, [fetchOrders])
@@ -286,6 +292,15 @@ export default function ResultsCheckerPage() {
                 
                 {loadingOrders ? (
                     <div className="flex justify-center p-8"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+                ) : ordersError ? (
+                    <Card className="border-red-200 dark:border-red-900/30 text-center py-8 bg-red-50 dark:bg-red-900/10">
+                        <CardContent>
+                            <AlertCircle className="w-8 h-8 text-red-500 mx-auto mb-2" />
+                            <p className="text-sm font-semibold text-red-700 dark:text-red-400">Could not load your vouchers</p>
+                            <p className="text-xs text-red-600 dark:text-red-300 mt-1">{ordersError}</p>
+                            <Button variant="outline" size="sm" className="mt-4" onClick={fetchOrders}>Try Again</Button>
+                        </CardContent>
+                    </Card>
                 ) : orders.length === 0 ? (
                     <Card className="border-border/50 text-center py-12 bg-muted/20">
                         <CardContent>
