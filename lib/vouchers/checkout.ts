@@ -122,11 +122,13 @@ export async function purchaseWithWallet(params: {
             })
             .eq('id', order.id)
 
-        // 7. Deliver vouchers via email/SMS (non-blocking)
-        const { deliverVouchers } = await import('@/lib/vouchers/notifications')
-        deliverVouchers(order, vouchers).catch((err: unknown) =>
+        // 7. Deliver vouchers via email/SMS (await to prevent serverless function cutoff)
+        try {
+            const { deliverVouchers } = await import('@/lib/vouchers/notifications')
+            await deliverVouchers(order, vouchers)
+        } catch (err) {
             console.error('[RC Wallet] Delivery error:', err)
-        )
+        }
 
         return { order, vouchers, newBalance: new_balance }
     } catch (err) {
@@ -213,15 +215,19 @@ export async function finalizeRCGatewayOrder(params: {
             updated_at: new Date().toISOString(),
         })
         .eq('id', order.id)
-
-    // 5. Deliver vouchers asynchronously (non-blocking)
-    const { deliverVouchers } = await import('@/lib/vouchers/notifications')
-    deliverVouchers(order, vouchers).catch((err: unknown) =>
+    // 5. Deliver vouchers asynchronously (await to prevent serverless function cutoff)
+    try {
+        const { deliverVouchers } = await import('@/lib/vouchers/notifications')
+        await deliverVouchers(order, vouchers)
+    } catch (err) {
         console.error('[RC Gateway] Delivery error:', err)
-    )
+    }
 
     return { success: true }
 }
+
+
+
 
 
 
