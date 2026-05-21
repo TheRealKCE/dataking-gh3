@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useEffect, useState, useCallback } from 'react'
 import { useAuth } from '@/contexts/auth-context'
@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
-import { Loader2, Package, CheckCircle2, ShoppingCart, CreditCard, Wallet, AlertCircle, Copy } from 'lucide-react'
+import { Loader2, Package, CheckCircle2, ShoppingCart, CreditCard, Wallet, AlertCircle, Copy, Clock, FileText } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface RCType {
@@ -42,6 +42,8 @@ export default function ResultsCheckerPage() {
     
     const [isPurchasing, setIsPurchasing] = useState(false)
     const [successData, setSuccessData] = useState<PurchaseSuccess | null>(null)
+    const [orders, setOrders] = useState<any[]>([])
+    const [loadingOrders, setLoadingOrders] = useState(true)
 
     const isAgent = dbUser?.role === 'agent'
     const [walletBalance, setWalletBalance] = useState(0)
@@ -69,7 +71,26 @@ export default function ResultsCheckerPage() {
         if (data) setWalletBalance(data.balance || 0)
     }, [dbUser?.id])
 
+    const fetchOrders = useCallback(async () => {
+        if (!dbUser?.id) return
+        setLoadingOrders(true)
+        try {
+            const { data, error } = await supabase
+                .from('results_checker_orders')
+                .select('*, results_checker_inventory(pin, serial_number)')
+                .eq('user_id', dbUser.id as any)
+                .order('created_at', { ascending: false })
+                
+            if (!error && data) {
+                setOrders(data)
+            }
+        } finally {
+            setLoadingOrders(false)
+        }
+    }, [dbUser?.id])
+
     useEffect(() => { fetchWalletBalance() }, [fetchWalletBalance])
+    useEffect(() => { fetchOrders() }, [fetchOrders])
 
 
 
@@ -109,6 +130,7 @@ export default function ResultsCheckerPage() {
                 await fetchWalletBalance()
                                 setSuccessData({ reference: refCode, type_name: selectedType.name, vouchers: data.vouchers || [] })
                 fetchTypes()
+                fetchOrders()
                 
             }
         } catch (err: any) {
@@ -255,6 +277,69 @@ export default function ResultsCheckerPage() {
                         </CardContent>
                     </Card>
                 </div>
+            </div>
+
+            {/* Order History Section */}
+            <div className="mt-12 space-y-4">
+                <div className="flex items-center gap-2">
+                    <Clock className="w-5 h-5 text-muted-foreground" />
+                    <h2 className="text-xl font-semibold">Your Vouchers</h2>
+                </div>
+                
+                {loadingOrders ? (
+                    <div className="flex justify-center p-8"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
+                ) : orders.length === 0 ? (
+                    <Card className="border-border/50 text-center py-12 bg-muted/20">
+                        <CardContent>
+                            <FileText className="w-10 h-10 text-muted-foreground/30 mx-auto mb-3" />
+                            <p className="text-muted-foreground">You haven't purchased any vouchers yet.</p>
+                        </CardContent>
+                    </Card>
+                ) : (
+                    <div className="grid gap-4 md:grid-cols-2">
+                        {orders.map(order => (
+                            <Card key={order.id} className="border-border/50 shadow-sm overflow-hidden flex flex-col">
+                                <div className="bg-muted/40 px-4 py-3 border-b border-border/50 flex justify-between items-center">
+                                    <div>
+                                        <div className="font-semibold">{order.type_name}</div>
+                                        <div className="text-xs text-muted-foreground">{new Date(order.created_at).toLocaleDateString()} &bull; {order.quantity}x</div>
+                                    </div>
+                                    <Badge variant={order.status === 'completed' ? 'completed' : order.status === 'failed' ? 'failed' : 'pending'} className="capitalize">
+                                        {order.status}
+                                    </Badge>
+                                </div>
+                                <CardContent className="p-0 flex-1 bg-card">
+                                    {order.results_checker_inventory && order.results_checker_inventory.length > 0 ? (
+                                        <div className="divide-y divide-border/50">
+                                            {order.results_checker_inventory.map((voucher: any, idx: number) => (
+                                                <div key={idx} className="p-3 hover:bg-muted/20 transition-colors flex flex-col sm:flex-row gap-2 sm:items-center justify-between">
+                                                    <div className="space-y-1">
+                                                        <div className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">PIN</div>
+                                                        <div className="font-mono font-bold text-primary tracking-widest flex items-center gap-2">
+                                                            {voucher.pin}
+                                                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyToClipboard(voucher.pin)}><Copy className="w-3 h-3" /></Button>
+                                                        </div>
+                                                    </div>
+                                                    <div className="space-y-1 sm:text-right flex flex-col items-start sm:items-end">
+                                                        <div className="text-xs text-muted-foreground uppercase tracking-wider font-semibold">Serial</div>
+                                                        <div className="font-mono text-sm flex items-center gap-2">
+                                                            {voucher.serial_number}
+                                                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => copyToClipboard(voucher.serial_number)}><Copy className="w-3 h-3 text-muted-foreground" /></Button>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <div className="p-6 text-center text-sm text-muted-foreground">
+                                            {order.status === 'completed' ? 'Vouchers not found.' : 'Waiting for payment/processing...'}
+                                        </div>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </div>
+                )}
             </div>
 
             {/* Success Modal */}
