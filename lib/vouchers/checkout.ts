@@ -97,7 +97,11 @@ export async function purchaseWithWallet(params: {
             { p_type_id: typeId, p_quantity: quantity, p_order_id: order.id }
         )
 
-        if (assignError || !vouchers || vouchers.length === 0) {
+        if (assignError) {
+            console.error('[Assign Vouchers Error]', assignError)
+            throw new Error('INSUFFICIENT_INVENTORY')
+        }
+        if (!vouchers || vouchers.length === 0) {
             throw new Error('INSUFFICIENT_INVENTORY')
         }
 
@@ -218,6 +222,7 @@ export async function finalizeRCGatewayOrder(params: {
 
     return { success: true }
 }
+
 
 
 
