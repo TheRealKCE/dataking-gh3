@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createRouteClient } from '@/lib/supabase-server'
 import { purchaseWithWallet } from '@/lib/vouchers/checkout'
 
@@ -14,7 +14,7 @@ export async function POST(request: NextRequest) {
 
         // Parse request body
         const body = await request.json()
-        const { typeId, quantity, customerName, customerPhone } = body
+        const { typeId, quantity, customerName, customerEmail, customerPhone } = body
 
         if (!typeId || !quantity || quantity <= 0) {
             return NextResponse.json({ error: 'Invalid request payload' }, { status: 400 })
@@ -32,7 +32,7 @@ export async function POST(request: NextRequest) {
         }
 
         const userRole = (userProfile as any).role || 'customer'
-        const email = session.user.email || (userProfile as any).email
+        const email = customerEmail || session.user.email || (userProfile as any).email
         const name = customerName || (userProfile as any).first_name || 'Customer'
 
         // Execute Wallet Purchase
