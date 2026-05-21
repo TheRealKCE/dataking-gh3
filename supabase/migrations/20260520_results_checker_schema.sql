@@ -147,6 +147,7 @@ BEGIN
   END IF;
 
   -- Step 1: Select and lock available vouchers using FIFO (First In, First Out)
+  RETURN QUERY
   WITH selected AS (
     SELECT inv.id
     FROM public.results_checker_inventory inv
@@ -242,4 +243,5 @@ BEGIN
   RETURN v_count;
 END;
 $$;
+
 
