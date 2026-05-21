@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { useAuth } from '@/contexts/auth-context'
+import { supabase } from '@/lib/supabase'
 import { formatCurrency, generateReferenceCode } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -43,7 +44,7 @@ export default function ResultsCheckerPage() {
     const [successData, setSuccessData] = useState<PurchaseSuccess | null>(null)
 
     const isAgent = dbUser?.role === 'agent'
-    const walletBalance = (dbUser as any)?.wallet_balance || 0
+    const [walletBalance, setWalletBalance] = useState(0)
 
     const fetchTypes = useCallback(async () => {
         setLoading(true)
@@ -62,6 +63,14 @@ export default function ResultsCheckerPage() {
     }, [selectedTypeId])
 
     useEffect(() => { fetchTypes() }, [fetchTypes])
+    const fetchWalletBalance = useCallback(async () => {
+        if (!dbUser?.id) return
+        const { data } = await (supabase.from('wallets').select('balance').eq('user_id', dbUser.id).single() as any)
+        if (data) setWalletBalance(data.balance || 0)
+    }, [dbUser?.id])
+
+    useEffect(() => { fetchWalletBalance() }, [fetchWalletBalance])
+
 
 
     const selectedType = types.find(t => t.id === selectedTypeId)
@@ -97,6 +106,7 @@ export default function ResultsCheckerPage() {
                 
                 toast.success('Purchase successful!')
                 await refreshUser()
+                await fetchWalletBalance()
                                 setSuccessData({ reference: refCode, type_name: selectedType.name, vouchers: data.vouchers || [] })
                 fetchTypes()
                 
@@ -309,6 +319,7 @@ export default function ResultsCheckerPage() {
         </div>
     )
 }
+
 
 
 
