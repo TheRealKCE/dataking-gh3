@@ -78,9 +78,9 @@ export async function purchaseWithWallet(params: {
     if (orderError || !order) {
         // Refund immediately if order insertion fails
         try {
-            const { data: wallet } = await supabase.from('wallets').select('balance, total_spent').eq('id', wallet_id).single()
+            const { data: wallet } = await (supabase.from('wallets') as any).select('balance, total_spent').eq('id', wallet_id).single()
             if (wallet) {
-                await supabase.from('wallets').update({
+                await (supabase as any).from('wallets').update({
                     balance: Number(wallet.balance) + Number(breakdown.total),
                     total_spent: Math.max(0, Number(wallet.total_spent || 0) - Number(breakdown.total)),
                     updated_at: new Date().toISOString()
@@ -128,9 +128,9 @@ export async function purchaseWithWallet(params: {
     } catch (err) {
         // Fail-safe: refund wallet and mark order failed
         try {
-            const { data: wallet } = await supabase.from('wallets').select('balance, total_spent').eq('id', wallet_id).single()
+            const { data: wallet } = await (supabase.from('wallets') as any).select('balance, total_spent').eq('id', wallet_id).single()
             if (wallet) {
-                await supabase.from('wallets').update({
+                await (supabase as any).from('wallets').update({
                     balance: Number(wallet.balance) + Number(breakdown.total),
                     total_spent: Math.max(0, Number(wallet.total_spent || 0) - Number(breakdown.total)),
                     updated_at: new Date().toISOString()
@@ -218,5 +218,6 @@ export async function finalizeRCGatewayOrder(params: {
 
     return { success: true }
 }
+
 
 
