@@ -112,6 +112,12 @@ export async function purchaseWithWallet(params: {
             })
             .eq('id', order.id)
 
+        // 7. Deliver vouchers via email/SMS (non-blocking)
+        const { deliverVouchers } = await import('@/lib/vouchers/notifications')
+        deliverVouchers(order, vouchers).catch((err: unknown) =>
+            console.error('[RC Wallet] Delivery error:', err)
+        )
+
         return { order, vouchers, newBalance: new_balance }
     } catch (err) {
         // Fail-safe: refund wallet and mark order failed
@@ -200,3 +206,4 @@ export async function finalizeRCGatewayOrder(params: {
 
     return { success: true }
 }
+
