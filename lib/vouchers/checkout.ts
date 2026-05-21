@@ -77,10 +77,16 @@ export async function purchaseWithWallet(params: {
 
     if (orderError || !order) {
         // Refund immediately if order insertion fails
-        await (supabase as any).rpc('refund_wallet_balance', {
-            p_wallet_id: wallet_id,
-            p_amount: breakdown.total,
-        })
+        try {
+            const { data: wallet } = await supabase.from('wallets').select('balance, total_spent').eq('id', wallet_id).single()
+            if (wallet) {
+                await supabase.from('wallets').update({
+                    balance: Number(wallet.balance) + Number(breakdown.total),
+                    total_spent: Math.max(0, Number(wallet.total_spent || 0) - Number(breakdown.total)),
+                    updated_at: new Date().toISOString()
+                }).eq('id', wallet_id)
+            }
+        } catch(e) { console.error('Manual refund failed', e) }
         throw new Error('ORDER_CREATION_FAILED')
     }
 
@@ -121,10 +127,16 @@ export async function purchaseWithWallet(params: {
         return { order, vouchers, newBalance: new_balance }
     } catch (err) {
         // Fail-safe: refund wallet and mark order failed
-        await (supabase as any).rpc('refund_wallet_balance', {
-            p_wallet_id: wallet_id,
-            p_amount: breakdown.total,
-        })
+        try {
+            const { data: wallet } = await supabase.from('wallets').select('balance, total_spent').eq('id', wallet_id).single()
+            if (wallet) {
+                await supabase.from('wallets').update({
+                    balance: Number(wallet.balance) + Number(breakdown.total),
+                    total_spent: Math.max(0, Number(wallet.total_spent || 0) - Number(breakdown.total)),
+                    updated_at: new Date().toISOString()
+                }).eq('id', wallet_id)
+            }
+        } catch(e) { console.error('Manual refund failed', e) }
         await (supabase.from('results_checker_orders') as any)
             .update({ status: 'failed', updated_at: new Date().toISOString() })
             .eq('id', order.id)
@@ -206,4 +218,5 @@ export async function finalizeRCGatewayOrder(params: {
 
     return { success: true }
 }
+
 
