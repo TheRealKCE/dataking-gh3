@@ -351,6 +351,7 @@ export default function ShopWithdrawPage() {
                     bankId: selectedBankId || undefined,
                     branch: branch.trim() || undefined,
                     saveForLater: saveForLater && selectedSavedId === 'manual',
+                    accountName: effectiveAccountName,
                 }),
             })
 
@@ -389,14 +390,16 @@ export default function ShopWithdrawPage() {
                 }),
             })
             const validateData = await validateRes.json()
-            if (!validateData.success || !validateData.name) {
-                toast.error(validateData.error || 'Could not verify account name')
+            
+            let verifiedModalName = newAccountName.trim()
+            if (validateData.success && validateData.name) {
+                verifiedModalName = validateData.name
+            } else if (!verifiedModalName) {
+                toast.error(validateData.error || 'Could not verify account name. Please enter an account name manually.')
                 return
             }
 
-            const verifiedModalName = validateData.name
-
-            // Only insert if validation succeeds
+            // Only insert if validation succeeds or manual name provided
             const { error } = await (supabase as any).from('shop_payment_details').insert({
                 shop_owner_id: dbUser!.id,
                 account_name: verifiedModalName,
@@ -1143,8 +1146,14 @@ export default function ShopWithdrawPage() {
                                 onChange={e => setNewMomoNumber(e.target.value)}
                                 className="h-10 font-mono"
                             />
+                            <Input
+                                placeholder="Account Name (Fallback if auto-verify fails)"
+                                value={newAccountName}
+                                onChange={e => setNewAccountName(e.target.value)}
+                                className="h-10"
+                            />
                             <p className="text-[10px] text-amber-600 dark:text-amber-400 font-medium px-1">
-                                Notice: The account name will be auto-verified before saving.
+                                Notice: We will attempt to auto-verify. If it fails, the fallback name above will be used.
                             </p>
                             <Button
                                 className="w-full bg-emerald-600 hover:bg-emerald-700 text-white gap-2"

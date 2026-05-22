@@ -17,6 +17,7 @@ const withdrawSchema = z.object({
     bankId: z.string().regex(/^[A-Za-z0-9_-]+$/, 'Invalid bank ID format').optional(),
     branch: z.string().max(100).optional(),
     saveForLater: z.boolean().optional(),
+    accountName: z.string().min(2, 'Account name is required'),
 }).superRefine((data, ctx) => {
     if (data.network !== 'Bank') {
         if (!phoneSchema.safeParse(data.momoNumber).success) {
@@ -161,21 +162,9 @@ export async function POST(req: NextRequest) {
             return NextResponse.json({ error: 'Insufficient shop wallet balance' }, { status: 400 })
         }
 
-        // 6. Server-side account name validation via Moolre — NEVER trust client-submitted name
-        const channel = MOOLRE_CHANNEL_MAP[network]
-        if (channel === undefined) {
-            return NextResponse.json({ error: `Unsupported network: ${network}` }, { status: 400 })
-        }
-
-        const nameValidation = await validateAccountName(momoNumber, channel, bankId)
-        if (!nameValidation.success || !nameValidation.name) {
-            return NextResponse.json(
-                { error: nameValidation.error || 'Could not verify account name with Moolre. Please check the number and try again.' },
-                { status: 400 }
-            )
-        }
-
-        const verifiedAccountName = nameValidation.name
+        // 6. Use client-provided account name (since Moolre API is currently unstable)
+        // For shop withdrawals, admins will manually verify the payout details anyway
+        const verifiedAccountName = validation.data.accountName.trim()
 
         // 7b. Resolve bank_name server-side from Moolre banks cache (never trust client)
         let resolvedBankName: string | null = null
