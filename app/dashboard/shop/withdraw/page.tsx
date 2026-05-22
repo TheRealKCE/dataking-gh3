@@ -128,12 +128,10 @@ export default function ShopWithdrawPage() {
     const [branch, setBranch] = useState<string>('')
     const [saveForLater, setSaveForLater] = useState(false)
 
-    // Validation state
-    const [verifiedName, setVerifiedName] = useState<string | null>(null)
+    // Validation state — accountName is always directly editable; auto-filled by Moolre when available
+    const [accountName, setAccountName] = useState<string>('')
     const [validating, setValidating] = useState(false)
-    const [validationError, setValidationError] = useState<string | null>(null)
-    const [manualName, setManualName] = useState<string>('')
-    const [verificationRetried, setVerificationRetried] = useState(false)
+    const [autoVerified, setAutoVerified] = useState(false)
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
     // Saved Details manager modal
@@ -147,17 +145,12 @@ export default function ShopWithdrawPage() {
         if (dbUser) fetchData()
     }, [dbUser])
 
-    // ─── Account name validation (declared before fetchData so it can be in its dep array) ────
+    // ─── Account name auto-fill via Moolre (non-blocking) ────────────────────
     const triggerValidation = useCallback((phone: string, net: string, bankId?: string) => {
-        if (!phone || !net || phone.length < 10) {
-            setVerifiedName(null)
-            setValidationError(null)
-            return
-        }
+        if (!phone || !net || phone.length < 10) return
 
         setValidating(true)
-        setVerifiedName(null)
-        setValidationError(null)
+        setAutoVerified(false)
 
         fetch('/api/shop/validate-account', {
             method: 'POST',
@@ -167,17 +160,12 @@ export default function ShopWithdrawPage() {
             .then(r => r.json())
             .then(data => {
                 if (data.success && data.name) {
-                    setVerifiedName(data.name)
-                    setValidationError(null)
-                } else {
-                    setVerifiedName(null)
-                    setValidationError(data.error || 'Could not verify account name')
+                    // Only auto-fill if user hasn't manually typed anything
+                    setAccountName(prev => prev.trim() ? prev : data.name)
+                    setAutoVerified(true)
                 }
             })
-            .catch(() => {
-                setVerifiedName(null)
-                setValidationError('Network error during validation')
-            })
+            .catch(() => { /* silent — user can type manually */ })
             .finally(() => setValidating(false))
     }, [])
 
@@ -248,9 +236,10 @@ export default function ShopWithdrawPage() {
                 setSelectedSavedId(defaultDetail.id)
                 setNetwork(defaultDetail.network)
                 setMomoNumber(defaultDetail.momo_number)
+                setAccountName(defaultDetail.account_name || '')
                 setPaymentType(defaultDetail.payment_type || 'momo')
                 if (defaultDetail.bank_id) setSelectedBankId(defaultDetail.bank_id)
-                // Auto-validate the pre-filled number
+                // Attempt to auto-fill name via Moolre (non-blocking)
                 triggerValidation(defaultDetail.momo_number, defaultDetail.network, defaultDetail.bank_id)
             }
         } catch (err) {
@@ -282,8 +271,7 @@ export default function ShopWithdrawPage() {
                 triggerValidation(momoNumber, network, selectedBankId || undefined)
             }, 800)
         } else {
-            setVerifiedName(null)
-            setValidationError(null)
+            setAutoVerified(false)
         }
 
         return () => {
@@ -301,18 +289,19 @@ export default function ShopWithdrawPage() {
             setMomoNumber('')
             setSelectedBankId('')
             setBranch('')
-            setVerifiedName(null)
-            setValidationError(null)
+            setAccountName('')
+            setAutoVerified(false)
         } else {
             const d = savedDetails.find(s => s.id === id)
             if (d) {
                 setNetwork(d.network)
                 setMomoNumber(d.momo_number)
+                setAccountName(d.account_name || '')
+                setAutoVerified(false)
                 setPaymentType(d.payment_type || 'momo')
                 if (d.bank_id) setSelectedBankId(d.bank_id)
-                // Clear branch — saved details never store branch; avoids stale bank session data
                 setBranch('')
-                // Silent re-validation — name may have changed on the network
+                // Attempt silent auto-fill
                 triggerValidation(d.momo_number, d.network, d.bank_id)
             }
         }
@@ -323,8 +312,7 @@ export default function ShopWithdrawPage() {
     const totalFee = feePercent + settings.withdrawal_fee_flat
     const netAmount = amountNum - totalFee
 
-    // Allow manual name entry as a fallback when auto-verification fails after a retry
-    const effectiveAccountName = verifiedName || manualName.trim()
+    const effectiveAccountName = accountName.trim()
     const canSubmit =
         amountNum > 0 &&
         amountNum >= settings.min_withdrawal_amount &&
@@ -332,7 +320,6 @@ export default function ShopWithdrawPage() {
         !!network &&
         !!momoNumber &&
         !!effectiveAccountName &&
-        !validating &&
         !submitting
 
     const handleSubmit = async () => {
@@ -361,9 +348,8 @@ export default function ShopWithdrawPage() {
             toast.success(`Withdrawal submitted! Admin will process shortly.`)
             setAmount('')
             setSaveForLater(false)
-            setVerifiedName(null)
-            setManualName('')
-            setVerificationRetried(false)
+            setAccountName('')
+            setAutoVerified(false)
             fetchData()
 
         } catch (err: any) {
@@ -579,8 +565,8 @@ export default function ShopWithdrawPage() {
                                     setPaymentType('momo')
                                     setSelectedBankId('')
                                     setBranch('')
-                                    setVerifiedName(null)
-                                    setValidationError(null)
+                                    setAccountName('')
+                                    setAutoVerified(false)
                                     setSelectedSavedId('manual')
                                     setMomoNumber('') 
                                 }}
@@ -600,8 +586,8 @@ export default function ShopWithdrawPage() {
                                     setPaymentType('bank')
                                     setNetwork('Bank' as any)
                                     setSelectedSavedId('manual')
-                                    setVerifiedName(null)
-                                    setValidationError(null)
+                                    setAccountName('')
+                                    setAutoVerified(false)
                                     setMomoNumber('') 
                                 }}
                                 className={cn(
@@ -717,8 +703,7 @@ export default function ShopWithdrawPage() {
                                         </Label>
                                         <Select value={network} onValueChange={(v) => {
                                             setNetwork(v as Network)
-                                            setVerifiedName(null)
-                                            setValidationError(null)
+                                            setAutoVerified(false)
                                         }}>
                                             <SelectTrigger className="mt-1.5 h-11">
                                                 <SelectValue placeholder="Select network (MTN MoMo, Telecel...)" />
@@ -739,8 +724,7 @@ export default function ShopWithdrawPage() {
                                         <Select value={selectedBankId} onValueChange={(v) => {
                                             setSelectedBankId(v)
                                             setNetwork('Bank' as any)
-                                            setVerifiedName(null)
-                                            setValidationError(null)
+                                            setAutoVerified(false)
                                         }}>
                                             <SelectTrigger className="mt-1.5 h-11">
                                                 <SelectValue placeholder="Select your bank" />
@@ -781,8 +765,7 @@ export default function ShopWithdrawPage() {
                                         value={momoNumber}
                                         onChange={(e) => {
                                             setMomoNumber(e.target.value)
-                                            setVerifiedName(null)
-                                            setValidationError(null)
+                                            setAutoVerified(false)
                                         }}
                                         placeholder={paymentType === 'momo' ? '0244123456' : 'Account number'}
                                         className="mt-1.5 h-11 font-mono"
@@ -790,80 +773,48 @@ export default function ShopWithdrawPage() {
                                 </div>
 
                                 {/* Verified account name — read-only, auto-filled */}
+                                {/* Account Holder Name — always editable; auto-filled when Moolre is available */}
                                 <div>
-                                    <div className="flex items-center justify-between">
+                                    <div className="flex items-center justify-between mb-1.5">
                                         <Label className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
                                             Account Holder Name
                                         </Label>
                                         {validating && (
                                             <span className="text-[10px] text-emerald-600 font-bold animate-pulse uppercase tracking-tight">
-                                                Auto-verifying...
+                                                Auto-filling...
                                             </span>
                                         )}
-                                        {validationError && !validating && (
-                                            <Button 
-                                                size="sm" 
-                                                className="h-7 text-[11px] bg-red-100 hover:bg-red-200 text-red-600 shadow-none border-none font-bold px-3 uppercase tracking-wide transition-all"
-                                                onClick={() => {
-                                                    setVerificationRetried(true)
-                                                    triggerValidation(momoNumber, network || '', selectedBankId || undefined)
-                                                }}
-                                                disabled={validating || !momoNumber || !network}
-                                                type="button"
-                                            >
-                                                Retry Verification
-                                            </Button>
+                                        {autoVerified && !validating && (
+                                            <span className="text-[10px] text-emerald-600 font-bold uppercase tracking-tight flex items-center gap-1">
+                                                <CheckCircle className="w-3 h-3" /> Auto-verified
+                                            </span>
                                         )}
                                     </div>
-                                    <div className="mt-1.5 relative">
+                                    <div className="relative">
                                         <Input
-                                            value={verifiedName || ''}
-                                            readOnly
-                                            placeholder={
-                                                validating
-                                                    ? 'Verifying...'
-                                                    : validationError
-                                                        ? 'Verification failed'
-                                                        : 'Enter number above to verify name'
-                                            }
+                                            value={accountName}
+                                            onChange={e => {
+                                                setAccountName(e.target.value)
+                                                setAutoVerified(false)
+                                            }}
+                                            placeholder="e.g. John Kwame Mensah"
                                             className={cn(
-                                                'h-11 bg-muted/50 font-semibold pr-10',
-                                                verifiedName ? 'text-emerald-600 border-emerald-300 dark:border-emerald-700' : '',
-                                                validationError ? 'border-red-300 dark:border-red-700 text-red-500' : ''
+                                                'h-11 font-semibold pr-10',
+                                                accountName && autoVerified ? 'border-emerald-400 dark:border-emerald-600 text-emerald-700 dark:text-emerald-300' : ''
                                             )}
                                         />
                                         <div className="absolute right-3 top-1/2 -translate-y-1/2">
                                             {validating && <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />}
-                                            {verifiedName && !validating && <CheckCircle className="w-4 h-4 text-emerald-500" />}
-                                            {validationError && !validating && <AlertCircle className="w-4 h-4 text-red-500" />}
+                                            {autoVerified && !validating && <CheckCircle className="w-4 h-4 text-emerald-500" />}
                                         </div>
                                     </div>
-                                    {validationError && (
-                                        <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
-                                            <AlertCircle className="w-3 h-3" /> {validationError}
-                                        </p>
-                                    )}
-                                    {/* Manual name fallback — shown after a failed retry */}
-                                    {validationError && verificationRetried && !validating && (
-                                        <div className="mt-3 p-3 rounded-xl bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 space-y-2">
-                                            <p className="text-xs font-semibold text-amber-700 dark:text-amber-400 flex items-center gap-1">
-                                                <Info className="w-3 h-3 flex-shrink-0" /> Auto-verification unavailable. Enter your account name manually.
-                                            </p>
-                                            <Input
-                                                value={manualName}
-                                                onChange={e => setManualName(e.target.value)}
-                                                placeholder="Account holder name (e.g. John Mensah)"
-                                                className="h-10 text-sm font-semibold"
-                                            />
-                                            <p className="text-[10px] text-amber-600 dark:text-amber-500">
-                                                Admin will verify this name before processing your payout.
-                                            </p>
-                                        </div>
-                                    )}
+                                    <p className="text-[10px] text-muted-foreground mt-1 px-0.5">
+                                        Type your account name exactly as registered. Admin verifies before processing payout.
+                                    </p>
                                 </div>
 
                                 {/* Save for later */}
-                                {!!effectiveAccountName && !validating && savedDetails.length < 5 && (
+                                {!!effectiveAccountName && savedDetails.length < 5 && (
                                     <label className="flex items-center gap-2 cursor-pointer text-sm text-muted-foreground select-none mt-4 p-3 rounded-xl border border-emerald-100 bg-emerald-50/50 dark:border-emerald-900/30 dark:bg-emerald-950/20">
                                         <input
                                             type="checkbox"
@@ -877,12 +828,12 @@ export default function ShopWithdrawPage() {
                             </div>
                         )}
 
-                        {/* Read-only saved detail display strip */}
+                        {/* Saved detail info strip — shows account name from state (already pre-filled) */}
                         {!isManual && (() => {
                             const d = savedDetails.find(s => s.id === selectedSavedId)
                             if (!d) return null
                             return (
-                                <div className="p-3 rounded-xl bg-muted/30 border space-y-3">
+                                <div className="p-3 rounded-xl bg-muted/30 border space-y-2">
                                     <div className="grid grid-cols-3 gap-2 text-xs">
                                         <div>
                                             <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Network</p>
@@ -893,7 +844,7 @@ export default function ShopWithdrawPage() {
                                         <div>
                                             <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold mb-1">Account</p>
                                             <p className="font-medium truncate">
-                                                {validating ? '...' : verifiedName || d.account_name}
+                                                {validating ? '...' : accountName || d.account_name}
                                             </p>
                                         </div>
                                         <div>
@@ -901,36 +852,11 @@ export default function ShopWithdrawPage() {
                                             <p className="font-mono">{d.momo_number}</p>
                                         </div>
                                     </div>
-                                    
-                                    {(!verifiedName || validationError) && (
-                                        <div className="flex items-center justify-between pt-2 border-t border-dashed">
-                                            <p className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold">{validationError || 'Needs verification'}</p>
-                                            <Button 
-                                                size="sm" 
-                                                className="h-7 text-[11px] bg-emerald-600 hover:bg-emerald-700 text-white shadow-sm font-bold uppercase tracking-wide px-3 transition-all"
-                                                onClick={() => triggerValidation(d.momo_number, d.network, d.bank_id || undefined)}
-                                                disabled={validating}
-                                                type="button"
-                                            >
-                                                {validating ? 'Verifying...' : 'Verify Saved Account'}
-                                            </Button>
-                                        </div>
-                                    )}
                                 </div>
                             )
                         })()}
                     </div>
 
-                    {/* ── Notice */}
-                    {(!verifiedName || validationError) && (
-                        <div className="flex items-start gap-2 p-3.5 rounded-xl bg-emerald-50 dark:bg-emerald-950/30 border border-emerald-200 dark:border-emerald-800 text-xs text-emerald-800 dark:text-emerald-300">
-                            <Info className="w-3.5 h-3.5 flex-shrink-0 mt-0.5" />
-                            <span>
-                                Your account name will be automatically verified once you enter a valid number. 
-                                This ensures your payout is sent to the correct person.
-                            </span>
-                        </div>
-                    )}
 
                     {/* ── Submit Button */}
                     <Button
@@ -946,9 +872,7 @@ export default function ShopWithdrawPage() {
                         {submitting
                             ? 'Submitting...'
                             : !effectiveAccountName
-                                ? verificationRetried
-                                    ? 'Enter Account Name Above to Continue'
-                                    : 'Verify Account to Continue'
+                                ? 'Enter Account Name to Continue'
                                 : amountNum > 0 && netAmount > 0
                                     ? `Request ${formatCurrency(Math.max(0, netAmount))} Payout`
                                     : 'Request Withdrawal'}
