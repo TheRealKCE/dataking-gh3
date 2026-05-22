@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
 import {
     Phone, Mail, MessageCircle, ShoppingCart, Loader2,
     CheckCircle2, AlertCircle, X, Search, Zap, Smartphone, ChevronDown, Check, Menu, Bell,
-    History, TrendingUp, Coins, Calendar, CalendarRange, RefreshCw, Info, Clock, Copy, ArrowRight, AlertTriangle, Users, Target, Sparkles, Download, Share2
+    History, TrendingUp, Coins, Calendar, CalendarRange, RefreshCw, Info, Clock, Copy, ArrowRight, AlertTriangle, Users, Target, Sparkles, Download, Share2, GraduationCap
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
@@ -171,7 +171,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
     
     // Global State
     const [isSidebarOpen, setIsSidebarOpen] = useState(false)
-    const [activeTab, setActiveTab] = useState<'data' | 'airtime' | 'mashup'>('data')
+    const [activeTab, setActiveTab] = useState<'data' | 'airtime' | 'mashup' | 'results_checker'>('data')
     const [showAnnouncementModal, setShowAnnouncementModal] = useState(false)
     const [loading, setLoading] = useState(false)
     const [pageLoading, setPageLoading] = useState(true)
@@ -184,7 +184,13 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
     const [otpRequired, setOtpRequired] = useState(false)
     const [otpCode, setOtpCode] = useState('')
     const [otpReference, setOtpReference] = useState<string | null>(null)
-    const [otpOrderType, setOtpOrderType] = useState<'data' | 'airtime' | 'mashup'>('data')
+    const [otpOrderType, setOtpOrderType] = useState<'data' | 'airtime' | 'mashup' | 'results_checker'>('data')
+
+    // Results Checker State
+    const [rcTypes, setRcTypes] = useState<any[]>([])
+    const [rcPhone, setRcPhone] = useState('')
+    const [rcEmail, setRcEmail] = useState('')
+    const [selectedRc, setSelectedRc] = useState<any | null>(null)
 
     const { isInstallable, isInstalled, isIOS, installPwa } = usePwa()
 
@@ -217,6 +223,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
     // Derived flags for Airtime & Mashup
     const isGlobalAirtimeEnabled = adminSettings['storefront_airtime_enabled'] === 'true'
     const isGlobalMashupEnabled = adminSettings['storefront_mashup_enabled'] === 'true'
+    const isGlobalRcEnabled = adminSettings['storefront_rc_enabled'] === 'true'
     
     const airtimeNetworks = [
         { id: 'MTN', fee: shop.airtime_fee_mtn || 0, enabled: adminSettings['airtime_enabled_mtn'] !== 'false' },
@@ -225,6 +232,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
     ].filter(n => n.enabled)
 
     const isShopAirtimeEnabled = isGlobalAirtimeEnabled && airtimeNetworks.length > 0
+    const isShopRcEnabled = isGlobalRcEnabled && rcTypes.length > 0
 
     // Data Networks
     const availableNetworks = NETWORK_ORDER.filter(n => packages.some(p => p.network === n))
@@ -246,6 +254,15 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
         window.addEventListener('scroll', handleScroll, { passive: true })
         return () => window.removeEventListener('scroll', handleScroll)
     }, [])
+
+    useEffect(() => {
+        if (isGlobalRcEnabled) {
+            fetch(`/api/shop/rc/types?shopSlug=${shop.shop_slug}`)
+                .then(r => r.json())
+                .then(data => { if (data.types) setRcTypes(data.types) })
+                .catch(() => {})
+        }
+    }, [shop.shop_slug, isGlobalRcEnabled])
 
     useEffect(() => {
         if (!announcement) return
@@ -277,7 +294,10 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
         if (pollingRef) {
             interval = setInterval(async () => {
                 try {
-                    const res = await fetch(`/api/shop/verify?ref=${pollingRef}&slug=${shop.shop_slug}`, {
+                    const endpoint = pollingRef.startsWith('RC_') 
+                        ? `/api/shop/rc/verify?ref=${pollingRef}&slug=${shop.shop_slug}`
+                        : `/api/shop/verify?ref=${pollingRef}&slug=${shop.shop_slug}`
+                    const res = await fetch(endpoint, {
                         headers: { 'Accept': 'application/json' }
                     })
                     const data = await res.json()
@@ -565,6 +585,41 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
         }
     }
 
+    const handleBuyRc = async () => {
+        if (!selectedRc) { toast.error('Select a voucher type'); return }
+        const cleanPhone = rcPhone.replace(/\s+/g, '')
+        if (!/^(0\d{9}|233\d{9})$/.test(cleanPhone)) { toast.error('Enter valid phone'); return }
+        
+        setLoading(true)
+        try {
+            const res = await fetch('/api/shop/rc/initialize', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    shopSlug: shop.shop_slug,
+                    rcTypeId: selectedRc.id,
+                    quantity: 1,
+                    customerPhone: cleanPhone,
+                    customerEmail: rcEmail.trim() || undefined
+                })
+            })
+            const data = await res.json()
+            if (!res.ok || !data.reference) {
+                setErrorMsg(data.error || 'Failed to initialize payment')
+                setLoading(false)
+                return
+            }
+            try { localStorage.setItem('shop_last_phone', cleanPhone) } catch (_) { }
+            setOtpReference(data.reference)
+            setOtpOrderType('results_checker')
+            setOtpRequired(true)
+            setLoading(false)
+        } catch (err) {
+            toast.error('Network error. Please try again.')
+            setLoading(false)
+        }
+    }
+
     const handleVerifyOtp = async () => {
         if (!otpCode || otpCode.trim().length < 1) {
             toast.error('Please enter the OTP sent to your phone')
@@ -585,6 +640,14 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 guestEmail: (otpOrderType === 'mashup' ? mashupEmail : airtimeEmail).trim() || undefined,
                 otpCode: otpCode.trim(),
                 reference: otpReference
+            } : otpOrderType === 'results_checker' ? {
+                shopSlug: shop.shop_slug,
+                rcTypeId: selectedRc?.id,
+                quantity: 1,
+                customerPhone: rcPhone.replace(/\s+/g, ''),
+                customerEmail: rcEmail.trim() || undefined,
+                otpCode: otpCode.trim(),
+                reference: otpReference
             } : {
                 shopSlug: shop.shop_slug,
                 packageId: selectedPackage?.id,
@@ -594,7 +657,8 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 reference: otpReference
             }
 
-            const res = await fetch('/api/shop/initialize', {
+            const endpoint = otpOrderType === 'results_checker' ? '/api/shop/rc/initialize' : '/api/shop/initialize'
+            const res = await fetch(endpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(body),
@@ -769,7 +833,12 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                     )}
                     {isGlobalMashupEnabled && (
                         <button onClick={() => setActiveTab('mashup')} className={cn("flex-1 py-3 rounded-xl font-black text-sm transition-all flex items-center justify-center gap-2", activeTab === 'mashup' ? "bg-amber-500 text-white shadow-sm" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300")}>
-                            🎯 MTN Mashup
+                            <Target className="w-4 h-4" /> Mashup
+                        </button>
+                    )}
+                    {isShopRcEnabled && (
+                        <button onClick={() => setActiveTab('results_checker')} className={cn("flex-1 py-3 rounded-xl font-black text-sm transition-all flex items-center justify-center gap-2", activeTab === 'results_checker' ? "bg-white dark:bg-gray-900 shadow-sm text-gray-900 dark:text-white" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300")}>
+                            <GraduationCap className="w-4 h-4" /> Exams
                         </button>
                     )}
                 </div>
@@ -1186,6 +1255,83 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                     </div>
                 )}
 
+                {/* ── Results Checker Tab Content ── */}
+                {isShopRcEnabled && activeTab === 'results_checker' && (
+                    <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-4">
+                        <div className="grid grid-cols-2 gap-3 mb-6">
+                            {rcTypes.map((type) => {
+                                const isSelected = selectedRc?.id === type.id
+                                return (
+                                    <button
+                                        key={type.id} onClick={() => setSelectedRc(isSelected ? null : type)}
+                                        className={cn(
+                                            'relative p-4 rounded-2xl border-2 text-left transition-all duration-200 active:scale-95 flex flex-col gap-1.5',
+                                            isSelected ? 'bg-[var(--brand-color)] border-[var(--brand-color)] shadow-lg scale-[1.02]' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-md'
+                                        )}
+                                    >
+                                        {isSelected && <div className="absolute top-2 right-2"><CheckCircle2 className="w-4 h-4 text-white" /></div>}
+                                        
+                                        <div className={cn("inline-block text-[10px] font-black px-2 py-0.5 rounded-full self-start bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400")}>
+                                            PIN + SERIAL
+                                        </div>
+                                        
+                                        <p className={cn('text-base font-black leading-tight', isSelected ? 'text-white' : 'text-gray-900 dark:text-white')}>
+                                            {type.name}
+                                        </p>
+                                        <p className={cn('text-sm font-bold', isSelected ? 'text-white/90' : 'text-gray-600 dark:text-gray-300')}>
+                                            {formatCurrency(type.selling_price)}
+                                        </p>
+                                        <div className={cn('inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full mt-0.5 self-start', isSelected ? 'bg-white/20 text-white' : 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400')}>
+                                            <Zap className="w-2.5 h-2.5" /> Instant Delivery
+                                        </div>
+                                    </button>
+                                )
+                            })}
+                        </div>
+                        
+                        {selectedRc && (
+                            <div className="sticky bottom-4 bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 p-4 space-y-3">
+                                <div className="flex items-center justify-between">
+                                    <div>
+                                        <p className="text-xs text-muted-foreground">Selected</p>
+                                        <p className="font-bold text-sm">{selectedRc.name}</p>
+                                    </div>
+                                    <div className="text-right">
+                                        <p className="text-xs text-muted-foreground">Total</p>
+                                        <p className="font-black text-lg text-[var(--brand-color)]">
+                                            {formatCurrency(selectedRc.selling_price)}
+                                        </p>
+                                    </div>
+                                </div>
+
+                                <div className="relative">
+                                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                    <input
+                                        type="tel" value={rcPhone} onChange={(e) => setRcPhone(e.target.value)} placeholder="Recipient MoMo phone: 0244123456"
+                                        className="w-full pl-9 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 transition-all ring-[var(--brand-color)]"
+                                    />
+                                </div>
+
+                                <div className="relative">
+                                    <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                    <input
+                                        type="email" value={rcEmail} onChange={(e) => setRcEmail(e.target.value)} placeholder="Email to receive PIN (Optional)"
+                                        className="w-full pl-9 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 transition-all ring-[var(--brand-color)]"
+                                    />
+                                </div>
+
+                                <button
+                                    onClick={handleBuyRc} disabled={loading}
+                                    className="w-full py-3.5 rounded-xl text-white font-bold text-base flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-70 bg-[var(--brand-color)]"
+                                >
+                                    {loading ? <><Loader2 className="w-5 h-5 animate-spin" /> {pollingRef ? 'Waiting for Approval...' : 'Processing...'}</> : <><ShoppingCart className="w-5 h-5" /> Pay {formatCurrency(selectedRc.selling_price)}</>}
+                                </button>
+                                <p className="text-[10px] text-center text-muted-foreground">Direct MoMo Prompt</p>
+                            </div>
+                        )}
+                    </div>
+                )}
+
 
                 {/* ── Data Packages Tab Content ── */}
                 {activeTab === 'data' && (
@@ -1382,8 +1528,14 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                         )}
                         {isGlobalMashupEnabled && (
                             <button onClick={() => { setIsSidebarOpen(false); setActiveTab('mashup'); }} className={cn("mt-2 w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all shadow-sm border", activeTab === 'mashup' ? "bg-amber-500 text-white border-amber-600" : "hover:bg-gray-100 dark:hover:bg-gray-900 text-gray-600 dark:text-gray-400 border-transparent")}>
-                                <span className={cn("text-lg", activeTab === 'mashup' ? "" : "opacity-50 grayscale")}>🎯</span> <span className="font-bold flex-1 text-left">MTN Mashup</span>
+                                <Target className={cn("w-5 h-5", activeTab === 'mashup' ? "text-white" : "text-gray-400")} /> <span className="font-bold flex-1 text-left">MTN Mashup</span>
                                 {activeTab === 'mashup' && <Check className="w-4 h-4 text-white" />}
+                            </button>
+                        )}
+                        {isShopRcEnabled && (
+                            <button onClick={() => { setIsSidebarOpen(false); setActiveTab('results_checker'); }} className={cn("mt-2 w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all shadow-sm border", activeTab === 'results_checker' ? "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 border-gray-200 dark:border-gray-700" : "hover:bg-gray-100 dark:hover:bg-gray-900 text-gray-600 dark:text-gray-400 border-transparent")}>
+                                <GraduationCap className={cn("w-5 h-5", activeTab === 'results_checker' ? "text-[var(--brand-color)]" : "text-gray-400")} /> <span className="font-bold flex-1 text-left">Results Checkers</span>
+                                {activeTab === 'results_checker' && <Check className="w-4 h-4 text-[var(--brand-color)]" />}
                             </button>
                         )}
                         <div className="my-4 border-t border-gray-200 dark:border-gray-800" />

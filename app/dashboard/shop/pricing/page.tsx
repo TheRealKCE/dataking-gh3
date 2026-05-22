@@ -14,7 +14,7 @@ import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
 import {
     Tag, Save, Loader2, TrendingUp, AlertCircle, CheckCircle2,
-    Clock, XCircle, Lightbulb, Send, Lock, ArrowLeft, Sparkles, PhoneCall
+    Clock, XCircle, Lightbulb, Send, Lock, ArrowLeft, Sparkles, PhoneCall, GraduationCap
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -43,6 +43,14 @@ interface ShopProfile {
     airtime_fee_at?: number
 }
 
+interface RCType {
+    id: string
+    name: string
+    cost_price: number
+    agent_price: number
+    customer_price: number
+}
+
 const networkColors: Record<string, string> = {
     MTN: 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
     Telecel: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
@@ -62,6 +70,8 @@ export default function ShopPricingPage() {
     const [pricing, setPricing] = useState<Record<string, string>>({})
     const [airtimeFees, setAirtimeFees] = useState({ mtn: '', telecel: '', at: '' })
     const [adminAirtimeFees, setAdminAirtimeFees] = useState<Record<string, number>>({})
+    const [rcTypes, setRcTypes] = useState<RCType[]>([])
+    const [rcPricing, setRcPricing] = useState<Record<string, string>>({})
     
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
@@ -100,13 +110,16 @@ export default function ShopPricingPage() {
                 at: shopData.airtime_fee_at?.toString() || ''
             })
 
-            const [pkgRes, priceRes, adminRes] = await Promise.all([
+            const [pkgRes, priceRes, adminRes, rcTypesRes, rcPricingRes] = await Promise.all([
                 (supabase.from('data_packages').select('*').eq('is_available', true).order('sort_order') as any),
                 ((supabase as any).from('shop_pricing').select('*').eq('shop_id', shopData.id)),
-                fetch('/api/shop/pricing').then(res => res.json())
+                fetch('/api/shop/pricing').then(res => res.json()),
+                (supabase.from('results_checker_types').select('id, name, cost_price, agent_price, customer_price').eq('is_active', true).order('display_order') as any),
+                fetch(`/api/shop/rc-pricing?shopId=${shopData.id}`).then(res => res.json()).catch(() => ({ pricing: [] }))
             ])
 
             setPackages(pkgRes.data || [])
+            setRcTypes(rcTypesRes.data || [])
 
             const adminFlags: Record<string, number> = {}
             for (const [key, value] of Object.entries(adminRes || {})) {
@@ -119,6 +132,12 @@ export default function ShopPricingPage() {
                 priceMap[row.package_id] = String(row.selling_price)
             }
             setPricing(priceMap)
+
+            const rcMap: Record<string, string> = {}
+            for (const row of (rcPricingRes.pricing || [])) {
+                rcMap[row.rc_type_id] = String(row.selling_price)
+            }
+            setRcPricing(rcMap)
         } catch (err) {
             console.error(err)
         } finally {
@@ -139,6 +158,24 @@ export default function ShopPricingPage() {
 
     const isValidPrice = (pkg: Package, sellingStr: string) => {
         const profit = getProfit(pkg, sellingStr)
+        if (profit === null) return null
+        const maxProfit = shop?.owner_role === 'agent' ? 10 : 5
+        return profit > 0 && profit <= maxProfit
+    }
+
+    const getRcCostPrice = (type: RCType) => {
+        if (shop?.owner_role === 'agent' && type.agent_price > 0) return type.agent_price
+        return type.customer_price || type.cost_price // fallback to cost if agent/customer not specified right
+    }
+
+    const getRcProfit = (type: RCType, sellingStr: string) => {
+        const selling = parseFloat(sellingStr)
+        if (isNaN(selling)) return null
+        return selling - getRcCostPrice(type)
+    }
+
+    const isValidRcPrice = (type: RCType, sellingStr: string) => {
+        const profit = getRcProfit(type, sellingStr)
         if (profit === null) return null
         const maxProfit = shop?.owner_role === 'agent' ? 10 : 5
         return profit > 0 && profit <= maxProfit
@@ -225,6 +262,28 @@ export default function ShopPricingPage() {
             return
         }
 
+        // Validate RC explicitly
+        const invalidRc = rcTypes.filter(type => {
+            const val = rcPricing[type.id]
+            if (!val || parseFloat(val) <= 0) return false
+            const profit = getRcProfit(type, val)
+            if (profit === null) return false
+            if (profit <= 0) {
+                invalidReason = 'RC Profit must be more than 0'
+                return true
+            }
+            if (profit > maxDataProfit) {
+                invalidReason = `RC Profit cannot exceed GHS ${maxDataProfit.toFixed(2)}`
+                return true
+            }
+            return false
+        })
+
+        if (invalidRc.length > 0) {
+            toast.error(`${invalidReason} for RC: ${invalidRc.map(t => t.name).join(', ')}`)
+            return
+        }
+
         // Validate Airtime explicitly alongside data package bundle
         for (const net of ['mtn', 'telecel', 'at']) {
             const max = getMaxAirtimeProfit(net)
@@ -244,7 +303,14 @@ export default function ShopPricingPage() {
                 selling_price: parseFloat(pricing[pkg.id])
             }))
 
-        if (rows.length === 0 && !airtimeFees.mtn && !airtimeFees.telecel && !airtimeFees.at) {
+        const rcRows = rcTypes
+            .filter(type => rcPricing[type.id] && parseFloat(rcPricing[type.id]) > 0)
+            .map(type => ({
+                rcTypeId: type.id,
+                sellingPrice: parseFloat(rcPricing[type.id])
+            }))
+
+        if (rows.length === 0 && !airtimeFees.mtn && !airtimeFees.telecel && !airtimeFees.at && rcRows.length === 0) {
             toast.error('Please configure a price to save changes')
             return
         }
@@ -258,7 +324,17 @@ export default function ShopPricingPage() {
             })
 
             const data = await res.json()
-            if (!res.ok) throw new Error(data.error || 'Failed to submit pricing')
+            if (!res.ok) throw new Error(data.error || 'Failed to submit data pricing')
+
+            if (rcRows.length > 0) {
+                const rcRes = await fetch('/api/shop/rc-pricing', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ shopId: shop.id, items: rcRows })
+                })
+                const rcData = await rcRes.json()
+                if (!rcRes.ok) throw new Error(rcData.error || 'Failed to submit RC pricing')
+            }
 
             toast.success('Your shop is now live! Customers can start buying.')
             setShop(prev => prev ? { ...prev, pricing_status: 'approved', approval_status: 'approved' } : null)
@@ -605,6 +681,83 @@ export default function ShopPricingPage() {
                     })}
                 </div>
             </div>
+
+            {/* Results Checker Section */}
+            {rcTypes.length > 0 && (
+                <div className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 rounded-[2.5rem] p-6 md:p-8 border border-amber-100 dark:border-amber-900 shadow-sm relative overflow-hidden mt-8">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8 relative z-10">
+                        <div>
+                            <h2 className="text-xl font-black uppercase tracking-tighter text-amber-900 dark:text-amber-300 flex items-center gap-2">
+                                <GraduationCap className="w-6 h-6" /> Results Checker Vouchers
+                            </h2>
+                            <p className="text-xs font-bold text-amber-700/70 dark:text-amber-400/70 uppercase tracking-widest mt-1 max-w-xl">
+                                Set your selling prices for WAEC and other results checker vouchers.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-4">
+                        {rcTypes.map((type) => {
+                            const valStr = rcPricing[type.id] || ''
+                            const cost = getRcCostPrice(type)
+                            const finalSelling = parseFloat(valStr) || 0
+                            const profitStr = finalSelling > 0 ? (finalSelling - cost).toFixed(2) : ''
+                            const valid = isValidRcPrice(type, valStr)
+
+                            return (
+                                <div key={type.id} className={cn(
+                                    "flex flex-col p-6 rounded-[2rem] border-2 transition-all duration-300",
+                                    valStr && valid === false ? "border-red-400 bg-red-50/50 dark:border-red-900/30" : 
+                                    valStr && valid === true ? "border-emerald-300 shadow-md bg-white dark:bg-slate-900" : "border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50"
+                                )}>
+                                    <div className="mb-6 space-y-2">
+                                        <h3 className="font-black text-xl tracking-tighter text-foreground">{type.name}</h3>
+                                        <span className="inline-block text-[10px] font-black uppercase tracking-widest text-slate-500 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-lg">
+                                            Cost: {formatCurrency(cost)}
+                                        </span>
+                                    </div>
+
+                                    <div className="mt-auto space-y-5">
+                                        <div>
+                                            <div className="flex justify-between mb-2">
+                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Selling Price</Label>
+                                                {valStr && valid === false && <span className="text-[10px] text-red-600 font-bold uppercase tracking-tight">Max Profit: {shop?.owner_role === 'agent' ? '10' : '5'}</span>}
+                                            </div>
+                                            <div className="relative">
+                                                <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-sm text-slate-400">GHS</span>
+                                                <Input
+                                                    type="number" inputMode="decimal" value={valStr}
+                                                    onChange={(e) => setRcPricing(prev => ({ ...prev, [type.id]: e.target.value }))}
+                                                    placeholder={cost.toFixed(2)}
+                                                    className={cn(
+                                                        'h-14 rounded-2xl pl-14 text-xl font-black shadow-inner transition-colors',
+                                                        valStr && valid === false ? 'border-red-500 bg-red-50 text-red-900 focus:ring-red-400' : 
+                                                        valStr && valid === true ? 'border-emerald-500 bg-emerald-50 text-emerald-900 dark:bg-emerald-900/20 dark:text-emerald-100' : 'bg-slate-50 dark:bg-slate-800 border-transparent'
+                                                    )}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-4 space-y-3 border border-slate-100 dark:border-slate-800">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Price tag</span>
+                                                <span className="font-black text-lg">{valStr && valid !== null ? formatCurrency(finalSelling) : '—'}</span>
+                                            </div>
+                                            <div className="h-px bg-slate-200 dark:bg-slate-700" />
+                                            <div className="flex items-center justify-between">
+                                                <span className={cn("text-[10px] font-black uppercase tracking-widest", valid ? "text-emerald-600" : "text-slate-400")}>Profit</span>
+                                                <span className={cn("font-black text-base", valid ? "text-emerald-500" : valid === false ? "text-red-500" : "text-slate-400")}>
+                                                    {valStr && valid !== null ? `${parseFloat(profitStr) > 0 ? '+' : ''} ${formatCurrency(parseFloat(profitStr) || 0)}` : '—'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )
+                        })}
+                    </div>
+                </div>
+            )}
 
             <div className="fixed bottom-6 left-4 right-4 md:left-auto md:right-8 z-50 pointer-events-none">
                 <Button

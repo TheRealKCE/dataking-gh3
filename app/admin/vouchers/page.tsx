@@ -1,6 +1,6 @@
-﻿'use client'
+'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -10,7 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
-import { Plus, Upload, RefreshCw, Loader2, Pencil, AlertTriangle, Eye, Wrench, Package, ShoppingCart, DollarSign, Clock, TrendingUp, Download, FileText } from 'lucide-react'
+import { Plus, Upload, RefreshCw, Loader2, Pencil, AlertTriangle, Eye, Wrench, Package, ShoppingCart, DollarSign, Clock, TrendingUp, Download, FileText, Store } from 'lucide-react'
 import { toast } from 'sonner'
 import { formatCurrency, formatDate } from '@/lib/utils'
 
@@ -49,6 +49,9 @@ export default function VouchersAdminPage() {
     const [uploadMode, setUploadMode] = useState<'file'|'text'>('file')
     const [orderDetail, setOrderDetail] = useState<RCOrder | null>(null)
     const [fulfilling, setFulfilling] = useState(false)
+    const [storefrontRcEnabled, setStorefrontRcEnabled] = useState(false)
+    const [storefrontRcToggling, setStorefrontRcToggling] = useState(false)
+    const storefrontRcFetched = useRef(false)
 
     const fetchTypes = useCallback(async () => {
         setLoading(true)
@@ -80,7 +83,16 @@ export default function VouchersAdminPage() {
         if (res.ok) setStats(json)
     }, [])
 
-    useEffect(() => { fetchTypes(); fetchStats() }, [fetchTypes, fetchStats])
+    useEffect(() => {
+        fetchTypes(); fetchStats()
+        if (!storefrontRcFetched.current) {
+            storefrontRcFetched.current = true
+            fetch('/api/admin/settings?key=storefront_rc_enabled')
+                .then(r => r.json())
+                .then(d => { if (d.value !== undefined) setStorefrontRcEnabled(d.value === 'true') })
+                .catch(() => {})
+        }
+    }, [fetchTypes, fetchStats])
     useEffect(() => { fetchOrders() }, [fetchOrders])
 
     const openAddType = () => {
@@ -193,6 +205,26 @@ export default function VouchersAdminPage() {
         })
     }
 
+    const toggleStorefrontRc = async () => {
+        setStorefrontRcToggling(true)
+        try {
+            const newVal = !storefrontRcEnabled
+            const res = await fetch('/api/admin/settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ key: 'storefront_rc_enabled', value: String(newVal) })
+            })
+            if (res.ok) {
+                setStorefrontRcEnabled(newVal)
+                toast.success(newVal ? 'Results Checker enabled on storefronts' : 'Results Checker disabled on storefronts')
+            } else {
+                toast.error('Failed to update setting')
+            }
+        } finally {
+            setStorefrontRcToggling(false)
+        }
+    }
+
     const manualFulfill = async (orderId: string) => {
         setFulfilling(true)
         try {
@@ -230,13 +262,42 @@ export default function VouchersAdminPage() {
                                         <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">{s.label}</p>
                                         <p className="text-2xl font-bold mt-1">{s.value}</p>
                                     </div>
-                                    <s.icon className={`w-8 h-8 ${s.color} opacity-80`} />
+                                    <s.icon className={"w-8 h-8  opacity-80"} />
                                 </div>
                             </CardContent>
                         </Card>
                     ))}
                 </div>
             )}
+
+            {/* Storefront RC Toggle */}
+            <Card className="border-border/50">
+                <CardContent className="py-4">
+                    <div className="flex items-center justify-between gap-4">
+                        <div className="flex items-start gap-3">
+                            <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center flex-shrink-0">
+                                <Store className="w-5 h-5 text-emerald-600 dark:text-emerald-400" />
+                            </div>
+                            <div>
+                                <p className="font-semibold text-sm">Results Checker on Storefronts</p>
+                                <p className="text-xs text-muted-foreground mt-0.5">
+                                    When enabled, shop owners can set RC prices and storefront customers can buy vouchers directly.
+                                </p>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-3 flex-shrink-0">
+                            <span className={"text-xs font-semibold "}>
+                                {storefrontRcEnabled ? 'Enabled' : 'Disabled'}
+                            </span>
+                            {storefrontRcToggling ? (
+                                <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
+                            ) : (
+                                <Switch checked={storefrontRcEnabled} onCheckedChange={toggleStorefrontRc} />
+                            )}
+                        </div>
+                    </div>
+                </CardContent>
+            </Card>
 
             <Tabs defaultValue="types" className="space-y-4">
                 <TabsList className="grid grid-cols-4 w-full max-w-lg">
@@ -436,7 +497,7 @@ export default function VouchersAdminPage() {
                                         <tr key={o.id} className="hover:bg-muted/20 transition-colors">
                                             <td className="px-3 py-3 font-mono text-xs text-muted-foreground">{o.reference_code}</td>
                                             <td className="px-3 py-3">
-                                                <div className="font-medium text-xs">{o.customer_name || '—'}</div>
+                                                <div className="font-medium text-xs">{o.customer_name || 'â€”'}</div>
                                                 <div className="text-xs text-muted-foreground">{o.customer_phone || o.customer_email || ''}</div>
                                             </td>
                                             <td className="px-3 py-3 text-xs">{o.type_name}</td>
@@ -564,8 +625,8 @@ export default function VouchersAdminPage() {
                             <div className="grid grid-cols-2 gap-3 text-sm">
                                 <div><span className="text-muted-foreground">Reference</span><p className="font-mono font-semibold">{orderDetail.reference_code}</p></div>
                                 <div><span className="text-muted-foreground">Status</span><p><StatusBadge status={orderDetail.status} /></p></div>
-                                <div><span className="text-muted-foreground">Customer</span><p className="font-medium">{orderDetail.customer_name || '—'}</p></div>
-                                <div><span className="text-muted-foreground">Phone</span><p>{orderDetail.customer_phone || '—'}</p></div>
+                                <div><span className="text-muted-foreground">Customer</span><p className="font-medium">{orderDetail.customer_name || 'â€”'}</p></div>
+                                <div><span className="text-muted-foreground">Phone</span><p>{orderDetail.customer_phone || 'â€”'}</p></div>
                                 <div><span className="text-muted-foreground">Type</span><p>{orderDetail.type_name}</p></div>
                                 <div><span className="text-muted-foreground">Quantity</span><p className="font-bold">{orderDetail.quantity}</p></div>
                                 <div><span className="text-muted-foreground">Total Paid</span><p className="font-bold text-emerald-600">{formatCurrency(orderDetail.total_paid)}</p></div>
