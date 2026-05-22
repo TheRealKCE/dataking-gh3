@@ -96,7 +96,7 @@ export function DashboardSidebar() {
     const { isInternalSidebarOpen, closeSidebar, isCollapsed, toggleCollapse } = useUI()
     const { isPageAccessible, loading: pageAccessLoading } = usePageAccess()
     const [walletBalance, setWalletBalance] = useState(0)
-    const [communityLink, setCommunityLink] = useState('https://chat.whatsapp.com/GY8X8nUkNgYATUiOY5gXAb')
+    const [communityLink, setCommunityLink] = useState('https://chat.whatsapp.com/DY9X9borAmz24IHAWsjI4R')
     const { counts: adminCounts } = useAdminCounts()
 
     // My Shop accordion — auto-expands on any /dashboard/shop route
