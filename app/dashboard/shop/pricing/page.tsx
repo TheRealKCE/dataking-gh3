@@ -72,6 +72,7 @@ export default function ShopPricingPage() {
     const [adminAirtimeFees, setAdminAirtimeFees] = useState<Record<string, number>>({})
     const [rcTypes, setRcTypes] = useState<RCType[]>([])
     const [rcPricing, setRcPricing] = useState<Record<string, string>>({})
+    const [storefrontRcEnabled, setStorefrontRcEnabled] = useState(false)
     
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
@@ -110,16 +111,18 @@ export default function ShopPricingPage() {
                 at: shopData.airtime_fee_at?.toString() || ''
             })
 
-            const [pkgRes, priceRes, adminRes, rcTypesRes, rcPricingRes] = await Promise.all([
+            const [pkgRes, priceRes, adminRes, rcTypesRes, rcPricingRes, rcSettingRes] = await Promise.all([
                 (supabase.from('data_packages').select('*').eq('is_available', true).order('sort_order') as any),
                 ((supabase as any).from('shop_pricing').select('*').eq('shop_id', shopData.id)),
                 fetch('/api/shop/pricing').then(res => res.json()),
                 (supabase.from('results_checker_types').select('id, name, cost_price, agent_price, customer_price').eq('is_active', true).order('display_order') as any),
-                fetch(`/api/shop/rc-pricing?shopId=${shopData.id}`).then(res => res.json()).catch(() => ({ pricing: [] }))
+                fetch(`/api/shop/rc-pricing?shopId=${shopData.id}`).then(res => res.json()).catch(() => ({ pricing: [] })),
+                fetch('/api/admin/settings?key=storefront_rc_enabled').then(r => r.json()).catch(() => ({ value: 'false' }))
             ])
 
             setPackages(pkgRes.data || [])
             setRcTypes(rcTypesRes.data || [])
+            setStorefrontRcEnabled(rcSettingRes?.value === 'true')
 
             const adminFlags: Record<string, number> = {}
             for (const [key, value] of Object.entries(adminRes || {})) {
@@ -682,8 +685,8 @@ export default function ShopPricingPage() {
                 </div>
             </div>
 
-            {/* Results Checker Section */}
-            {rcTypes.length > 0 && (
+            {/* Results Checker Section — only shown when admin enables storefront RC */}
+            {storefrontRcEnabled && rcTypes.length > 0 && (
                 <div className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 rounded-[2.5rem] p-6 md:p-8 border border-amber-100 dark:border-amber-900 shadow-sm relative overflow-hidden mt-8">
                     <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8 relative z-10">
                         <div>
