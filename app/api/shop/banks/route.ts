@@ -17,7 +17,8 @@ export async function GET(req: NextRequest) {
             .eq('id', user.id)
             .single()
 
-        if (!dbUser || dbUser.role !== 'agent') {
+        const allowedRoles = ['customer', 'agent', 'admin', 'sub-admin']
+        if (!dbUser || !allowedRoles.includes(dbUser.role)) {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
         }
 

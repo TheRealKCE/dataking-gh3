@@ -144,12 +144,8 @@ export default function ShopWithdrawPage() {
     const [addingDetail, setAddingDetail] = useState(false)
 
     useEffect(() => {
-        if (dbUser && !isAdmin && !isSubAdmin && dbUser?.role !== 'agent') {
-            router.replace('/dashboard')
-            return
-        }
         if (dbUser) fetchData()
-    }, [dbUser, isAdmin, isSubAdmin])
+    }, [dbUser])
 
     // ─── Account name validation (declared before fetchData so it can be in its dep array) ────
     const triggerValidation = useCallback((phone: string, net: string, bankId?: string) => {

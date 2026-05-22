@@ -50,10 +50,10 @@ export async function GET(request: NextRequest) {
             // Don't fail — just return orders without voucher details
         }
 
-        console.log('[VouchersHistory] Found sold inventory items:', soldInventory?.length ?? 0)
+        const inventoryItems = (soldInventory as any[]) || []
 
         const inventoryById: Record<string, { id: string; pin: string; serial_number: string }> = {}
-        for (const item of (soldInventory || [])) {
+        for (const item of inventoryItems) {
             inventoryById[item.id] = item
         }
 
@@ -73,7 +73,7 @@ export async function GET(request: NextRequest) {
         })
 
         // Assign any unmatched sold vouchers to orders that have none
-        const unmatched = (soldInventory || []).filter(v => !usedInventoryIds.has(v.id))
+        const unmatched = inventoryItems.filter(v => !usedInventoryIds.has(v.id))
         if (unmatched.length > 0) {
             console.log('[VouchersHistory] Unmatched inventory items:', unmatched.length, '— assigning to empty orders')
             let ui = 0
