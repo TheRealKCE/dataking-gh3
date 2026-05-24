@@ -164,13 +164,13 @@ export function LandingClientShell({
             : 'opacity-0 translate-x-5 pointer-events-none'
 
     return (
-        <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
+        <div className="dark min-h-screen bg-background text-foreground overflow-x-hidden">
 
             {/* ══ NAV ══════════════════════════════════════════════════════════════ */}
             <nav className={cn(
                 'fixed top-0 w-full z-[100] transition-all duration-500 h-16 sm:h-20 flex items-center',
                 headerScrolled ? 'backdrop-blur-2xl border-b border-white/10 sm:border-border/30 shadow-sm' : ''
-            )} style={{ backgroundColor: headerScrolled ? 'rgba(6,6,20,0.96)' : 'transparent' }}>
+            )} style={{ backgroundColor: headerScrolled ? 'rgba(0,0,0,0.96)' : 'transparent' }}>
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 w-full flex items-center justify-between">
                     {/* Logo */}
                     <a href="#" className="flex items-center gap-2.5">
@@ -210,7 +210,7 @@ export function LandingClientShell({
             {/* ══ HERO ══════════════════════════════════════════════════════════════ */}
             <section
                 className="relative min-h-screen flex flex-col items-center justify-center px-4 sm:px-6 lg:px-10 overflow-hidden pt-16"
-                style={{ backgroundColor: '#060614' }}
+                style={{ backgroundColor: '#000000' }}
                 onTouchStart={e => setTouchStartX(e.touches[0].clientX)}
                 onTouchEnd={e => {
                     if (touchStartX === null) return
@@ -221,9 +221,8 @@ export function LandingClientShell({
             >
                 {/* Background glow orbs */}
                 <div className="pointer-events-none absolute inset-0 overflow-hidden">
-                    <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full opacity-20" style={{ background: 'radial-gradient(circle, #7c3aed 0%, transparent 70%)' }} />
-                    <div className="absolute top-1/2 -right-40 w-[500px] h-[500px] rounded-full opacity-15" style={{ background: 'radial-gradient(circle, #2563eb 0%, transparent 70%)' }} />
-                    <div className="absolute -bottom-20 -left-20 w-[400px] h-[400px] rounded-full opacity-10" style={{ background: 'radial-gradient(circle, #f59e0b 0%, transparent 70%)' }} />
+                    <div className="absolute top-1/2 -right-40 w-[500px] h-[500px] rounded-full opacity-10" style={{ background: 'radial-gradient(circle, #2563eb 0%, transparent 70%)' }} />
+                    <div className="absolute -bottom-20 -left-20 w-[400px] h-[400px] rounded-full opacity-8" style={{ background: 'radial-gradient(circle, #f59e0b 0%, transparent 70%)' }} />
                 </div>
 
                 {/* Content */}
@@ -256,7 +255,7 @@ export function LandingClientShell({
                     <div className="w-full relative" style={{ minHeight: 440 }}>
 
                         {/* Slide 1 — Welcome */}
-                        <div className={cn(cardBase, slideState(0))} style={{ background: 'linear-gradient(145deg,#0f0f28,#131330)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 25px 60px rgba(0,0,0,0.5)' }}>
+                        <div className={cn(cardBase, slideState(0))} style={{ background: 'linear-gradient(145deg,#111111,#000000)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 25px 60px rgba(0,0,0,0.5)' }}>
                             <p className="text-[10px] font-black uppercase tracking-[0.35em] mb-3" style={{ color: '#f59e0b' }}>Welcome to</p>
                             <h1 className="font-black text-[2rem] sm:text-4xl leading-tight tracking-tight text-white mb-3">
                                 ARHMS <span style={{ color: '#f59e0b' }}>TECHNOLOGIES</span>
@@ -322,7 +321,7 @@ export function LandingClientShell({
                         </div>
 
                         {/* Slide 4 — Agent Plans */}
-                        <div className={cn(cardBase, slideState(3))} style={{ background: 'linear-gradient(145deg,#110e20,#160c28)', border: '1px solid rgba(245,158,11,0.15)', boxShadow: '0 25px 60px rgba(0,0,0,0.5)' }}>
+                        <div className={cn(cardBase, slideState(3))} style={{ background: 'linear-gradient(145deg,#111111,#000000)', border: '1px solid rgba(245,158,11,0.15)', boxShadow: '0 25px 60px rgba(0,0,0,0.5)' }}>
                             <p className="text-[10px] font-black uppercase tracking-[0.35em] mb-3" style={{ color: '#f59e0b' }}>Become an Agent</p>
                             <h2 className="font-black text-[2rem] sm:text-4xl leading-tight tracking-tight text-white mb-3">
                                 Grow Your <span style={{ color: '#f59e0b' }}>Business</span>
