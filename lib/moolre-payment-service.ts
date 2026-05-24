@@ -49,7 +49,7 @@ function getAuthHeaders(): HeadersInit {
         'Content-Type': 'application/json',
         'Accept': 'application/json',
         'X-API-USER': apiUser,
-        'X-API-PUBKEY': pubKey,
+        'X-API-KEY': pubKey,
     }
 }
 
