@@ -8,6 +8,7 @@ import { useAuth } from '@/contexts/auth-context'
 import { UIProvider } from '@/contexts/ui-context'
 import { DashboardSidebar } from '@/components/dashboard/sidebar'
 import { DashboardHeader } from '@/components/dashboard/header'
+import { MobileBottomNav } from '@/components/dashboard/mobile-bottom-nav'
 import { PageAccessGuard } from '@/components/dashboard/page-access-guard'
 import { Skeleton } from '@/components/ui/skeleton'
 import { FloatingWhatsApp } from '@/components/floating-whatsapp'
@@ -83,7 +84,7 @@ export default function DashboardLayout({
             )}>
                 <DashboardHeader />
                 <div className="h-16 flex-shrink-0" />
-                <main className="p-4 lg:p-6 flex-1">
+                <main className="p-4 pb-24 md:pb-4 lg:p-6 flex-1">
                     <PageAccessGuard>
                         {children}
                     </PageAccessGuard>
@@ -91,6 +92,7 @@ export default function DashboardLayout({
                 <CopyrightFooter className="bg-background/60" />
             </div>
             <FloatingWhatsApp variant="auth" />
+            <MobileBottomNav />
             {/* <SupportChatWidget /> */}
         </div>
     )
