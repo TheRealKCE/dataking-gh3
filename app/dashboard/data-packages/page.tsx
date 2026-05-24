@@ -805,7 +805,7 @@ export default function DataPackagesPage() {
 
                                                 <div className="max-h-[300px] overflow-y-auto">
                                                     <table className="w-full text-xs">
-                                                        <thead className="bg-gray-50/50 dark:bg-zinc-800/50 border-b border-gray-100 dark:border-zinc-800 sticky top-0 z-10">
+                                                        <thead className="bg-gray-50/50 dark:bg-zinc-800/50 border-b border-gray-100 dark:border-zinc-800">
                                                             <tr>
                                                                 <th className="px-6 py-3 text-left font-black text-gray-400">STATUS</th>
                                                                 <th className="px-6 py-3 text-left font-black text-gray-400">RECIPIENT</th>
@@ -966,12 +966,12 @@ export default function DataPackagesPage() {
                             <p className="text-muted-foreground">No packages found</p>
                         </Card>
                     ) : viewMode === 'grid' ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 scroll-smooth">
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                             {filteredPackages.map((pkg) => {
                                 return (
                                     <Card
                                         key={pkg.id}
-                                        className={`overflow-hidden relative transition-all duration-300 hover:-translate-y-2 hover:shadow-2xl border border-border/50 shadow-md shadow-black/40 dark:shadow-[#E5E7EB]/20 ${pkg.network === 'MTN' ? 'bg-[#FFCC00] text-black' :
+                                        className={`overflow-hidden relative border border-border/50 shadow-md shadow-black/40 dark:shadow-[#E5E7EB]/20 ${pkg.network === 'MTN' ? 'bg-[#FFCC00] text-black' :
                                             pkg.network === 'Telecel' ? 'bg-[#E60000] text-white' :
                                                 'bg-[#0056B3] text-white'
                                             }`}
@@ -979,12 +979,12 @@ export default function DataPackagesPage() {
                                         <CardContent className="p-0 flex flex-col h-full">
                                             {/* Top Section: Logo - Size - Badge */}
                                             <div className="flex items-center justify-between p-4 pb-2 relative z-10">
-                                                <div className="p-1.5 bg-white/20 rounded-full backdrop-blur-sm shadow-md transition-transform duration-300 group-hover:scale-110">
+                                                <div className="p-1.5 bg-white/20 rounded-full shadow-md">
                                                     <NetworkIcon network={pkg.network} size={28} variant="card" />
                                                 </div>
 
                                                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                                    <h3 className={`text-4xl font-black tracking-tighter drop-shadow-sm ${pkg.network === 'MTN' ? '!text-black' : '!text-white'
+                                                    <h3 className={`text-4xl font-black tracking-tighter ${pkg.network === 'MTN' ? '!text-black' : '!text-white'
                                                         }`}>
                                                         {pkg.size}
                                                     </h3>
@@ -999,16 +999,16 @@ export default function DataPackagesPage() {
 
                                             {/* Middle Content: Price & Description */}
                                             <div className="flex flex-col items-center justify-center flex-1 space-y-3 py-6 relative z-10">
-                                                <div className="text-3xl lg:text-4xl font-black tracking-tighter drop-shadow-md transform transition-transform duration-300 group-hover:scale-110">
+                                                <div className="text-3xl lg:text-4xl font-black tracking-tighter">
                                                     {formatCurrency(getEffectivePrice(pkg))}
                                                 </div>
 
-                                                <div className={`flex items-center gap-2 text-xs font-bold uppercase tracking-wide px-4 py-1.5 rounded-full shadow-lg backdrop-blur-md border border-white/10 ${pkg.network === 'MTN' ? 'bg-black/10 text-black' : 'bg-white/10 text-white'
+                                                <div className={`flex items-center gap-2 text-xs font-bold uppercase tracking-wide px-4 py-1.5 rounded-full border border-white/10 ${pkg.network === 'MTN' ? 'bg-black/10 text-black' : 'bg-white/10 text-white'
                                                     }`}>
-                                                    <span className="animate-spin-pause text-base">⏳</span>
+                                                    <span className="text-base">⏳</span>
                                                     <span className="flex items-center gap-1">
                                                         Instant Delivery
-                                                        <span className="animate-pulse">⚡</span>
+                                                        <span>⚡</span>
                                                     </span>
                                                 </div>
                                                 {pkg.description && pkg.description !== 'Instant Delivery' && (
@@ -1038,22 +1038,22 @@ export default function DataPackagesPage() {
                             })}
                         </div>
                     ) : (
-                        <div className="space-y-3 scroll-smooth">
+                        <div className="space-y-3">
                             {filteredPackages.map((pkg) => {
                                 const getBuyButtonStyle = () => {
                                     if (pkg.network === 'Telecel') {
-                                        return 'bg-white text-[#E60000] hover:bg-gray-100 border-0 shadow-md hover:shadow-lg transition-all hover:scale-105 font-bold px-6'
+                                        return 'bg-white text-[#E60000] hover:bg-gray-100 border-0 shadow-md font-bold px-6'
                                     }
                                     if (pkg.network.startsWith('AT')) {
-                                        return 'bg-white text-[#0056B3] hover:bg-gray-100 border-0 shadow-md hover:shadow-lg transition-all hover:scale-105 font-bold px-6'
+                                        return 'bg-white text-[#0056B3] hover:bg-gray-100 border-0 shadow-md font-bold px-6'
                                     }
-                                    return 'bg-black text-white hover:bg-black/90 border-0 shadow-md hover:shadow-lg transition-all hover:scale-105 font-bold px-6'
+                                    return 'bg-black text-white hover:bg-black/90 border-0 shadow-md font-bold px-6'
                                 }
 
                                 return (
                                     <Card
                                         key={pkg.id}
-                                        className={`group hover:shadow-lg transition-all cursor-pointer border border-border/50 mb-3 overflow-hidden ${pkg.network === 'MTN' ? 'bg-[#FACC15] text-black' :
+                                        className={`cursor-pointer border border-border/50 mb-3 overflow-hidden ${pkg.network === 'MTN' ? 'bg-[#FACC15] text-black' :
                                             pkg.network === 'Telecel' ? 'bg-[#E60000] text-white' :
                                                 'bg-[#0056B3] text-white'
                                             }`}
@@ -1061,7 +1061,7 @@ export default function DataPackagesPage() {
                                     >
                                         <CardContent className="p-4 flex items-center justify-between">
                                             <div className="flex items-center gap-5">
-                                                <div className="p-2 bg-white/20 rounded-xl backdrop-blur-sm shadow-sm">
+                                                <div className="p-2 bg-white/20 rounded-xl shadow-sm">
                                                     <NetworkIcon network={pkg.network} size={40} />
                                                 </div>
                                                 <div>

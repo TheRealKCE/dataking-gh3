@@ -359,7 +359,7 @@ export function LandingClientShell({
             </section>
 
             {/* ══ HOW IT WORKS ══════════════════════════════════════════════════════ */}
-            <section className="py-28 px-6 lg:px-10 bg-secondary/20">
+            <section className="py-28 px-6 lg:px-10 bg-[#111111]">
                 <div className="max-w-7xl mx-auto">
                     <div className="text-center mb-16 space-y-4">
                         <h2 className="text-xs font-black uppercase tracking-[0.5em] text-primary">How It Works</h2>
@@ -419,7 +419,7 @@ export function LandingClientShell({
             </section>
 
             {/* ══ PLANS ═══════════════════════════════════════════════════════════ */}
-            <section id="plans" className="py-32 px-6 lg:px-10 bg-secondary/20">
+            <section id="plans" className="py-32 px-6 lg:px-10 bg-[#111111]">
                 <div className="max-w-7xl mx-auto">
                     <div className="text-center mb-16 space-y-4">
                         <h2 className="text-xs font-black uppercase tracking-[0.5em] text-primary">Reseller Plans</h2>
@@ -474,7 +474,7 @@ export function LandingClientShell({
                                     { name: 'Telecel Ghana', status: 'Stable', color: 'bg-red-500' },
                                     { name: 'AT (AirtelTigo)', status: 'Stable', color: 'bg-orange-500' },
                                 ].map((net, i) => (
-                                    <div key={i} className="flex items-center justify-between p-6 rounded-2xl bg-secondary/50 border border-border/50">
+                                    <div key={i} className="flex items-center justify-between p-6 rounded-2xl bg-[#1a1a1a] border border-border/50">
                                         <div className="flex items-center gap-4">
                                             <div className={cn('w-3 h-3 rounded-full animate-pulse', net.color)} />
                                             <span className="font-bold text-lg">{net.name}</span>
@@ -503,7 +503,7 @@ export function LandingClientShell({
                                             <p className="text-2xl font-black">99.98%</p>
                                         </div>
                                     </div>
-                                    <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
+                                    <div className="h-2 w-full bg-[#2a2a2a] rounded-full overflow-hidden">
                                         <div className="h-full w-[99%] bg-primary" />
                                     </div>
                                 </div>
@@ -514,7 +514,7 @@ export function LandingClientShell({
             </section>
 
             {/* ══ STOREFRONT ══════════════════════════════════════════════════════ */}
-            <section className="py-32 px-6 lg:px-10 bg-secondary/20">
+            <section className="py-32 px-6 lg:px-10 bg-[#111111]">
                 <div className="max-w-7xl mx-auto">
                     <div className="grid lg:grid-cols-2 gap-12 items-center">
                         <div className="space-y-6">
@@ -599,7 +599,7 @@ export function LandingClientShell({
             </section>
 
             {/* ══ FAQ ═════════════════════════════════════════════════════════════ */}
-            <section id="support" className="py-32 px-6 lg:px-10 bg-secondary/20">
+            <section id="support" className="py-32 px-6 lg:px-10 bg-[#111111]">
                 <div className="max-w-7xl mx-auto">
                     <div className="text-center mb-16 space-y-4">
                         <h2 className="text-xs font-black uppercase tracking-[0.5em] text-primary">FAQ</h2>
