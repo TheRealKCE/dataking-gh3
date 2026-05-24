@@ -157,11 +157,11 @@ export default function SignupPage() {
                 {/* Logo & Branding */}
                 <div className="text-center mb-8">
                     <Link href="/" className="inline-flex flex-col items-center group">
-                        <div className="relative w-16 h-16 mb-4 transition-transform group-hover:scale-105">
-                            <div className="relative w-full h-full rounded-2xl shadow-blue-premium overflow-hidden">
+                        <div className="relative w-16 h-16 mb-4">
+                            <div className="relative w-full h-full rounded-2xl overflow-hidden bg-white shadow-[0_10px_40px_-10px_rgba(212,175,55,0.35)]">
                                 <Image
                                     src="/logo.png"
-                                    alt="ARHMS"
+                                    alt="ARHMS TECHNOLOGIES"
                                     fill
                                     className="object-contain"
                                     priority
@@ -169,7 +169,7 @@ export default function SignupPage() {
                             </div>
                         </div>
                         <h1 className="text-2xl font-black text-foreground tracking-tighter uppercase">
-                            ARHMS <span className="text-primary">DATA</span>
+                            ARHMS <span className="text-amber-500">TECHNOLOGIES</span>
                         </h1>
                         <p className="text-[10px] font-black text-muted-foreground tracking-[0.3em] uppercase mt-1 opacity-60">
                             Create Your Account

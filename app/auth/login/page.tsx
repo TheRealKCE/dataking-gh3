@@ -72,11 +72,11 @@ export default function LoginPage() {
                 {/* Logo & Branding */}
                 <div className="text-center mb-10">
                     <Link href="/" className="inline-flex flex-col items-center group">
-                        <div className="relative w-20 h-20 mb-6 transition-transform group-hover:scale-105">
-                            <div className="relative w-full h-full rounded-3xl shadow-blue-premium overflow-hidden">
+                        <div className="relative w-20 h-20 mb-6">
+                            <div className="relative w-full h-full rounded-3xl overflow-hidden bg-white shadow-[0_10px_40px_-10px_rgba(212,175,55,0.35)]">
                                 <Image
                                     src="/logo.png"
-                                    alt="ARHMS"
+                                    alt="ARHMS TECHNOLOGIES"
                                     fill
                                     className="object-contain"
                                     priority
@@ -84,7 +84,7 @@ export default function LoginPage() {
                             </div>
                         </div>
                         <h1 className="text-3xl font-black text-foreground tracking-tighter uppercase">
-                            ARHMS <span className="text-primary">DATA</span>
+                            ARHMS <span className="text-amber-500">TECHNOLOGIES</span>
                         </h1>
                         <p className="text-sm font-bold text-muted-foreground tracking-widest uppercase mt-2 opacity-70">
                             Login to Continue

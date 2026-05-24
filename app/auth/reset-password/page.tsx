@@ -68,8 +68,8 @@ export default function ResetPasswordPage() {
                 {/* Logo - professional and visible */}
                 <div className="text-center mb-6">
                     <Link href="/" className="inline-flex flex-col items-center">
-                        <div className="relative w-20 h-20 sm:w-24 sm:h-24 mb-3 transition-transform hover:scale-105">
-                            <div className="relative w-full h-full rounded-2xl shadow-blue-premium overflow-hidden">
+                        <div className="relative w-20 h-20 sm:w-24 sm:h-24 mb-3">
+                            <div className="relative w-full h-full rounded-2xl overflow-hidden bg-white shadow-[0_10px_40px_-10px_rgba(212,175,55,0.35)]">
                                 <Image
                                     src="/logo.png"
                                     alt="ARHMS TECHNOLOGIES"
