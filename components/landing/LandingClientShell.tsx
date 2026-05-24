@@ -92,6 +92,30 @@ const faqItems = [
 
 import { BrandLogo } from '@/components/BrandLogo'
 
+function SlideFooter({ current, total, onDotClick }: { current: number; total: number; onDotClick: (i: number) => void }) {
+    return (
+        <div className="flex items-center justify-between mt-6 pt-5 border-t border-white/10 sm:border-border/30">
+            <div className="flex items-center gap-1.5">
+                {Array.from({ length: total }).map((_, i) => (
+                    <button
+                        key={i}
+                        type="button"
+                        onClick={() => onDotClick(i)}
+                        className={cn(
+                            'rounded-full transition-all duration-300',
+                            i === current ? 'h-2 w-7 bg-amber-400' : 'h-2 w-2 bg-white/20 sm:bg-muted-foreground/25 hover:bg-amber-400/50'
+                        )}
+                        aria-label={`Go to slide ${i + 1}`}
+                    />
+                ))}
+            </div>
+            <span className="text-[10px] font-black text-white/30 sm:text-muted-foreground/50 tracking-widest">
+                {String(current + 1).padStart(2, '0')} / {String(total).padStart(2, '0')}
+            </span>
+        </div>
+    )
+}
+
 export function LandingClientShell({
     initialGuestUrl,
     initialAdminPhone,
@@ -102,8 +126,10 @@ export function LandingClientShell({
     const [guestUrl] = useState(initialGuestUrl)
     const [adminPhone] = useState(initialAdminPhone)
     const [planPrices] = useState<Record<TierId, number>>(initialPlanPrices || DEFAULT_PLAN_PRICES)
+    const [slide, setSlide] = useState(0)
+    const [touchStartX, setTouchStartX] = useState<number | null>(null)
+    const SLIDE_COUNT = 4
 
-    // Only show the guest store button when a real (non-placeholder) URL is configured
     const isValidGuestUrl = Boolean(guestUrl && !guestUrl.endsWith('/shop/demo') && guestUrl.includes('/shop/'))
 
     useEffect(() => {
@@ -115,57 +141,54 @@ export function LandingClientShell({
     useEffect(() => {
         try {
             const slug = sessionStorage.getItem('shop_sticky_slug')
-            if (slug) {
-                router.replace(`/shop/${slug}`)
-            }
+            if (slug) { router.replace(`/shop/${slug}`) }
         } catch (_) {}
     }, [router])
+
+    // Auto-advance carousel every 4 s
+    useEffect(() => {
+        const t = setInterval(() => setSlide(s => (s + 1) % SLIDE_COUNT), 4000)
+        return () => clearInterval(t)
+    }, [])
 
     return (
         <div className="min-h-screen bg-background text-foreground overflow-x-hidden selection:bg-primary/30 selection:text-primary-foreground">
             {/* ── NAV ── */}
-            <nav
-                className={cn(
-                    'fixed top-0 w-full z-[100] transition-all duration-700 h-16 sm:h-20 flex items-center',
-                    headerScrolled
-                        ? 'bg-white/90 dark:bg-zinc-900/90 backdrop-blur-2xl border-b border-border/40 shadow-sm'
-                        : 'bg-transparent'
-                )}
-            >
+            <nav className={cn(
+                'fixed top-0 w-full z-[100] transition-all duration-500 h-16 sm:h-20 flex items-center',
+                headerScrolled
+                    ? 'bg-zinc-900/95 sm:bg-white/95 backdrop-blur-2xl border-b border-white/10 sm:border-border/40 shadow-sm'
+                    : 'bg-transparent'
+            )}>
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 w-full flex items-center justify-between">
                     <a href="#" className="flex items-center gap-2 group cursor-pointer">
                         <BrandLogo hideText />
-                        <span className="font-heading font-black text-lg sm:text-xl tracking-tighter text-foreground group-hover:text-amber-500 transition-colors">
-                            ARHMS <span className="text-amber-500">TECH</span>
+                        <span className="font-heading font-black text-lg sm:text-xl tracking-tighter text-white sm:text-foreground group-hover:text-amber-400 transition-colors">
+                            ARHMS <span className="text-amber-400">TECH</span>
                         </span>
                     </a>
 
+                    {/* Desktop nav links */}
                     <div className="hidden md:flex items-center gap-6 lg:gap-8">
-                        {['Products', 'Wallet', 'Resell', 'AFA', 'Community'].map((item) => (
-                            <a
-                                key={item}
-                                href={item === 'Products' ? '#features' : item === 'Wallet' ? '#plans' : '#support'}
-                                className="text-xs font-bold text-muted-foreground hover:text-foreground transition-colors"
-                            >
-                                {item}
-                            </a>
+                        {[['Products','#features'],['Wallet','#plans'],['Resell','#plans'],['AFA','#support'],['Community','#support']].map(([label, href]) => (
+                            <a key={label} href={href} className="text-xs font-bold text-muted-foreground hover:text-foreground transition-colors">{label}</a>
                         ))}
                     </div>
 
-                    <div className="flex items-center gap-1.5 sm:gap-3">
-                        <ThemeToggle />
+                    <div className="flex items-center gap-2 sm:gap-3">
+                        <div className="hidden sm:block"><ThemeToggle /></div>
                         <Link href="/dashboard/install">
                             <Button variant="outline" size="sm" className="hidden sm:flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest rounded-full border-border/60 px-3 h-8">
                                 <Smartphone className="w-3 h-3" /> Install App
                             </Button>
                         </Link>
                         <Link href="/auth/login">
-                            <Button variant="ghost" size="sm" className="text-xs font-black uppercase tracking-widest px-3 h-8">
+                            <Button variant="ghost" size="sm" className="text-white sm:text-foreground hover:text-amber-400 sm:hover:text-foreground font-black uppercase tracking-widest text-xs px-3 h-9">
                                 Login
                             </Button>
                         </Link>
                         <Link href="/auth/signup">
-                            <Button size="sm" className="bg-amber-500 hover:bg-amber-600 text-black font-black uppercase tracking-widest text-[10px] h-8 px-4 rounded-full shadow-lg hover:scale-105 active:scale-95 transition-all">
+                            <Button size="sm" className="bg-amber-400 hover:bg-amber-500 text-black font-black uppercase tracking-widest text-xs h-9 px-5 rounded-full shadow-lg transition-all">
                                 Get Started
                             </Button>
                         </Link>
@@ -174,99 +197,199 @@ export function LandingClientShell({
             </nav>
 
             {/* ── HERO ── */}
-            <section className="relative min-h-screen flex flex-col items-center justify-center px-4 sm:px-6 lg:px-10 overflow-hidden pt-16">
-                {/* Background glow blobs */}
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-purple-50/60 to-amber-50 dark:from-zinc-950 dark:via-indigo-950/40 dark:to-zinc-900 pointer-events-none" />
-                <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] bg-blue-400/20 dark:bg-blue-500/10 rounded-full blur-[120px] pointer-events-none" />
-                <div className="absolute top-1/3 right-0 w-[500px] h-[500px] bg-amber-300/30 dark:bg-amber-500/10 rounded-full blur-[100px] pointer-events-none" />
-                <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-purple-400/15 dark:bg-purple-500/10 rounded-full blur-[100px] pointer-events-none" />
-                {/* Mirror shimmer */}
-                <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_40%,rgba(255,255,255,0.4),transparent)] dark:bg-[radial-gradient(ellipse_80%_60%_at_50%_40%,rgba(255,255,255,0.04),transparent)] pointer-events-none" />
+            {/* Mobile: dark bg  |  Desktop: light gradient */}
+            <section
+                className="relative min-h-screen flex flex-col items-center justify-center px-4 sm:px-6 lg:px-10 overflow-hidden pt-16 bg-[#0b0b14] sm:bg-transparent"
+                onTouchStart={e => setTouchStartX(e.touches[0].clientX)}
+                onTouchEnd={e => {
+                    if (touchStartX === null) return
+                    const dx = e.changedTouches[0].clientX - touchStartX
+                    if (Math.abs(dx) > 40) setSlide(s => dx < 0 ? (s + 1) % SLIDE_COUNT : (s - 1 + SLIDE_COUNT) % SLIDE_COUNT)
+                    setTouchStartX(null)
+                }}
+            >
+                {/* Desktop background — hidden on mobile */}
+                <div className="hidden sm:block absolute inset-0 bg-gradient-to-br from-blue-50 via-purple-50/60 to-amber-50 pointer-events-none" />
+                <div className="hidden sm:block absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] bg-blue-400/20 rounded-full blur-[120px] pointer-events-none" />
+                <div className="hidden sm:block absolute top-1/3 right-0 w-[500px] h-[500px] bg-amber-300/30 rounded-full blur-[100px] pointer-events-none" />
+                <div className="hidden sm:block absolute bottom-0 left-0 w-[400px] h-[400px] bg-purple-400/15 rounded-full blur-[100px] pointer-events-none" />
+                <div className="hidden sm:block absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_40%,rgba(255,255,255,0.45),transparent)] pointer-events-none" />
 
-                <div className="relative z-10 flex flex-col items-center text-center w-full max-w-lg mx-auto gap-5">
-                    {/* Circular logo */}
-                    <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-white dark:bg-zinc-800 shadow-2xl shadow-black/10 ring-4 ring-white/60 dark:ring-zinc-700/60 flex items-center justify-center overflow-hidden">
+                {/* Mobile background — subtle star/glow effect */}
+                <div className="sm:hidden absolute inset-0 pointer-events-none">
+                    <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-80 h-80 bg-amber-500/10 rounded-full blur-[80px]" />
+                    <div className="absolute bottom-1/4 right-0 w-60 h-60 bg-blue-500/10 rounded-full blur-[80px]" />
+                </div>
+
+                <div className="relative z-10 flex flex-col items-center text-center w-full max-w-lg mx-auto gap-4">
+                    {/* Logo */}
+                    <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-white shadow-2xl shadow-black/20 ring-4 ring-white/20 sm:ring-white/60 flex items-center justify-center overflow-hidden">
                         <div className="relative w-14 h-14 sm:w-16 sm:h-16">
                             <Image src="/logo.png" alt="ARHMS Logo" fill className="object-contain" priority />
                         </div>
                     </div>
 
                     {/* Brand name */}
-                    <div className="flex flex-col items-center gap-1">
-                        <span className="font-heading font-black text-2xl sm:text-3xl tracking-tight">
-                            ARHMS <span className="text-amber-500">TECH</span>
+                    <div className="flex flex-col items-center gap-0.5">
+                        <span className="font-heading font-black text-2xl sm:text-3xl tracking-tight text-white sm:text-foreground">
+                            ARHMS <span className="text-amber-400">TECH</span>
                         </span>
-                        <span className="text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground/60">Technologies Ltd</span>
+                        <span className="text-[9px] font-black uppercase tracking-[0.3em] text-white/40 sm:text-muted-foreground/60">Technologies Ltd</span>
                     </div>
 
                     {/* Badge */}
-                    <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/70 dark:bg-zinc-800/70 border border-amber-300/50 dark:border-amber-500/30 backdrop-blur-md shadow-sm">
-                        <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                        <span className="text-[10px] font-black uppercase tracking-[0.18em] text-foreground/80">Ultra Fast Instant Delivery</span>
+                    <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 sm:bg-white/70 border border-amber-400/30 sm:border-amber-300/50 backdrop-blur-sm shadow-sm">
+                        <Zap className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+                        <span className="text-[10px] font-black uppercase tracking-[0.18em] text-white/80 sm:text-foreground/80">Ultra Fast Instant Delivery</span>
                     </div>
 
-                    {/* Hero card */}
-                    <div className="w-full rounded-3xl bg-white/70 dark:bg-zinc-900/70 border border-white/80 dark:border-zinc-700/60 backdrop-blur-xl shadow-2xl shadow-black/10 p-6 sm:p-8 text-left">
-                        <p className="text-[10px] font-black uppercase tracking-[0.35em] text-amber-500 mb-3">Welcome to</p>
-                        <h1 className="font-heading font-black text-3xl sm:text-4xl tracking-tight leading-tight text-foreground mb-3">
-                            ARHMS <span className="text-amber-500">TECH</span>
-                        </h1>
-                        <p className="text-sm font-medium text-muted-foreground leading-relaxed mb-6">
-                            Ghana&apos;s all-in-one platform for mobile data, airtime, Results Checkers, and business growth. Instant delivery, always.
-                        </p>
-
-                        {/* Action buttons */}
-                        <div className="flex flex-wrap gap-2.5">
-                            <Link href="/auth/login">
-                                <Button className="h-10 px-6 rounded-full bg-amber-400 hover:bg-amber-500 text-black font-black text-xs uppercase tracking-widest shadow-lg shadow-amber-400/30 hover:scale-105 active:scale-95 transition-all">
-                                    Sign In
-                                </Button>
-                            </Link>
-                            <Link href="/auth/signup">
-                                <Button variant="outline" className="h-10 px-5 rounded-full border-border/60 font-black text-xs uppercase tracking-widest hover:bg-secondary/50 transition-all">
-                                    Create Account
-                                </Button>
-                            </Link>
-                            {isValidGuestUrl && (
-                                <a href={guestUrl}>
-                                    <Button variant="outline" className="h-10 px-5 rounded-full border-border/60 font-black text-xs uppercase tracking-widest hover:bg-secondary/50 transition-all">
-                                        <Store className="w-3.5 h-3.5 mr-1.5" />
-                                        Buy as Guest
+                    {/* ── CAROUSEL CARD ── */}
+                    <div className="w-full relative" style={{ minHeight: 420 }}>
+                        {/* Slide 1 — Welcome */}
+                        <div className={cn(
+                            'w-full rounded-3xl p-6 sm:p-8 text-left transition-all duration-500 absolute inset-0',
+                            'bg-[#141424] sm:bg-white/70 border border-white/10 sm:border-white/80 shadow-2xl shadow-black/30 sm:shadow-black/10 backdrop-blur-xl',
+                            slide === 0 ? 'opacity-100 translate-x-0 pointer-events-auto' : slide > 0 ? 'opacity-0 -translate-x-4 pointer-events-none' : 'opacity-0 translate-x-4 pointer-events-none'
+                        )}>
+                            <p className="text-[10px] font-black uppercase tracking-[0.35em] text-amber-400 mb-3">Welcome to</p>
+                            <h1 className="font-heading font-black text-3xl sm:text-4xl tracking-tight leading-tight text-white sm:text-foreground mb-3">
+                                ARHMS <span className="text-amber-400">TECH</span>
+                            </h1>
+                            <p className="text-sm font-medium text-white/60 sm:text-muted-foreground leading-relaxed mb-6">
+                                Ghana&apos;s all-in-one platform for mobile data, airtime, Results Checkers, and business growth. Instant delivery, always.
+                            </p>
+                            <div className="flex flex-col sm:flex-row gap-3 sm:flex-wrap">
+                                <Link href="/auth/login" className="w-full sm:w-auto">
+                                    <Button className="w-full sm:w-auto h-12 sm:h-10 rounded-full bg-amber-400 hover:bg-amber-500 text-black font-black text-sm sm:text-xs uppercase tracking-widest shadow-lg shadow-amber-400/30 transition-all">
+                                        Sign In
                                     </Button>
-                                </a>
-                            )}
-                            <Link href="/dashboard/install">
-                                <Button variant="outline" className="h-10 px-5 rounded-full border-border/60 font-black text-xs uppercase tracking-widest hover:bg-secondary/50 transition-all">
-                                    <Smartphone className="w-3.5 h-3.5 mr-1.5" />
-                                    Download App
+                                </Link>
+                                <Link href="/auth/signup" className="w-full sm:w-auto">
+                                    <Button className="w-full sm:w-auto h-12 sm:h-10 rounded-full bg-white text-black font-black text-sm sm:text-xs uppercase tracking-widest border border-zinc-200 hover:bg-zinc-50 transition-all">
+                                        Create Account
+                                    </Button>
+                                </Link>
+                                {isValidGuestUrl && (
+                                    <a href={guestUrl} className="w-full sm:w-auto">
+                                        <Button className="w-full sm:w-auto h-12 sm:h-10 rounded-full bg-zinc-700 sm:bg-white/80 text-white sm:text-black font-black text-sm sm:text-xs uppercase tracking-widest border border-zinc-600 sm:border-zinc-200 hover:bg-zinc-600 sm:hover:bg-zinc-50 transition-all">
+                                            Buy as Guest
+                                        </Button>
+                                    </a>
+                                )}
+                                <Link href="/dashboard/install" className="w-full sm:w-auto">
+                                    <Button className="w-full sm:w-auto h-12 sm:h-10 rounded-full bg-zinc-700 sm:bg-white/80 text-white sm:text-black font-black text-sm sm:text-xs uppercase tracking-widest border border-zinc-600 sm:border-zinc-200 hover:bg-zinc-600 sm:hover:bg-zinc-50 transition-all">
+                                        <Smartphone className="w-3.5 h-3.5 mr-1.5" /> Download App
+                                    </Button>
+                                </Link>
+                            </div>
+                            <SlideFooter current={0} total={SLIDE_COUNT} onDotClick={setSlide} />
+                        </div>
+
+                        {/* Slide 2 — Instant Delivery */}
+                        <div className={cn(
+                            'w-full rounded-3xl p-6 sm:p-8 text-left transition-all duration-500 absolute inset-0',
+                            'bg-[#141424] sm:bg-white/70 border border-white/10 sm:border-white/80 shadow-2xl shadow-black/30 sm:shadow-black/10 backdrop-blur-xl',
+                            slide === 1 ? 'opacity-100 translate-x-0 pointer-events-auto' : slide > 1 ? 'opacity-0 -translate-x-4 pointer-events-none' : 'opacity-0 translate-x-4 pointer-events-none'
+                        )}>
+                            <p className="text-[10px] font-black uppercase tracking-[0.35em] text-amber-400 mb-3">Lightning Fast</p>
+                            <h2 className="font-heading font-black text-3xl sm:text-4xl tracking-tight leading-tight text-white sm:text-foreground mb-3">
+                                Data in <span className="text-amber-400">Seconds</span>
+                            </h2>
+                            <p className="text-sm font-medium text-white/60 sm:text-muted-foreground leading-relaxed mb-5">
+                                MTN, Telecel, and AT bundles delivered to any phone in under 3 seconds. Automated routing, zero delays.
+                            </p>
+                            <div className="grid grid-cols-3 gap-3 mb-6">
+                                {[
+                                    { label: 'Delivery', value: '< 3s' },
+                                    { label: 'Uptime', value: '99.9%' },
+                                    { label: 'Success', value: '99.98%' },
+                                ].map(s => (
+                                    <div key={s.label} className="rounded-2xl bg-white/5 sm:bg-black/5 border border-white/10 sm:border-black/10 p-3 text-center">
+                                        <p className="font-black text-lg text-amber-400">{s.value}</p>
+                                        <p className="text-[10px] font-bold text-white/50 sm:text-muted-foreground uppercase tracking-wider mt-0.5">{s.label}</p>
+                                    </div>
+                                ))}
+                            </div>
+                            <Link href="/auth/signup">
+                                <Button className="h-12 sm:h-10 w-full sm:w-auto rounded-full bg-amber-400 hover:bg-amber-500 text-black font-black text-sm sm:text-xs uppercase tracking-widest shadow-lg shadow-amber-400/30 transition-all">
+                                    <Zap className="w-4 h-4 mr-2 fill-black" /> Buy Data Now
                                 </Button>
                             </Link>
+                            <SlideFooter current={1} total={SLIDE_COUNT} onDotClick={setSlide} />
                         </div>
 
-                        {/* Slide indicators */}
-                        <div className="flex items-center justify-between mt-6 pt-5 border-t border-border/30">
-                            <div className="flex items-center gap-1.5">
-                                <span className="h-2 w-7 rounded-full bg-amber-400" />
-                                <span className="h-2 w-2 rounded-full bg-muted-foreground/25" />
-                                <span className="h-2 w-2 rounded-full bg-muted-foreground/25" />
-                                <span className="h-2 w-2 rounded-full bg-muted-foreground/25" />
+                        {/* Slide 3 — Your Own Shop */}
+                        <div className={cn(
+                            'w-full rounded-3xl p-6 sm:p-8 text-left transition-all duration-500 absolute inset-0',
+                            'bg-[#141424] sm:bg-white/70 border border-white/10 sm:border-white/80 shadow-2xl shadow-black/30 sm:shadow-black/10 backdrop-blur-xl',
+                            slide === 2 ? 'opacity-100 translate-x-0 pointer-events-auto' : slide > 2 ? 'opacity-0 -translate-x-4 pointer-events-none' : 'opacity-0 translate-x-4 pointer-events-none'
+                        )}>
+                            <p className="text-[10px] font-black uppercase tracking-[0.35em] text-amber-400 mb-3">Build Your Brand</p>
+                            <h2 className="font-heading font-black text-3xl sm:text-4xl tracking-tight leading-tight text-white sm:text-foreground mb-3">
+                                Launch Your <span className="text-amber-400">Shop</span>
+                            </h2>
+                            <p className="text-sm font-medium text-white/60 sm:text-muted-foreground leading-relaxed mb-5">
+                                Create a branded storefront with your name, logo, pricing, and checkout link — share it anywhere and start earning.
+                            </p>
+                            <div className="flex flex-wrap gap-2 mb-6">
+                                {['Public Shop URL', 'Custom Pricing', 'Order Tracking', 'WhatsApp Support', 'Brand Logo'].map(f => (
+                                    <span key={f} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 sm:bg-black/5 border border-white/10 sm:border-black/10 text-[10px] font-bold text-white/70 sm:text-foreground/70 uppercase tracking-wide">
+                                        <CheckCircle2 className="w-3 h-3 text-amber-400" />{f}
+                                    </span>
+                                ))}
                             </div>
-                            <span className="text-[10px] font-black text-muted-foreground/50 tracking-widest">01 / 04</span>
+                            <Link href="/auth/signup">
+                                <Button className="h-12 sm:h-10 w-full sm:w-auto rounded-full bg-amber-400 hover:bg-amber-500 text-black font-black text-sm sm:text-xs uppercase tracking-widest shadow-lg shadow-amber-400/30 transition-all">
+                                    <Store className="w-4 h-4 mr-2" /> Open Your Shop
+                                </Button>
+                            </Link>
+                            <SlideFooter current={2} total={SLIDE_COUNT} onDotClick={setSlide} />
+                        </div>
+
+                        {/* Slide 4 — Agent Plans */}
+                        <div className={cn(
+                            'w-full rounded-3xl p-6 sm:p-8 text-left transition-all duration-500 absolute inset-0',
+                            'bg-[#141424] sm:bg-white/70 border border-white/10 sm:border-white/80 shadow-2xl shadow-black/30 sm:shadow-black/10 backdrop-blur-xl',
+                            slide === 3 ? 'opacity-100 translate-x-0 pointer-events-auto' : 'opacity-0 translate-x-4 pointer-events-none'
+                        )}>
+                            <p className="text-[10px] font-black uppercase tracking-[0.35em] text-amber-400 mb-3">Become an Agent</p>
+                            <h2 className="font-heading font-black text-3xl sm:text-4xl tracking-tight leading-tight text-white sm:text-foreground mb-3">
+                                Grow Your <span className="text-amber-400">Business</span>
+                            </h2>
+                            <p className="text-sm font-medium text-white/60 sm:text-muted-foreground leading-relaxed mb-5">
+                                Unlock wholesale rates, priority support, and bulk tools. Plans starting from GHS 9.99 — pick yours today.
+                            </p>
+                            <div className="grid grid-cols-2 gap-3 mb-6">
+                                {[
+                                    { name: 'Starter', price: `GHS ${planPrices['3d'].toFixed(2)}`, period: '3 Days' },
+                                    { name: 'Popular', price: `GHS ${planPrices['14d'].toFixed(2)}`, period: '14 Days', highlight: true },
+                                    { name: 'Premium', price: `GHS ${planPrices['30d'].toFixed(2)}`, period: '30 Days' },
+                                    { name: 'Lifetime', price: `GHS ${planPrices['permanent'].toFixed(2)}`, period: 'Forever' },
+                                ].map(p => (
+                                    <div key={p.name} className={cn(
+                                        'rounded-2xl border p-3 text-center',
+                                        p.highlight
+                                            ? 'bg-amber-400/15 border-amber-400/40'
+                                            : 'bg-white/5 sm:bg-black/5 border-white/10 sm:border-black/10'
+                                    )}>
+                                        <p className={cn('font-black text-sm', p.highlight ? 'text-amber-400' : 'text-white/80 sm:text-foreground/80')}>{p.name}</p>
+                                        <p className="font-black text-base text-white sm:text-foreground">{p.price}</p>
+                                        <p className="text-[10px] text-white/40 sm:text-muted-foreground uppercase tracking-wide">{p.period}</p>
+                                    </div>
+                                ))}
+                            </div>
+                            <Link href="/auth/signup">
+                                <Button className="h-12 sm:h-10 w-full sm:w-auto rounded-full bg-amber-400 hover:bg-amber-500 text-black font-black text-sm sm:text-xs uppercase tracking-widest shadow-lg shadow-amber-400/30 transition-all">
+                                    <ArrowRight className="w-4 h-4 mr-2" /> Become an Agent
+                                </Button>
+                            </Link>
+                            <SlideFooter current={3} total={SLIDE_COUNT} onDotClick={setSlide} />
                         </div>
                     </div>
 
-                    {/* Track order link */}
-                    <Link href="/shop/status" className="inline-flex items-center gap-2 text-xs font-bold text-muted-foreground hover:text-amber-500 transition-colors">
-                        <CheckCircle2 className="w-4 h-4" />
-                        Track an Order
+                    <Link href="/shop/status" className="inline-flex items-center gap-2 text-xs font-bold text-white/40 sm:text-muted-foreground hover:text-amber-400 transition-colors">
+                        <CheckCircle2 className="w-4 h-4" /> Track an Order
                     </Link>
-                </div>
-
-                {/* Scroll hint */}
-                <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 opacity-40">
-                    <div className="w-5 h-8 rounded-full border-2 border-foreground/30 flex items-start justify-center pt-1.5">
-                        <div className="w-1 h-2 rounded-full bg-foreground/50 animate-bounce" />
-                    </div>
                 </div>
             </section>
 
