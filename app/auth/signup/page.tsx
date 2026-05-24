@@ -160,7 +160,7 @@ export default function SignupPage() {
                         <div className="relative w-16 h-16 mb-4">
                             <div className="relative w-full h-full rounded-2xl overflow-hidden bg-white shadow-[0_10px_40px_-10px_rgba(212,175,55,0.35)]">
                                 <Image
-                                    src="/logo.png"
+                                    src="/arhms-logo.png"
                                     alt="ARHMS TECHNOLOGIES"
                                     fill
                                     className="object-contain"

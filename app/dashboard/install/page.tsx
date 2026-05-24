@@ -67,7 +67,7 @@ export default function InstallAppPage() {
     }
 
     return (
-        <div className="min-h-screen bg-[#f0f4ff] dark:bg-gray-950 flex flex-col">
+        <div className="min-h-screen bg-gray-950 flex flex-col">
             {/* Header */}
             <div className="flex items-center px-4 pt-6 pb-2">
                 <button
@@ -82,10 +82,10 @@ export default function InstallAppPage() {
             {/* Hero */}
             <div className="flex flex-col items-center text-center px-6 pt-6 pb-10">
                 {/* App icon */}
-                <div className="w-28 h-28 rounded-[2rem] overflow-hidden bg-white shadow-2xl shadow-black/20 flex items-center justify-center mb-6 border border-black/5">
+                <div className="w-28 h-28 rounded-[2rem] overflow-hidden bg-white shadow-2xl shadow-[0_20px_60px_-10px_rgba(212,175,55,0.3)] flex items-center justify-center mb-6 border border-black/5">
                     <Image
-                        src="/icon-512x512.png"
-                        alt="App Icon"
+                        src="/arhms-logo.png"
+                        alt="ARHMS TECHNOLOGIES"
                         width={112}
                         height={112}
                         className="w-full h-full object-contain"
@@ -131,7 +131,7 @@ export default function InstallAppPage() {
             </div>
 
             {/* Why Install section */}
-            <div className="flex-1 bg-white dark:bg-gray-900 rounded-t-[2rem] px-5 pt-8 pb-16 shadow-inner">
+            <div className="flex-1 bg-gray-900 rounded-t-[2rem] px-5 pt-8 pb-16 shadow-inner">
                 <h2 className="text-xl font-black text-gray-900 dark:text-white text-center mb-6">
                     Why Install the App?
                 </h2>

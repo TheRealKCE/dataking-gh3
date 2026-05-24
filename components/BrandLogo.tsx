@@ -14,7 +14,7 @@ export function BrandLogo({ className, collapsed = false, hideText = false }: Br
             {/* Logo Icon Container */}
             <div className="relative w-10 h-10 flex-shrink-0 rounded-2xl overflow-hidden shadow-xl shadow-indigo-500/20 ring-1 ring-white/10 group-hover:scale-110 group-hover:rotate-3 transition-all duration-500">
                 <Image
-                    src="/logo.png"
+                    src="/arhms-logo.png"
                     alt="ARHMS Logo"
                     fill
                     className="object-contain"

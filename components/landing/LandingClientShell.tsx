@@ -184,7 +184,7 @@ export function LandingClientShell({
                     <a href="#" className="flex items-center gap-2.5">
                         <div className="w-9 h-9 rounded-xl overflow-hidden bg-white flex items-center justify-center shadow-md flex-shrink-0">
                             <div className="relative w-8 h-8">
-                                <Image src="/logo.png" alt="ARHMS Logo" fill className="object-contain" priority />
+                                <Image src="/arhms-logo.png" alt="ARHMS Logo" fill className="object-contain" priority />
                             </div>
                         </div>
                         <span className="font-black text-base sm:text-lg tracking-tight text-white">
@@ -247,7 +247,7 @@ export function LandingClientShell({
                     {/* Logo circle */}
                     <div className="w-[88px] h-[88px] rounded-full flex items-center justify-center shadow-2xl ring-4 overflow-hidden" style={{ backgroundColor: '#fff', boxShadow: '0 0 0 4px rgba(255,255,255,0.12), 0 20px 60px rgba(0,0,0,0.4)' }}>
                         <div className="relative w-16 h-16">
-                            <Image src="/logo.png" alt="ARHMS Logo" fill className="object-contain" priority />
+                            <Image src="/arhms-logo.png" alt="ARHMS Logo" fill className="object-contain" priority />
                         </div>
                     </div>
 

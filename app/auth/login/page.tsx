@@ -75,7 +75,7 @@ export default function LoginPage() {
                         <div className="relative w-20 h-20 mb-6">
                             <div className="relative w-full h-full rounded-3xl overflow-hidden bg-white shadow-[0_10px_40px_-10px_rgba(212,175,55,0.35)]">
                                 <Image
-                                    src="/logo.png"
+                                    src="/arhms-logo.png"
                                     alt="ARHMS TECHNOLOGIES"
                                     fill
                                     className="object-contain"
