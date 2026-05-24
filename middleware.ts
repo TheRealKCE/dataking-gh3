@@ -10,6 +10,7 @@ import { Ratelimit } from '@upstash/ratelimit'
 // ============================================================
 const STATIC_ALLOWED_ORIGINS = [
     'https://arhms-data-ltd.vercel.app',
+    'https://project-d3owc.vercel.app',
     'https://arhmsgh.com',
     'https://www.arhmsgh.com',
     'http://localhost:3000',
@@ -40,13 +41,18 @@ const ALLOWED_ORIGINS: ReadonlySet<string> = new Set([
 
 // ============================================================
 // UPSTASH REDIS CLIENT & RATE LIMITERS
-// Initialized once at module level — reused across all requests.
-// Redis.fromEnv() reads UPSTASH_REDIS_REST_URL and
-// UPSTASH_REDIS_REST_TOKEN from environment variables.
+// Lazy-initialized with try-catch so a missing/malformed env var
+// does NOT crash the middleware module on load (MIDDLEWARE_INVOCATION_FAILED).
+// If Redis is unavailable, rate limiting is skipped (fail-open).
 // ============================================================
-const redis = Redis.fromEnv()
+let redis: Redis | null = null
+try {
+    redis = Redis.fromEnv()
+} catch (e) {
+    console.error('[Middleware] Redis init failed — rate limiting disabled:', e)
+}
 
-const rateLimiters = {
+const rateLimiters = redis ? {
     // ── Auth routes ────────────────────────────────────────────
     login: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, '10 m') }),
     signup: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(3, '1 h') }),
@@ -88,7 +94,7 @@ const rateLimiters = {
     cron: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(10, '1 m') }),
     // ── General catch-all ─────────────────────────────────────
     general: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(100, '1 m') }),
-}
+} : null
 
 // Helper to add cache-prevention headers
 function addNoCacheHeaders(response: NextResponse) {
@@ -210,112 +216,112 @@ export async function middleware(request: NextRequest) {
     // OPTIONS preflights are already short-circuited above — safe.
     try {
         const ip = getIP(request)
-        let limiter: Ratelimit | null = null
+        let limiter: Ratelimit | null | undefined = null
         let identifier: string = ip
 
         if (pathname === '/api/cron/sync-moolre-withdrawals') {
             limiter = null // Excluded entirely; protected by CRON_SECRET only
         } else if (pathname === '/api/shop/validate-account') {
-            limiter = rateLimiters.shopValidateAccount
+            limiter = rateLimiters?.shopValidateAccount
             identifier = authUser?.id ? `${authUser.id}-${ip}` : ip
         } else if (pathname === '/api/admin/process-withdrawal') {
-            limiter = rateLimiters.adminProcessWithdrawal
+            limiter = rateLimiters?.adminProcessWithdrawal
             identifier = authUser?.id ? `${authUser.id}-${ip}` : ip
         } else if (pathname === '/api/auth/login') {
-            limiter = rateLimiters.login
+            limiter = rateLimiters?.login
             identifier = ip
         } else if (pathname === '/api/auth/signup') {
-            limiter = rateLimiters.signup
+            limiter = rateLimiters?.signup
             identifier = ip
         } else if (pathname === '/api/auth/forgot-password') {
-            limiter = rateLimiters.forgotPassword
+            limiter = rateLimiters?.forgotPassword
             identifier = ip
         } else if (pathname === '/api/admin/get-prices') {
-            limiter = rateLimiters.general
+            limiter = rateLimiters?.general
             identifier = authUser?.id ? `${authUser.id}-${ip}` : ip
         } else if (pathname.startsWith('/api/admin')) {
-            limiter = rateLimiters.admin
+            limiter = rateLimiters?.admin
             identifier = authUser?.id ?? ip
         } else if (pathname === '/api/shop/initialize') {
-            limiter = rateLimiters.shopInitialize
+            limiter = rateLimiters?.shopInitialize
             identifier = ip
         } else if (pathname === '/api/webhooks/paystack') {
-            limiter = rateLimiters.webhook
+            limiter = rateLimiters?.webhook
             identifier = ip
         } else if (pathname === '/api/airtime/create') {
-            limiter = rateLimiters.airtimeCreate
+            limiter = rateLimiters?.airtimeCreate
             identifier = authUser?.id ? `${authUser.id}-${ip}` : ip
         } else if (pathname === '/api/orders/purchase') {
-            limiter = rateLimiters.ordersPurchase
+            limiter = rateLimiters?.ordersPurchase
             identifier = authUser?.id ? `${authUser.id}-${ip}` : ip
         } else if (pathname === '/api/orders/bulk-purchase') {
-            limiter = rateLimiters.ordersBulk
+            limiter = rateLimiters?.ordersBulk
             identifier = authUser?.id ? `${authUser.id}-${ip}` : ip
         } else if (pathname === '/api/payments/initialize') {
-            limiter = rateLimiters.paymentsInitialize
+            limiter = rateLimiters?.paymentsInitialize
             identifier = ip
         } else if (pathname === '/api/payments/verify') {
-            limiter = rateLimiters.paymentsVerify
+            limiter = rateLimiters?.paymentsVerify
             identifier = ip
         } else if (pathname === '/api/shop/verify') {
-            limiter = rateLimiters.shopVerifyOrder
+            limiter = rateLimiters?.shopVerifyOrder
             identifier = ip
         } else if (pathname === '/api/user/upgrade/initialize') {
-            limiter = rateLimiters.userUpgrade
+            limiter = rateLimiters?.userUpgrade
             identifier = authUser?.id ? `${authUser.id}-${ip}` : ip
         } else if (pathname === '/api/user/upgrade/verify') {
-            limiter = rateLimiters.userUpgrade
+            limiter = rateLimiters?.userUpgrade
             identifier = authUser?.id ? `${authUser.id}-${ip}` : ip
         } else if (pathname === '/api/shop/pricing') {
-            limiter = rateLimiters.shopPricing
+            limiter = rateLimiters?.shopPricing
             identifier = authUser?.id ? `${authUser.id}-${ip}` : ip
         } else if (pathname === '/api/shop/withdraw') {
-            limiter = rateLimiters.shopWithdraw
+            limiter = rateLimiters?.shopWithdraw
             identifier = authUser?.id ? `${authUser.id}-${ip}` : ip
         } else if (pathname === '/api/shop/announcements') {
-            limiter = rateLimiters.shopAnnouncements
+            limiter = rateLimiters?.shopAnnouncements
             identifier = authUser?.id ? `${authUser.id}-${ip}` : ip
         } else if (pathname === '/api/shop/alerts') {
-            limiter = rateLimiters.shopAlerts
+            limiter = rateLimiters?.shopAlerts
             identifier = authUser?.id ? `${authUser.id}-${ip}` : ip
         } else if (pathname === '/api/users/update-profile') {
-            limiter = rateLimiters.updateProfile
+            limiter = rateLimiters?.updateProfile
             identifier = authUser?.id ? `${authUser.id}-${ip}` : ip
         } else if (pathname === '/api/users/delete-account') {
-            limiter = rateLimiters.deleteAccount
+            limiter = rateLimiters?.deleteAccount
             identifier = authUser?.id ? `${authUser.id}-${ip}` : ip
         } else if (pathname === '/api/user/afa-registration') {
-            limiter = rateLimiters.afaRegistration
+            limiter = rateLimiters?.afaRegistration
             identifier = ip
         } else if (pathname === '/api/agent/downgrade') {
-            limiter = rateLimiters.agentDowngrade
+            limiter = rateLimiters?.agentDowngrade
             identifier = authUser?.id ? `${authUser.id}-${ip}` : ip
         } else if (pathname === '/api/admin-settings') {
-            limiter = rateLimiters.adminSettings
+            limiter = rateLimiters?.adminSettings
             identifier = authUser?.id ? `${authUser.id}-${ip}` : ip
         } else if (pathname === '/api/shop/lookup-orders') {
-            limiter = rateLimiters.shopLookupOrders
+            limiter = rateLimiters?.shopLookupOrders
             identifier = ip
         } else if (pathname === '/api/shop/my-orders') {
-            limiter = rateLimiters.shopMyOrders
+            limiter = rateLimiters?.shopMyOrders
             identifier = authUser?.id ? `${authUser.id}-${ip}` : ip
         } else if (pathname === '/api/airtime/history') {
-            limiter = rateLimiters.airtimeHistory
+            limiter = rateLimiters?.airtimeHistory
             identifier = authUser?.id ? `${authUser.id}-${ip}` : ip
         } else if (pathname.startsWith('/api/admin/supplier-balance')) {
-            limiter = rateLimiters.supplierBalance
+            limiter = rateLimiters?.supplierBalance
             identifier = authUser?.id ? `${authUser.id}-${ip}` : ip
         } else if (pathname === '/api/support-chat') {
-            limiter = rateLimiters.supportChat
+            limiter = rateLimiters?.supportChat
             identifier = ip
         } else if (pathname.startsWith('/api/cron')) {
-            limiter = rateLimiters.cron
+            limiter = rateLimiters?.cron
             identifier = ip
         } else if (pathname.startsWith('/api/user')) {
-            limiter = rateLimiters.user
+            limiter = rateLimiters?.user
             identifier = authUser?.id ?? ip
         } else if (pathname.startsWith('/api')) {
-            limiter = rateLimiters.general
+            limiter = rateLimiters?.general
             identifier = ip
         }
 
