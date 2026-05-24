@@ -23,6 +23,7 @@ import {
     WalletCards,
     Zap,
 } from 'lucide-react'
+import { BrandLogo } from '@/components/BrandLogo'
 
 interface LandingClientShellProps {
     initialGuestUrl: string
@@ -41,13 +42,7 @@ const DEFAULT_PLAN_PRICES: Record<TierId, number> = {
     permanent: 149.99,
 }
 
-const planCards: Array<{
-    id: TierId
-    name: string
-    duration: string
-    badge: string
-    highlight?: boolean
-}> = [
+const planCards: Array<{ id: TierId; name: string; duration: string; badge: string; highlight?: boolean }> = [
     { id: '3d', name: '3 Days', duration: '3 Days Access', badge: 'STARTER' },
     { id: '14d', name: '2 weeks', duration: '14 Days Access', badge: 'MOST POPULAR', highlight: true },
     { id: '30d', name: '1 month', duration: '30 Days Access', badge: 'PREMIUM' },
@@ -68,54 +63,64 @@ const featureCards: Array<{ icon: any; title: string; desc: string }> = [
 ]
 
 const faqItems = [
-    {
-        q: 'How do I start selling on ARHMS?',
-        a: 'Create an account, log in to your dashboard, fund your wallet, and then sell directly or through your own storefront link.',
-    },
-    {
-        q: 'Can I sell both data bundles and airtime?',
-        a: 'Yes. ARHMS supports data bundle sales and airtime top-up flows across MTN, Telecel, and AT where enabled.',
-    },
-    {
-        q: 'How do I fund my wallet?',
-        a: 'You can top up through Paystack or use the manual top-up process in the Wallet page, with transaction history available in dashboard.',
-    },
-    {
-        q: 'Can I create my own shop link?',
-        a: 'Yes. You can set up a branded storefront with your shop name, slug, logo, banner, support contacts, and community link.',
-    },
-    {
-        q: 'How do customers track orders or report issues?',
-        a: 'Customers can use the public order tracker, while logged-in users can review orders, notifications, and complaints from dashboard pages.',
-    },
+    { q: 'How do I start selling on ARHMS?', a: 'Create an account, log in to your dashboard, fund your wallet, and then sell directly or through your own storefront link.' },
+    { q: 'Can I sell both data bundles and airtime?', a: 'Yes. ARHMS supports data bundle sales and airtime top-up flows across MTN, Telecel, and AT where enabled.' },
+    { q: 'How do I fund my wallet?', a: 'You can top up through Paystack or use the manual top-up process in the Wallet page, with transaction history available in dashboard.' },
+    { q: 'Can I create my own shop link?', a: 'Yes. You can set up a branded storefront with your shop name, slug, logo, banner, support contacts, and community link.' },
+    { q: 'How do customers track orders or report issues?', a: 'Customers can use the public order tracker, while logged-in users can review orders, notifications, and complaints from dashboard pages.' },
 ]
 
-import { BrandLogo } from '@/components/BrandLogo'
-
-function SlideFooter({ current, total, onDotClick }: { current: number; total: number; onDotClick: (i: number) => void }) {
+// ── Dot indicators ──────────────────────────────────────────────────────────────
+function SlideDots({ current, total, onDotClick, dark }: { current: number; total: number; onDotClick: (i: number) => void; dark?: boolean }) {
     return (
-        <div className="flex items-center justify-between mt-6 pt-5 border-t border-white/10 sm:border-border/30">
+        <div className="flex items-center justify-between mt-6 pt-5" style={{ borderTop: dark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.07)' }}>
             <div className="flex items-center gap-1.5">
                 {Array.from({ length: total }).map((_, i) => (
                     <button
                         key={i}
                         type="button"
                         onClick={() => onDotClick(i)}
-                        className={cn(
-                            'rounded-full transition-all duration-300',
-                            i === current ? 'h-2 w-7 bg-amber-400' : 'h-2 w-2 bg-white/20 sm:bg-muted-foreground/25 hover:bg-amber-400/50'
-                        )}
-                        aria-label={`Go to slide ${i + 1}`}
+                        style={{
+                            height: 8,
+                            width: i === current ? 28 : 8,
+                            borderRadius: 99,
+                            transition: 'all 0.3s ease',
+                            backgroundColor: i === current ? '#f59e0b' : dark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.12)',
+                        }}
+                        aria-label={`Slide ${i + 1}`}
                     />
                 ))}
             </div>
-            <span className="text-[10px] font-black text-white/30 sm:text-muted-foreground/50 tracking-widest">
+            <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.12em', color: dark ? 'rgba(255,255,255,0.28)' : 'rgba(0,0,0,0.3)' }}>
                 {String(current + 1).padStart(2, '0')} / {String(total).padStart(2, '0')}
             </span>
         </div>
     )
 }
 
+// ── Hero CTA buttons ─────────────────────────────────────────────────────────────
+// Use inline styles so the Button component defaults never override them
+function HeroBtn({ href, variant = 'primary', children, className }: { href: string; variant?: 'primary' | 'white' | 'dark'; children: React.ReactNode; className?: string }) {
+    const base: React.CSSProperties = {
+        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+        width: '100%', height: 52, borderRadius: 999,
+        fontWeight: 800, fontSize: 13, letterSpacing: '0.08em', textTransform: 'uppercase',
+        cursor: 'pointer', transition: 'opacity 0.2s, transform 0.2s', textDecoration: 'none',
+        border: 'none', outline: 'none',
+    }
+    const styles: Record<string, React.CSSProperties> = {
+        primary: { ...base, backgroundColor: '#f59e0b', color: '#000', boxShadow: '0 4px 20px rgba(245,158,11,0.35)' },
+        white:   { ...base, backgroundColor: '#fff', color: '#111', border: '1.5px solid rgba(0,0,0,0.12)' },
+        dark:    { ...base, backgroundColor: 'rgba(255,255,255,0.07)', color: '#fff', border: '1.5px solid rgba(255,255,255,0.12)' },
+    }
+    return (
+        <Link href={href} style={styles[variant]} className={cn('active:scale-95 sm:h-[42px] sm:w-auto sm:px-6', className)}>
+            {children}
+        </Link>
+    )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────────
 export function LandingClientShell({
     initialGuestUrl,
     initialAdminPhone,
@@ -141,65 +146,71 @@ export function LandingClientShell({
     useEffect(() => {
         try {
             const slug = sessionStorage.getItem('shop_sticky_slug')
-            if (slug) { router.replace(`/shop/${slug}`) }
+            if (slug) router.replace(`/shop/${slug}`)
         } catch (_) {}
     }, [router])
 
-    // Auto-advance carousel every 4 s
     useEffect(() => {
-        const t = setInterval(() => setSlide(s => (s + 1) % SLIDE_COUNT), 4000)
+        const t = setInterval(() => setSlide(s => (s + 1) % SLIDE_COUNT), 4500)
         return () => clearInterval(t)
     }, [])
 
+    // ── shared slide card classes ──
+    const cardBase = 'absolute inset-0 w-full rounded-3xl p-6 sm:p-8 text-left transition-all duration-500'
+    const slideState = (i: number) => slide === i
+        ? 'opacity-100 translate-x-0 pointer-events-auto'
+        : slide > i
+            ? 'opacity-0 -translate-x-5 pointer-events-none'
+            : 'opacity-0 translate-x-5 pointer-events-none'
+
     return (
-        <div className="min-h-screen bg-background text-foreground overflow-x-hidden selection:bg-primary/30 selection:text-primary-foreground">
-            {/* ── NAV ── */}
+        <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
+
+            {/* ══ NAV ══════════════════════════════════════════════════════════════ */}
             <nav className={cn(
                 'fixed top-0 w-full z-[100] transition-all duration-500 h-16 sm:h-20 flex items-center',
-                headerScrolled
-                    ? 'bg-zinc-900/95 sm:bg-white/95 backdrop-blur-2xl border-b border-white/10 sm:border-border/40 shadow-sm'
-                    : 'bg-transparent'
-            )}>
+                headerScrolled ? 'backdrop-blur-2xl border-b border-white/10 sm:border-border/30 shadow-sm' : ''
+            )} style={{ backgroundColor: headerScrolled ? 'rgba(6,6,20,0.96)' : 'transparent' }}>
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 w-full flex items-center justify-between">
-                    <a href="#" className="flex items-center gap-2 group cursor-pointer">
-                        <BrandLogo hideText />
-                        <span className="font-heading font-black text-lg sm:text-xl tracking-tighter text-white sm:text-foreground group-hover:text-amber-400 transition-colors">
-                            ARHMS <span className="text-amber-400">TECH</span>
+                    {/* Logo */}
+                    <a href="#" className="flex items-center gap-2.5">
+                        <div className="w-9 h-9 rounded-xl overflow-hidden bg-white flex items-center justify-center shadow-md flex-shrink-0">
+                            <div className="relative w-8 h-8">
+                                <Image src="/logo.png" alt="ARHMS Logo" fill className="object-contain" priority />
+                            </div>
+                        </div>
+                        <span className="font-black text-base sm:text-lg tracking-tight text-white">
+                            ARHMS <span style={{ color: '#f59e0b' }}>TECH</span>
                         </span>
                     </a>
 
-                    {/* Desktop nav links */}
-                    <div className="hidden md:flex items-center gap-6 lg:gap-8">
-                        {[['Products','#features'],['Wallet','#plans'],['Resell','#plans'],['AFA','#support'],['Community','#support']].map(([label, href]) => (
-                            <a key={label} href={href} className="text-xs font-bold text-muted-foreground hover:text-foreground transition-colors">{label}</a>
+                    {/* Desktop links */}
+                    <div className="hidden md:flex items-center gap-7">
+                        {[['Products','#features'],['Wallet','#plans'],['Resell','#plans'],['AFA','#support'],['Community','#support']].map(([l,h]) => (
+                            <a key={l} href={h} className="text-xs font-semibold text-white/60 hover:text-white transition-colors">{l}</a>
                         ))}
                     </div>
 
+                    {/* Right actions */}
                     <div className="flex items-center gap-2 sm:gap-3">
                         <div className="hidden sm:block"><ThemeToggle /></div>
-                        <Link href="/dashboard/install">
-                            <Button variant="outline" size="sm" className="hidden sm:flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest rounded-full border-border/60 px-3 h-8">
-                                <Smartphone className="w-3 h-3" /> Install App
-                            </Button>
+                        <Link href="/dashboard/install" className="hidden sm:flex items-center gap-1.5 text-xs font-bold text-white/70 hover:text-white border border-white/20 rounded-full px-3 h-8 transition-colors">
+                            <Smartphone className="w-3 h-3" /> Install App
                         </Link>
-                        <Link href="/auth/login">
-                            <Button variant="ghost" size="sm" className="text-white sm:text-foreground hover:text-amber-400 sm:hover:text-foreground font-black uppercase tracking-widest text-xs px-3 h-9">
-                                Login
-                            </Button>
+                        <Link href="/auth/login" className="text-sm font-bold text-white/80 hover:text-white px-3 h-9 flex items-center transition-colors">
+                            Login
                         </Link>
-                        <Link href="/auth/signup">
-                            <Button size="sm" className="bg-amber-400 hover:bg-amber-500 text-black font-black uppercase tracking-widest text-xs h-9 px-5 rounded-full shadow-lg transition-all">
-                                Get Started
-                            </Button>
+                        <Link href="/auth/signup" className="text-sm font-black text-black h-9 px-5 rounded-full flex items-center active:scale-95 transition-transform" style={{ backgroundColor: '#f59e0b' }}>
+                            Get Started
                         </Link>
                     </div>
                 </div>
             </nav>
 
-            {/* ── HERO ── */}
-            {/* Mobile: dark bg  |  Desktop: light gradient */}
+            {/* ══ HERO ══════════════════════════════════════════════════════════════ */}
             <section
-                className="relative min-h-screen flex flex-col items-center justify-center px-4 sm:px-6 lg:px-10 overflow-hidden pt-16 bg-[#0b0b14] sm:bg-transparent"
+                className="relative min-h-screen flex flex-col items-center justify-center px-4 sm:px-6 lg:px-10 overflow-hidden pt-16"
+                style={{ backgroundColor: '#060614' }}
                 onTouchStart={e => setTouchStartX(e.touches[0].clientX)}
                 onTouchEnd={e => {
                     if (touchStartX === null) return
@@ -208,191 +219,140 @@ export function LandingClientShell({
                     setTouchStartX(null)
                 }}
             >
-                {/* Desktop background — hidden on mobile */}
-                <div className="hidden sm:block absolute inset-0 bg-gradient-to-br from-blue-50 via-purple-50/60 to-amber-50 pointer-events-none" />
-                <div className="hidden sm:block absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] bg-blue-400/20 rounded-full blur-[120px] pointer-events-none" />
-                <div className="hidden sm:block absolute top-1/3 right-0 w-[500px] h-[500px] bg-amber-300/30 rounded-full blur-[100px] pointer-events-none" />
-                <div className="hidden sm:block absolute bottom-0 left-0 w-[400px] h-[400px] bg-purple-400/15 rounded-full blur-[100px] pointer-events-none" />
-                <div className="hidden sm:block absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_40%,rgba(255,255,255,0.45),transparent)] pointer-events-none" />
-
-                {/* Mobile background — subtle star/glow effect */}
-                <div className="sm:hidden absolute inset-0 pointer-events-none">
-                    <div className="absolute top-1/4 left-1/2 -translate-x-1/2 w-80 h-80 bg-amber-500/10 rounded-full blur-[80px]" />
-                    <div className="absolute bottom-1/4 right-0 w-60 h-60 bg-blue-500/10 rounded-full blur-[80px]" />
+                {/* Background glow orbs */}
+                <div className="pointer-events-none absolute inset-0 overflow-hidden">
+                    <div className="absolute -top-40 left-1/2 -translate-x-1/2 w-[600px] h-[600px] rounded-full opacity-20" style={{ background: 'radial-gradient(circle, #7c3aed 0%, transparent 70%)' }} />
+                    <div className="absolute top-1/2 -right-40 w-[500px] h-[500px] rounded-full opacity-15" style={{ background: 'radial-gradient(circle, #2563eb 0%, transparent 70%)' }} />
+                    <div className="absolute -bottom-20 -left-20 w-[400px] h-[400px] rounded-full opacity-10" style={{ background: 'radial-gradient(circle, #f59e0b 0%, transparent 70%)' }} />
                 </div>
 
-                <div className="relative z-10 flex flex-col items-center text-center w-full max-w-lg mx-auto gap-4">
-                    {/* Logo */}
-                    <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-white shadow-2xl shadow-black/20 ring-4 ring-white/20 sm:ring-white/60 flex items-center justify-center overflow-hidden">
-                        <div className="relative w-14 h-14 sm:w-16 sm:h-16">
+                {/* Content */}
+                <div className="relative z-10 w-full max-w-sm mx-auto flex flex-col items-center gap-5 sm:max-w-lg">
+
+                    {/* Logo circle */}
+                    <div className="w-[88px] h-[88px] rounded-full flex items-center justify-center shadow-2xl ring-4 overflow-hidden" style={{ backgroundColor: '#fff', ringColor: 'rgba(255,255,255,0.15)', boxShadow: '0 0 0 4px rgba(255,255,255,0.12), 0 20px 60px rgba(0,0,0,0.4)' }}>
+                        <div className="relative w-16 h-16">
                             <Image src="/logo.png" alt="ARHMS Logo" fill className="object-contain" priority />
                         </div>
                     </div>
 
                     {/* Brand name */}
-                    <div className="flex flex-col items-center gap-0.5">
-                        <span className="font-heading font-black text-2xl sm:text-3xl tracking-tight text-white sm:text-foreground">
-                            ARHMS <span className="text-amber-400">TECH</span>
-                        </span>
-                        <span className="text-[9px] font-black uppercase tracking-[0.3em] text-white/40 sm:text-muted-foreground/60">Technologies Ltd</span>
+                    <div className="text-center">
+                        <p className="font-black text-2xl sm:text-3xl tracking-tight text-white">
+                            ARHMS <span style={{ color: '#f59e0b' }}>TECH</span>
+                        </p>
+                        <p className="text-[10px] font-bold uppercase tracking-[0.28em] mt-1" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                            Smart Solutions. Endless Possibilities.
+                        </p>
                     </div>
 
                     {/* Badge */}
-                    <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 sm:bg-white/70 border border-amber-400/30 sm:border-amber-300/50 backdrop-blur-sm shadow-sm">
-                        <Zap className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-                        <span className="text-[10px] font-black uppercase tracking-[0.18em] text-white/80 sm:text-foreground/80">Ultra Fast Instant Delivery</span>
+                    <div className="flex items-center gap-2 px-4 py-2 rounded-full border" style={{ backgroundColor: 'rgba(255,255,255,0.06)', borderColor: 'rgba(245,158,11,0.3)' }}>
+                        <Zap className="w-3.5 h-3.5" style={{ color: '#f59e0b', fill: '#f59e0b' }} />
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: 'rgba(255,255,255,0.75)' }}>Ultra Fast Instant Delivery</span>
                     </div>
 
-                    {/* ── CAROUSEL CARD ── */}
-                    <div className="w-full relative" style={{ minHeight: 420 }}>
+                    {/* ── Carousel card ─────────────────────────────────── */}
+                    <div className="w-full relative" style={{ minHeight: 440 }}>
+
                         {/* Slide 1 — Welcome */}
-                        <div className={cn(
-                            'w-full rounded-3xl p-6 sm:p-8 text-left transition-all duration-500 absolute inset-0',
-                            'bg-[#141424] sm:bg-white/70 border border-white/10 sm:border-white/80 shadow-2xl shadow-black/30 sm:shadow-black/10 backdrop-blur-xl',
-                            slide === 0 ? 'opacity-100 translate-x-0 pointer-events-auto' : slide > 0 ? 'opacity-0 -translate-x-4 pointer-events-none' : 'opacity-0 translate-x-4 pointer-events-none'
-                        )}>
-                            <p className="text-[10px] font-black uppercase tracking-[0.35em] text-amber-400 mb-3">Welcome to</p>
-                            <h1 className="font-heading font-black text-3xl sm:text-4xl tracking-tight leading-tight text-white sm:text-foreground mb-3">
-                                ARHMS <span className="text-amber-400">TECH</span>
+                        <div className={cn(cardBase, slideState(0))} style={{ background: 'linear-gradient(145deg,#0f0f28,#131330)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 25px 60px rgba(0,0,0,0.5)' }}>
+                            <p className="text-[10px] font-black uppercase tracking-[0.35em] mb-3" style={{ color: '#f59e0b' }}>Welcome to</p>
+                            <h1 className="font-black text-[2rem] sm:text-4xl leading-tight tracking-tight text-white mb-3">
+                                ARHMS <span style={{ color: '#f59e0b' }}>TECH</span>
                             </h1>
-                            <p className="text-sm font-medium text-white/60 sm:text-muted-foreground leading-relaxed mb-6">
+                            <p className="text-sm font-medium leading-relaxed mb-7" style={{ color: 'rgba(255,255,255,0.55)' }}>
                                 Ghana&apos;s all-in-one platform for mobile data, airtime, Results Checkers, and business growth. Instant delivery, always.
                             </p>
-                            <div className="flex flex-col sm:flex-row gap-3 sm:flex-wrap">
-                                <Link href="/auth/login" className="w-full sm:w-auto">
-                                    <Button className="w-full sm:w-auto h-12 sm:h-10 rounded-full bg-amber-400 hover:bg-amber-500 text-black font-black text-sm sm:text-xs uppercase tracking-widest shadow-lg shadow-amber-400/30 transition-all">
-                                        Sign In
-                                    </Button>
-                                </Link>
-                                <Link href="/auth/signup" className="w-full sm:w-auto">
-                                    <Button className="w-full sm:w-auto h-12 sm:h-10 rounded-full bg-white text-black font-black text-sm sm:text-xs uppercase tracking-widest border border-zinc-200 hover:bg-zinc-50 transition-all">
-                                        Create Account
-                                    </Button>
-                                </Link>
-                                {isValidGuestUrl && (
-                                    <a href={guestUrl} className="w-full sm:w-auto">
-                                        <Button className="w-full sm:w-auto h-12 sm:h-10 rounded-full bg-zinc-700 sm:bg-white/80 text-white sm:text-black font-black text-sm sm:text-xs uppercase tracking-widest border border-zinc-600 sm:border-zinc-200 hover:bg-zinc-600 sm:hover:bg-zinc-50 transition-all">
-                                            Buy as Guest
-                                        </Button>
-                                    </a>
-                                )}
-                                <Link href="/dashboard/install" className="w-full sm:w-auto">
-                                    <Button className="w-full sm:w-auto h-12 sm:h-10 rounded-full bg-zinc-700 sm:bg-white/80 text-white sm:text-black font-black text-sm sm:text-xs uppercase tracking-widest border border-zinc-600 sm:border-zinc-200 hover:bg-zinc-600 sm:hover:bg-zinc-50 transition-all">
-                                        <Smartphone className="w-3.5 h-3.5 mr-1.5" /> Download App
-                                    </Button>
-                                </Link>
+                            <div className="flex flex-col gap-3">
+                                <HeroBtn href="/auth/login" variant="primary">Sign In</HeroBtn>
+                                <HeroBtn href="/auth/signup" variant="white">Create Account</HeroBtn>
+                                {isValidGuestUrl && <HeroBtn href={guestUrl} variant="dark"><Store className="w-4 h-4" /> Buy as Guest</HeroBtn>}
+                                <HeroBtn href="/dashboard/install" variant="dark"><Smartphone className="w-4 h-4" /> Download App</HeroBtn>
                             </div>
-                            <SlideFooter current={0} total={SLIDE_COUNT} onDotClick={setSlide} />
+                            <SlideDots current={0} total={SLIDE_COUNT} onDotClick={setSlide} dark />
                         </div>
 
-                        {/* Slide 2 — Instant Delivery */}
-                        <div className={cn(
-                            'w-full rounded-3xl p-6 sm:p-8 text-left transition-all duration-500 absolute inset-0',
-                            'bg-[#141424] sm:bg-white/70 border border-white/10 sm:border-white/80 shadow-2xl shadow-black/30 sm:shadow-black/10 backdrop-blur-xl',
-                            slide === 1 ? 'opacity-100 translate-x-0 pointer-events-auto' : slide > 1 ? 'opacity-0 -translate-x-4 pointer-events-none' : 'opacity-0 translate-x-4 pointer-events-none'
-                        )}>
-                            <p className="text-[10px] font-black uppercase tracking-[0.35em] text-amber-400 mb-3">Lightning Fast</p>
-                            <h2 className="font-heading font-black text-3xl sm:text-4xl tracking-tight leading-tight text-white sm:text-foreground mb-3">
-                                Data in <span className="text-amber-400">Seconds</span>
+                        {/* Slide 2 — Lightning Fast */}
+                        <div className={cn(cardBase, slideState(1))} style={{ background: 'linear-gradient(145deg,#0c1428,#0f1a38)', border: '1px solid rgba(37,99,235,0.25)', boxShadow: '0 25px 60px rgba(0,0,0,0.5)' }}>
+                            <p className="text-[10px] font-black uppercase tracking-[0.35em] mb-3" style={{ color: '#f59e0b' }}>Lightning Fast</p>
+                            <h2 className="font-black text-[2rem] sm:text-4xl leading-tight tracking-tight text-white mb-3">
+                                Data in <span style={{ color: '#f59e0b' }}>Seconds</span>
                             </h2>
-                            <p className="text-sm font-medium text-white/60 sm:text-muted-foreground leading-relaxed mb-5">
-                                MTN, Telecel, and AT bundles delivered to any phone in under 3 seconds. Automated routing, zero delays.
+                            <p className="text-sm font-medium leading-relaxed mb-5" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                                MTN, Telecel, and AT bundles delivered to any phone in under 3 seconds — automated routing, zero delays.
                             </p>
                             <div className="grid grid-cols-3 gap-3 mb-6">
-                                {[
-                                    { label: 'Delivery', value: '< 3s' },
-                                    { label: 'Uptime', value: '99.9%' },
-                                    { label: 'Success', value: '99.98%' },
-                                ].map(s => (
-                                    <div key={s.label} className="rounded-2xl bg-white/5 sm:bg-black/5 border border-white/10 sm:border-black/10 p-3 text-center">
-                                        <p className="font-black text-lg text-amber-400">{s.value}</p>
-                                        <p className="text-[10px] font-bold text-white/50 sm:text-muted-foreground uppercase tracking-wider mt-0.5">{s.label}</p>
+                                {[{ v: '< 3s', l: 'Delivery' },{ v: '99.9%', l: 'Uptime' },{ v: '99.98%', l: 'Success' }].map(s => (
+                                    <div key={s.l} className="rounded-2xl p-3 text-center" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
+                                        <p className="font-black text-lg" style={{ color: '#f59e0b' }}>{s.v}</p>
+                                        <p className="text-[10px] font-bold uppercase tracking-wide mt-0.5" style={{ color: 'rgba(255,255,255,0.4)' }}>{s.l}</p>
                                     </div>
                                 ))}
                             </div>
-                            <Link href="/auth/signup">
-                                <Button className="h-12 sm:h-10 w-full sm:w-auto rounded-full bg-amber-400 hover:bg-amber-500 text-black font-black text-sm sm:text-xs uppercase tracking-widest shadow-lg shadow-amber-400/30 transition-all">
-                                    <Zap className="w-4 h-4 mr-2 fill-black" /> Buy Data Now
-                                </Button>
-                            </Link>
-                            <SlideFooter current={1} total={SLIDE_COUNT} onDotClick={setSlide} />
+                            <HeroBtn href="/auth/signup" variant="primary"><Zap className="w-4 h-4" /> Buy Data Now</HeroBtn>
+                            <SlideDots current={1} total={SLIDE_COUNT} onDotClick={setSlide} dark />
                         </div>
 
-                        {/* Slide 3 — Your Own Shop */}
-                        <div className={cn(
-                            'w-full rounded-3xl p-6 sm:p-8 text-left transition-all duration-500 absolute inset-0',
-                            'bg-[#141424] sm:bg-white/70 border border-white/10 sm:border-white/80 shadow-2xl shadow-black/30 sm:shadow-black/10 backdrop-blur-xl',
-                            slide === 2 ? 'opacity-100 translate-x-0 pointer-events-auto' : slide > 2 ? 'opacity-0 -translate-x-4 pointer-events-none' : 'opacity-0 translate-x-4 pointer-events-none'
-                        )}>
-                            <p className="text-[10px] font-black uppercase tracking-[0.35em] text-amber-400 mb-3">Build Your Brand</p>
-                            <h2 className="font-heading font-black text-3xl sm:text-4xl tracking-tight leading-tight text-white sm:text-foreground mb-3">
-                                Launch Your <span className="text-amber-400">Shop</span>
+                        {/* Slide 3 — Your Shop */}
+                        <div className={cn(cardBase, slideState(2))} style={{ background: 'linear-gradient(145deg,#0e1420,#0a1028)', border: '1px solid rgba(124,58,237,0.2)', boxShadow: '0 25px 60px rgba(0,0,0,0.5)' }}>
+                            <p className="text-[10px] font-black uppercase tracking-[0.35em] mb-3" style={{ color: '#f59e0b' }}>Build Your Brand</p>
+                            <h2 className="font-black text-[2rem] sm:text-4xl leading-tight tracking-tight text-white mb-3">
+                                Launch Your <span style={{ color: '#f59e0b' }}>Shop</span>
                             </h2>
-                            <p className="text-sm font-medium text-white/60 sm:text-muted-foreground leading-relaxed mb-5">
-                                Create a branded storefront with your name, logo, pricing, and checkout link — share it anywhere and start earning.
+                            <p className="text-sm font-medium leading-relaxed mb-5" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                                Create a branded storefront with your name, logo, pricing, and checkout link. Share it anywhere and start earning.
                             </p>
                             <div className="flex flex-wrap gap-2 mb-6">
-                                {['Public Shop URL', 'Custom Pricing', 'Order Tracking', 'WhatsApp Support', 'Brand Logo'].map(f => (
-                                    <span key={f} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/5 sm:bg-black/5 border border-white/10 sm:border-black/10 text-[10px] font-bold text-white/70 sm:text-foreground/70 uppercase tracking-wide">
-                                        <CheckCircle2 className="w-3 h-3 text-amber-400" />{f}
+                                {['Public Shop URL','Custom Pricing','Order Tracking','WhatsApp Support','Brand Logo'].map(f => (
+                                    <span key={f} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wide" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.6)' }}>
+                                        <CheckCircle2 className="w-3 h-3" style={{ color: '#f59e0b' }} />{f}
                                     </span>
                                 ))}
                             </div>
-                            <Link href="/auth/signup">
-                                <Button className="h-12 sm:h-10 w-full sm:w-auto rounded-full bg-amber-400 hover:bg-amber-500 text-black font-black text-sm sm:text-xs uppercase tracking-widest shadow-lg shadow-amber-400/30 transition-all">
-                                    <Store className="w-4 h-4 mr-2" /> Open Your Shop
-                                </Button>
-                            </Link>
-                            <SlideFooter current={2} total={SLIDE_COUNT} onDotClick={setSlide} />
+                            <HeroBtn href="/auth/signup" variant="primary"><Store className="w-4 h-4" /> Open Your Shop</HeroBtn>
+                            <SlideDots current={2} total={SLIDE_COUNT} onDotClick={setSlide} dark />
                         </div>
 
                         {/* Slide 4 — Agent Plans */}
-                        <div className={cn(
-                            'w-full rounded-3xl p-6 sm:p-8 text-left transition-all duration-500 absolute inset-0',
-                            'bg-[#141424] sm:bg-white/70 border border-white/10 sm:border-white/80 shadow-2xl shadow-black/30 sm:shadow-black/10 backdrop-blur-xl',
-                            slide === 3 ? 'opacity-100 translate-x-0 pointer-events-auto' : 'opacity-0 translate-x-4 pointer-events-none'
-                        )}>
-                            <p className="text-[10px] font-black uppercase tracking-[0.35em] text-amber-400 mb-3">Become an Agent</p>
-                            <h2 className="font-heading font-black text-3xl sm:text-4xl tracking-tight leading-tight text-white sm:text-foreground mb-3">
-                                Grow Your <span className="text-amber-400">Business</span>
+                        <div className={cn(cardBase, slideState(3))} style={{ background: 'linear-gradient(145deg,#110e20,#160c28)', border: '1px solid rgba(245,158,11,0.15)', boxShadow: '0 25px 60px rgba(0,0,0,0.5)' }}>
+                            <p className="text-[10px] font-black uppercase tracking-[0.35em] mb-3" style={{ color: '#f59e0b' }}>Become an Agent</p>
+                            <h2 className="font-black text-[2rem] sm:text-4xl leading-tight tracking-tight text-white mb-3">
+                                Grow Your <span style={{ color: '#f59e0b' }}>Business</span>
                             </h2>
-                            <p className="text-sm font-medium text-white/60 sm:text-muted-foreground leading-relaxed mb-5">
+                            <p className="text-sm font-medium leading-relaxed mb-5" style={{ color: 'rgba(255,255,255,0.55)' }}>
                                 Unlock wholesale rates, priority support, and bulk tools. Plans starting from GHS 9.99 — pick yours today.
                             </p>
                             <div className="grid grid-cols-2 gap-3 mb-6">
                                 {[
-                                    { name: 'Starter', price: `GHS ${planPrices['3d'].toFixed(2)}`, period: '3 Days' },
-                                    { name: 'Popular', price: `GHS ${planPrices['14d'].toFixed(2)}`, period: '14 Days', highlight: true },
-                                    { name: 'Premium', price: `GHS ${planPrices['30d'].toFixed(2)}`, period: '30 Days' },
-                                    { name: 'Lifetime', price: `GHS ${planPrices['permanent'].toFixed(2)}`, period: 'Forever' },
+                                    { name: 'Starter', price: planPrices['3d'], period: '3 Days' },
+                                    { name: 'Popular', price: planPrices['14d'], period: '14 Days', highlight: true },
+                                    { name: 'Premium', price: planPrices['30d'], period: '30 Days' },
+                                    { name: 'Lifetime', price: planPrices['permanent'], period: 'Forever' },
                                 ].map(p => (
-                                    <div key={p.name} className={cn(
-                                        'rounded-2xl border p-3 text-center',
-                                        p.highlight
-                                            ? 'bg-amber-400/15 border-amber-400/40'
-                                            : 'bg-white/5 sm:bg-black/5 border-white/10 sm:border-black/10'
-                                    )}>
-                                        <p className={cn('font-black text-sm', p.highlight ? 'text-amber-400' : 'text-white/80 sm:text-foreground/80')}>{p.name}</p>
-                                        <p className="font-black text-base text-white sm:text-foreground">{p.price}</p>
-                                        <p className="text-[10px] text-white/40 sm:text-muted-foreground uppercase tracking-wide">{p.period}</p>
+                                    <div key={p.name} className="rounded-2xl p-3 text-center" style={{
+                                        background: p.highlight ? 'rgba(245,158,11,0.12)' : 'rgba(255,255,255,0.04)',
+                                        border: p.highlight ? '1px solid rgba(245,158,11,0.35)' : '1px solid rgba(255,255,255,0.08)',
+                                    }}>
+                                        <p className="font-black text-xs uppercase tracking-wide" style={{ color: p.highlight ? '#f59e0b' : 'rgba(255,255,255,0.6)' }}>{p.name}</p>
+                                        <p className="font-black text-base text-white mt-0.5">GHS {p.price.toFixed(2)}</p>
+                                        <p className="text-[10px] uppercase tracking-wide mt-0.5" style={{ color: 'rgba(255,255,255,0.35)' }}>{p.period}</p>
                                     </div>
                                 ))}
                             </div>
-                            <Link href="/auth/signup">
-                                <Button className="h-12 sm:h-10 w-full sm:w-auto rounded-full bg-amber-400 hover:bg-amber-500 text-black font-black text-sm sm:text-xs uppercase tracking-widest shadow-lg shadow-amber-400/30 transition-all">
-                                    <ArrowRight className="w-4 h-4 mr-2" /> Become an Agent
-                                </Button>
-                            </Link>
-                            <SlideFooter current={3} total={SLIDE_COUNT} onDotClick={setSlide} />
+                            <HeroBtn href="/auth/signup" variant="primary"><ArrowRight className="w-4 h-4" /> Become an Agent</HeroBtn>
+                            <SlideDots current={3} total={SLIDE_COUNT} onDotClick={setSlide} dark />
                         </div>
                     </div>
 
-                    <Link href="/shop/status" className="inline-flex items-center gap-2 text-xs font-bold text-white/40 sm:text-muted-foreground hover:text-amber-400 transition-colors">
+                    {/* Track order */}
+                    <Link href="/shop/status" className="flex items-center gap-2 text-xs font-bold transition-colors" style={{ color: 'rgba(255,255,255,0.35)' }}>
                         <CheckCircle2 className="w-4 h-4" /> Track an Order
                     </Link>
                 </div>
             </section>
 
+            {/* ══ HOW IT WORKS ══════════════════════════════════════════════════════ */}
             <section className="py-28 px-6 lg:px-10 bg-secondary/20">
                 <div className="max-w-7xl mx-auto">
                     <div className="text-center mb-16 space-y-4">
@@ -402,7 +362,6 @@ export function LandingClientShell({
                             ARHMS takes you from signup to first sale with wallet funding, agent upgrade options, and a ready-to-share storefront.
                         </p>
                     </div>
-
                     <div className="grid md:grid-cols-3 gap-8">
                         {[
                             { step: '01', title: 'Create account', desc: 'Create your account and unlock the dashboard.' },
@@ -416,20 +375,14 @@ export function LandingClientShell({
                             </div>
                         ))}
                     </div>
-
                     <div className="flex flex-col sm:flex-row gap-4 justify-center mt-10">
-                        <Link href="/auth/signup">
-                            <Button className="h-12 px-8 rounded-2xl font-black uppercase tracking-widest">Create Account</Button>
-                        </Link>
-                        <a href="#plans">
-                            <Button variant="outline" className="h-12 px-8 rounded-2xl font-black uppercase tracking-widest">
-                                See Agent Plans
-                            </Button>
-                        </a>
+                        <Link href="/auth/signup"><Button className="h-12 px-8 rounded-2xl font-black uppercase tracking-widest">Create Account</Button></Link>
+                        <a href="#plans"><Button variant="outline" className="h-12 px-8 rounded-2xl font-black uppercase tracking-widest">See Agent Plans</Button></a>
                     </div>
                 </div>
             </section>
 
+            {/* ══ FEATURES ══════════════════════════════════════════════════════════ */}
             <section id="features" className="py-32 px-6 lg:px-10">
                 <div className="max-w-7xl mx-auto">
                     <div className="text-center mb-20 space-y-4">
@@ -441,7 +394,6 @@ export function LandingClientShell({
                             Keep the speed of instant delivery while adding the operational tools resellers use every day.
                         </p>
                     </div>
-
                     <div className="grid md:grid-cols-2 xl:grid-cols-5 gap-6">
                         {featureCards.map((feature, i) => (
                             <div key={`${feature.title}-${i}`} className="card-premium p-7 group hover:border-primary/50 transition-all duration-500">
@@ -453,20 +405,14 @@ export function LandingClientShell({
                             </div>
                         ))}
                     </div>
-
                     <div className="flex flex-col sm:flex-row gap-4 justify-center mt-12">
-                        <Link href="/auth/signup">
-                            <Button className="h-12 px-8 rounded-2xl font-black uppercase tracking-widest">Open Account</Button>
-                        </Link>
-                        <a href={guestUrl}>
-                            <Button variant="outline" className="h-12 px-8 rounded-2xl font-black uppercase tracking-widest">
-                                View Guest Store
-                            </Button>
-                        </a>
+                        <Link href="/auth/signup"><Button className="h-12 px-8 rounded-2xl font-black uppercase tracking-widest">Open Account</Button></Link>
+                        {isValidGuestUrl && <a href={guestUrl}><Button variant="outline" className="h-12 px-8 rounded-2xl font-black uppercase tracking-widest">View Guest Store</Button></a>}
                     </div>
                 </div>
             </section>
 
+            {/* ══ PLANS ═══════════════════════════════════════════════════════════ */}
             <section id="plans" className="py-32 px-6 lg:px-10 bg-secondary/20">
                 <div className="max-w-7xl mx-auto">
                     <div className="text-center mb-16 space-y-4">
@@ -476,78 +422,46 @@ export function LandingClientShell({
                             Every plan unlocks the same reseller toolkit. Pick the access length that matches how you want to grow.
                         </p>
                     </div>
-
                     <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-6">
                         {planCards.map((plan) => (
-                            <Card
-                                key={plan.id}
-                                className={cn(
-                                    'card-premium p-8 relative overflow-hidden',
-                                    plan.highlight && 'border-primary shadow-blue-premium'
-                                )}
-                            >
+                            <Card key={plan.id} className={cn('card-premium p-8 relative overflow-hidden', plan.highlight && 'border-primary shadow-blue-premium')}>
                                 <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-primary/10 blur-2xl" />
                                 <div className="relative z-10 space-y-4">
-                                    <p className="inline-flex text-[10px] font-black uppercase tracking-[0.18em] px-3 py-1 rounded-full bg-primary text-primary-foreground">
-                                        {plan.badge}
-                                    </p>
+                                    <p className="inline-flex text-[10px] font-black uppercase tracking-[0.18em] px-3 py-1 rounded-full bg-primary text-primary-foreground">{plan.badge}</p>
                                     <h4 className="text-3xl font-black tracking-tight">{plan.name}</h4>
                                     <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">{plan.duration}</p>
                                     <p className="text-4xl font-black text-primary">GHS {planPrices[plan.id].toFixed(2)}</p>
-                                    <Link href="/auth/signup">
-                                        <Button className="w-full h-12 rounded-2xl font-black uppercase tracking-widest">
-                                            Become an Agent
-                                        </Button>
-                                    </Link>
+                                    <Link href="/auth/signup"><Button className="w-full h-12 rounded-2xl font-black uppercase tracking-widest">Become an Agent</Button></Link>
                                 </div>
                             </Card>
                         ))}
                     </div>
-
                     <div className="mt-10 card-premium p-8">
                         <p className="text-xs font-black uppercase tracking-[0.3em] text-primary mb-4">Included in all plans</p>
                         <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-3 text-sm font-bold text-muted-foreground">
-                            {[
-                                'Exclusive Wholesale Pricing',
-                                'Priority Customer Support',
-                                '0% Top Up Charges (Admin Manual Top Up)',
-                                'Faster Order Processing',
-                                'Bulk Order Import Feature',
-                                'New Exclusive UI Design Features',
-                                'Shop Storefront Feature (Live)',
-                            ].map((item) => (
+                            {['Exclusive Wholesale Pricing','Priority Customer Support','0% Top Up Charges (Admin Manual Top Up)','Faster Order Processing','Bulk Order Import Feature','New Exclusive UI Design Features','Shop Storefront Feature (Live)'].map((item) => (
                                 <div key={item} className="flex items-start gap-2">
-                                    <CheckCircle2 className="w-4 h-4 mt-0.5 text-primary" />
-                                    <span>{item}</span>
+                                    <CheckCircle2 className="w-4 h-4 mt-0.5 text-primary" /><span>{item}</span>
                                 </div>
                             ))}
                         </div>
                     </div>
-
-                    <div className="flex justify-center mt-10">
-                        <a href="#features">
-                            <Button variant="outline" className="h-12 px-8 rounded-2xl font-black uppercase tracking-widest">
-                                Compare Features
-                            </Button>
-                        </a>
-                    </div>
                 </div>
             </section>
 
+            {/* ══ NETWORKS ════════════════════════════════════════════════════════ */}
             <section id="networks" className="py-32 px-6 lg:px-10">
                 <div className="max-w-7xl mx-auto">
                     <div className="grid lg:grid-cols-2 gap-20 items-center">
                         <div className="space-y-10">
                             <div className="space-y-6">
                                 <h2 className="text-5xl md:text-7xl font-black tracking-tighter leading-none">
-                                    Universal <br />
-                                    <span className="text-primary">Connectivity.</span>
+                                    Universal <br /><span className="text-primary">Connectivity.</span>
                                 </h2>
                                 <p className="text-xl text-muted-foreground font-medium max-w-lg">
                                     One platform, every network. We provide deep integration with all major Ghanaian carriers.
                                 </p>
                             </div>
-
                             <div className="space-y-4">
                                 {[
                                     { name: 'MTN Ghana', status: 'Optimal', color: 'bg-yellow-400' },
@@ -564,13 +478,10 @@ export function LandingClientShell({
                                 ))}
                             </div>
                         </div>
-
                         <div className="relative">
                             <div className="absolute inset-0 bg-primary/20 rounded-3xl blur-[100px] -z-10" />
                             <Card className="card-premium p-10 overflow-hidden relative">
-                                <div className="absolute top-0 right-0 p-8 opacity-10">
-                                    <Layers className="w-40 h-40" />
-                                </div>
+                                <div className="absolute top-0 right-0 p-8 opacity-10"><Layers className="w-40 h-40" /></div>
                                 <div className="relative z-10 space-y-8">
                                     <div className="space-y-2">
                                         <p className="text-[10px] font-black uppercase tracking-[0.4em] text-primary">System Status</p>
@@ -587,7 +498,7 @@ export function LandingClientShell({
                                         </div>
                                     </div>
                                     <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
-                                        <div className="h-full w-[99%] bg-primary shadow-gold" />
+                                        <div className="h-full w-[99%] bg-primary" />
                                     </div>
                                 </div>
                             </Card>
@@ -596,6 +507,7 @@ export function LandingClientShell({
                 </div>
             </section>
 
+            {/* ══ STOREFRONT ══════════════════════════════════════════════════════ */}
             <section className="py-32 px-6 lg:px-10 bg-secondary/20">
                 <div className="max-w-7xl mx-auto">
                     <div className="grid lg:grid-cols-2 gap-12 items-center">
@@ -607,35 +519,17 @@ export function LandingClientShell({
                                 Create a public shop link with your name, logo, banner, colors, community link, data packages, airtime checkout, order tracking, and a dedicated about page.
                             </p>
                             <div className="grid sm:grid-cols-2 gap-3 text-sm">
-                                {[
-                                    'Public shop URL',
-                                    'Brand colors and logo',
-                                    'Banner image',
-                                    'Data package tabs by network',
-                                    'Airtime recharge',
-                                    'About Shop & Terms page',
-                                    'WhatsApp support',
-                                    'Community invite link',
-                                    'Track My Orders',
-                                ].map((item) => (
+                                {['Public shop URL','Brand colors and logo','Banner image','Data package tabs by network','Airtime recharge','About Shop & Terms page','WhatsApp support','Community invite link','Track My Orders'].map((item) => (
                                     <div key={item} className="flex items-center gap-2 font-bold text-muted-foreground">
-                                        <CheckCircle2 className="w-4 h-4 text-primary" />
-                                        <span>{item}</span>
+                                        <CheckCircle2 className="w-4 h-4 text-primary" /><span>{item}</span>
                                     </div>
                                 ))}
                             </div>
                             <div className="flex flex-col sm:flex-row gap-4 pt-2">
-                                <a href={guestUrl}>
-                                    <Button className="h-12 px-8 rounded-2xl font-black uppercase tracking-widest">View Guest Store Demo</Button>
-                                </a>
-                                <Link href="/shop/status">
-                                    <Button variant="outline" className="h-12 px-8 rounded-2xl font-black uppercase tracking-widest">
-                                        Track Demo Order
-                                    </Button>
-                                </Link>
+                                {isValidGuestUrl && <a href={guestUrl}><Button className="h-12 px-8 rounded-2xl font-black uppercase tracking-widest">View Guest Store Demo</Button></a>}
+                                <Link href="/shop/status"><Button variant="outline" className="h-12 px-8 rounded-2xl font-black uppercase tracking-widest">Track Demo Order</Button></Link>
                             </div>
                         </div>
-
                         <Card className="card-premium p-8">
                             <div className="rounded-3xl border border-border/40 bg-background/80 overflow-hidden">
                                 <div className="h-10 px-4 flex items-center gap-2 border-b border-border/40">
@@ -651,7 +545,7 @@ export function LandingClientShell({
                                         <p className="text-sm opacity-80">Branded checkout for data and airtime sales.</p>
                                     </div>
                                     <div className="grid grid-cols-2 gap-3">
-                                        {['MTN Bundles', 'Telecel Bundles', 'AT Bundles', 'Airtime Top-Up'].map((block) => (
+                                        {['MTN Bundles','Telecel Bundles','AT Bundles','Airtime Top-Up'].map((block) => (
                                             <div key={block} className="rounded-xl border border-border/40 p-3">
                                                 <p className="text-xs font-black uppercase tracking-wider text-muted-foreground">{block}</p>
                                             </div>
@@ -668,32 +562,18 @@ export function LandingClientShell({
                 </div>
             </section>
 
+            {/* ══ TESTIMONIALS ════════════════════════════════════════════════════ */}
             <section className="py-32 px-6 lg:px-10">
                 <div className="max-w-7xl mx-auto">
                     <div className="text-center mb-16 space-y-4">
                         <h2 className="text-xs font-black uppercase tracking-[0.5em] text-primary">Testimonials</h2>
                         <h3 className="text-4xl md:text-6xl font-black tracking-tighter">Built for Real <span className="text-primary">Ghanaian Resellers</span></h3>
-                        <p className="max-w-3xl mx-auto text-muted-foreground font-medium">
-                            Supporting wallet funding, storefront sales, airtime orders, and order tracking across Ghana&apos;s major networks.
-                        </p>
                     </div>
                     <div className="grid md:grid-cols-3 gap-6">
                         {[
-                            {
-                                quote: 'I started with data bundles, then added airtime sales and my own shop link. Customers can order and track status without calling me every time.',
-                                name: 'Akosua M.',
-                                role: 'Reseller, Accra',
-                            },
-                            {
-                                quote: 'The wallet flow and storefront saved me from taking orders manually in WhatsApp all day. I can fund once and keep selling.',
-                                name: 'Kwame B.',
-                                role: 'Campus Vendor, Kumasi',
-                            },
-                            {
-                                quote: 'What I like most is the visibility: shop branding, order history, and complaints support all live in one place.',
-                                name: 'Efua N.',
-                                role: 'Small Business Owner, Takoradi',
-                            },
+                            { quote: 'I started with data bundles, then added airtime sales and my own shop link. Customers can order and track status without calling me every time.', name: 'Akosua M.', role: 'Reseller, Accra' },
+                            { quote: 'The wallet flow and storefront saved me from taking orders manually in WhatsApp all day. I can fund once and keep selling.', name: 'Kwame B.', role: 'Campus Vendor, Kumasi' },
+                            { quote: 'What I like most is the visibility: shop branding, order history, and complaints support all live in one place.', name: 'Efua N.', role: 'Small Business Owner, Takoradi' },
                         ].map((item) => (
                             <Card key={item.name} className="card-premium p-8">
                                 <MessageSquare className="w-6 h-6 text-primary mb-4" />
@@ -706,28 +586,18 @@ export function LandingClientShell({
                         ))}
                     </div>
                     <div className="flex flex-col sm:flex-row gap-4 justify-center mt-10">
-                        <Link href="/auth/signup">
-                            <Button className="h-12 px-8 rounded-2xl font-black uppercase tracking-widest">Create Free Account</Button>
-                        </Link>
-                        {isValidGuestUrl && (
-                        <a href={guestUrl}>
-                            <Button variant="outline" className="h-12 px-8 rounded-2xl font-black uppercase tracking-widest">
-                                Open Guest Store
-                            </Button>
-                        </a>
-                        )}
+                        <Link href="/auth/signup"><Button className="h-12 px-8 rounded-2xl font-black uppercase tracking-widest">Create Free Account</Button></Link>
+                        {isValidGuestUrl && <a href={guestUrl}><Button variant="outline" className="h-12 px-8 rounded-2xl font-black uppercase tracking-widest">Open Guest Store</Button></a>}
                     </div>
                 </div>
             </section>
 
+            {/* ══ FAQ ═════════════════════════════════════════════════════════════ */}
             <section id="support" className="py-32 px-6 lg:px-10 bg-secondary/20">
                 <div className="max-w-7xl mx-auto">
                     <div className="text-center mb-16 space-y-4">
                         <h2 className="text-xs font-black uppercase tracking-[0.5em] text-primary">FAQ</h2>
                         <h3 className="text-4xl md:text-6xl font-black tracking-tighter">Questions New Resellers <span className="text-primary">Ask First</span></h3>
-                        <p className="max-w-3xl mx-auto text-muted-foreground font-medium">
-                            Answering the practical questions that block new signups, based on features already live inside ARHMS.
-                        </p>
                     </div>
                     <div className="grid lg:grid-cols-2 gap-5">
                         {faqItems.map((item) => (
@@ -741,30 +611,23 @@ export function LandingClientShell({
                         ))}
                     </div>
                     <div className="flex flex-col sm:flex-row gap-4 justify-center mt-10">
-                        <Link href="/auth/signup">
-                            <Button className="h-12 px-8 rounded-2xl font-black uppercase tracking-widest">Create Free Account</Button>
-                        </Link>
-                        <Link href="/shop/status">
-                            <Button variant="outline" className="h-12 px-8 rounded-2xl font-black uppercase tracking-widest">
-                                Track an Order
-                            </Button>
-                        </Link>
+                        <Link href="/auth/signup"><Button className="h-12 px-8 rounded-2xl font-black uppercase tracking-widest">Create Free Account</Button></Link>
+                        <Link href="/shop/status"><Button variant="outline" className="h-12 px-8 rounded-2xl font-black uppercase tracking-widest">Track an Order</Button></Link>
                     </div>
                 </div>
             </section>
 
+            {/* ══ CTA BANNER ══════════════════════════════════════════════════════ */}
             <section className="py-32 px-6 lg:px-10">
                 <div className="max-w-7xl mx-auto">
                     <Card className="relative overflow-hidden rounded-[40px] border-0 bg-foreground p-12 md:p-24 text-background text-center shadow-2xl">
                         <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-primary/20 rounded-full blur-[100px] -mr-64 -mt-64" />
-
                         <div className="relative z-10 space-y-12">
                             <h2 className="text-5xl md:text-8xl font-black tracking-tighter leading-[0.9]">
-                                Ready to Upgrade <br />
-                                <span className="text-primary">Your Business?</span>
+                                Ready to Upgrade <br /><span className="text-primary">Your Business?</span>
                             </h2>
                             <p className="max-w-2xl mx-auto text-xl font-medium opacity-70">
-                                Stop struggling with slow deliveries and poor rates. Step into the future of data and airtime reselling with ARHMS DATA.
+                                Stop struggling with slow deliveries and poor rates. Step into the future of data and airtime reselling with ARHMS TECH.
                             </p>
                             <div className="flex flex-col sm:flex-row gap-6 justify-center">
                                 <Link href="/auth/signup" className="w-full sm:w-auto">
@@ -783,83 +646,44 @@ export function LandingClientShell({
                 </div>
             </section>
 
+            {/* ══ FOOTER ══════════════════════════════════════════════════════════ */}
             <footer className="py-20 px-6 lg:px-10 border-t border-border/40">
                 <div className="max-w-7xl mx-auto">
                     <div className="grid md:grid-cols-4 gap-16 mb-20">
                         <div className="md:col-span-2 space-y-8">
                             <div className="flex items-center gap-3">
                                 <BrandLogo hideText className="scale-75 origin-left" />
-                                <span className="font-heading font-black text-xl tracking-tighter">ARHMS DATA</span>
+                                <span className="font-black text-xl tracking-tighter">ARHMS <span style={{ color: '#f59e0b' }}>TECH</span></span>
                             </div>
                             <p className="text-muted-foreground font-medium max-w-sm">
-                                The definitive platform for digital asset reselling in West Africa. Built for speed, security, and absolute reliability.
+                                Smart Solutions. Endless Possibilities. Ghana&apos;s trusted data and airtime reselling platform built for speed, security, and reliability.
                             </p>
                             <div className="flex flex-wrap gap-3">
-                                <Link href="/auth/signup">
-                                    <Button className="h-10 px-6 rounded-xl text-[10px] font-black uppercase tracking-widest">Create Free Account</Button>
-                                </Link>
-                                <Link href="/auth/login">
-                                    <Button variant="outline" className="h-10 px-6 rounded-xl text-[10px] font-black uppercase tracking-widest">
-                                        Login
-                                    </Button>
-                                </Link>
-                                {isValidGuestUrl && (
-                                <a href={guestUrl}>
-                                    <Button variant="outline" className="h-10 px-6 rounded-xl text-[10px] font-black uppercase tracking-widest">
-                                        Open Guest Store
-                                    </Button>
-                                </a>
-                                )}
-                                <Link href="/shop/status">
-                                    <Button variant="outline" className="h-10 px-6 rounded-xl text-[10px] font-black uppercase tracking-widest">
-                                        Track Order Status
-                                    </Button>
-                                </Link>
+                                <Link href="/auth/signup"><Button className="h-10 px-6 rounded-xl text-[10px] font-black uppercase tracking-widest">Create Free Account</Button></Link>
+                                <Link href="/auth/login"><Button variant="outline" className="h-10 px-6 rounded-xl text-[10px] font-black uppercase tracking-widest">Login</Button></Link>
+                                {isValidGuestUrl && <a href={guestUrl}><Button variant="outline" className="h-10 px-6 rounded-xl text-[10px] font-black uppercase tracking-widest">Open Guest Store</Button></a>}
+                                <Link href="/shop/status"><Button variant="outline" className="h-10 px-6 rounded-xl text-[10px] font-black uppercase tracking-widest">Track Order</Button></Link>
                             </div>
                         </div>
                         <div className="space-y-6">
                             <p className="text-[10px] font-black uppercase tracking-[0.4em] text-primary">Platform</p>
                             <ul className="space-y-4 text-sm font-bold text-muted-foreground">
-                                <li>
-                                    <a href="#features" className="hover:text-primary transition-colors">
-                                        Features
-                                    </a>
-                                </li>
-                                <li>
-                                    <a href="#plans" className="hover:text-primary transition-colors">
-                                        Reseller Plans
-                                    </a>
-                                </li>
-                                <li>
-                                    <Link href="/shop/status" className="hover:text-primary transition-colors">
-                                        Order Tracking
-                                    </Link>
-                                </li>
+                                <li><a href="#features" className="hover:text-primary transition-colors">Features</a></li>
+                                <li><a href="#plans" className="hover:text-primary transition-colors">Reseller Plans</a></li>
+                                <li><Link href="/shop/status" className="hover:text-primary transition-colors">Order Tracking</Link></li>
                             </ul>
                         </div>
                         <div className="space-y-6">
                             <p className="text-[10px] font-black uppercase tracking-[0.4em] text-primary">Legal</p>
                             <ul className="space-y-4 text-sm font-bold text-muted-foreground">
-                                <li>
-                                    <Link href="/terms" className="hover:text-primary transition-colors">
-                                        Terms of Service
-                                    </Link>
-                                </li>
-                                <li>
-                                    <Link href="/privacy" className="hover:text-primary transition-colors">
-                                        Privacy Protocol
-                                    </Link>
-                                </li>
-                                <li>
-                                    <Link href="/contact" className="hover:text-primary transition-colors">
-                                        Secure Contact
-                                    </Link>
-                                </li>
+                                <li><Link href="/terms" className="hover:text-primary transition-colors">Terms of Service</Link></li>
+                                <li><Link href="/privacy" className="hover:text-primary transition-colors">Privacy Protocol</Link></li>
+                                <li><Link href="/contact" className="hover:text-primary transition-colors">Secure Contact</Link></li>
                             </ul>
                         </div>
                     </div>
                     <div className="flex flex-col md:flex-row justify-between items-center gap-8 pt-10 border-t border-border/40 opacity-60">
-                        <p className="text-[10px] font-black uppercase tracking-widest">© 2026 ARHMS DATA LTD • ALL RIGHTS RESERVED</p>
+                        <p className="text-[10px] font-black uppercase tracking-widest">© 2026 ARHMS TECHNOLOGIES LTD • ALL RIGHTS RESERVED</p>
                         <div className="flex gap-8 text-[10px] font-black uppercase tracking-widest">
                             <span>WEST AFRICA</span>
                             <span>HQ: ACCRA, GHANA</span>
@@ -871,4 +695,3 @@ export function LandingClientShell({
         </div>
     )
 }
-
