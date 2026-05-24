@@ -123,106 +123,149 @@ export function LandingClientShell({
 
     return (
         <div className="min-h-screen bg-background text-foreground overflow-x-hidden selection:bg-primary/30 selection:text-primary-foreground">
+            {/* ── NAV ── */}
             <nav
                 className={cn(
-                    'fixed top-0 w-full z-[100] transition-all duration-700 h-20 flex items-center',
+                    'fixed top-0 w-full z-[100] transition-all duration-700 h-16 sm:h-20 flex items-center',
                     headerScrolled
-                        ? 'bg-background/80 backdrop-blur-2xl border-b border-border/40 shadow-premium'
+                        ? 'bg-white/90 dark:bg-zinc-900/90 backdrop-blur-2xl border-b border-border/40 shadow-sm'
                         : 'bg-transparent'
                 )}
             >
-                <div className="max-w-7xl mx-auto px-6 lg:px-10 w-full flex items-center justify-between">
-                    <a href="#" className="flex items-center gap-3 group cursor-pointer">
+                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 w-full flex items-center justify-between">
+                    <a href="#" className="flex items-center gap-2 group cursor-pointer">
                         <BrandLogo hideText />
-                        <span className="font-heading font-black text-2xl tracking-tighter text-foreground group-hover:text-primary transition-colors">
-                            ARHMS <span className="text-primary">DATA</span>
+                        <span className="font-heading font-black text-lg sm:text-xl tracking-tighter text-foreground group-hover:text-amber-500 transition-colors">
+                            ARHMS <span className="text-amber-500">TECH</span>
                         </span>
                     </a>
 
-                    <div className="hidden md:flex items-center gap-8">
-                        <a href="#features" className="text-xs font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors">
-                            Features
-                        </a>
-                        <a href="#networks" className="text-xs font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors">
-                            Networks
-                        </a>
-                        <a href="#support" className="text-xs font-black uppercase tracking-widest text-muted-foreground hover:text-primary transition-colors">
-                            Support
-                        </a>
+                    <div className="hidden md:flex items-center gap-6 lg:gap-8">
+                        {['Products', 'Wallet', 'Resell', 'AFA', 'Community'].map((item) => (
+                            <a
+                                key={item}
+                                href={item === 'Products' ? '#features' : item === 'Wallet' ? '#plans' : '#support'}
+                                className="text-xs font-bold text-muted-foreground hover:text-foreground transition-colors"
+                            >
+                                {item}
+                            </a>
+                        ))}
                     </div>
 
-                    <div className="flex items-center gap-2 sm:gap-4">
+                    <div className="flex items-center gap-1.5 sm:gap-3">
                         <ThemeToggle />
+                        <Link href="/dashboard/install">
+                            <Button variant="outline" size="sm" className="hidden sm:flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest rounded-full border-border/60 px-3 h-8">
+                                <Smartphone className="w-3 h-3" /> Install App
+                            </Button>
+                        </Link>
                         <Link href="/auth/login">
-                            <Button variant="ghost" className="flex text-[10px] sm:text-xs font-black uppercase tracking-widest hover:bg-secondary/50 px-2 sm:px-4">
+                            <Button variant="ghost" size="sm" className="text-xs font-black uppercase tracking-widest px-3 h-8">
                                 Login
                             </Button>
                         </Link>
                         <Link href="/auth/signup">
-                            <Button className="bg-primary text-primary-foreground font-black uppercase tracking-widest text-[10px] h-10 sm:h-12 px-4 sm:px-8 rounded-2xl shadow-blue-premium hover:scale-105 active:scale-95 transition-all">
-                                Open Account
+                            <Button size="sm" className="bg-amber-500 hover:bg-amber-600 text-black font-black uppercase tracking-widest text-[10px] h-8 px-4 rounded-full shadow-lg hover:scale-105 active:scale-95 transition-all">
+                                Get Started
                             </Button>
                         </Link>
                     </div>
                 </div>
             </nav>
 
-            <section className="relative pt-40 pb-28 px-6 lg:px-10 overflow-hidden">
-                <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-primary/10 rounded-full blur-[120px] -mr-96 -mt-96 pointer-events-none" />
-                <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-secondary/5 rounded-full blur-[100px] -ml-72 -mb-72 pointer-events-none" />
+            {/* ── HERO ── */}
+            <section className="relative min-h-screen flex flex-col items-center justify-center px-4 sm:px-6 lg:px-10 overflow-hidden pt-16">
+                {/* Background glow blobs */}
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-purple-50/60 to-amber-50 dark:from-zinc-950 dark:via-indigo-950/40 dark:to-zinc-900 pointer-events-none" />
+                <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] bg-blue-400/20 dark:bg-blue-500/10 rounded-full blur-[120px] pointer-events-none" />
+                <div className="absolute top-1/3 right-0 w-[500px] h-[500px] bg-amber-300/30 dark:bg-amber-500/10 rounded-full blur-[100px] pointer-events-none" />
+                <div className="absolute bottom-0 left-0 w-[400px] h-[400px] bg-purple-400/15 dark:bg-purple-500/10 rounded-full blur-[100px] pointer-events-none" />
+                {/* Mirror shimmer */}
+                <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_60%_at_50%_40%,rgba(255,255,255,0.4),transparent)] dark:bg-[radial-gradient(ellipse_80%_60%_at_50%_40%,rgba(255,255,255,0.04),transparent)] pointer-events-none" />
 
-                <div className="max-w-7xl mx-auto relative z-10">
-                    <div className="flex flex-col items-center text-center space-y-10">
-                        <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-secondary/50 border border-border/50 backdrop-blur-md animate-slow-fade">
-                            <Zap className="w-4 h-4 text-primary fill-primary" />
-                            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/80">Ghana&apos;s Data + Airtime Reselling Platform</span>
+                <div className="relative z-10 flex flex-col items-center text-center w-full max-w-lg mx-auto gap-5">
+                    {/* Circular logo */}
+                    <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-white dark:bg-zinc-800 shadow-2xl shadow-black/10 ring-4 ring-white/60 dark:ring-zinc-700/60 flex items-center justify-center overflow-hidden">
+                        <div className="relative w-14 h-14 sm:w-16 sm:h-16">
+                            <Image src="/logo.png" alt="ARHMS Logo" fill className="object-contain" priority />
                         </div>
+                    </div>
 
-                        <div className="space-y-6 max-w-5xl">
-                            <h1 className="font-heading font-black text-4xl sm:text-5xl md:text-7xl lg:text-8xl tracking-tight leading-[0.95] text-foreground">
-                                Sell Data and Airtime <br />
-                                <span className="text-transparent bg-clip-text bg-gradient-to-r from-primary via-primary/80 to-primary/60">Faster in Ghana</span>
-                            </h1>
-                            <p className="max-w-3xl mx-auto text-base sm:text-lg md:text-xl font-medium text-muted-foreground/80 leading-relaxed">
-                                Launch your reseller account, fund one wallet, and deliver MTN, Telecel, and AT orders from one platform built for storefronts, tracking, and growth.
-                            </p>
-                        </div>
+                    {/* Brand name */}
+                    <div className="flex flex-col items-center gap-1">
+                        <span className="font-heading font-black text-2xl sm:text-3xl tracking-tight">
+                            ARHMS <span className="text-amber-500">TECH</span>
+                        </span>
+                        <span className="text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground/60">Technologies Ltd</span>
+                    </div>
 
-                        <div className="flex flex-col sm:flex-row gap-5 pt-4 w-full sm:w-auto">
-                            <Link href="/auth/signup" className="w-full sm:w-auto">
-                                <Button className="w-full sm:w-auto min-h-14 sm:h-16 px-5 sm:px-10 rounded-2xl bg-primary text-primary-foreground font-black text-sm sm:text-base uppercase tracking-wide sm:tracking-widest shadow-blue-premium hover:scale-105 active:scale-95 transition-all whitespace-normal">
-                                    Create Free Account
-                                    <ArrowRight className="ml-3 w-5 h-5 stroke-[3]" />
+                    {/* Badge */}
+                    <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/70 dark:bg-zinc-800/70 border border-amber-300/50 dark:border-amber-500/30 backdrop-blur-md shadow-sm">
+                        <Zap className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
+                        <span className="text-[10px] font-black uppercase tracking-[0.18em] text-foreground/80">Ultra Fast Instant Delivery</span>
+                    </div>
+
+                    {/* Hero card */}
+                    <div className="w-full rounded-3xl bg-white/70 dark:bg-zinc-900/70 border border-white/80 dark:border-zinc-700/60 backdrop-blur-xl shadow-2xl shadow-black/10 p-6 sm:p-8 text-left">
+                        <p className="text-[10px] font-black uppercase tracking-[0.35em] text-amber-500 mb-3">Welcome to</p>
+                        <h1 className="font-heading font-black text-3xl sm:text-4xl tracking-tight leading-tight text-foreground mb-3">
+                            ARHMS <span className="text-amber-500">TECH</span>
+                        </h1>
+                        <p className="text-sm font-medium text-muted-foreground leading-relaxed mb-6">
+                            Ghana&apos;s all-in-one platform for mobile data, airtime, Results Checkers, and business growth. Instant delivery, always.
+                        </p>
+
+                        {/* Action buttons */}
+                        <div className="flex flex-wrap gap-2.5">
+                            <Link href="/auth/login">
+                                <Button className="h-10 px-6 rounded-full bg-amber-400 hover:bg-amber-500 text-black font-black text-xs uppercase tracking-widest shadow-lg shadow-amber-400/30 hover:scale-105 active:scale-95 transition-all">
+                                    Sign In
+                                </Button>
+                            </Link>
+                            <Link href="/auth/signup">
+                                <Button variant="outline" className="h-10 px-5 rounded-full border-border/60 font-black text-xs uppercase tracking-widest hover:bg-secondary/50 transition-all">
+                                    Create Account
                                 </Button>
                             </Link>
                             {isValidGuestUrl && (
-                            <a href={guestUrl} className="w-full sm:w-auto">
-                                <Button variant="outline" className="w-full sm:w-auto min-h-14 sm:h-16 px-5 sm:px-10 rounded-2xl border-border/50 bg-background/50 backdrop-blur-md font-black text-sm sm:text-base uppercase tracking-wide sm:tracking-widest hover:bg-secondary/50 transition-all whitespace-normal">
-                                    <Store className="mr-3 w-5 h-5" />
-                                    Open Guest Store
-                                </Button>
-                            </a>
+                                <a href={guestUrl}>
+                                    <Button variant="outline" className="h-10 px-5 rounded-full border-border/60 font-black text-xs uppercase tracking-widest hover:bg-secondary/50 transition-all">
+                                        <Store className="w-3.5 h-3.5 mr-1.5" />
+                                        Buy as Guest
+                                    </Button>
+                                </a>
                             )}
-                            <Link href="/shop/status" className="w-full sm:w-auto">
-                                <Button variant="outline" className="w-full sm:w-auto min-h-14 sm:h-16 px-5 sm:px-10 rounded-2xl border-border/50 bg-background/50 backdrop-blur-md font-black text-sm sm:text-base uppercase tracking-wide sm:tracking-widest hover:bg-secondary/50 transition-all whitespace-normal">
-                                    <CheckCircle2 className="mr-3 w-5 h-5" />
-                                    Track an Order
+                            <Link href="/dashboard/install">
+                                <Button variant="outline" className="h-10 px-5 rounded-full border-border/60 font-black text-xs uppercase tracking-widest hover:bg-secondary/50 transition-all">
+                                    <Smartphone className="w-3.5 h-3.5 mr-1.5" />
+                                    Download App
                                 </Button>
                             </Link>
                         </div>
 
-                        <div className="pt-10 flex flex-col items-center gap-6 w-full">
-                            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-muted-foreground opacity-70">
-                                Built for live sales across MTN, Telecel, and AT with wallet funding, storefront checkout, and order tracking.
-                            </p>
-                            <div className="grid sm:grid-cols-3 gap-4 w-full max-w-4xl">
-                                {['Wallet Funding', 'Storefront Checkout', 'Order Tracking'].map((item) => (
-                                    <div key={item} className="rounded-2xl border border-border/50 bg-secondary/20 p-4 text-center">
-                                        <span className="text-xs font-black uppercase tracking-[0.18em] text-foreground/80">{item}</span>
-                                    </div>
-                                ))}
+                        {/* Slide indicators */}
+                        <div className="flex items-center justify-between mt-6 pt-5 border-t border-border/30">
+                            <div className="flex items-center gap-1.5">
+                                <span className="h-2 w-7 rounded-full bg-amber-400" />
+                                <span className="h-2 w-2 rounded-full bg-muted-foreground/25" />
+                                <span className="h-2 w-2 rounded-full bg-muted-foreground/25" />
+                                <span className="h-2 w-2 rounded-full bg-muted-foreground/25" />
                             </div>
+                            <span className="text-[10px] font-black text-muted-foreground/50 tracking-widest">01 / 04</span>
                         </div>
+                    </div>
+
+                    {/* Track order link */}
+                    <Link href="/shop/status" className="inline-flex items-center gap-2 text-xs font-bold text-muted-foreground hover:text-amber-500 transition-colors">
+                        <CheckCircle2 className="w-4 h-4" />
+                        Track an Order
+                    </Link>
+                </div>
+
+                {/* Scroll hint */}
+                <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 opacity-40">
+                    <div className="w-5 h-8 rounded-full border-2 border-foreground/30 flex items-start justify-center pt-1.5">
+                        <div className="w-1 h-2 rounded-full bg-foreground/50 animate-bounce" />
                     </div>
                 </div>
             </section>

@@ -2,20 +2,16 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { type LucideIcon, LayoutDashboard, Wallet, Package, ShoppingCart, Store, RefreshCw } from 'lucide-react'
+import { LayoutDashboard, Wallet, Package, ClipboardList, Store, RefreshCw } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-type NavItem = {
-    href: string
-    label: string
-    icon: LucideIcon
-}
-
-const navItems: NavItem[] = [
+const leftItems = [
     { href: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-    { href: '/dashboard/wallet', label: 'Topup', icon: Wallet },
-    { href: '/dashboard/data-packages', label: 'Buy Data', icon: Package },
-    { href: '/dashboard/my-orders', label: 'Orders', icon: ShoppingCart },
+    { href: '/dashboard/wallet', label: 'Top Up', icon: Wallet },
+]
+
+const rightItems = [
+    { href: '/dashboard/my-orders', label: 'Orders', icon: ClipboardList },
     { href: '/dashboard/shop', label: 'My Shop', icon: Store },
 ]
 
@@ -28,40 +24,123 @@ export function MobileBottomNav() {
         return pathname?.startsWith(href)
     }
 
-    return (
-        <div className="fixed bottom-0 left-0 right-0 z-40 border-t border-border/70 bg-background/95 backdrop-blur-xl md:hidden">
-            <div className="grid grid-cols-6 gap-1 px-2 py-2 max-w-xl mx-auto">
-                {navItems.map((item) => {
-                    const active = isActive(item.href)
-                    const Icon = item.icon
+    const buyDataActive = pathname?.startsWith('/dashboard/data-packages')
 
-                    return (
-                        <Link
-                            key={item.href}
-                            href={item.href}
+    return (
+        <div className="fixed bottom-0 left-0 right-0 z-40 md:hidden">
+            {/* Floating refresh button */}
+            <button
+                type="button"
+                onClick={() => window.location.reload()}
+                className="absolute -top-12 right-4 h-10 w-10 rounded-full bg-zinc-800 flex items-center justify-center shadow-lg text-white"
+                aria-label="Refresh page"
+            >
+                <RefreshCw className="h-4 w-4" />
+            </button>
+
+            <div className="bg-zinc-900 px-2 pb-4 pt-2">
+                <div className="flex items-end justify-around max-w-xl mx-auto relative">
+                    {/* Left items */}
+                    {leftItems.map((item) => {
+                        const active = isActive(item.href)
+                        const Icon = item.icon
+                        return (
+                            <Link
+                                key={item.href}
+                                href={item.href}
+                                className="flex flex-col items-center gap-1 min-w-[60px]"
+                            >
+                                <span
+                                    className={cn(
+                                        'flex flex-col items-center gap-1 rounded-2xl px-3 py-1.5 transition-colors',
+                                        active
+                                            ? 'bg-amber-400/20'
+                                            : ''
+                                    )}
+                                >
+                                    <Icon
+                                        className={cn(
+                                            'h-5 w-5',
+                                            active ? 'text-amber-400' : 'text-zinc-400'
+                                        )}
+                                    />
+                                    <span
+                                        className={cn(
+                                            'text-[10px] font-semibold leading-none',
+                                            active ? 'text-amber-400' : 'text-zinc-400'
+                                        )}
+                                    >
+                                        {item.label}
+                                    </span>
+                                </span>
+                                {active && (
+                                    <span className="h-1 w-1 rounded-full bg-amber-400" />
+                                )}
+                            </Link>
+                        )
+                    })}
+
+                    {/* Center FAB — Buy Data */}
+                    <Link
+                        href="/dashboard/data-packages"
+                        className="flex flex-col items-center -mt-6 min-w-[64px]"
+                    >
+                        <span
                             className={cn(
-                                'flex flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 text-[10px] font-semibold transition-colors min-w-0',
-                                active
-                                    ? 'bg-primary/10 text-primary'
-                                    : 'text-muted-foreground hover:bg-secondary/60 hover:text-foreground'
+                                'h-14 w-14 rounded-full flex items-center justify-center shadow-lg mb-1 transition-transform active:scale-95',
+                                buyDataActive ? 'bg-amber-500' : 'bg-amber-400'
                             )}
                         >
-                            <Icon className={cn('h-4 w-4 shrink-0', active && 'scale-110')} />
-                            <span className="truncate leading-none">{item.label}</span>
-                        </Link>
-                    )
-                })}
+                            <Package className="h-6 w-6 text-black" />
+                        </span>
+                        <span
+                            className={cn(
+                                'text-[10px] font-semibold leading-none',
+                                buyDataActive ? 'text-amber-400' : 'text-zinc-400'
+                            )}
+                        >
+                            Buy Data
+                        </span>
+                    </Link>
 
-                <button
-                    type="button"
-                    onClick={() => window.location.reload()}
-                    className="flex flex-col items-center justify-center gap-1 rounded-xl px-1 py-2 text-[10px] font-semibold text-muted-foreground transition-colors hover:bg-secondary/60 hover:text-foreground min-w-0"
-                    aria-label="Refresh page"
-                    title="Refresh page"
-                >
-                    <RefreshCw className="h-4 w-4 shrink-0" />
-                    <span className="truncate leading-none">Refresh</span>
-                </button>
+                    {/* Right items */}
+                    {rightItems.map((item) => {
+                        const active = isActive(item.href)
+                        const Icon = item.icon
+                        return (
+                            <Link
+                                key={item.href}
+                                href={item.href}
+                                className="flex flex-col items-center gap-1 min-w-[60px]"
+                            >
+                                <span
+                                    className={cn(
+                                        'flex flex-col items-center gap-1 rounded-2xl px-3 py-1.5 transition-colors',
+                                        active ? 'bg-amber-400/20' : ''
+                                    )}
+                                >
+                                    <Icon
+                                        className={cn(
+                                            'h-5 w-5',
+                                            active ? 'text-amber-400' : 'text-zinc-400'
+                                        )}
+                                    />
+                                    <span
+                                        className={cn(
+                                            'text-[10px] font-semibold leading-none',
+                                            active ? 'text-amber-400' : 'text-zinc-400'
+                                        )}
+                                    >
+                                        {item.label}
+                                    </span>
+                                </span>
+                                {active && (
+                                    <span className="h-1 w-1 rounded-full bg-amber-400" />
+                                )}
+                            </Link>
+                        )
+                    })}
+                </div>
             </div>
         </div>
     )

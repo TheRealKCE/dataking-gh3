@@ -2,7 +2,7 @@
  * Moolre Payment (Collection) Service
  *
  * Handles Mobile Money direct prompt collections and status checking via the Moolre API.
- * Uses: MOOLRE_TRANSFER_API_USER, MOOLRE_PUB_KEY, MOOLRE_ACCOUNT_NUMBER
+ * Uses: MOOLRE_TRANSFER_API_USER, MOOLRE_TRANSFER_API_KEY, MOOLRE_ACCOUNT_NUMBER
  */
 
 const MOOLRE_BASE_URL = 'https://api.moolre.com'
@@ -37,11 +37,11 @@ export interface CheckPaymentStatusResult {
 
 function getAuthHeaders(): HeadersInit {
     const apiUser = process.env.MOOLRE_TRANSFER_API_USER
-    const pubKey = process.env.MOOLRE_PUB_KEY
+    const pubKey = process.env.MOOLRE_TRANSFER_API_KEY
 
     if (!apiUser || !pubKey) {
         throw new Error(
-            '[MoolrePayment] MOOLRE_TRANSFER_API_USER or MOOLRE_PUB_KEY is not configured.'
+            '[MoolrePayment] MOOLRE_TRANSFER_API_USER or MOOLRE_TRANSFER_API_KEY is not configured.'
         )
     }
 
