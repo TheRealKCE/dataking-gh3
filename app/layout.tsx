@@ -32,10 +32,10 @@ const inter = Inter({
 })
 
 export const metadata: Metadata = {
-    title: 'ARHMS DATA LTD',
+    title: 'ARHMS TECHNOLOGIES',
     description: "Ghana's trusted data bundle reselling platform. Buy and resell MTN, Telecel and AirtelTigo bundles instantly.",
     keywords: ['Ghana', 'mobile data', 'airtime', 'MTN', 'Telecel', 'AirtelTigo', 'data bundles', 'reseller'],
-    authors: [{ name: 'ARHMS DATA LTD' }],
+    authors: [{ name: 'ARHMS TECHNOLOGIES' }],
     manifest: '/manifest.json',
     appleWebApp: {
         capable: true,
@@ -50,7 +50,7 @@ export const metadata: Metadata = {
         ],
     },
     openGraph: {
-        title: 'ARHMS DATA LTD',
+        title: 'ARHMS TECHNOLOGIES',
         description: "Ghana's trusted data bundle reselling platform",
         type: 'website',
         images: ['/opengraph-image.png'],

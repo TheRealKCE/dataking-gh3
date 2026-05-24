@@ -94,7 +94,7 @@ export default function UpdatePasswordPage() {
                             <div className="relative w-full h-full rounded-2xl shadow-blue-premium overflow-hidden">
                                 <Image
                                     src="/logo.png"
-                                    alt="ARHMS DATA LTD"
+                                    alt="ARHMS TECHNOLOGIES"
                                     fill
                                     className="object-contain"
                                     priority
@@ -102,7 +102,7 @@ export default function UpdatePasswordPage() {
                             </div>
                         </div>
                         <h1 className="text-xl sm:text-2xl font-bold text-white tracking-tight drop-shadow-lg">
-                            ARHMS DATA LTD
+                            ARHMS TECHNOLOGIES
                         </h1>
                         <p className="text-base text-white/80 mt-1 drop-shadow">
                             Set a new password

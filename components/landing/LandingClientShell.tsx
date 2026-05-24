@@ -151,7 +151,7 @@ export function LandingClientShell({
     }, [router])
 
     useEffect(() => {
-        const t = setInterval(() => setSlide(s => (s + 1) % SLIDE_COUNT), 4500)
+        const t = setInterval(() => setSlide(s => (s + 1) % SLIDE_COUNT), 10000)
         return () => clearInterval(t)
     }, [])
 
@@ -180,7 +180,7 @@ export function LandingClientShell({
                             </div>
                         </div>
                         <span className="font-black text-base sm:text-lg tracking-tight text-white">
-                            ARHMS <span style={{ color: '#f59e0b' }}>TECH</span>
+                            ARHMS <span style={{ color: '#f59e0b' }}>TECHNOLOGIES</span>
                         </span>
                     </a>
 
@@ -239,7 +239,7 @@ export function LandingClientShell({
                     {/* Brand name */}
                     <div className="text-center">
                         <p className="font-black text-2xl sm:text-3xl tracking-tight text-white">
-                            ARHMS <span style={{ color: '#f59e0b' }}>TECH</span>
+                            ARHMS <span style={{ color: '#f59e0b' }}>TECHNOLOGIES</span>
                         </p>
                         <p className="text-[10px] font-bold uppercase tracking-[0.28em] mt-1" style={{ color: 'rgba(255,255,255,0.35)' }}>
                             Smart Solutions. Endless Possibilities.
@@ -259,7 +259,7 @@ export function LandingClientShell({
                         <div className={cn(cardBase, slideState(0))} style={{ background: 'linear-gradient(145deg,#0f0f28,#131330)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 25px 60px rgba(0,0,0,0.5)' }}>
                             <p className="text-[10px] font-black uppercase tracking-[0.35em] mb-3" style={{ color: '#f59e0b' }}>Welcome to</p>
                             <h1 className="font-black text-[2rem] sm:text-4xl leading-tight tracking-tight text-white mb-3">
-                                ARHMS <span style={{ color: '#f59e0b' }}>TECH</span>
+                                ARHMS <span style={{ color: '#f59e0b' }}>TECHNOLOGIES</span>
                             </h1>
                             <p className="text-sm font-medium leading-relaxed mb-7" style={{ color: 'rgba(255,255,255,0.55)' }}>
                                 Ghana&apos;s all-in-one platform for mobile data, airtime, Results Checkers, and business growth. Instant delivery, always.
@@ -273,45 +273,52 @@ export function LandingClientShell({
                             <SlideDots current={0} total={SLIDE_COUNT} onDotClick={setSlide} dark />
                         </div>
 
-                        {/* Slide 2 — Lightning Fast */}
-                        <div className={cn(cardBase, slideState(1))} style={{ background: 'linear-gradient(145deg,#0c1428,#0f1a38)', border: '1px solid rgba(37,99,235,0.25)', boxShadow: '0 25px 60px rgba(0,0,0,0.5)' }}>
-                            <p className="text-[10px] font-black uppercase tracking-[0.35em] mb-3" style={{ color: '#f59e0b' }}>Lightning Fast</p>
-                            <h2 className="font-black text-[2rem] sm:text-4xl leading-tight tracking-tight text-white mb-3">
-                                Data in <span style={{ color: '#f59e0b' }}>Seconds</span>
+                        {/* Slide 2 — Lightning Fast (light warm card) */}
+                        <div className={cn(cardBase, slideState(1))} style={{ background: 'linear-gradient(145deg,#fffdf5,#fff9ed,#f0f8ff)', border: '1px solid rgba(245,158,11,0.22)', boxShadow: '0 25px 60px rgba(0,0,0,0.18)' }}>
+                            <p className="text-[10px] font-black uppercase tracking-[0.35em] mb-3" style={{ color: '#2563eb' }}>Lightning Fast</p>
+                            <h2 className="font-black text-[2rem] sm:text-4xl leading-tight tracking-tight mb-3" style={{ color: '#0a0a0a' }}>
+                                Data in <span style={{ color: '#d97706' }}>Seconds</span>
                             </h2>
-                            <p className="text-sm font-medium leading-relaxed mb-5" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                            <p className="text-sm font-medium leading-relaxed mb-5" style={{ color: '#4b5563' }}>
                                 MTN, Telecel, and AT bundles delivered to any phone in under 3 seconds — automated routing, zero delays.
                             </p>
                             <div className="grid grid-cols-3 gap-3 mb-6">
                                 {[{ v: '< 3s', l: 'Delivery' },{ v: '99.9%', l: 'Uptime' },{ v: '99.98%', l: 'Success' }].map(s => (
-                                    <div key={s.l} className="rounded-2xl p-3 text-center" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.08)' }}>
-                                        <p className="font-black text-lg" style={{ color: '#f59e0b' }}>{s.v}</p>
-                                        <p className="text-[10px] font-bold uppercase tracking-wide mt-0.5" style={{ color: 'rgba(255,255,255,0.4)' }}>{s.l}</p>
+                                    <div key={s.l} className="rounded-2xl p-3 text-center" style={{ background: 'rgba(245,158,11,0.07)', border: '1px solid rgba(245,158,11,0.18)' }}>
+                                        <p className="font-black text-lg" style={{ color: '#d97706' }}>{s.v}</p>
+                                        <p className="text-[10px] font-bold uppercase tracking-wide mt-0.5" style={{ color: '#6b7280' }}>{s.l}</p>
                                     </div>
                                 ))}
                             </div>
                             <HeroBtn href="/auth/signup" variant="primary"><Zap className="w-4 h-4" /> Buy Data Now</HeroBtn>
-                            <SlideDots current={1} total={SLIDE_COUNT} onDotClick={setSlide} dark />
+                            <SlideDots current={1} total={SLIDE_COUNT} onDotClick={setSlide} dark={false} />
                         </div>
 
-                        {/* Slide 3 — Your Shop */}
-                        <div className={cn(cardBase, slideState(2))} style={{ background: 'linear-gradient(145deg,#0e1420,#0a1028)', border: '1px solid rgba(124,58,237,0.2)', boxShadow: '0 25px 60px rgba(0,0,0,0.5)' }}>
-                            <p className="text-[10px] font-black uppercase tracking-[0.35em] mb-3" style={{ color: '#f59e0b' }}>Build Your Brand</p>
-                            <h2 className="font-black text-[2rem] sm:text-4xl leading-tight tracking-tight text-white mb-3">
-                                Launch Your <span style={{ color: '#f59e0b' }}>Shop</span>
-                            </h2>
-                            <p className="text-sm font-medium leading-relaxed mb-5" style={{ color: 'rgba(255,255,255,0.55)' }}>
-                                Create a branded storefront with your name, logo, pricing, and checkout link. Share it anywhere and start earning.
-                            </p>
-                            <div className="flex flex-wrap gap-2 mb-6">
-                                {['Public Shop URL','Custom Pricing','Order Tracking','WhatsApp Support','Brand Logo'].map(f => (
-                                    <span key={f} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wide" style={{ background: 'rgba(255,255,255,0.05)', border: '1px solid rgba(255,255,255,0.1)', color: 'rgba(255,255,255,0.6)' }}>
-                                        <CheckCircle2 className="w-3 h-3" style={{ color: '#f59e0b' }} />{f}
-                                    </span>
-                                ))}
+                        {/* Slide 3 — Your Shop (mirror water glassmorphism) */}
+                        <div className={cn(cardBase, slideState(2), 'overflow-hidden')} style={{ background: 'linear-gradient(135deg, #0ea5e9 0%, #6366f1 40%, #06b6d4 70%, #10b981 100%)', border: '1px solid rgba(255,255,255,0.22)', boxShadow: '0 25px 70px rgba(14,165,233,0.35), 0 0 80px rgba(99,102,241,0.2)' }}>
+                            {/* Water reflection orbs */}
+                            <div style={{ position: 'absolute', top: '-30%', right: '-15%', width: 220, height: 220, borderRadius: '50%', background: 'rgba(255,255,255,0.12)', filter: 'blur(50px)', pointerEvents: 'none' }} />
+                            <div style={{ position: 'absolute', bottom: '-20%', left: '-10%', width: 180, height: 180, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', filter: 'blur(40px)', pointerEvents: 'none' }} />
+                            <div style={{ position: 'absolute', top: '40%', right: '10%', width: 100, height: 100, borderRadius: '50%', background: 'rgba(253,230,138,0.15)', filter: 'blur(30px)', pointerEvents: 'none' }} />
+                            {/* Content */}
+                            <div className="relative z-10">
+                                <p className="text-[10px] font-black uppercase tracking-[0.35em] mb-3" style={{ color: 'rgba(255,255,255,0.85)' }}>Build Your Brand</p>
+                                <h2 className="font-black text-[2rem] sm:text-4xl leading-tight tracking-tight text-white mb-3">
+                                    Launch Your <span style={{ color: '#fde68a' }}>Shop</span>
+                                </h2>
+                                <p className="text-sm font-medium leading-relaxed mb-5" style={{ color: 'rgba(255,255,255,0.8)' }}>
+                                    Create a branded storefront with your name, logo, pricing, and checkout link. Share it anywhere and start earning.
+                                </p>
+                                <div className="flex flex-wrap gap-2 mb-6">
+                                    {['Public Shop URL','Custom Pricing','Order Tracking','WhatsApp Support','Brand Logo'].map(f => (
+                                        <span key={f} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wide" style={{ background: 'rgba(255,255,255,0.18)', border: '1px solid rgba(255,255,255,0.3)', color: 'rgba(255,255,255,0.95)' }}>
+                                            <CheckCircle2 className="w-3 h-3" style={{ color: '#fde68a' }} />{f}
+                                        </span>
+                                    ))}
+                                </div>
+                                <HeroBtn href="/auth/signup" variant="primary"><Store className="w-4 h-4" /> Open Your Shop</HeroBtn>
+                                <SlideDots current={2} total={SLIDE_COUNT} onDotClick={setSlide} dark />
                             </div>
-                            <HeroBtn href="/auth/signup" variant="primary"><Store className="w-4 h-4" /> Open Your Shop</HeroBtn>
-                            <SlideDots current={2} total={SLIDE_COUNT} onDotClick={setSlide} dark />
                         </div>
 
                         {/* Slide 4 — Agent Plans */}
@@ -627,7 +634,7 @@ export function LandingClientShell({
                                 Ready to Upgrade <br /><span className="text-primary">Your Business?</span>
                             </h2>
                             <p className="max-w-2xl mx-auto text-xl font-medium opacity-70">
-                                Stop struggling with slow deliveries and poor rates. Step into the future of data and airtime reselling with ARHMS TECH.
+                                Stop struggling with slow deliveries and poor rates. Step into the future of data and airtime reselling with ARHMS TECHNOLOGIES.
                             </p>
                             <div className="flex flex-col sm:flex-row gap-6 justify-center">
                                 <Link href="/auth/signup" className="w-full sm:w-auto">
@@ -653,7 +660,7 @@ export function LandingClientShell({
                         <div className="md:col-span-2 space-y-8">
                             <div className="flex items-center gap-3">
                                 <BrandLogo hideText className="scale-75 origin-left" />
-                                <span className="font-black text-xl tracking-tighter">ARHMS <span style={{ color: '#f59e0b' }}>TECH</span></span>
+                                <span className="font-black text-xl tracking-tighter">ARHMS <span style={{ color: '#f59e0b' }}>TECHNOLOGIES</span></span>
                             </div>
                             <p className="text-muted-foreground font-medium max-w-sm">
                                 Smart Solutions. Endless Possibilities. Ghana&apos;s trusted data and airtime reselling platform built for speed, security, and reliability.

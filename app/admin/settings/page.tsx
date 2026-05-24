@@ -78,7 +78,7 @@ export default function AdminSettingsPage() {
             setWhatsappChannelLink(settingsMap.whatsapp_channel_link || '')
             setWhatsappAdminNumber(settingsMap.whatsapp_admin_number || '')
             setWhatsappCommunityLink(settingsMap.whatsapp_community_link || '')
-            setFooterCopyrightText(settingsMap.footer_copyright_text || `2025 ARHMS DATA LIMITED`)
+            setFooterCopyrightText(settingsMap.footer_copyright_text || `2025 ARHMS TECHNOLOGIES`)
             setFooterBrandingText(settingsMap.footer_branding_text || 'ARHMS')
             setAutoFulfillment(String(settingsMap.auto_fulfillment_enabled) !== 'false')
 
