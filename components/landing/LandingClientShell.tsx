@@ -230,7 +230,7 @@ export function LandingClientShell({
                 <div className="relative z-10 w-full max-w-sm mx-auto flex flex-col items-center gap-5 sm:max-w-lg">
 
                     {/* Logo circle */}
-                    <div className="w-[88px] h-[88px] rounded-full flex items-center justify-center shadow-2xl ring-4 overflow-hidden" style={{ backgroundColor: '#fff', ringColor: 'rgba(255,255,255,0.15)', boxShadow: '0 0 0 4px rgba(255,255,255,0.12), 0 20px 60px rgba(0,0,0,0.4)' }}>
+                    <div className="w-[88px] h-[88px] rounded-full flex items-center justify-center shadow-2xl ring-4 overflow-hidden" style={{ backgroundColor: '#fff', boxShadow: '0 0 0 4px rgba(255,255,255,0.12), 0 20px 60px rgba(0,0,0,0.4)' }}>
                         <div className="relative w-16 h-16">
                             <Image src="/logo.png" alt="ARHMS Logo" fill className="object-contain" priority />
                         </div>
