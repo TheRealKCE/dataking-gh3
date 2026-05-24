@@ -111,7 +111,28 @@
   }
 
   .card-premium {
-    @apply bg-card border border-border/50 rounded-2xl shadow-sm transition-all duration-300 hover:shadow-md hover:border-primary/20;
+    @apply rounded-2xl shadow-sm;
+    background: linear-gradient(145deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.015) 100%);
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 1px 0 rgba(255,255,255,0.06) inset, 0 4px 24px rgba(0,0,0,0.4);
+  }
+
+  .dark-mirror-section {
+    position: relative;
+    background: linear-gradient(180deg, #000000 0%, #070707 50%, #000000 100%);
+    border-top: 1px solid rgba(255,255,255,0.05);
+  }
+  .dark-mirror-section::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(ellipse at 50% 0%, rgba(15,20,40,0.6) 0%, transparent 60%);
+    pointer-events: none;
+  }
+
+  .landing-section {
+    background: #000000;
+    border-top: 1px solid rgba(255,255,255,0.04);
   }
 
   .btn-premium {

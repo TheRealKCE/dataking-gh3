@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
+import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
@@ -133,6 +134,7 @@ export function LandingClientShell({
     const [planPrices] = useState<Record<TierId, number>>(initialPlanPrices || DEFAULT_PLAN_PRICES)
     const [slide, setSlide] = useState(0)
     const [touchStartX, setTouchStartX] = useState<number | null>(null)
+    const [isLoggedIn, setIsLoggedIn] = useState(false)
     const SLIDE_COUNT = 4
 
     const isValidGuestUrl = Boolean(guestUrl && !guestUrl.endsWith('/shop/demo') && guestUrl.includes('/shop/'))
@@ -141,6 +143,12 @@ export function LandingClientShell({
         const handleScroll = () => setHeaderScrolled(window.scrollY > 50)
         window.addEventListener('scroll', handleScroll, { passive: true })
         return () => window.removeEventListener('scroll', handleScroll)
+    }, [])
+
+    useEffect(() => {
+        supabase.auth.getSession().then(({ data }) => {
+            setIsLoggedIn(!!data.session)
+        })
     }, [])
 
     useEffect(() => {
@@ -194,15 +202,23 @@ export function LandingClientShell({
                     {/* Right actions */}
                     <div className="flex items-center gap-2 sm:gap-3">
                         <div className="hidden sm:block"><ThemeToggle /></div>
-                        <Link href="/dashboard/install" className="hidden sm:flex items-center gap-1.5 text-xs font-bold text-white/70 hover:text-white border border-white/20 rounded-full px-3 h-8 transition-colors">
-                            <Smartphone className="w-3 h-3" /> Install App
-                        </Link>
-                        <Link href="/auth/login" className="text-sm font-bold text-white/80 hover:text-white px-3 h-9 flex items-center transition-colors">
-                            Login
-                        </Link>
-                        <Link href="/auth/signup" className="text-sm font-black text-black h-9 px-5 rounded-full flex items-center active:scale-95 transition-transform" style={{ backgroundColor: '#f59e0b' }}>
-                            Get Started
-                        </Link>
+                        {isLoggedIn ? (
+                            <Link href="/dashboard" className="text-sm font-black text-black h-9 px-5 rounded-full flex items-center active:scale-95 transition-transform" style={{ backgroundColor: '#f59e0b' }}>
+                                Go to Dashboard
+                            </Link>
+                        ) : (
+                            <>
+                                <Link href="/dashboard/install" className="hidden sm:flex items-center gap-1.5 text-xs font-bold text-white/70 hover:text-white border border-white/20 rounded-full px-3 h-8 transition-colors">
+                                    <Smartphone className="w-3 h-3" /> Install App
+                                </Link>
+                                <Link href="/auth/login" className="text-sm font-bold text-white/80 hover:text-white px-3 h-9 flex items-center transition-colors">
+                                    Login
+                                </Link>
+                                <Link href="/auth/signup" className="text-sm font-black text-black h-9 px-5 rounded-full flex items-center active:scale-95 transition-transform" style={{ backgroundColor: '#f59e0b' }}>
+                                    Get Started
+                                </Link>
+                            </>
+                        )}
                     </div>
                 </div>
             </nav>
@@ -359,7 +375,7 @@ export function LandingClientShell({
             </section>
 
             {/* ══ HOW IT WORKS ══════════════════════════════════════════════════════ */}
-            <section className="py-28 px-6 lg:px-10 bg-[#111111]">
+            <section className="dark-mirror-section py-28 px-6 lg:px-10">
                 <div className="max-w-7xl mx-auto">
                     <div className="text-center mb-16 space-y-4">
                         <h2 className="text-xs font-black uppercase tracking-[0.5em] text-primary">How It Works</h2>
@@ -389,7 +405,7 @@ export function LandingClientShell({
             </section>
 
             {/* ══ FEATURES ══════════════════════════════════════════════════════════ */}
-            <section id="features" className="py-32 px-6 lg:px-10">
+            <section id="features" className="landing-section py-32 px-6 lg:px-10">
                 <div className="max-w-7xl mx-auto">
                     <div className="text-center mb-20 space-y-4">
                         <h2 className="text-xs font-black uppercase tracking-[0.5em] text-primary">Capabilities</h2>
@@ -419,7 +435,7 @@ export function LandingClientShell({
             </section>
 
             {/* ══ PLANS ═══════════════════════════════════════════════════════════ */}
-            <section id="plans" className="py-32 px-6 lg:px-10 bg-[#111111]">
+            <section id="plans" className="dark-mirror-section py-32 px-6 lg:px-10">
                 <div className="max-w-7xl mx-auto">
                     <div className="text-center mb-16 space-y-4">
                         <h2 className="text-xs font-black uppercase tracking-[0.5em] text-primary">Reseller Plans</h2>
@@ -456,7 +472,7 @@ export function LandingClientShell({
             </section>
 
             {/* ══ NETWORKS ════════════════════════════════════════════════════════ */}
-            <section id="networks" className="py-32 px-6 lg:px-10">
+            <section id="networks" className="landing-section py-32 px-6 lg:px-10">
                 <div className="max-w-7xl mx-auto">
                     <div className="grid lg:grid-cols-2 gap-20 items-center">
                         <div className="space-y-10">
@@ -514,7 +530,7 @@ export function LandingClientShell({
             </section>
 
             {/* ══ STOREFRONT ══════════════════════════════════════════════════════ */}
-            <section className="py-32 px-6 lg:px-10 bg-[#111111]">
+            <section className="dark-mirror-section py-32 px-6 lg:px-10">
                 <div className="max-w-7xl mx-auto">
                     <div className="grid lg:grid-cols-2 gap-12 items-center">
                         <div className="space-y-6">
@@ -569,7 +585,7 @@ export function LandingClientShell({
             </section>
 
             {/* ══ TESTIMONIALS ════════════════════════════════════════════════════ */}
-            <section className="py-32 px-6 lg:px-10">
+            <section className="landing-section py-32 px-6 lg:px-10">
                 <div className="max-w-7xl mx-auto">
                     <div className="text-center mb-16 space-y-4">
                         <h2 className="text-xs font-black uppercase tracking-[0.5em] text-primary">Testimonials</h2>
@@ -599,7 +615,7 @@ export function LandingClientShell({
             </section>
 
             {/* ══ FAQ ═════════════════════════════════════════════════════════════ */}
-            <section id="support" className="py-32 px-6 lg:px-10 bg-[#111111]">
+            <section id="support" className="dark-mirror-section py-32 px-6 lg:px-10">
                 <div className="max-w-7xl mx-auto">
                     <div className="text-center mb-16 space-y-4">
                         <h2 className="text-xs font-black uppercase tracking-[0.5em] text-primary">FAQ</h2>
@@ -624,7 +640,7 @@ export function LandingClientShell({
             </section>
 
             {/* ══ CTA BANNER ══════════════════════════════════════════════════════ */}
-            <section className="py-32 px-6 lg:px-10">
+            <section className="landing-section py-32 px-6 lg:px-10">
                 <div className="max-w-7xl mx-auto">
                     <Card className="relative overflow-hidden rounded-[40px] border-0 bg-foreground p-12 md:p-24 text-background text-center shadow-2xl">
                         <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-primary/20 rounded-full blur-[100px] -mr-64 -mt-64" />
