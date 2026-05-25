@@ -110,7 +110,7 @@ function SlideDots({ current, total, onDotClick, dark }: { current: number; tota
 function HeroBtn({ href, variant = 'primary', isDark = true, children, className }: { href: string; variant?: 'primary' | 'white' | 'dark'; isDark?: boolean; children: React.ReactNode; className?: string }) {
     const base: React.CSSProperties = {
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-        width: '100%', height: 52, borderRadius: 999,
+        width: '100%', height: 56, borderRadius: 999,
         fontWeight: 800, fontSize: 13, letterSpacing: '0.08em', textTransform: 'uppercase',
         cursor: 'pointer', transition: 'opacity 0.2s, transform 0.2s', textDecoration: 'none',
         border: 'none', outline: 'none',
@@ -124,6 +124,23 @@ function HeroBtn({ href, variant = 'primary', isDark = true, children, className
         <Link href={href} style={styles[variant]} className={cn('active:scale-95 sm:h-[42px] sm:w-auto sm:px-6', className)}>
             {children}
         </Link>
+    )
+}
+
+// ── Platform icons for Download App ──────────────────────────────────────────────
+function AppleIcon({ className }: { className?: string }) {
+    return (
+        <svg className={className} fill="currentColor" viewBox="0 0 24 24">
+            <path d="M18.71 19.5c-.83 1.24-1.71 2.45-3.05 2.47-1.34.03-1.77-.79-3.29-.79-1.53 0-2 .77-3.27.82-1.31.05-2.3-1.32-3.14-2.53C4.25 17 2.94 12.45 4.7 9.39c.87-1.52 2.43-2.48 4.12-2.51 1.28-.02 2.5.87 3.29.87.78 0 2.26-1.07 3.8-.91.65.03 2.47.26 3.64 1.98-.09.06-2.17 1.28-2.15 3.81.03 3.02 2.65 4.03 2.68 4.04-.03.07-.42 1.44-1.38 2.83M13 3.5c.73-.83 1.94-1.46 2.94-1.5.13 1.17-.34 2.35-1.04 3.19-.69.85-1.83 1.51-2.95 1.42-.15-1.15.41-2.35 1.05-3.11z" />
+        </svg>
+    )
+}
+
+function AndroidIcon({ className }: { className?: string }) {
+    return (
+        <svg className={className} fill="currentColor" viewBox="0 0 24 24">
+            <path d="M17.523 15.341a1 1 0 0 1-1-1V9.659a1 1 0 0 1 2 0v4.682a1 1 0 0 1-1 1zm-11.046 0a1 1 0 0 1-1-1V9.659a1 1 0 0 1 2 0v4.682a1 1 0 0 1-1 1zM8 6.32 6.9 4.42a.344.344 0 0 1 .597-.344L8.6 5.9A6.955 6.955 0 0 1 12 5.16c1.02 0 1.99.22 2.865.618l1.1-1.902a.344.344 0 0 1 .597.345l-1.1 1.878A6.994 6.994 0 0 1 19 12.5H5A6.994 6.994 0 0 1 8 6.32zM9.5 10a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1zm5 0a.5.5 0 1 0 0-1 .5.5 0 0 0 0 1zM5 14h14v5.5a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V14z" />
+        </svg>
     )
 }
 
@@ -181,14 +198,14 @@ export function LandingClientShell({
     return (
         <div
             className={cn('min-h-screen text-foreground overflow-x-hidden', !isDark && 'bg-background')}
-            style={isDark ? { background: 'linear-gradient(160deg, #07091c 0%, #0c1238 45%, #090d22 100%)' } : undefined}
+            style={isDark ? { background: 'linear-gradient(160deg, #020617 0%, #070c1f 40%, #020617 100%)' } : undefined}
         >
 
             {/* ══ NAV ══════════════════════════════════════════════════════════════ */}
             <nav className={cn(
                 'fixed top-0 w-full z-[100] transition-all duration-500 h-16 sm:h-20 flex items-center',
                 headerScrolled ? 'backdrop-blur-2xl border-b border-white/10 sm:border-border/30 shadow-sm' : ''
-            )} style={{ backgroundColor: headerScrolled ? 'rgba(7,9,28,0.97)' : 'transparent' }}>
+            )} style={{ backgroundColor: headerScrolled ? 'rgba(2,6,23,0.97)' : 'transparent' }}>
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 w-full flex items-center justify-between">
                     <a href="#" className="flex items-center gap-2.5">
                         <div className="w-9 h-9 rounded-xl overflow-hidden bg-white flex items-center justify-center shadow-md flex-shrink-0">
@@ -243,56 +260,52 @@ export function LandingClientShell({
             >
                 {/* Background glow orbs */}
                 <div className="pointer-events-none absolute inset-0 overflow-hidden">
-                    <div className="absolute top-1/2 -right-40 w-[500px] h-[500px] rounded-full opacity-10" style={{ background: 'radial-gradient(circle, #4f46e5 0%, transparent 70%)' }} />
-                    <div className="absolute -bottom-20 -left-20 w-[400px] h-[400px] rounded-full opacity-8" style={{ background: 'radial-gradient(circle, #f59e0b 0%, transparent 70%)' }} />
+                    <div className="absolute -top-24 -right-24 w-[700px] h-[700px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(79,70,229,0.5) 0%, transparent 62%)', filter: 'blur(44px)' }} />
+                    <div className="absolute top-1/4 -left-48 w-[560px] h-[560px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(37,99,235,0.3) 0%, transparent 68%)', filter: 'blur(32px)' }} />
+                    <div className="absolute bottom-0 right-1/3 w-[500px] h-[500px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(245,158,11,0.16) 0%, transparent 65%)', filter: 'blur(52px)' }} />
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[500px] rounded-full" style={{ background: 'radial-gradient(ellipse, rgba(124,58,237,0.22) 0%, transparent 58%)', filter: 'blur(60px)' }} />
                 </div>
 
-                <div className="relative z-10 w-full max-w-sm mx-auto flex flex-col items-center gap-5 sm:max-w-lg">
-
-                    {/* Logo circle */}
-                    <div className="w-[88px] h-[88px] rounded-full flex items-center justify-center shadow-2xl overflow-hidden" style={{ backgroundColor: '#fff', boxShadow: '0 0 0 4px rgba(255,255,255,0.12), 0 20px 60px rgba(0,0,0,0.4)' }}>
-                        <div className="relative w-16 h-16">
-                            <Image src="/arhms-logo.png" alt="ARHMS Logo" fill className="object-contain" priority />
-                        </div>
-                    </div>
-
-                    {/* Brand name */}
-                    <div className="text-center">
-                        <p className="font-black text-2xl sm:text-3xl tracking-tight text-foreground">
-                            ARHMS <span style={{ color: '#f59e0b' }}>TECHNOLOGIES</span>
-                        </p>
-                        <p className="text-[10px] font-bold uppercase tracking-[0.28em] mt-1 text-muted-foreground/60">
-                            Smart Solutions. Endless Possibilities.
-                        </p>
-                    </div>
+                <div className="relative z-10 w-full max-w-sm mx-auto flex flex-col items-center gap-4 sm:max-w-lg">
 
                     {/* Badge */}
-                    <div className="flex items-center gap-2 px-4 py-2 rounded-full border" style={{ backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)', borderColor: 'rgba(245,158,11,0.3)' }}>
+                    <div className="flex items-center gap-2 px-4 py-2 rounded-full border" style={{ backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.04)', borderColor: 'rgba(245,158,11,0.35)' }}>
                         <Zap className="w-3.5 h-3.5" style={{ color: '#f59e0b', fill: '#f59e0b' }} />
-                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/75">Ultra Fast Instant Delivery</span>
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/80">Ultra Fast Instant Delivery</span>
                     </div>
 
+                    {/* Radial glow behind card */}
+                    <div className="pointer-events-none absolute left-1/2 -translate-x-1/2" style={{ top: '8%', width: 440, height: 560, borderRadius: '50%', background: 'radial-gradient(ellipse, rgba(37,99,235,0.2) 0%, rgba(79,70,229,0.12) 40%, transparent 70%)', filter: 'blur(52px)', zIndex: 0 }} />
+
                     {/* ── Carousel ─────────────────────────────── */}
-                    <div className="w-full relative" style={{ minHeight: 440 }}>
+                    <div className="w-full relative z-10" style={{ minHeight: 600 }}>
 
                         {/* Slide 1 — Welcome */}
                         <div className={cn(cardBase, slideState(0))} style={{
-                            background: isDark ? 'linear-gradient(145deg,#0e1535,#090d22)' : 'linear-gradient(145deg,#ffffff,#f8f9fa)',
-                            border: isDark ? '1px solid rgba(255,255,255,0.07)' : '1px solid rgba(0,0,0,0.08)',
-                            boxShadow: isDark ? '0 25px 60px rgba(0,0,0,0.6)' : '0 25px 60px rgba(0,0,0,0.1)',
+                            background: isDark ? 'linear-gradient(145deg,#0a0e22,#06091a)' : 'linear-gradient(145deg,#ffffff,#f8f9fa)',
+                            border: isDark ? '1px solid rgba(255,255,255,0.09)' : '1px solid rgba(0,0,0,0.08)',
+                            boxShadow: isDark ? '0 32px 80px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.05)' : '0 25px 60px rgba(0,0,0,0.1)',
                         }}>
                             <p className="text-[10px] font-black uppercase tracking-[0.35em] mb-3" style={{ color: '#f59e0b' }}>Welcome to</p>
-                            <h1 className="font-black text-[2rem] sm:text-4xl leading-tight tracking-tight mb-3" style={{ color: isDark ? '#ffffff' : '#111111' }}>
+                            <h1 className={cn('font-black text-[2rem] sm:text-4xl leading-tight tracking-tight mb-3', isDark ? '!text-white' : '!text-[#111111]')} style={{ color: isDark ? '#ffffff' : '#111111' }}>
                                 ARHMS <span style={{ color: '#f59e0b' }}>TECHNOLOGIES</span>
                             </h1>
-                            <p className="text-sm font-medium leading-relaxed mb-7" style={{ color: isDark ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.55)' }}>
+                            <p className="text-sm font-medium leading-relaxed mb-6" style={{ color: isDark ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.55)' }}>
                                 Ghana&apos;s all-in-one platform for mobile data, airtime, Results Checkers, and business growth. Instant delivery, always.
                             </p>
-                            <div className="flex flex-col gap-3">
+                            <div className="flex flex-col gap-2.5">
                                 <HeroBtn href="/auth/login" variant="primary" isDark={isDark}>Sign In</HeroBtn>
                                 <HeroBtn href="/auth/signup" variant="white" isDark={isDark}>Create Account</HeroBtn>
                                 {isValidGuestUrl && <HeroBtn href={guestUrl} variant="dark" isDark={isDark}><Store className="w-4 h-4" /> Buy as Guest</HeroBtn>}
-                                <HeroBtn href="/dashboard/install" variant="dark" isDark={isDark}><Smartphone className="w-4 h-4" /> Download App</HeroBtn>
+                                <HeroBtn href="/dashboard/install" variant="dark" isDark={isDark}>
+                                    <Smartphone className="w-4 h-4" />
+                                    Download App
+                                    <span className="flex items-center gap-1 ml-1" style={{ opacity: 0.5 }}>
+                                        <AppleIcon className="w-3.5 h-3.5" />
+                                        <AndroidIcon className="w-3.5 h-3.5" />
+                                        <Monitor className="w-3.5 h-3.5" />
+                                    </span>
+                                </HeroBtn>
                             </div>
                             <SlideDots current={0} total={SLIDE_COUNT} onDotClick={setSlide} dark={isDark} />
                         </div>
