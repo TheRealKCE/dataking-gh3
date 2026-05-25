@@ -179,13 +179,16 @@ export function LandingClientShell({
             : 'opacity-0 translate-x-5 pointer-events-none'
 
     return (
-        <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
+        <div
+            className={cn('min-h-screen text-foreground overflow-x-hidden', !isDark && 'bg-background')}
+            style={isDark ? { background: 'linear-gradient(160deg, #07091c 0%, #0c1238 45%, #090d22 100%)' } : undefined}
+        >
 
             {/* ══ NAV ══════════════════════════════════════════════════════════════ */}
             <nav className={cn(
                 'fixed top-0 w-full z-[100] transition-all duration-500 h-16 sm:h-20 flex items-center',
                 headerScrolled ? 'backdrop-blur-2xl border-b border-white/10 sm:border-border/30 shadow-sm' : ''
-            )} style={{ backgroundColor: headerScrolled ? 'rgba(0,0,0,0.96)' : 'transparent' }}>
+            )} style={{ backgroundColor: headerScrolled ? 'rgba(7,9,28,0.97)' : 'transparent' }}>
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 w-full flex items-center justify-between">
                     <a href="#" className="flex items-center gap-2.5">
                         <div className="w-9 h-9 rounded-xl overflow-hidden bg-white flex items-center justify-center shadow-md flex-shrink-0">
@@ -229,7 +232,7 @@ export function LandingClientShell({
 
             {/* ══ HERO ══════════════════════════════════════════════════════════════ */}
             <section
-                className="relative min-h-screen flex flex-col items-center justify-center px-4 sm:px-6 lg:px-10 overflow-hidden pt-16 bg-background"
+                className="relative min-h-screen flex flex-col items-center justify-center px-4 sm:px-6 lg:px-10 overflow-hidden pt-16"
                 onTouchStart={e => setTouchStartX(e.touches[0].clientX)}
                 onTouchEnd={e => {
                     if (touchStartX === null) return
@@ -274,9 +277,9 @@ export function LandingClientShell({
 
                         {/* Slide 1 — Welcome */}
                         <div className={cn(cardBase, slideState(0))} style={{
-                            background: isDark ? 'linear-gradient(145deg,#111111,#000000)' : 'linear-gradient(145deg,#ffffff,#f8f9fa)',
-                            border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.08)',
-                            boxShadow: isDark ? '0 25px 60px rgba(0,0,0,0.5)' : '0 25px 60px rgba(0,0,0,0.1)',
+                            background: isDark ? 'linear-gradient(145deg,#0e1535,#090d22)' : 'linear-gradient(145deg,#ffffff,#f8f9fa)',
+                            border: isDark ? '1px solid rgba(255,255,255,0.07)' : '1px solid rgba(0,0,0,0.08)',
+                            boxShadow: isDark ? '0 25px 60px rgba(0,0,0,0.6)' : '0 25px 60px rgba(0,0,0,0.1)',
                         }}>
                             <p className="text-[10px] font-black uppercase tracking-[0.35em] mb-3" style={{ color: '#f59e0b' }}>Welcome to</p>
                             <h1 className="font-black text-[2rem] sm:text-4xl leading-tight tracking-tight mb-3" style={{ color: isDark ? '#ffffff' : '#111111' }}>
@@ -340,7 +343,7 @@ export function LandingClientShell({
                         </div>
 
                         {/* Slide 4 — Developer API */}
-                        <div className={cn(cardBase, slideState(3))} style={{ background: 'linear-gradient(145deg,#0a0a1a,#0f0a20)', border: '1px solid rgba(139,92,246,0.2)', boxShadow: '0 25px 60px rgba(139,92,246,0.15)' }}>
+                        <div className={cn(cardBase, slideState(3))} style={{ background: 'linear-gradient(145deg,#10082a,#0e0530)', border: '1px solid rgba(139,92,246,0.2)', boxShadow: '0 25px 60px rgba(139,92,246,0.2)' }}>
                             <p className="text-[10px] font-black uppercase tracking-[0.35em] mb-3" style={{ color: '#a78bfa' }}>For Builders</p>
                             <h2 className="font-black text-[2rem] sm:text-4xl leading-tight tracking-tight text-white mb-3">
                                 Powerful <span style={{ color: '#a78bfa' }}>API</span> Access

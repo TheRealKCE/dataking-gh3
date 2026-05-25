@@ -125,10 +125,12 @@
   .dark-mirror-section {
     position: relative;
     border-top: none;
+    background: transparent;
   }
 
   .landing-section {
     border-top: none;
+    background: transparent;
   }
 
   .btn-premium {
