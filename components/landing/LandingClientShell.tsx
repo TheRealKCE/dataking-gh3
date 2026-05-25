@@ -205,8 +205,9 @@ export function LandingClientShell({
             {/* ══ NAV ══════════════════════════════════════════════════════════════ */}
             <nav className={cn(
                 'fixed top-0 w-full z-[100] transition-all duration-500 h-16 sm:h-20 flex items-center',
-                headerScrolled ? 'backdrop-blur-2xl border-b border-white/10 sm:border-border/30 shadow-sm' : ''
-            )} style={{ backgroundColor: headerScrolled ? 'rgba(2,6,23,0.97)' : 'transparent' }}>
+                headerScrolled ? 'backdrop-blur-2xl border-b shadow-sm' : '',
+                headerScrolled ? (isDark ? 'border-white/10' : 'border-black/10') : ''
+            )} style={{ backgroundColor: headerScrolled ? (isDark ? 'rgba(2,6,23,0.97)' : 'rgba(255,255,255,0.97)') : 'transparent' }}>
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 w-full flex items-center justify-between">
                     <a href="#" className="flex items-center gap-2.5">
                         <div className="w-9 h-9 rounded-xl overflow-hidden bg-white flex items-center justify-center shadow-md flex-shrink-0">
@@ -214,14 +215,14 @@ export function LandingClientShell({
                                 <Image src="/arhms-logo.png" alt="ARHMS Logo" fill className="object-contain" priority />
                             </div>
                         </div>
-                        <span className="font-black text-base sm:text-lg tracking-tight text-white">
+                        <span className="font-black text-base sm:text-lg tracking-tight" style={{ color: isDark ? '#ffffff' : '#111111' }}>
                             ARHMS <span style={{ color: '#f59e0b' }}>TECHNOLOGIES</span>
                         </span>
                     </a>
 
                     <div className="hidden md:flex items-center gap-7">
                         {[['Products','#features'],['Wallet','#plans'],['Resell','#plans'],['AFA','#support'],['Community','#support']].map(([l,h]) => (
-                            <a key={l} href={h} className="text-xs font-semibold text-white/60 hover:text-white transition-colors">{l}</a>
+                            <a key={l} href={h} className="text-xs font-semibold transition-colors" style={{ color: isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.5)' }}>{l}</a>
                         ))}
                     </div>
 
@@ -233,10 +234,10 @@ export function LandingClientShell({
                             </Link>
                         ) : (
                             <>
-                                <Link href="/dashboard/install" className="hidden sm:flex items-center gap-1.5 text-xs font-bold text-white/70 hover:text-white border border-white/20 rounded-full px-3 h-8 transition-colors">
+                                <Link href="/dashboard/install" className="hidden sm:flex items-center gap-1.5 text-xs font-bold rounded-full px-3 h-8 transition-colors" style={{ color: isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.6)', border: isDark ? '1px solid rgba(255,255,255,0.2)' : '1px solid rgba(0,0,0,0.15)' }}>
                                     <Smartphone className="w-3 h-3" /> Install App
                                 </Link>
-                                <Link href="/auth/login" className="text-sm font-bold text-white/80 hover:text-white px-3 h-9 flex items-center transition-colors">
+                                <Link href="/auth/login" className="text-sm font-bold px-3 h-9 flex items-center transition-colors" style={{ color: isDark ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.7)' }}>
                                     Login
                                 </Link>
                                 <Link href="/auth/signup" className="text-sm font-black text-black h-9 px-5 rounded-full flex items-center active:scale-95 transition-transform" style={{ backgroundColor: '#f59e0b' }}>
