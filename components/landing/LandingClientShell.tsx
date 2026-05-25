@@ -259,15 +259,34 @@ export function LandingClientShell({
                     setTouchStartX(null)
                 }}
             >
-                {/* Background glow orbs */}
-                <div className="pointer-events-none absolute inset-0 overflow-hidden">
-                    <div className="absolute -top-24 -right-24 w-[700px] h-[700px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(79,70,229,0.5) 0%, transparent 62%)', filter: 'blur(44px)' }} />
-                    <div className="absolute top-1/4 -left-48 w-[560px] h-[560px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(37,99,235,0.3) 0%, transparent 68%)', filter: 'blur(32px)' }} />
-                    <div className="absolute bottom-0 right-1/3 w-[500px] h-[500px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(245,158,11,0.16) 0%, transparent 65%)', filter: 'blur(52px)' }} />
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[500px] rounded-full" style={{ background: 'radial-gradient(ellipse, rgba(124,58,237,0.22) 0%, transparent 58%)', filter: 'blur(60px)' }} />
-                </div>
+                {/* Background glow orbs — dark mode only */}
+                {isDark && (
+                    <div className="pointer-events-none absolute inset-0 overflow-hidden">
+                        <div className="absolute -top-24 -right-24 w-[700px] h-[700px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(79,70,229,0.5) 0%, transparent 62%)', filter: 'blur(44px)' }} />
+                        <div className="absolute top-1/4 -left-48 w-[560px] h-[560px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(37,99,235,0.3) 0%, transparent 68%)', filter: 'blur(32px)' }} />
+                        <div className="absolute bottom-0 right-1/3 w-[500px] h-[500px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(245,158,11,0.16) 0%, transparent 65%)', filter: 'blur(52px)' }} />
+                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[500px] rounded-full" style={{ background: 'radial-gradient(ellipse, rgba(124,58,237,0.22) 0%, transparent 58%)', filter: 'blur(60px)' }} />
+                    </div>
+                )}
 
                 <div className="relative z-10 w-full max-w-sm mx-auto flex flex-col items-center gap-4 sm:max-w-lg">
+
+                    {/* Logo */}
+                    <div className="w-[88px] h-[88px] rounded-full overflow-hidden flex items-center justify-center" style={{ backgroundColor: '#fff', boxShadow: '0 0 0 4px rgba(255,255,255,0.15), 0 20px 60px rgba(0,0,0,0.35)' }}>
+                        <div className="relative w-16 h-16">
+                            <Image src="/arhms-logo.png" alt="ARHMS Logo" fill className="object-contain" priority />
+                        </div>
+                    </div>
+
+                    {/* Brand name */}
+                    <div className="text-center -mt-1">
+                        <p className="font-black text-2xl sm:text-3xl tracking-tight" style={{ color: isDark ? '#ffffff' : '#111111' }}>
+                            ARHMS <span style={{ color: '#f59e0b' }}>TECHNOLOGIES</span>
+                        </p>
+                        <p className="text-[10px] font-bold uppercase tracking-[0.28em] mt-1" style={{ color: isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)' }}>
+                            Smart Solutions. Endless Possibilities.
+                        </p>
+                    </div>
 
                     {/* Badge */}
                     <div className="flex items-center gap-2 px-4 py-2 rounded-full border" style={{ backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.04)', borderColor: 'rgba(245,158,11,0.35)' }}>
@@ -275,8 +294,8 @@ export function LandingClientShell({
                         <span className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/80">Ultra Fast Instant Delivery</span>
                     </div>
 
-                    {/* Radial glow behind card */}
-                    <div className="pointer-events-none absolute left-1/2 -translate-x-1/2" style={{ top: '8%', width: 440, height: 560, borderRadius: '50%', background: 'radial-gradient(ellipse, rgba(37,99,235,0.2) 0%, rgba(79,70,229,0.12) 40%, transparent 70%)', filter: 'blur(52px)', zIndex: 0 }} />
+                    {/* Radial glow behind card — dark mode only */}
+                    {isDark && <div className="pointer-events-none absolute left-1/2 -translate-x-1/2" style={{ top: '8%', width: 440, height: 560, borderRadius: '50%', background: 'radial-gradient(ellipse, rgba(37,99,235,0.2) 0%, rgba(79,70,229,0.12) 40%, transparent 70%)', filter: 'blur(52px)', zIndex: 0 }} />}
 
                     {/* ── Carousel ─────────────────────────────── */}
                     <div className="w-full relative z-10" style={{ minHeight: 640 }}>
