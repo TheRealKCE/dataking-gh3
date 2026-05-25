@@ -122,6 +122,89 @@
     box-shadow: 0 1px 0 rgba(255,255,255,0.06) inset, 0 4px 24px rgba(0,0,0,0.4);
   }
 
+  /* ── Hero carousel card skins (CSS-driven, no JS hydration needed) ── */
+  .hero-slide-1 {
+    background: linear-gradient(145deg,#ffffff,#f8f9fa);
+    border: 1px solid rgba(0,0,0,0.08);
+    box-shadow: 0 25px 60px rgba(0,0,0,0.1);
+  }
+  .dark .hero-slide-1 {
+    background: linear-gradient(145deg,#0a0e22,#06091a);
+    border: 1px solid rgba(255,255,255,0.09);
+    box-shadow: 0 32px 80px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.05);
+  }
+
+  .hero-slide-2 {
+    background: linear-gradient(145deg,#ffffff,#eef2ff);
+    border: 1px solid rgba(99,102,241,0.2);
+    box-shadow: 0 25px 60px rgba(99,102,241,0.08);
+  }
+  .dark .hero-slide-2 {
+    background: linear-gradient(145deg,#0f172a,#1e1b4b);
+    border: 1px solid rgba(99,102,241,0.25);
+    box-shadow: 0 25px 60px rgba(99,102,241,0.15);
+  }
+
+  .hero-slide-3 {
+    background: linear-gradient(145deg,#ffffff,#f0fafb);
+    border: 1px solid rgba(14,165,233,0.2);
+    box-shadow: 0 25px 60px rgba(14,165,233,0.1);
+  }
+  .dark .hero-slide-3 {
+    background: linear-gradient(135deg,#0ea5e9 0%,#6366f1 40%,#06b6d4 70%,#10b981 100%);
+    border: 1px solid rgba(255,255,255,0.22);
+    box-shadow: 0 25px 70px rgba(14,165,233,0.35), 0 0 80px rgba(99,102,241,0.2);
+  }
+
+  /* Slide 3 pill chips flip from cyan-tint (light) to frosted-white (dark) */
+  .hero-slide-3 .hero-pill {
+    background: rgba(14,165,233,0.08);
+    border: 1px solid rgba(14,165,233,0.2);
+  }
+  .dark .hero-slide-3 .hero-pill {
+    background: rgba(255,255,255,0.18);
+    border: 1px solid rgba(255,255,255,0.3);
+  }
+
+  .hero-slide-4 {
+    background: linear-gradient(145deg,#ffffff,#f5f3ff);
+    border: 1px solid rgba(139,92,246,0.18);
+    box-shadow: 0 25px 60px rgba(139,92,246,0.08);
+  }
+  .dark .hero-slide-4 {
+    background: linear-gradient(145deg,#10082a,#0e0530);
+    border: 1px solid rgba(139,92,246,0.2);
+    box-shadow: 0 25px 60px rgba(139,92,246,0.2);
+  }
+
+  /* ── Hero card mirror reflection (light mode only) ──────────────────── */
+  .hero-reflect {
+    position: absolute;
+    inset-x: 0;
+    top: 0;
+    height: 90px;
+    border-radius: 0 0 24px 24px;
+    transform: scaleY(-1);
+    -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,0.28) 0%, transparent 90%);
+    mask-image: linear-gradient(to bottom, rgba(0,0,0,0.28) 0%, transparent 90%);
+    filter: blur(1.5px);
+    pointer-events: none;
+    transition: opacity 500ms, transform 500ms;
+  }
+  .hero-reflect-1 { background: linear-gradient(145deg, #f8f9fa, #ffffff); }
+  .hero-reflect-2 { background: linear-gradient(145deg, #eef2ff, #ffffff); }
+  .hero-reflect-3 { background: linear-gradient(145deg, #f0fafb, #ffffff); }
+  .hero-reflect-4 { background: linear-gradient(145deg, #f5f3ff, #ffffff); }
+
+  .hero-separator {
+    background: linear-gradient(to right, transparent, rgba(0,0,0,0.08) 30%, rgba(0,0,0,0.08) 70%, transparent);
+  }
+
+  .hero-reflect-wrap {
+    height: 90px;
+    z-index: 9;
+  }
+
   .dark-mirror-section {
     position: relative;
     border-top: none;

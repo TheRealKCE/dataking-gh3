@@ -260,6 +260,15 @@ export function LandingClientShell({
                     setTouchStartX(null)
                 }}
             >
+                {/* Background ambience — light mode only */}
+                {!isDark && (
+                    <div className="pointer-events-none absolute inset-0 overflow-hidden">
+                        <div className="absolute -top-20 left-1/2 -translate-x-1/2 w-[600px] h-[400px] rounded-full" style={{ background: 'radial-gradient(ellipse, rgba(245,158,11,0.08) 0%, transparent 70%)', filter: 'blur(40px)' }} />
+                        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[500px] h-[500px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(99,102,241,0.05) 0%, transparent 65%)', filter: 'blur(50px)' }} />
+                        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[560px] h-[200px] rounded-full" style={{ background: 'radial-gradient(ellipse, rgba(245,158,11,0.06) 0%, transparent 70%)', filter: 'blur(30px)' }} />
+                    </div>
+                )}
+
                 {/* Background glow orbs — dark mode only */}
                 {isDark && (
                     <div className="pointer-events-none absolute inset-0 overflow-hidden">
@@ -302,16 +311,12 @@ export function LandingClientShell({
                     <div className="w-full relative z-10" style={{ minHeight: 640 }}>
 
                         {/* Slide 1 — Welcome */}
-                        <div className={cn(cardBase, slideState(0))} style={{
-                            background: isDark ? 'linear-gradient(145deg,#0a0e22,#06091a)' : 'linear-gradient(145deg,#ffffff,#f8f9fa)',
-                            border: isDark ? '1px solid rgba(255,255,255,0.09)' : '1px solid rgba(0,0,0,0.08)',
-                            boxShadow: isDark ? '0 32px 80px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.05)' : '0 25px 60px rgba(0,0,0,0.1)',
-                        }}>
+                        <div className={cn(cardBase, slideState(0), 'hero-slide-1')}>
                             <p className="text-[10px] font-black uppercase tracking-[0.35em] mb-3" style={{ color: '#f59e0b' }}>Welcome to</p>
-                            <h1 className={cn('font-black text-[2rem] sm:text-4xl leading-tight tracking-tight mb-3', isDark ? '!text-white' : '!text-[#111111]')} style={{ color: isDark ? '#ffffff' : '#111111' }}>
+                            <h1 className="font-black text-[2rem] sm:text-4xl leading-tight tracking-tight mb-3 text-[#111111] dark:text-white">
                                 ARHMS <span style={{ color: '#f59e0b' }}>TECHNOLOGIES</span>
                             </h1>
-                            <p className="text-sm font-medium leading-relaxed mb-6" style={{ color: isDark ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.55)' }}>
+                            <p className="text-sm font-medium leading-relaxed mb-6 text-black/55 dark:text-white/55">
                                 Ghana&apos;s all-in-one platform for mobile data, airtime, Results Checkers, and business growth. Instant delivery, always.
                             </p>
                             <div className="flex flex-col gap-2.5">
@@ -332,69 +337,81 @@ export function LandingClientShell({
                         </div>
 
                         {/* Slide 2 — Result Checker */}
-                        <div className={cn(cardBase, slideState(1))} style={{ background: 'linear-gradient(145deg,#0f172a,#1e1b4b)', border: '1px solid rgba(99,102,241,0.25)', boxShadow: '0 25px 60px rgba(99,102,241,0.15)' }}>
+                        <div className={cn(cardBase, slideState(1), 'hero-slide-2')}>
                             <p className="text-[10px] font-black uppercase tracking-[0.35em] mb-3" style={{ color: '#f59e0b' }}>WASSCE &amp; BECE</p>
-                            <h2 className="font-black text-[2rem] sm:text-4xl leading-tight tracking-tight mb-3" style={{ color: '#ffffff' }}>
+                            <h2 className="font-black text-[2rem] sm:text-4xl leading-tight tracking-tight mb-3 text-[#111111] dark:text-white">
                                 Check Your <span style={{ color: '#f59e0b' }}>Results</span>
                             </h2>
-                            <p className="text-sm font-medium leading-relaxed mb-5" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                            <p className="text-sm font-medium leading-relaxed mb-5 text-black/55 dark:text-white/60">
                                 Instantly check WAEC, BECE exam results for any student. Fast, reliable, and always available.
                             </p>
                             <div className="flex flex-wrap gap-2 mb-6">
                                 {['WAEC Results', 'BECE Results', 'Instant Check', 'Any School', 'Live Updates'].map(f => (
-                                    <span key={f} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wide" style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', color: 'rgba(255,255,255,0.85)' }}>
+                                    <span key={f} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wide text-black/70 dark:text-white/85" style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)' }}>
                                         <CheckCircle2 className="w-3 h-3" style={{ color: '#f59e0b' }} />{f}
                                     </span>
                                 ))}
                             </div>
                             <HeroBtn href="/dashboard/result-checker" variant="primary"><GraduationCap className="w-4 h-4" /> Check Results Now</HeroBtn>
-                            <SlideDots current={1} total={SLIDE_COUNT} onDotClick={setSlide} dark />
+                            <SlideDots current={1} total={SLIDE_COUNT} onDotClick={setSlide} dark={isDark} />
                         </div>
 
                         {/* Slide 3 — Create Your Shop */}
-                        <div className={cn(cardBase, slideState(2), 'overflow-hidden')} style={{ background: 'linear-gradient(135deg, #0ea5e9 0%, #6366f1 40%, #06b6d4 70%, #10b981 100%)', border: '1px solid rgba(255,255,255,0.22)', boxShadow: '0 25px 70px rgba(14,165,233,0.35), 0 0 80px rgba(99,102,241,0.2)' }}>
-                            <div style={{ position: 'absolute', top: '-30%', right: '-15%', width: 220, height: 220, borderRadius: '50%', background: 'rgba(255,255,255,0.12)', filter: 'blur(50px)', pointerEvents: 'none' }} />
-                            <div style={{ position: 'absolute', bottom: '-20%', left: '-10%', width: 180, height: 180, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', filter: 'blur(40px)', pointerEvents: 'none' }} />
-                            <div style={{ position: 'absolute', top: '40%', right: '10%', width: 100, height: 100, borderRadius: '50%', background: 'rgba(253,230,138,0.15)', filter: 'blur(30px)', pointerEvents: 'none' }} />
+                        <div className={cn(cardBase, slideState(2), 'hero-slide-3 overflow-hidden')}>
+                            <div className="hidden dark:block">
+                                <div style={{ position: 'absolute', top: '-30%', right: '-15%', width: 220, height: 220, borderRadius: '50%', background: 'rgba(255,255,255,0.12)', filter: 'blur(50px)', pointerEvents: 'none' }} />
+                                <div style={{ position: 'absolute', bottom: '-20%', left: '-10%', width: 180, height: 180, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', filter: 'blur(40px)', pointerEvents: 'none' }} />
+                                <div style={{ position: 'absolute', top: '40%', right: '10%', width: 100, height: 100, borderRadius: '50%', background: 'rgba(253,230,138,0.15)', filter: 'blur(30px)', pointerEvents: 'none' }} />
+                            </div>
                             <div className="relative z-10">
-                                <p className="text-[10px] font-black uppercase tracking-[0.35em] mb-3" style={{ color: 'rgba(255,255,255,0.85)' }}>Create Your Shop</p>
-                                <h2 className="font-black text-[2rem] sm:text-4xl leading-tight tracking-tight text-white mb-3">
-                                    Launch Your <span style={{ color: '#fde68a' }}>Shop</span>
+                                <p className="text-[10px] font-black uppercase tracking-[0.35em] mb-3 text-[#0ea5e9] dark:text-white/85">Create Your Shop</p>
+                                <h2 className="font-black text-[2rem] sm:text-4xl leading-tight tracking-tight mb-3 text-[#111111] dark:text-white">
+                                    Launch Your <span className="text-[#6366f1] dark:text-[#fde68a]">Shop</span>
                                 </h2>
-                                <p className="text-sm font-medium leading-relaxed mb-5" style={{ color: 'rgba(255,255,255,0.8)' }}>
+                                <p className="text-sm font-medium leading-relaxed mb-5 text-black/55 dark:text-white/80">
                                     Create a branded storefront with your name, logo, pricing, and checkout link. Share it anywhere and start earning.
                                 </p>
                                 <div className="flex flex-wrap gap-2 mb-6">
                                     {['Public Shop URL','Custom Pricing','Order Tracking','WhatsApp Support','Brand Logo'].map(f => (
-                                        <span key={f} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wide" style={{ background: 'rgba(255,255,255,0.18)', border: '1px solid rgba(255,255,255,0.3)', color: 'rgba(255,255,255,0.95)' }}>
-                                            <CheckCircle2 className="w-3 h-3" style={{ color: '#fde68a' }} />{f}
+                                        <span key={f} className="hero-pill inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wide text-black/70 dark:text-white/95">
+                                            <CheckCircle2 className="w-3 h-3 text-[#0ea5e9] dark:text-[#fde68a]" />{f}
                                         </span>
                                     ))}
                                 </div>
                                 <HeroBtn href="/auth/signup" variant="primary"><Store className="w-4 h-4" /> Open Your Shop</HeroBtn>
-                                <SlideDots current={2} total={SLIDE_COUNT} onDotClick={setSlide} dark />
+                                <SlideDots current={2} total={SLIDE_COUNT} onDotClick={setSlide} dark={isDark} />
                             </div>
                         </div>
 
                         {/* Slide 4 — Developer API */}
-                        <div className={cn(cardBase, slideState(3))} style={{ background: 'linear-gradient(145deg,#10082a,#0e0530)', border: '1px solid rgba(139,92,246,0.2)', boxShadow: '0 25px 60px rgba(139,92,246,0.2)' }}>
+                        <div className={cn(cardBase, slideState(3), 'hero-slide-4')}>
                             <p className="text-[10px] font-black uppercase tracking-[0.35em] mb-3" style={{ color: '#a78bfa' }}>For Builders</p>
-                            <h2 className="font-black text-[2rem] sm:text-4xl leading-tight tracking-tight text-white mb-3">
+                            <h2 className="font-black text-[2rem] sm:text-4xl leading-tight tracking-tight mb-3 text-[#111111] dark:text-white">
                                 Powerful <span style={{ color: '#a78bfa' }}>API</span> Access
                             </h2>
-                            <p className="text-sm font-medium leading-relaxed mb-5" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                            <p className="text-sm font-medium leading-relaxed mb-5 text-black/55 dark:text-white/55">
                                 Integrate ARHMS data, airtime, and result checking into your own apps. RESTful API with instant responses.
                             </p>
                             <div className="flex flex-wrap gap-2 mb-6">
                                 {['REST API', 'Webhooks', 'Sandbox Mode', 'Live Dashboard', 'Instant Response'].map(f => (
-                                    <span key={f} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wide" style={{ background: 'rgba(167,139,250,0.08)', border: '1px solid rgba(167,139,250,0.2)', color: 'rgba(255,255,255,0.85)' }}>
+                                    <span key={f} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wide text-black/70 dark:text-white/85" style={{ background: 'rgba(167,139,250,0.08)', border: '1px solid rgba(167,139,250,0.2)' }}>
                                         <Code2 className="w-3 h-3" style={{ color: '#a78bfa' }} />{f}
                                     </span>
                                 ))}
                             </div>
                             <HeroBtn href="/auth/signup" variant="primary"><Code2 className="w-4 h-4" /> Get API Access</HeroBtn>
-                            <SlideDots current={3} total={SLIDE_COUNT} onDotClick={setSlide} dark />
+                            <SlideDots current={3} total={SLIDE_COUNT} onDotClick={setSlide} dark={isDark} />
                         </div>
+                    </div>
+
+                    {/* Light-mode surface separator */}
+                    <div className="hero-separator block dark:hidden w-full h-px" />
+
+                    {/* Light-mode mirror reflection */}
+                    <div className="hero-reflect-wrap block dark:hidden w-full relative pointer-events-none">
+                        {[0, 1, 2, 3].map(i => (
+                            <div key={i} className={cn('hero-reflect', `hero-reflect-${i + 1}`, slideState(i))} />
+                        ))}
                     </div>
                 </div>
             </section>
