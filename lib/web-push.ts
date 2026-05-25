@@ -1,12 +1,6 @@
 import webpush from 'web-push'
 import { createServerClient } from '@/lib/supabase'
 
-webpush.setVapidDetails(
-    process.env.VAPID_SUBJECT!,
-    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
-    process.env.VAPID_PRIVATE_KEY!
-)
-
 interface PushPayload {
     title: string
     body: string
@@ -14,6 +8,14 @@ interface PushPayload {
 }
 
 export async function sendPushToUser(userId: string, payload: PushPayload) {
+    const subject = process.env.VAPID_SUBJECT
+    const publicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+    const privateKey = process.env.VAPID_PRIVATE_KEY
+
+    if (!subject || !publicKey || !privateKey) return
+
+    webpush.setVapidDetails(subject, publicKey, privateKey)
+
     const supabase = createServerClient()
 
     const { data: subscriptions, error } = await (supabase
