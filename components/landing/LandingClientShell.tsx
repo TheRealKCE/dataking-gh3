@@ -9,11 +9,14 @@ import { Button } from '@/components/ui/button'
 import { Card } from '@/components/ui/card'
 import { cn } from '@/lib/utils'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
+import { useTheme } from 'next-themes'
 import {
     ArrowRight,
     BarChart3,
     Bell,
     CheckCircle2,
+    Code2,
+    GraduationCap,
     HeadphonesIcon,
     Layers,
     MessageSquare,
@@ -71,7 +74,7 @@ const faqItems = [
     { q: 'How do customers track orders or report issues?', a: 'Customers can use the public order tracker, while logged-in users can review orders, notifications, and complaints from dashboard pages.' },
 ]
 
-// ── Dot indicators ──────────────────────────────────────────────────────────────
+// ── Dot indicators ───────────────────────────────────────────────────────────────
 function SlideDots({ current, total, onDotClick, dark }: { current: number; total: number; onDotClick: (i: number) => void; dark?: boolean }) {
     return (
         <div className="flex items-center justify-between mt-6 pt-5" style={{ borderTop: dark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.07)' }}>
@@ -92,16 +95,19 @@ function SlideDots({ current, total, onDotClick, dark }: { current: number; tota
                     />
                 ))}
             </div>
-            <span style={{ fontSize: 11, fontWeight: 800, letterSpacing: '0.12em', color: dark ? 'rgba(255,255,255,0.28)' : 'rgba(0,0,0,0.3)' }}>
-                {String(current + 1).padStart(2, '0')} / {String(total).padStart(2, '0')}
-            </span>
+            <Link
+                href="/shop/status"
+                className="flex items-center gap-1.5 text-[10px] font-bold transition-colors active:opacity-70"
+                style={{ color: dark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)' }}
+            >
+                <CheckCircle2 className="w-3 h-3" /> Track an Order
+            </Link>
         </div>
     )
 }
 
-// ── Hero CTA buttons ─────────────────────────────────────────────────────────────
-// Use inline styles so the Button component defaults never override them
-function HeroBtn({ href, variant = 'primary', children, className }: { href: string; variant?: 'primary' | 'white' | 'dark'; children: React.ReactNode; className?: string }) {
+// ── Hero CTA buttons ──────────────────────────────────────────────────────────────
+function HeroBtn({ href, variant = 'primary', isDark = true, children, className }: { href: string; variant?: 'primary' | 'white' | 'dark'; isDark?: boolean; children: React.ReactNode; className?: string }) {
     const base: React.CSSProperties = {
         display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
         width: '100%', height: 52, borderRadius: 999,
@@ -111,8 +117,8 @@ function HeroBtn({ href, variant = 'primary', children, className }: { href: str
     }
     const styles: Record<string, React.CSSProperties> = {
         primary: { ...base, backgroundColor: '#f59e0b', color: '#000', boxShadow: '0 4px 20px rgba(245,158,11,0.35)' },
-        white:   { ...base, backgroundColor: '#fff', color: '#111', border: '1.5px solid rgba(0,0,0,0.12)' },
-        dark:    { ...base, backgroundColor: 'rgba(255,255,255,0.07)', color: '#fff', border: '1.5px solid rgba(255,255,255,0.12)' },
+        white:   { ...base, backgroundColor: isDark ? '#fff' : 'transparent', color: '#111', border: isDark ? '1.5px solid rgba(0,0,0,0.12)' : '1.5px solid rgba(0,0,0,0.2)' },
+        dark:    { ...base, backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)', color: isDark ? '#fff' : '#111', border: isDark ? '1.5px solid rgba(255,255,255,0.12)' : '1.5px solid rgba(0,0,0,0.15)' },
     }
     return (
         <Link href={href} style={styles[variant]} className={cn('active:scale-95 sm:h-[42px] sm:w-auto sm:px-6', className)}>
@@ -128,6 +134,8 @@ export function LandingClientShell({
     initialPlanPrices,
 }: LandingClientShellProps) {
     const router = useRouter()
+    const { resolvedTheme } = useTheme()
+    const isDark = resolvedTheme !== 'light'
     const [headerScrolled, setHeaderScrolled] = useState(false)
     const [guestUrl] = useState(initialGuestUrl)
     const [adminPhone] = useState(initialAdminPhone)
@@ -163,7 +171,6 @@ export function LandingClientShell({
         return () => clearInterval(t)
     }, [])
 
-    // ── shared slide card classes ──
     const cardBase = 'absolute inset-0 w-full rounded-3xl p-6 sm:p-8 text-left transition-all duration-500'
     const slideState = (i: number) => slide === i
         ? 'opacity-100 translate-x-0 pointer-events-auto'
@@ -172,7 +179,7 @@ export function LandingClientShell({
             : 'opacity-0 translate-x-5 pointer-events-none'
 
     return (
-        <div className="dark min-h-screen bg-background text-foreground overflow-x-hidden">
+        <div className="min-h-screen bg-background text-foreground overflow-x-hidden">
 
             {/* ══ NAV ══════════════════════════════════════════════════════════════ */}
             <nav className={cn(
@@ -180,7 +187,6 @@ export function LandingClientShell({
                 headerScrolled ? 'backdrop-blur-2xl border-b border-white/10 sm:border-border/30 shadow-sm' : ''
             )} style={{ backgroundColor: headerScrolled ? 'rgba(0,0,0,0.96)' : 'transparent' }}>
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 w-full flex items-center justify-between">
-                    {/* Logo */}
                     <a href="#" className="flex items-center gap-2.5">
                         <div className="w-9 h-9 rounded-xl overflow-hidden bg-white flex items-center justify-center shadow-md flex-shrink-0">
                             <div className="relative w-8 h-8">
@@ -192,14 +198,12 @@ export function LandingClientShell({
                         </span>
                     </a>
 
-                    {/* Desktop links */}
                     <div className="hidden md:flex items-center gap-7">
                         {[['Products','#features'],['Wallet','#plans'],['Resell','#plans'],['AFA','#support'],['Community','#support']].map(([l,h]) => (
                             <a key={l} href={h} className="text-xs font-semibold text-white/60 hover:text-white transition-colors">{l}</a>
                         ))}
                     </div>
 
-                    {/* Right actions */}
                     <div className="flex items-center gap-2 sm:gap-3">
                         <div className="hidden sm:block"><ThemeToggle /></div>
                         {isLoggedIn ? (
@@ -225,8 +229,7 @@ export function LandingClientShell({
 
             {/* ══ HERO ══════════════════════════════════════════════════════════════ */}
             <section
-                className="relative min-h-screen flex flex-col items-center justify-center px-4 sm:px-6 lg:px-10 overflow-hidden pt-16"
-                style={{ backgroundColor: '#000000' }}
+                className="relative min-h-screen flex flex-col items-center justify-center px-4 sm:px-6 lg:px-10 overflow-hidden pt-16 bg-background"
                 onTouchStart={e => setTouchStartX(e.touches[0].clientX)}
                 onTouchEnd={e => {
                     if (touchStartX === null) return
@@ -237,15 +240,14 @@ export function LandingClientShell({
             >
                 {/* Background glow orbs */}
                 <div className="pointer-events-none absolute inset-0 overflow-hidden">
-                    <div className="absolute top-1/2 -right-40 w-[500px] h-[500px] rounded-full opacity-10" style={{ background: 'radial-gradient(circle, #2563eb 0%, transparent 70%)' }} />
+                    <div className="absolute top-1/2 -right-40 w-[500px] h-[500px] rounded-full opacity-10" style={{ background: 'radial-gradient(circle, #4f46e5 0%, transparent 70%)' }} />
                     <div className="absolute -bottom-20 -left-20 w-[400px] h-[400px] rounded-full opacity-8" style={{ background: 'radial-gradient(circle, #f59e0b 0%, transparent 70%)' }} />
                 </div>
 
-                {/* Content */}
                 <div className="relative z-10 w-full max-w-sm mx-auto flex flex-col items-center gap-5 sm:max-w-lg">
 
                     {/* Logo circle */}
-                    <div className="w-[88px] h-[88px] rounded-full flex items-center justify-center shadow-2xl ring-4 overflow-hidden" style={{ backgroundColor: '#fff', boxShadow: '0 0 0 4px rgba(255,255,255,0.12), 0 20px 60px rgba(0,0,0,0.4)' }}>
+                    <div className="w-[88px] h-[88px] rounded-full flex items-center justify-center shadow-2xl overflow-hidden" style={{ backgroundColor: '#fff', boxShadow: '0 0 0 4px rgba(255,255,255,0.12), 0 20px 60px rgba(0,0,0,0.4)' }}>
                         <div className="relative w-16 h-16">
                             <Image src="/arhms-logo.png" alt="ARHMS Logo" fill className="object-contain" priority />
                         </div>
@@ -253,71 +255,72 @@ export function LandingClientShell({
 
                     {/* Brand name */}
                     <div className="text-center">
-                        <p className="font-black text-2xl sm:text-3xl tracking-tight text-white">
+                        <p className="font-black text-2xl sm:text-3xl tracking-tight text-foreground">
                             ARHMS <span style={{ color: '#f59e0b' }}>TECHNOLOGIES</span>
                         </p>
-                        <p className="text-[10px] font-bold uppercase tracking-[0.28em] mt-1" style={{ color: 'rgba(255,255,255,0.35)' }}>
+                        <p className="text-[10px] font-bold uppercase tracking-[0.28em] mt-1 text-muted-foreground/60">
                             Smart Solutions. Endless Possibilities.
                         </p>
                     </div>
 
                     {/* Badge */}
-                    <div className="flex items-center gap-2 px-4 py-2 rounded-full border" style={{ backgroundColor: 'rgba(255,255,255,0.06)', borderColor: 'rgba(245,158,11,0.3)' }}>
+                    <div className="flex items-center gap-2 px-4 py-2 rounded-full border" style={{ backgroundColor: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.04)', borderColor: 'rgba(245,158,11,0.3)' }}>
                         <Zap className="w-3.5 h-3.5" style={{ color: '#f59e0b', fill: '#f59e0b' }} />
-                        <span className="text-[10px] font-black uppercase tracking-[0.2em]" style={{ color: 'rgba(255,255,255,0.75)' }}>Ultra Fast Instant Delivery</span>
+                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/75">Ultra Fast Instant Delivery</span>
                     </div>
 
-                    {/* ── Carousel card ─────────────────────────────────── */}
+                    {/* ── Carousel ─────────────────────────────── */}
                     <div className="w-full relative" style={{ minHeight: 440 }}>
 
                         {/* Slide 1 — Welcome */}
-                        <div className={cn(cardBase, slideState(0))} style={{ background: 'linear-gradient(145deg,#111111,#000000)', border: '1px solid rgba(255,255,255,0.08)', boxShadow: '0 25px 60px rgba(0,0,0,0.5)' }}>
+                        <div className={cn(cardBase, slideState(0))} style={{
+                            background: isDark ? 'linear-gradient(145deg,#111111,#000000)' : 'linear-gradient(145deg,#ffffff,#f8f9fa)',
+                            border: isDark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.08)',
+                            boxShadow: isDark ? '0 25px 60px rgba(0,0,0,0.5)' : '0 25px 60px rgba(0,0,0,0.1)',
+                        }}>
                             <p className="text-[10px] font-black uppercase tracking-[0.35em] mb-3" style={{ color: '#f59e0b' }}>Welcome to</p>
-                            <h1 className="font-black text-[2rem] sm:text-4xl leading-tight tracking-tight text-white mb-3">
+                            <h1 className="font-black text-[2rem] sm:text-4xl leading-tight tracking-tight mb-3" style={{ color: isDark ? '#ffffff' : '#111111' }}>
                                 ARHMS <span style={{ color: '#f59e0b' }}>TECHNOLOGIES</span>
                             </h1>
-                            <p className="text-sm font-medium leading-relaxed mb-7" style={{ color: 'rgba(255,255,255,0.55)' }}>
+                            <p className="text-sm font-medium leading-relaxed mb-7" style={{ color: isDark ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.55)' }}>
                                 Ghana&apos;s all-in-one platform for mobile data, airtime, Results Checkers, and business growth. Instant delivery, always.
                             </p>
                             <div className="flex flex-col gap-3">
-                                <HeroBtn href="/auth/login" variant="primary">Sign In</HeroBtn>
-                                <HeroBtn href="/auth/signup" variant="white">Create Account</HeroBtn>
-                                {isValidGuestUrl && <HeroBtn href={guestUrl} variant="dark"><Store className="w-4 h-4" /> Buy as Guest</HeroBtn>}
-                                <HeroBtn href="/dashboard/install" variant="dark"><Smartphone className="w-4 h-4" /> Download App</HeroBtn>
+                                <HeroBtn href="/auth/login" variant="primary" isDark={isDark}>Sign In</HeroBtn>
+                                <HeroBtn href="/auth/signup" variant="white" isDark={isDark}>Create Account</HeroBtn>
+                                {isValidGuestUrl && <HeroBtn href={guestUrl} variant="dark" isDark={isDark}><Store className="w-4 h-4" /> Buy as Guest</HeroBtn>}
+                                <HeroBtn href="/dashboard/install" variant="dark" isDark={isDark}><Smartphone className="w-4 h-4" /> Download App</HeroBtn>
                             </div>
-                            <SlideDots current={0} total={SLIDE_COUNT} onDotClick={setSlide} dark />
+                            <SlideDots current={0} total={SLIDE_COUNT} onDotClick={setSlide} dark={isDark} />
                         </div>
 
-                        {/* Slide 2 — Lightning Fast (light warm card) */}
-                        <div className={cn(cardBase, slideState(1))} style={{ background: 'linear-gradient(145deg,#fffdf5,#fff9ed,#f0f8ff)', border: '1px solid rgba(245,158,11,0.22)', boxShadow: '0 25px 60px rgba(0,0,0,0.18)' }}>
-                            <p className="text-[10px] font-black uppercase tracking-[0.35em] mb-3" style={{ color: '#2563eb' }}>Lightning Fast</p>
-                            <h2 className="font-black text-[2rem] sm:text-4xl leading-tight tracking-tight mb-3" style={{ color: '#0a0a0a' }}>
-                                Data in <span style={{ color: '#d97706' }}>Seconds</span>
+                        {/* Slide 2 — Result Checker */}
+                        <div className={cn(cardBase, slideState(1))} style={{ background: 'linear-gradient(145deg,#0f172a,#1e1b4b)', border: '1px solid rgba(99,102,241,0.25)', boxShadow: '0 25px 60px rgba(99,102,241,0.15)' }}>
+                            <p className="text-[10px] font-black uppercase tracking-[0.35em] mb-3" style={{ color: '#f59e0b' }}>WASSCE &amp; BECE</p>
+                            <h2 className="font-black text-[2rem] sm:text-4xl leading-tight tracking-tight mb-3" style={{ color: '#ffffff' }}>
+                                Check Your <span style={{ color: '#f59e0b' }}>Results</span>
                             </h2>
-                            <p className="text-sm font-medium leading-relaxed mb-5" style={{ color: '#4b5563' }}>
-                                MTN, Telecel, and AT bundles delivered to any phone in under 3 seconds — automated routing, zero delays.
+                            <p className="text-sm font-medium leading-relaxed mb-5" style={{ color: 'rgba(255,255,255,0.6)' }}>
+                                Instantly check WAEC, BECE exam results for any student. Fast, reliable, and always available.
                             </p>
-                            <div className="grid grid-cols-3 gap-3 mb-6">
-                                {[{ v: '< 3s', l: 'Delivery' },{ v: '99.9%', l: 'Uptime' },{ v: '99.98%', l: 'Success' }].map(s => (
-                                    <div key={s.l} className="rounded-2xl p-3 text-center" style={{ background: 'rgba(245,158,11,0.07)', border: '1px solid rgba(245,158,11,0.18)' }}>
-                                        <p className="font-black text-lg" style={{ color: '#d97706' }}>{s.v}</p>
-                                        <p className="text-[10px] font-bold uppercase tracking-wide mt-0.5" style={{ color: '#6b7280' }}>{s.l}</p>
-                                    </div>
+                            <div className="flex flex-wrap gap-2 mb-6">
+                                {['WAEC Results', 'BECE Results', 'Instant Check', 'Any School', 'Live Updates'].map(f => (
+                                    <span key={f} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wide" style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.2)', color: 'rgba(255,255,255,0.85)' }}>
+                                        <CheckCircle2 className="w-3 h-3" style={{ color: '#f59e0b' }} />{f}
+                                    </span>
                                 ))}
                             </div>
-                            <HeroBtn href="/auth/signup" variant="primary"><Zap className="w-4 h-4" /> Buy Data Now</HeroBtn>
-                            <SlideDots current={1} total={SLIDE_COUNT} onDotClick={setSlide} dark={false} />
+                            <HeroBtn href="/dashboard/result-checker" variant="primary"><GraduationCap className="w-4 h-4" /> Check Results Now</HeroBtn>
+                            <SlideDots current={1} total={SLIDE_COUNT} onDotClick={setSlide} dark />
                         </div>
 
-                        {/* Slide 3 — Your Shop (mirror water glassmorphism) */}
+                        {/* Slide 3 — Create Your Shop */}
                         <div className={cn(cardBase, slideState(2), 'overflow-hidden')} style={{ background: 'linear-gradient(135deg, #0ea5e9 0%, #6366f1 40%, #06b6d4 70%, #10b981 100%)', border: '1px solid rgba(255,255,255,0.22)', boxShadow: '0 25px 70px rgba(14,165,233,0.35), 0 0 80px rgba(99,102,241,0.2)' }}>
-                            {/* Water reflection orbs */}
                             <div style={{ position: 'absolute', top: '-30%', right: '-15%', width: 220, height: 220, borderRadius: '50%', background: 'rgba(255,255,255,0.12)', filter: 'blur(50px)', pointerEvents: 'none' }} />
                             <div style={{ position: 'absolute', bottom: '-20%', left: '-10%', width: 180, height: 180, borderRadius: '50%', background: 'rgba(255,255,255,0.1)', filter: 'blur(40px)', pointerEvents: 'none' }} />
                             <div style={{ position: 'absolute', top: '40%', right: '10%', width: 100, height: 100, borderRadius: '50%', background: 'rgba(253,230,138,0.15)', filter: 'blur(30px)', pointerEvents: 'none' }} />
-                            {/* Content */}
                             <div className="relative z-10">
-                                <p className="text-[10px] font-black uppercase tracking-[0.35em] mb-3" style={{ color: 'rgba(255,255,255,0.85)' }}>Build Your Brand</p>
+                                <p className="text-[10px] font-black uppercase tracking-[0.35em] mb-3" style={{ color: 'rgba(255,255,255,0.85)' }}>Create Your Shop</p>
                                 <h2 className="font-black text-[2rem] sm:text-4xl leading-tight tracking-tight text-white mb-3">
                                     Launch Your <span style={{ color: '#fde68a' }}>Shop</span>
                                 </h2>
@@ -336,41 +339,26 @@ export function LandingClientShell({
                             </div>
                         </div>
 
-                        {/* Slide 4 — Agent Plans */}
-                        <div className={cn(cardBase, slideState(3))} style={{ background: 'linear-gradient(145deg,#111111,#000000)', border: '1px solid rgba(245,158,11,0.15)', boxShadow: '0 25px 60px rgba(0,0,0,0.5)' }}>
-                            <p className="text-[10px] font-black uppercase tracking-[0.35em] mb-3" style={{ color: '#f59e0b' }}>Become an Agent</p>
+                        {/* Slide 4 — Developer API */}
+                        <div className={cn(cardBase, slideState(3))} style={{ background: 'linear-gradient(145deg,#0a0a1a,#0f0a20)', border: '1px solid rgba(139,92,246,0.2)', boxShadow: '0 25px 60px rgba(139,92,246,0.15)' }}>
+                            <p className="text-[10px] font-black uppercase tracking-[0.35em] mb-3" style={{ color: '#a78bfa' }}>For Builders</p>
                             <h2 className="font-black text-[2rem] sm:text-4xl leading-tight tracking-tight text-white mb-3">
-                                Grow Your <span style={{ color: '#f59e0b' }}>Business</span>
+                                Powerful <span style={{ color: '#a78bfa' }}>API</span> Access
                             </h2>
                             <p className="text-sm font-medium leading-relaxed mb-5" style={{ color: 'rgba(255,255,255,0.55)' }}>
-                                Unlock wholesale rates, priority support, and bulk tools. Plans starting from GHS 9.99 — pick yours today.
+                                Integrate ARHMS data, airtime, and result checking into your own apps. RESTful API with instant responses.
                             </p>
-                            <div className="grid grid-cols-2 gap-3 mb-6">
-                                {[
-                                    { name: 'Starter', price: planPrices['3d'], period: '3 Days' },
-                                    { name: 'Popular', price: planPrices['14d'], period: '14 Days', highlight: true },
-                                    { name: 'Premium', price: planPrices['30d'], period: '30 Days' },
-                                    { name: 'Lifetime', price: planPrices['permanent'], period: 'Forever' },
-                                ].map(p => (
-                                    <div key={p.name} className="rounded-2xl p-3 text-center" style={{
-                                        background: p.highlight ? 'rgba(245,158,11,0.12)' : 'rgba(255,255,255,0.04)',
-                                        border: p.highlight ? '1px solid rgba(245,158,11,0.35)' : '1px solid rgba(255,255,255,0.08)',
-                                    }}>
-                                        <p className="font-black text-xs uppercase tracking-wide" style={{ color: p.highlight ? '#f59e0b' : 'rgba(255,255,255,0.6)' }}>{p.name}</p>
-                                        <p className="font-black text-base text-white mt-0.5">GHS {p.price.toFixed(2)}</p>
-                                        <p className="text-[10px] uppercase tracking-wide mt-0.5" style={{ color: 'rgba(255,255,255,0.35)' }}>{p.period}</p>
-                                    </div>
+                            <div className="flex flex-wrap gap-2 mb-6">
+                                {['REST API', 'Webhooks', 'Sandbox Mode', 'Live Dashboard', 'Instant Response'].map(f => (
+                                    <span key={f} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wide" style={{ background: 'rgba(167,139,250,0.08)', border: '1px solid rgba(167,139,250,0.2)', color: 'rgba(255,255,255,0.85)' }}>
+                                        <Code2 className="w-3 h-3" style={{ color: '#a78bfa' }} />{f}
+                                    </span>
                                 ))}
                             </div>
-                            <HeroBtn href="/auth/signup" variant="primary"><ArrowRight className="w-4 h-4" /> Become an Agent</HeroBtn>
+                            <HeroBtn href="/auth/signup" variant="primary"><Code2 className="w-4 h-4" /> Get API Access</HeroBtn>
                             <SlideDots current={3} total={SLIDE_COUNT} onDotClick={setSlide} dark />
                         </div>
                     </div>
-
-                    {/* Track order */}
-                    <Link href="/shop/status" className="flex items-center gap-2 text-xs font-bold transition-colors" style={{ color: 'rgba(255,255,255,0.35)' }}>
-                        <CheckCircle2 className="w-4 h-4" /> Track an Order
-                    </Link>
                 </div>
             </section>
 
@@ -378,8 +366,8 @@ export function LandingClientShell({
             <section className="dark-mirror-section py-28 px-6 lg:px-10">
                 <div className="max-w-7xl mx-auto">
                     <div className="text-center mb-16 space-y-4">
-                        <h2 className="text-xs font-black uppercase tracking-[0.5em] text-primary">How It Works</h2>
-                        <h3 className="text-4xl md:text-6xl font-black tracking-tighter text-foreground">Start Reselling in <span className="text-primary">3 Simple Steps</span></h3>
+                        <h2 className="text-xs font-black uppercase tracking-[0.5em] text-[#f59e0b]">How It Works</h2>
+                        <h3 className="text-4xl md:text-6xl font-black tracking-tighter text-foreground">Start Reselling in <span className="text-[#f59e0b]">3 Simple Steps</span></h3>
                         <p className="max-w-3xl mx-auto text-muted-foreground font-medium">
                             ARHMS takes you from signup to first sale with wallet funding, agent upgrade options, and a ready-to-share storefront.
                         </p>
@@ -391,7 +379,7 @@ export function LandingClientShell({
                             { step: '03', title: 'Start selling', desc: 'Sell data or airtime and share your storefront link.' },
                         ].map((item) => (
                             <div key={item.step} className="card-premium p-8 relative">
-                                <span className="text-[10px] font-black uppercase tracking-[0.3em] text-primary">{item.step}</span>
+                                <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#f59e0b]">{item.step}</span>
                                 <h4 className="text-2xl font-black mt-4 mb-3">{item.title}</h4>
                                 <p className="text-muted-foreground font-medium">{item.desc}</p>
                             </div>
@@ -408,9 +396,9 @@ export function LandingClientShell({
             <section id="features" className="landing-section py-32 px-6 lg:px-10">
                 <div className="max-w-7xl mx-auto">
                     <div className="text-center mb-20 space-y-4">
-                        <h2 className="text-xs font-black uppercase tracking-[0.5em] text-primary">Capabilities</h2>
+                        <h2 className="text-xs font-black uppercase tracking-[0.5em] text-[#f59e0b]">Capabilities</h2>
                         <h3 className="text-4xl md:text-6xl font-black tracking-tighter text-foreground">
-                            Everything You Need to <span className="text-primary">Sell and Support Customers</span>
+                            Everything You Need to <span className="text-[#f59e0b]">Sell and Support Customers</span>
                         </h3>
                         <p className="max-w-3xl mx-auto text-muted-foreground font-medium">
                             Keep the speed of instant delivery while adding the operational tools resellers use every day.
@@ -418,9 +406,9 @@ export function LandingClientShell({
                     </div>
                     <div className="grid md:grid-cols-2 xl:grid-cols-5 gap-6">
                         {featureCards.map((feature, i) => (
-                            <div key={`${feature.title}-${i}`} className="card-premium p-7 group hover:border-primary/50 transition-all duration-500">
-                                <div className="w-12 h-12 rounded-2xl bg-primary/10 flex items-center justify-center mb-6 group-hover:bg-primary transition-colors">
-                                    <feature.icon className="w-5 h-5 text-primary group-hover:text-primary-foreground transition-colors" />
+                            <div key={`${feature.title}-${i}`} className="card-premium p-7 group hover:border-[#f59e0b]/50 transition-all duration-500">
+                                <div className="w-12 h-12 rounded-2xl bg-[#f59e0b]/10 flex items-center justify-center mb-6 group-hover:bg-[#f59e0b] transition-colors">
+                                    <feature.icon className="w-5 h-5 text-[#f59e0b] group-hover:text-black transition-colors" />
                                 </div>
                                 <h4 className="text-xl font-black text-foreground mb-3 tracking-tight">{feature.title}</h4>
                                 <p className="text-sm text-muted-foreground font-medium leading-relaxed">{feature.desc}</p>
@@ -438,32 +426,32 @@ export function LandingClientShell({
             <section id="plans" className="dark-mirror-section py-32 px-6 lg:px-10">
                 <div className="max-w-7xl mx-auto">
                     <div className="text-center mb-16 space-y-4">
-                        <h2 className="text-xs font-black uppercase tracking-[0.5em] text-primary">Reseller Plans</h2>
-                        <h3 className="text-4xl md:text-6xl font-black tracking-tighter text-foreground">Choose Your <span className="text-primary">Agent Plan</span></h3>
+                        <h2 className="text-xs font-black uppercase tracking-[0.5em] text-[#f59e0b]">Reseller Plans</h2>
+                        <h3 className="text-4xl md:text-6xl font-black tracking-tighter text-foreground">Choose Your <span className="text-[#f59e0b]">Agent Plan</span></h3>
                         <p className="max-w-3xl mx-auto text-muted-foreground font-medium">
                             Every plan unlocks the same reseller toolkit. Pick the access length that matches how you want to grow.
                         </p>
                     </div>
                     <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-6">
                         {planCards.map((plan) => (
-                            <Card key={plan.id} className={cn('card-premium p-8 relative overflow-hidden', plan.highlight && 'border-primary shadow-blue-premium')}>
-                                <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-primary/10 blur-2xl" />
+                            <Card key={plan.id} className={cn('card-premium p-8 relative overflow-hidden', plan.highlight && 'border-[#f59e0b]/50 shadow-[0_10px_40px_-10px_rgba(245,158,11,0.3)]')}>
+                                <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-[#f59e0b]/10 blur-2xl" />
                                 <div className="relative z-10 space-y-4">
-                                    <p className="inline-flex text-[10px] font-black uppercase tracking-[0.18em] px-3 py-1 rounded-full bg-primary text-primary-foreground">{plan.badge}</p>
+                                    <p className="inline-flex text-[10px] font-black uppercase tracking-[0.18em] px-3 py-1 rounded-full bg-[#f59e0b] text-black">{plan.badge}</p>
                                     <h4 className="text-3xl font-black tracking-tight">{plan.name}</h4>
                                     <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">{plan.duration}</p>
-                                    <p className="text-4xl font-black text-primary">GHS {planPrices[plan.id].toFixed(2)}</p>
+                                    <p className="text-4xl font-black text-[#f59e0b]">GHS {planPrices[plan.id].toFixed(2)}</p>
                                     <Link href="/auth/signup"><Button className="w-full h-12 rounded-2xl font-black uppercase tracking-widest">Become an Agent</Button></Link>
                                 </div>
                             </Card>
                         ))}
                     </div>
                     <div className="mt-10 card-premium p-8">
-                        <p className="text-xs font-black uppercase tracking-[0.3em] text-primary mb-4">Included in all plans</p>
+                        <p className="text-xs font-black uppercase tracking-[0.3em] text-[#f59e0b] mb-4">Included in all plans</p>
                         <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-3 text-sm font-bold text-muted-foreground">
                             {['Exclusive Wholesale Pricing','Priority Customer Support','0% Top Up Charges (Admin Manual Top Up)','Faster Order Processing','Bulk Order Import Feature','New Exclusive UI Design Features','Shop Storefront Feature (Live)'].map((item) => (
                                 <div key={item} className="flex items-start gap-2">
-                                    <CheckCircle2 className="w-4 h-4 mt-0.5 text-primary" /><span>{item}</span>
+                                    <CheckCircle2 className="w-4 h-4 mt-0.5 text-[#f59e0b]" /><span>{item}</span>
                                 </div>
                             ))}
                         </div>
@@ -478,7 +466,7 @@ export function LandingClientShell({
                         <div className="space-y-10">
                             <div className="space-y-6">
                                 <h2 className="text-5xl md:text-7xl font-black tracking-tighter leading-none">
-                                    Universal <br /><span className="text-primary">Connectivity.</span>
+                                    Universal <br /><span className="text-[#f59e0b]">Connectivity.</span>
                                 </h2>
                                 <p className="text-xl text-muted-foreground font-medium max-w-lg">
                                     One platform, every network. We provide deep integration with all major Ghanaian carriers.
@@ -490,23 +478,23 @@ export function LandingClientShell({
                                     { name: 'Telecel Ghana', status: 'Stable', color: 'bg-red-500' },
                                     { name: 'AT (AirtelTigo)', status: 'Stable', color: 'bg-orange-500' },
                                 ].map((net, i) => (
-                                    <div key={i} className="flex items-center justify-between p-6 rounded-2xl bg-[#1a1a1a] border border-border/50">
+                                    <div key={i} className="flex items-center justify-between p-6 rounded-2xl dark:bg-[#1a1a1a] bg-gray-100 border border-border/50">
                                         <div className="flex items-center gap-4">
                                             <div className={cn('w-3 h-3 rounded-full animate-pulse', net.color)} />
                                             <span className="font-bold text-lg">{net.name}</span>
                                         </div>
-                                        <span className="text-[10px] font-black uppercase tracking-widest text-primary">{net.status}</span>
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-[#f59e0b]">{net.status}</span>
                                     </div>
                                 ))}
                             </div>
                         </div>
                         <div className="relative">
-                            <div className="absolute inset-0 bg-primary/20 rounded-3xl blur-[100px] -z-10" />
+                            <div className="absolute inset-0 bg-[#f59e0b]/20 rounded-3xl blur-[100px] -z-10" />
                             <Card className="card-premium p-10 overflow-hidden relative">
                                 <div className="absolute top-0 right-0 p-8 opacity-10"><Layers className="w-40 h-40" /></div>
                                 <div className="relative z-10 space-y-8">
                                     <div className="space-y-2">
-                                        <p className="text-[10px] font-black uppercase tracking-[0.4em] text-primary">System Status</p>
+                                        <p className="text-[10px] font-black uppercase tracking-[0.4em] text-[#f59e0b]">System Status</p>
                                         <p className="text-4xl font-black">99.9% Uptime</p>
                                     </div>
                                     <div className="grid grid-cols-2 gap-8">
@@ -519,8 +507,8 @@ export function LandingClientShell({
                                             <p className="text-2xl font-black">99.98%</p>
                                         </div>
                                     </div>
-                                    <div className="h-2 w-full bg-[#2a2a2a] rounded-full overflow-hidden">
-                                        <div className="h-full w-[99%] bg-primary" />
+                                    <div className="h-2 w-full dark:bg-[#2a2a2a] bg-gray-200 rounded-full overflow-hidden">
+                                        <div className="h-full w-[99%] bg-[#f59e0b]" />
                                     </div>
                                 </div>
                             </Card>
@@ -535,7 +523,7 @@ export function LandingClientShell({
                     <div className="grid lg:grid-cols-2 gap-12 items-center">
                         <div className="space-y-6">
                             <h2 className="text-4xl md:text-6xl font-black tracking-tighter">
-                                Your Own <span className="text-primary">Branded Storefront</span>
+                                Your Own <span className="text-[#f59e0b]">Branded Storefront</span>
                             </h2>
                             <p className="text-lg text-muted-foreground font-medium">
                                 Create a public shop link with your name, logo, banner, colors, community link, data packages, airtime checkout, order tracking, and a dedicated about page.
@@ -543,7 +531,7 @@ export function LandingClientShell({
                             <div className="grid sm:grid-cols-2 gap-3 text-sm">
                                 {['Public shop URL','Brand colors and logo','Banner image','Data package tabs by network','Airtime recharge','About Shop & Terms page','WhatsApp support','Community invite link','Track My Orders'].map((item) => (
                                     <div key={item} className="flex items-center gap-2 font-bold text-muted-foreground">
-                                        <CheckCircle2 className="w-4 h-4 text-primary" /><span>{item}</span>
+                                        <CheckCircle2 className="w-4 h-4 text-[#f59e0b]" /><span>{item}</span>
                                     </div>
                                 ))}
                             </div>
@@ -575,7 +563,7 @@ export function LandingClientShell({
                                     </div>
                                     <div className="rounded-xl border border-border/40 p-3 flex items-center justify-between">
                                         <span className="text-xs font-black uppercase tracking-wider text-muted-foreground">Track My Orders</span>
-                                        <ArrowRight className="w-4 h-4 text-primary" />
+                                        <ArrowRight className="w-4 h-4 text-[#f59e0b]" />
                                     </div>
                                 </div>
                             </div>
@@ -588,8 +576,8 @@ export function LandingClientShell({
             <section className="landing-section py-32 px-6 lg:px-10">
                 <div className="max-w-7xl mx-auto">
                     <div className="text-center mb-16 space-y-4">
-                        <h2 className="text-xs font-black uppercase tracking-[0.5em] text-primary">Testimonials</h2>
-                        <h3 className="text-4xl md:text-6xl font-black tracking-tighter">Built for Real <span className="text-primary">Ghanaian Resellers</span></h3>
+                        <h2 className="text-xs font-black uppercase tracking-[0.5em] text-[#f59e0b]">Testimonials</h2>
+                        <h3 className="text-4xl md:text-6xl font-black tracking-tighter">Built for Real <span className="text-[#f59e0b]">Ghanaian Resellers</span></h3>
                     </div>
                     <div className="grid md:grid-cols-3 gap-6">
                         {[
@@ -598,11 +586,11 @@ export function LandingClientShell({
                             { quote: 'What I like most is the visibility: shop branding, order history, and complaints support all live in one place.', name: 'Efua N.', role: 'Small Business Owner, Takoradi' },
                         ].map((item) => (
                             <Card key={item.name} className="card-premium p-8">
-                                <MessageSquare className="w-6 h-6 text-primary mb-4" />
+                                <MessageSquare className="w-6 h-6 text-[#f59e0b] mb-4" />
                                 <p className="text-muted-foreground font-medium leading-relaxed mb-6">&ldquo;{item.quote}&rdquo;</p>
                                 <div>
                                     <p className="font-black text-foreground">{item.name}</p>
-                                    <p className="text-xs font-black uppercase tracking-widest text-primary">{item.role}</p>
+                                    <p className="text-xs font-black uppercase tracking-widest text-[#f59e0b]">{item.role}</p>
                                 </div>
                             </Card>
                         ))}
@@ -618,15 +606,15 @@ export function LandingClientShell({
             <section id="support" className="dark-mirror-section py-32 px-6 lg:px-10">
                 <div className="max-w-7xl mx-auto">
                     <div className="text-center mb-16 space-y-4">
-                        <h2 className="text-xs font-black uppercase tracking-[0.5em] text-primary">FAQ</h2>
-                        <h3 className="text-4xl md:text-6xl font-black tracking-tighter">Questions New Resellers <span className="text-primary">Ask First</span></h3>
+                        <h2 className="text-xs font-black uppercase tracking-[0.5em] text-[#f59e0b]">FAQ</h2>
+                        <h3 className="text-4xl md:text-6xl font-black tracking-tighter">Questions New Resellers <span className="text-[#f59e0b]">Ask First</span></h3>
                     </div>
                     <div className="grid lg:grid-cols-2 gap-5">
                         {faqItems.map((item) => (
-                            <details key={item.q} className="card-premium p-6 group open:border-primary/50">
+                            <details key={item.q} className="card-premium p-6 group open:border-[#f59e0b]/50">
                                 <summary className="list-none cursor-pointer flex items-start justify-between gap-4">
                                     <span className="text-lg font-black">{item.q}</span>
-                                    <ArrowRight className="w-4 h-4 mt-1 text-primary transition-transform group-open:rotate-90" />
+                                    <ArrowRight className="w-4 h-4 mt-1 text-[#f59e0b] transition-transform group-open:rotate-90" />
                                 </summary>
                                 <p className="mt-4 text-muted-foreground font-medium leading-relaxed">{item.a}</p>
                             </details>
@@ -643,10 +631,10 @@ export function LandingClientShell({
             <section className="landing-section py-32 px-6 lg:px-10">
                 <div className="max-w-7xl mx-auto">
                     <Card className="relative overflow-hidden rounded-[40px] border-0 bg-foreground p-12 md:p-24 text-background text-center shadow-2xl">
-                        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-primary/20 rounded-full blur-[100px] -mr-64 -mt-64" />
+                        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[#f59e0b]/20 rounded-full blur-[100px] -mr-64 -mt-64" />
                         <div className="relative z-10 space-y-12">
                             <h2 className="text-5xl md:text-8xl font-black tracking-tighter leading-[0.9]">
-                                Ready to Upgrade <br /><span className="text-primary">Your Business?</span>
+                                Ready to Upgrade <br /><span className="text-[#f59e0b]">Your Business?</span>
                             </h2>
                             <p className="max-w-2xl mx-auto text-xl font-medium opacity-70">
                                 Stop struggling with slow deliveries and poor rates. Step into the future of data and airtime reselling with ARHMS TECHNOLOGIES.
@@ -688,19 +676,19 @@ export function LandingClientShell({
                             </div>
                         </div>
                         <div className="space-y-6">
-                            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-primary">Platform</p>
+                            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-[#f59e0b]">Platform</p>
                             <ul className="space-y-4 text-sm font-bold text-muted-foreground">
-                                <li><a href="#features" className="hover:text-primary transition-colors">Features</a></li>
-                                <li><a href="#plans" className="hover:text-primary transition-colors">Reseller Plans</a></li>
-                                <li><Link href="/shop/status" className="hover:text-primary transition-colors">Order Tracking</Link></li>
+                                <li><a href="#features" className="hover:text-[#f59e0b] transition-colors">Features</a></li>
+                                <li><a href="#plans" className="hover:text-[#f59e0b] transition-colors">Reseller Plans</a></li>
+                                <li><Link href="/shop/status" className="hover:text-[#f59e0b] transition-colors">Order Tracking</Link></li>
                             </ul>
                         </div>
                         <div className="space-y-6">
-                            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-primary">Legal</p>
+                            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-[#f59e0b]">Legal</p>
                             <ul className="space-y-4 text-sm font-bold text-muted-foreground">
-                                <li><Link href="/terms" className="hover:text-primary transition-colors">Terms of Service</Link></li>
-                                <li><Link href="/privacy" className="hover:text-primary transition-colors">Privacy Protocol</Link></li>
-                                <li><Link href="/contact" className="hover:text-primary transition-colors">Secure Contact</Link></li>
+                                <li><Link href="/terms" className="hover:text-[#f59e0b] transition-colors">Terms of Service</Link></li>
+                                <li><Link href="/privacy" className="hover:text-[#f59e0b] transition-colors">Privacy Protocol</Link></li>
+                                <li><Link href="/contact" className="hover:text-[#f59e0b] transition-colors">Secure Contact</Link></li>
                             </ul>
                         </div>
                     </div>
