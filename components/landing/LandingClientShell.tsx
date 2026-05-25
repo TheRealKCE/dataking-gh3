@@ -278,7 +278,7 @@ export function LandingClientShell({
                     <div className="pointer-events-none absolute left-1/2 -translate-x-1/2" style={{ top: '8%', width: 440, height: 560, borderRadius: '50%', background: 'radial-gradient(ellipse, rgba(37,99,235,0.2) 0%, rgba(79,70,229,0.12) 40%, transparent 70%)', filter: 'blur(52px)', zIndex: 0 }} />
 
                     {/* ── Carousel ─────────────────────────────── */}
-                    <div className="w-full relative z-10" style={{ minHeight: 600 }}>
+                    <div className="w-full relative z-10" style={{ minHeight: 640 }}>
 
                         {/* Slide 1 — Welcome */}
                         <div className={cn(cardBase, slideState(0))} style={{
