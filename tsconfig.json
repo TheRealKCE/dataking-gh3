@@ -39,6 +39,7 @@
     "node_modules",
     "scripts",
     "kingflexy-mobile",
-    "scratch"
+    "scratch",
+    "worker"
   ]
 }

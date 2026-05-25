@@ -5,6 +5,7 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import { sendOrderSuccessEmail, sendAdminNewOrderAlert } from '@/lib/email-service'
 import { sendOrderSuccessSMS, sendAdminAgentOrderAlert } from '@/lib/sms-service'
+import { sendPushToUser } from '@/lib/web-push'
 import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
 
@@ -193,7 +194,7 @@ export async function POST(request: NextRequest) {
             status: 'completed',
         }).then(() => {}).catch((e: any) => console.error('[Purchase] Tx insert error:', e))
 
-        // === PERFORMANCE: Create notification (fire-and-forget) ===
+        // === PERFORMANCE: Create notification + web push (fire-and-forget) ===
         ;(supabase.from('notifications') as any).insert({
             user_id: userId,
             title: 'Order Placed',
@@ -201,6 +202,12 @@ export async function POST(request: NextRequest) {
             type: 'order_update',
             action_url: `/dashboard/my-orders`,
         }).then(() => {}).catch((e: any) => console.error('[Purchase] Notification error:', e))
+
+        sendPushToUser(userId, {
+            title: 'Order Placed',
+            body: `Your ${(pkg as any).size} bundle for ${phoneNumber} is being processed.`,
+            url: '/dashboard/my-orders',
+        }).catch((e: any) => console.error('[Purchase] Push error:', e))
 
         // === NOTIFICATIONS & AUTO-FULFILLMENT: Awaited to ensure Vercel doesn't kill process ===
         try {

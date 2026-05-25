@@ -4,12 +4,13 @@ import { useEffect, useState } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 import { supabase } from '@/lib/supabase'
 import { formatDate } from '@/lib/utils'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
     Bell,
+    BellRing,
+    BellOff,
     CheckCircle2,
     ShoppingCart,
     CreditCard,
@@ -17,12 +18,18 @@ import {
     Wallet,
     Trash2,
     Check,
-    AlertCircle,
     Loader2,
     Trash
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { Notification } from '@/types/supabase'
+import type { Notification } from '@/types/supabase'
+
+function urlBase64ToUint8Array(base64String: string) {
+    const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
+    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
+    const raw = atob(base64)
+    return Uint8Array.from([...raw].map((c) => c.charCodeAt(0)))
+}
 
 export default function NotificationsPage() {
     const { dbUser } = useAuth()
@@ -31,12 +38,72 @@ export default function NotificationsPage() {
     const [filter, setFilter] = useState<'all' | 'unread'>('all')
     const [markingAllRead, setMarkingAllRead] = useState(false)
     const [deletingAll, setDeletingAll] = useState(false)
+    const [pushPermission, setPushPermission] = useState<NotificationPermission | null>(null)
+    const [isPushSupported, setIsPushSupported] = useState(false)
+    const [isSubscribing, setIsSubscribing] = useState(false)
 
     useEffect(() => {
         if (dbUser) {
             fetchNotifications()
         }
     }, [dbUser])
+
+    useEffect(() => {
+        if (typeof window !== 'undefined' && 'Notification' in window && 'serviceWorker' in navigator) {
+            setIsPushSupported(true)
+            setPushPermission(Notification.permission)
+        }
+    }, [])
+
+    const subscribeToPush = async () => {
+        setIsSubscribing(true)
+        try {
+            const permission = await Notification.requestPermission()
+            setPushPermission(permission)
+            if (permission !== 'granted') {
+                toast.error('Push notifications blocked. Enable them in your browser settings.')
+                return
+            }
+            const registration = await navigator.serviceWorker.ready
+            const subscription = await registration.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: urlBase64ToUint8Array(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!),
+            })
+            const res = await fetch('/api/notifications/subscribe', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(subscription.toJSON()),
+            })
+            if (res.ok) {
+                toast.success('Push alerts enabled!')
+            } else {
+                throw new Error('Subscribe failed')
+            }
+        } catch {
+            toast.error('Failed to enable push notifications')
+        } finally {
+            setIsSubscribing(false)
+        }
+    }
+
+    const unsubscribeFromPush = async () => {
+        try {
+            const registration = await navigator.serviceWorker.ready
+            const subscription = await registration.pushManager.getSubscription()
+            if (subscription) {
+                await fetch('/api/notifications/unsubscribe', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ endpoint: subscription.endpoint }),
+                })
+                await subscription.unsubscribe()
+            }
+            setPushPermission('default')
+            toast.success('Push notifications disabled')
+        } catch {
+            toast.error('Failed to disable push notifications')
+        }
+    }
 
     const fetchNotifications = async () => {
         try {
@@ -189,6 +256,49 @@ export default function NotificationsPage() {
                     )}
                 </div>
             </div>
+
+            {/* Push opt-in / status card */}
+            {isPushSupported && pushPermission !== 'granted' && (
+                <Card className="border-primary/20 bg-primary/5">
+                    <CardContent className="p-4 flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
+                            <BellRing className="w-5 h-5 text-primary" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold">Enable push alerts</p>
+                            <p className="text-xs text-muted-foreground">
+                                Get notified about orders and payments even when the app is closed.
+                            </p>
+                        </div>
+                        {pushPermission === 'denied' ? (
+                            <div className="flex items-center gap-1 text-xs text-destructive flex-shrink-0">
+                                <BellOff className="w-4 h-4" />
+                                <span>Blocked</span>
+                            </div>
+                        ) : (
+                            <Button
+                                size="sm"
+                                onClick={subscribeToPush}
+                                disabled={isSubscribing}
+                                className="flex-shrink-0"
+                            >
+                                {isSubscribing ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Enable'}
+                            </Button>
+                        )}
+                    </CardContent>
+                </Card>
+            )}
+            {isPushSupported && pushPermission === 'granted' && (
+                <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
+                    <span className="flex items-center gap-1">
+                        <BellRing className="w-3.5 h-3.5 text-green-500" />
+                        Push alerts active
+                    </span>
+                    <button type="button" onClick={unsubscribeFromPush} className="underline hover:text-foreground transition-colors">
+                        Disable
+                    </button>
+                </div>
+            )}
 
             {/* Filter */}
             <div className="flex gap-2">

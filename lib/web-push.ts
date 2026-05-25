@@ -1,0 +1,50 @@
+import webpush from 'web-push'
+import { createServerClient } from '@/lib/supabase'
+
+webpush.setVapidDetails(
+    process.env.VAPID_SUBJECT!,
+    process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!,
+    process.env.VAPID_PRIVATE_KEY!
+)
+
+interface PushPayload {
+    title: string
+    body: string
+    url?: string
+}
+
+export async function sendPushToUser(userId: string, payload: PushPayload) {
+    const supabase = createServerClient()
+
+    const { data: subscriptions, error } = await (supabase
+        .from('push_subscriptions') as any)
+        .select('id, endpoint, p256dh, auth')
+        .eq('user_id', userId)
+
+    if (error || !subscriptions?.length) return
+
+    const message = JSON.stringify(payload)
+    const expiredIds: string[] = []
+
+    await Promise.allSettled(
+        subscriptions.map(async (sub: { id: string; endpoint: string; p256dh: string; auth: string }) => {
+            try {
+                await webpush.sendNotification(
+                    { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+                    message
+                )
+            } catch (err: any) {
+                // 410 Gone = subscription expired; clean it up
+                if (err?.statusCode === 410 || err?.statusCode === 404) {
+                    expiredIds.push(sub.id)
+                }
+            }
+        })
+    )
+
+    if (expiredIds.length) {
+        await (supabase.from('push_subscriptions') as any)
+            .delete()
+            .in('id', expiredIds)
+    }
+}
