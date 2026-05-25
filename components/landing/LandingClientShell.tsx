@@ -20,6 +20,7 @@ import {
     HeadphonesIcon,
     Layers,
     MessageSquare,
+    Monitor,
     Shield,
     Smartphone,
     Store,
