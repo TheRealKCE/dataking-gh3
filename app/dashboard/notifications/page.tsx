@@ -48,9 +48,27 @@ export default function NotificationsPage() {
     const [isSubscribing, setIsSubscribing] = useState(false)
 
     useEffect(() => {
-        if (dbUser) {
-            fetchNotifications()
-        }
+        if (!dbUser) return
+
+        fetchNotifications()
+
+        const channel = supabase
+            .channel(`notif-page:${dbUser.id}`)
+            .on(
+                'postgres_changes' as any,
+                {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'notifications',
+                    filter: `user_id=eq.${dbUser.id}`,
+                },
+                (payload: any) => {
+                    setNotifications(prev => [payload.new as Notification, ...prev])
+                }
+            )
+            .subscribe()
+
+        return () => { supabase.removeChannel(channel) }
     }, [dbUser])
 
     useEffect(() => {

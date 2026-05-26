@@ -18,6 +18,7 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { roleConfig } from '@/lib/roles'
 import { supabase } from '@/lib/supabase'
+import { toast } from 'sonner'
 import { Menu, X, Bell, User, Settings, LogOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -40,7 +41,7 @@ export function DashboardHeader() {
 
         fetchUnreadNotifications(dbUser.id)
 
-        // Real-time subscription — re-fetch count on any notification change
+        // Real-time subscription — update count and toast new arrivals
         const channel = supabase
             .channel(`notifications:${dbUser.id}`)
             .on(
@@ -51,7 +52,19 @@ export function DashboardHeader() {
                     table: 'notifications',
                     filter: `user_id=eq.${dbUser.id}`,
                 },
-                () => fetchUnreadNotifications(dbUser.id)
+                (payload: any) => {
+                    fetchUnreadNotifications(dbUser.id)
+                    if (payload.eventType === 'INSERT' && payload.new) {
+                        const n = payload.new
+                        toast(n.title, {
+                            description: n.message,
+                            duration: 6000,
+                            action: n.action_url
+                                ? { label: 'View', onClick: () => { window.location.href = n.action_url } }
+                                : undefined,
+                        })
+                    }
+                }
             )
             .subscribe()
 
