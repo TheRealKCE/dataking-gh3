@@ -12,6 +12,7 @@ import { MobileBottomNav } from '@/components/dashboard/mobile-bottom-nav'
 import { PageAccessGuard } from '@/components/dashboard/page-access-guard'
 import { Skeleton } from '@/components/ui/skeleton'
 import { FloatingWhatsApp } from '@/components/floating-whatsapp'
+import { PushNotificationManager } from '@/components/PushNotificationManager'
 import { cn } from '@/lib/utils'
 import { useUI } from '@/contexts/ui-context'
 // import { SupportChatWidget } from '@/components/dashboard/support-chat-widget'
@@ -75,6 +76,7 @@ export default function DashboardLayout({
 
     return (
         <div className="min-h-screen bg-background relative">
+            <PushNotificationManager />
             <SystemAnnouncementModal />
             <AgentExpiryModal />
             <DashboardSidebar />
