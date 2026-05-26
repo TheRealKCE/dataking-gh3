@@ -51,9 +51,40 @@ export default function NotificationsPage() {
     useEffect(() => {
         if (typeof window !== 'undefined' && 'Notification' in window && 'serviceWorker' in navigator) {
             setIsPushSupported(true)
-            setPushPermission(Notification.permission)
+            const perm = Notification.permission
+            setPushPermission(perm)
+            // Silently refresh subscription on every load — fixes stale/key-rotated subs
+            if (perm === 'granted') {
+                refreshSubscription()
+            }
         }
     }, [])
+
+    const pushSubscribe = async (registration: ServiceWorkerRegistration) => {
+        const key = urlBase64ToUint8Array(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!)
+        try {
+            return await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key })
+        } catch {
+            // VAPID key mismatch — unsubscribe stale subscription and retry
+            const old = await registration.pushManager.getSubscription()
+            if (old) await old.unsubscribe()
+            return registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key })
+        }
+    }
+
+    const refreshSubscription = async () => {
+        try {
+            const registration = await navigator.serviceWorker.ready
+            const subscription = await pushSubscribe(registration)
+            await fetch('/api/notifications/subscribe', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(subscription.toJSON()),
+            })
+        } catch {
+            // Silent — user will see the Enable button on next visit if this fails
+        }
+    }
 
     const subscribeToPush = async () => {
         setIsSubscribing(true)
@@ -65,10 +96,7 @@ export default function NotificationsPage() {
                 return
             }
             const registration = await navigator.serviceWorker.ready
-            const subscription = await registration.pushManager.subscribe({
-                userVisibleOnly: true,
-                applicationServerKey: urlBase64ToUint8Array(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!),
-            })
+            const subscription = await pushSubscribe(registration)
             const res = await fetch('/api/notifications/subscribe', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
