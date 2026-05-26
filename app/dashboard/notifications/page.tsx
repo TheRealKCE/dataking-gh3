@@ -1,9 +1,11 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { useAuth } from '@/contexts/auth-context'
 import { supabase } from '@/lib/supabase'
 import { formatDate } from '@/lib/utils'
+import { usePwa } from '@/hooks/use-pwa'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -19,7 +21,9 @@ import {
     Trash2,
     Check,
     Loader2,
-    Trash
+    Trash,
+    Share2,
+    Smartphone,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { Notification } from '@/types/supabase'
@@ -33,6 +37,7 @@ function urlBase64ToUint8Array(base64String: string) {
 
 export default function NotificationsPage() {
     const { dbUser } = useAuth()
+    const { isIOS, isInstalled } = usePwa()
     const [notifications, setNotifications] = useState<Notification[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [filter, setFilter] = useState<'all' | 'unread'>('all')
@@ -285,8 +290,31 @@ export default function NotificationsPage() {
                 </div>
             </div>
 
+            {/* iOS "Add to Home Screen" prompt */}
+            {isIOS && !isInstalled && (
+                <Card className="border-amber-500/30 bg-amber-50/60 dark:bg-amber-950/20">
+                    <CardContent className="p-4 flex items-center gap-4">
+                        <div className="w-10 h-10 rounded-full bg-amber-500/15 flex items-center justify-center flex-shrink-0">
+                            <Smartphone className="w-5 h-5 text-amber-600 dark:text-amber-400" />
+                        </div>
+                        <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold">Install app for push alerts</p>
+                            <p className="text-xs text-muted-foreground">
+                                On iPhone/iPad, push notifications only work when the app is installed.
+                                Tap <Share2 className="w-3 h-3 inline mx-0.5" /> <strong>Share</strong> → <strong>Add to Home Screen</strong>.
+                            </p>
+                        </div>
+                        <Link href="/dashboard/install" className="flex-shrink-0">
+                            <Button size="sm" variant="outline" className="border-amber-500/50 text-amber-700 dark:text-amber-400 hover:bg-amber-100 dark:hover:bg-amber-950/40">
+                                Install
+                            </Button>
+                        </Link>
+                    </CardContent>
+                </Card>
+            )}
+
             {/* Push opt-in / status card */}
-            {isPushSupported && pushPermission !== 'granted' && (
+            {isPushSupported && (!isIOS || isInstalled) && pushPermission !== 'granted' && (
                 <Card className="border-primary/20 bg-primary/5">
                     <CardContent className="p-4 flex items-center gap-4">
                         <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center flex-shrink-0">
@@ -316,7 +344,7 @@ export default function NotificationsPage() {
                     </CardContent>
                 </Card>
             )}
-            {isPushSupported && pushPermission === 'granted' && (
+            {isPushSupported && (!isIOS || isInstalled) && pushPermission === 'granted' && (
                 <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
                     <span className="flex items-center gap-1">
                         <BellRing className="w-3.5 h-3.5 text-green-500" />
