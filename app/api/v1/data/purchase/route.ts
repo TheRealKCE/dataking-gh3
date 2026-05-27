@@ -3,6 +3,7 @@ import {
     validateApiKey, isApiError, apiSuccess, apiError,
     logApiRequest, getClientIp,
 } from '@/lib/api-auth'
+import { sendPushToAdmins } from '@/lib/web-push'
 import { generateReferenceCode } from '@/lib/utils'
 
 const ENDPOINT = '/api/v1/data/purchase'
@@ -60,7 +61,7 @@ export async function POST(request: NextRequest) {
         }
     }
 
-    // Find matching package (match by network + size contains the volume)
+    // Find matching package
     const sizeQuery = String(volume_gb).replace(/gb/i, '').trim()
     const { data: packages } = await (supabase.from('data_packages') as any)
         .select('id, network, size, price, agent_price, cost_price, is_available')
@@ -72,7 +73,7 @@ export async function POST(request: NextRequest) {
     )
 
     if (!pkg) {
-        return apiError(404, `No available package found for ${network} ${volume_gb}. Check /api/v1/packages for available bundles.`)
+        return apiError(404, `No available package found for ${network} ${volume_gb}.`)
     }
 
     // Pricing: agent price if active agent, else retail
@@ -115,31 +116,30 @@ export async function POST(request: NextRequest) {
     // Create order
     const { data: order, error: orderError } = await (supabase.from('orders') as any)
         .insert({
-            user_id:              userId,
-            phone_number:         cleanPhone,
-            network:              pkg.network,
-            size:                 pkg.size,
-            price:                priceToCharge,
-            cost_price_at_time:   pkg.cost_price || 0,
-            role_at_time:         userRole,
-            status:               'pending',
-            payment_status:       'paid',
-            reference_code:       referenceCode,
-            fulfillment_method:   'auto',
-            source:               'api',
-            api_key_id:           apiKeyId,
+            user_id:            userId,
+            phone_number:       cleanPhone,
+            network:            pkg.network,
+            size:               pkg.size,
+            price:              priceToCharge,
+            cost_price_at_time: pkg.cost_price || 0,
+            role_at_time:       userRole,
+            status:             'pending',
+            payment_status:     'paid',
+            reference_code:     referenceCode,
+            fulfillment_method: 'auto',
+            source:             'api',
+            api_key_id:         apiKeyId,
         })
         .select()
         .single()
 
     if (orderError) {
-        // Refund wallet on order creation failure
         await (supabase as any).rpc('credit_wallet_balance', { p_user_id: userId, p_amount: priceToCharge }).catch(() => {})
         logApiRequest({ apiKeyId, userId, endpoint: ENDPOINT, method: 'POST', statusCode: 500, responseTimeMs: Date.now() - startTime, ip, errorMessage: orderError.message })
         return apiError(500, 'Failed to create order')
     }
 
-    // Wallet transaction record (fire-and-forget)
+    // Wallet transaction record (fire-and-forget — non-critical)
     ;(supabase.from('wallet_transactions') as any).insert({
         wallet_id:   walletId,
         user_id:     userId,
@@ -151,59 +151,85 @@ export async function POST(request: NextRequest) {
         status:      'completed',
     }).then(() => {}).catch(() => {})
 
-    // Trigger auto-fulfillment (fire-and-forget)
-    ;(async () => {
-        try {
-            const { data: settingsData } = await supabase
-                .from('admin_settings')
-                .select('key, value')
-                .in('key', ['auto_fulfillment_enabled', 'fulfillment_settings'])
+    // Notify admins so they can manually process if auto-fulfillment fails (fire-and-forget)
+    sendPushToAdmins({
+        title: 'New API Order',
+        body: `API: ${pkg.network} ${pkg.size} → ${cleanPhone} (GHS ${priceToCharge.toFixed(2)})`,
+        url: '/admin/orders',
+    }).catch(() => {})
 
-            const settingsMap = (settingsData || []).reduce((acc: any, curr: any) => {
-                acc[curr.key] = curr.value; return acc
-            }, {})
+    // ── Auto-fulfillment (SYNCHRONOUS — must complete before response) ────────
+    // Running after response (fire-and-forget) causes Vercel to kill the
+    // async work as soon as the HTTP response is sent.
+    let fulfillmentStatus: 'pending' | 'processing' = 'pending'
+    try {
+        const { data: settingsData } = await supabase
+            .from('admin_settings')
+            .select('key, value')
+            .in('key', ['auto_fulfillment_enabled', 'fulfillment_settings'])
 
-            if (String(settingsMap.auto_fulfillment_enabled) === 'false') return
+        const settingsMap = (settingsData || []).reduce((acc: any, curr: any) => {
+            acc[curr.key] = curr.value; return acc
+        }, {})
 
-            let fulfillmentSettings: { networks: Record<string, boolean>, codecraft_networks: Record<string, boolean> } = { networks: {}, codecraft_networks: {} }
-            try {
-                const parsed = typeof settingsMap.fulfillment_settings === 'string'
-                    ? JSON.parse(settingsMap.fulfillment_settings)
-                    : settingsMap.fulfillment_settings
-                fulfillmentSettings.networks = parsed?.networks || {}
-                fulfillmentSettings.codecraft_networks = parsed?.codecraft_networks || {}
-            } catch { return }
+        if (String(settingsMap.auto_fulfillment_enabled) !== 'false') {
+            let fulfillmentSettings = {
+                networks: {} as Record<string, boolean>,
+                codecraft_networks: {} as Record<string, boolean>,
+            }
+            if (settingsMap.fulfillment_settings) {
+                try {
+                    const parsed = typeof settingsMap.fulfillment_settings === 'string'
+                        ? JSON.parse(settingsMap.fulfillment_settings)
+                        : settingsMap.fulfillment_settings
+                    fulfillmentSettings.networks = parsed?.networks || {}
+                    fulfillmentSettings.codecraft_networks = parsed?.codecraft_networks || {}
+                } catch { /* ignore — stays as empty, order stays pending */ }
+            }
 
             const isDataKazina = fulfillmentSettings.networks[pkg.network] === true
             const isCodeCraft = fulfillmentSettings.codecraft_networks[pkg.network] === true
-            if (!isDataKazina && !isCodeCraft) return
-            if (isDataKazina && isCodeCraft) return // conflict guard
 
-            let result: { success: boolean; reference?: string; transactionId?: string; error?: string }
-            if (isCodeCraft) {
-                const { fulfillOrder } = await import('@/lib/codecraft-service')
-                result = await fulfillOrder(pkg.network, cleanPhone, pkg.size, (order as any).id)
-            } else {
-                const { fulfillOrder } = await import('@/lib/fulfillment-service')
-                result = await fulfillOrder(pkg.network, cleanPhone, pkg.size, (order as any).id)
-            }
+            // Only attempt if exactly one supplier is active for this network
+            if ((isDataKazina || isCodeCraft) && !(isDataKazina && isCodeCraft)) {
+                let result: { success: boolean; transactionId?: string; reference?: string; error?: string }
 
-            if (result.success) {
-                await (supabase.from('orders') as any)
-                    .update({ status: 'processing', updated_at: new Date().toISOString() })
-                    .eq('id', (order as any).id)
+                if (isCodeCraft) {
+                    const { fulfillOrder } = await import('@/lib/codecraft-service')
+                    result = await fulfillOrder(pkg.network, cleanPhone, pkg.size, (order as any).id)
+                } else {
+                    const { fulfillOrder } = await import('@/lib/fulfillment-service')
+                    result = await fulfillOrder(pkg.network, cleanPhone, pkg.size, (order as any).id)
+                }
+
+                if (result.success) {
+                    const supplierLabel = isCodeCraft ? 'codecraft' : 'datakazina'
+                    const orderUpdate: Record<string, any> = {
+                        status: 'processing',
+                        fulfillment_method: supplierLabel,
+                        updated_at: new Date().toISOString(),
+                    }
+                    if (result.transactionId || result.reference) {
+                        if (isCodeCraft) orderUpdate.codecraft_reference = result.transactionId || result.reference
+                        else orderUpdate.dakazina_reference = result.transactionId || result.reference
+                    }
+                    await (supabase.from('orders') as any).update(orderUpdate).eq('id', (order as any).id)
+                    fulfillmentStatus = 'processing'
+                } else {
+                    console.error(`[v1/purchase] Fulfillment failed for ${(order as any).id}: ${result.error}`)
+                }
             }
-        } catch (e) {
-            console.error('[v1/purchase] Fulfillment error:', e)
         }
-    })()
+    } catch (e) {
+        console.error('[v1/purchase] Fulfillment error:', e)
+    }
 
     logApiRequest({ apiKeyId, userId, endpoint: ENDPOINT, method: 'POST', statusCode: 201, responseTimeMs: Date.now() - startTime, ip })
 
     return apiSuccess({
         order_id:       (order as any).id,
         reference:      referenceCode,
-        status:         'pending',
+        status:         fulfillmentStatus,
         network:        pkg.network,
         size:           pkg.size,
         recipient:      cleanPhone,
