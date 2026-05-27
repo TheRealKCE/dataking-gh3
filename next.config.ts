@@ -1,5 +1,6 @@
 import type { NextConfig } from 'next'
 import withPWA from '@ducanh2912/next-pwa'
+import path from 'path'
 
 const supabaseImageHost = (() => {
     try {
@@ -110,7 +111,7 @@ const withPWAConfig = withPWA({
     aggressiveFrontEndNavCaching: true,
     reloadOnOnline: true,
     disable: process.env.NODE_ENV === 'development',
-    customWorkerSrc: 'worker',
+    customWorkerSrc: path.resolve(process.cwd(), 'worker'),
     workboxOptions: {
         disableDevLogs: true,
     },

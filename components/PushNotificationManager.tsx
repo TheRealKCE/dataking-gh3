@@ -15,7 +15,9 @@ function urlBase64ToUint8Array(base64String: string) {
 
 async function subscribe() {
     const registration = await navigator.serviceWorker.ready
-    const key = urlBase64ToUint8Array(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!)
+    const vapidKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+    if (!vapidKey) throw new Error('VAPID key missing')
+    const key = urlBase64ToUint8Array(vapidKey)
     let subscription
     try {
         subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key })
@@ -25,11 +27,12 @@ async function subscribe() {
         if (old) await old.unsubscribe()
         subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key })
     }
-    await fetch('/api/notifications/subscribe', {
+    const res = await fetch('/api/notifications/subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(subscription.toJSON()),
     })
+    if (!res.ok) throw new Error(`Subscribe API returned ${res.status}`)
 }
 
 function isPushSupported(): boolean {
@@ -57,7 +60,9 @@ export function PushNotificationManager() {
 
         if (perm === 'granted') {
             // Silently refresh subscription (handles key rotation + first-time setup)
-            subscribe().catch(() => {})
+            subscribe().catch((err) => {
+                if (process.env.NODE_ENV === 'development') console.warn('[Push] subscribe error:', err)
+            })
             return
         }
 
@@ -78,9 +83,11 @@ export function PushNotificationManager() {
                             if (result === 'granted') {
                                 await subscribe()
                                 toast.success('Push notifications enabled!')
+                            } else {
+                                sessionStorage.setItem(PROMPT_DISMISSED_KEY, '1')
                             }
-                        } catch {
-                            // ignore
+                        } catch (err) {
+                            if (process.env.NODE_ENV === 'development') console.error('[Push] enable error:', err)
                         }
                     },
                 },
