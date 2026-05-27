@@ -1,10 +1,25 @@
 import webpush from 'web-push'
-import { createServerClient } from '@/lib/supabase'
+import { createClient } from '@supabase/supabase-js'
 
 interface PushPayload {
     title: string
     body: string
     url?: string
+}
+
+// Helper to create an admin client that bypasses RLS for background tasks
+function getAdminSupabase() {
+    return createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        {
+            auth: {
+                persistSession: false,
+                autoRefreshToken: false,
+                detectSessionInUrl: false
+            }
+        }
+    )
 }
 
 export async function sendPushToUser(userId: string, payload: PushPayload) {
@@ -16,7 +31,7 @@ export async function sendPushToUser(userId: string, payload: PushPayload) {
 
     webpush.setVapidDetails(subject, publicKey, privateKey)
 
-    const supabase = createServerClient()
+    const supabase = getAdminSupabase()
 
     const { data: subscriptions, error } = await (supabase
         .from('push_subscriptions') as any)
@@ -52,10 +67,12 @@ export async function sendPushToUser(userId: string, payload: PushPayload) {
 }
 
 export async function sendPushToAdmins(payload: PushPayload) {
-    const supabase = createServerClient()
+    const supabase = getAdminSupabase()
     const { data: admins } = await (supabase.from('users') as any)
         .select('id')
         .eq('role', 'admin')
+        
     if (!admins?.length) return
+    
     await Promise.allSettled(admins.map((a: { id: string }) => sendPushToUser(a.id, payload)))
 }
