@@ -163,52 +163,8 @@ export async function middleware(request: NextRequest) {
     const origin = request.headers.get('origin')
     const pathname = request.nextUrl.pathname
 
-    // === API v1: Bearer-token auth — open CORS, handle preflight here ===
-    // Must run BEFORE the OPTIONS block so external origins can preflight.
-    if (pathname.startsWith('/api/v1/')) {
-        if (request.method === 'OPTIONS') {
-            const preflight = new NextResponse(null, { status: 204 })
-            preflight.headers.set('Access-Control-Allow-Origin', '*')
-            preflight.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-            preflight.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-            preflight.headers.set('Access-Control-Max-Age', '86400')
-            return preflight
-        }
-        // Explicitly forward all request headers so Authorization reaches the route handler.
-        // Plain NextResponse.next() can silently drop custom headers on Vercel's Edge runtime.
-        const requestHeaders = new Headers(request.headers)
-        const response = NextResponse.next({ request: { headers: requestHeaders } })
-        response.headers.set('Access-Control-Allow-Origin', '*')
-        response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
-        response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
-
-        // Rate limit by key prefix to guard against brute-force before bcrypt runs
-        if (rateLimiters) {
-            try {
-                const authHeader = request.headers.get('authorization') || ''
-                const rawKey = authHeader.replace(/^Bearer\s+/i, '').trim()
-                const bucket = rawKey.length >= 16 ? `v1:${rawKey.substring(0, 16)}` : `v1:ip:${getIP(request)}`
-
-                const limiter = pathname === '/api/v1/data/purchase'
-                    ? rateLimiters.apiV1Purchase
-                    : pathname === '/api/v1/data/bulk'
-                        ? rateLimiters.apiV1Bulk
-                        : rateLimiters.apiV1General
-
-                const { success, reset } = await limiter.limit(bucket)
-                if (!success) {
-                    const retryAfter = Math.ceil((reset - Date.now()) / 1000)
-                    return rateLimitExceeded(Math.max(1, retryAfter))
-                }
-            } catch {
-                // Fail open — Redis down should never block legitimate requests
-            }
-        }
-
-        return response
-    }
-
-    // === CORS PREFLIGHT HANDLER (non-v1 routes) ===
+    // === CORS PREFLIGHT HANDLER ===
+    // /api/v1/* is excluded from the middleware matcher — CORS handled via next.config.ts headers.
     if (request.method === 'OPTIONS') {
         if (isTrustedOrigin(request, origin)) {
             const preflightResponse = new NextResponse(null, { status: 204 })
@@ -458,8 +414,8 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-    // Exclude static files but INCLUDE api/admin for protection
     matcher: [
-        '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2)$).*)'
+        // Exclude static files and /api/v1/* (v1 CORS handled via next.config.ts, auth via route handlers)
+        '/((?!_next/static|_next/image|favicon.ico|api/v1|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2)$).*)'
     ],
 }
