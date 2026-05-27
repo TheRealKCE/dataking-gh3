@@ -5,7 +5,7 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import { sendAirtimeBeneficiarySMS, sendAdminAirtimeAlertSMS } from '@/lib/sms-service'
 import { sendAdminAirtimeOrderEmail } from '@/lib/email-service'
-import { sendPushToAdmins } from '@/lib/web-push'
+import { sendPushToUser, sendPushToAdmins } from '@/lib/web-push'
 
 const NETWORK_KEY_MAP: Record<string, string> = {
     MTN: 'mtn',
@@ -241,6 +241,14 @@ export async function POST(request: NextRequest) {
             type: 'order_update',
             action_url: '/dashboard/airtime',
         }).then(() => {}).catch((e: any) => console.error('[Airtime] Notification error:', e))
+
+        sendPushToUser(userId, {
+            title: resolvedType === 'mashup' ? 'Mashup Order Placed' : 'Airtime Order Placed',
+            body: resolvedType === 'mashup'
+                ? `MTN Bundle of GHS ${airtimeAmount.toFixed(2)} for ${cleanPhone} is pending.`
+                : `GHS ${airtimeAmount.toFixed(2)} airtime for ${cleanPhone} (${network}) is pending.`,
+            url: '/dashboard/airtime',
+        }).catch(() => {})
 
         // ── Post-order notifications (awaited to prevent Vercel from killing) ──
         try {
