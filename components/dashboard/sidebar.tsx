@@ -35,7 +35,8 @@ import {
     Tag,
     Phone,
     Zap,
-    Download
+    Download,
+    Code2,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -58,6 +59,7 @@ const userNavItems = [
     { href: '/dashboard/afa-orders', label: 'AFA Application', icon: BadgeCheck },
     { href: '/dashboard/install', label: 'Download App', icon: Download },
     { href: '/dashboard/results-checker', label: 'Results Checker', icon: Tag },
+    { href: '/dashboard/developer-api', label: 'Developer API', icon: Code2 },
 ]
 
 const adminNavItems = [
@@ -78,6 +80,7 @@ const adminNavItems = [
     { href: '/admin/sms-broadcast', label: 'SMS', icon: MessageSquare },
     { href: '/admin/finance', label: 'Finance', icon: Banknote },
     { href: '/admin/profits-history', label: 'Profits', icon: Wallet },
+    { href: '/admin/api-keys', label: 'API Keys', icon: Code2 },
     { href: '/admin/settings', label: 'Settings', icon: Settings },
     { href: '/admin/vouchers', label: 'Results Checker', icon: Tag },
 ]

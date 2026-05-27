@@ -53,6 +53,10 @@ try {
 }
 
 const rateLimiters = redis ? {
+    // ── Developer API v1 (keyed by key prefix, not IP) ─────────
+    apiV1Purchase: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(20, '60 s') }),
+    apiV1Bulk:     new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(10, '60 s') }),
+    apiV1General:  new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(60, '60 s') }),
     // ── Auth routes ────────────────────────────────────────────
     login: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, '10 m') }),
     signup: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(3, '1 h') }),
@@ -170,6 +174,39 @@ export async function middleware(request: NextRequest) {
             // Untrusted origin: reject the preflight entirely
             return new NextResponse(null, { status: 403 })
         }
+    }
+
+    // === API v1: Bearer-token auth — bypass cookie session + open CORS ===
+    if (pathname.startsWith('/api/v1/')) {
+        const response = NextResponse.next()
+        response.headers.set('Access-Control-Allow-Origin', '*')
+        response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+
+        // Rate limit by key prefix to guard against brute-force before bcrypt runs
+        if (rateLimiters) {
+            try {
+                const authHeader = request.headers.get('authorization') || ''
+                const rawKey = authHeader.replace(/^Bearer\s+/i, '').trim()
+                const bucket = rawKey.length >= 16 ? `v1:${rawKey.substring(0, 16)}` : `v1:ip:${getIP(request)}`
+
+                const limiter = pathname === '/api/v1/data/purchase'
+                    ? rateLimiters.apiV1Purchase
+                    : pathname === '/api/v1/data/bulk'
+                        ? rateLimiters.apiV1Bulk
+                        : rateLimiters.apiV1General
+
+                const { success, reset } = await limiter.limit(bucket)
+                if (!success) {
+                    const retryAfter = Math.ceil((reset - Date.now()) / 1000)
+                    return rateLimitExceeded(Math.max(1, retryAfter))
+                }
+            } catch {
+                // Fail open — Redis down should never block legitimate requests
+            }
+        }
+
+        return response
     }
 
     // === ORIGIN ENFORCEMENT FOR API ROUTES ===
