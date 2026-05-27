@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { Redis } from '@upstash/redis'
 import { checkPaymentStatus } from '@/lib/moolre-payment-service'
+import { sendPushToAdmins } from '@/lib/web-push'
 
 const redis = Redis.fromEnv()
 
@@ -151,7 +152,14 @@ export async function GET(request: NextRequest) {
             }
         }
 
-        // 8. Clean up Redis meta
+        // 8. Notify admin of RC sale
+        sendPushToAdmins({
+            title: 'Results Checker Sale',
+            body: `${meta.quantity}x ${meta.rc_type_name || 'RC Voucher'} sold · Shop: ${slug}`,
+            url: '/admin/vouchers',
+        }).catch(() => {})
+
+        // 9. Clean up Redis meta
         await redis.del(`shop:rc:meta:${ref}`)
         await redis.del(`shop:rc:orderid:${ref}`)
 

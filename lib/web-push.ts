@@ -50,3 +50,12 @@ export async function sendPushToUser(userId: string, payload: PushPayload) {
             .in('id', expiredIds)
     }
 }
+
+export async function sendPushToAdmins(payload: PushPayload) {
+    const supabase = createServerClient()
+    const { data: admins } = await (supabase.from('users') as any)
+        .select('id')
+        .eq('role', 'admin')
+    if (!admins?.length) return
+    await Promise.allSettled(admins.map((a: { id: string }) => sendPushToUser(a.id, payload)))
+}

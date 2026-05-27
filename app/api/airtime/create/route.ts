@@ -5,6 +5,7 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import { sendAirtimeBeneficiarySMS, sendAdminAirtimeAlertSMS } from '@/lib/sms-service'
 import { sendAdminAirtimeOrderEmail } from '@/lib/email-service'
+import { sendPushToAdmins } from '@/lib/web-push'
 
 const NETWORK_KEY_MAP: Record<string, string> = {
     MTN: 'mtn',
@@ -270,7 +271,14 @@ export async function POST(request: NextRequest) {
                 bundlePreference: resolvedType === 'mashup' ? resolvedPreference : undefined,
             }).catch((err: any) => console.error('[Airtime] Admin email failed:', err))
 
-            // 3. Admin SMS alert (mashup uses anti-spam title + preference code)
+            // 3. Admin push notification
+            sendPushToAdmins({
+                title: resolvedType === 'mashup' ? 'New Mashup Order' : 'New Airtime Order',
+                body: `${`${userData.first_name} ${userData.last_name}`.trim() || 'User'} · ${network} GHS ${airtimeAmount.toFixed(2)} → ${cleanPhone}`,
+                url: '/admin/airtime',
+            }).catch(() => {})
+
+            // 4. Admin SMS alert (mashup uses anti-spam title + preference code)
             try {
                 const { data: admins } = await (supabase.from('users') as any)
                     .select('phone_number')

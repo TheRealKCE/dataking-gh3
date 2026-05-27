@@ -5,7 +5,7 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import { sendOrderSuccessEmail, sendAdminNewOrderAlert } from '@/lib/email-service'
 import { sendOrderSuccessSMS, sendAdminAgentOrderAlert } from '@/lib/sms-service'
-import { sendPushToUser } from '@/lib/web-push'
+import { sendPushToUser, sendPushToAdmins } from '@/lib/web-push'
 import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
 
@@ -254,6 +254,13 @@ export async function POST(request: NextRequest) {
                     await sendAdminAgentOrderAlert()
                         .catch((err: Error) => console.error('[Purchase] Admin agent alert failed:', err))
                 }
+
+                // 4. Notify admin via push
+                sendPushToAdmins({
+                    title: 'New Data Order',
+                    body: `${firstName} · ${(pkg as any).network} ${(pkg as any).size} → ${phoneNumber} (GHS ${priceToCharge.toFixed(2)})`,
+                    url: '/admin/orders',
+                }).catch(() => {})
 
                 // 4. Trigger Auto-Fulfillment
                 await triggerFulfillment((order as any).id, (pkg as any).network, {

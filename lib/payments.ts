@@ -1,7 +1,7 @@
 import { createServerClient } from './supabase'
 import { sendWalletTopupSuccessEmail, sendPermanentAgentUpgradeSuccessEmail } from './email-service'
 import { sendWalletTopupSuccessSMS, sendAgentUpgradeSuccessSMS, sendAgentExtensionSuccessSMS, sendPermanentAgentUpgradeSuccessSMS } from './sms-service'
-import { sendPushToUser } from './web-push'
+import { sendPushToUser, sendPushToAdmins } from './web-push'
 
 /**
  * Processes a completed payment by updating the status, 
@@ -119,6 +119,13 @@ export async function processCompletedWalletPayment(reference: string, providerM
             .single()
 
         if (userData) {
+            // Notify admin of top-up
+            sendPushToAdmins({
+                title: 'Wallet Top-Up',
+                body: `${(userData as any).first_name || 'User'} topped up GHS ${payment.amount.toFixed(2)}`,
+                url: '/admin/finance',
+            }).catch(() => {})
+
             await sendWalletTopupSuccessEmail(
                 (userData as any).email,
                 (userData as any).first_name || 'Customer',
