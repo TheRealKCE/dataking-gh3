@@ -105,15 +105,14 @@ export async function POST(request: Request) {
             }
         })
 
-        // Push notification to affected users (fire-and-forget, only for terminal statuses)
+        // Push notification to affected users (awaited to prevent Vercel from killing)
         if (status === 'completed' || status === 'failed') {
-            ;(async () => {
-                try {
-                    const { data: orderData } = await supabaseAdmin
-                        .from('orders')
-                        .select('user_id, network, size, phone_number')
-                        .in('id', targetOrderIds)
-                    if (!orderData?.length) return
+            try {
+                const { data: orderData } = await supabaseAdmin
+                    .from('orders')
+                    .select('user_id, network, size, phone_number')
+                    .in('id', targetOrderIds)
+                if (orderData?.length) {
                     const pushTitle = status === 'completed' ? 'Data Bundle Sent' : 'Order Failed'
                     await Promise.allSettled(
                         orderData.map((o: any) =>
@@ -126,8 +125,8 @@ export async function POST(request: Request) {
                             })
                         )
                     )
-                } catch {}
-            })()
+                }
+            } catch {}
         }
 
         return NextResponse.json({ success: true, count: targetOrderIds.length })

@@ -134,7 +134,7 @@ export async function syncShopOrderStatus(mainOrderId: string, status: string) {
                             actionUrl: '/dashboard/my-orders',
                         }).catch((e: any) => console.error('[ShopSync] In-app notify error:', e))
 
-                        sendPushToUser(shopProfile.owner_id, {
+                        await sendPushToUser(shopProfile.owner_id, {
                             title: `${shopProfile.shop_name || 'Shop'}: Order Completed`,
                             body: msg,
                             url: '/dashboard/my-orders',

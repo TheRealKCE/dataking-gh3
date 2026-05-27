@@ -162,7 +162,7 @@ export async function PATCH(request: NextRequest) {
         }).then(() => {}).catch((e: any) => console.error('[Admin Airtime] Notification error:', e))
 
         // Push notification to order owner
-        sendPushToUser(existing.user_id, {
+        await sendPushToUser(existing.user_id, {
             title: status === 'completed'
                 ? (isMashup ? 'Mashup Bundle Sent' : 'Airtime Sent')
                 : (isMashup ? 'Mashup Order Failed' : 'Airtime Order Failed'),

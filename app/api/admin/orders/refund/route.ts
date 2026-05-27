@@ -165,7 +165,7 @@ export async function POST(request: NextRequest) {
         }
 
         // 8. Push notification to user
-        sendPushToUser((order as any).user_id, {
+        await sendPushToUser((order as any).user_id, {
             title: 'Order Refunded',
             body: `GHS ${refundAmount.toFixed(2)} refunded to your wallet for order ${(order as any).reference_code}.`,
             url: '/dashboard/wallet',
