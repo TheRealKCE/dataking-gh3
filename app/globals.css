@@ -180,7 +180,8 @@
   /* ── Hero card mirror reflection (light mode only) ──────────────────── */
   .hero-reflect {
     position: absolute;
-    inset-x: 0;
+    left: 0;
+    right: 0;
     top: 0;
     height: 90px;
     border-radius: 0 0 24px 24px;
@@ -279,6 +280,16 @@
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes ring {
+  0%, 100% { transform: rotate(0deg); transform-origin: top center; }
+  10%       { transform: rotate(14deg); transform-origin: top center; }
+  20%       { transform: rotate(-12deg); transform-origin: top center; }
+  30%       { transform: rotate(8deg); transform-origin: top center; }
+  40%       { transform: rotate(-5deg); transform-origin: top center; }
+  50%       { transform: rotate(3deg); transform-origin: top center; }
+  60%       { transform: rotate(0deg); transform-origin: top center; }
 }
 
   /* Physics-inspired rotation: fast shake → elastic overshoot → settle */
@@ -606,7 +617,8 @@
    users who have enabled Reduce Motion in Android accessibility settings */
 @media (prefers-reduced-motion: reduce) {
   .animate-elastic-ring,
-  .animate-slow-fade {
+  .animate-slow-fade,
+  [class*="animate-[ring"] {
     animation: none !important;
   }
 }
