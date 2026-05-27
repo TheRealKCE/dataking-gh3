@@ -174,7 +174,10 @@ export async function middleware(request: NextRequest) {
             preflight.headers.set('Access-Control-Max-Age', '86400')
             return preflight
         }
-        const response = NextResponse.next()
+        // Explicitly forward all request headers so Authorization reaches the route handler.
+        // Plain NextResponse.next() can silently drop custom headers on Vercel's Edge runtime.
+        const requestHeaders = new Headers(request.headers)
+        const response = NextResponse.next({ request: { headers: requestHeaders } })
         response.headers.set('Access-Control-Allow-Origin', '*')
         response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
         response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
