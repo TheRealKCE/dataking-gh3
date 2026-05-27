@@ -163,21 +163,17 @@ export async function middleware(request: NextRequest) {
     const origin = request.headers.get('origin')
     const pathname = request.nextUrl.pathname
 
-    // === CORS PREFLIGHT HANDLER ===
-    // Handle OPTIONS preflight FIRST, before any Supabase logic.
-    if (request.method === 'OPTIONS') {
-        if (isTrustedOrigin(request, origin)) {
-            // Trusted origin: approve the preflight
-            const preflightResponse = new NextResponse(null, { status: 204 })
-            return addNoCacheHeaders(setCORSHeaders(preflightResponse, request, origin))
-        } else {
-            // Untrusted origin: reject the preflight entirely
-            return new NextResponse(null, { status: 403 })
-        }
-    }
-
-    // === API v1: Bearer-token auth — bypass cookie session + open CORS ===
+    // === API v1: Bearer-token auth — open CORS, handle preflight here ===
+    // Must run BEFORE the OPTIONS block so external origins can preflight.
     if (pathname.startsWith('/api/v1/')) {
+        if (request.method === 'OPTIONS') {
+            const preflight = new NextResponse(null, { status: 204 })
+            preflight.headers.set('Access-Control-Allow-Origin', '*')
+            preflight.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+            preflight.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization')
+            preflight.headers.set('Access-Control-Max-Age', '86400')
+            return preflight
+        }
         const response = NextResponse.next()
         response.headers.set('Access-Control-Allow-Origin', '*')
         response.headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
@@ -207,6 +203,16 @@ export async function middleware(request: NextRequest) {
         }
 
         return response
+    }
+
+    // === CORS PREFLIGHT HANDLER (non-v1 routes) ===
+    if (request.method === 'OPTIONS') {
+        if (isTrustedOrigin(request, origin)) {
+            const preflightResponse = new NextResponse(null, { status: 204 })
+            return addNoCacheHeaders(setCORSHeaders(preflightResponse, request, origin))
+        } else {
+            return new NextResponse(null, { status: 403 })
+        }
     }
 
     // === ORIGIN ENFORCEMENT FOR API ROUTES ===
