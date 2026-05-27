@@ -242,7 +242,7 @@ export async function POST(request: NextRequest) {
             action_url: '/dashboard/airtime',
         }).then(() => {}).catch((e: any) => console.error('[Airtime] Notification error:', e))
 
-        sendPushToUser(userId, {
+        await sendPushToUser(userId, {
             title: resolvedType === 'mashup' ? 'Mashup Order Placed' : 'Airtime Order Placed',
             body: resolvedType === 'mashup'
                 ? `MTN Bundle of GHS ${airtimeAmount.toFixed(2)} for ${cleanPhone} is pending.`
@@ -280,7 +280,7 @@ export async function POST(request: NextRequest) {
             }).catch((err: any) => console.error('[Airtime] Admin email failed:', err))
 
             // 3. Admin push notification
-            sendPushToAdmins({
+            await sendPushToAdmins({
                 title: resolvedType === 'mashup' ? 'New Mashup Order' : 'New Airtime Order',
                 body: `${`${userData.first_name} ${userData.last_name}`.trim() || 'User'} · ${network} GHS ${airtimeAmount.toFixed(2)} → ${cleanPhone}`,
                 url: '/admin/airtime',

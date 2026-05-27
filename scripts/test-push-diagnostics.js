@@ -88,6 +88,19 @@ async function checkSupabase() {
         } else {
             console.log(`   [SUCCESS] "notifications" table exists! Total notifications logged: ${notifCount}`)
         }
+        
+        console.log('   Checking "users" table for admins...')
+        const { data: admins, error: adminError } = await supabase
+            .from('users')
+            .select('id, role')
+            .eq('role', 'admin')
+
+        if (adminError) {
+            console.error('   [ERROR] Could not query admins:', adminError.message)
+        } else {
+            console.log(`   [SUCCESS] Found ${admins?.length || 0} admins in database:`, admins)
+        }
+        
     } catch (err) {
         console.error('   [ERROR] Unexpected error connecting to Supabase:', err.message)
     }

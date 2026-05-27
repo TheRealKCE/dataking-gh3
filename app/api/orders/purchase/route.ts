@@ -203,7 +203,7 @@ export async function POST(request: NextRequest) {
             action_url: `/dashboard/my-orders`,
         }).then(() => {}).catch((e: any) => console.error('[Purchase] Notification error:', e))
 
-        sendPushToUser(userId, {
+        await sendPushToUser(userId, {
             title: 'Order Placed',
             body: `Your ${(pkg as any).size} bundle for ${phoneNumber} is being processed.`,
             url: '/dashboard/my-orders',
@@ -256,7 +256,7 @@ export async function POST(request: NextRequest) {
                 }
 
                 // 4. Notify admin via push
-                sendPushToAdmins({
+                await sendPushToAdmins({
                     title: 'New Data Order',
                     body: `${firstName} · ${(pkg as any).network} ${(pkg as any).size} → ${phoneNumber} (GHS ${priceToCharge.toFixed(2)})`,
                     url: '/admin/orders',

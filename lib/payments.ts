@@ -102,8 +102,8 @@ export async function processCompletedWalletPayment(reference: string, providerM
         console.error('[PaymentProcess] Notification error:', notifyError)
     }
 
-    // Fire-and-forget web push for payment confirmation
-    sendPushToUser(payment.user_id, {
+    // Await web push for payment confirmation so Vercel doesn't kill it
+    await sendPushToUser(payment.user_id, {
         title: 'Wallet Topped Up',
         body: `GHS ${payment.amount.toFixed(2)} added to your wallet.`,
         url: '/dashboard/wallet',
@@ -120,7 +120,7 @@ export async function processCompletedWalletPayment(reference: string, providerM
 
         if (userData) {
             // Notify admin of top-up
-            sendPushToAdmins({
+            await sendPushToAdmins({
                 title: 'Wallet Top-Up',
                 body: `${(userData as any).first_name || 'User'} topped up GHS ${payment.amount.toFixed(2)}`,
                 url: '/admin/finance',

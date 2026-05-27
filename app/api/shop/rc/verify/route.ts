@@ -153,7 +153,7 @@ export async function GET(request: NextRequest) {
         }
 
         // 8. Notify admin of RC sale
-        sendPushToAdmins({
+        await sendPushToAdmins({
             title: 'Results Checker Sale',
             body: `${meta.quantity}x ${meta.rc_type_name || 'RC Voucher'} sold · Shop: ${slug}`,
             url: '/admin/vouchers',
