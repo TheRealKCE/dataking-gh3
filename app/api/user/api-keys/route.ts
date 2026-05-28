@@ -55,6 +55,15 @@ export async function POST(request: NextRequest) {
 
         const supabase = createServerClient()
 
+        // Admins and sub-admins get auto-approved — they don't need approval from themselves
+        const { data: userData } = await (supabase.from('users') as any)
+            .select('role')
+            .eq('id', user.id)
+            .single()
+        const userRole = (userData as any)?.role ?? 'customer'
+        const isAdmin = userRole === 'admin' || userRole === 'sub-admin'
+        const keyStatus = isAdmin ? 'active' : 'pending'
+
         // Delete old key if exists (one key per user)
         await (supabase.from('api_keys') as any).delete().eq('user_id', user.id)
 
@@ -63,7 +72,7 @@ export async function POST(request: NextRequest) {
             key_hash:   keyHash,
             key_prefix: keyPrefix,
             name,
-            status:     'pending',
+            status:     keyStatus,
         })
 
         if (insertError) {
@@ -71,13 +80,17 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Failed to generate key' }, { status: 500 })
         }
 
+        const message = isAdmin
+            ? 'API key generated. Copy the key now — it will not be shown again.'
+            : 'API key generated. Copy the key now — it will not be shown again. Awaiting admin approval.'
+
         // Full key returned ONCE — never stored in plaintext
         return NextResponse.json({
             success: true,
-            message: 'API key generated. Copy the key now — it will not be shown again. Awaiting admin approval.',
+            message,
             key: fullKey,
             prefix: keyPrefix,
-            status: 'pending',
+            status: keyStatus,
         })
     } catch (err: any) {
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
