@@ -86,6 +86,8 @@ const rateLimiters = redis ? {
     // ── User actions ──────────────────────────────────────────
     user: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(60, '1 m') }),
     userUpgrade: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(3, '1 h') }),
+    dealerClaim: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(2, '24 h') }),
+    dealerSubscribe: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(3, '1 h') }),
     afaRegistration: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(2, '1 h') }),
     agentDowngrade: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(2, '1 h') }),
     updateProfile: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, '10 m') }),
@@ -295,6 +297,12 @@ export async function middleware(request: NextRequest) {
             identifier = ip
         } else if (pathname === '/api/agent/downgrade') {
             limiter = rateLimiters?.agentDowngrade
+            identifier = authUser?.id ? `${authUser.id}-${ip}` : ip
+        } else if (pathname === '/api/user/claim-dealer') {
+            limiter = rateLimiters?.dealerClaim
+            identifier = authUser?.id ? `${authUser.id}-${ip}` : ip
+        } else if (pathname === '/api/user/dealer-subscribe') {
+            limiter = rateLimiters?.dealerSubscribe
             identifier = authUser?.id ? `${authUser.id}-${ip}` : ip
         } else if (pathname === '/api/admin-settings') {
             limiter = rateLimiters?.adminSettings

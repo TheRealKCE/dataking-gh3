@@ -1,4 +1,4 @@
-export const VALID_API_ROLES = ['agent', 'customer', 'sub-admin', 'admin'] as const
+export const VALID_API_ROLES = ['agent', 'customer', 'sub-admin', 'admin', 'dealer'] as const
 export type ApiRole = typeof VALID_API_ROLES[number]
 
 const VALID_SET: Set<string> = new Set(VALID_API_ROLES)
