@@ -46,7 +46,7 @@ validateSMSConfig()
  */
 export async function sendSMS(options: SMSOptions): Promise<SMSResult> {
     const apiKey = process.env.MOOLRE_API_KEY
-    const defaultSender = process.env.MOOLRE_SENDER_ID || 'ARHMS'
+    const defaultSender = process.env.MOOLRE_SENDER_ID || 'DKGH'
 
     if (!apiKey) {
         console.error('[SMS Service] MOOLRE_API_KEY not configured. Falling back to mNotify.')
@@ -162,7 +162,7 @@ export async function sendSMS(options: SMSOptions): Promise<SMSResult> {
  */
 export async function sendMnotifySMS(options: SMSOptions): Promise<SMSResult> {
     const apiKey = process.env.MNOTIFY_API_KEY
-    const defaultSender = process.env.MNOTIFY_SENDER_ID || 'ARHMSGh'
+    const defaultSender = process.env.MNOTIFY_SENDER_ID || 'DKGH'
 
     if (!apiKey) {
         const error = 'MNOTIFY_API_KEY not configured in environment variables.'
@@ -242,7 +242,7 @@ export async function sendOrderSuccessSMS(
     // Updated Template: "Your order for [Data Size] has been received and is being processed. You will receive your data in less than 1hr thank you."
     const message = `Your order for ${details.size} has been received and is being processed. You will receive your data in less than 1hr thank you.
 
-ARHMSGh`
+DATAKING`
 
     // ROUTE: Moolre (Temporary fallback)
     return sendSMS({
@@ -287,7 +287,7 @@ export async function sendWalletTopupSuccessSMS(
     // Updated Template: "Hello! You have added GH[Amount] to your Flexy-Wallet. Your Flexy-Wallet is now GH[New_Balance]"
     const message = `Hello! You have added GH${details.amount.toFixed(2)} to your Flexy-Wallet. Your Flexy-Wallet is now GH${details.newBalance.toFixed(2)}
 
-ARHMSGh`
+DATAKING`
 
     // ROUTE: Moolre
     return sendSMS({
@@ -306,7 +306,7 @@ export async function sendWelcomeSMS(
 ) {
     // DISABLED AS REQUESTED
     /*
-    const message = `Hello! Welcome to ARHMSGh Ltd. All we do here is instant Delivery (PA-TU-PA) start ordering your package now. Chat us on WhatsApp:578065809`
+    const message = `Hello! Welcome to DATAKING Ltd. All we do here is instant Delivery (PA-TU-PA) start ordering your package now. Chat us on WhatsApp:578065809`
 
     return sendSMS({
         recipient: phoneNumber,
@@ -317,7 +317,7 @@ export async function sendWelcomeSMS(
 }
 /**
  * Send Agent upgrade success SMS
- * Template: "Hi [User First Name]! Your [Plan purchase days] Upgrade to Agent Role was Successful! Your Agent role is now valid for [Remaining Agent Role Days] thank you. ARHMSGh"
+ * Template: "Hi [User First Name]! Your [Plan purchase days] Upgrade to Agent Role was Successful! Your Agent role is now valid for [Remaining Agent Role Days] thank you. DATAKING"
  */
 /**
  * Send Agent upgrade success SMS
@@ -330,7 +330,7 @@ export async function sendAgentUpgradeSuccessSMS(
     remainingDays: number,
     expiryDate: string
 ) {
-    const message = `Congratulation ${firstName}! Your Agent membership has been activated for ${planDays}. You now have access to our cheapest Agent prices. Login to enjoy! \n\nARHMSGh`
+    const message = `Congratulation ${firstName}! Your Agent membership has been activated for ${planDays}. You now have access to our cheapest Agent prices. Login to enjoy! \n\nDATAKING`
 
     // ROUTE: Moolre (Temporary fallback)
     return sendSMS({ recipient: phoneNumber, message })
@@ -342,7 +342,7 @@ export async function sendAgentUpgradeSuccessSMS(
 export async function sendPermanentAgentUpgradeSuccessSMS(
     phoneNumber: string
 ) {
-    const message = `Congratulations! Your Agent membership is now PERMANENT 👑. You have lifetime access to premium agent benefits. Thank you for choosing ARHMSGh.`
+    const message = `Congratulations! Your Agent membership is now PERMANENT 👑. You have lifetime access to premium agent benefits. Thank you for choosing DATAKING.`
 
     // ROUTE: Moolre (Temporary fallback)
     return sendSMS({ recipient: phoneNumber, message })
@@ -367,7 +367,7 @@ export async function sendAgentExtensionSuccessSMS(
 
     const message = `Congratulations! Your Agent membership has been extended until ${formattedDate}
 
-ARHMSGh`
+DATAKING`
 
     // ROUTE: Moolre (Temporary fallback)
     return sendSMS({
@@ -396,7 +396,7 @@ export async function sendAdminAgentOrderAlert() {
 
 /**
  * Send Agent renewal reminder SMS (1 day left)
- * Template: "Hi [Agent First Name]! Your Agent Role plan is about to expire, kindly extend your plan to continue enjoying the benefits thank you. ARHMSGh."
+ * Template: "Hi [Agent First Name]! Your Agent Role plan is about to expire, kindly extend your plan to continue enjoying the benefits thank you. DATAKING."
  */
 export async function sendAgentRenewalReminderSMS(
     phoneNumber: string,
@@ -406,7 +406,7 @@ export async function sendAgentRenewalReminderSMS(
     /*
     const message = `Hi ${firstName}! Your Agent Role plan is about to expire, kindly extend your plan to continue enjoying the benefits thank you.
 
-ARHMSGh.`
+DATAKING.`
 
     return sendSMS({
         recipient: phoneNumber,
@@ -425,7 +425,7 @@ export async function sendAgentExpiryNotificationSMS(
 ) {
     const message = `Dear valued customer, your Agent membership has expired. You can renew your subscription anytime to continue enjoying agent benefits thank you.
 
-ARHMSGh`
+DATAKING`
 
     // ROUTE: Moolre
     return sendSMS({
@@ -448,7 +448,7 @@ export async function sendOrderRefundSMS(
 
     const message = `Your order for ${displayNumber} has been refunded due to an error. Refund was GH${refundAmount.toFixed(2)}. Your new Flexy-wallet is now GH${newBalance.toFixed(2)} thank you.
 
-ARHMSGh`
+DATAKING`
 
     // ROUTE: Moolre (Temporary fallback)
     return sendSMS({
@@ -468,9 +468,9 @@ export async function sendShopPricingApprovedSMS(
     phoneNumber: string,
     firstName: string
 ) {
-    const message = `${firstName} Great news! Your shop pricing has been approved. Your prices are now live on your shop. Visit- ARHMSgh.com/dashboard/shop
+    const message = `${firstName} Great news! Your shop pricing has been approved. Your prices are now live on your shop. Visit- DATAKING.com/dashboard/shop
 
-ARHMSGh`
+DATAKING`
 
     return sendSMS({ recipient: phoneNumber, message })
 }
@@ -485,7 +485,7 @@ export async function sendShopPricingRejectedSMS(
 ) {
     const message = `${firstName} Your shop pricing was not approved. Reason: ${reason}. Please log in and resubmit a new one.
 
-ARHMSGh`
+DATAKING`
 
     return sendSMS({ recipient: phoneNumber, message })
 }
@@ -497,9 +497,9 @@ export async function sendShopProfileApprovedSMS(
     phoneNumber: string,
     shopName: string
 ) {
-    const message = `Congrats! Your shop "${shopName}" has been approved. You can now set your prices and go live. - ARHMSgh.com
+    const message = `Congrats! Your shop "${shopName}" has been approved. You can now set your prices and go live. - DATAKING.com
 
-ARHMSGh`
+DATAKING`
 
     return sendSMS({ recipient: phoneNumber, message })
 }
@@ -512,9 +512,9 @@ export async function sendShopProfileRejectedSMS(
     firstName: string,
     reason: string
 ) {
-    const message = `${firstName} Your shop application was not approved. Reason: ${reason}. Log in to update your profile. - ARHMSgh.com
+    const message = `${firstName} Your shop application was not approved. Reason: ${reason}. Log in to update your profile. - DATAKING.com
 
-ARHMSGh`
+DATAKING`
 
     return sendSMS({ recipient: phoneNumber, message })
 }
@@ -529,7 +529,7 @@ export async function sendShopWithdrawalProcessedSMS(
     network: string,
     momoNumber: string
 ) {
-    const message = `${firstName} Your Net Payout of GH${netAmount.toFixed(2)} has been successfully sent to your ${network} number ${momoNumber}. Thank you for selling with ARHMSGh.`
+    const message = `${firstName} Your Net Payout of GH${netAmount.toFixed(2)} has been successfully sent to your ${network} number ${momoNumber}. Thank you for selling with DATAKING.`
 
     return sendSMS({ recipient: phoneNumber, message })
 }
@@ -541,7 +541,7 @@ export async function sendShopWithdrawalRejectedSMS(
     phoneNumber: string,
     firstName: string
 ) {
-    const message = `${firstName} Your withdrawal request was rejected. You can find out the reason from your withdrawal history. Please log in to your dashboard to update your payment details and resubmit. ARHMSGh`
+    const message = `${firstName} Your withdrawal request was rejected. You can find out the reason from your withdrawal history. Please log in to your dashboard to update your payment details and resubmit. DATAKING`
 
     return sendSMS({ recipient: phoneNumber, message })
 }
@@ -558,7 +558,7 @@ export async function sendAirtimeBeneficiarySMS(
     beneficiaryPhone: string,
     airtimeAmount: number
 ): Promise<SMSResult> {
-    const message = `Your order for GH ${airtimeAmount.toFixed(2)} airtime has been received and is being processed. You will receive the confirmation sms very soon.\n\nARHMSGh`
+    const message = `Your order for GH ${airtimeAmount.toFixed(2)} airtime has been received and is being processed. You will receive the confirmation sms very soon.\n\nDATAKING`
 
     return sendSMS({
         recipient: beneficiaryPhone,
@@ -615,7 +615,7 @@ export async function sendAirtimeCompletedSMS(
 ): Promise<void> {
     const message = `Dear customer, your airtime order of GH${amount.toFixed(2)} has been credited successfully. Kindly dial *124# to check your balance thank you.
 
-ARHMSGh`
+DATAKING`
 
     await sendSMS({
         recipient: beneficiaryPhone,
