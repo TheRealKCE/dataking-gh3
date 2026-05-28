@@ -45,6 +45,7 @@ export async function validateApiKey(request: NextRequest): Promise<ApiAuthResul
 
     const authHeader = request.headers.get('authorization')
     if (!authHeader?.trim()) {
+        console.error('[API Auth] FAIL: No Authorization header. Headers present:', [...request.headers.keys()].join(', '))
         return apiError(401, 'Missing Authorization header. Format: Authorization: <api_key>')
     }
 
@@ -59,6 +60,7 @@ export async function validateApiKey(request: NextRequest): Promise<ApiAuthResul
     if (cached) return { ...cached, supabase }
 
     const keyPrefix = fullKey.substring(0, 16)
+    console.error(`[API Auth] Looking up key prefix: ${keyPrefix}`)
 
     const { data: keyRow, error: keyError } = await (supabase
         .from('api_keys') as any)
@@ -67,10 +69,12 @@ export async function validateApiKey(request: NextRequest): Promise<ApiAuthResul
         .maybeSingle()
 
     if (keyError || !keyRow) {
+        console.error(`[API Auth] FAIL: key lookup — error=${keyError?.message ?? 'none'} found=${!!keyRow} prefix=${keyPrefix}`)
         await bcrypt.compare(fullKey, DUMMY_HASH) // equalise timing
         return apiError(401, 'Invalid API key')
     }
 
+    console.error(`[API Auth] Key found — status=${keyRow.status}`)
     if (keyRow.status === 'pending') return apiError(403, 'API key pending admin approval')
     if (keyRow.status === 'revoked') return apiError(403, 'API key has been revoked')
 
