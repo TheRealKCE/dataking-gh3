@@ -437,8 +437,12 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 return
             }
 
-            // Moolre always sends an OTP for MoMo collections.
-            // Show the OTP modal immediately after a successful first-call.
+            if (data.gateway === 'paystack') {
+                window.location.href = data.authorization_url
+                return
+            }
+
+            // Moolre: show OTP modal
             try { localStorage.setItem('shop_last_phone', cleanPhone) } catch (_) { }
             setOtpReference(data.reference)
             setOtpOrderType('data')
@@ -487,8 +491,12 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 return
             }
 
-            // Moolre always sends an OTP for MoMo collections.
-            // Show the OTP modal immediately after a successful first-call.
+            if (data.gateway === 'paystack') {
+                window.location.href = data.authorization_url
+                return
+            }
+
+            // Moolre: show OTP modal
             try { localStorage.setItem('shop_last_phone', cleanPhone) } catch (_) { }
             setOtpReference(data.reference)
             setOtpOrderType('airtime')

@@ -34,6 +34,7 @@ export async function GET(request: NextRequest) {
             .from('wallet_payments') as any)
             .select('id, reference, total_amount, amount, status, metadata, user_id')
             .eq('status', 'pending')
+            .eq('provider', 'moolre') // skip Paystack payments — their webhook handles completion
             .lt('created_at', threeMinutesAgo)
             .limit(10)
 

@@ -80,7 +80,8 @@ export async function POST(request: NextRequest) {
                 'airtime_min_amount', 'airtime_max_amount',
                 'airtime_fee_mtn_customer', 'airtime_fee_mtn_agent',
                 'airtime_fee_telecel_customer', 'airtime_fee_telecel_agent',
-                'airtime_fee_at_customer', 'airtime_fee_at_agent'
+                'airtime_fee_at_customer', 'airtime_fee_at_agent',
+                'active_payment_provider_shop',
             ])
 
         const settings: Record<string, string> = {}
@@ -229,39 +230,73 @@ export async function POST(request: NextRequest) {
             else paymentNetwork = 'MTN' // Fallback
         }
 
-        const channelId = MOOLRE_PAYMENT_CHANNEL_MAP[paymentNetwork]
-        if (!channelId) {
-            return NextResponse.json({ error: 'Unsupported payment network' }, { status: 400 })
-        }
+        const shopProvider = String(settings.active_payment_provider_shop || 'moolre') === 'paystack' ? 'paystack' : 'moolre'
+        const shopRef = existingRef || `SHOP-${shop.id.slice(0, 8)}-${Date.now()}`
 
-        const moolreRef = existingRef || `SHOP-${shop.id.slice(0, 8)}-${Date.now()}`
-
-        // Complete Metadata for Webhook processing (equivalent to what was sent to Paystack)
+        // Full metadata used by both webhook paths
         const fullMetadata = {
             shop_id: shop.id,
             shop_name: shop.shop_name,
             shop_slug: shopSlug,
+            slug: shopSlug, // legacy alias consumed by processShopOrder
             guest_phone: cleanPhone,
             guest_email: validatedGuestEmail,
             fulfillment_mode: shop.fulfillment_mode,
             ...metadataPayload,
         }
 
+        // ── PAYSTACK BRANCH ──────────────────────────────────────────────────────
+        if (shopProvider === 'paystack') {
+            const paystackRes = await fetch('https://api.paystack.co/transaction/initialize', {
+                method: 'POST',
+                headers: {
+                    Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    email: validatedGuestEmail || `guest-${cleanPhone}@checkout.arhmsgh.com`,
+                    amount: totalAmount, // already in pesewas
+                    reference: shopRef,
+                    callback_url: `${process.env.NEXT_PUBLIC_APP_URL}/shop/${shopSlug}/success?reference=${shopRef}`,
+                    metadata: fullMetadata,
+                }),
+            })
+
+            const paystackData = await paystackRes.json()
+
+            if (!paystackData.status) {
+                console.error('[ShopInit] Paystack init failed:', paystackData)
+                return NextResponse.json({ error: 'Payment gateway error' }, { status: 500 })
+            }
+
+            return NextResponse.json({
+                success: true,
+                gateway: 'paystack',
+                authorization_url: paystackData.data.authorization_url,
+                reference: shopRef,
+            })
+        }
+
+        // ── MOOLRE BRANCH ────────────────────────────────────────────────────────
+        const channelId = MOOLRE_PAYMENT_CHANNEL_MAP[paymentNetwork]
+        if (!channelId) {
+            return NextResponse.json({ error: 'Unsupported payment network' }, { status: 400 })
+        }
+
         const idemKey = `shop:idem:${shop.id}-${cleanPhone}-${totalAmount}`
         if (!otpCode) {
             const cachedIdem = await redis.get<{ ref: string }>(idemKey)
             if (cachedIdem) {
-                return NextResponse.json({ success: true, reference: cachedIdem.ref, message: 'Payment prompt sent to your phone.' })
+                return NextResponse.json({ success: true, gateway: 'moolre', reference: cachedIdem.ref, message: 'Payment prompt sent to your phone.' })
             }
         }
 
-        // Initialize Moolre Payment
         let moolreResponse = await initiatePayment({
-            amount: totalAmount / 100, // Convert pesewas to GHS for Moolre
+            amount: totalAmount / 100,
             payerPhone: cleanPhone,
             channel: channelId,
-            externalRef: moolreRef,
-            otpCode: otpCode,
+            externalRef: shopRef,
+            otpCode,
         })
 
         if (moolreResponse.success && String(moolreResponse.status) === '1' && otpCode) {
@@ -270,7 +305,7 @@ export async function POST(request: NextRequest) {
                 amount: totalAmount / 100,
                 payerPhone: cleanPhone,
                 channel: channelId,
-                externalRef: moolreRef,
+                externalRef: shopRef,
             })
         }
 
@@ -279,27 +314,25 @@ export async function POST(request: NextRequest) {
         }
 
         if (moolreResponse.status === '200_OTP_REQ') {
-            // Save metadata on first call even if OTP is required
             if (!existingRef) {
-                await redis.set(`shop:meta:${moolreRef}`, JSON.stringify(fullMetadata), { ex: 86400 })
+                await redis.set(`shop:meta:${shopRef}`, JSON.stringify(fullMetadata), { ex: 86400 })
             }
             return NextResponse.json({
                 success: true,
+                gateway: 'moolre',
                 otpRequired: true,
-                reference: moolreRef,
-                message: 'OTP is required to complete this payment. Please enter the code sent to your phone.'
+                reference: shopRef,
+                message: 'OTP is required to complete this payment. Please enter the code sent to your phone.',
             })
         }
 
-        // Save metadata if not already saved (initial non-OTP call or direct success)
         if (!existingRef) {
-            await redis.set(`shop:meta:${moolreRef}`, JSON.stringify(fullMetadata), { ex: 86400 })
+            await redis.set(`shop:meta:${shopRef}`, JSON.stringify(fullMetadata), { ex: 86400 })
         }
 
-        // Cache the Idempotency Key for 60 seconds to prevent duplicate transactions on retries.
-        await redis.set(idemKey, { ref: moolreRef }, { ex: 60 })
+        await redis.set(idemKey, { ref: shopRef }, { ex: 60 })
 
-        return NextResponse.json({ success: true, reference: moolreRef, message: 'Payment prompt sent to your phone. Please approve to complete your order.' })
+        return NextResponse.json({ success: true, gateway: 'moolre', reference: shopRef, message: 'Payment prompt sent to your phone. Please approve to complete your order.' })
     } catch (error) {
         console.error('[Shop Initialize] Error:', error)
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

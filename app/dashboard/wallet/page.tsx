@@ -65,6 +65,7 @@ function WalletContent() {
     const [otpRequired, setOtpRequired] = useState(false)
     const [otpCode, setOtpCode] = useState('')
     const [paymentReference, setPaymentReference] = useState<string | null>(null)
+    const [webPaymentProvider, setWebPaymentProvider] = useState<'moolre' | 'paystack'>('moolre')
     const searchParams = useSearchParams()
 
     // Tutorial hook
@@ -80,20 +81,23 @@ function WalletContent() {
     useEffect(() => {
         const success = searchParams.get('success')
         const error = searchParams.get('error')
+        const paystackRef = searchParams.get('reference')
 
         if (success === 'true') {
             toast.success('Wallet topped up successfully!')
             fetchWalletData()
-            // Clean up URL
+            router.replace('/dashboard/wallet')
+        } else if (paystackRef && !success && !error) {
+            // Returning from Paystack checkout — start polling for webhook completion
+            setPollingRef(paystackRef)
+            setIsProcessing(true)
             router.replace('/dashboard/wallet')
         } else if (error) {
             let message = 'Failed to process payment'
             if (error === 'payment_failed') message = 'Payment was not successful'
             if (error === 'verification_failed') message = 'Could not verify payment'
             if (error === 'no_reference') message = 'Invalid payment reference'
-
             toast.error(message)
-            // Clean up URL
             router.replace('/dashboard/wallet')
         }
     }, [searchParams, router])
@@ -154,7 +158,7 @@ function WalletContent() {
                 supabase
                     .from('admin_settings')
                     .select('key, value')
-                    .in('key', ['paystack_fee_percent', 'agent_paystack_fee_percent'])
+                    .in('key', ['paystack_fee_percent', 'agent_paystack_fee_percent', 'active_payment_provider_web'])
             ])
 
             const wallet = walletRes.data
@@ -170,17 +174,20 @@ function WalletContent() {
             setTransactions(txns || [])
 
             if (feeSettings && Array.isArray(feeSettings)) {
+                const settings = feeSettings as any[]
+
+                const providerRow = settings.find(s => s.key === 'active_payment_provider_web')
+                if (providerRow) {
+                    setWebPaymentProvider(String(providerRow.value || 'moolre') === 'paystack' ? 'paystack' : 'moolre')
+                }
+
                 let targetKey = 'paystack_fee_percent'
                 if (dbUser?.role === 'agent') {
                     targetKey = 'agent_paystack_fee_percent'
                 }
-                
-                const settings = feeSettings as any[]
                 const feeSetting = settings.find(s => s.key === targetKey) || settings.find(s => s.key === 'paystack_fee_percent')
-
                 if (feeSetting && feeSetting.value) {
                     const val = feeSetting.value
-                    // Handle possible string "1.95" or number 1.95
                     const parsed = typeof val === 'string' ? parseFloat(val) : (typeof val === 'number' ? val : 1.95)
                     if (!isNaN(parsed)) setPaystackFeePercent(parsed)
                 }
@@ -209,7 +216,7 @@ function WalletContent() {
             return
         }
 
-        if (!paymentPhone || !paymentNetwork) {
+        if (webPaymentProvider === 'moolre' && (!paymentPhone || !paymentNetwork)) {
             toast.error('Please provide a valid Mobile Money number and select a network')
             return
         }
@@ -217,7 +224,6 @@ function WalletContent() {
         setIsProcessing(true)
 
         try {
-            // Initialize payment on server
             const response = await fetch('/api/payments/initialize', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -231,8 +237,12 @@ function WalletContent() {
                 throw new Error(data.error || 'Failed to initialize payment')
             }
 
-            // Moolre always sends an OTP for MoMo collections.
-            // Show the OTP modal immediately after a successful first-call.
+            if (data.gateway === 'paystack') {
+                window.location.href = data.authorization_url
+                return
+            }
+
+            // Moolre: show OTP modal
             setPaymentReference(data.reference)
             setOtpRequired(true)
             setIsProcessing(false)
@@ -577,36 +587,38 @@ function WalletContent() {
                                     </div>
                                 )}
 
-                                {/* Payment Details */}
-                                <div>
-                                    <Label className="text-sm text-muted-foreground mb-3 block">Payment Details</Label>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div>
-                                            <Label htmlFor="network" className="text-xs">Network</Label>
-                                            <Select value={paymentNetwork} onValueChange={setPaymentNetwork}>
-                                                <SelectTrigger id="network" className="mt-1 h-12">
-                                                    <SelectValue placeholder="Select Network" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="MTN">MTN MoMo</SelectItem>
-                                                    <SelectItem value="Telecel">Telecel Cash</SelectItem>
-                                                    <SelectItem value="AT">AT Money</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                        <div>
-                                            <Label htmlFor="phone" className="text-xs">Mobile Number</Label>
-                                            <Input
-                                                id="phone"
-                                                type="tel"
-                                                placeholder="e.g. 0540000000"
-                                                value={paymentPhone}
-                                                onChange={(e) => setPaymentPhone(e.target.value)}
-                                                className="mt-1 h-12"
-                                            />
+                                {/* Payment Details — MoMo fields only for Moolre */}
+                                {webPaymentProvider === 'moolre' && (
+                                    <div>
+                                        <Label className="text-sm text-muted-foreground mb-3 block">Payment Details</Label>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div>
+                                                <Label htmlFor="network" className="text-xs">Network</Label>
+                                                <Select value={paymentNetwork} onValueChange={setPaymentNetwork}>
+                                                    <SelectTrigger id="network" className="mt-1 h-12">
+                                                        <SelectValue placeholder="Select Network" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="MTN">MTN MoMo</SelectItem>
+                                                        <SelectItem value="Telecel">Telecel Cash</SelectItem>
+                                                        <SelectItem value="AT">AT Money</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                            <div>
+                                                <Label htmlFor="phone" className="text-xs">Mobile Number</Label>
+                                                <Input
+                                                    id="phone"
+                                                    type="tel"
+                                                    placeholder="e.g. 0540000000"
+                                                    value={paymentPhone}
+                                                    onChange={(e) => setPaymentPhone(e.target.value)}
+                                                    className="mt-1 h-12"
+                                                />
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
+                                )}
 
                                 {/* Payment Methods Icons (Visual Only) */}
                                 <div>
@@ -631,12 +643,22 @@ function WalletContent() {
                                 <Button
                                     type="submit"
                                     className="w-full h-12 text-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-                                    disabled={isProcessing || !topUpAmount || parseFloat(topUpAmount) < MIN_AMOUNT || !paymentPhone || !paymentNetwork}
+                                    disabled={
+                                        isProcessing ||
+                                        !topUpAmount ||
+                                        parseFloat(topUpAmount) < MIN_AMOUNT ||
+                                        (webPaymentProvider === 'moolre' && (!paymentPhone || !paymentNetwork))
+                                    }
                                 >
                                     {isProcessing ? (
                                         <>
                                             <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                                             {pollingRef ? 'Waiting for Approval...' : 'Processing...'}
+                                        </>
+                                    ) : webPaymentProvider === 'paystack' ? (
+                                        <>
+                                            <CreditCard className="w-5 h-5 mr-2" />
+                                            Pay with Paystack
                                         </>
                                     ) : (
                                         <>

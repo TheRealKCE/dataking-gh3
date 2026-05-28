@@ -92,6 +92,15 @@ export default function UpgradePage() {
 
 
 
+    // Handle return from Paystack checkout
+    useEffect(() => {
+        const paystackRef = searchParams.get('reference')
+        if (paystackRef && !pollingRef) {
+            setPollingRef(paystackRef)
+            router.replace('/dashboard/upgrade')
+        }
+    }, [searchParams]) // eslint-disable-line react-hooks/exhaustive-deps
+
     // Poll for payment status when reference is set
     useEffect(() => {
         let interval: NodeJS.Timeout
@@ -131,20 +140,15 @@ export default function UpgradePage() {
     }
 
     const handleUpgradeSubmit = async () => {
-        if (!paymentPhone || paymentPhone.replace(/\s/g, '').length < 10) {
-            toast.error('Please enter a valid phone number')
-            return
-        }
-
         setIsProcessing(selectedPlan)
         try {
             const response = await fetch('/api/user/upgrade/initialize', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
+                body: JSON.stringify({
                     plan: selectedPlan,
                     phone: paymentPhone.replace(/\s/g, ''),
-                    network: paymentNetwork
+                    network: paymentNetwork,
                 })
             })
 
@@ -154,8 +158,12 @@ export default function UpgradePage() {
                 throw new Error(data.error || 'Failed to initialize upgrade')
             }
 
-            // Moolre always sends an OTP for MoMo collections.
-            // Show the OTP modal immediately after a successful first-call.
+            if (data.gateway === 'paystack') {
+                window.location.href = data.authorization_url
+                return
+            }
+
+            // Moolre: show OTP modal
             setPaymentReference(data.reference)
             setOtpRequired(true)
             setIsProcessing(null)
@@ -553,9 +561,13 @@ export default function UpgradePage() {
                                 <Smartphone className="w-6 h-6 text-amber-500" />
                             </div>
                             <div className="space-y-2">
-                                <h2 className="text-xl font-black text-gray-900">Awaiting Approval</h2>
+                                <h2 className="text-xl font-black text-gray-900">
+                                    {paymentPhone ? 'Awaiting Approval' : 'Confirming Payment'}
+                                </h2>
                                 <p className="text-sm font-medium text-gray-500">
-                                    Please check your phone ({paymentPhone}) and authorize the transaction to activate your premium membership.
+                                    {paymentPhone
+                                        ? `Please check your phone (${paymentPhone}) and authorize the transaction to activate your premium membership.`
+                                        : 'Please wait while we confirm your payment and activate your membership.'}
                                 </p>
                             </div>
                             <p className="text-xs text-amber-600 bg-amber-50 px-3 py-1.5 rounded-full font-bold">

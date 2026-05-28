@@ -11,6 +11,7 @@ import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Loader2, Save } from 'lucide-react'
 import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
 
 export default function AdminSettingsPage() {
     const [settings, setSettings] = useState<any>({})
@@ -33,6 +34,8 @@ export default function AdminSettingsPage() {
     const [footerCopyrightText, setFooterCopyrightText] = useState('')
     const [footerBrandingText, setFooterBrandingText] = useState('')
     const [autoFulfillment, setAutoFulfillment] = useState(true)
+    const [webPaymentProvider, setWebPaymentProvider] = useState<'moolre' | 'paystack'>('moolre')
+    const [shopPaymentProvider, setShopPaymentProvider] = useState<'moolre' | 'paystack'>('moolre')
 
     // Page access states
     const [pageAccessDashboard, setPageAccessDashboard] = useState(true)
@@ -81,6 +84,10 @@ export default function AdminSettingsPage() {
             setFooterCopyrightText(settingsMap.footer_copyright_text || `2025 ARHMS TECHNOLOGIES`)
             setFooterBrandingText(settingsMap.footer_branding_text || 'ARHMS')
             setAutoFulfillment(String(settingsMap.auto_fulfillment_enabled) !== 'false')
+            const webProvider = String(settingsMap.active_payment_provider_web || 'moolre')
+            const shopProvider = String(settingsMap.active_payment_provider_shop || 'moolre')
+            setWebPaymentProvider(webProvider === 'paystack' ? 'paystack' : 'moolre')
+            setShopPaymentProvider(shopProvider === 'paystack' ? 'paystack' : 'moolre')
 
             // Initialize page access values
             setPageAccessDashboard(settingsMap.page_access_dashboard !== 'false')
@@ -121,6 +128,8 @@ export default function AdminSettingsPage() {
                 { key: 'footer_copyright_text', value: footerCopyrightText },
                 { key: 'footer_branding_text', value: footerBrandingText },
                 { key: 'auto_fulfillment_enabled', value: String(autoFulfillment) },
+                { key: 'active_payment_provider_web', value: webPaymentProvider },
+                { key: 'active_payment_provider_shop', value: shopPaymentProvider },
                 // Page access settings
                 { key: 'page_access_dashboard', value: String(pageAccessDashboard) },
                 { key: 'page_access_data_packages', value: String(pageAccessDataPackages) },
@@ -324,6 +333,80 @@ export default function AdminSettingsPage() {
                                     step="0.01"
                                 />
                                 <p className="text-xs text-muted-foreground">Additional markup fee for all MTN packages</p>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Payment Gateway</CardTitle>
+                            <CardDescription>Select the active payment provider for each transaction context. Changes take effect immediately — no redeployment needed.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="flex items-center justify-between p-4 border rounded-lg">
+                                <div className="space-y-0.5">
+                                    <Label className="text-base">Main Site Payments</Label>
+                                    <p className="text-sm text-muted-foreground">Wallet top-ups, agent upgrades &amp; RC vouchers</p>
+                                </div>
+                                <div className="flex rounded-lg border overflow-hidden">
+                                    <button
+                                        type="button"
+                                        onClick={() => setWebPaymentProvider('moolre')}
+                                        className={cn(
+                                            'px-4 py-2 text-sm font-medium transition-colors',
+                                            webPaymentProvider === 'moolre'
+                                                ? 'bg-primary text-primary-foreground'
+                                                : 'bg-background hover:bg-muted text-foreground'
+                                        )}
+                                    >
+                                        Moolre
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setWebPaymentProvider('paystack')}
+                                        className={cn(
+                                            'px-4 py-2 text-sm font-medium transition-colors border-l',
+                                            webPaymentProvider === 'paystack'
+                                                ? 'bg-primary text-primary-foreground'
+                                                : 'bg-background hover:bg-muted text-foreground'
+                                        )}
+                                    >
+                                        Paystack
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center justify-between p-4 border rounded-lg">
+                                <div className="space-y-0.5">
+                                    <Label className="text-base">Shop Payments</Label>
+                                    <p className="text-sm text-muted-foreground">Public storefront guest checkout orders</p>
+                                </div>
+                                <div className="flex rounded-lg border overflow-hidden">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShopPaymentProvider('moolre')}
+                                        className={cn(
+                                            'px-4 py-2 text-sm font-medium transition-colors',
+                                            shopPaymentProvider === 'moolre'
+                                                ? 'bg-primary text-primary-foreground'
+                                                : 'bg-background hover:bg-muted text-foreground'
+                                        )}
+                                    >
+                                        Moolre
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShopPaymentProvider('paystack')}
+                                        className={cn(
+                                            'px-4 py-2 text-sm font-medium transition-colors border-l',
+                                            shopPaymentProvider === 'paystack'
+                                                ? 'bg-primary text-primary-foreground'
+                                                : 'bg-background hover:bg-muted text-foreground'
+                                        )}
+                                    >
+                                        Paystack
+                                    </button>
+                                </div>
                             </div>
                         </CardContent>
                     </Card>
