@@ -40,19 +40,23 @@ export async function GET() {
                 currency: balanceCache.currency,
                 codecraft_balance: (balanceCache as any).codecraft_balance,
                 codecraft_currency: (balanceCache as any).codecraft_currency,
+                kingflexy_balance: (balanceCache as any).kingflexy_balance,
+                kingflexy_currency: (balanceCache as any).kingflexy_currency,
                 cached: true
             })
         }
 
-        // 4. Fetch balances from DataKazina and CodeCraft currently
+        // 4. Fetch balances from all three suppliers in parallel
         const { fetchSupplierBalance: fetchCodeCraftBalance } = await import('@/lib/codecraft-service')
-        
-        const [dakazinaResult, codecraftResult] = await Promise.all([
+        const { fetchSupplierBalance: fetchKingFlexyBalance } = await import('@/lib/kingflexy-service')
+
+        const [dakazinaResult, codecraftResult, kingflexyResult] = await Promise.all([
             fetchSupplierBalance(),
-            fetchCodeCraftBalance()
+            fetchCodeCraftBalance(),
+            fetchKingFlexyBalance()
         ])
 
-        if (!dakazinaResult.success && !codecraftResult.success) {
+        if (!dakazinaResult.success && !codecraftResult.success && !kingflexyResult.success) {
             return NextResponse.json({ error: 'Failed to fetch balances from all suppliers' }, { status: 500 })
         }
 
@@ -62,6 +66,8 @@ export async function GET() {
             currency: dakazinaResult.currency || 'GHS',
             codecraft_balance: codecraftResult.balance || 0,
             codecraft_currency: codecraftResult.currency || 'GHS',
+            kingflexy_balance: kingflexyResult.balance || 0,
+            kingflexy_currency: kingflexyResult.currency || 'GHS',
             timestamp: now
         } as any
 
@@ -70,6 +76,8 @@ export async function GET() {
             currency: dakazinaResult.currency || 'GHS',
             codecraft_balance: codecraftResult.balance || 0,
             codecraft_currency: codecraftResult.currency || 'GHS',
+            kingflexy_balance: kingflexyResult.balance || 0,
+            kingflexy_currency: kingflexyResult.currency || 'GHS',
             cached: false
         })
 

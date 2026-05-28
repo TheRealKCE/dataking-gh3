@@ -432,7 +432,8 @@ async function triggerShopFulfillment(
         let fulfillmentSettings: {
             networks: Record<string, boolean>
             codecraft_networks: Record<string, boolean>
-        } = { networks: {}, codecraft_networks: {} }
+            kingflexy_networks: Record<string, boolean>
+        } = { networks: {}, codecraft_networks: {}, kingflexy_networks: {} }
 
         try {
             if (settingsMap.fulfillment_settings) {
@@ -441,32 +442,35 @@ async function triggerShopFulfillment(
                     : settingsMap.fulfillment_settings
                 fulfillmentSettings.networks = parsed.networks || {}
                 fulfillmentSettings.codecraft_networks = parsed.codecraft_networks || {}
+                fulfillmentSettings.kingflexy_networks = parsed.kingflexy_networks || {}
             }
         } catch (e) { /* ignore parse failure — defaults to empty */ }
 
         const isDataKazinaEnabled = fulfillmentSettings.networks[network] === true
         const isCodeCraftEnabled = fulfillmentSettings.codecraft_networks[network] === true
+        const isKingFlexyEnabled = fulfillmentSettings.kingflexy_networks[network] === true
 
         // ── 3. FULFILLMENT_CONFLICT Guard (absolute last line of defense) ──
-        if (isDataKazinaEnabled && isCodeCraftEnabled) {
+        const activeCount = [isDataKazinaEnabled, isCodeCraftEnabled, isKingFlexyEnabled].filter(Boolean).length
+        if (activeCount > 1) {
             console.error(`[Fulfillment] CONFLICT DETECTED for ${network} on order ${orderId}`)
             await sendAdminNewOrderAlert({
                 ...alertDetails,
-                reason: `⚠️ SYSTEM HALTED: Both DataKazina and CodeCraft are active for ${network}. Order ${orderId} kept pending. Fix in admin panel immediately.`
+                reason: `⚠️ SYSTEM HALTED: Multiple suppliers are active for ${network}. Order ${orderId} kept pending. Fix in admin panel immediately.`
             })
             // Keep order as PENDING — do not throw to outer catch (would trigger duplicate alert)
             return
         }
 
         // ── 4. No active supplier ──────────────────────────────────────────
-        if (!isDataKazinaEnabled && !isCodeCraftEnabled) {
+        if (!isDataKazinaEnabled && !isCodeCraftEnabled && !isKingFlexyEnabled) {
             console.log(`[Shop Order Processor] No active supplier for network ${network}. Order ${orderId} kept pending.`)
             await sendAdminNewOrderAlert({ ...alertDetails, reason: `No active supplier configured for network: ${network}` })
             return
         }
 
         // ── 5. Determine supplier and stamp fulfilled_by ATOMICALLY first ──
-        const supplierLabel = isCodeCraftEnabled ? 'codecraft' : 'datakazina'
+        const supplierLabel = isCodeCraftEnabled ? 'codecraft' : isKingFlexyEnabled ? 'kingflexy' : 'datakazina'
         await db.from('shop_orders').update({ fulfilled_by: supplierLabel }).eq('id', orderId)
         console.log(`[Shop Order Processor] Routing to ${supplierLabel} for order ${orderId} | network: ${network}`)
 
@@ -477,6 +481,9 @@ async function triggerShopFulfillment(
             if (isCodeCraftEnabled) {
                 const { fulfillOrder: ccFulfill } = await import('./codecraft-service')
                 result = await ccFulfill(network, phone, extra.size || '', orderId)
+            } else if (isKingFlexyEnabled) {
+                const { fulfillOrder: kfFulfill } = await import('./kingflexy-service')
+                result = await kfFulfill(network, phone, extra.size || '', orderId)
             } else {
                 const { fulfillOrder: dkFulfill } = await import('./fulfillment-service')
                 result = await dkFulfill(network, phone, extra.size || '', orderId)
@@ -499,9 +506,11 @@ async function triggerShopFulfillment(
                 updated_at: updatedAt,
             }
 
-            // Store CodeCraft's reference_id for traceability
             if (isCodeCraftEnabled && result.transactionId) {
                 updatePayload.codecraft_reference_id = result.transactionId
+            }
+            if (isKingFlexyEnabled && result.transactionId) {
+                updatePayload.kingflexy_reference = result.transactionId
             }
 
             await db.from('shop_orders').update(updatePayload).eq('id', orderId)
@@ -510,15 +519,19 @@ async function triggerShopFulfillment(
                 ordersUpdate.codecraft_reference = result.transactionId
                 ordersUpdate.fulfillment_method = 'codecraft'
             }
+            if (isKingFlexyEnabled && result.transactionId) {
+                ordersUpdate.kingflexy_reference = result.transactionId
+                ordersUpdate.fulfillment_method = 'kingflexy'
+            }
             await db.from('orders').update(ordersUpdate).eq('shop_order_id', orderId)
 
-            if (!isCodeCraftEnabled && (result.transactionId || result.reference)) {
+            if (!isCodeCraftEnabled && !isKingFlexyEnabled && (result.transactionId || result.reference)) {
                 const { error: refError } = await db
                     .from('orders')
                     .update({ dakazina_reference: result.transactionId || result.reference })
                     .eq('shop_order_id', orderId)
                 if (refError) console.error(`[ShopOrderProcessor] Failed to stamp dakazina_reference:`, refError.message)
-                
+
                 await db
                     .from('shop_orders')
                     .update({ dakazina_reference: result.transactionId || result.reference })

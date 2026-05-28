@@ -371,11 +371,12 @@ async function triggerFulfillment(orderId: string, network: string, user: { emai
             return
         }
 
-        // ── Parse both supplier network settings ───────────────────────────
+        // ── Parse all supplier network settings ───────────────────────────
         let fulfillmentSettings: {
             networks: Record<string, boolean>
             codecraft_networks: Record<string, boolean>
-        } = { networks: {}, codecraft_networks: {} }
+            kingflexy_networks: Record<string, boolean>
+        } = { networks: {}, codecraft_networks: {}, kingflexy_networks: {} }
         try {
             if (settingsMap.fulfillment_settings) {
                 const parsed = typeof settingsMap.fulfillment_settings === 'string'
@@ -383,6 +384,7 @@ async function triggerFulfillment(orderId: string, network: string, user: { emai
                     : settingsMap.fulfillment_settings
                 fulfillmentSettings.networks = parsed.networks || {}
                 fulfillmentSettings.codecraft_networks = parsed.codecraft_networks || {}
+                fulfillmentSettings.kingflexy_networks = parsed.kingflexy_networks || {}
             }
         } catch (e) {
             console.error('[Fulfillment] Failed to parse fulfillment_settings:', e)
@@ -390,26 +392,28 @@ async function triggerFulfillment(orderId: string, network: string, user: { emai
 
         const isDataKazinaEnabled = fulfillmentSettings.networks[network] === true
         const isCodeCraftEnabled = fulfillmentSettings.codecraft_networks[network] === true
+        const isKingFlexyEnabled = fulfillmentSettings.kingflexy_networks[network] === true
 
         // ── Conflict Guard ─────────────────────────────────────────────────
-        if (isDataKazinaEnabled && isCodeCraftEnabled) {
+        const activeSupplierCount = [isDataKazinaEnabled, isCodeCraftEnabled, isKingFlexyEnabled].filter(Boolean).length
+        if (activeSupplierCount > 1) {
             console.error(`[Fulfillment] CONFLICT DETECTED for ${network} on order ${orderId}`)
             await sendAdminNewOrderAlert({
                 ...alertDetails,
-                reason: `⚠️ SYSTEM HALTED: Both DataKazina and CodeCraft are active for ${network}. Order ${orderId} kept pending. Fix in admin panel immediately.`
+                reason: `⚠️ SYSTEM HALTED: Multiple suppliers are active for ${network}. Order ${orderId} kept pending. Fix in admin panel immediately.`
             }).catch(err => console.error('[Fulfillment] Conflict alert failed:', err))
             return
         }
 
         // ── No Supplier Guard ──────────────────────────────────────────────
-        if (!isDataKazinaEnabled && !isCodeCraftEnabled) {
+        if (!isDataKazinaEnabled && !isCodeCraftEnabled && !isKingFlexyEnabled) {
             console.log(`[Fulfillment] No active supplier for network ${network}. Order ${orderId} kept pending.`)
             await sendAdminNewOrderAlert({ ...alertDetails, reason: `No active supplier configured for network: ${network}` })
                 .catch(err => console.error('[Fulfillment] No-supplier alert failed:', err))
             return
         }
 
-        const supplierLabel = isCodeCraftEnabled ? 'codecraft' : 'datakazina'
+        const supplierLabel = isCodeCraftEnabled ? 'codecraft' : isKingFlexyEnabled ? 'kingflexy' : 'datakazina'
         console.log(`[Fulfillment] Routing to ${supplierLabel} for order ${orderId} | network: ${network}`)
 
         // ── Idempotency check ──────────────────────────────────────────────
@@ -430,6 +434,9 @@ async function triggerFulfillment(orderId: string, network: string, user: { emai
             if (isCodeCraftEnabled) {
                 const { fulfillOrder: ccFulfill } = await import('@/lib/codecraft-service')
                 result = await ccFulfill(network, (order as any).phone_number, (order as any).size, orderId)
+            } else if (isKingFlexyEnabled) {
+                const { fulfillOrder: kfFulfill } = await import('@/lib/kingflexy-service')
+                result = await kfFulfill(network, (order as any).phone_number, (order as any).size, orderId)
             } else {
                 const { fulfillOrder: dkFulfill } = await import('@/lib/fulfillment-service')
                 result = await dkFulfill(network, (order as any).phone_number, (order as any).size, orderId)
@@ -451,7 +458,10 @@ async function triggerFulfillment(orderId: string, network: string, user: { emai
             if (isCodeCraftEnabled && (result.transactionId || result.reference)) {
                 ordersUpdate.codecraft_reference = result.transactionId || result.reference
             }
-            if (!isCodeCraftEnabled && (result.transactionId || result.reference)) {
+            if (isKingFlexyEnabled && (result.transactionId || result.reference)) {
+                ordersUpdate.kingflexy_reference = result.transactionId || result.reference
+            }
+            if (!isCodeCraftEnabled && !isKingFlexyEnabled && (result.transactionId || result.reference)) {
                 ordersUpdate.dakazina_reference = result.transactionId || result.reference
             }
 
