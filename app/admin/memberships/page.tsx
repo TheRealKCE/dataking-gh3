@@ -10,6 +10,7 @@ import { Label } from '@/components/ui/label'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Switch } from '@/components/ui/switch'
 import {
     Users,
     Clock,
@@ -21,7 +22,9 @@ import {
     Search,
     RefreshCw,
     MoreVertical,
-    History
+    History,
+    Store,
+    Zap,
 } from 'lucide-react'
 import {
     Dialog,
@@ -65,8 +68,21 @@ export default function AdminMembershipsPage() {
     })
     const [showStrikethrough, setShowStrikethrough] = useState(false)
 
+    // Dealer state
+    const [dealers, setDealers] = useState<any[]>([])
+    const [dealersLoading, setDealersLoading] = useState(true)
+    const [dealerSearchTerm, setDealerSearchTerm] = useState('')
+    const [dealerPrice6m, setDealerPrice6m] = useState('299.99')
+    const [isSavingDealerPrice, setIsSavingDealerPrice] = useState(false)
+    const [autoUpgradeExpiredDealers, setAutoUpgradeExpiredDealers] = useState(false)
+    const [isSavingAutoUpgrade, setIsSavingAutoUpgrade] = useState(false)
+    const [extendDealerUser, setExtendDealerUser] = useState<any>(null)
+    const [extendDealerDays, setExtendDealerDays] = useState('30')
+    const [isExtendingDealer, setIsExtendingDealer] = useState(false)
+
     useEffect(() => {
         fetchData()
+        fetchDealers()
     }, [])
 
     const fetchData = async () => {
@@ -105,11 +121,110 @@ export default function AdminMembershipsPage() {
             console.log('Agents fetched:', agentsData?.length || 0, 'agents found')
             setAgents(agentsData || [])
 
+            // Dealer price and auto-upgrade toggle
+            if (settingsData) {
+                const dp6m = settingsData.find((s: any) => s.key === 'dealer_subscription_price_6m')?.value
+                if (dp6m) setDealerPrice6m(String(dp6m))
+                const autoUpgrade = settingsData.find((s: any) => s.key === 'auto_upgrade_expired_dealers')?.value === 'true'
+                setAutoUpgradeExpiredDealers(autoUpgrade)
+            }
+
         } catch (error: any) {
             console.error('Error fetching membership data:', error)
             toast.error('Failed to load data')
         } finally {
             setLoading(false)
+        }
+    }
+
+    const fetchDealers = async () => {
+        setDealersLoading(true)
+        try {
+            const response = await fetch('/api/admin/dealers')
+            if (!response.ok) throw new Error('Failed to fetch dealers')
+            const data = await response.json()
+            setDealers(data || [])
+        } catch (error: any) {
+            toast.error('Failed to load dealers')
+        } finally {
+            setDealersLoading(false)
+        }
+    }
+
+    const handleSaveDealerPrice = async () => {
+        setIsSavingDealerPrice(true)
+        try {
+            const response = await fetch('/api/admin/update-prices', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ dealerPrice6m })
+            })
+            const data = await response.json()
+            if (!response.ok) throw new Error(data.error || 'Failed to update dealer price')
+            toast.success('Dealer subscription price updated!')
+        } catch (error: any) {
+            toast.error(error.message)
+        } finally {
+            setIsSavingDealerPrice(false)
+        }
+    }
+
+    const handleAutoUpgradeToggle = async (checked: boolean) => {
+        setIsSavingAutoUpgrade(true)
+        try {
+            await (supabase as any)
+                .from('admin_settings')
+                .upsert({ key: 'auto_upgrade_expired_dealers', value: checked ? 'true' : 'false' }, { onConflict: 'key' })
+            setAutoUpgradeExpiredDealers(checked)
+            toast.success(checked ? 'Auto-upgrade enabled' : 'Auto-upgrade disabled')
+        } catch {
+            toast.error('Failed to update setting')
+        } finally {
+            setIsSavingAutoUpgrade(false)
+        }
+    }
+
+    const handleExtendDealer = async () => {
+        if (!extendDealerUser || !extendDealerDays) return
+        const days = parseInt(extendDealerDays)
+        if (isNaN(days) || days <= 0) {
+            toast.error('Enter a valid number of days')
+            return
+        }
+        setIsExtendingDealer(true)
+        try {
+            const response = await fetch('/api/admin/dealers', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: extendDealerUser.id, action: 'extend', days })
+            })
+            const result = await response.json()
+            if (!response.ok) throw new Error(result.error || 'Failed to extend')
+            setDealers(dealers.map(d => d.id === extendDealerUser.id ? { ...d, dealer_expires_at: result.newExpiry } : d))
+            toast.success(`Extended by ${days} days`)
+            setExtendDealerUser(null)
+            setExtendDealerDays('30')
+        } catch (error: any) {
+            toast.error(error.message)
+        } finally {
+            setIsExtendingDealer(false)
+        }
+    }
+
+    const handleRevokeDealer = async (dealer: any) => {
+        if (!confirm(`Revoke dealership for ${dealer.first_name} ${dealer.last_name}? They will become a customer.`)) return
+        try {
+            const response = await fetch('/api/admin/dealers', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ userId: dealer.id, action: 'revoke' })
+            })
+            const result = await response.json()
+            if (!response.ok) throw new Error(result.error || 'Failed to revoke')
+            setDealers(dealers.filter(d => d.id !== dealer.id))
+            toast.success(`${dealer.first_name}'s dealership revoked`)
+        } catch (error: any) {
+            toast.error(error.message)
         }
     }
 
@@ -256,9 +371,9 @@ export default function AdminMembershipsPage() {
             <div>
                 <h1 className="text-3xl font-black text-slate-900 flex items-center gap-2">
                     <ShieldCheck className="w-8 h-8 text-amber-500" />
-                    Agent Memberships
+                    Agent &amp; Dealer Memberships
                 </h1>
-                <p className="text-muted-foreground font-medium">Manage pricing and subscription durations for your agents.</p>
+                <p className="text-muted-foreground font-medium">Manage pricing and subscription durations for your agents and dealers.</p>
             </div>
 
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -548,6 +663,225 @@ export default function AdminMembershipsPage() {
                     </CardContent>
                 </Card>
             </div>
+
+            {/* ───────────────────────────── DEALERS SECTION ───────────────────────────── */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 mt-8">
+
+                {/* Dealer Pricing & Auto-Upgrade Card */}
+                <Card className="lg:col-span-1 shadow-xl border-violet-100 h-fit">
+                    <CardHeader className="bg-violet-50/50">
+                        <CardTitle className="text-lg flex items-center gap-2">
+                            <Store className="w-5 h-5 text-violet-600" />
+                            Dealer Settings
+                        </CardTitle>
+                        <CardDescription>Subscription pricing and auto-upgrade behaviour.</CardDescription>
+                    </CardHeader>
+                    <CardContent className="pt-6 space-y-6">
+                        <div className="space-y-2">
+                            <Label>6-Month Subscription Price (GHS)</Label>
+                            <Input
+                                type="number"
+                                value={dealerPrice6m}
+                                onChange={(e) => setDealerPrice6m(e.target.value)}
+                                className="font-bold text-lg"
+                            />
+                        </div>
+                        <Button
+                            className="w-full bg-violet-700 hover:bg-violet-800 h-11 font-black"
+                            onClick={handleSaveDealerPrice}
+                            disabled={isSavingDealerPrice}
+                        >
+                            {isSavingDealerPrice ? <Loader2 className="w-4 h-4 animate-spin mr-2" /> : <Save className="w-4 h-4 mr-2" />}
+                            Save Dealer Price
+                        </Button>
+
+                        <div className="pt-4 border-t space-y-3">
+                            <div className="flex items-center justify-between gap-3">
+                                <div>
+                                    <p className="text-sm font-bold text-slate-800">Auto-upgrade expired dealers</p>
+                                    <p className="text-xs text-muted-foreground mt-0.5">
+                                        When ON, expired unsubscribed dealers become Agents within 3 days.
+                                    </p>
+                                </div>
+                                <Switch
+                                    checked={autoUpgradeExpiredDealers}
+                                    onCheckedChange={handleAutoUpgradeToggle}
+                                    disabled={isSavingAutoUpgrade}
+                                />
+                            </div>
+                            {autoUpgradeExpiredDealers && (
+                                <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                                    <Zap className="w-4 h-4 text-amber-500 flex-shrink-0" />
+                                    <p className="text-xs text-amber-700 font-medium">
+                                        Expired dealers will be auto-promoted to Agent in 3 days via cron job.
+                                    </p>
+                                </div>
+                            )}
+                        </div>
+                    </CardContent>
+                </Card>
+
+                {/* Dealers List Card */}
+                <Card className="lg:col-span-2 shadow-xl border-violet-50">
+                    <CardHeader className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-4 border-b gap-4">
+                        <div className="space-y-1">
+                            <CardTitle className="text-lg flex items-center gap-2">
+                                <Store className="w-5 h-5 text-violet-600" />
+                                Active Dealers ({dealers.length})
+                            </CardTitle>
+                            <CardDescription>Users with the dealership role.</CardDescription>
+                        </div>
+                        <div className="relative w-full sm:w-64">
+                            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                            <Input
+                                placeholder="Search dealers..."
+                                value={dealerSearchTerm}
+                                onChange={(e) => setDealerSearchTerm(e.target.value)}
+                                className="pl-9 h-9 text-xs"
+                            />
+                        </div>
+                    </CardHeader>
+                    <CardContent className="p-0">
+                        {dealersLoading ? (
+                            <div className="flex justify-center py-20">
+                                <Loader2 className="w-8 h-8 animate-spin text-violet-600" />
+                            </div>
+                        ) : dealers.filter(d =>
+                            d.email.toLowerCase().includes(dealerSearchTerm.toLowerCase()) ||
+                            d.first_name?.toLowerCase().includes(dealerSearchTerm.toLowerCase()) ||
+                            d.last_name?.toLowerCase().includes(dealerSearchTerm.toLowerCase())
+                        ).length === 0 ? (
+                            <div className="text-center py-20 space-y-4">
+                                <p className="text-muted-foreground font-medium">No dealers found.</p>
+                                <Button variant="outline" size="sm" onClick={fetchDealers}>
+                                    <RefreshCw className="w-4 h-4 mr-2" />
+                                    Refresh
+                                </Button>
+                            </div>
+                        ) : (
+                            <div className="hidden md:block overflow-x-auto">
+                                <table className="w-full text-sm">
+                                    <thead className="bg-slate-50/50 text-slate-500 font-bold">
+                                        <tr>
+                                            <th className="px-6 py-4 text-left">Dealer</th>
+                                            <th className="px-6 py-4 text-left">Claimed</th>
+                                            <th className="px-6 py-4 text-left">Expires</th>
+                                            <th className="px-6 py-4 text-center">Status</th>
+                                            <th className="px-6 py-4 text-right">Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y">
+                                        {dealers.filter(d =>
+                                            d.email.toLowerCase().includes(dealerSearchTerm.toLowerCase()) ||
+                                            d.first_name?.toLowerCase().includes(dealerSearchTerm.toLowerCase()) ||
+                                            d.last_name?.toLowerCase().includes(dealerSearchTerm.toLowerCase())
+                                        ).map((dealer) => {
+                                            const expiry = dealer.dealer_expires_at ? new Date(dealer.dealer_expires_at) : null
+                                            const daysLeft = expiry ? Math.ceil((expiry.getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : null
+                                            const isExpired = daysLeft !== null && daysLeft <= 0
+                                            return (
+                                                <tr key={dealer.id} className="hover:bg-slate-50/50 transition-colors">
+                                                    <td className="px-6 py-4">
+                                                        <div className="flex flex-col">
+                                                            <span className="font-black text-slate-900">{dealer.first_name} {dealer.last_name}</span>
+                                                            <span className="text-xs text-muted-foreground">{dealer.email}</span>
+                                                        </div>
+                                                    </td>
+                                                    <td className="px-6 py-4 text-xs text-muted-foreground">
+                                                        {dealer.dealer_claimed_at ? new Date(dealer.dealer_claimed_at).toLocaleDateString() : '—'}
+                                                    </td>
+                                                    <td className="px-6 py-4 text-xs text-muted-foreground">
+                                                        {expiry ? expiry.toLocaleDateString() : '—'}
+                                                    </td>
+                                                    <td className="px-6 py-4 text-center">
+                                                        {isExpired ? (
+                                                            <Badge variant="destructive" className="uppercase text-[10px] font-black">Expired</Badge>
+                                                        ) : daysLeft !== null && daysLeft <= 7 ? (
+                                                            <Badge className="bg-amber-100 text-amber-700 border-amber-200 uppercase text-[10px] font-black">Expiring</Badge>
+                                                        ) : (
+                                                            <Badge className="bg-violet-100 text-violet-700 border-violet-200 uppercase text-[10px] font-black">Active</Badge>
+                                                        )}
+                                                    </td>
+                                                    <td className="px-6 py-4 text-right">
+                                                        <DropdownMenu>
+                                                            <DropdownMenuTrigger asChild>
+                                                                <Button variant="ghost" size="sm">
+                                                                    <MoreVertical className="w-4 h-4" />
+                                                                </Button>
+                                                            </DropdownMenuTrigger>
+                                                            <DropdownMenuContent align="end">
+                                                                <DropdownMenuItem onClick={() => {
+                                                                    setExtendDealerUser(dealer)
+                                                                    setExtendDealerDays('30')
+                                                                }}>
+                                                                    <Plus className="w-4 h-4 mr-2" />
+                                                                    Extend Days
+                                                                </DropdownMenuItem>
+                                                                <div className="h-px bg-slate-100 my-1" />
+                                                                <DropdownMenuItem
+                                                                    className="text-red-600 focus:bg-red-50 focus:text-red-700"
+                                                                    onClick={() => handleRevokeDealer(dealer)}
+                                                                >
+                                                                    <Store className="w-4 h-4 mr-2" />
+                                                                    Revoke Dealership
+                                                                </DropdownMenuItem>
+                                                            </DropdownMenuContent>
+                                                        </DropdownMenu>
+                                                    </td>
+                                                </tr>
+                                            )
+                                        })}
+                                    </tbody>
+                                </table>
+                            </div>
+                        )}
+                    </CardContent>
+                </Card>
+            </div>
+
+            {/* Dealer Extend Dialog */}
+            <Dialog open={!!extendDealerUser} onOpenChange={() => setExtendDealerUser(null)}>
+                <DialogContent>
+                    <DialogHeader>
+                        <DialogTitle>Extend Dealer Access</DialogTitle>
+                        <DialogDescription>
+                            Add days for {extendDealerUser?.first_name} {extendDealerUser?.last_name}.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                        <div className="space-y-2">
+                            <Label>Days to Add</Label>
+                            <Input
+                                type="number"
+                                value={extendDealerDays}
+                                onChange={(e) => setExtendDealerDays(e.target.value)}
+                                placeholder="e.g. 30"
+                                className="font-bold text-lg"
+                                min="1"
+                            />
+                            <div className="flex gap-2 flex-wrap">
+                                {[7, 14, 30, 180].map(d => (
+                                    <Badge
+                                        key={d}
+                                        variant="outline"
+                                        className="cursor-pointer hover:bg-violet-50 border-violet-300 text-violet-600"
+                                        onClick={() => setExtendDealerDays(d.toString())}
+                                    >
+                                        +{d}d
+                                    </Badge>
+                                ))}
+                            </div>
+                        </div>
+                    </div>
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => setExtendDealerUser(null)}>Cancel</Button>
+                        <Button onClick={handleExtendDealer} disabled={isExtendingDealer} className="bg-violet-600 hover:bg-violet-700">
+                            {isExtendingDealer ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Plus className="w-4 h-4 mr-2" />}
+                            Extend Days
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
             {/* Extend Dialog */}
             <Dialog open={!!extendUser} onOpenChange={() => setExtendUser(null)}>

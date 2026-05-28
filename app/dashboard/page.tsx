@@ -29,6 +29,8 @@ import { RecentOrdersWidget } from '@/components/dashboard/RecentOrdersWidget'
 import { BusinessPerformanceWidget } from '@/components/dashboard/BusinessPerformanceWidget'
 import { ShopDashboardSection } from '@/components/dashboard/ShopDashboardSection'
 import { TodaysOrdersSummary } from '@/components/dashboard/TodaysOrdersSummary'
+import { DealerWelcomeModal } from '@/components/dashboard/DealerWelcomeModal'
+import { DealerExpiryBanner } from '@/components/dashboard/DealerExpiryBanner'
 
 interface DashboardStats {
     totalOrders: number
@@ -70,6 +72,9 @@ export default function DashboardPage() {
     })
     const userRole = dbUser?.role === 'agent' ? 'agent' : 'customer'
     const { hasSeenTutorial, startTutorial } = useTutorial(userRole as 'customer' | 'agent', '/dashboard')
+
+    const showDealerModal = dbUser?.role === 'customer' && !(dbUser as any)?.dealer_claimed_at
+    const dealerExpiresAt = (dbUser as any)?.dealer_expires_at as string | null
 
 
     useEffect(() => {
@@ -259,6 +264,16 @@ export default function DashboardPage() {
 
     return (
         <div className="space-y-8 animate-slow-fade">
+            {/* Dealer Welcome Modal — shown once to eligible customers */}
+            {showDealerModal && (
+                <DealerWelcomeModal onClaimed={() => window.location.reload()} />
+            )}
+
+            {/* Dealer Expiry Banner — shown when expiry is within 7 days or past */}
+            {dbUser?.role === 'dealer' && dealerExpiresAt && (
+                <DealerExpiryBanner dealerExpiresAt={dealerExpiresAt} />
+            )}
+
             {/* Header Section with Tutorial Button */}
             <div className="flex items-center justify-between gap-4">
                 <div>

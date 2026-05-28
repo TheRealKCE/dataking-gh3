@@ -61,6 +61,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     role,
                     status,
                     agent_expires_at,
+                    dealer_claimed_at,
+                    dealer_expires_at,
                     created_at,
                     updated_at
                 `)
@@ -87,9 +89,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
     }, [])
 
-    // Auto-downgrade expired agents
+    // Auto-downgrade expired agents and dealers
     useEffect(() => {
-        const checkAndDowngradeExpiredAgent = async () => {
+        const checkAndDowngradeExpired = async () => {
             if (dbUser?.role === 'agent' && dbUser?.agent_expires_at) {
                 const expiryDate = new Date(dbUser.agent_expires_at)
                 const now = new Date()
@@ -103,7 +105,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
                         if (response.ok) {
                             console.log('[AuthContext] Auto-downgrade successful')
-                            // Refresh user data to get updated role
                             await refreshUser()
                         } else {
                             console.error('[AuthContext] Auto-downgrade failed:', await response.text())
@@ -113,10 +114,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     }
                 }
             }
+
+            if (dbUser?.role === 'dealer' && (dbUser as any)?.dealer_expires_at) {
+                const expiryDate = new Date((dbUser as any).dealer_expires_at)
+                const now = new Date()
+
+                if (expiryDate < now) {
+                    console.log('[AuthContext] Dealer expired, auto-downgrading to customer')
+                    try {
+                        const response = await fetch('/api/user/dealer-downgrade', {
+                            method: 'POST'
+                        })
+
+                        if (response.ok) {
+                            console.log('[AuthContext] Dealer auto-downgrade successful')
+                            await refreshUser()
+                        } else {
+                            console.error('[AuthContext] Dealer auto-downgrade failed:', await response.text())
+                        }
+                    } catch (error) {
+                        console.error('[AuthContext] Dealer auto-downgrade error:', error)
+                    }
+                }
+            }
         }
 
-        checkAndDowngradeExpiredAgent()
-    }, [dbUser?.role, dbUser?.agent_expires_at])
+        checkAndDowngradeExpired()
+    }, [dbUser?.role, dbUser?.agent_expires_at, (dbUser as any)?.dealer_expires_at])
 
     const refreshUser = useCallback(async () => {
         if (user) {

@@ -1,6 +1,6 @@
-import { Crown, ShieldCheck, BadgeCheck, UserCircle, LucideIcon } from 'lucide-react'
+import { Crown, ShieldCheck, BadgeCheck, UserCircle, Store, LucideIcon } from 'lucide-react'
 
-export type UserRole = 'admin' | 'sub-admin' | 'agent' | 'customer'
+export type UserRole = 'admin' | 'sub-admin' | 'agent' | 'dealer' | 'customer'
 
 interface RoleConfigItem {
     icon: LucideIcon
@@ -44,10 +44,20 @@ export const roleConfig: Record<UserRole, RoleConfigItem> = {
         gradient: 'from-blue-600 to-sky-700',
         badgeClass: 'bg-blue-500/15 text-blue-600 dark:text-blue-400',
     },
+    'dealer': {
+        icon: Store,
+        label: 'Dealer',
+        rank: '#4',
+        color: '#7C3AED',
+        bgColor: 'rgba(124, 58, 237, 0.1)',
+        textColor: '#7C3AED',
+        gradient: 'from-violet-600 to-purple-700',
+        badgeClass: 'bg-violet-500/15 text-violet-600 dark:text-violet-400',
+    },
     'customer': {
         icon: UserCircle,
         label: 'Customer',
-        rank: '#4',
+        rank: '#5',
         color: '#EAB308',
         bgColor: 'rgba(234, 179, 8, 0.1)',
         textColor: '#CA8A04',

@@ -116,11 +116,15 @@ export async function POST(request: NextRequest) {
             .eq('id', userId)
             .single()
 
-        const isAgent = (userRoleData as any)?.role === 'agent'
+        const userRole = (userRoleData as any)?.role
+        const isAgent = userRole === 'agent'
+        const isDealer = userRole === 'dealer'
 
-        const priceToCharge = (isAgent && (pkg as any).agent_price > 0)
-            ? (pkg as any).agent_price
-            : (pkg as any).price
+        const priceToCharge = (isDealer && (pkg as any).dealer_price > 0)
+            ? (pkg as any).dealer_price
+            : (isAgent && (pkg as any).agent_price > 0)
+                ? (pkg as any).agent_price
+                : (pkg as any).price
 
         // === SECURITY: Atomic wallet deduction (prevents double-spend) ===
         const { data: deductResult, error: deductError } = await (supabase as any)
