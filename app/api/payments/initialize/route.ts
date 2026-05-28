@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
         ])
 
         const settingsMap: Record<string, any> = {}
-        for (const row of (feeData || [])) settingsMap[row.key] = row.value
+        for (const row of ((feeData as any[]) || [])) settingsMap[row.key] = row.value
 
         const provider = String(settingsMap.active_payment_provider_web || 'moolre') === 'paystack' ? 'paystack' : 'moolre'
 
