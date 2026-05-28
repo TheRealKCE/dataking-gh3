@@ -34,12 +34,12 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Dealer subscription is still active' }, { status: 400 })
         }
 
-        const { error: updateError } = await supabase
-            .from('users')
+        const { error: updateError } = await (supabase
+            .from('users') as any)
             .update({
                 role: 'customer',
                 updated_at: new Date().toISOString(),
-            } as any)
+            })
             .eq('id', authUser.id)
 
         if (updateError) {

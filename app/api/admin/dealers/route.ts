@@ -113,12 +113,12 @@ export async function POST(request: NextRequest) {
             const newExpiry = new Date(currentExpiry)
             newExpiry.setDate(newExpiry.getDate() + numDays)
 
-            const { error: updateError } = await supabase
-                .from('users')
+            const { error: updateError } = await (supabase
+                .from('users') as any)
                 .update({
                     dealer_expires_at: newExpiry.toISOString(),
                     updated_at: new Date().toISOString(),
-                } as any)
+                })
                 .eq('id', userId)
 
             if (updateError) {
@@ -133,12 +133,12 @@ export async function POST(request: NextRequest) {
         }
 
         if (action === 'revoke') {
-            const { error: updateError } = await supabase
-                .from('users')
+            const { error: updateError } = await (supabase
+                .from('users') as any)
                 .update({
                     role: 'customer',
                     updated_at: new Date().toISOString(),
-                } as any)
+                })
                 .eq('id', userId)
 
             if (updateError) {

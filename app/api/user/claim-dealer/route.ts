@@ -41,14 +41,14 @@ export async function POST(request: NextRequest) {
         const expiresAt = new Date(now)
         expiresAt.setDate(expiresAt.getDate() + 30)
 
-        const { error: updateError } = await supabase
-            .from('users')
+        const { error: updateError } = await (supabase
+            .from('users') as any)
             .update({
                 role: 'dealer',
                 dealer_claimed_at: now.toISOString(),
                 dealer_expires_at: expiresAt.toISOString(),
                 updated_at: now.toISOString(),
-            } as any)
+            })
             .eq('id', authUser.id)
 
         if (updateError) {
