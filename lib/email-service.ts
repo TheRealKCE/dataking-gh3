@@ -2,7 +2,7 @@
  * Brevo Email Service
  * 
  * This service handles all transactional emails using Brevo (formerly Sendinblue).
- * Premium high-end email templates for ARHMS TECHNOLOGIES.
+ * Premium high-end email templates for DATAKING GH.
  */
 
 // @ts-ignore - Brevo SDK doesn't have complete type definitions
@@ -18,8 +18,8 @@ apiInstance.setApiKey(SibApiV3Sdk.TransactionalEmailsApiApiKeys.apiKey, process.
 
 // Sender configuration
 const DEFAULT_SENDER = {
-    name: process.env.BREVO_SENDER_NAME || 'ARHMS TECHNOLOGIES',
-    email: process.env.BREVO_SENDER_EMAIL || 'ARHMSdatalimited@gmail.com'
+    name: process.env.BREVO_SENDER_NAME || 'DATAKING GH',
+    email: process.env.BREVO_SENDER_EMAIL || 'alerts@notify.dataking.qzz.io'
 }
 
 interface SendEmailOptions {
@@ -429,7 +429,7 @@ function generatePremiumTemplate(title: string, content: string, accentColor: st
                     <div class="logo-icon">
                         <span class="logo-text">A</span>
                     </div>
-                    <div class="brand-name">ARHMS TECHNOLOGIES</div>
+                    <div class="brand-name">DATAKING GH</div>
                     <div class="brand-tagline">Premium Data Solutions</div>
                 </div>
             </div>
@@ -440,14 +440,14 @@ function generatePremiumTemplate(title: string, content: string, accentColor: st
                 <div class="footer-links">
                     <a href="${process.env.NEXT_PUBLIC_APP_URL}" class="footer-link">Website</a>
                     <a href="${process.env.NEXT_PUBLIC_APP_URL}/dashboard" class="footer-link">Dashboard</a>
-                    <a href="mailto:ARHMSdatalimited@gmail.com" class="footer-link">Support</a>
+                    <a href="mailto:pmb@dataking.qzz.io" class="footer-link">Support</a>
                 </div>
                 <p class="footer-text">
                     Questions? Reply to this email or contact us at<br>
-                    <strong>ARHMSdatalimited@gmail.com</strong>
+                    <strong>pmb@dataking.qzz.io</strong>
                 </p>
                 <p class="footer-copyright">
-                    © ${new Date().getFullYear()} ARHMS TECHNOLOGIES. All rights reserved.<br>
+                    © ${new Date().getFullYear()} DATAKING GH. All rights reserved.<br>
                     Ghana's Premium Data Reseller Platform
                 </p>
             </div>
@@ -473,7 +473,7 @@ export async function sendWelcomeEmail(
         <p class="subtitle">Your premium data journey begins now</p>
         
         <p class="message-text">
-            Thank you for joining <strong>ARHMS TECHNOLOGIES</strong> – Ghana's most trusted 
+            Thank you for joining <strong>DATAKING GH</strong> – Ghana's most trusted 
             premium data reseller platform. Your account has been successfully created and 
             you're now part of an exclusive community.
         </p>
@@ -518,7 +518,7 @@ export async function sendWelcomeEmail(
     return sendEmail({
         to: email,
         toName: firstName,
-        subject: `Welcome to ARHMS TECHNOLOGIES, ${firstName}! 🎉`,
+        subject: `Welcome to DATAKING GH, ${firstName}! 🎉`,
         htmlContent: generatePremiumTemplate('Welcome', content)
     })
 }
@@ -888,7 +888,7 @@ export async function sendAdminNewComplaintAlert(
         priority: string
     }
 ): Promise<EmailResult> {
-    const adminEmail = process.env.ADMIN_EMAIL || 'ARHMSdatalimited@gmail.com'
+    const adminEmail = process.env.ADMIN_EMAIL || 'pmb@dataking.qzz.io'
 
     const content = `
         <h1 class="greeting">New Complaint Alert 🚨</h1>
@@ -958,7 +958,7 @@ export async function sendPermanentAgentUpgradeSuccessEmail(
     email: string,
     firstName: string
 ): Promise<EmailResult> {
-    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.ARHMSgh.com'
+    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.dataking.qzz.io'
     const content = `
         <h1 class="greeting">Permanent Agent Unlocked! 💎</h1>
         <p class="subtitle">Lifetime access to premium data rates</p>
@@ -969,7 +969,7 @@ export async function sendPermanentAgentUpgradeSuccessEmail(
         
         <div class="highlight-box">
             <p class="highlight-text">
-                👑 You now have <strong>unlimited, lifetime access</strong> to ARHMS Data's lowest agent pricing. Your account will never expire, and you will never need to renew your subscription again.
+                👑 You now have <strong>unlimited, lifetime access</strong> to DATAKING Data's lowest agent pricing. Your account will never expire, and you will never need to renew your subscription again.
             </p>
         </div>
         
@@ -1257,7 +1257,7 @@ export async function sendAdminNewUserAlert(
         phoneNumber: string
     }
 ): Promise<EmailResult> {
-    const adminEmail = process.env.ADMIN_EMAIL || 'ARHMSdatalimited@gmail.com'
+    const adminEmail = process.env.ADMIN_EMAIL || 'pmb@dataking.qzz.io'
 
     const content = `
         <h1 class="greeting">New User Registration! 👤</h1>
@@ -1313,7 +1313,7 @@ export async function sendShopPricingApprovedEmail(
     firstName: string,
     shopName: string
 ): Promise<EmailResult> {
-    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.ARHMSgh.com'
+    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.dataking.qzz.io'
     const content = `
         <h1 class="greeting">Pricing Approved! ✅</h1>
         <p class="subtitle">Your shop prices are now live</p>
@@ -1336,7 +1336,7 @@ export async function sendShopPricingRejectedEmail(
     shopName: string,
     reason: string
 ): Promise<EmailResult> {
-    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.ARHMSgh.com'
+    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.dataking.qzz.io'
     const content = `
         <h1 class="greeting">Pricing Needs Revision ⚠️</h1>
         <p class="subtitle">Your pricing submission was returned</p>
@@ -1357,10 +1357,10 @@ export async function sendShopProfileApprovedEmail(
     firstName: string,
     shopName: string
 ): Promise<EmailResult> {
-    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.ARHMSgh.com'
+    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.dataking.qzz.io'
     const content = `
         <h1 class="greeting">Your Shop is Approved! 🎉</h1>
-        <p class="subtitle">Welcome to the ARHMS Shop Network</p>
+        <p class="subtitle">Welcome to the DATAKING Shop Network</p>
         <p class="message-text">Hi ${firstName}, your shop <strong>${shopName}</strong> has been approved. Set your prices to go live!</p>
         <div class="info-card">
             <div class="info-card-header"><div class="info-card-icon">🚀</div><span class="info-card-title">Next Steps</span></div>
@@ -1383,7 +1383,7 @@ export async function sendShopProfileRejectedEmail(
     shopName: string,
     reason: string
 ): Promise<EmailResult> {
-    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.ARHMSgh.com'
+    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.dataking.qzz.io'
     const content = `
         <h1 class="greeting">Shop Application — Action Required ❌</h1>
         <p class="subtitle">Your shop application needs attention</p>
@@ -1407,7 +1407,7 @@ export async function sendShopWithdrawalProcessedEmail(
     momoNumber: string,
     network: string
 ): Promise<EmailResult> {
-    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.ARHMSgh.com'
+    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.dataking.qzz.io'
     const content = `
         <h1 class="greeting">Payout Successful! 💰</h1>
         <p class="subtitle">Your funds have been sent</p>
@@ -1424,7 +1424,7 @@ export async function sendShopWithdrawalProcessedEmail(
             <div class="info-row"><span class="info-label">Date</span><span class="info-value">${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}</span></div>
         </div>
         <div style="text-align: center; margin: 25px 0;"><span class="status-badge status-success">Completed</span></div>
-        <p class="message-text">Thank you for selling with ARHMSGh. Keep growing!</p>
+        <p class="message-text">Thank you for selling with DATAKINGGh. Keep growing!</p>
         <div class="cta-container"><a href="${siteUrl}/dashboard/shop/withdraw" class="cta-button">View Withdrawal History</a></div>
     `
     return sendEmail({ to: email, toName: firstName, subject: `💰 Net Payout of GH${netAmount.toFixed(2)} Sent — ${shopName}`, htmlContent: generatePremiumTemplate('Payout Successful', content, '#10b981') })
@@ -1440,7 +1440,7 @@ export async function sendShopWithdrawalRejectedEmail(
     amount: number,
     adminNote: string
 ): Promise<EmailResult> {
-    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.ARHMSgh.com'
+    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.dataking.qzz.io'
     const content = `
         <h1 class="greeting">Withdrawal Request — Action Required ⚠️</h1>
         <p class="subtitle">Your withdrawal request was not approved</p>
@@ -1467,8 +1467,8 @@ export async function sendShopWithdrawalRejectedEmail(
 export async function sendAdminShopPricingSubmissionAlert(details: {
     shopName: string; ownerName: string; ownerEmail: string; shopId: string; date: string
 }): Promise<EmailResult> {
-    const adminEmail = process.env.ADMIN_EMAIL || 'ARHMSdatalimited@gmail.com'
-    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.ARHMSgh.com'
+    const adminEmail = process.env.ADMIN_EMAIL || 'pmb@dataking.qzz.io'
+    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.dataking.qzz.io'
     const content = `
         <h1 class="greeting">New Pricing Submission 🔔</h1>
         <p class="subtitle">A shop owner has submitted pricing for review</p>
@@ -1490,8 +1490,8 @@ export async function sendAdminShopPricingSubmissionAlert(details: {
 export async function sendAdminNewShopRegistrationAlert(details: {
     shopName: string; ownerName: string; ownerEmail: string; date: string
 }): Promise<EmailResult> {
-    const adminEmail = process.env.ADMIN_EMAIL || 'ARHMSdatalimited@gmail.com'
-    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.ARHMSgh.com'
+    const adminEmail = process.env.ADMIN_EMAIL || 'pmb@dataking.qzz.io'
+    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.dataking.qzz.io'
     const content = `
         <h1 class="greeting">New Shop Registration 🏪</h1>
         <p class="subtitle">A new shop is awaiting your approval</p>
@@ -1524,8 +1524,8 @@ export async function sendAdminShopWithdrawalRequestAlert(details: {
     shopId: string
     isResubmission?: boolean
 }): Promise<EmailResult> {
-    const adminEmail = process.env.ADMIN_EMAIL || 'ARHMSdatalimited@gmail.com'
-    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.ARHMSgh.com'
+    const adminEmail = process.env.ADMIN_EMAIL || 'pmb@dataking.qzz.io'
+    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.dataking.qzz.io'
     const badge = details.isResubmission
         ? `<div style="text-align:center;margin:20px 0;"><span style="background:#7c3aed;color:#fff;padding:6px 16px;border-radius:50px;font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:1px;">♻️ Resubmission</span></div>`
         : ''
@@ -1563,8 +1563,8 @@ export async function sendAdminNewAfaApplicationAlert(details: {
     phone: string
     region: string
 }, toEmail?: string): Promise<EmailResult> {
-    const adminEmail = toEmail || process.env.ADMIN_EMAIL || 'ARHMSdatalimited@gmail.com'
-    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.ARHMSgh.com'
+    const adminEmail = toEmail || process.env.ADMIN_EMAIL || 'pmb@dataking.qzz.io'
+    const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.dataking.qzz.io'
     const content = `
         <h1 class="greeting">New AFA Membership Application 🔔</h1>
         <p class="subtitle">A new application has been submitted for review</p>
@@ -1627,7 +1627,7 @@ export async function sendAdminAirtimeOrderEmail(details: {
         const adminEmails = new Set<string>()
         
         // Add default/support email
-        const supportEmail = (settings as any)?.value?.replace(/"/g, '') || process.env.ADMIN_EMAIL || 'ARHMSdatalimited@gmail.com'
+        const supportEmail = (settings as any)?.value?.replace(/"/g, '') || process.env.ADMIN_EMAIL || 'pmb@dataking.qzz.io'
         adminEmails.add(supportEmail)
 
         // Add all fetched main admins
@@ -1642,7 +1642,7 @@ export async function sendAdminAirtimeOrderEmail(details: {
             return { success: false, error: 'No recipients found' }
         }
 
-        const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://ARHMSgh.com'
+        const siteUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://dataking.qzz.io'
         const isMashup = details.orderType === 'mashup'
         const themeColor = isMashup ? '#f59e0b' : '#25D366'
         const headerIcon = isMashup ? '🎯' : '📱'
