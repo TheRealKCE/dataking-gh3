@@ -37,6 +37,8 @@ import {
     Zap,
     Download,
     Code2,
+    CreditCard,
+    Loader2,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -101,6 +103,38 @@ export function DashboardSidebar() {
     const [walletBalance, setWalletBalance] = useState(0)
     const [communityLink, setCommunityLink] = useState('https://chat.whatsapp.com/DY9X9borAmz24IHAWsjI4R')
     const { counts: adminCounts } = useAdminCounts()
+
+    // Payment gateway toggle state (admin only)
+    const [webProvider, setWebProvider] = useState<'moolre' | 'paystack'>('moolre')
+    const [shopProvider, setShopProvider] = useState<'moolre' | 'paystack'>('moolre')
+    const [providerSaving, setProviderSaving] = useState<'web' | 'shop' | null>(null)
+
+    useEffect(() => {
+        if (!isAdmin) return
+        fetch('/api/admin-settings?keys=active_payment_provider_web,active_payment_provider_shop')
+            .then(r => r.ok ? r.json() : null)
+            .then(data => {
+                if (!data) return
+                if (String(data.active_payment_provider_web) === 'paystack') setWebProvider('paystack')
+                if (String(data.active_payment_provider_shop) === 'paystack') setShopProvider('paystack')
+            })
+            .catch(() => {})
+    }, [isAdmin])
+
+    const toggleProvider = async (context: 'web' | 'shop', value: 'moolre' | 'paystack') => {
+        setProviderSaving(context)
+        const key = context === 'web' ? 'active_payment_provider_web' : 'active_payment_provider_shop'
+        try {
+            await fetch('/api/admin-settings', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ updates: [{ key, value }] }),
+            })
+            if (context === 'web') setWebProvider(value)
+            else setShopProvider(value)
+        } catch {}
+        setProviderSaving(null)
+    }
 
     // My Shop accordion — auto-expands on any /dashboard/shop route
     const isOnShopRoute = pathname?.startsWith('/dashboard/shop') ?? false
@@ -415,6 +449,86 @@ export function DashboardSidebar() {
                                 )
                             })}
                         </>
+                    )}
+
+                    {/* Payment Gateway Widget — admin only */}
+                    {isAdmin && (
+                        <div className={cn("mt-6", isCollapsed ? "px-0" : "px-1")}>
+                            {isCollapsed ? (
+                                <div className="flex justify-center py-2" title="Payment Gateway">
+                                    <CreditCard className="w-5 h-5 text-muted-foreground" />
+                                </div>
+                            ) : (
+                                <div className="rounded-xl border border-border/50 bg-muted/30 p-3 space-y-2.5">
+                                    <p className="text-[9px] font-black text-muted-foreground uppercase tracking-[0.18em] flex items-center gap-1.5">
+                                        <CreditCard className="w-3 h-3" />
+                                        Payment Gateway
+                                    </p>
+
+                                    {/* Web toggle */}
+                                    <div className="space-y-1">
+                                        <p className="text-[10px] text-muted-foreground font-medium">Web</p>
+                                        <div className="flex rounded-lg border border-border/60 overflow-hidden h-7 text-[11px] font-semibold">
+                                            <button
+                                                onClick={() => webProvider !== 'moolre' && toggleProvider('web', 'moolre')}
+                                                disabled={providerSaving === 'web'}
+                                                className={cn(
+                                                    "flex-1 flex items-center justify-center transition-colors",
+                                                    webProvider === 'moolre'
+                                                        ? "bg-primary text-primary-foreground"
+                                                        : "bg-background text-muted-foreground hover:bg-muted"
+                                                )}
+                                            >
+                                                {providerSaving === 'web' && webProvider !== 'moolre' ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Moolre'}
+                                            </button>
+                                            <button
+                                                onClick={() => webProvider !== 'paystack' && toggleProvider('web', 'paystack')}
+                                                disabled={providerSaving === 'web'}
+                                                className={cn(
+                                                    "flex-1 flex items-center justify-center transition-colors border-l border-border/60",
+                                                    webProvider === 'paystack'
+                                                        ? "bg-primary text-primary-foreground"
+                                                        : "bg-background text-muted-foreground hover:bg-muted"
+                                                )}
+                                            >
+                                                {providerSaving === 'web' && webProvider !== 'paystack' ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Paystack'}
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* Shop toggle */}
+                                    <div className="space-y-1">
+                                        <p className="text-[10px] text-muted-foreground font-medium">Shop</p>
+                                        <div className="flex rounded-lg border border-border/60 overflow-hidden h-7 text-[11px] font-semibold">
+                                            <button
+                                                onClick={() => shopProvider !== 'moolre' && toggleProvider('shop', 'moolre')}
+                                                disabled={providerSaving === 'shop'}
+                                                className={cn(
+                                                    "flex-1 flex items-center justify-center transition-colors",
+                                                    shopProvider === 'moolre'
+                                                        ? "bg-primary text-primary-foreground"
+                                                        : "bg-background text-muted-foreground hover:bg-muted"
+                                                )}
+                                            >
+                                                {providerSaving === 'shop' && shopProvider !== 'moolre' ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Moolre'}
+                                            </button>
+                                            <button
+                                                onClick={() => shopProvider !== 'paystack' && toggleProvider('shop', 'paystack')}
+                                                disabled={providerSaving === 'shop'}
+                                                className={cn(
+                                                    "flex-1 flex items-center justify-center transition-colors border-l border-border/60",
+                                                    shopProvider === 'paystack'
+                                                        ? "bg-primary text-primary-foreground"
+                                                        : "bg-background text-muted-foreground hover:bg-muted"
+                                                )}
+                                            >
+                                                {providerSaving === 'shop' && shopProvider !== 'paystack' ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Paystack'}
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
                     )}
 
                     {/* Bottom Actions */}
