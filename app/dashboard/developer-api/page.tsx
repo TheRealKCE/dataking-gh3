@@ -70,7 +70,7 @@ const LANGS: { id: Lang; label: string }[] = [
     { id: 'php',        label: 'PHP'        },
 ]
 
-const BASE = 'https://arhmsgh.com'
+const BASE = 'https://www.arhmsgh.com'
 const KEY  = 'YOUR_API_KEY'
 
 const ENDPOINTS: {
