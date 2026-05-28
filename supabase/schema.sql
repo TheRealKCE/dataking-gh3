@@ -86,7 +86,7 @@ CREATE TABLE IF NOT EXISTS public.orders (
   status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'completed', 'failed')),
   payment_status TEXT DEFAULT 'paid' CHECK (payment_status IN ('paid', 'refunded')),
   reference_code TEXT NOT NULL UNIQUE,
-  fulfillment_method TEXT DEFAULT 'auto' CHECK (fulfillment_method IN ('auto', 'manual', 'codecraft', 'datakazina')),
+  fulfillment_method TEXT DEFAULT 'auto' CHECK (fulfillment_method IN ('auto', 'manual', 'codecraft', 'datakazina', 'kingflexy')),
   codecraft_reference TEXT,
   dakazina_reference TEXT,
   error_message TEXT,

@@ -51,12 +51,13 @@ export async function POST(request: Request) {
             return acc
         }, {})
 
-        // Parse both networks and codecraft_networks from fulfillment_settings
+        // Parse all supplier network settings from fulfillment_settings
         const dbFulfillmentSettings = typeof settingsMap.fulfillment_settings === 'string'
             ? JSON.parse(settingsMap.fulfillment_settings)
             : settingsMap.fulfillment_settings || {}
         const networkSettings = dbFulfillmentSettings.networks || {}
         const codecraftNetworkSettings = dbFulfillmentSettings.codecraft_networks || {}
+        const kingflexyNetworkSettings = dbFulfillmentSettings.kingflexy_networks || {}
 
         // Construct query to find pending orders
         let query = supabaseAdmin
@@ -86,22 +87,25 @@ export async function POST(request: Request) {
 
         const { sendAdminNewOrderAlert } = await import('@/lib/email-service')
         const { fulfillOrder: ccFulfillOrder } = await import('@/lib/codecraft-service')
+        const { fulfillOrder: kfFulfillOrder } = await import('@/lib/kingflexy-service')
 
         // Process each pending order safely
         for (const order of pendingOrders) {
             const isDataKazinaEnabled = networkSettings[order.network] === true
             const isCodeCraftEnabled = codecraftNetworkSettings[order.network] === true
+            const isKingFlexyEnabled = kingflexyNetworkSettings[order.network] === true
 
-            // Neither supplier enabled → skip
-            if (!isDataKazinaEnabled && !isCodeCraftEnabled) {
+            // No supplier enabled → skip
+            if (!isDataKazinaEnabled && !isCodeCraftEnabled && !isKingFlexyEnabled) {
                 console.log(`[ManualRefulfill] Skipping order ${order.id}: No active supplier for network ${order.network}.`)
                 skipped++
                 continue
             }
 
-            // Both enabled → conflict guard, skip
-            if (isDataKazinaEnabled && isCodeCraftEnabled) {
-                console.error(`[ManualRefulfill] CONFLICT: Both suppliers active for ${order.network} on order ${order.id}. Skipping.`)
+            // Multiple suppliers enabled → conflict guard, skip
+            const activeCount = [isDataKazinaEnabled, isCodeCraftEnabled, isKingFlexyEnabled].filter(Boolean).length
+            if (activeCount > 1) {
+                console.error(`[ManualRefulfill] CONFLICT: Multiple suppliers active for ${order.network} on order ${order.id}. Skipping.`)
                 await sendAdminNewOrderAlert({
                     referenceCode: order.reference_code || order.id,
                     phoneNumber: order.phone_number,
@@ -112,14 +116,14 @@ export async function POST(request: Request) {
                     customerEmail: 'N/A',
                     source: 'shop_storefront',
                     shopName: 'Admin Refulfill',
-                    reason: `⚠️ FULFILLMENT_CONFLICT: Both DataKazina and CodeCraft active for ${order.network}. Order ${order.id} skipped. Fix in admin panel.`
+                    reason: `⚠️ FULFILLMENT_CONFLICT: Multiple suppliers active for ${order.network}. Order ${order.id} skipped. Fix in admin panel.`
                 }).catch(e => console.error('[ManualRefulfill] Alert error:', e))
                 skipped++
                 continue
             }
 
             // Determine which supplier will handle this order
-            const supplierLabel = isCodeCraftEnabled ? 'codecraft' : 'datakazina'
+            const supplierLabel = isCodeCraftEnabled ? 'codecraft' : isKingFlexyEnabled ? 'kingflexy' : 'datakazina'
 
             // ATOMIC LOCK: Try to update this specific order from 'pending' to 'processing'
             // If another process/request already took it, this will return 0 rows
@@ -149,9 +153,14 @@ export async function POST(request: Request) {
                     .eq('id', order.shop_order_id)
             }
 
-            const result = isCodeCraftEnabled
-                ? await ccFulfillOrder(order.network, order.phone_number, order.size, order.id)
-                : await fulfillOrder(order.network, order.phone_number, order.size, order.id)
+            let result: { success: boolean; reference?: string; transactionId?: string; error?: string; apiResponse?: any }
+            if (isCodeCraftEnabled) {
+                result = await ccFulfillOrder(order.network, order.phone_number, order.size, order.id)
+            } else if (isKingFlexyEnabled) {
+                result = await kfFulfillOrder(order.network, order.phone_number, order.size, order.id)
+            } else {
+                result = await fulfillOrder(order.network, order.phone_number, order.size, order.id)
+            }
 
             if (result.success) {
                 console.log(`[ManualRefulfill] SUCCESS for order ${order.id} via ${supplierLabel}`)
@@ -163,7 +172,7 @@ export async function POST(request: Request) {
                     api_response: { ...result.apiResponse, note: `Manual Admin Refill Success via ${supplierLabel}` }
                 })
 
-                // Update shop_orders to processing + stamp codecraft_reference_id if CodeCraft
+                // Update shop_orders to processing + stamp supplier reference
                 if (order.shop_order_id) {
                     const shopOrderUpdate: Record<string, any> = {
                         status: 'processing',
@@ -171,6 +180,9 @@ export async function POST(request: Request) {
                     }
                     if (isCodeCraftEnabled && result.transactionId) {
                         shopOrderUpdate.codecraft_reference_id = result.transactionId
+                    }
+                    if (isKingFlexyEnabled && result.transactionId) {
+                        shopOrderUpdate.kingflexy_reference = result.transactionId
                     }
                     await supabaseAdmin
                         .from('shop_orders')
