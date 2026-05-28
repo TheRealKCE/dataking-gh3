@@ -88,11 +88,11 @@ const ENDPOINTS: {
         label: 'Wallet Balance',
         desc: 'Returns your current wallet balance and total amount spent.',
         snippets: {
-            curl: `curl -H "Authorization: Bearer ${KEY}" \\
+            curl: `curl -H "Authorization: ${KEY}" \\
   ${BASE}/api/v1/wallet/balance`,
 
             javascript: `const response = await fetch('${BASE}/api/v1/wallet/balance', {
-  headers: { 'Authorization': 'Bearer ${KEY}' }
+  headers: { 'Authorization': '${KEY}' }
 });
 const data = await response.json();
 console.log(data);`,
@@ -100,7 +100,7 @@ console.log(data);`,
             nodejs: `const axios = require('axios');
 
 const { data } = await axios.get('${BASE}/api/v1/wallet/balance', {
-  headers: { Authorization: 'Bearer ${KEY}' }
+  headers: { Authorization: '${KEY}' }
 });
 console.log(data);`,
 
@@ -108,7 +108,7 @@ console.log(data);`,
 
 response = requests.get(
     '${BASE}/api/v1/wallet/balance',
-    headers={'Authorization': 'Bearer ${KEY}'}
+    headers={'Authorization': '${KEY}'}
 )
 print(response.json())`,
 
@@ -116,7 +116,7 @@ print(response.json())`,
 $ch = curl_init('${BASE}/api/v1/wallet/balance');
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 curl_setopt($ch, CURLOPT_HTTPHEADER, [
-    'Authorization: Bearer ${KEY}'
+    'Authorization: ${KEY}'
 ]);
 $response = curl_exec($ch);
 curl_close($ch);
@@ -131,7 +131,7 @@ echo $response;`,
         desc: 'Purchase a single data bundle. Supported networks: MTN, Telecel, AT.',
         snippets: {
             curl: `curl -X POST \\
-  -H "Authorization: Bearer ${KEY}" \\
+  -H "Authorization: ${KEY}" \\
   -H "Content-Type: application/json" \\
   -d '{"network":"MTN","volume_gb":"1","recipient":"0241234567"}' \\
   ${BASE}/api/v1/data/purchase`,
@@ -139,7 +139,7 @@ echo $response;`,
             javascript: `const response = await fetch('${BASE}/api/v1/data/purchase', {
   method: 'POST',
   headers: {
-    'Authorization': 'Bearer ${KEY}',
+    'Authorization': '${KEY}',
     'Content-Type': 'application/json'
   },
   body: JSON.stringify({
@@ -156,7 +156,7 @@ console.log(data);`,
 const { data } = await axios.post(
   '${BASE}/api/v1/data/purchase',
   { network: 'MTN', volume_gb: '1', recipient: '0241234567' },
-  { headers: { Authorization: 'Bearer ${KEY}' } }
+  { headers: { Authorization: '${KEY}' } }
 );
 console.log(data);`,
 
@@ -165,7 +165,7 @@ console.log(data);`,
 response = requests.post(
     '${BASE}/api/v1/data/purchase',
     json={'network': 'MTN', 'volume_gb': '1', 'recipient': '0241234567'},
-    headers={'Authorization': 'Bearer ${KEY}'}
+    headers={'Authorization': '${KEY}'}
 )
 print(response.json())`,
 
@@ -181,7 +181,7 @@ curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 curl_setopt($ch, CURLOPT_POST, true);
 curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
 curl_setopt($ch, CURLOPT_HTTPHEADER, [
-    'Authorization: Bearer ${KEY}',
+    'Authorization: ${KEY}',
     'Content-Type: application/json'
 ]);
 $response = curl_exec($ch);
@@ -197,7 +197,7 @@ echo $response;`,
         desc: 'Purchase up to 100 data bundles in a single atomic request. Wallet is debited once for the total.',
         snippets: {
             curl: `curl -X POST \\
-  -H "Authorization: Bearer ${KEY}" \\
+  -H "Authorization: ${KEY}" \\
   -H "Content-Type: application/json" \\
   -d '{
     "orders": [
@@ -211,7 +211,7 @@ echo $response;`,
             javascript: `const response = await fetch('${BASE}/api/v1/data/bulk', {
   method: 'POST',
   headers: {
-    'Authorization': 'Bearer ${KEY}',
+    'Authorization': '${KEY}',
     'Content-Type': 'application/json'
   },
   body: JSON.stringify({
@@ -236,7 +236,7 @@ const { data } = await axios.post(
       { network: 'AT',      volume_gb: '5', recipient: '0271234567' }
     ]
   },
-  { headers: { Authorization: 'Bearer ${KEY}' } }
+  { headers: { Authorization: '${KEY}' } }
 );
 console.log(data);`,
 
@@ -251,7 +251,7 @@ response = requests.post(
             {'network': 'AT',      'volume_gb': '5', 'recipient': '0271234567'},
         ]
     },
-    headers={'Authorization': 'Bearer ${KEY}'}
+    headers={'Authorization': '${KEY}'}
 )
 print(response.json())`,
 
@@ -269,7 +269,7 @@ curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 curl_setopt($ch, CURLOPT_POST, true);
 curl_setopt($ch, CURLOPT_POSTFIELDS, $payload);
 curl_setopt($ch, CURLOPT_HTTPHEADER, [
-    'Authorization: Bearer ${KEY}',
+    'Authorization: ${KEY}',
     'Content-Type: application/json'
 ]);
 $response = curl_exec($ch);
@@ -284,12 +284,12 @@ echo $response;`,
         label: 'Order Status',
         desc: 'Check the current status of any order using its reference code.',
         snippets: {
-            curl: `curl -H "Authorization: Bearer ${KEY}" \\
+            curl: `curl -H "Authorization: ${KEY}" \\
   ${BASE}/api/v1/orders/REF-XXXXXXXX`,
 
             javascript: `const ref = 'REF-XXXXXXXX';
 const response = await fetch(\`${BASE}/api/v1/orders/\${ref}\`, {
-  headers: { 'Authorization': 'Bearer ${KEY}' }
+  headers: { 'Authorization': '${KEY}' }
 });
 const data = await response.json();
 console.log(data);`,
@@ -298,7 +298,7 @@ console.log(data);`,
 
 const ref = 'REF-XXXXXXXX';
 const { data } = await axios.get(\`${BASE}/api/v1/orders/\${ref}\`, {
-  headers: { Authorization: 'Bearer ${KEY}' }
+  headers: { Authorization: '${KEY}' }
 });
 console.log(data);`,
 
@@ -307,7 +307,7 @@ console.log(data);`,
 ref = 'REF-XXXXXXXX'
 response = requests.get(
     f'${BASE}/api/v1/orders/{ref}',
-    headers={'Authorization': 'Bearer ${KEY}'}
+    headers={'Authorization': '${KEY}'}
 )
 print(response.json())`,
 
@@ -316,7 +316,7 @@ $ref = 'REF-XXXXXXXX';
 $ch  = curl_init("${BASE}/api/v1/orders/{$ref}");
 curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
 curl_setopt($ch, CURLOPT_HTTPHEADER, [
-    'Authorization: Bearer ${KEY}'
+    'Authorization: ${KEY}'
 ]);
 $response = curl_exec($ch);
 curl_close($ch);
@@ -531,7 +531,7 @@ export default function DeveloperApiPage() {
                             </CardTitle>
                             <CardDescription className="mt-1">
                                 Base URL: <code className="font-mono text-foreground text-xs">{BASE}</code>
-                                &nbsp;— pass your key as <code className="font-mono text-foreground text-xs">Authorization: Bearer YOUR_KEY</code>
+                                &nbsp;— pass your key as <code className="font-mono text-foreground text-xs">Authorization: YOUR_KEY</code>
                             </CardDescription>
                         </div>
 
