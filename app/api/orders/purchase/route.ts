@@ -475,6 +475,19 @@ async function triggerFulfillment(orderId: string, network: string, user: { emai
 
             if (updateError) {
                 console.error(`[OrderPurchase] Failed to update order ${orderId} status:`, updateError.message)
+                // If the error is a check-constraint violation on fulfillment_method (migration not yet run),
+                // retry without that field so the order is not left stuck as 'pending'.
+                if (updateError.message?.includes('fulfillment_method_check') || updateError.code === '23514') {
+                    const { fulfillment_method: _drop, ...fallbackUpdate } = ordersUpdate
+                    const { error: retryError } = await (supabase.from('orders') as any)
+                        .update(fallbackUpdate)
+                        .eq('id', orderId)
+                    if (retryError) {
+                        console.error(`[OrderPurchase] Fallback update also failed for ${orderId}:`, retryError.message)
+                    } else {
+                        console.warn(`[OrderPurchase] Order ${orderId} marked processing WITHOUT fulfillment_method — run migration 20260528_add_kingflexy_fulfillment_method.sql in Supabase to fix constraint`)
+                    }
+                }
             }
 
             await (supabase.from('mtn_fulfillment_tracking') as any).insert({
