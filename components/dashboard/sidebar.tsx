@@ -162,6 +162,20 @@ export function DashboardSidebar() {
 
     const daysRemaining = calculateDaysRemaining()
 
+    // Calculate dealer subscription progress (days active / total days)
+    const dealerProgress = (() => {
+        const claimedAt = (dbUser as any)?.dealer_claimed_at
+        const expiresAt = (dbUser as any)?.dealer_expires_at
+        if (!claimedAt || !expiresAt) return null
+        const start = new Date(claimedAt).getTime()
+        const end = new Date(expiresAt).getTime()
+        const now = Date.now()
+        const totalDays = Math.max(1, Math.round((end - start) / (1000 * 60 * 60 * 24)))
+        const daysActive = Math.max(0, Math.round((now - start) / (1000 * 60 * 60 * 24)))
+        const pct = Math.min(100, Math.round((daysActive / totalDays) * 100))
+        return { daysActive, totalDays, pct }
+    })()
+
     // Fetch wallet balance + subscribe to real-time updates
     useEffect(() => {
         if (!dbUser?.id) return
@@ -292,10 +306,24 @@ export function DashboardSidebar() {
 
                             {/* Dealer Subscription Card */}
                             <div className="p-3 rounded-xl bg-black/20 border border-white/5 mb-3">
-                                <p className="text-[9px] uppercase tracking-widest text-purple-200/70 font-bold mb-0.5">Dealer Subscription</p>
-                                <p className="text-xs font-black text-white tracking-tight">
+                                <p className="text-[9px] uppercase tracking-widest text-purple-200/70 font-bold mb-1">Dealer Subscription</p>
+                                <p className="text-xs font-black text-white tracking-tight mb-2">
                                     {daysRemaining !== null ? `${daysRemaining} days remaining` : 'No active subscription'}
                                 </p>
+                                {dealerProgress && (
+                                    <>
+                                        <div className="w-full h-1.5 rounded-full bg-white/10 overflow-hidden mb-1.5">
+                                            <div
+                                                className="h-full rounded-full bg-gradient-to-r from-violet-400 to-purple-300 transition-all"
+                                                style={{ width: `${dealerProgress.pct}%` }}
+                                            />
+                                        </div>
+                                        <div className="flex justify-between text-[9px] text-purple-200/60 font-bold">
+                                            <span>Day {dealerProgress.daysActive}</span>
+                                            <span>{dealerProgress.totalDays} days total</span>
+                                        </div>
+                                    </>
+                                )}
                             </div>
 
                             {/* Renew Dealer Access Button */}
