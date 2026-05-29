@@ -375,6 +375,8 @@ export default function UpgradePage() {
         const now = new Date()
         const daysLeft = expiryDate ? Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : 0
         const isExpired = expiryDate ? expiryDate < now : false
+        const DEALER_FEATURE_LAUNCH = new Date('2026-05-29T00:00:00Z')
+        const isNewUser = dbUser?.created_at ? new Date(dbUser.created_at) >= DEALER_FEATURE_LAUNCH : false
 
         const paymentModal = (
             <>
@@ -517,8 +519,8 @@ export default function UpgradePage() {
                             </div>
                         )}
 
-                        {/* Claim card — only for customers who haven't claimed */}
-                        {isCustomer && !dealerClaimedAt && (
+                        {/* Claim card — only for new customers (registered after feature launch) who haven't claimed */}
+                        {isCustomer && !dealerClaimedAt && isNewUser && (
                             <div className="w-full rounded-2xl bg-white/90 backdrop-blur border-2 border-violet-300 shadow-xl p-6 mb-5">
                                 <div className="flex items-center gap-3 mb-3">
                                     <div className="w-10 h-10 rounded-full bg-violet-100 flex items-center justify-center">
