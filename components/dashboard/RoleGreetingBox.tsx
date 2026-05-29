@@ -6,6 +6,8 @@ import { useAuth } from '@/contexts/auth-context'
 import { formatCurrency } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { roleConfig } from '@/lib/roles'
+import { toast } from 'sonner'
 import {
     Sparkles,
     Shield,
@@ -27,6 +29,7 @@ interface RoleGreetingBoxProps {
 export function RoleGreetingBox({ stats }: RoleGreetingBoxProps) {
     const { dbUser, isAdmin, isSubAdmin } = useAuth()
     const [currentTime, setCurrentTime] = useState(new Date())
+    const [autoUpgrade, setAutoUpgrade] = useState(false)
 
     useEffect(() => {
         const timer = setInterval(() => {
@@ -64,11 +67,19 @@ export function RoleGreetingBox({ stats }: RoleGreetingBoxProps) {
     const { dateStr, timeStr } = formatDateTime()
 
     const calculateDaysRemaining = () => {
-        if (!dbUser?.agent_expires_at || dbUser?.role !== 'agent') return null
-        const now = new Date()
-        const expires = new Date(dbUser.agent_expires_at)
-        const days = Math.ceil((expires.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-        return days > 0 ? days : 0
+        if (dbUser?.role === 'agent' && dbUser?.agent_expires_at) {
+            const now = new Date()
+            const expires = new Date(dbUser.agent_expires_at)
+            const days = Math.ceil((expires.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+            return days > 0 ? days : 0
+        }
+        if (dbUser?.role === 'dealer' && (dbUser as any)?.dealer_expires_at) {
+            const now = new Date()
+            const expires = new Date((dbUser as any).dealer_expires_at)
+            const days = Math.ceil((expires.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+            return days > 0 ? days : 0
+        }
+        return null
     }
 
     const daysRemaining = calculateDaysRemaining()
@@ -89,36 +100,28 @@ export function RoleGreetingBox({ stats }: RoleGreetingBoxProps) {
         return `${years} ${years === 1 ? 'year' : 'years'} ago`
     }
 
-    let roleLabel = ''
-    let Icon = Sparkles
-    let accentClass = 'text-primary'
-    let pillClass = 'bg-primary/15 text-primary'
+    const userRole = isAdmin ? 'admin' : isSubAdmin ? 'sub-admin' : (dbUser?.role || 'customer') as keyof typeof roleConfig
+    const currentRole = roleConfig[userRole] || roleConfig['customer']
 
-    if (isAdmin) {
-        roleLabel = 'System Administrator'
-        Icon = Shield
-        accentClass = 'text-rose-500'
-        pillClass = 'bg-rose-500/15 text-rose-500'
-    } else if (isSubAdmin) {
-        roleLabel = 'Sub-Administrator'
-        Icon = Shield
-        accentClass = 'text-indigo-500'
-        pillClass = 'bg-indigo-500/15 text-indigo-500'
-    } else if (dbUser.role === 'agent') {
-        roleLabel = 'Authorized Agent'
-        Icon = Crown
-        accentClass = 'text-amber-500'
-        pillClass = 'bg-amber-500/15 text-amber-500'
-    } else {
-        roleLabel = 'Valued Customer'
-        Icon = Star
-        accentClass = 'text-blue-500'
-        pillClass = 'bg-blue-500/15 text-blue-500'
-    }
+    const roleLabel = 
+        isAdmin ? 'System Administrator' :
+        isSubAdmin ? 'Sub-Administrator' :
+        dbUser.role === 'dealer' ? 'Authorized Dealer' :
+        dbUser.role === 'agent' ? 'Authorized Agent' :
+        'Valued Customer'
+
+    const Icon = currentRole.icon
+    const accentClass = dbUser.role === 'dealer' ? 'text-white' : currentRole.textColor
+    const pillClass = currentRole.greetingPill
 
     return (
-        <div className="rounded-2xl sm:rounded-3xl p-4 sm:p-6 border border-border/70 bg-card shadow-sm hover:shadow-md transition-all overflow-hidden relative">
-            <div className="absolute inset-0 pointer-events-none bg-[radial-gradient(circle_at_top_right,hsl(var(--primary)/0.12),transparent_45%)]" />
+        <div className={cn("transition-all overflow-hidden relative", currentRole.greetingCard)}>
+            <div className={cn(
+                "absolute inset-0 pointer-events-none",
+                dbUser.role === 'dealer'
+                    ? "bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.15),transparent_45%)]"
+                    : "bg-[radial-gradient(circle_at_top_right,hsl(var(--primary)/0.12),transparent_45%)]"
+            )} />
             <div className="absolute top-0 right-0 -mt-10 -mr-10 opacity-10 pointer-events-none">
                 <Icon className={cn('w-40 h-40', accentClass)} />
             </div>
@@ -127,37 +130,56 @@ export function RoleGreetingBox({ stats }: RoleGreetingBoxProps) {
                 <div className="flex flex-col gap-2 min-w-0">
                     <div className="flex items-center gap-2 min-w-0">
                         <Icon className={cn('w-5 h-5 sm:w-6 sm:h-6 shrink-0', accentClass)} />
-                        <h2 className="text-xl sm:text-2xl font-black text-foreground truncate">
+                        <h2 className={cn("text-xl sm:text-2xl font-black truncate", dbUser.role === 'dealer' || dbUser.role === 'agent' || dbUser.role === 'customer' ? "text-white" : "text-foreground")}>
                             {getGreeting()}, {dbUser.first_name}!
                         </h2>
                     </div>
-                    <p className="text-xs sm:text-sm text-muted-foreground pl-0.5">
+                    <p className={cn("text-xs sm:text-sm pl-0.5", dbUser.role === 'dealer' || dbUser.role === 'agent' || dbUser.role === 'customer' ? "text-white/80" : "text-muted-foreground")}>
                         Here is an overview of your transactions, shop performance, and recent activity.
                     </p>
                 </div>
-                <div className="flex flex-row sm:flex-col items-start sm:items-end gap-2 sm:gap-0 text-foreground">
-                    <p className="text-xs sm:text-sm font-semibold text-muted-foreground">{dateStr}</p>
+                <div className={cn("flex flex-row sm:flex-col items-start sm:items-end gap-2 sm:gap-0", dbUser.role === 'dealer' || dbUser.role === 'agent' || dbUser.role === 'customer' ? "text-white" : "text-foreground")}>
+                    <p className={cn("text-xs sm:text-sm font-semibold", dbUser.role === 'dealer' || dbUser.role === 'agent' || dbUser.role === 'customer' ? "text-white/80" : "text-muted-foreground")}>{dateStr}</p>
                     <p className="text-sm sm:text-lg font-black">{timeStr}</p>
                 </div>
             </div>
 
             <div className="relative z-10 flex flex-col gap-3">
-                <div className="bg-secondary/35 rounded-xl p-3 sm:p-4 flex items-center justify-between border border-border/60">
+                <div className={cn("rounded-xl p-3 sm:p-4 flex items-center justify-between", currentRole.greetingRow)}>
                     <div className="flex items-center gap-3">
-                        <Shield className="w-5 h-5 sm:w-6 sm:h-6 text-muted-foreground" />
-                        <p className="text-xs sm:text-sm text-muted-foreground font-semibold">Your Role</p>
+                        <Shield className={cn("w-5 h-5 sm:w-6 sm:h-6", currentRole.greetingText)} />
+                        <p className={cn("text-xs sm:text-sm font-semibold", currentRole.greetingText)}>Your Role</p>
                     </div>
                     <p className={cn('text-sm sm:text-base font-black px-3 py-1 rounded-full', pillClass)}>
                         {roleLabel}
                     </p>
                 </div>
 
-                {dbUser.role === 'agent' ? (
-                    <div className="bg-secondary/35 rounded-xl p-3 sm:p-4 flex items-center justify-between border border-border/60">
+                {dbUser.role === 'dealer' ? (
+                    <div className={cn("rounded-xl p-3 sm:p-4 flex items-center justify-between", currentRole.greetingRow)}>
                         <div className="flex items-center gap-3">
-                            <Clock className="w-5 h-5 sm:w-6 sm:h-6 text-muted-foreground" />
+                            <Clock className={cn("w-5 h-5 sm:w-6 sm:h-6", currentRole.greetingText)} />
                             <div className="flex flex-col">
-                                <p className="text-xs sm:text-sm text-muted-foreground font-semibold">Membership</p>
+                                <p className={cn("text-xs sm:text-sm font-semibold", currentRole.greetingText)}>Dealer Membership</p>
+                                <div className="inline-block px-2.5 py-0.5 rounded-full text-[10px] sm:text-xs font-bold w-fit mt-0.5 bg-emerald-500 text-white border-0">
+                                    Active
+                                </div>
+                            </div>
+                        </div>
+                        <div className="flex flex-col items-end gap-1">
+                            {daysRemaining !== null && (
+                                <p className="text-sm sm:text-lg font-black text-white">
+                                    {daysRemaining} {daysRemaining === 1 ? 'day' : 'days'} left
+                                </p>
+                            )}
+                        </div>
+                    </div>
+                ) : dbUser.role === 'agent' ? (
+                    <div className={cn("rounded-xl p-3 sm:p-4 flex items-center justify-between", currentRole.greetingRow)}>
+                        <div className="flex items-center gap-3">
+                            <Clock className={cn("w-5 h-5 sm:w-6 sm:h-6", currentRole.greetingText)} />
+                            <div className="flex flex-col">
+                                <p className={cn("text-xs sm:text-sm font-semibold", currentRole.greetingText)}>Membership</p>
                                 <div className={cn(
                                     'inline-block px-2 py-0.5 rounded-full text-[10px] sm:text-xs font-bold w-fit mt-0.5',
                                     daysRemaining !== null && daysRemaining <= 3
@@ -172,14 +194,7 @@ export function RoleGreetingBox({ stats }: RoleGreetingBoxProps) {
                         </div>
                         <div className="flex flex-col items-end gap-1">
                             {daysRemaining !== null && (
-                                <p className={cn(
-                                    'text-sm sm:text-lg font-black',
-                                    daysRemaining <= 3
-                                        ? 'text-red-500'
-                                        : daysRemaining <= 7
-                                            ? 'text-amber-600 dark:text-amber-400'
-                                            : 'text-foreground'
-                                )}>
+                                <p className="text-sm sm:text-lg font-black text-white">
                                     {daysRemaining} {daysRemaining === 1 ? 'day' : 'days'} left
                                 </p>
                             )}
@@ -193,10 +208,10 @@ export function RoleGreetingBox({ stats }: RoleGreetingBoxProps) {
                         </div>
                     </div>
                 ) : isAdmin || isSubAdmin ? (
-                    <div className="bg-secondary/35 rounded-xl p-3 sm:p-4 flex items-center justify-between border border-border/60">
+                    <div className={cn("rounded-xl p-3 sm:p-4 flex items-center justify-between", currentRole.greetingRow)}>
                         <div className="flex items-center gap-3">
-                            <Settings className="w-5 h-5 sm:w-6 sm:h-6 text-muted-foreground" />
-                            <p className="text-xs sm:text-sm text-muted-foreground font-semibold">System Access</p>
+                            <Settings className={cn("w-5 h-5 sm:w-6 sm:h-6", currentRole.greetingText)} />
+                            <p className={cn("text-xs sm:text-sm font-semibold", currentRole.greetingText)}>System Access</p>
                         </div>
                         <Link href="/admin">
                             <Button size="sm" className="h-8 px-4 text-xs font-bold bg-primary text-primary-foreground hover:bg-primary/90 shadow-md transition-transform hover:scale-105">
@@ -205,29 +220,56 @@ export function RoleGreetingBox({ stats }: RoleGreetingBoxProps) {
                         </Link>
                     </div>
                 ) : (
-                    <div className="bg-secondary/35 rounded-xl p-3 sm:p-4 flex items-center justify-between gap-2 border border-border/60">
+                    <div className={cn("rounded-xl p-3 sm:p-4 flex items-center justify-between gap-2", currentRole.greetingRow)}>
                         <div className="flex items-center gap-3 min-w-0">
-                            <ShoppingCart className="w-5 h-5 sm:w-6 sm:h-6 text-muted-foreground shrink-0" />
-                            <p className="text-xs sm:text-sm text-muted-foreground font-semibold">Total Orders</p>
+                            <ShoppingCart className={cn("w-5 h-5 sm:w-6 sm:h-6 shrink-0", currentRole.greetingText)} />
+                            <p className={cn("text-xs sm:text-sm font-semibold", currentRole.greetingText)}>Total Orders</p>
                         </div>
-                        <p className="text-sm sm:text-lg font-black text-foreground shrink-0">
+                        <p className="text-sm sm:text-lg font-black text-white shrink-0">
                             {stats?.totalOrders || 0}
                         </p>
                     </div>
                 )}
 
-                <div className="bg-secondary/35 rounded-xl p-3 sm:p-4 flex items-center justify-between gap-2 border border-border/60">
+                {dbUser.role === 'dealer' && (
+                    <div className={cn("rounded-xl p-3 sm:p-4 flex items-center justify-between", currentRole.greetingRow)}>
+                        <div className="flex items-center gap-3">
+                            <Settings className={cn("w-5 h-5 sm:w-6 sm:h-6", currentRole.greetingText)} />
+                            <p className={cn("text-xs sm:text-sm font-semibold", currentRole.greetingText)}>Auto-Upgrade</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <span className={cn(
+                                "text-xs font-black px-2 py-0.5 rounded-md uppercase tracking-wider",
+                                autoUpgrade ? "bg-emerald-500 text-white" : "bg-white/10 text-white"
+                            )}>
+                                {autoUpgrade ? "ON" : "OFF"}
+                            </span>
+                            <Button 
+                                size="sm" 
+                                onClick={() => {
+                                    setAutoUpgrade(prev => !prev)
+                                    toast.success(autoUpgrade ? "Auto-upgrade disabled" : "Auto-upgrade enabled")
+                                }}
+                                className="h-7 px-3 text-[10px] sm:text-xs bg-white hover:bg-white/95 text-purple-950 font-bold border-0 shadow-md"
+                            >
+                                {autoUpgrade ? "Disable" : "Enable"}
+                            </Button>
+                        </div>
+                    </div>
+                )}
+
+                <div className={cn("rounded-xl p-3 sm:p-4 flex items-center justify-between gap-2", currentRole.greetingRow)}>
                     <div className="flex items-center gap-3 min-w-0">
                         {dbUser.role === 'customer' ? (
-                            <Wallet className="w-5 h-5 sm:w-6 sm:h-6 text-muted-foreground shrink-0" />
+                            <Wallet className={cn("w-5 h-5 sm:w-6 sm:h-6 shrink-0", currentRole.greetingText)} />
                         ) : (
-                            <Star className="w-5 h-5 sm:w-6 sm:h-6 text-muted-foreground shrink-0" />
+                            <Star className={cn("w-5 h-5 sm:w-6 sm:h-6 shrink-0", currentRole.greetingText)} />
                         )}
-                        <p className="text-xs sm:text-sm text-muted-foreground font-semibold">
+                        <p className={cn("text-xs sm:text-sm font-semibold", currentRole.greetingText)}>
                             {dbUser.role === 'customer' ? 'Wallet Balance' : 'Member Since'}
                         </p>
                     </div>
-                    <p className="text-xs sm:text-sm md:text-lg font-black text-foreground shrink-0 text-right max-w-[50%] break-all">
+                    <p className="text-xs sm:text-sm md:text-lg font-black text-white shrink-0 text-right max-w-[50%] break-all">
                         {dbUser.role === 'customer'
                             ? formatCurrency(stats?.walletBalance || 0)
                             : getTimeSinceJoined()
