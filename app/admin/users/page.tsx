@@ -338,6 +338,7 @@ export default function AdminUsersPage() {
                                 <SelectItem value="admin">Admin</SelectItem>
                                 <SelectItem value="sub-admin">Sub-Admin</SelectItem>
                                 <SelectItem value="agent">Agent</SelectItem>
+                                <SelectItem value="dealer">Dealer</SelectItem>
                                 <SelectItem value="customer">Customer</SelectItem>
                             </SelectContent>
                         </Select>
@@ -407,7 +408,7 @@ export default function AdminUsersPage() {
                                                     {user.status === 'suspended' ? <><CheckCircle className="w-4 h-4 mr-2 text-green-500" /> Activate Account</> : <><Ban className="w-4 h-4 mr-2 text-orange-500" /> Suspend Account</>}
                                                 </DropdownMenuItem>
                                                 <DropdownMenuLabel className="text-xs text-muted-foreground pt-2">Change Role</DropdownMenuLabel>
-                                                {['customer', 'agent', 'sub-admin', 'admin'].filter(r => r !== user.role).map(role => (
+                                                {['customer', 'dealer', 'agent', 'sub-admin', 'admin'].filter(r => r !== user.role).map(role => (
                                                     <DropdownMenuItem key={role} onClick={() => handleRoleChange(user.id, role)}>
                                                         <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: roleConfig[role as UserRole].color }} />
                                                         Make {role.charAt(0).toUpperCase() + role.slice(1)}

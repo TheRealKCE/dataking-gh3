@@ -273,6 +273,32 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Initialize auth state
     useEffect(() => {
         const initAuth = async () => {
+            if (typeof window !== 'undefined') {
+                const params = new URLSearchParams(window.location.search)
+                const mockRole = params.get('mockRole')
+                if (mockRole) {
+                    const mockData = {
+                        id: 'mock-id',
+                        email: 'derrick@example.com',
+                        first_name: 'Derrick',
+                        last_name: 'Awuah',
+                        phone_number: '0240000000',
+                        role: mockRole as 'admin' | 'sub-admin' | 'agent' | 'dealer' | 'customer',
+                        status: 'active' as 'active' | 'suspended' | 'inactive',
+                        dealer_claimed_at: new Date().toISOString(),
+                        dealer_expires_at: new Date(Date.now() + 531 * 24 * 60 * 60 * 1000).toISOString(),
+                        agent_expires_at: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
+                        created_at: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString(),
+                        updated_at: new Date().toISOString()
+                    }
+                    setSession({ user: mockData } as any)
+                    setUser(mockData as any)
+                    setDbUser(mockData)
+                    setIsLoading(false)
+                    return
+                }
+            }
+
             try {
                 // Add 8 second total timeout for initialization
                 const timeout = new Promise((_, reject) =>
@@ -303,6 +329,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
             async (event, session) => {
+                if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('mockRole')) {
+                    return
+                }
                 setSession(session)
                 setUser(session?.user ?? null)
 

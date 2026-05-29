@@ -5,9 +5,10 @@ interface BrandLogoProps {
     className?: string
     collapsed?: boolean
     hideText?: boolean
+    lightText?: boolean
 }
 
-export function BrandLogo({ className, collapsed = false, hideText = false }: BrandLogoProps) {
+export function BrandLogo({ className, collapsed = false, hideText = false, lightText = false }: BrandLogoProps) {
     const showText = !collapsed && !hideText
     return (
         <div className={cn("flex items-center gap-3 group transition-all duration-300", className)}>
@@ -27,11 +28,11 @@ export function BrandLogo({ className, collapsed = false, hideText = false }: Br
             {/* Logo Text - Hidden when collapsed or explicitly hidden */}
             {showText && (
                 <div className="flex flex-col">
-                    <span className="font-heading font-black text-xl tracking-tighter text-foreground group-hover:text-primary transition-colors duration-300 leading-none">
-                        ARHMS
-                    </span>
-                    <span className="text-[9px] font-black uppercase tracking-[0.3em] text-muted-foreground/60 mt-1 ml-0.5">
-                        Data Limited
+                    <span className={cn(
+                        "font-heading font-black text-xl tracking-tighter transition-colors duration-300 leading-none",
+                        lightText ? "text-white group-hover:text-white/85" : "text-foreground group-hover:text-primary"
+                    )}>
+                        ARHMS <span className={lightText ? "text-blue-300" : "text-blue-600"}>TECHNOLOGIES</span>
                     </span>
                 </div>
             )}

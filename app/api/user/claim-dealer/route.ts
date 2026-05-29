@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
 
         const { data: dbUser, error: fetchError } = await supabase
             .from('users')
-            .select('role, dealer_claimed_at')
+            .select('role, dealer_claimed_at, created_at')
             .eq('id', authUser.id)
             .single()
 
@@ -35,6 +35,13 @@ export async function POST(request: NextRequest) {
 
         if ((dbUser as any).dealer_claimed_at) {
             return NextResponse.json({ error: 'Dealership has already been claimed' }, { status: 400 })
+        }
+
+        // Free trial is only for users who registered on or after the feature launch date
+        const DEALER_FEATURE_LAUNCH = new Date('2026-05-29T00:00:00Z')
+        const userCreatedAt = new Date((dbUser as any).created_at)
+        if (userCreatedAt < DEALER_FEATURE_LAUNCH) {
+            return NextResponse.json({ error: 'Free dealer trial is only available to new users' }, { status: 403 })
         }
 
         const now = new Date()

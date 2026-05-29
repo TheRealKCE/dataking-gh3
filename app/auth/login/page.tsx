@@ -84,7 +84,7 @@ export default function LoginPage() {
                             </div>
                         </div>
                         <h1 className="text-3xl font-black text-foreground tracking-tighter uppercase">
-                            ARHMS <span className="text-amber-500">TECHNOLOGIES</span>
+                            ARHMS <span className="text-blue-600">TECHNOLOGIES</span>
                         </h1>
                         <p className="text-sm font-bold text-muted-foreground tracking-widest uppercase mt-2 opacity-70">
                             Login to Continue

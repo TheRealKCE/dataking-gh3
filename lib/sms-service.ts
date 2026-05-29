@@ -323,6 +323,23 @@ export async function sendWelcomeSMS(
  * Send Agent upgrade success SMS
  * Updated Template: "Congratulations! Your Agent membership has been upgraded until [Remaining_days]"
  */
+export async function sendDealerUpgradeSuccessSMS(
+    phoneNumber: string,
+    firstName: string,
+    expiryDate: string
+) {
+    const date = new Date(expiryDate)
+    const day = date.getDate()
+    const month = date.toLocaleString('default', { month: 'long' })
+    const year = date.getFullYear()
+    const suffix = ["th", "st", "nd", "rd"][((day % 100) > 10 && (day % 100) < 20) ? 0 : (day % 10 < 4) ? day % 10 : 0]
+    const formattedDate = `${month} ${day}${suffix}, ${year}`
+
+    const message = `Congratulations ${firstName}! You have been upgraded to Dealer on ARHMSGh. You now enjoy exclusive Dealer prices valid until ${formattedDate}. Login to start selling!\n\nARHMSGh`
+
+    return sendSMS({ recipient: phoneNumber, message })
+}
+
 export async function sendAgentUpgradeSuccessSMS(
     phoneNumber: string,
     firstName: string,

@@ -143,16 +143,38 @@ export function DashboardSidebar() {
         if (isOnShopRoute) setShopGroupOpen(true)
     }, [isOnShopRoute])
 
-    // Calculate days remaining for agents
+    // Calculate days remaining for agents or dealers
     const calculateDaysRemaining = () => {
-        if (!dbUser?.agent_expires_at || dbUser?.role !== 'agent') return null
-        const now = new Date()
-        const expiresAt = new Date(dbUser.agent_expires_at)
-        const daysRemaining = Math.ceil((expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
-        return daysRemaining > 0 ? daysRemaining : 0
+        if (dbUser?.role === 'agent' && dbUser?.agent_expires_at) {
+            const now = new Date()
+            const expiresAt = new Date(dbUser.agent_expires_at)
+            const daysRemaining = Math.ceil((expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+            return daysRemaining > 0 ? daysRemaining : 0
+        }
+        if (dbUser?.role === 'dealer' && (dbUser as any)?.dealer_expires_at) {
+            const now = new Date()
+            const expiresAt = new Date((dbUser as any).dealer_expires_at)
+            const daysRemaining = Math.ceil((expiresAt.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+            return daysRemaining > 0 ? daysRemaining : 0
+        }
+        return null
     }
 
     const daysRemaining = calculateDaysRemaining()
+
+    // Calculate dealer subscription progress (days active / total days)
+    const dealerProgress = (() => {
+        const claimedAt = (dbUser as any)?.dealer_claimed_at
+        const expiresAt = (dbUser as any)?.dealer_expires_at
+        if (!claimedAt || !expiresAt) return null
+        const start = new Date(claimedAt).getTime()
+        const end = new Date(expiresAt).getTime()
+        const now = Date.now()
+        const totalDays = Math.max(1, Math.round((end - start) / (1000 * 60 * 60 * 24)))
+        const daysActive = Math.max(0, Math.round((now - start) / (1000 * 60 * 60 * 24)))
+        const pct = Math.min(100, Math.round((daysActive / totalDays) * 100))
+        return { daysActive, totalDays, pct }
+    })()
 
     // Fetch wallet balance + subscribe to real-time updates
     useEffect(() => {
@@ -228,7 +250,7 @@ export function DashboardSidebar() {
             <aside
                 className={cn(
                     "fixed left-0 top-0 z-50 h-full flex flex-col transition-all duration-300 ease-in-out",
-                    dbUser?.role === 'agent' ? "bg-gradient-to-b from-amber-50/90 to-yellow-100/50 dark:from-amber-950/40 dark:to-yellow-900/20 border-r border-r-amber-400/50 dark:border-r-amber-700/50 backdrop-blur-xl" : "bg-card/80 backdrop-blur-xl border-r border-border/50",
+                    currentRole.sidebarBg,
                     isCollapsed ? "w-20" : "w-[260px]",
                     "transform lg:transform-none shadow-premium",
                     isInternalSidebarOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
@@ -237,13 +259,18 @@ export function DashboardSidebar() {
                 {/* Logo Header */}
                 <div className="h-20 flex items-center justify-between px-6 border-b border-border/50">
                     <Link href="/dashboard">
-                        <BrandLogo collapsed={isCollapsed} />
+                        <BrandLogo collapsed={isCollapsed} lightText={dbUser?.role === 'dealer'} />
                     </Link>
                     <Button
                         variant="ghost"
                         size="icon"
                         onClick={toggleCollapse}
-                        className="hidden lg:flex text-muted-foreground hover:text-foreground hover:bg-secondary/10 w-8 h-8 rounded-full"
+                        className={cn(
+                            "hidden lg:flex w-8 h-8 rounded-full",
+                            dbUser?.role === 'dealer'
+                                ? "text-purple-200 hover:text-white hover:bg-white/10"
+                                : "text-muted-foreground hover:text-foreground hover:bg-secondary/10"
+                        )}
                     >
                         {isCollapsed ? <ChevronRight className="w-4 h-4" /> : <ChevronLeft className="w-4 h-4" />}
                     </Button>
@@ -251,58 +278,141 @@ export function DashboardSidebar() {
 
                 {/* Profile Widget - Refined & Professional */}
                 {!isCollapsed && dbUser && (
-                    <div className="mx-4 mt-6 p-5 rounded-2xl bg-secondary/5 border border-border/50 shadow-sm">
-                        <div className="flex items-center gap-4 mb-4">
-                            <div className={cn(
-                                "relative w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg ring-1 ring-white/10 overflow-hidden bg-gradient-to-br",
-                                currentRole.gradient
-                            )}>
-                                <RoleIcon className="w-6 h-6 text-white" />
-                                <div className="absolute inset-0 bg-gradient-to-tr from-black/20 to-transparent pointer-events-none" />
-                            </div>
-                            <div className="flex-1 min-w-0">
-                                <p className="text-sm font-bold text-foreground truncate">
-                                    {dbUser?.first_name} {dbUser?.last_name}
-                                </p>
-                                <div className="flex items-center gap-1.5 mt-0.5">
-                                    <span
-                                        className={cn(
-                                            "text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest",
-                                            currentRole.badgeClass
+                    dbUser.role === 'dealer' ? (
+                        /* Specialized Dealer Profile Widget matching the uploaded image */
+                        <div className="mx-4 mt-6 p-4 rounded-2xl bg-black/15 border border-white/10 shadow-lg text-white">
+                            {/* Avatar + Name + Badges */}
+                            <div className="flex items-center gap-3 mb-4">
+                                <div className="relative w-12 h-12 rounded-full border-2 border-white/20 flex items-center justify-center bg-white/10 shrink-0">
+                                    <Crown className="w-6 h-6 text-white" />
+                                    <span className="absolute bottom-0 right-0 w-3 h-3 bg-emerald-500 border border-purple-950 rounded-full" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-1.5 justify-between">
+                                        <p className="text-sm font-black text-white truncate leading-none">
+                                            {dbUser.first_name} {dbUser.last_name}
+                                        </p>
+                                        {daysRemaining !== null && (
+                                            <span className="text-[10px] font-black bg-white/15 px-2 py-0.5 rounded text-white shrink-0">
+                                                {daysRemaining}d
+                                            </span>
                                         )}
-                                    >
-                                        {currentRole.label}
+                                    </div>
+                                    <span className="inline-block text-[10px] font-bold bg-white/10 border border-white/20 text-white px-2 py-0.5 rounded-full mt-1.5 uppercase tracking-wider">
+                                        Dealer
                                     </span>
                                 </div>
                             </div>
-                        </div>
 
-                        {/* Wallet Balance - Clean Look */}
-                        <div className="p-3 rounded-xl bg-background/50 border border-border/50 flex items-center justify-between">
-                            <div>
-                                <p className="text-[9px] uppercase tracking-widest text-muted-foreground font-bold mb-0.5">Balance</p>
-                                <p className="text-lg font-black text-foreground tracking-tight">{formatCurrency(walletBalance)}</p>
+                            {/* Dealer Subscription Card */}
+                            <div className="p-3 rounded-xl bg-black/20 border border-white/5 mb-3">
+                                <p className="text-[9px] uppercase tracking-widest text-purple-200/70 font-bold mb-1">Dealer Subscription</p>
+                                <p className="text-xs font-black text-white tracking-tight mb-2">
+                                    {daysRemaining !== null ? `${daysRemaining} days remaining` : 'No active subscription'}
+                                </p>
+                                {dealerProgress && (
+                                    <>
+                                        <div className="w-full h-1.5 rounded-full bg-white/10 overflow-hidden mb-1.5">
+                                            <div
+                                                className="h-full rounded-full bg-gradient-to-r from-violet-400 to-purple-300 transition-all"
+                                                style={{ width: `${dealerProgress.pct}%` }}
+                                            />
+                                        </div>
+                                        <div className="flex justify-between text-[9px] text-purple-200/60 font-bold">
+                                            <span>Day {dealerProgress.daysActive}</span>
+                                            <span>{dealerProgress.totalDays} days total</span>
+                                        </div>
+                                    </>
+                                )}
                             </div>
-                            {isPageAccessible('/dashboard/wallet') && (
-                                <Link href="/dashboard/wallet">
-                                    <Button size="icon" className="w-8 h-8 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20">
-                                        <Plus className="w-4 h-4" />
-                                    </Button>
-                                </Link>
+
+                            {/* Renew Dealer Access Button */}
+                            <Link href="/dashboard/upgrade" className="block mb-4">
+                                <Button className="w-full h-9 rounded-xl bg-white hover:bg-white/95 text-purple-900 font-bold text-xs flex items-center justify-center gap-1.5 shadow-md border-0">
+                                    <Crown className="w-3.5 h-3.5 stroke-[2.5]" />
+                                    Renew Dealer Access
+                                </Button>
+                            </Link>
+
+                            {/* Balance Card */}
+                            <div className="p-3 rounded-xl bg-black/20 border border-white/5 flex items-center justify-between">
+                                <div>
+                                    <p className="text-[9px] uppercase tracking-widest text-purple-200/70 font-bold mb-0.5">Balance</p>
+                                    <p className="text-base font-black text-white tracking-tight leading-none mt-1">
+                                        {formatCurrency(walletBalance)}
+                                    </p>
+                                </div>
+                                {isPageAccessible('/dashboard/wallet') && (
+                                    <Link href="/dashboard/wallet">
+                                        <Button size="sm" className="h-7 px-3 rounded-lg bg-white/15 hover:bg-white/25 text-white font-bold text-[11px] flex items-center gap-1 border border-white/10">
+                                            <Plus className="w-3 h-3 stroke-[2.5]" />
+                                            Top Up
+                                        </Button>
+                                    </Link>
+                                )}
+                            </div>
+                        </div>
+                    ) : (
+                        /* Standard Profile Widget styled with roleConfig */
+                        <div className={cn("mx-4 mt-6 p-5 rounded-2xl border shadow-sm", 
+                            dbUser.role === 'agent' 
+                                ? "bg-blue-500/5 border-blue-200/50 dark:bg-blue-950/10 dark:border-blue-900/40 text-slate-800 dark:text-slate-100" 
+                                : dbUser.role === 'customer' 
+                                    ? "bg-amber-500/5 border-amber-200/50 dark:bg-amber-950/10 dark:border-amber-900/40 text-slate-800 dark:text-slate-100" 
+                                    : "bg-secondary/5 border-border/50 text-foreground"
+                        )}>
+                            <div className="flex items-center gap-4 mb-4">
+                                <div className={cn(
+                                    "relative w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg ring-1 ring-white/10 overflow-hidden bg-gradient-to-br",
+                                    currentRole.gradient
+                                )}>
+                                    <RoleIcon className="w-6 h-6 text-white" />
+                                    <div className="absolute inset-0 bg-gradient-to-tr from-black/20 to-transparent pointer-events-none" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-bold text-current truncate">
+                                        {dbUser?.first_name} {dbUser?.last_name}
+                                    </p>
+                                    <div className="flex items-center gap-1.5 mt-0.5">
+                                        <span
+                                            className={cn(
+                                                "text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest",
+                                                currentRole.badgeClass
+                                            )}
+                                        >
+                                            {currentRole.label}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            {/* Wallet Balance - Clean Look */}
+                            <div className="p-3 rounded-xl bg-background/50 border border-border/50 flex items-center justify-between">
+                                <div>
+                                    <p className="text-[9px] uppercase tracking-widest text-muted-foreground font-bold mb-0.5">Balance</p>
+                                    <p className="text-lg font-black text-current tracking-tight">{formatCurrency(walletBalance)}</p>
+                                </div>
+                                {isPageAccessible('/dashboard/wallet') && (
+                                    <Link href="/dashboard/wallet">
+                                        <Button size="icon" className="w-8 h-8 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20">
+                                            <Plus className="w-4 h-4" />
+                                        </Button>
+                                    </Link>
+                                )}
+                            </div>
+
+                            {/* Agent Subscription - Subtle Indicator */}
+                            {dbUser?.role === 'agent' && daysRemaining !== null && (
+                                <div className="mt-3 flex items-center justify-between text-[11px] font-medium px-1">
+                                    <span className="text-muted-foreground">Subscription</span>
+                                    <span className={cn(
+                                        "font-bold",
+                                        daysRemaining <= 3 ? "text-red-500" : "text-emerald-500"
+                                    )}>{daysRemaining}d left</span>
+                                </div>
                             )}
                         </div>
-
-                        {/* Agent Subscription - Subtle Indicator */}
-                        {dbUser?.role === 'agent' && daysRemaining !== null && (
-                            <div className="mt-3 flex items-center justify-between text-[11px] font-medium px-1">
-                                <span className="text-muted-foreground">Subscription</span>
-                                <span className={cn(
-                                    "font-bold",
-                                    daysRemaining <= 3 ? "text-red-500" : "text-emerald-500"
-                                )}>{daysRemaining}d left</span>
-                            </div>
-                        )}
-                    </div>
+                    )
                 )}
 
                 {/* Navigation */}
@@ -321,7 +431,7 @@ export function DashboardSidebar() {
                             }}>
                                 <div className={cn(
                                     "nav-link",
-                                    isActive && "nav-link-active shadow-sm shadow-primary/5",
+                                    isActive ? currentRole.sidebarNavActive : currentRole.sidebarNavHover,
                                     isCollapsed && "justify-center px-0"
                                 )}>
                                     <item.icon className="w-5 h-5 flex-shrink-0" />
@@ -335,7 +445,10 @@ export function DashboardSidebar() {
                     {isPageAccessible('/dashboard/shop') && (
                         <>
                             {!isCollapsed && (
-                                <p className="text-[10px] font-black text-muted-foreground/50 uppercase tracking-[0.2em] mt-8 mb-4 px-3">
+                                <p className={cn(
+                                    "text-[10px] font-black uppercase tracking-[0.2em] mt-8 mb-4 px-3",
+                                    dbUser?.role === 'dealer' ? "text-purple-200/50" : "text-muted-foreground/50"
+                                )}>
                                     My Shop
                                 </p>
                             )}
@@ -346,7 +459,7 @@ export function DashboardSidebar() {
                                 }}>
                                     <div className={cn(
                                         "nav-link justify-center px-0",
-                                        isOnShopRoute && "nav-link-active shadow-sm shadow-primary/5"
+                                        isOnShopRoute ? currentRole.sidebarNavActive : currentRole.sidebarNavHover
                                     )}>
                                         <Store className="w-5 h-5 flex-shrink-0" />
                                     </div>
@@ -357,7 +470,7 @@ export function DashboardSidebar() {
                                         onClick={() => setShopGroupOpen(prev => !prev)}
                                         className={cn(
                                             "nav-link w-full",
-                                            isOnShopRoute && "nav-link-active shadow-sm shadow-primary/5"
+                                            isOnShopRoute ? currentRole.sidebarNavActive : currentRole.sidebarNavHover
                                         )}
                                     >
                                         <Store className="w-5 h-5 flex-shrink-0" />
@@ -369,7 +482,10 @@ export function DashboardSidebar() {
                                     </button>
 
                                     {shopGroupOpen && (
-                                        <div className="ml-4 pl-4 border-l border-border/30 space-y-0.5 mt-0.5">
+                                        <div className={cn(
+                                            "ml-4 pl-4 border-l space-y-0.5 mt-0.5",
+                                            dbUser?.role === 'dealer' ? "border-white/10" : "border-border/30"
+                                        )}>
                                             {shopNavItems.map((item) => {
                                                 const isActive = isLinkActive(item.href)
                                                 return (
@@ -378,7 +494,7 @@ export function DashboardSidebar() {
                                                     }}>
                                                         <div className={cn(
                                                             "nav-link",
-                                                            isActive && "nav-link-active shadow-sm shadow-primary/5"
+                                                            isActive ? currentRole.sidebarNavActive : currentRole.sidebarNavHover
                                                         )}>
                                                             <item.icon className="w-4 h-4 flex-shrink-0" />
                                                             <span className="text-sm font-semibold tracking-tight">{item.label}</span>
@@ -400,7 +516,12 @@ export function DashboardSidebar() {
                             target="_blank"
                             rel="noopener noreferrer"
                             onClick={() => { if (window.innerWidth < 1024) closeSidebar() }}
-                            className="nav-link text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 mt-1 block"
+                            className={cn(
+                                "nav-link mt-1 block",
+                                dbUser?.role === 'dealer'
+                                    ? "text-emerald-300 hover:bg-emerald-500/10"
+                                    : "text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10"
+                            )}
                         >
                             <Users className="w-5 h-5 flex-shrink-0" />
                             <span className="text-sm font-semibold tracking-tight">Join Community</span>
@@ -414,7 +535,12 @@ export function DashboardSidebar() {
                             title="Join Community"
                             aria-label="Join Community"
                             onClick={() => { if (window.innerWidth < 1024) closeSidebar() }}
-                            className="nav-link justify-center px-0 text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10 block"
+                            className={cn(
+                                "nav-link justify-center px-0 mt-1 block",
+                                dbUser?.role === 'dealer'
+                                    ? "text-emerald-300 hover:bg-emerald-500/10"
+                                    : "text-emerald-600 dark:text-emerald-400 hover:bg-emerald-500/10"
+                            )}
                         >
                             <Users className="w-5 h-5 flex-shrink-0" />
                         </a>
@@ -423,7 +549,10 @@ export function DashboardSidebar() {
                     {(isAdmin || isSubAdmin) && (
                         <>
                             {!isCollapsed && (
-                                <p className="text-[10px] font-black text-muted-foreground/50 uppercase tracking-[0.2em] mt-8 mb-4 px-3">
+                                <p className={cn(
+                                    "text-[10px] font-black uppercase tracking-[0.2em] mt-8 mb-4 px-3",
+                                    dbUser?.role === 'dealer' ? "text-purple-200/50" : "text-muted-foreground/50"
+                                )}>
                                     Administration
                                 </p>
                             )}
@@ -439,7 +568,7 @@ export function DashboardSidebar() {
                                     }}>
                                         <div className={cn(
                                             "nav-link",
-                                            isActive && "text-red-500 bg-red-500/10 font-bold",
+                                            isActive ? "text-red-500 bg-red-500/10 font-bold" : currentRole.sidebarNavHover,
                                             isCollapsed && "justify-center px-0"
                                         )}>
                                             <item.icon className="w-5 h-5 flex-shrink-0" />

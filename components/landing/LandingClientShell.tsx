@@ -47,6 +47,10 @@ const DEFAULT_PLAN_PRICES: Record<TierId, number> = {
     permanent: 149.99,
 }
 
+const BRAND_BLUE = '#2563eb'
+const BRAND_PURPLE = '#7c3aed'
+const BRAND_GRADIENT = 'linear-gradient(90deg, #7c3aed 0%, #2563eb 52%, #0ea5e9 100%)'
+
 const planCards: Array<{ id: TierId; name: string; duration: string; badge: string; highlight?: boolean }> = [
     { id: '3d', name: '3 Days', duration: '3 Days Access', badge: 'STARTER' },
     { id: '14d', name: '2 weeks', duration: '14 Days Access', badge: 'MOST POPULAR', highlight: true },
@@ -78,7 +82,7 @@ const faqItems = [
 // ── Dot indicators ───────────────────────────────────────────────────────────────
 function SlideDots({ current, total, onDotClick, dark }: { current: number; total: number; onDotClick: (i: number) => void; dark?: boolean }) {
     return (
-        <div className="flex items-center justify-between mt-6 pt-5" style={{ borderTop: dark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(0,0,0,0.07)' }}>
+        <div className="flex items-center justify-between mt-6 pt-5" style={{ borderTop: dark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(37,99,235,0.10)' }}>
             <div className="flex items-center gap-1.5">
                 {Array.from({ length: total }).map((_, i) => (
                     <button
@@ -90,7 +94,7 @@ function SlideDots({ current, total, onDotClick, dark }: { current: number; tota
                             width: i === current ? 28 : 8,
                             borderRadius: 99,
                             transition: 'all 0.3s ease',
-                            backgroundColor: i === current ? '#f59e0b' : dark ? 'rgba(255,255,255,0.18)' : 'rgba(0,0,0,0.12)',
+                            backgroundColor: i === current ? BRAND_BLUE : dark ? 'rgba(255,255,255,0.18)' : 'rgba(37,99,235,0.16)',
                         }}
                         aria-label={`Slide ${i + 1}`}
                     />
@@ -99,7 +103,7 @@ function SlideDots({ current, total, onDotClick, dark }: { current: number; tota
             <Link
                 href="/shop/status"
                 className="flex items-center gap-1.5 text-[10px] font-bold transition-colors active:opacity-70"
-                style={{ color: dark ? 'rgba(255,255,255,0.3)' : 'rgba(0,0,0,0.3)' }}
+                style={{ color: dark ? 'rgba(255,255,255,0.3)' : 'rgba(37,99,235,0.32)' }}
             >
                 <CheckCircle2 className="w-3 h-3" /> Track an Order
             </Link>
@@ -117,9 +121,9 @@ function HeroBtn({ href, variant = 'primary', isDark = true, children, className
         border: 'none', outline: 'none',
     }
     const styles: Record<string, React.CSSProperties> = {
-        primary: { ...base, backgroundColor: '#f59e0b', color: '#000', boxShadow: '0 4px 20px rgba(245,158,11,0.35)' },
-        white:   { ...base, backgroundColor: isDark ? '#fff' : 'transparent', color: '#111', border: isDark ? '1.5px solid rgba(0,0,0,0.12)' : '1.5px solid rgba(0,0,0,0.2)' },
-        dark:    { ...base, backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.06)', color: isDark ? '#fff' : '#111', border: isDark ? '1.5px solid rgba(255,255,255,0.12)' : '1.5px solid rgba(0,0,0,0.15)' },
+        primary: { ...base, backgroundImage: BRAND_GRADIENT, color: '#fff', boxShadow: '0 12px 30px rgba(37,99,235,0.28)' },
+        white:   { ...base, backgroundColor: isDark ? '#fff' : 'transparent', color: '#111', border: isDark ? '1.5px solid rgba(37,99,235,0.16)' : '1.5px solid rgba(37,99,235,0.22)' },
+        dark:    { ...base, backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(37,99,235,0.06)', color: isDark ? '#fff' : '#111', border: isDark ? '1.5px solid rgba(255,255,255,0.12)' : '1.5px solid rgba(37,99,235,0.14)' },
     }
     return (
         <Link href={href} style={styles[variant]} className={cn('active:scale-95 sm:h-[42px] sm:w-auto sm:px-6', className)}>
@@ -216,7 +220,7 @@ export function LandingClientShell({
                             </div>
                         </div>
                         <span className="font-black text-base sm:text-lg tracking-tight" style={{ color: isDark ? '#ffffff' : '#111111' }}>
-                            ARHMS <span style={{ color: '#f59e0b' }}>TECHNOLOGIES</span>
+                            ARHMS <span style={{ color: BRAND_BLUE }}>TECHNOLOGIES</span>
                         </span>
                     </a>
 
@@ -229,7 +233,7 @@ export function LandingClientShell({
                     <div className="flex items-center gap-2 sm:gap-3">
                         <div className="hidden sm:block"><ThemeToggle /></div>
                         {isLoggedIn ? (
-                            <Link href="/dashboard" className="text-sm font-black text-black h-9 px-5 rounded-full flex items-center active:scale-95 transition-transform" style={{ backgroundColor: '#f59e0b' }}>
+                            <Link href="/dashboard" className="text-sm font-black text-white h-9 px-5 rounded-full flex items-center active:scale-95 transition-transform" style={{ backgroundImage: BRAND_GRADIENT }}>
                                 Go to Dashboard
                             </Link>
                         ) : (
@@ -240,7 +244,7 @@ export function LandingClientShell({
                                 <Link href="/auth/login" className="text-sm font-bold px-3 h-9 flex items-center transition-colors" style={{ color: isDark ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.7)' }}>
                                     Login
                                 </Link>
-                                <Link href="/auth/signup" className="text-sm font-black text-black h-9 px-5 rounded-full flex items-center active:scale-95 transition-transform" style={{ backgroundColor: '#f59e0b' }}>
+                                <Link href="/auth/signup" className="text-sm font-black text-white h-9 px-5 rounded-full flex items-center active:scale-95 transition-transform" style={{ backgroundImage: BRAND_GRADIENT }}>
                                     Get Started
                                 </Link>
                             </>
@@ -263,9 +267,9 @@ export function LandingClientShell({
                 {/* Background ambience — light mode only */}
                 {!isDark && (
                     <div className="pointer-events-none absolute inset-0 overflow-hidden">
-                        <div className="absolute -top-20 left-1/2 -translate-x-1/2 w-[600px] h-[400px] rounded-full" style={{ background: 'radial-gradient(ellipse, rgba(245,158,11,0.08) 0%, transparent 70%)', filter: 'blur(40px)' }} />
+                        <div className="absolute -top-20 left-1/2 -translate-x-1/2 w-[600px] h-[400px] rounded-full" style={{ background: 'radial-gradient(ellipse, rgba(37,99,235,0.08) 0%, transparent 70%)', filter: 'blur(40px)' }} />
                         <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[500px] h-[500px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(99,102,241,0.05) 0%, transparent 65%)', filter: 'blur(50px)' }} />
-                        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[560px] h-[200px] rounded-full" style={{ background: 'radial-gradient(ellipse, rgba(245,158,11,0.06) 0%, transparent 70%)', filter: 'blur(30px)' }} />
+                        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[560px] h-[200px] rounded-full" style={{ background: 'radial-gradient(ellipse, rgba(37,99,235,0.06) 0%, transparent 70%)', filter: 'blur(30px)' }} />
                     </div>
                 )}
 
@@ -274,7 +278,7 @@ export function LandingClientShell({
                     <div className="pointer-events-none absolute inset-0 overflow-hidden">
                         <div className="absolute -top-24 -right-24 w-[700px] h-[700px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(79,70,229,0.5) 0%, transparent 62%)', filter: 'blur(44px)' }} />
                         <div className="absolute top-1/4 -left-48 w-[560px] h-[560px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(37,99,235,0.3) 0%, transparent 68%)', filter: 'blur(32px)' }} />
-                        <div className="absolute bottom-0 right-1/3 w-[500px] h-[500px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(245,158,11,0.16) 0%, transparent 65%)', filter: 'blur(52px)' }} />
+                        <div className="absolute bottom-0 right-1/3 w-[500px] h-[500px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(37,99,235,0.16) 0%, transparent 65%)', filter: 'blur(52px)' }} />
                         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[500px] rounded-full" style={{ background: 'radial-gradient(ellipse, rgba(124,58,237,0.22) 0%, transparent 58%)', filter: 'blur(60px)' }} />
                     </div>
                 )}
@@ -291,7 +295,7 @@ export function LandingClientShell({
                     {/* Brand name */}
                     <div className="text-center -mt-1">
                         <p className="font-black text-2xl sm:text-3xl tracking-tight" style={{ color: isDark ? '#ffffff' : '#111111' }}>
-                            ARHMS <span style={{ color: '#f59e0b' }}>TECHNOLOGIES</span>
+                            ARHMS <span style={{ color: BRAND_BLUE }}>TECHNOLOGIES</span>
                         </p>
                         <p className="text-[10px] font-bold uppercase tracking-[0.28em] mt-1" style={{ color: isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)' }}>
                             Smart Solutions. Endless Possibilities.
@@ -299,8 +303,8 @@ export function LandingClientShell({
                     </div>
 
                     {/* Badge */}
-                    <div className="flex items-center gap-2 px-4 py-2 rounded-full border" style={{ backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(0,0,0,0.04)', borderColor: 'rgba(245,158,11,0.35)' }}>
-                        <Zap className="w-3.5 h-3.5" style={{ color: '#f59e0b', fill: '#f59e0b' }} />
+                    <div className="flex items-center gap-2 px-4 py-2 rounded-full border" style={{ backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(37,99,235,0.05)', borderColor: 'rgba(37,99,235,0.28)' }}>
+                        <Zap className="w-3.5 h-3.5" style={{ color: BRAND_BLUE, fill: BRAND_BLUE }} />
                         <span className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/80">Ultra Fast Instant Delivery</span>
                     </div>
 
@@ -312,9 +316,9 @@ export function LandingClientShell({
 
                         {/* Slide 1 — Welcome */}
                         <div className={cn(cardBase, slideState(0), 'hero-slide-1')}>
-                            <p className="text-[10px] font-black uppercase tracking-[0.35em] mb-3" style={{ color: '#f59e0b' }}>Welcome to</p>
+                            <p className="text-[10px] font-black uppercase tracking-[0.35em] mb-3" style={{ color: BRAND_BLUE }}>Welcome to</p>
                             <h1 className="font-black text-[2rem] sm:text-4xl leading-tight tracking-tight mb-3 text-[#111111] dark:text-white">
-                                ARHMS <span style={{ color: '#f59e0b' }}>TECHNOLOGIES</span>
+                                ARHMS <span style={{ color: BRAND_BLUE }}>TECHNOLOGIES</span>
                             </h1>
                             <p className="text-sm font-medium leading-relaxed mb-6 text-black/55 dark:text-white/55">
                                 Ghana&apos;s all-in-one platform for mobile data, airtime, Results Checkers, and business growth. Instant delivery, always.
@@ -338,17 +342,17 @@ export function LandingClientShell({
 
                         {/* Slide 2 — Result Checker */}
                         <div className={cn(cardBase, slideState(1), 'hero-slide-2')}>
-                            <p className="text-[10px] font-black uppercase tracking-[0.35em] mb-3" style={{ color: '#f59e0b' }}>WASSCE &amp; BECE</p>
+                            <p className="text-[10px] font-black uppercase tracking-[0.35em] mb-3" style={{ color: BRAND_BLUE }}>WASSCE &amp; BECE</p>
                             <h2 className="font-black text-[2rem] sm:text-4xl leading-tight tracking-tight mb-3 text-[#111111] dark:text-white">
-                                Check Your <span style={{ color: '#f59e0b' }}>Results</span>
+                                Check Your <span style={{ color: BRAND_BLUE }}>Results</span>
                             </h2>
                             <p className="text-sm font-medium leading-relaxed mb-5 text-black/55 dark:text-white/60">
                                 Instantly check WAEC, BECE exam results for any student. Fast, reliable, and always available.
                             </p>
                             <div className="flex flex-wrap gap-2 mb-6">
                                 {['WAEC Results', 'BECE Results', 'Instant Check', 'Any School', 'Live Updates'].map(f => (
-                                    <span key={f} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wide text-black/70 dark:text-white/85" style={{ background: 'rgba(245,158,11,0.08)', border: '1px solid rgba(245,158,11,0.25)' }}>
-                                        <CheckCircle2 className="w-3 h-3" style={{ color: '#f59e0b' }} />{f}
+                                    <span key={f} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wide text-black/70 dark:text-white/85" style={{ background: 'rgba(37,99,235,0.08)', border: '1px solid rgba(37,99,235,0.22)' }}>
+                                        <CheckCircle2 className="w-3 h-3" style={{ color: BRAND_BLUE }} />{f}
                                     </span>
                                 ))}
                             </div>
@@ -364,9 +368,9 @@ export function LandingClientShell({
                                 <div style={{ position: 'absolute', top: '40%', right: '10%', width: 100, height: 100, borderRadius: '50%', background: 'rgba(253,230,138,0.15)', filter: 'blur(30px)', pointerEvents: 'none' }} />
                             </div>
                             <div className="relative z-10">
-                                <p className="text-[10px] font-black uppercase tracking-[0.35em] mb-3 text-[#0ea5e9] dark:text-white/85">Create Your Shop</p>
+                                <p className="text-[10px] font-black uppercase tracking-[0.35em] mb-3 text-[#2563eb] dark:text-white/85">Create Your Shop</p>
                                 <h2 className="font-black text-[2rem] sm:text-4xl leading-tight tracking-tight mb-3 text-[#111111] dark:text-white">
-                                    Launch Your <span className="text-[#6366f1] dark:text-[#fde68a]">Shop</span>
+                                    Launch Your <span className="text-[#2563eb] dark:text-[#93c5fd]">Shop</span>
                                 </h2>
                                 <p className="text-sm font-medium leading-relaxed mb-5 text-black/55 dark:text-white/80">
                                     Create a branded storefront with your name, logo, pricing, and checkout link. Share it anywhere and start earning.
@@ -374,7 +378,7 @@ export function LandingClientShell({
                                 <div className="flex flex-wrap gap-2 mb-6">
                                     {['Public Shop URL','Custom Pricing','Order Tracking','WhatsApp Support','Brand Logo'].map(f => (
                                         <span key={f} className="hero-pill inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wide text-black/70 dark:text-white/95">
-                                            <CheckCircle2 className="w-3 h-3 text-[#0ea5e9] dark:text-[#fde68a]" />{f}
+                                            <CheckCircle2 className="w-3 h-3 text-[#2563eb] dark:text-[#bfdbfe]" />{f}
                                         </span>
                                     ))}
                                 </div>
@@ -385,9 +389,9 @@ export function LandingClientShell({
 
                         {/* Slide 4 — Developer API */}
                         <div className={cn(cardBase, slideState(3), 'hero-slide-4')}>
-                            <p className="text-[10px] font-black uppercase tracking-[0.35em] mb-3" style={{ color: '#a78bfa' }}>For Builders</p>
+                            <p className="text-[10px] font-black uppercase tracking-[0.35em] mb-3" style={{ color: BRAND_PURPLE }}>For Builders</p>
                             <h2 className="font-black text-[2rem] sm:text-4xl leading-tight tracking-tight mb-3 text-[#111111] dark:text-white">
-                                Powerful <span style={{ color: '#a78bfa' }}>API</span> Access
+                                Powerful <span style={{ color: BRAND_PURPLE }}>API</span> Access
                             </h2>
                             <p className="text-sm font-medium leading-relaxed mb-5 text-black/55 dark:text-white/55">
                                 Integrate ARHMS data, airtime, and result checking into your own apps. RESTful API with instant responses.
@@ -395,7 +399,7 @@ export function LandingClientShell({
                             <div className="flex flex-wrap gap-2 mb-6">
                                 {['REST API', 'Webhooks', 'Sandbox Mode', 'Live Dashboard', 'Instant Response'].map(f => (
                                     <span key={f} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-[10px] font-bold uppercase tracking-wide text-black/70 dark:text-white/85" style={{ background: 'rgba(167,139,250,0.08)', border: '1px solid rgba(167,139,250,0.2)' }}>
-                                        <Code2 className="w-3 h-3" style={{ color: '#a78bfa' }} />{f}
+                                        <Code2 className="w-3 h-3" style={{ color: BRAND_PURPLE }} />{f}
                                     </span>
                                 ))}
                             </div>
@@ -420,8 +424,8 @@ export function LandingClientShell({
             <section className="dark-mirror-section py-28 px-6 lg:px-10">
                 <div className="max-w-7xl mx-auto">
                     <div className="text-center mb-16 space-y-4">
-                        <h2 className="text-xs font-black uppercase tracking-[0.5em] text-[#f59e0b]">How It Works</h2>
-                        <h3 className="text-4xl md:text-6xl font-black tracking-tighter text-foreground">Start Reselling in <span className="text-[#f59e0b]">3 Simple Steps</span></h3>
+                        <h2 className="text-xs font-black uppercase tracking-[0.5em] text-[#2563eb]">How It Works</h2>
+                        <h3 className="text-4xl md:text-6xl font-black tracking-tighter text-foreground">Start Reselling in <span className="text-[#2563eb]">3 Simple Steps</span></h3>
                         <p className="max-w-3xl mx-auto text-muted-foreground font-medium">
                             ARHMS takes you from signup to first sale with wallet funding, agent upgrade options, and a ready-to-share storefront.
                         </p>
@@ -433,7 +437,7 @@ export function LandingClientShell({
                             { step: '03', title: 'Start selling', desc: 'Sell data or airtime and share your storefront link.' },
                         ].map((item) => (
                             <div key={item.step} className="card-premium p-8 relative">
-                                <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#f59e0b]">{item.step}</span>
+                                <span className="text-[10px] font-black uppercase tracking-[0.3em] text-[#2563eb]">{item.step}</span>
                                 <h4 className="text-2xl font-black mt-4 mb-3">{item.title}</h4>
                                 <p className="text-muted-foreground font-medium">{item.desc}</p>
                             </div>
@@ -450,9 +454,9 @@ export function LandingClientShell({
             <section id="features" className="landing-section py-32 px-6 lg:px-10">
                 <div className="max-w-7xl mx-auto">
                     <div className="text-center mb-20 space-y-4">
-                        <h2 className="text-xs font-black uppercase tracking-[0.5em] text-[#f59e0b]">Capabilities</h2>
+                        <h2 className="text-xs font-black uppercase tracking-[0.5em] text-[#2563eb]">Capabilities</h2>
                         <h3 className="text-4xl md:text-6xl font-black tracking-tighter text-foreground">
-                            Everything You Need to <span className="text-[#f59e0b]">Sell and Support Customers</span>
+                            Everything You Need to <span className="text-[#2563eb]">Sell and Support Customers</span>
                         </h3>
                         <p className="max-w-3xl mx-auto text-muted-foreground font-medium">
                             Keep the speed of instant delivery while adding the operational tools resellers use every day.
@@ -460,9 +464,9 @@ export function LandingClientShell({
                     </div>
                     <div className="grid md:grid-cols-2 xl:grid-cols-5 gap-6">
                         {featureCards.map((feature, i) => (
-                            <div key={`${feature.title}-${i}`} className="card-premium p-7 group hover:border-[#f59e0b]/50 transition-all duration-500">
-                                <div className="w-12 h-12 rounded-2xl bg-[#f59e0b]/10 flex items-center justify-center mb-6 group-hover:bg-[#f59e0b] transition-colors">
-                                    <feature.icon className="w-5 h-5 text-[#f59e0b] group-hover:text-black transition-colors" />
+                            <div key={`${feature.title}-${i}`} className="card-premium p-7 group hover:border-[#2563eb]/50 transition-all duration-500">
+                                <div className="w-12 h-12 rounded-2xl bg-[#2563eb]/10 flex items-center justify-center mb-6 group-hover:bg-[#2563eb] transition-colors">
+                                    <feature.icon className="w-5 h-5 text-[#2563eb] group-hover:text-white transition-colors" />
                                 </div>
                                 <h4 className="text-xl font-black text-foreground mb-3 tracking-tight">{feature.title}</h4>
                                 <p className="text-sm text-muted-foreground font-medium leading-relaxed">{feature.desc}</p>
@@ -480,32 +484,32 @@ export function LandingClientShell({
             <section id="plans" className="dark-mirror-section py-32 px-6 lg:px-10">
                 <div className="max-w-7xl mx-auto">
                     <div className="text-center mb-16 space-y-4">
-                        <h2 className="text-xs font-black uppercase tracking-[0.5em] text-[#f59e0b]">Reseller Plans</h2>
-                        <h3 className="text-4xl md:text-6xl font-black tracking-tighter text-foreground">Choose Your <span className="text-[#f59e0b]">Agent Plan</span></h3>
+                        <h2 className="text-xs font-black uppercase tracking-[0.5em] text-[#2563eb]">Reseller Plans</h2>
+                        <h3 className="text-4xl md:text-6xl font-black tracking-tighter text-foreground">Choose Your <span className="text-[#2563eb]">Agent Plan</span></h3>
                         <p className="max-w-3xl mx-auto text-muted-foreground font-medium">
                             Every plan unlocks the same reseller toolkit. Pick the access length that matches how you want to grow.
                         </p>
                     </div>
                     <div className="grid sm:grid-cols-2 xl:grid-cols-4 gap-6">
                         {planCards.map((plan) => (
-                            <Card key={plan.id} className={cn('card-premium p-8 relative overflow-hidden', plan.highlight && 'border-[#f59e0b]/50 shadow-[0_10px_40px_-10px_rgba(245,158,11,0.3)]')}>
-                                <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-[#f59e0b]/10 blur-2xl" />
+                            <Card key={plan.id} className={cn('card-premium p-8 relative overflow-hidden', plan.highlight && 'border-[#2563eb]/50 shadow-[0_10px_40px_-10px_rgba(37,99,235,0.3)]')}>
+                                <div className="absolute -top-10 -right-10 w-40 h-40 rounded-full bg-[#2563eb]/10 blur-2xl" />
                                 <div className="relative z-10 space-y-4">
-                                    <p className="inline-flex text-[10px] font-black uppercase tracking-[0.18em] px-3 py-1 rounded-full bg-[#f59e0b] text-black">{plan.badge}</p>
+                                    <p className="inline-flex text-[10px] font-black uppercase tracking-[0.18em] px-3 py-1 rounded-full bg-[#2563eb] text-white">{plan.badge}</p>
                                     <h4 className="text-3xl font-black tracking-tight">{plan.name}</h4>
                                     <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">{plan.duration}</p>
-                                    <p className="text-4xl font-black text-[#f59e0b]">GHS {planPrices[plan.id].toFixed(2)}</p>
+                                    <p className="text-4xl font-black text-[#2563eb]">GHS {planPrices[plan.id].toFixed(2)}</p>
                                     <Link href="/auth/signup"><Button className="w-full h-12 rounded-2xl font-black uppercase tracking-widest">Become an Agent</Button></Link>
                                 </div>
                             </Card>
                         ))}
                     </div>
                     <div className="mt-10 card-premium p-8">
-                        <p className="text-xs font-black uppercase tracking-[0.3em] text-[#f59e0b] mb-4">Included in all plans</p>
+                        <p className="text-xs font-black uppercase tracking-[0.3em] text-[#2563eb] mb-4">Included in all plans</p>
                         <div className="grid md:grid-cols-2 xl:grid-cols-4 gap-3 text-sm font-bold text-muted-foreground">
                             {['Exclusive Wholesale Pricing','Priority Customer Support','0% Top Up Charges (Admin Manual Top Up)','Faster Order Processing','Bulk Order Import Feature','New Exclusive UI Design Features','Shop Storefront Feature (Live)'].map((item) => (
                                 <div key={item} className="flex items-start gap-2">
-                                    <CheckCircle2 className="w-4 h-4 mt-0.5 text-[#f59e0b]" /><span>{item}</span>
+                                    <CheckCircle2 className="w-4 h-4 mt-0.5 text-[#2563eb]" /><span>{item}</span>
                                 </div>
                             ))}
                         </div>
@@ -520,7 +524,7 @@ export function LandingClientShell({
                         <div className="space-y-10">
                             <div className="space-y-6">
                                 <h2 className="text-5xl md:text-7xl font-black tracking-tighter leading-none">
-                                    Universal <br /><span className="text-[#f59e0b]">Connectivity.</span>
+                                    Universal <br /><span className="text-[#2563eb]">Connectivity.</span>
                                 </h2>
                                 <p className="text-xl text-muted-foreground font-medium max-w-lg">
                                     One platform, every network. We provide deep integration with all major Ghanaian carriers.
@@ -537,18 +541,18 @@ export function LandingClientShell({
                                             <div className={cn('w-3 h-3 rounded-full animate-pulse', net.color)} />
                                             <span className="font-bold text-lg">{net.name}</span>
                                         </div>
-                                        <span className="text-[10px] font-black uppercase tracking-widest text-[#f59e0b]">{net.status}</span>
+                                        <span className="text-[10px] font-black uppercase tracking-widest text-[#2563eb]">{net.status}</span>
                                     </div>
                                 ))}
                             </div>
                         </div>
                         <div className="relative">
-                            <div className="absolute inset-0 bg-[#f59e0b]/20 rounded-3xl blur-[100px] -z-10" />
+                            <div className="absolute inset-0 bg-[#2563eb]/20 rounded-3xl blur-[100px] -z-10" />
                             <Card className="card-premium p-10 overflow-hidden relative">
                                 <div className="absolute top-0 right-0 p-8 opacity-10"><Layers className="w-40 h-40" /></div>
                                 <div className="relative z-10 space-y-8">
                                     <div className="space-y-2">
-                                        <p className="text-[10px] font-black uppercase tracking-[0.4em] text-[#f59e0b]">System Status</p>
+                                        <p className="text-[10px] font-black uppercase tracking-[0.4em] text-[#2563eb]">System Status</p>
                                         <p className="text-4xl font-black">99.9% Uptime</p>
                                     </div>
                                     <div className="grid grid-cols-2 gap-8">
@@ -562,7 +566,7 @@ export function LandingClientShell({
                                         </div>
                                     </div>
                                     <div className="h-2 w-full dark:bg-[#2a2a2a] bg-gray-200 rounded-full overflow-hidden">
-                                        <div className="h-full w-[99%] bg-[#f59e0b]" />
+                                        <div className="h-full w-[99%] bg-[#2563eb]" />
                                     </div>
                                 </div>
                             </Card>
@@ -577,7 +581,7 @@ export function LandingClientShell({
                     <div className="grid lg:grid-cols-2 gap-12 items-center">
                         <div className="space-y-6">
                             <h2 className="text-4xl md:text-6xl font-black tracking-tighter">
-                                Your Own <span className="text-[#f59e0b]">Branded Storefront</span>
+                                Your Own <span className="text-[#2563eb]">Branded Storefront</span>
                             </h2>
                             <p className="text-lg text-muted-foreground font-medium">
                                 Create a public shop link with your name, logo, banner, colors, community link, data packages, airtime checkout, order tracking, and a dedicated about page.
@@ -585,7 +589,7 @@ export function LandingClientShell({
                             <div className="grid sm:grid-cols-2 gap-3 text-sm">
                                 {['Public shop URL','Brand colors and logo','Banner image','Data package tabs by network','Airtime recharge','About Shop & Terms page','WhatsApp support','Community invite link','Track My Orders'].map((item) => (
                                     <div key={item} className="flex items-center gap-2 font-bold text-muted-foreground">
-                                        <CheckCircle2 className="w-4 h-4 text-[#f59e0b]" /><span>{item}</span>
+                                        <CheckCircle2 className="w-4 h-4 text-[#2563eb]" /><span>{item}</span>
                                     </div>
                                 ))}
                             </div>
@@ -617,7 +621,7 @@ export function LandingClientShell({
                                     </div>
                                     <div className="rounded-xl border border-border/40 p-3 flex items-center justify-between">
                                         <span className="text-xs font-black uppercase tracking-wider text-muted-foreground">Track My Orders</span>
-                                        <ArrowRight className="w-4 h-4 text-[#f59e0b]" />
+                                        <ArrowRight className="w-4 h-4 text-[#2563eb]" />
                                     </div>
                                 </div>
                             </div>
@@ -630,8 +634,8 @@ export function LandingClientShell({
             <section className="landing-section py-32 px-6 lg:px-10">
                 <div className="max-w-7xl mx-auto">
                     <div className="text-center mb-16 space-y-4">
-                        <h2 className="text-xs font-black uppercase tracking-[0.5em] text-[#f59e0b]">Testimonials</h2>
-                        <h3 className="text-4xl md:text-6xl font-black tracking-tighter">Built for Real <span className="text-[#f59e0b]">Ghanaian Resellers</span></h3>
+                        <h2 className="text-xs font-black uppercase tracking-[0.5em] text-[#2563eb]">Testimonials</h2>
+                        <h3 className="text-4xl md:text-6xl font-black tracking-tighter">Built for Real <span className="text-[#2563eb]">Ghanaian Resellers</span></h3>
                     </div>
                     <div className="grid md:grid-cols-3 gap-6">
                         {[
@@ -640,11 +644,11 @@ export function LandingClientShell({
                             { quote: 'What I like most is the visibility: shop branding, order history, and complaints support all live in one place.', name: 'Efua N.', role: 'Small Business Owner, Takoradi' },
                         ].map((item) => (
                             <Card key={item.name} className="card-premium p-8">
-                                <MessageSquare className="w-6 h-6 text-[#f59e0b] mb-4" />
+                                <MessageSquare className="w-6 h-6 text-[#2563eb] mb-4" />
                                 <p className="text-muted-foreground font-medium leading-relaxed mb-6">&ldquo;{item.quote}&rdquo;</p>
                                 <div>
                                     <p className="font-black text-foreground">{item.name}</p>
-                                    <p className="text-xs font-black uppercase tracking-widest text-[#f59e0b]">{item.role}</p>
+                                    <p className="text-xs font-black uppercase tracking-widest text-[#2563eb]">{item.role}</p>
                                 </div>
                             </Card>
                         ))}
@@ -660,15 +664,15 @@ export function LandingClientShell({
             <section id="support" className="dark-mirror-section py-32 px-6 lg:px-10">
                 <div className="max-w-7xl mx-auto">
                     <div className="text-center mb-16 space-y-4">
-                        <h2 className="text-xs font-black uppercase tracking-[0.5em] text-[#f59e0b]">FAQ</h2>
-                        <h3 className="text-4xl md:text-6xl font-black tracking-tighter">Questions New Resellers <span className="text-[#f59e0b]">Ask First</span></h3>
+                        <h2 className="text-xs font-black uppercase tracking-[0.5em] text-[#2563eb]">FAQ</h2>
+                        <h3 className="text-4xl md:text-6xl font-black tracking-tighter">Questions New Resellers <span className="text-[#2563eb]">Ask First</span></h3>
                     </div>
                     <div className="grid lg:grid-cols-2 gap-5">
                         {faqItems.map((item) => (
-                            <details key={item.q} className="card-premium p-6 group open:border-[#f59e0b]/50">
+                            <details key={item.q} className="card-premium p-6 group open:border-[#2563eb]/50">
                                 <summary className="list-none cursor-pointer flex items-start justify-between gap-4">
                                     <span className="text-lg font-black">{item.q}</span>
-                                    <ArrowRight className="w-4 h-4 mt-1 text-[#f59e0b] transition-transform group-open:rotate-90" />
+                                    <ArrowRight className="w-4 h-4 mt-1 text-[#2563eb] transition-transform group-open:rotate-90" />
                                 </summary>
                                 <p className="mt-4 text-muted-foreground font-medium leading-relaxed">{item.a}</p>
                             </details>
@@ -685,10 +689,10 @@ export function LandingClientShell({
             <section className="landing-section py-32 px-6 lg:px-10">
                 <div className="max-w-7xl mx-auto">
                     <Card className="relative overflow-hidden rounded-[40px] border-0 bg-foreground p-12 md:p-24 text-background text-center shadow-2xl">
-                        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[#f59e0b]/20 rounded-full blur-[100px] -mr-64 -mt-64" />
+                        <div className="absolute top-0 right-0 w-[500px] h-[500px] bg-[#2563eb]/20 rounded-full blur-[100px] -mr-64 -mt-64" />
                         <div className="relative z-10 space-y-12">
                             <h2 className="text-5xl md:text-8xl font-black tracking-tighter leading-[0.9]">
-                                Ready to Upgrade <br /><span className="text-[#f59e0b]">Your Business?</span>
+                                Ready to Upgrade <br /><span className="text-[#2563eb]">Your Business?</span>
                             </h2>
                             <p className="max-w-2xl mx-auto text-xl font-medium opacity-70">
                                 Stop struggling with slow deliveries and poor rates. Step into the future of data and airtime reselling with ARHMS TECHNOLOGIES.
@@ -717,7 +721,7 @@ export function LandingClientShell({
                         <div className="md:col-span-2 space-y-8">
                             <div className="flex items-center gap-3">
                                 <BrandLogo hideText className="scale-75 origin-left" />
-                                <span className="font-black text-xl tracking-tighter">ARHMS <span style={{ color: '#f59e0b' }}>TECHNOLOGIES</span></span>
+                                <span className="font-black text-xl tracking-tighter">ARHMS <span style={{ color: BRAND_BLUE }}>TECHNOLOGIES</span></span>
                             </div>
                             <p className="text-muted-foreground font-medium max-w-sm">
                                 Smart Solutions. Endless Possibilities. Ghana&apos;s trusted data and airtime reselling platform built for speed, security, and reliability.
@@ -730,19 +734,19 @@ export function LandingClientShell({
                             </div>
                         </div>
                         <div className="space-y-6">
-                            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-[#f59e0b]">Platform</p>
+                            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-[#2563eb]">Platform</p>
                             <ul className="space-y-4 text-sm font-bold text-muted-foreground">
-                                <li><a href="#features" className="hover:text-[#f59e0b] transition-colors">Features</a></li>
-                                <li><a href="#plans" className="hover:text-[#f59e0b] transition-colors">Reseller Plans</a></li>
-                                <li><Link href="/shop/status" className="hover:text-[#f59e0b] transition-colors">Order Tracking</Link></li>
+                                <li><a href="#features" className="hover:text-[#2563eb] transition-colors">Features</a></li>
+                                <li><a href="#plans" className="hover:text-[#2563eb] transition-colors">Reseller Plans</a></li>
+                                <li><Link href="/shop/status" className="hover:text-[#2563eb] transition-colors">Order Tracking</Link></li>
                             </ul>
                         </div>
                         <div className="space-y-6">
-                            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-[#f59e0b]">Legal</p>
+                            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-[#2563eb]">Legal</p>
                             <ul className="space-y-4 text-sm font-bold text-muted-foreground">
-                                <li><Link href="/terms" className="hover:text-[#f59e0b] transition-colors">Terms of Service</Link></li>
-                                <li><Link href="/privacy" className="hover:text-[#f59e0b] transition-colors">Privacy Protocol</Link></li>
-                                <li><Link href="/contact" className="hover:text-[#f59e0b] transition-colors">Secure Contact</Link></li>
+                                <li><Link href="/terms" className="hover:text-[#2563eb] transition-colors">Terms of Service</Link></li>
+                                <li><Link href="/privacy" className="hover:text-[#2563eb] transition-colors">Privacy Protocol</Link></li>
+                                <li><Link href="/contact" className="hover:text-[#2563eb] transition-colors">Secure Contact</Link></li>
                             </ul>
                         </div>
                     </div>
