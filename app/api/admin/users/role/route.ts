@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
-import { sendAgentUpgradeSuccessSMS } from '@/lib/sms-service'
+import { sendAgentUpgradeSuccessSMS, sendDealerUpgradeSuccessSMS } from '@/lib/sms-service'
 
 export async function POST(request: NextRequest) {
     try {
@@ -121,6 +121,30 @@ export async function POST(request: NextRequest) {
                 console.log('[AdminRoleUpdate] Shop fee overrides reset')
             } catch (resetErr) {
                 console.error('[AdminRoleUpdate] Failed to reset shop fee overrides (non-fatal):', resetErr)
+            }
+        }
+
+        // Send SMS notification if user was upgraded to dealer
+        if (role === 'dealer') {
+            try {
+                const { data: userDetails } = await (supabase
+                    .from('users') as any)
+                    .select('phone_number, first_name, dealer_expires_at')
+                    .eq('id', userId)
+                    .single()
+
+                if (userDetails?.phone_number) {
+                    await sendDealerUpgradeSuccessSMS(
+                        userDetails.phone_number,
+                        userDetails.first_name || 'User',
+                        userDetails.dealer_expires_at
+                    )
+                    console.log('[AdminRoleUpdate] Dealer SMS sent')
+                } else {
+                    console.warn(`[AdminRoleUpdate] No phone number for dealer user ${userId}`)
+                }
+            } catch (smsError) {
+                console.error('[AdminRoleUpdate] Dealer SMS error:', smsError)
             }
         }
 
