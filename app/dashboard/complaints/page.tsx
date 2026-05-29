@@ -9,9 +9,6 @@ import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { MessageSquare, Clock, CheckCircle2, XCircle, AlertCircle } from 'lucide-react'
 import { Complaint } from '@/types/supabase'
-import { useTutorial } from '@/hooks/useTutorial'
-import { HelpButton } from '@/components/tutorial/HelpButton'
-
 interface ComplaintWithOrder extends Complaint {
     orders?: {
         reference_code: string
@@ -25,10 +22,6 @@ interface ComplaintWithOrder extends Complaint {
 
 export default function ComplaintsPage() {
     const { dbUser } = useAuth()
-
-    // Tutorial hook
-    const userRole = dbUser?.role === 'agent' ? 'agent' : 'customer'
-    const { startTutorial } = useTutorial(userRole as 'customer' | 'agent', '/complaints')
 
     const [complaints, setComplaints] = useState<ComplaintWithOrder[]>([])
     const [isLoading, setIsLoading] = useState(true)
@@ -160,7 +153,6 @@ export default function ComplaintsPage() {
         <div className="space-y-6">
             <div className="flex items-center justify-between">
                 <h1 className="text-2xl font-bold">Complaints Management</h1>
-                <HelpButton onClick={startTutorial} />
             </div>
 
             {/* Stats */}

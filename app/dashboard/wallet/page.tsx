@@ -34,8 +34,6 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { WalletTransaction } from '@/types/supabase'
-import { useTutorial } from '@/hooks/useTutorial'
-import { HelpButton } from '@/components/tutorial/HelpButton'
 import {
     Dialog,
     DialogContent,
@@ -67,10 +65,6 @@ function WalletContent() {
     const [paymentReference, setPaymentReference] = useState<string | null>(null)
     const [webPaymentProvider, setWebPaymentProvider] = useState<'moolre' | 'paystack'>('moolre')
     const searchParams = useSearchParams()
-
-    // Tutorial hook
-    const userRole = dbUser?.role === 'agent' ? 'agent' : 'customer'
-    const { startTutorial } = useTutorial(userRole as 'customer' | 'agent', '/wallet')
 
     useEffect(() => {
         if (dbUser) {
@@ -317,7 +311,6 @@ function WalletContent() {
                     <h1 className="text-2xl font-bold">Load Wallet</h1>
                     <p className="text-muted-foreground">Top up your wallet to continue shopping</p>
                 </div>
-                <HelpButton onClick={startTutorial} />
             </div>
 
             {/* Balance Card at top for Agents */}

@@ -35,15 +35,8 @@ import {
 import { toast } from 'sonner'
 import { formatDate, cn } from '@/lib/utils'
 import { roleConfig, UserRole } from '@/lib/roles'
-import { useTutorial } from '@/hooks/useTutorial'
-import { HelpButton } from '@/components/tutorial/HelpButton'
-
 export default function ProfilePage() {
     const { dbUser, signOut, refreshUser } = useAuth()
-
-    // Tutorial hook
-    const userRole = dbUser?.role === 'agent' ? 'agent' : 'customer'
-    const { startTutorial } = useTutorial(userRole as 'customer' | 'agent', '/profile')
 
     const [isEditing, setIsEditing] = useState(false)
     const [isSaving, setIsSaving] = useState(false)
@@ -248,7 +241,6 @@ export default function ProfilePage() {
         <div className="space-y-6 max-w-3xl scroll-smooth">
             <div className="flex items-center justify-between">
                 <h1 className="text-2xl font-bold">My Profile</h1>
-                <HelpButton onClick={startTutorial} />
             </div>
 
             {/* Profile Card */}

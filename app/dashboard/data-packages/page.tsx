@@ -48,9 +48,6 @@ import { toast } from 'sonner'
 import { DataPackage } from '@/types/supabase'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Trash2, Upload } from 'lucide-react'
-import { useTutorial } from '@/hooks/useTutorial'
-import { HelpButton } from '@/components/tutorial/HelpButton'
-
 interface ValidationResult {
     lineNumber: number
     phoneNumber: string
@@ -68,10 +65,6 @@ const NETWORKS = ['MTN', 'Telecel', 'AT-iShare', 'AT-BigTime'] as const
 export default function DataPackagesPage() {
     const { dbUser, session } = useAuth()
     const router = useRouter()
-
-    // Tutorial hook
-    const userRole = dbUser?.role === 'agent' ? 'agent' : 'customer'
-    const { startTutorial } = useTutorial(userRole as 'customer' | 'agent', '/data-packages')
 
     const [packages, setPackages] = useState<DataPackage[]>([])
     const [filteredPackages, setFilteredPackages] = useState<DataPackage[]>([])
@@ -572,7 +565,6 @@ export default function DataPackagesPage() {
                 <div className="flex-1 text-center">
                     <h1 className="text-2xl font-bold">Data Packages</h1>
                 </div>
-                <HelpButton onClick={startTutorial} />
             </div>
 
             <div className="flex flex-col items-center gap-4 text-center">
