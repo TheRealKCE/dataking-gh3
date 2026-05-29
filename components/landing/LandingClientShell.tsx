@@ -213,14 +213,14 @@ export function LandingClientShell({
                 headerScrolled ? (isDark ? 'border-white/10' : 'border-black/10') : ''
             )} style={{ backgroundColor: headerScrolled ? (isDark ? 'rgba(2,6,23,0.97)' : 'rgba(255,255,255,0.97)') : 'transparent' }}>
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 w-full flex items-center justify-between">
-                    <a href="#" className="flex items-center gap-2.5">
-                        <div className="w-9 h-9 rounded-xl overflow-hidden bg-white flex items-center justify-center shadow-md flex-shrink-0">
-                            <div className="relative w-8 h-8">
+                    <a href="#" className="flex items-center gap-2 min-w-0">
+                        <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl overflow-hidden bg-white flex items-center justify-center shadow-md flex-shrink-0">
+                            <div className="relative w-7 h-7 sm:w-8 sm:h-8">
                                 <Image src="/arhms-logo.png" alt="ARHMS Logo" fill className="object-contain" priority />
                             </div>
                         </div>
-                        <span className="font-black text-base sm:text-lg tracking-tight" style={{ color: isDark ? '#ffffff' : '#111111' }}>
-                            ARHMS <span style={{ color: BRAND_BLUE }}>TECHNOLOGIES</span>
+                        <span className="font-black text-sm sm:text-base lg:text-lg tracking-tight truncate" style={{ color: isDark ? '#ffffff' : '#111111' }}>
+                            ARHMS <span className="hidden sm:inline" style={{ color: BRAND_BLUE }}>TECHNOLOGIES</span>
                         </span>
                     </a>
 
@@ -230,11 +230,11 @@ export function LandingClientShell({
                         ))}
                     </div>
 
-                    <div className="flex items-center gap-2 sm:gap-3">
+                    <div className="flex items-center gap-1.5 sm:gap-3 flex-shrink-0">
                         <div className="hidden sm:block"><ThemeToggle /></div>
                         {isLoggedIn ? (
-                            <Link href="/dashboard" className="text-sm font-black text-white h-9 px-5 rounded-full flex items-center active:scale-95 transition-transform" style={{ backgroundImage: BRAND_GRADIENT }}>
-                                Go to Dashboard
+                            <Link href="/dashboard" className="text-sm font-black text-white h-9 px-4 sm:px-5 rounded-full flex items-center active:scale-95 transition-transform whitespace-nowrap" style={{ backgroundImage: BRAND_GRADIENT }}>
+                                <span className="hidden sm:inline">Go to </span>Dashboard
                             </Link>
                         ) : (
                             <>
