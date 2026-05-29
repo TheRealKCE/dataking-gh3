@@ -14,7 +14,7 @@ import { Plus, Upload, RefreshCw, Loader2, Pencil, AlertTriangle, Eye, Wrench, P
 import { toast } from 'sonner'
 import { formatCurrency, formatDate } from '@/lib/utils'
 
-interface RCType { id: string; name: string; customer_price: number; agent_price: number; cost_price: number; is_active: boolean; display_order: number; created_at: string; stock?: { available: number; reserved: number; sold: number } }
+interface RCType { id: string; name: string; customer_price: number; agent_price: number; dealer_price: number; cost_price: number; is_active: boolean; display_order: number; created_at: string; stock?: { available: number; reserved: number; sold: number } }
 interface RCOrder { id: string; reference_code: string; customer_name: string; customer_email: string; customer_phone: string; type_name: string; quantity: number; unit_price: number; total_paid: number; status: string; payment_status: string; created_at: string; fulfilled_at: string | null }
 interface Stats { revenue: number; cost: number; profit: number; totalOrders: number; completedOrders: number; pendingOrders: number; stockSummary: Array<{ id: string; name: string; available: number; sold: number; lowStock: boolean; is_active: boolean }> }
 
@@ -40,7 +40,7 @@ export default function VouchersAdminPage() {
     const [orderTypeId, setOrderTypeId] = useState('all')
     const [typeModal, setTypeModal] = useState(false)
     const [editingType, setEditingType] = useState<RCType | null>(null)
-    const [typeForm, setTypeForm] = useState({ name: '', customer_price: '', agent_price: '', cost_price: '', display_order: '0' })
+    const [typeForm, setTypeForm] = useState({ name: '', customer_price: '', agent_price: '', dealer_price: '', cost_price: '', display_order: '0' })
     const [typeSaving, setTypeSaving] = useState(false)
     const [uploadTypeId, setUploadTypeId] = useState('')
     const [uploadFile, setUploadFile] = useState<File | null>(null)
@@ -97,18 +97,18 @@ export default function VouchersAdminPage() {
 
     const openAddType = () => {
         setEditingType(null)
-        setTypeForm({ name: '', customer_price: '', agent_price: '', cost_price: '', display_order: '0' })
+        setTypeForm({ name: '', customer_price: '', agent_price: '', dealer_price: '', cost_price: '', display_order: '0' })
         setTypeModal(true)
     }
     const openEditType = (t: RCType) => {
         setEditingType(t)
-        setTypeForm({ name: t.name, customer_price: String(t.customer_price), agent_price: String(t.agent_price), cost_price: String(t.cost_price), display_order: String(t.display_order) })
+        setTypeForm({ name: t.name, customer_price: String(t.customer_price), agent_price: String(t.agent_price), dealer_price: String(t.dealer_price || 0), cost_price: String(t.cost_price), display_order: String(t.display_order) })
         setTypeModal(true)
     }
 
     const saveType = async () => {
         if (!typeForm.name || !typeForm.customer_price || !typeForm.agent_price || !typeForm.cost_price) {
-            toast.error('All fields are required'); return
+            toast.error('Name, customer price, agent price, and cost price are required'); return
         }
         setTypeSaving(true)
         try {
@@ -339,6 +339,7 @@ export default function VouchersAdminPage() {
                                                     <div className="text-xs text-muted-foreground mt-0.5 flex gap-3 flex-wrap">
                                                         <span>Customer: <b className="text-foreground">{formatCurrency(t.customer_price)}</b></span>
                                                         <span>Agent: <b className="text-foreground">{formatCurrency(t.agent_price)}</b></span>
+                                                        <span>Dealer: <b className="text-foreground">{formatCurrency(t.dealer_price || 0)}</b></span>
                                                         <span>Cost: <b className="text-foreground">{formatCurrency(t.cost_price)}</b></span>
                                                     </div>
                                                 </div>
@@ -586,7 +587,7 @@ export default function VouchersAdminPage() {
                             <Label>Name <span className="text-red-500">*</span></Label>
                             <Input placeholder="e.g. WAEC 2026" value={typeForm.name} onChange={e => setTypeForm(f => ({ ...f, name: e.target.value }))} />
                         </div>
-                        <div className="grid grid-cols-3 gap-3">
+                        <div className="grid grid-cols-2 gap-3">
                             <div className="space-y-1.5">
                                 <Label>Customer Price <span className="text-red-500">*</span></Label>
                                 <Input type="number" step="0.01" placeholder="0.00" value={typeForm.customer_price} onChange={e => setTypeForm(f => ({ ...f, customer_price: e.target.value }))} />
@@ -596,11 +597,15 @@ export default function VouchersAdminPage() {
                                 <Input type="number" step="0.01" placeholder="0.00" value={typeForm.agent_price} onChange={e => setTypeForm(f => ({ ...f, agent_price: e.target.value }))} />
                             </div>
                             <div className="space-y-1.5">
+                                <Label>Dealer Price</Label>
+                                <Input type="number" step="0.01" placeholder="0.00" value={typeForm.dealer_price} onChange={e => setTypeForm(f => ({ ...f, dealer_price: e.target.value }))} />
+                            </div>
+                            <div className="space-y-1.5">
                                 <Label>Cost Price <span className="text-red-500">*</span></Label>
                                 <Input type="number" step="0.01" placeholder="0.00" value={typeForm.cost_price} onChange={e => setTypeForm(f => ({ ...f, cost_price: e.target.value }))} />
                             </div>
                         </div>
-                        <p className="text-xs text-muted-foreground">Selling prices must be = cost price.</p>
+                        <p className="text-xs text-muted-foreground">Selling prices must be ≥ cost price.</p>
                         <div className="space-y-1.5">
                             <Label>Display Order</Label>
                             <Input type="number" value={typeForm.display_order} onChange={e => setTypeForm(f => ({ ...f, display_order: e.target.value }))} />

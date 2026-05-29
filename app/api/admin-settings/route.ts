@@ -43,6 +43,7 @@ export async function GET(request: Request) {
             'auto_fulfillment_enabled',
             'afa_price_customer',
             'afa_price_agent',
+            'afa_price_dealer',
             'guest_storefront_url',
             'whatsapp_group_link',
             'whatsapp_channel_link',

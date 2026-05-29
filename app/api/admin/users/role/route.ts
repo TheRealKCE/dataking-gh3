@@ -50,12 +50,21 @@ export async function POST(request: NextRequest) {
 
         const oldRole: string = currentUser?.role ?? 'customer'
 
-        // Calculate expiration if role is agent
+        // Calculate expiration based on new role
         const updateData: any = { role }
         if (role === 'agent') {
             const expiresAt = new Date()
             expiresAt.setDate(expiresAt.getDate() + 3) // 3-day agent subscription
             updateData.agent_expires_at = expiresAt.toISOString()
+            // Clear dealer fields when promoting to agent
+            updateData.dealer_expires_at = null
+        } else if (role === 'dealer') {
+            const now = new Date()
+            const expiresAt = new Date(now)
+            expiresAt.setDate(expiresAt.getDate() + 30) // 30-day dealer subscription
+            updateData.dealer_claimed_at = now.toISOString()
+            updateData.dealer_expires_at = expiresAt.toISOString()
+            updateData.agent_expires_at = null
         } else {
             updateData.agent_expires_at = null
         }

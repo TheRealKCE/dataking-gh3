@@ -56,6 +56,21 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Failed to claim dealership' }, { status: 500 })
         }
 
+        // Adjust shop pricing to dealer cost tier (preserves profit margins)
+        try {
+            const { error: rpcError } = await (supabase as any)
+                .rpc('adjust_shop_pricing_for_role_change', {
+                    p_user_id: authUser.id,
+                    p_old_role: 'customer',
+                    p_new_role: 'dealer',
+                })
+            if (rpcError) {
+                console.error('[ClaimDealer] Pricing RPC error (non-fatal):', rpcError)
+            }
+        } catch (rpcErr) {
+            console.error('[ClaimDealer] Unexpected RPC error (non-fatal):', rpcErr)
+        }
+
         return NextResponse.json({
             success: true,
             message: 'Dealership claimed! Enjoy your free 1-month trial.',

@@ -201,7 +201,9 @@ export default function DataPackagesPage() {
 
     // Helper function to get effective price based on user role
     const getEffectivePrice = (pkg: DataPackage) => {
-        // If user is agent AND agent_price is set (> 0), use agent_price
+        if (dbUser?.role === 'dealer' && (pkg as any).dealer_price > 0) {
+            return (pkg as any).dealer_price
+        }
         if (dbUser?.role === 'agent' && (pkg as any).agent_price > 0) {
             return (pkg as any).agent_price
         }
