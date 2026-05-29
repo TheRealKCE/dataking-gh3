@@ -84,16 +84,6 @@ export default function DashboardPage() {
         }
     }, [dbUser])
 
-    // Auto-start tutorial for first-time users
-    useEffect(() => {
-        if (!isLoading && !hasSeenTutorial && dbUser) {
-            // Delay 1 second for page to fully load
-            const timer = setTimeout(() => {
-                startTutorial()
-            }, 1000)
-            return () => clearTimeout(timer)
-        }
-    }, [isLoading, hasSeenTutorial, dbUser, startTutorial])
 
 
 
