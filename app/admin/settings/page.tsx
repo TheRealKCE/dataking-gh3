@@ -25,6 +25,7 @@ export default function AdminSettingsPage() {
     const [agentUpgradePrice, setAgentUpgradePrice] = useState('100')
     const [afaPriceCustomer, setAfaPriceCustomer] = useState('15')
     const [afaPriceAgent, setAfaPriceAgent] = useState('15')
+    const [afaPriceDealer, setAfaPriceDealer] = useState('15')
     const [supportEmail, setSupportEmail] = useState('')
     const [guestStorefrontUrl, setGuestStorefrontUrl] = useState('')
     const [whatsappGroupLink, setWhatsappGroupLink] = useState('')
@@ -75,6 +76,7 @@ export default function AdminSettingsPage() {
             setAgentUpgradePrice(settingsMap.agent_upgrade_price || '100')
             setAfaPriceCustomer(settingsMap.afa_price_customer || '15')
             setAfaPriceAgent(settingsMap.afa_price_agent || '15')
+            setAfaPriceDealer(settingsMap.afa_price_dealer || '15')
             setSupportEmail(settingsMap.support_email || '')
             setGuestStorefrontUrl(settingsMap.guest_storefront_url || `${process.env.NEXT_PUBLIC_APP_URL || ''}/shop/demo`)
             setWhatsappGroupLink(settingsMap.whatsapp_group_link || '')
@@ -119,6 +121,7 @@ export default function AdminSettingsPage() {
                 { key: 'agent_upgrade_price', value: agentUpgradePrice },
                 { key: 'afa_price_customer', value: afaPriceCustomer },
                 { key: 'afa_price_agent', value: afaPriceAgent },
+                { key: 'afa_price_dealer', value: afaPriceDealer },
                 { key: 'support_email', value: supportEmail },
                 { key: 'guest_storefront_url', value: guestStorefrontUrl },
                 { key: 'whatsapp_group_link', value: whatsappGroupLink },
@@ -438,6 +441,17 @@ export default function AdminSettingsPage() {
                                     min="0"
                                 />
                                 <p className="text-xs text-muted-foreground">Fee charged to agents for AFA application</p>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Dealer Application Fee (GHS)</Label>
+                                <Input
+                                    type="number"
+                                    value={afaPriceDealer}
+                                    onChange={(e) => setAfaPriceDealer(e.target.value)}
+                                    step="0.01"
+                                    min="0"
+                                />
+                                <p className="text-xs text-muted-foreground">Fee charged to dealers for AFA application</p>
                             </div>
                         </CardContent>
                     </Card>

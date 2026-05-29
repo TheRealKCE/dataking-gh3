@@ -115,7 +115,7 @@ export default function ShopPricingPage() {
                 (supabase.from('data_packages').select('*').eq('is_available', true).order('sort_order') as any),
                 ((supabase as any).from('shop_pricing').select('*').eq('shop_id', shopData.id)),
                 fetch('/api/shop/pricing').then(res => res.json()),
-                (supabase.from('results_checker_types').select('id, name, cost_price, agent_price, customer_price').eq('is_active', true).order('display_order') as any),
+                (supabase.from('results_checker_types').select('id, name, cost_price, agent_price, dealer_price, customer_price').eq('is_active', true).order('display_order') as any),
                 fetch(`/api/shop/rc-pricing?shopId=${shopData.id}`).then(res => res.json()).catch(() => ({ pricing: [] })),
                 fetch('/api/admin/settings?key=storefront_rc_enabled').then(r => r.json()).catch(() => ({ value: 'false' }))
             ])
@@ -149,7 +149,8 @@ export default function ShopPricingPage() {
     }
 
     const getCostPrice = (pkg: Package) => {
-        if (dbUser?.role === 'agent' && pkg.agent_price > 0) return pkg.agent_price
+        if (dbUser?.role === 'agent' && (pkg as any).agent_price > 0) return (pkg as any).agent_price
+        if (dbUser?.role === 'dealer' && (pkg as any).dealer_price > 0) return (pkg as any).dealer_price
         return pkg.price
     }
 
@@ -162,13 +163,14 @@ export default function ShopPricingPage() {
     const isValidPrice = (pkg: Package, sellingStr: string) => {
         const profit = getProfit(pkg, sellingStr)
         if (profit === null) return null
-        const maxProfit = shop?.owner_role === 'agent' ? 10 : 5
+        const maxProfit = shop?.owner_role === 'agent' ? 10 : shop?.owner_role === 'dealer' ? 10 : 5
         return profit > 0 && profit <= maxProfit
     }
 
     const getRcCostPrice = (type: RCType) => {
         if (shop?.owner_role === 'agent' && type.agent_price > 0) return type.agent_price
-        return type.customer_price || type.cost_price // fallback to cost if agent/customer not specified right
+        if (shop?.owner_role === 'dealer' && (type as any).dealer_price > 0) return (type as any).dealer_price
+        return type.customer_price || type.cost_price
     }
 
     const getRcProfit = (type: RCType, sellingStr: string) => {
@@ -180,7 +182,7 @@ export default function ShopPricingPage() {
     const isValidRcPrice = (type: RCType, sellingStr: string) => {
         const profit = getRcProfit(type, sellingStr)
         if (profit === null) return null
-        const maxProfit = shop?.owner_role === 'agent' ? 10 : 5
+        const maxProfit = shop?.owner_role === 'agent' ? 10 : shop?.owner_role === 'dealer' ? 10 : 5
         return profit > 0 && profit <= maxProfit
     }
 
