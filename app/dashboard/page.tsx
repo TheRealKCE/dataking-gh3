@@ -22,8 +22,6 @@ import {
     Phone,
     Zap,
 } from 'lucide-react'
-import { useTutorial } from '@/hooks/useTutorial'
-import { HelpButton } from '@/components/tutorial/HelpButton'
 import { RoleGreetingBox } from '@/components/dashboard/RoleGreetingBox'
 import { RecentOrdersWidget } from '@/components/dashboard/RecentOrdersWidget'
 import { BusinessPerformanceWidget } from '@/components/dashboard/BusinessPerformanceWidget'
@@ -70,9 +68,6 @@ export default function DashboardPage() {
     const [shopStatus, setShopStatus] = useState<ShopStatus>({
         isLoading: true, hasShop: false, hasPricingConfigured: false, isApproved: false
     })
-    const userRole = dbUser?.role === 'agent' ? 'agent' : 'customer'
-    const { hasSeenTutorial, startTutorial } = useTutorial(userRole as 'customer' | 'agent', '/dashboard')
-
     const showDealerModal = dbUser?.role === 'customer' && !(dbUser as any)?.dealer_claimed_at
     const dealerExpiresAt = (dbUser as any)?.dealer_expires_at as string | null
 
@@ -270,7 +265,6 @@ export default function DashboardPage() {
                     <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">Dashboard</h2>
                     <p className="text-sm font-medium text-muted-foreground mt-1">Manage your business and track your performance</p>
                 </div>
-                <HelpButton onClick={startTutorial} />
             </div>
 
             {/* Dynamic Role Greeting Box */}

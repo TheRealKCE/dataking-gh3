@@ -9,22 +9,15 @@ import { Crown, Sparkles, Zap, CheckCircle, Store, Calendar } from 'lucide-react
 import { toast } from 'sonner'
 import CongratsModal from '@/components/upgrade/CongratsModal'
 import { cn } from '@/lib/utils'
-import { useTutorial } from '@/hooks/useTutorial'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Loader2, Phone, Smartphone } from 'lucide-react'
-import { HelpButton } from '@/components/tutorial/HelpButton'
-
 export default function UpgradePage() {
     const { dbUser, refreshUser } = useAuth()
     const router = useRouter()
     const searchParams = useSearchParams()
-
-    // Tutorial hook
-    const userRole = dbUser?.role === 'agent' ? 'agent' : 'customer'
-    const { startTutorial } = useTutorial(userRole as 'customer' | 'agent', '/upgrade')
 
     // Congrats modal state
     const [showCongrats, setShowCongrats] = useState(false)
@@ -627,11 +620,6 @@ export default function UpgradePage() {
 
                     {/* Header Section */}
                     <div className="text-center mb-8 sm:mb-12 space-y-3 sm:space-y-4 relative w-full">
-                        {/* Help Button - Absolute positioning top right of header section */}
-                        <div className="absolute top-0 right-0 z-20">
-                            <HelpButton onClick={startTutorial} />
-                        </div>
-
                         <div className="mb-4 sm:mb-6 flex justify-center">
                             <div className="relative">
                                 <Crown className="w-20 h-20 sm:w-28 sm:h-28 text-black animate-[bounce_2s_infinite] drop-shadow-xl" />

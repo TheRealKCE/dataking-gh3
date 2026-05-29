@@ -36,9 +36,6 @@ import {
 import { toast } from 'sonner'
 import { Order, DataPackage, Complaint } from '@/types/supabase'
 import { format, differenceInHours } from 'date-fns'
-import { useTutorial } from '@/hooks/useTutorial'
-import { HelpButton } from '@/components/tutorial/HelpButton'
-
 interface OrderWithComplaints extends Order {
     complaints?: Complaint[]
 }
@@ -51,9 +48,6 @@ export default function MyOrdersPage() {
     const { dbUser } = useAuth()
     const [orders, setOrders] = useState<OrderWithComplaints[]>([])
 
-    // Tutorial hook
-    const userRole = dbUser?.role === 'agent' ? 'agent' : 'customer'
-    const { startTutorial } = useTutorial(userRole as 'customer' | 'agent', '/orders')
     const [isLoading, setIsLoading] = useState(true)
     const [searchQuery, setSearchQuery] = useState('')
     const [networkFilter, setNetworkFilter] = useState('All')
@@ -300,10 +294,6 @@ export default function MyOrdersPage() {
             <div className="text-center space-y-1 relative">
                 <h1 className="text-2xl font-bold">My Order History</h1>
                 <p className="text-sm text-muted-foreground">View and manage your order transactions</p>
-                {/* Help Button */}
-                <div className="absolute top-0 right-0">
-                    <HelpButton onClick={startTutorial} />
-                </div>
             </div>
 
             {/* Summary Stats - Yellow/Gold Theme */}
