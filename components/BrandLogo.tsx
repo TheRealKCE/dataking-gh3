@@ -32,13 +32,7 @@ export function BrandLogo({ className, collapsed = false, hideText = false, ligh
                         "font-heading font-black text-xl tracking-tighter transition-colors duration-300 leading-none",
                         lightText ? "text-white group-hover:text-white/85" : "text-foreground group-hover:text-primary"
                     )}>
-                        ARHMS
-                    </span>
-                    <span className={cn(
-                        "text-[9px] font-black uppercase tracking-[0.3em] mt-1 ml-0.5",
-                        lightText ? "text-white/60" : "text-muted-foreground/60"
-                    )}>
-                        Data Limited
+                        ARHMS <span className={lightText ? "text-blue-300" : "text-blue-600"}>TECHNOLOGIES</span>
                     </span>
                 </div>
             )}
