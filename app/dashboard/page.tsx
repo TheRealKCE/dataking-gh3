@@ -76,9 +76,9 @@ export default function DashboardPage() {
 
 
     useEffect(() => {
-        fetch('/api/admin-settings?key=dealer_promo_enabled')
+        fetch('/api/admin-settings?keys=dealer_promo_enabled')
             .then(r => r.ok ? r.json() : null)
-            .then(d => { if (d) setDealerPromoEnabled(d.value === 'true') })
+            .then(d => { if (d) setDealerPromoEnabled(d.dealer_promo_enabled === 'true') })
             .catch(() => {})
     }, [])
 
