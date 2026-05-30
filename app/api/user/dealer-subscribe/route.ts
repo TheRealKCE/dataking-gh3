@@ -18,7 +18,11 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        const { phone, network, otpCode, reference: existingRef } = await request.json().catch(() => ({}))
+        const { phone, network, otpCode, reference: existingRef, planType: rawPlanType } = await request.json().catch(() => ({}))
+
+        const planType: 'dealer_3m' | 'dealer_6m' = rawPlanType === 'dealer_3m' ? 'dealer_3m' : 'dealer_6m'
+        const planDays = planType === 'dealer_3m' ? 90 : 180
+        const planLabel = planType === 'dealer_3m' ? '3 Months Dealer Subscription' : '6 Months Dealer Subscription'
 
         const { data: dbUser } = await supabase
             .from('users')
@@ -39,13 +43,14 @@ export async function POST(request: NextRequest) {
         const { data: settings } = await supabaseAdmin
             .from('admin_settings')
             .select('key, value')
-            .in('key', ['dealer_subscription_price_6m', 'active_payment_provider_web'])
+            .in('key', ['dealer_subscription_price_6m', 'dealer_subscription_price_3m', 'active_payment_provider_web'])
 
         const settingsMap: Record<string, string> = {}
         for (const row of (settings || [])) settingsMap[row.key] = row.value
 
         const provider = settingsMap.active_payment_provider_web === 'paystack' ? 'paystack' : 'moolre'
-        const subscriptionPrice = parseFloat(settingsMap.dealer_subscription_price_6m || '0')
+        const priceKey = planType === 'dealer_3m' ? 'dealer_subscription_price_3m' : 'dealer_subscription_price_6m'
+        const subscriptionPrice = parseFloat(settingsMap[priceKey] || '0')
 
         if (!subscriptionPrice || subscriptionPrice <= 0) {
             return NextResponse.json({ error: 'Dealer subscription price not configured' }, { status: 400 })
@@ -82,9 +87,9 @@ export async function POST(request: NextRequest) {
                     metadata: {
                         user_id: authUser.id,
                         upgrade_type: 'dealer_subscription',
-                        plan_type: 'dealer_6m',
-                        plan_days: 180,
-                        plan_label: '6 Months Dealer Subscription',
+                        plan_type: planType,
+                        plan_days: planDays,
+                        plan_label: planLabel,
                         base_amount: subscriptionPrice,
                         fee: 0,
                     },
@@ -252,7 +257,9 @@ export async function GET(request: NextRequest) {
             .eq('id', (payment as any).id)
             .eq('status', 'pending')
 
-        // Extend dealer_expires_at by 180 days
+        // Extend dealer_expires_at by plan_days from payment metadata (90 or 180)
+        const planDays: number = (payment as any)?.metadata?.plan_days ?? 180
+
         const { data: userRow } = await supabaseAdmin
             .from('users')
             .select('dealer_expires_at, dealer_claimed_at, role')
@@ -268,7 +275,7 @@ export async function GET(request: NextRequest) {
         }
 
         const newExpiry = new Date(currentExpiry)
-        newExpiry.setDate(newExpiry.getDate() + 180)
+        newExpiry.setDate(newExpiry.getDate() + planDays)
 
         const now = new Date().toISOString()
         await (supabaseAdmin.from('users') as any)

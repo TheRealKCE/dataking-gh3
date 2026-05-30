@@ -73,6 +73,7 @@ export default function AdminMembershipsPage() {
     const [dealersLoading, setDealersLoading] = useState(true)
     const [dealerSearchTerm, setDealerSearchTerm] = useState('')
     const [dealerPrice6m, setDealerPrice6m] = useState('299.99')
+    const [dealerPrice3m, setDealerPrice3m] = useState('169.99')
     const [isSavingDealerPrice, setIsSavingDealerPrice] = useState(false)
     const [autoUpgradeExpiredDealers, setAutoUpgradeExpiredDealers] = useState(false)
     const [isSavingAutoUpgrade, setIsSavingAutoUpgrade] = useState(false)
@@ -125,6 +126,8 @@ export default function AdminMembershipsPage() {
             if (settingsData) {
                 const dp6m = settingsData.find((s: any) => s.key === 'dealer_subscription_price_6m')?.value
                 if (dp6m) setDealerPrice6m(String(dp6m))
+                const dp3m = settingsData.find((s: any) => s.key === 'dealer_subscription_price_3m')?.value
+                if (dp3m) setDealerPrice3m(String(dp3m))
                 const autoUpgrade = settingsData.find((s: any) => s.key === 'auto_upgrade_expired_dealers')?.value === 'true'
                 setAutoUpgradeExpiredDealers(autoUpgrade)
             }
@@ -157,7 +160,7 @@ export default function AdminMembershipsPage() {
             const response = await fetch('/api/admin/update-prices', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ dealerPrice6m })
+                body: JSON.stringify({ dealerPrice6m, dealerPrice3m })
             })
             const data = await response.json()
             if (!response.ok) throw new Error(data.error || 'Failed to update dealer price')
@@ -677,14 +680,25 @@ export default function AdminMembershipsPage() {
                         <CardDescription>Subscription pricing and auto-upgrade behaviour.</CardDescription>
                     </CardHeader>
                     <CardContent className="pt-6 space-y-6">
-                        <div className="space-y-2">
-                            <Label>6-Month Subscription Price (GHS)</Label>
-                            <Input
-                                type="number"
-                                value={dealerPrice6m}
-                                onChange={(e) => setDealerPrice6m(e.target.value)}
-                                className="font-bold text-lg"
-                            />
+                        <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-2">
+                                <Label>3-Month Subscription Price (GHS)</Label>
+                                <Input
+                                    type="number"
+                                    value={dealerPrice3m}
+                                    onChange={(e) => setDealerPrice3m(e.target.value)}
+                                    className="font-bold text-lg"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>6-Month Subscription Price (GHS)</Label>
+                                <Input
+                                    type="number"
+                                    value={dealerPrice6m}
+                                    onChange={(e) => setDealerPrice6m(e.target.value)}
+                                    className="font-bold text-lg"
+                                />
+                            </div>
                         </div>
                         <Button
                             className="w-full bg-violet-700 hover:bg-violet-800 h-11 font-black"

@@ -49,6 +49,7 @@ export default function UpgradePage() {
     })
 
     const [dealerPrice6m, setDealerPrice6m] = useState(0)
+    const [dealerPrice3m, setDealerPrice3m] = useState(0)
     const [showStrikethrough, setShowStrikethrough] = useState(false)
     const [isLoading, setIsLoading] = useState(true)
     const [isProcessing, setIsProcessing] = useState<string | null>(null)
@@ -74,6 +75,7 @@ export default function UpgradePage() {
                 setOldPrices(data.oldPrices || { '3d': 0, '14d': 0, '30d': 0, 'permanent': 0 })
                 setShowStrikethrough(data.showStrikethrough || false)
                 setDealerPrice6m(data.dealerPrice6m ?? 0)
+                setDealerPrice3m(data.dealerPrice3m ?? 0)
                 setIsLoading(false)
             } catch (err) {
                 console.error('Failed to fetch upgrade prices:', err)
@@ -146,8 +148,8 @@ export default function UpgradePage() {
         setShowPaymentModal(true)
     }
 
-    const handleDealerSubscribeClick = () => {
-        setSelectedPlan('dealer_6m')
+    const handleDealerSubscribeClick = (plan: 'dealer_3m' | 'dealer_6m' = 'dealer_6m') => {
+        setSelectedPlan(plan)
         setIsDealerPaymentFlow(true)
         setShowPaymentModal(true)
     }
@@ -178,6 +180,7 @@ export default function UpgradePage() {
                     body: JSON.stringify({
                         phone: paymentPhone.replace(/\s/g, ''),
                         network: paymentNetwork,
+                        planType: selectedPlan,
                     })
                 })
                 const data = await response.json()
@@ -246,7 +249,7 @@ export default function UpgradePage() {
         try {
             const endpoint = isDealerPaymentFlow ? '/api/user/dealer-subscribe' : '/api/user/upgrade/initialize'
             const body = isDealerPaymentFlow
-                ? { phone: paymentPhone.replace(/\s/g, ''), network: paymentNetwork, otpCode: otpCode.trim(), reference: paymentReference }
+                ? { phone: paymentPhone.replace(/\s/g, ''), network: paymentNetwork, otpCode: otpCode.trim(), reference: paymentReference, planType: selectedPlan }
                 : { plan: selectedPlan, phone: paymentPhone.replace(/\s/g, ''), network: paymentNetwork, otpCode: otpCode.trim(), reference: paymentReference }
 
             const response = await fetch(endpoint, {
@@ -551,6 +554,50 @@ export default function UpgradePage() {
                             </div>
                         )}
 
+                        {/* 3-month subscription card */}
+                        {dealerPrice3m > 0 && (
+                            <div className="w-full rounded-2xl bg-white/90 backdrop-blur border-2 border-violet-300 shadow-xl p-6 relative">
+                                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                                    <span className="px-4 py-1.5 rounded-full bg-gradient-to-r from-violet-500 to-purple-500 text-white text-xs font-black shadow-lg">
+                                        {isDealer && !isExpired ? 'EXTEND' : 'SUBSCRIBE'}
+                                    </span>
+                                </div>
+                                <div className="relative pt-2">
+                                    <div className="flex items-center gap-3 mb-4">
+                                        <div className="w-10 h-10 rounded-full bg-violet-100 flex items-center justify-center">
+                                            <Store className="w-5 h-5 text-violet-600" />
+                                        </div>
+                                        <div>
+                                            <p className="font-black text-gray-900 text-sm">3-Month Dealer Subscription</p>
+                                            <p className="text-xs text-gray-500">90 days of dealer pricing</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="text-center py-3 mb-4">
+                                        <span className="text-4xl font-black text-violet-700">GHS {dealerPrice3m.toFixed(2)}</span>
+                                        <p className="text-xs text-gray-500 mt-1">One-time payment</p>
+                                    </div>
+
+                                    <div className="space-y-2 mb-5">
+                                        {['Exclusive dealer pricing on all bundles', 'Priority order processing', '90 days of access'].map((f) => (
+                                            <div key={f} className="flex items-center gap-2.5">
+                                                <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                                                <span className="text-xs font-bold text-gray-700">{f}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    <Button
+                                        onClick={() => handleDealerSubscribeClick('dealer_3m')}
+                                        disabled={isProcessing !== null || pollingRef !== null}
+                                        className="w-full bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 text-white font-black h-11 rounded-xl shadow-lg"
+                                    >
+                                        {isProcessing === 'dealer_3m' ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing...</> : 'Subscribe — 3 Months'}
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
+
                         {/* 6-month subscription card */}
                         <div className="w-full rounded-2xl bg-white/90 backdrop-blur border-2 border-amber-300 shadow-xl p-6">
                             <div className="absolute -top-3 left-1/2 -translate-x-1/2">
@@ -588,7 +635,7 @@ export default function UpgradePage() {
                                 </div>
 
                                 <Button
-                                    onClick={handleDealerSubscribeClick}
+                                    onClick={() => handleDealerSubscribeClick('dealer_6m')}
                                     disabled={isProcessing !== null || pollingRef !== null || dealerPrice6m <= 0}
                                     className="w-full bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-white font-black h-11 rounded-xl shadow-lg"
                                 >
@@ -804,7 +851,7 @@ export default function UpgradePage() {
                                             <div className="flex items-center gap-2"><Calendar className="w-4 h-4 text-violet-400 flex-shrink-0" /> 180 days of dealer access from payment date</div>
                                         </div>
                                         <Button
-                                            onClick={handleDealerSubscribeClick}
+                                            onClick={() => handleDealerSubscribeClick('dealer_6m')}
                                             disabled={isLoading || dealerPrice6m <= 0}
                                             className="w-full bg-violet-600 hover:bg-violet-700 text-white font-black h-11 rounded-xl"
                                         >

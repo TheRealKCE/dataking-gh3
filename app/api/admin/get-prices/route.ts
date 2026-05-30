@@ -40,7 +40,8 @@ export async function GET(request: NextRequest) {
                 'agent_upgrade_price_3d_old', 'agent_upgrade_price_14d_old', 'agent_upgrade_price_30d_old', 'agent_upgrade_price_permanent_old',
                 'show_price_strikethrough', 'guest_storefront_url',
                 'whatsapp_group_link', 'whatsapp_channel_link', 'whatsapp_admin_number', 'whatsapp_community_link',
-                'dealer_subscription_price_6m'
+                'dealer_subscription_price_6m',
+                'dealer_subscription_price_3m'
             ])
 
         if (error) {
@@ -72,6 +73,7 @@ export async function GET(request: NextRequest) {
         const whatsappCommunityLink = data?.find(s => s.key === 'whatsapp_community_link')?.value || ''
 
         const dealerPrice6m = parseFloat(data?.find(s => s.key === 'dealer_subscription_price_6m')?.value || '0')
+        const dealerPrice3m = parseFloat(data?.find(s => s.key === 'dealer_subscription_price_3m')?.value || '0')
 
         return NextResponse.json({
             prices,
@@ -83,6 +85,7 @@ export async function GET(request: NextRequest) {
             whatsappAdminNumber,
             whatsappCommunityLink,
             dealerPrice6m,
+            dealerPrice3m,
         })
 
     } catch (error: any) {

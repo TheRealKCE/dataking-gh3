@@ -33,34 +33,42 @@ export async function POST(request: NextRequest) {
 
         // 3. CONTINUE WITH PRICE UPDATE LOGIC
         const body = await request.json()
-        const { prices, showStrikethrough, dealerPrice6m } = body
+        const { prices, showStrikethrough, dealerPrice6m, dealerPrice3m } = body
 
-        if (!prices && dealerPrice6m === undefined) {
+        if (!prices && dealerPrice6m === undefined && dealerPrice3m === undefined) {
             return NextResponse.json({ error: 'Prices are required' }, { status: 400 })
         }
 
         // Handle dealer-only price update (no agent prices in body)
-        if (dealerPrice6m !== undefined && !prices) {
-            const dealerPriceNum = z.coerce.number().min(1).max(100000).safeParse(dealerPrice6m)
-            if (!dealerPriceNum.success) {
-                return NextResponse.json({ error: 'Invalid dealer price value' }, { status: 400 })
-            }
-
+        if ((dealerPrice6m !== undefined || dealerPrice3m !== undefined) && !prices) {
             const supabaseAdmin = createClient(
                 process.env.NEXT_PUBLIC_SUPABASE_URL!,
                 process.env.SUPABASE_SERVICE_ROLE_KEY!,
                 { auth: { autoRefreshToken: false, persistSession: false } }
             )
 
-            await supabaseAdmin.from('admin_settings').delete().eq('key', 'dealer_subscription_price_6m')
-            const { error } = await supabaseAdmin.from('admin_settings').insert({ key: 'dealer_subscription_price_6m', value: String(dealerPriceNum.data) } as any)
+            if (dealerPrice6m !== undefined) {
+                const dealerPriceNum = z.coerce.number().min(1).max(100000).safeParse(dealerPrice6m)
+                if (!dealerPriceNum.success) {
+                    return NextResponse.json({ error: 'Invalid dealer 6-month price value' }, { status: 400 })
+                }
+                await supabaseAdmin.from('admin_settings').delete().eq('key', 'dealer_subscription_price_6m')
+                const { error } = await supabaseAdmin.from('admin_settings').insert({ key: 'dealer_subscription_price_6m', value: String(dealerPriceNum.data) } as any)
+                if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+            }
 
-            if (error) {
-                return NextResponse.json({ error: error.message }, { status: 500 })
+            if (dealerPrice3m !== undefined) {
+                const dealer3mNum = z.coerce.number().min(1).max(100000).safeParse(dealerPrice3m)
+                if (!dealer3mNum.success) {
+                    return NextResponse.json({ error: 'Invalid dealer 3-month price value' }, { status: 400 })
+                }
+                await supabaseAdmin.from('admin_settings').delete().eq('key', 'dealer_subscription_price_3m')
+                const { error } = await supabaseAdmin.from('admin_settings').insert({ key: 'dealer_subscription_price_3m', value: String(dealer3mNum.data) } as any)
+                if (error) return NextResponse.json({ error: error.message }, { status: 500 })
             }
 
             revalidateTag(PUBLIC_CONFIG_CACHE_TAG)
-            return NextResponse.json({ success: true, message: `Dealer 6-month price updated to GHS${dealerPriceNum.data}` })
+            return NextResponse.json({ success: true, message: 'Dealer subscription prices updated' })
         }
 
         // === SECURITY: Validate all price values before writing to DB ===
