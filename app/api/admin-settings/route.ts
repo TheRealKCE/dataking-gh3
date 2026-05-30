@@ -51,7 +51,8 @@ export async function GET(request: Request) {
             'whatsapp_community_link',
             'support_email',
             'footer_copyright_text',
-            'footer_branding_text'
+            'footer_branding_text',
+            'dealer_promo_enabled'
         ]
 
         const isAdmin = role === 'admin' || role === 'sub-admin'

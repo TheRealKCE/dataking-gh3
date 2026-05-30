@@ -68,9 +68,19 @@ export default function DashboardPage() {
     const [shopStatus, setShopStatus] = useState<ShopStatus>({
         isLoading: true, hasShop: false, hasPricingConfigured: false, isApproved: false
     })
-    const showDealerModal = dbUser?.role === 'customer' && !(dbUser as any)?.dealer_claimed_at
+    const DEALER_FEATURE_LAUNCH = new Date('2026-05-29T00:00:00Z')
+    const isNewUser = dbUser?.created_at ? new Date(dbUser.created_at) >= DEALER_FEATURE_LAUNCH : false
+    const [dealerPromoEnabled, setDealerPromoEnabled] = useState(false)
+    const showDealerModal = dbUser?.role === 'customer' && !(dbUser as any)?.dealer_claimed_at && isNewUser && dealerPromoEnabled
     const dealerExpiresAt = (dbUser as any)?.dealer_expires_at as string | null
 
+
+    useEffect(() => {
+        fetch('/api/admin-settings?key=dealer_promo_enabled')
+            .then(r => r.ok ? r.json() : null)
+            .then(d => { if (d) setDealerPromoEnabled(d.value === 'true') })
+            .catch(() => {})
+    }, [])
 
     useEffect(() => {
         if (dbUser) {

@@ -44,6 +44,16 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Free dealer trial is only available to new users' }, { status: 403 })
         }
 
+        // Check if the promo is currently active
+        const { data: promoSetting } = await (supabase
+            .from('admin_settings') as any)
+            .select('value')
+            .eq('key', 'dealer_promo_enabled')
+            .single()
+        if ((promoSetting as any)?.value !== 'true') {
+            return NextResponse.json({ error: 'Dealer promo is currently inactive' }, { status: 403 })
+        }
+
         const now = new Date()
         const expiresAt = new Date(now)
         expiresAt.setDate(expiresAt.getDate() + 30)
