@@ -26,8 +26,8 @@ export async function POST(request: NextRequest) {
             .eq('id', authUser.id)
             .single()
 
-        if (!dbUser || !['customer', 'dealer'].includes((dbUser as any).role)) {
-            return NextResponse.json({ error: 'Only customers and dealers can subscribe to the dealership plan' }, { status: 400 })
+        if (!dbUser || !['customer', 'dealer', 'agent'].includes((dbUser as any).role)) {
+            return NextResponse.json({ error: 'Only customers, agents, and dealers can subscribe to the dealership plan' }, { status: 400 })
         }
 
         const supabaseAdmin = createClient(
@@ -255,7 +255,7 @@ export async function GET(request: NextRequest) {
         // Extend dealer_expires_at by 180 days
         const { data: userRow } = await supabaseAdmin
             .from('users')
-            .select('dealer_expires_at, role')
+            .select('dealer_expires_at, dealer_claimed_at, role')
             .eq('id', authUser.id)
             .single()
 
@@ -270,11 +270,13 @@ export async function GET(request: NextRequest) {
         const newExpiry = new Date(currentExpiry)
         newExpiry.setDate(newExpiry.getDate() + 180)
 
+        const now = new Date().toISOString()
         await (supabaseAdmin.from('users') as any)
             .update({
                 role: 'dealer',
                 dealer_expires_at: newExpiry.toISOString(),
-                updated_at: new Date().toISOString(),
+                dealer_claimed_at: (userRow as any)?.dealer_claimed_at ?? now,
+                updated_at: now,
             })
             .eq('id', authUser.id)
 

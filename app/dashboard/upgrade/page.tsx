@@ -769,6 +769,45 @@ export default function UpgradePage() {
                                 ))}
                             </div>
 
+                            {/* Dealer Subscription Section — available to agents */}
+                            {dbUser?.role === 'agent' && (
+                                <div className="w-full max-w-3xl mb-8">
+                                    <div className="w-full rounded-2xl bg-white/90 backdrop-blur border-2 border-violet-300 shadow-xl p-6 relative overflow-hidden">
+                                        <div className="absolute -top-3 left-6">
+                                            <span className="px-4 py-1.5 rounded-full bg-gradient-to-r from-violet-600 to-purple-500 text-white text-xs font-black shadow-lg">
+                                                ALSO AVAILABLE
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-3 mb-4 mt-2">
+                                            <div className="w-10 h-10 rounded-full bg-violet-100 flex items-center justify-center flex-shrink-0">
+                                                <Store className="w-5 h-5 text-violet-600" />
+                                            </div>
+                                            <div>
+                                                <p className="font-black text-gray-900 text-sm">Dealer Subscription — 6 Months</p>
+                                                <p className="text-xs text-gray-500">Unlock exclusive dealer pricing for your shop</p>
+                                            </div>
+                                            {dealerPrice6m > 0 && (
+                                                <span className="ml-auto text-xl font-black text-violet-700">
+                                                    GH₵{dealerPrice6m.toFixed(2)}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="space-y-2 mb-4 text-sm text-gray-600">
+                                            <div className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-violet-500 flex-shrink-0" /> Access dealer cost prices on all data packages</div>
+                                            <div className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-violet-500 flex-shrink-0" /> Your shop earns from dealer-tier rates for 6 months</div>
+                                            <div className="flex items-center gap-2"><Calendar className="w-4 h-4 text-violet-400 flex-shrink-0" /> 180 days of dealer access from payment date</div>
+                                        </div>
+                                        <Button
+                                            onClick={handleDealerSubscribeClick}
+                                            disabled={isLoading || dealerPrice6m <= 0}
+                                            className="w-full bg-violet-600 hover:bg-violet-700 text-white font-black h-11 rounded-xl"
+                                        >
+                                            {dealerPrice6m > 0 ? `Subscribe — GH₵${dealerPrice6m.toFixed(2)}` : 'Loading price...'}
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Secure Badge Section */}
                             <div className="w-full max-w-3xl">
                                 <div className="bg-white/60 backdrop-blur-xl rounded-2xl p-6 sm:p-10 border-2 border-[#EEEEEE] shadow-[0_8px_30px_rgba(238,238,238,0.8)] flex flex-col items-center text-center space-y-6">
