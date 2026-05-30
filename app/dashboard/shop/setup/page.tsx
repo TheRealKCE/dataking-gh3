@@ -225,38 +225,43 @@ export default function ShopSetupPage() {
     }, [dbUser])
 
     const fetchExistingShop = async () => {
-        const { data } = await ((supabase as any)
-            .from('shop_profiles')
-            .select('*')
-            .eq('owner_id', dbUser!.id)
-            .maybeSingle())
+        try {
+            const { data } = await ((supabase as any)
+                .from('shop_profiles')
+                .select('*')
+                .eq('owner_id', dbUser!.id)
+                .maybeSingle())
 
-        if (data) {
-            setExistingShopId(data.id)
-            setLogoUrl(data.logo_url)
-            setLogoPreview(data.logo_url)
-            setBannerUrl(data.banner_url || null)
-            setBannerPreview(data.banner_url || null)
-            const normalizedWA = normalizeWhatsAppNumber(data.whatsapp_number || '')
-            setSavedIsActive(data.is_active ?? true)
-            setForm({
-                shop_name: data.shop_name || '',
-                shop_slug: data.shop_slug || '',
-                description: data.description || '',
-                owner_phone: data.owner_phone || '',
-                owner_email: data.owner_email || '',
-                whatsapp_number: normalizedWA,
-                community_link: data.community_link || '',
-                brand_color: data.brand_color || '#2563eb',
-                brand_accent: data.brand_accent || '#1e40af',
-                is_active: data.is_active ?? true,
-                divider_style: data.divider_style || 'asymmetric-curve',
-                banner_pos_x: data.banner_pos_x ?? 50,
-                banner_pos_y: data.banner_pos_y ?? 50,
-                banner_zoom: data.banner_zoom ?? 1,
-            })
+            if (data) {
+                setExistingShopId(data.id)
+                setLogoUrl(data.logo_url)
+                setLogoPreview(data.logo_url)
+                setBannerUrl(data.banner_url || null)
+                setBannerPreview(data.banner_url || null)
+                const normalizedWA = normalizeWhatsAppNumber(data.whatsapp_number || '')
+                setSavedIsActive(data.is_active ?? true)
+                setForm({
+                    shop_name: data.shop_name || '',
+                    shop_slug: data.shop_slug || '',
+                    description: data.description || '',
+                    owner_phone: data.owner_phone || '',
+                    owner_email: data.owner_email || '',
+                    whatsapp_number: normalizedWA,
+                    community_link: data.community_link || '',
+                    brand_color: data.brand_color || '#2563eb',
+                    brand_accent: data.brand_accent || '#1e40af',
+                    is_active: data.is_active ?? true,
+                    divider_style: data.divider_style || 'asymmetric-curve',
+                    banner_pos_x: data.banner_pos_x ?? 50,
+                    banner_pos_y: data.banner_pos_y ?? 50,
+                    banner_zoom: data.banner_zoom ?? 1,
+                })
+            }
+        } catch (err) {
+            console.error('[ShopSetup] Failed to fetch existing shop:', err)
+        } finally {
+            setLoading(false)
         }
-        setLoading(false)
     }
 
     const generateSlug = (name: string) =>
