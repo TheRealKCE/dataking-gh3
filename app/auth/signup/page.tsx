@@ -169,7 +169,7 @@ export default function SignupPage() {
                             </div>
                         </div>
                         <h1 className="text-2xl font-black text-foreground tracking-tighter uppercase">
-                            ARHMS <span className="text-amber-500">TECHNOLOGIES</span>
+                            ARHMS <span className="text-blue-600">TECHNOLOGIES</span>
                         </h1>
                         <p className="text-[10px] font-black text-muted-foreground tracking-[0.3em] uppercase mt-1 opacity-60">
                             Create Your Account
