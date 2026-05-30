@@ -54,6 +54,7 @@ export default function UpgradePage() {
     const [isProcessing, setIsProcessing] = useState<string | null>(null)
     const [isDealerClaiming, setIsDealerClaiming] = useState(false)
     const [isDealerPaymentFlow, setIsDealerPaymentFlow] = useState(false)
+    const [dealerPromoEnabled, setDealerPromoEnabled] = useState(false)
 
     // Store initial expiry date when user data is available
     useEffect(() => {
@@ -82,6 +83,11 @@ export default function UpgradePage() {
         }
 
         fetchPrices()
+
+        fetch('/api/admin-settings?key=dealer_promo_enabled')
+            .then(r => r.ok ? r.json() : null)
+            .then(d => { if (d) setDealerPromoEnabled(d.value === 'true') })
+            .catch(() => {})
     }, [])
 
 
@@ -519,8 +525,8 @@ export default function UpgradePage() {
                             </div>
                         )}
 
-                        {/* Claim card — only for new customers (registered after feature launch) who haven't claimed */}
-                        {isCustomer && !dealerClaimedAt && isNewUser && (
+                        {/* Claim card — only for new customers (registered after feature launch) when promo is active */}
+                        {isCustomer && !dealerClaimedAt && isNewUser && dealerPromoEnabled && (
                             <div className="w-full rounded-2xl bg-white/90 backdrop-blur border-2 border-violet-300 shadow-xl p-6 mb-5">
                                 <div className="flex items-center gap-3 mb-3">
                                     <div className="w-10 h-10 rounded-full bg-violet-100 flex items-center justify-center">

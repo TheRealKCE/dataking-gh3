@@ -26,6 +26,7 @@ export default function AdminSettingsPage() {
     const [afaPriceCustomer, setAfaPriceCustomer] = useState('15')
     const [afaPriceAgent, setAfaPriceAgent] = useState('15')
     const [afaPriceDealer, setAfaPriceDealer] = useState('15')
+    const [dealerPromoEnabled, setDealerPromoEnabled] = useState(false)
     const [supportEmail, setSupportEmail] = useState('')
     const [guestStorefrontUrl, setGuestStorefrontUrl] = useState('')
     const [whatsappGroupLink, setWhatsappGroupLink] = useState('')
@@ -77,6 +78,7 @@ export default function AdminSettingsPage() {
             setAfaPriceCustomer(settingsMap.afa_price_customer || '15')
             setAfaPriceAgent(settingsMap.afa_price_agent || '15')
             setAfaPriceDealer(settingsMap.afa_price_dealer || '15')
+            setDealerPromoEnabled(settingsMap.dealer_promo_enabled === 'true')
             setSupportEmail(settingsMap.support_email || '')
             setGuestStorefrontUrl(settingsMap.guest_storefront_url || `${process.env.NEXT_PUBLIC_APP_URL || ''}/shop/demo`)
             setWhatsappGroupLink(settingsMap.whatsapp_group_link || '')
@@ -122,6 +124,7 @@ export default function AdminSettingsPage() {
                 { key: 'afa_price_customer', value: afaPriceCustomer },
                 { key: 'afa_price_agent', value: afaPriceAgent },
                 { key: 'afa_price_dealer', value: afaPriceDealer },
+                { key: 'dealer_promo_enabled', value: String(dealerPromoEnabled) },
                 { key: 'support_email', value: supportEmail },
                 { key: 'guest_storefront_url', value: guestStorefrontUrl },
                 { key: 'whatsapp_group_link', value: whatsappGroupLink },
@@ -452,6 +455,13 @@ export default function AdminSettingsPage() {
                                     min="0"
                                 />
                                 <p className="text-xs text-muted-foreground">Fee charged to dealers for AFA application</p>
+                            </div>
+                            <div className="flex items-center justify-between p-4 border rounded-lg">
+                                <div className="space-y-0.5">
+                                    <Label className="text-base">Free Dealer Trial Promo</Label>
+                                    <p className="text-sm text-muted-foreground">When ON, new users (registered after May 29 2026) can claim a free 1-month dealer trial</p>
+                                </div>
+                                <Switch checked={dealerPromoEnabled} onCheckedChange={setDealerPromoEnabled} />
                             </div>
                         </CardContent>
                     </Card>
