@@ -50,15 +50,41 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'This phone number is already registered to another account' }, { status: 409 })
         }
 
-        const { error: updateError } = await (adminClient.from('users') as any)
-            .update({
-                first_name: first_name.trim(),
-                last_name: last_name.trim(),
-                phone_number: phone_number.trim(),
-                phone_verified: false,
-                updated_at: new Date().toISOString(),
-            })
+        // Check if user exists in public.users
+        const { data: currentUser } = await adminClient
+            .from('users')
+            .select('id')
             .eq('id', authUser.id)
+            .single()
+
+        let updateError;
+
+        if (currentUser) {
+            const { error } = await (adminClient.from('users') as any)
+                .update({
+                    first_name: first_name.trim(),
+                    last_name: last_name.trim(),
+                    phone_number: phone_number.trim(),
+                    phone_verified: false,
+                    updated_at: new Date().toISOString(),
+                })
+                .eq('id', authUser.id)
+            updateError = error;
+        } else {
+            const { error } = await (adminClient.from('users') as any)
+                .insert({
+                    id: authUser.id,
+                    email: authUser.email,
+                    first_name: first_name.trim(),
+                    last_name: last_name.trim(),
+                    phone_number: phone_number.trim(),
+                    phone_verified: false,
+                    role: 'customer',
+                    status: 'active',
+                    updated_at: new Date().toISOString(),
+                })
+            updateError = error;
+        }
 
         if (updateError) {
             console.error('[CompleteProfile] DB update error:', updateError)
