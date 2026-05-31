@@ -35,17 +35,21 @@ export async function POST(request: NextRequest) {
             process.env.SUPABASE_SERVICE_ROLE_KEY!
         )
 
-        const { data: dbUser } = await adminClient
+        const { data: dbUser, error: dbErr } = await adminClient
             .from('users')
             .select('phone_number, phone_verified')
             .eq('id', authUser.id)
             .single()
 
+        console.log('[SendOTP] dbUser:', JSON.stringify(dbUser), 'dbErr:', JSON.stringify(dbErr))
+
+        // phone_number check — if query failed entirely, dbUser will be null
         if (!dbUser?.phone_number || dbUser.phone_number === '') {
             return NextResponse.json({ error: 'No phone number on file. Please complete your profile first.' }, { status: 400 })
         }
 
-        if (dbUser.phone_verified) {
+        // phone_verified may be null if column was recently added; treat null as unverified
+        if (dbUser.phone_verified === true) {
             return NextResponse.json({ error: 'Phone number is already verified.' }, { status: 400 })
         }
 
