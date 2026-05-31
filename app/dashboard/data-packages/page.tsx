@@ -965,9 +965,9 @@ export default function DataPackagesPage() {
                                 return (
                                     <Card
                                         key={pkg.id}
-                                        className={`overflow-hidden relative border border-border/50 shadow-md shadow-black/40 dark:shadow-[#E5E7EB]/20 ${pkg.network === 'MTN' ? 'bg-[#FFCC00] text-black' :
-                                            pkg.network === 'Telecel' ? 'bg-[#E60000] text-white' :
-                                                'bg-[#0056B3] text-white'
+                                        className={`overflow-hidden relative isolate border border-border/50 shadow-md dark:shadow-[#E5E7EB]/20 ${pkg.network === 'MTN' ? 'bg-[#FFCC00] text-black shadow-black/20' :
+                                            pkg.network === 'Telecel' ? 'bg-[#E60000] text-white shadow-black/20' :
+                                                'bg-[#0056B3] text-white shadow-black/20'
                                             }`}
                                     >
                                         <CardContent className="p-0 flex flex-col h-full">

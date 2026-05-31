@@ -479,7 +479,7 @@ export default function ShopSetupPage() {
     const platform = detectPlatform(form.community_link)
 
     return (
-        <div className="space-y-6 max-w-2xl pb-32 setup-theme">
+        <div className="space-y-6 max-w-2xl pb-48 md:pb-32 setup-theme">
             {/* Dynamic CSS variables with sanitization */}
             <style dangerouslySetInnerHTML={{ __html: `
                 .setup-theme { 
@@ -1105,7 +1105,7 @@ export default function ShopSetupPage() {
             </Card>
 
             {/* ── Sticky Save Bar ─────────────────────────────────────────── */}
-            <div className="fixed bottom-0 left-0 right-0 z-40 p-4 bg-white/80 dark:bg-gray-950/80 backdrop-blur-md border-t border-gray-200 dark:border-gray-800 flex gap-3 max-w-2xl mx-auto">
+            <div className="fixed bottom-[68px] md:bottom-0 left-0 right-0 z-50 p-4 bg-white/80 dark:bg-gray-950/80 backdrop-blur-md border-t border-gray-200 dark:border-gray-800 flex gap-3 max-w-2xl mx-auto">
                 <Button
                     onClick={() => handleSave()}
                     disabled={saving || uploading || uploadingBanner || slugTaken}
