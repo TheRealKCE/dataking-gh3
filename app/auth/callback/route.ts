@@ -31,33 +31,54 @@ export async function GET(request: NextRequest) {
     )
 
     try {
-        const { data: dbUser, error: dbError } = await adminClient
+        // Extract name from Google OAuth metadata
+        const meta = data.user.user_metadata ?? {}
+        const rawName: string = meta.full_name ?? meta.name ?? ''
+        const parts = rawName.trim().split(' ')
+        const firstName = meta.given_name ?? parts[0] ?? ''
+        const lastName  = meta.family_name ?? parts.slice(1).join(' ') ?? ''
+
+        // Check if user already exists in public.users
+        const { data: existingUser } = await adminClient
             .from('users')
-            .select('phone_number, phone_verified')
+            .select('id, phone_number, phone_verified, first_name, last_name')
             .eq('id', data.user.id)
             .single()
 
-        console.log('[OAuthCallback] user id:', data.user.id)
-        console.log('[OAuthCallback] dbUser:', JSON.stringify(dbUser))
-        console.log('[OAuthCallback] dbError:', JSON.stringify(dbError))
+        console.log('[OAuthCallback] existing user:', JSON.stringify(existingUser))
 
-        // If DB query fails (e.g. phone_verified column missing) or user not in public.users
-        if (dbError || !dbUser) {
-            console.warn('[OAuthCallback] Could not load user from public.users — sending to complete-profile')
-            return NextResponse.redirect(new URL('/auth/complete-profile', origin))
+        if (!existingUser) {
+            // Brand new user — create their record with Google name
+            await (adminClient.from('users') as any).insert({
+                id: data.user.id,
+                email: data.user.email,
+                first_name: firstName,
+                last_name: lastName,
+                phone_number: '',
+                phone_verified: false,
+                role: 'customer',
+                status: 'active',
+            })
+        } else {
+            // Update name from Google if not already set
+            const needsNameUpdate = !existingUser.first_name || existingUser.first_name === ''
+            if (needsNameUpdate && firstName) {
+                await (adminClient.from('users') as any)
+                    .update({ first_name: firstName, last_name: lastName })
+                    .eq('id', data.user.id)
+            }
+
+            // Already verified — go straight to dashboard
+            if (existingUser.phone_verified && existingUser.phone_number) {
+                return NextResponse.redirect(new URL('/dashboard', origin))
+            }
         }
 
-        if (!dbUser.phone_number || dbUser.phone_number === '') {
-            return NextResponse.redirect(new URL('/auth/complete-profile', origin))
-        }
+        // All unverified Google users → verify-phone (enter phone + OTP)
+        return NextResponse.redirect(new URL('/auth/verify-phone', origin))
 
-        if (!dbUser.phone_verified) {
-            return NextResponse.redirect(new URL('/auth/verify-phone', origin))
-        }
-
-        return NextResponse.redirect(new URL('/dashboard', origin))
     } catch (e) {
-        console.error('[OAuthCallback] Unexpected error:', e)
-        return NextResponse.redirect(new URL('/auth/complete-profile', origin))
+        console.error('[OAuthCallback] Error:', e)
+        return NextResponse.redirect(new URL('/auth/verify-phone', origin))
     }
 }

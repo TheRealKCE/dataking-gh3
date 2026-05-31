@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { Redis } from '@upstash/redis'
 import { Ratelimit } from '@upstash/ratelimit'
 import { sendSMS } from '@/lib/sms-service'
+import { z } from 'zod'
 
 let redis: Redis | null = null
 try {
@@ -17,11 +18,15 @@ const otpSendLimiter = redis
     ? new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(3, '15 m'), prefix: 'otp_send' })
     : null
 
+const bodySchema = z.object({
+    phone_number: z.string().min(9).max(15).optional(),
+})
+
 export async function POST(request: NextRequest) {
     try {
         const cookieStore = await cookies()
         const supabase = createRouteHandlerClient({
-            // @ts-expect-error - auth-helpers types expect Promise but runtime needs synchronous object
+            // @ts-expect-error
             cookies: () => cookieStore
         })
 
@@ -30,11 +35,41 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
+        // Parse optional phone_number from request body
+        let submittedPhone: string | undefined
+        try {
+            const raw = await request.json()
+            const parsed = bodySchema.safeParse(raw)
+            if (parsed.success) submittedPhone = parsed.data.phone_number?.trim()
+        } catch {
+            // No body or invalid JSON — that's fine, phone_number is optional
+        }
+
         const adminClient = createClient(
             process.env.NEXT_PUBLIC_SUPABASE_URL!,
             process.env.SUPABASE_SERVICE_ROLE_KEY!
         )
 
+        // If a new phone number was submitted, save it first
+        if (submittedPhone) {
+            // Check phone uniqueness
+            const { data: existing } = await adminClient
+                .from('users')
+                .select('id')
+                .eq('phone_number', submittedPhone)
+                .neq('id', authUser.id)
+                .maybeSingle()
+
+            if (existing) {
+                return NextResponse.json({ error: 'This phone number is already registered to another account.' }, { status: 409 })
+            }
+
+            await (adminClient.from('users') as any)
+                .update({ phone_number: submittedPhone, phone_verified: false })
+                .eq('id', authUser.id)
+        }
+
+        // Fetch the phone number from DB
         const { data: dbUser, error: dbErr } = await adminClient
             .from('users')
             .select('phone_number, phone_verified')
@@ -43,12 +78,10 @@ export async function POST(request: NextRequest) {
 
         console.log('[SendOTP] dbUser:', JSON.stringify(dbUser), 'dbErr:', JSON.stringify(dbErr))
 
-        // phone_number check — if query failed entirely, dbUser will be null
         if (!dbUser?.phone_number || dbUser.phone_number === '') {
-            return NextResponse.json({ error: 'No phone number on file. Please complete your profile first.' }, { status: 400 })
+            return NextResponse.json({ error: 'No phone number on file. Please enter your phone number first.' }, { status: 400 })
         }
 
-        // phone_verified may be null if column was recently added; treat null as unverified
         if (dbUser.phone_verified === true) {
             return NextResponse.json({ error: 'Phone number is already verified.' }, { status: 400 })
         }
