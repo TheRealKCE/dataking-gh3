@@ -376,8 +376,88 @@ export default function UpgradePage() {
     const isDealer = (dbUser as any)?.role === 'dealer'
     const isCustomer = dbUser?.role === 'customer'
     const viewAgentPlans = searchParams.get('view') === 'agent'
+    const viewDealerPlans = searchParams.get('view') === 'dealer'
 
-    if ((isDealer || isCustomer) && !viewAgentPlans) {
+    // Customer landing — show two-path choice page
+    if (isCustomer && !viewAgentPlans && !viewDealerPlans) {
+        return (
+            <div className="relative -m-4 sm:-m-6 min-h-[calc(100vh+2rem)] lg:min-h-screen bg-gradient-to-br from-yellow-400 via-amber-500 to-yellow-600 overflow-x-hidden px-4 sm:px-6 py-10 sm:py-16 flex flex-col items-center [font-family:'Fira_Sans',sans-serif]">
+                <div className="relative z-10 w-full max-w-2xl flex flex-col items-center">
+                    <div className="text-center mb-10 space-y-3">
+                        <div className="flex justify-center mb-4">
+                            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-white/20 backdrop-blur flex items-center justify-center shadow-xl">
+                                <Crown className="w-10 h-10 sm:w-12 sm:h-12 text-white" />
+                            </div>
+                        </div>
+                        <h1 className="text-4xl sm:text-5xl font-black text-[#b45309] leading-tight">UPGRADE YOUR ACCOUNT</h1>
+                        <p className="text-sm sm:text-base text-white font-bold max-w-md mx-auto drop-shadow-sm">
+                            Choose the membership that fits your goals.
+                        </p>
+                    </div>
+
+                    <div className="w-full flex flex-col gap-5">
+                        {/* Become an Agent */}
+                        <div className="w-full rounded-2xl bg-white/90 backdrop-blur border-2 border-amber-300 shadow-xl p-6">
+                            <div className="flex items-center gap-4 mb-4">
+                                <div className="w-14 h-14 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                                    <Crown className="w-7 h-7 text-amber-600" />
+                                </div>
+                                <div>
+                                    <p className="font-black text-gray-900 text-lg">Become an Agent</p>
+                                    <p className="text-xs text-gray-500 font-bold">Premium reseller membership</p>
+                                </div>
+                                <span className="ml-auto px-3 py-1 rounded-full bg-amber-100 text-amber-700 text-xs font-black">PREMIUM</span>
+                            </div>
+                            <div className="space-y-2 mb-5">
+                                {['Lowest agent pricing on all bundles', 'Resell packages to earn commissions', 'Priority order processing & support', 'Flexible plans: 3 days to lifetime'].map((f) => (
+                                    <div key={f} className="flex items-center gap-2.5">
+                                        <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                                        <span className="text-xs font-bold text-gray-700">{f}</span>
+                                    </div>
+                                ))}
+                            </div>
+                            <Button
+                                onClick={() => router.push('/dashboard/upgrade?view=agent')}
+                                className="w-full bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-white font-black h-11 rounded-xl shadow-lg"
+                            >
+                                See Agent Plans
+                            </Button>
+                        </div>
+
+                        {/* Become a Dealer */}
+                        <div className="w-full rounded-2xl bg-white/90 backdrop-blur border-2 border-violet-300 shadow-xl p-6">
+                            <div className="flex items-center gap-4 mb-4">
+                                <div className="w-14 h-14 rounded-full bg-violet-100 flex items-center justify-center flex-shrink-0">
+                                    <Store className="w-7 h-7 text-violet-600" />
+                                </div>
+                                <div>
+                                    <p className="font-black text-gray-900 text-lg">Become a Dealer</p>
+                                    <p className="text-xs text-gray-500 font-bold">Special dealer pricing access</p>
+                                </div>
+                                <span className="ml-auto px-3 py-1 rounded-full bg-violet-100 text-violet-700 text-xs font-black">DEALER</span>
+                            </div>
+                            <div className="space-y-2 mb-5">
+                                {['Exclusive dealer pricing on all bundles', 'Priority order processing', '3-month or 6-month plans available', dealerPromoEnabled ? 'Free 1-month trial for new users' : 'Flexible subscription options'].map((f) => (
+                                    <div key={f} className="flex items-center gap-2.5">
+                                        <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                                        <span className="text-xs font-bold text-gray-700">{f}</span>
+                                    </div>
+                                ))}
+                            </div>
+                            <Button
+                                onClick={() => router.push('/dashboard/upgrade?view=dealer')}
+                                className="w-full bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 text-white font-black h-11 rounded-xl shadow-lg"
+                            >
+                                See Dealer Plans
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )
+    }
+
+    if (isDealer || (isCustomer && viewDealerPlans)) {
         const dealerClaimedAt = (dbUser as any)?.dealer_claimed_at
         const dealerExpiresAt = (dbUser as any)?.dealer_expires_at
         const expiryDate = dealerExpiresAt ? new Date(dealerExpiresAt) : null
@@ -644,15 +724,25 @@ export default function UpgradePage() {
                             </div>
                         </div>
 
-                        <p className="mt-8 text-xs text-white/70 text-center">
-                            Want agent-level access instead?{' '}
-                            <button
-                                onClick={() => router.push('/dashboard/upgrade?view=agent')}
-                                className="underline text-white font-bold hover:text-yellow-200"
-                            >
-                                See agent plans
-                            </button>
-                        </p>
+                        <div className="mt-8 flex flex-col items-center gap-2">
+                            {isCustomer && (
+                                <button
+                                    onClick={() => router.push('/dashboard/upgrade')}
+                                    className="text-xs text-white/70 underline hover:text-white"
+                                >
+                                    ← Back to all options
+                                </button>
+                            )}
+                            <p className="text-xs text-white/70 text-center">
+                                Want agent-level access instead?{' '}
+                                <button
+                                    onClick={() => router.push('/dashboard/upgrade?view=agent')}
+                                    className="underline text-white font-bold hover:text-yellow-200"
+                                >
+                                    See agent plans
+                                </button>
+                            </p>
+                        </div>
                     </div>
                 </div>
             </>
