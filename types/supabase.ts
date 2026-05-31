@@ -16,6 +16,7 @@ export interface Database {
                     first_name: string
                     last_name: string
                     phone_number: string
+                    phone_verified: boolean
                     role: 'customer' | 'agent' | 'admin' | 'sub-admin' | 'dealer'
                     status: 'active' | 'suspended' | 'inactive'
                     agent_expires_at: string | null
@@ -30,6 +31,7 @@ export interface Database {
                     first_name: string
                     last_name: string
                     phone_number: string
+                    phone_verified?: boolean
                     role?: 'customer' | 'agent' | 'admin' | 'sub-admin' | 'dealer'
                     status?: 'active' | 'suspended' | 'inactive'
                     agent_expires_at?: string | null
@@ -44,6 +46,7 @@ export interface Database {
                     first_name?: string
                     last_name?: string
                     phone_number?: string
+                    phone_verified?: boolean
                     role?: 'customer' | 'agent' | 'admin' | 'sub-admin' | 'dealer'
                     status?: 'active' | 'suspended' | 'inactive'
                     agent_expires_at?: string | null
