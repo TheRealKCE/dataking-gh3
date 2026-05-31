@@ -449,14 +449,20 @@ export async function middleware(request: NextRequest) {
         }
     }
 
-    // Redirect authenticated users away from auth pages
-    // Exception: complete-profile, verify-phone, and callback require an authenticated user
+    // === AUTH PAGE GUARDS ===
     if (pathname.startsWith('/auth')) {
-        const authRequiredPaths = ['/auth/complete-profile', '/auth/verify-phone', '/auth/callback']
+        // /auth/callback MUST always be allowed through — it is the OAuth handler
+        // that creates the session. Blocking it would break all OAuth sign-ins.
+        if (pathname.startsWith('/auth/callback')) {
+            return addNoCacheHeaders(setCORSHeaders(res, request, origin))
+        }
+
+        // These pages require an active session
+        const authRequiredPaths = ['/auth/complete-profile', '/auth/verify-phone']
         const needsAuth = authRequiredPaths.some(p => pathname.startsWith(p))
 
         if (needsAuth) {
-            // These pages require auth — redirect unauthenticated users to login
+            // Redirect unauthenticated users to login
             if (!authUser) {
                 return addNoCacheHeaders(NextResponse.redirect(new URL('/auth/login', request.url)))
             }
