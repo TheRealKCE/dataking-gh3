@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'OTP has expired. Please request a new one.' }, { status: 410 })
         }
 
-        if (storedOtp !== otp) {
+        if (String(storedOtp) !== String(otp)) {
             return NextResponse.json({ error: 'Incorrect OTP. Please try again.' }, { status: 400 })
         }
 
