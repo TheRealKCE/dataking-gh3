@@ -122,7 +122,27 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Phone number is already verified.' }, { status: 400 })
         }
 
-        // phoneNumber is already set above
+        // Check if we should bypass OTP for Google OAuth users
+        if (authUser.app_metadata?.provider === 'google') {
+            const { data: adminSetting } = await adminClient
+                .from('admin_settings')
+                .select('value')
+                .eq('key', 'skip_google_oauth_otp')
+                .single()
+
+            if (adminSetting?.value === 'true') {
+                console.log('[SendOTP] Bypassing OTP for Google user')
+                const { error: bypassErr } = await (adminClient.from('users') as any)
+                    .update({ phone_verified: true })
+                    .eq('id', authUser.id)
+                
+                if (bypassErr) {
+                    console.error('[SendOTP] Error marking phone verified during bypass:', bypassErr)
+                }
+                
+                return NextResponse.json({ success: true, otpBypassed: true })
+            }
+        }
 
         if (otpSendLimiter) {
             const { success, reset } = await otpSendLimiter.limit(`phone:${phoneNumber}`)

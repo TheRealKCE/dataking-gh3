@@ -70,6 +70,12 @@ export default function VerifyPhonePage() {
                 return
             }
 
+            if (data.otpBypassed) {
+                toast.success('Phone number saved! Welcome to ARHMS 🎉')
+                router.replace('/dashboard')
+                return
+            }
+
             toast.success('Verification code sent to your phone!')
             setCooldown(RESEND_COOLDOWN)
             setStep('enter-otp')
