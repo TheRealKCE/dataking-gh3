@@ -9,7 +9,13 @@ export async function GET(request: NextRequest) {
     const origin = requestUrl.origin
 
     if (!code) {
-        return NextResponse.redirect(new URL('/auth/login', origin))
+        // If code is missing, it might be an implicit flow returning a URL fragment (#access_token=...)
+        // We redirect to verify-phone so the client-side Supabase can pick up the session.
+        const targetUrl = '/auth/verify-phone'
+        return new NextResponse(
+            `<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=${targetUrl}"><script>window.location.href = '${targetUrl}' + window.location.hash;</script></head><body>Redirecting...</body></html>`,
+            { status: 200, headers: { 'Content-Type': 'text/html' } }
+        )
     }
 
     const cookieStore = await cookies()
@@ -47,6 +53,8 @@ export async function GET(request: NextRequest) {
 
         console.log('[OAuthCallback] existing user:', JSON.stringify(existingUser))
 
+        let targetUrl = '/auth/verify-phone'
+
         if (!existingUser) {
             // Brand new user — create their record with Google name
             await (adminClient.from('users') as any).insert({
@@ -70,15 +78,22 @@ export async function GET(request: NextRequest) {
 
             // Already verified — go straight to dashboard
             if (existingUser.phone_verified && existingUser.phone_number) {
-                return NextResponse.redirect(new URL('/dashboard', origin))
+                targetUrl = '/dashboard'
             }
         }
 
-        // All unverified Google users → verify-phone (enter phone + OTP)
-        return NextResponse.redirect(new URL('/auth/verify-phone', origin))
+        // Return HTML redirect to preserve Set-Cookie headers
+        return new NextResponse(
+            `<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=${targetUrl}"><script>window.location.href = '${targetUrl}';</script></head><body>Redirecting...</body></html>`,
+            { status: 200, headers: { 'Content-Type': 'text/html' } }
+        )
 
     } catch (e) {
         console.error('[OAuthCallback] Error:', e)
-        return NextResponse.redirect(new URL('/auth/verify-phone', origin))
+        const fallbackUrl = '/auth/verify-phone'
+        return new NextResponse(
+            `<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=${fallbackUrl}"><script>window.location.href = '${fallbackUrl}';</script></head><body>Redirecting...</body></html>`,
+            { status: 200, headers: { 'Content-Type': 'text/html' } }
+        )
     }
 }
