@@ -59,6 +59,9 @@ const rateLimiters = redis ? {
     login: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, '10 m') }),
     signup: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(3, '1 h') }),
     forgotPassword: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(3, '1 h') }),
+    sendOtp: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(3, '15 m') }),
+    confirmOtp: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(10, '15 m') }),
+    completeProfile: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, '10 m') }),
     // ── Admin routes (broad) ───────────────────────────────────
     adminProcessWithdrawal: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, '1 m') }),
     admin: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(30, '1 m') }),
@@ -238,6 +241,15 @@ export async function middleware(request: NextRequest) {
         } else if (pathname === '/api/auth/forgot-password') {
             limiter = rateLimiters?.forgotPassword
             identifier = ip
+        } else if (pathname === '/api/auth/verify-phone/send-otp') {
+            limiter = rateLimiters?.sendOtp
+            identifier = ip
+        } else if (pathname === '/api/auth/verify-phone/confirm-otp') {
+            limiter = rateLimiters?.confirmOtp
+            identifier = ip
+        } else if (pathname === '/api/auth/complete-profile') {
+            limiter = rateLimiters?.completeProfile
+            identifier = authUser?.id ?? ip
         } else if (pathname === '/api/admin/get-prices') {
             limiter = rateLimiters?.general
             identifier = authUser?.id ? `${authUser.id}-${ip}` : ip
@@ -350,6 +362,32 @@ export async function middleware(request: NextRequest) {
         if (!authUser) {
             return addNoCacheHeaders(NextResponse.redirect(new URL('/auth/login', request.url)))
         }
+
+        // Phone verification guard — redirect if phone not set or not verified
+        try {
+            const phoneTimeout = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Phone check timeout')), 5000)
+            )
+            const phoneQuery = supabase
+                .from('users')
+                .select('phone_number, phone_verified')
+                .eq('id', authUser.id)
+                .single()
+
+            const { data: userStatus } = await Promise.race([phoneQuery, phoneTimeout]) as any
+
+            if (userStatus) {
+                if (!userStatus.phone_number || userStatus.phone_number === '') {
+                    return addNoCacheHeaders(NextResponse.redirect(new URL('/auth/complete-profile', request.url)))
+                }
+                if (!userStatus.phone_verified) {
+                    return addNoCacheHeaders(NextResponse.redirect(new URL('/auth/verify-phone', request.url)))
+                }
+            }
+        } catch (error) {
+            // Fail open — never block dashboard access due to infra issues
+            console.error('[Middleware] Phone verification check failed, failing open:', error)
+        }
     }
 
     // Protected admin routes (UI and API)
@@ -409,9 +447,27 @@ export async function middleware(request: NextRequest) {
         }
     }
 
-    // Redirect authenticated users away from auth pages
+    // === AUTH PAGE GUARDS ===
     if (pathname.startsWith('/auth')) {
-        if (authUser) {
+        // These routes must always be allowed through regardless of session state:
+        // - /auth/callback: OAuth handler that CREATES the session (no session exists yet)
+        // - /auth/verify-phone: Immediately follows callback; session cookie may not propagate
+        //   in time for the middleware to see it. The page handles auth client-side via useAuth().
+        if (pathname.startsWith('/auth/callback') || pathname.startsWith('/auth/verify-phone')) {
+            return addNoCacheHeaders(setCORSHeaders(res, request, origin))
+        }
+
+        // These pages require an active session
+        const authRequiredPaths = ['/auth/complete-profile']
+        const needsAuth = authRequiredPaths.some(p => pathname.startsWith(p))
+
+        if (needsAuth) {
+            // Redirect unauthenticated users to login
+            if (!authUser) {
+                return addNoCacheHeaders(NextResponse.redirect(new URL('/auth/login', request.url)))
+            }
+        } else if (authUser) {
+            // All other /auth/* pages: redirect authenticated users to dashboard
             return addNoCacheHeaders(NextResponse.redirect(new URL('/dashboard', request.url)))
         }
     }

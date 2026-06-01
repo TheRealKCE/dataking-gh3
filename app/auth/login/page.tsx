@@ -14,6 +14,7 @@ import { Eye, EyeOff, Loader2, LogIn, Mail, Lock, Store, ExternalLink, AlertCirc
 import { toast } from 'sonner'
 import { BackgroundBubbles } from '@/components/background-bubbles'
 import { FloatingWhatsApp } from '@/components/floating-whatsapp'
+import { GoogleSignInButton } from '@/components/google-sign-in-button'
 
 export default function LoginPage() {
     const [email, setEmail] = useState('')
@@ -166,11 +167,13 @@ export default function LoginPage() {
                                 <div className="w-full border-t border-border/50"></div>
                             </div>
                             <div className="relative flex justify-center text-[10px] uppercase tracking-[0.3em] font-black">
-                                <span className="bg-card px-4 text-muted-foreground/50">Discovery</span>
+                                <span className="bg-card px-4 text-muted-foreground/50">Or continue with</span>
                             </div>
                         </div>
 
                         <div className="grid gap-4">
+                            <GoogleSignInButton label="Continue with Google" />
+
                             <Button
                                 asChild
                                 variant="outline"

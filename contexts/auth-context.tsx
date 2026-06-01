@@ -13,6 +13,7 @@ interface AuthContextType {
     isLoading: boolean
     isAdmin: boolean
     isSubAdmin: boolean
+    phoneVerified: boolean
     signIn: (email: string, password: string) => Promise<{ error: Error | null }>
     signUp: (data: SignUpData) => Promise<{ error: any, data: { user: User | null, session: Session | null } | null }>
     signOut: () => Promise<void>
@@ -41,6 +42,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const isAdmin = dbUser?.role === 'admin'
     const isSubAdmin = dbUser?.role === 'sub-admin'
+    const phoneVerified = dbUser?.phone_verified ?? false
 
     const fetchDbUser = useCallback(async (userId: string) => {
         try {
@@ -58,6 +60,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     first_name,
                     last_name,
                     phone_number,
+                    phone_verified,
                     role,
                     status,
                     agent_expires_at,
@@ -283,6 +286,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                         first_name: 'Derrick',
                         last_name: 'Awuah',
                         phone_number: '0240000000',
+                        phone_verified: true,
                         role: mockRole as 'admin' | 'sub-admin' | 'agent' | 'dealer' | 'customer',
                         status: 'active' as 'active' | 'suspended' | 'inactive',
                         dealer_claimed_at: new Date().toISOString(),
@@ -355,6 +359,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 isLoading,
                 isAdmin,
                 isSubAdmin,
+                phoneVerified,
                 signIn,
                 signUp,
                 signOut,

@@ -16,8 +16,8 @@ interface SMSResult {
     error?: string
 }
 
-const MOOLRE_BASE_URL = 'https://api.moolre.com'
-const MOOLRE_SMS_ENDPOINT = '/open/sms/send' // Correct endpoint from Moolre documentation
+const MOOLRE_BASE_URL = process.env.MOOLRE_API_URL || 'https://moolre.com/api/v1'
+const MOOLRE_SMS_ENDPOINT = '/sms/send'
 
 const MNOTIFY_BASE_URL = 'https://api.mnotify.com/api/sms/quick'
 
@@ -71,35 +71,19 @@ export async function sendSMS(options: SMSOptions): Promise<SMSResult> {
             return { success: false, error: 'Phone number must be in Ghana format (0XXXXXXXXX or 233XXXXXXXXX)' }
         }
 
-        // Build the full URL
         const url = MOOLRE_BASE_URL + MOOLRE_SMS_ENDPOINT
 
-        // Generate a unique reference for tracking
-        const reference = `SMS-${Date.now()}-${Math.random().toString(36).substring(7)}`
-
-        // Moolre API payload format (exact format from documentation)
         const payload = {
-            type: 1,  // Type 1 for sending SMS
-            senderid: options.sender || defaultSender,
-            messages: [
-                {
-                    recipient: normalizedPhone,
-                    message: options.message,
-                    ref: reference  // Unique reference for this message
-                }
-            ]
+            recipient: normalizedPhone,
+            message: options.message,
         }
 
-        // Sending SMS to Moolre API
-
-        // Moolre uses X-API-KEY and X-API-VASKEY headers for authentication
         const response = await fetch(url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
-                'X-API-KEY': apiKey,
-                'X-API-VASKEY': apiKey  // Moolre also uses VASKEY (same as API key)
+                'Authorization': `Bearer ${apiKey}`,
             },
             body: JSON.stringify(payload)
         })
@@ -126,10 +110,8 @@ export async function sendSMS(options: SMSOptions): Promise<SMSResult> {
             }
         }
 
-        // Response parsed successfully
+        console.log('[SMS Service] Moolre response:', response.status, JSON.stringify(data))
 
-        // Success response check - Common patterns for SMS APIs
-        // Moolre might return: success: true, status: 'success', code: 200, etc.
         const isSuccess =
             data.success === true ||
             data.status === 'success' ||

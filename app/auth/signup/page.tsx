@@ -15,6 +15,7 @@ import { toast } from 'sonner'
 import { validateGhanaianPhone } from '@/lib/phone-validation'
 import { BackgroundBubbles } from '@/components/background-bubbles'
 import { FloatingWhatsApp } from '@/components/floating-whatsapp'
+import { GoogleSignInButton } from '@/components/google-sign-in-button'
 
 export default function SignupPage() {
     const [formData, setFormData] = useState({
@@ -314,19 +315,23 @@ export default function SignupPage() {
                                 <div className="w-full border-t border-border/50"></div>
                             </div>
                             <div className="relative flex justify-center text-[10px] uppercase tracking-[0.3em] font-black">
-                                <span className="bg-card px-4 text-muted-foreground/50">Already Registered?</span>
+                                <span className="bg-card px-4 text-muted-foreground/50">Or sign up with</span>
                             </div>
                         </div>
 
-                        <Button
-                            asChild
-                            variant="outline"
-                            className="w-full h-14 rounded-2xl border-border/50 hover:bg-secondary/50 font-black uppercase tracking-widest text-xs transition-all"
-                        >
-                            <Link href="/auth/login">
-                                Back to Login
-                            </Link>
-                        </Button>
+                        <div className="grid gap-4">
+                            <GoogleSignInButton label="Sign up with Google" />
+
+                            <Button
+                                asChild
+                                variant="outline"
+                                className="w-full h-14 rounded-2xl border-border/50 hover:bg-secondary/50 font-black uppercase tracking-widest text-xs transition-all"
+                            >
+                                <Link href="/auth/login">
+                                    Back to Login
+                                </Link>
+                            </Button>
+                        </div>
 
                         <p className="text-[9px] text-center text-muted-foreground font-bold tracking-widest uppercase mt-8 opacity-40">
                             By registering, you agree to our <Link href="/terms" className="text-foreground hover:text-primary transition-colors">Terms</Link> & <Link href="/privacy" className="text-foreground hover:text-primary transition-colors">Policy</Link>
