@@ -451,14 +451,16 @@ export async function middleware(request: NextRequest) {
 
     // === AUTH PAGE GUARDS ===
     if (pathname.startsWith('/auth')) {
-        // /auth/callback MUST always be allowed through — it is the OAuth handler
-        // that creates the session. Blocking it would break all OAuth sign-ins.
-        if (pathname.startsWith('/auth/callback')) {
+        // These routes must always be allowed through regardless of session state:
+        // - /auth/callback: OAuth handler that CREATES the session (no session exists yet)
+        // - /auth/verify-phone: Immediately follows callback; session cookie may not propagate
+        //   in time for the middleware to see it. The page handles auth client-side via useAuth().
+        if (pathname.startsWith('/auth/callback') || pathname.startsWith('/auth/verify-phone')) {
             return addNoCacheHeaders(setCORSHeaders(res, request, origin))
         }
 
         // These pages require an active session
-        const authRequiredPaths = ['/auth/complete-profile', '/auth/verify-phone']
+        const authRequiredPaths = ['/auth/complete-profile']
         const needsAuth = authRequiredPaths.some(p => pathname.startsWith(p))
 
         if (needsAuth) {

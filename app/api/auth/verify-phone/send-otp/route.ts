@@ -64,29 +64,47 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({ error: 'This phone number is already registered to another account.' }, { status: 409 })
             }
 
-            await (adminClient.from('users') as any)
-                .update({ phone_number: submittedPhone, phone_verified: false })
+            const { error: updateErr } = await (adminClient.from('users') as any)
+                .update({ phone_number: submittedPhone })
                 .eq('id', authUser.id)
+            if (updateErr) console.error('[SendOTP] Phone save error:', updateErr)
         }
 
-        // Fetch the phone number from DB
+        // Fetch phone number — try combined query first, fall back if phone_verified column missing
+        let phoneNumber: string | null = null
+        let alreadyVerified = false
+
         const { data: dbUser, error: dbErr } = await adminClient
             .from('users')
             .select('phone_number, phone_verified')
             .eq('id', authUser.id)
             .single()
 
-        console.log('[SendOTP] dbUser:', JSON.stringify(dbUser), 'dbErr:', JSON.stringify(dbErr))
+        if (dbErr) {
+            // phone_verified column may not exist yet — fetch phone_number only
+            console.warn('[SendOTP] Combined query failed, falling back:', dbErr.message)
+            const { data: phoneOnly } = await adminClient
+                .from('users')
+                .select('phone_number')
+                .eq('id', authUser.id)
+                .single()
+            phoneNumber = phoneOnly?.phone_number ?? null
+        } else {
+            phoneNumber = dbUser?.phone_number ?? null
+            alreadyVerified = dbUser?.phone_verified === true
+        }
 
-        if (!dbUser?.phone_number || dbUser.phone_number === '') {
+        console.log('[SendOTP] phoneNumber:', phoneNumber, 'alreadyVerified:', alreadyVerified)
+
+        if (!phoneNumber || phoneNumber === '') {
             return NextResponse.json({ error: 'No phone number on file. Please enter your phone number first.' }, { status: 400 })
         }
 
-        if (dbUser.phone_verified === true) {
+        if (alreadyVerified) {
             return NextResponse.json({ error: 'Phone number is already verified.' }, { status: 400 })
         }
 
-        const phoneNumber = dbUser.phone_number
+        // phoneNumber is already set above
 
         if (otpSendLimiter) {
             const { success, reset } = await otpSendLimiter.limit(`phone:${phoneNumber}`)
