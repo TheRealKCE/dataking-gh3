@@ -118,12 +118,8 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'No phone number on file. Please enter your phone number first.' }, { status: 400 })
         }
 
-        if (alreadyVerified) {
-            return NextResponse.json({ error: 'Phone number is already verified.' }, { status: 400 })
-        }
-
-        // Check if we should bypass OTP for Google OAuth users
-        // We must use the admin client to reliably get app_metadata (cookie-based client often returns empty)
+        // --- Google OTP bypass check (must run BEFORE alreadyVerified gate) ---
+        // We use the admin client to reliably get app_metadata (cookie-based client often returns empty)
         const { data: fullAuthUser } = await adminClient.auth.admin.getUserById(authUser.id)
         const provider = fullAuthUser?.user?.app_metadata?.provider
             ?? fullAuthUser?.user?.identities?.[0]?.provider
@@ -138,18 +134,25 @@ export async function POST(request: NextRequest) {
                 .eq('key', 'skip_google_oauth_otp')
                 .single()
 
+            console.log('[SendOTP] skip_google_oauth_otp setting:', adminSetting?.value)
+
             if (adminSetting?.value === 'true') {
                 console.log('[SendOTP] Bypassing OTP for Google user')
                 const { error: bypassErr } = await (adminClient.from('users') as any)
                     .update({ phone_verified: true })
                     .eq('id', authUser.id)
-                
+
                 if (bypassErr) {
                     console.error('[SendOTP] Error marking phone verified during bypass:', bypassErr)
                 }
-                
+
                 return NextResponse.json({ success: true, otpBypassed: true })
             }
+        }
+        // --- End Google bypass ---
+
+        if (alreadyVerified) {
+            return NextResponse.json({ error: 'Phone number is already verified.' }, { status: 400 })
         }
 
         if (otpSendLimiter) {
