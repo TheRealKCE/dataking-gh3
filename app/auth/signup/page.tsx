@@ -180,6 +180,19 @@ export default function SignupPage() {
 
                 <Card className="w-full card-premium border-border/50 bg-card/70 backdrop-blur-xl shadow-premium overflow-hidden">
                     <CardContent className="p-8">
+                        <div className="mb-6 space-y-6">
+                            <GoogleSignInButton label="Sign up with Google" />
+                            
+                            <div className="relative">
+                                <div className="absolute inset-0 flex items-center">
+                                    <div className="w-full border-t border-border/50"></div>
+                                </div>
+                                <div className="relative flex justify-center text-[10px] uppercase tracking-[0.3em] font-black">
+                                    <span className="bg-card px-4 text-muted-foreground/50">Or</span>
+                                </div>
+                            </div>
+                        </div>
+
                         <form onSubmit={handleSubmit} className="space-y-5">
                             {error && (
                                 <Alert variant="destructive" className="bg-destructive/10 border-destructive/20 text-destructive rounded-xl">
@@ -310,18 +323,7 @@ export default function SignupPage() {
                             </Button>
                         </form>
 
-                        <div className="relative my-8">
-                            <div className="absolute inset-0 flex items-center">
-                                <div className="w-full border-t border-border/50"></div>
-                            </div>
-                            <div className="relative flex justify-center text-[10px] uppercase tracking-[0.3em] font-black">
-                                <span className="bg-card px-4 text-muted-foreground/50">Or sign up with</span>
-                            </div>
-                        </div>
-
-                        <div className="grid gap-4">
-                            <GoogleSignInButton label="Sign up with Google" />
-
+                        <div className="grid gap-4 mt-6">
                             <Button
                                 asChild
                                 variant="outline"
