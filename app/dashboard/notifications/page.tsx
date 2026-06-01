@@ -364,10 +364,27 @@ export default function NotificationsPage() {
             )}
             {isPushSupported && (!isIOS || isInstalled) && pushPermission === 'granted' && (
                 <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
-                    <span className="flex items-center gap-1">
-                        <BellRing className="w-3.5 h-3.5 text-green-500" />
-                        Push alerts active
-                    </span>
+                    <div className="flex items-center gap-3">
+                        <span className="flex items-center gap-1">
+                            <BellRing className="w-3.5 h-3.5 text-green-500" />
+                            Push alerts active
+                        </span>
+                        <button 
+                            type="button" 
+                            onClick={async () => {
+                                toast.info('Sending test notification...')
+                                try {
+                                    const res = await fetch('/api/notifications/test', { method: 'POST' })
+                                    if (!res.ok) throw new Error('Failed to send')
+                                } catch (e) {
+                                    toast.error('Failed to trigger test push')
+                                }
+                            }} 
+                            className="underline text-blue-500 hover:text-blue-600 dark:text-blue-400 dark:hover:text-blue-300 transition-colors"
+                        >
+                            Send Test Alert
+                        </button>
+                    </div>
                     <button type="button" onClick={unsubscribeFromPush} className="underline hover:text-foreground transition-colors">
                         Disable
                     </button>
