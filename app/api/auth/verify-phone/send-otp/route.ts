@@ -64,10 +64,28 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({ error: 'This phone number is already registered to another account.' }, { status: 409 })
             }
 
-            const { error: updateErr } = await (adminClient.from('users') as any)
+            // Try to update first
+            const { error: updateErr, data: updatedData } = await (adminClient.from('users') as any)
                 .update({ phone_number: submittedPhone })
                 .eq('id', authUser.id)
-            if (updateErr) console.error('[SendOTP] Phone save error:', updateErr)
+                .select('id')
+
+            // If no rows were updated (user doesn't exist in public.users), we must insert them
+            if (!updateErr && (!updatedData || updatedData.length === 0)) {
+                console.warn('[SendOTP] User missing from public.users, inserting now...')
+                const { error: insertErr } = await (adminClient.from('users') as any)
+                    .insert({
+                        id: authUser.id,
+                        email: authUser.email,
+                        phone_number: submittedPhone,
+                        phone_verified: false,
+                        role: 'customer',
+                        status: 'active'
+                    })
+                if (insertErr) console.error('[SendOTP] User insert error:', insertErr)
+            } else if (updateErr) {
+                console.error('[SendOTP] Phone save error:', updateErr)
+            }
         }
 
         // Fetch phone number — try combined query first, fall back if phone_verified column missing
