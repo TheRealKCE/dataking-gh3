@@ -123,7 +123,15 @@ export async function POST(request: NextRequest) {
         }
 
         // Check if we should bypass OTP for Google OAuth users
-        if (authUser.app_metadata?.provider === 'google') {
+        // We must use the admin client to reliably get app_metadata (cookie-based client often returns empty)
+        const { data: fullAuthUser } = await adminClient.auth.admin.getUserById(authUser.id)
+        const provider = fullAuthUser?.user?.app_metadata?.provider
+            ?? fullAuthUser?.user?.identities?.[0]?.provider
+            ?? 'unknown'
+
+        console.log('[SendOTP] Detected provider:', provider)
+
+        if (provider === 'google') {
             const { data: adminSetting } = await adminClient
                 .from('admin_settings')
                 .select('value')
