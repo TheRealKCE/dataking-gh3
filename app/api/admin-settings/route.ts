@@ -52,7 +52,8 @@ export async function GET(request: Request) {
             'support_email',
             'footer_copyright_text',
             'footer_branding_text',
-            'dealer_promo_enabled'
+            'dealer_promo_enabled',
+            'skip_google_oauth_otp'
         ]
 
         const isAdmin = role === 'admin' || role === 'sub-admin'

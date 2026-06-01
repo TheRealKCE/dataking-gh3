@@ -253,7 +253,7 @@ export default function VerifyPhonePage() {
                                     >
                                         {isSending ? <Loader2 className="w-6 h-6 animate-spin" /> : (
                                             <span className="flex items-center gap-2">
-                                                {otpBypassEnabled ? 'Save Number & Continue' : 'Send Code'}
+                                                {otpBypassEnabled ? 'Continue' : 'Send Code'}
                                                 <ArrowRight className="w-5 h-5" />
                                             </span>
                                         )}
