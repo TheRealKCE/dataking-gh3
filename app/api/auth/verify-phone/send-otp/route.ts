@@ -118,38 +118,30 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'No phone number on file. Please enter your phone number first.' }, { status: 400 })
         }
 
-        // --- Google OTP bypass check (must run BEFORE alreadyVerified gate) ---
-        // We use the admin client to reliably get app_metadata (cookie-based client often returns empty)
-        const { data: fullAuthUser } = await adminClient.auth.admin.getUserById(authUser.id)
-        const provider = fullAuthUser?.user?.app_metadata?.provider
-            ?? fullAuthUser?.user?.identities?.[0]?.provider
-            ?? 'unknown'
+        // --- Google OTP bypass check ---
+        // Check the admin toggle. This flow is only reached by OAuth users so we bypass
+        // for all users when the toggle is enabled.
+        const { data: adminSetting } = await adminClient
+            .from('admin_settings')
+            .select('value')
+            .eq('key', 'skip_google_oauth_otp')
+            .single()
 
-        console.log('[SendOTP] Detected provider:', provider)
+        console.log('[SendOTP] skip_google_oauth_otp:', adminSetting?.value)
 
-        if (provider === 'google') {
-            const { data: adminSetting } = await adminClient
-                .from('admin_settings')
-                .select('value')
-                .eq('key', 'skip_google_oauth_otp')
-                .single()
+        if (adminSetting?.value === 'true') {
+            console.log('[SendOTP] Admin toggle ON — bypassing OTP')
+            const { error: bypassErr } = await (adminClient.from('users') as any)
+                .update({ phone_verified: true })
+                .eq('id', authUser.id)
 
-            console.log('[SendOTP] skip_google_oauth_otp setting:', adminSetting?.value)
-
-            if (adminSetting?.value === 'true') {
-                console.log('[SendOTP] Bypassing OTP for Google user')
-                const { error: bypassErr } = await (adminClient.from('users') as any)
-                    .update({ phone_verified: true })
-                    .eq('id', authUser.id)
-
-                if (bypassErr) {
-                    console.error('[SendOTP] Error marking phone verified during bypass:', bypassErr)
-                }
-
-                return NextResponse.json({ success: true, otpBypassed: true })
+            if (bypassErr) {
+                console.error('[SendOTP] Error marking phone verified during bypass:', bypassErr)
             }
+
+            return NextResponse.json({ success: true, otpBypassed: true })
         }
-        // --- End Google bypass ---
+        // --- End bypass ---
 
         if (alreadyVerified) {
             return NextResponse.json({ error: 'Phone number is already verified.' }, { status: 400 })

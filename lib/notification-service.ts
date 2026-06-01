@@ -1,4 +1,5 @@
 import { createServerClient } from '@/lib/supabase'
+import { createClient } from '@supabase/supabase-js'
 
 type NotificationType = 'order_update' | 'complaint_resolved' | 'payment_success' | 'balance_updated' | 'system'
 
@@ -84,6 +85,35 @@ export async function cleanupOldNotifications() {
         .eq('is_read', true)
         .lt('created_at', cutoffDate.toISOString())
 
+    return { success: !error, error }
+}
+
+export async function notifyAllAdmins(data: Omit<NotificationData, 'userId'>) {
+    // Use service role to bypass RLS when notifying admins
+    const supabase = createClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        {
+            auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
+        }
+    )
+    
+    const { data: admins } = await (supabase.from('users') as any)
+        .select('id')
+        .eq('role', 'admin')
+        
+    if (!admins?.length) return { success: true }
+
+    const notifications = admins.map((admin: { id: string }) => ({
+        user_id: admin.id,
+        title: data.title,
+        message: data.message,
+        type: data.type,
+        action_url: data.actionUrl,
+        is_read: false,
+    }))
+
+    const { error } = await (supabase.from('notifications') as any).insert(notifications)
     return { success: !error, error }
 }
 
