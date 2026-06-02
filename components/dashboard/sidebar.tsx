@@ -562,6 +562,10 @@ export function DashboardSidebar() {
                                 return false
                             }).map((item) => {
                                 const isActive = isLinkActive(item.href)
+                                const badgeCount =
+                                    item.href === '/admin/afa-management' ? adminCounts.pendingAfa :
+                                    item.href === '/admin/airtime' ? adminCounts.pendingAirtime :
+                                    0
                                 return (
                                     <Link key={item.href} href={item.href} onClick={() => {
                                         if (window.innerWidth < 1024) closeSidebar()
@@ -571,8 +575,18 @@ export function DashboardSidebar() {
                                             isActive ? "text-red-500 bg-red-500/10 font-bold" : currentRole.sidebarNavHover,
                                             isCollapsed && "justify-center px-0"
                                         )}>
-                                            <item.icon className="w-5 h-5 flex-shrink-0" />
+                                            <div className="relative flex-shrink-0">
+                                                <item.icon className="w-5 h-5" />
+                                                {isCollapsed && badgeCount > 0 && (
+                                                    <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full border border-background" />
+                                                )}
+                                            </div>
                                             {!isCollapsed && <span className="text-sm tracking-tight">{item.label}</span>}
+                                            {!isCollapsed && badgeCount > 0 && (
+                                                <span className="ml-auto text-[10px] font-bold bg-red-500 text-white rounded-full min-w-[18px] h-[18px] flex items-center justify-center px-1 leading-none">
+                                                    {badgeCount > 99 ? '99+' : badgeCount}
+                                                </span>
+                                            )}
                                         </div>
                                     </Link>
                                 )

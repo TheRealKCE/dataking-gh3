@@ -189,7 +189,7 @@ export async function POST(request: NextRequest) {
             costPrice = isAgentOwner ? parseFloat(pkg.agent_price) : (parseFloat(pkg.price) || 0)
             profit = sellingPrice - costPrice
 
-            if (sellingPrice <= 0 || profit <= 0) {
+            if (sellingPrice <= 0 || profit < 0) {
                 return NextResponse.json({ error: 'Invalid pricing configuration' }, { status: 400 })
             }
 

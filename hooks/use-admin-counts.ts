@@ -10,6 +10,7 @@ export interface AdminCounts {
     pendingShops: number
     pendingWithdrawals: number
     pendingAfa: number
+    pendingAirtime: number
     pendingComplaints: number
     expiringAgents: number
     pendingDebts: number
@@ -21,6 +22,7 @@ const initialCounts: AdminCounts = {
     pendingShops: 0,
     pendingWithdrawals: 0,
     pendingAfa: 0,
+    pendingAirtime: 0,
     pendingComplaints: 0,
     expiringAgents: 0,
     pendingDebts: 0
@@ -89,6 +91,14 @@ export function useAdminCounts() {
         setCounts(prev => ({ ...prev, pendingAfa: count || 0 }))
     }, [])
 
+    const fetchAirtimeCount = useCallback(async () => {
+        const { count } = await (supabase
+            .from('airtime_orders')
+            .select('*', { count: 'exact', head: true })
+            .eq('status', 'pending') as any)
+        setCounts(prev => ({ ...prev, pendingAirtime: count || 0 }))
+    }, [])
+
     const fetchComplaintsCount = useCallback(async () => {
         const { count } = await (supabase
             .from('complaints')
@@ -124,10 +134,11 @@ export function useAdminCounts() {
         fetchShopsCount()
         fetchWithdrawalsCount()
         fetchAfaCount()
+        fetchAirtimeCount()
         fetchComplaintsCount()
         fetchExpiringAgentsCount()
         fetchPendingDebtsCount()
-    }, [fetchOrdersCount, fetchShopsCount, fetchWithdrawalsCount, fetchAfaCount, fetchComplaintsCount, fetchExpiringAgentsCount, fetchPendingDebtsCount])
+    }, [fetchOrdersCount, fetchShopsCount, fetchWithdrawalsCount, fetchAfaCount, fetchAirtimeCount, fetchComplaintsCount, fetchExpiringAgentsCount, fetchPendingDebtsCount])
 
     useEffect(() => {
         if (!isAdmin) return
@@ -151,6 +162,10 @@ export function useAdminCounts() {
             .on('postgres_changes', { event: '*', schema: 'public', table: 'afa_orders' }, fetchAfaCount)
             .subscribe()
 
+        const airtimeChannel = supabase.channel('admin-counts-airtime')
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'airtime_orders' }, fetchAirtimeCount)
+            .subscribe()
+
         const complaintsChannel = supabase.channel('admin-counts-complaints')
             .on('postgres_changes', { event: '*', schema: 'public', table: 'complaints' }, fetchComplaintsCount)
             .subscribe()
@@ -168,11 +183,12 @@ export function useAdminCounts() {
             supabase.removeChannel(shopsChannel)
             supabase.removeChannel(withdrawalsChannel)
             supabase.removeChannel(afaChannel)
+            supabase.removeChannel(airtimeChannel)
             supabase.removeChannel(complaintsChannel)
             supabase.removeChannel(usersChannel)
             supabase.removeChannel(debtsChannel)
         }
-    }, [isAdmin, fetchAllCounts, fetchOrdersCount, fetchShopsCount, fetchWithdrawalsCount, fetchAfaCount, fetchComplaintsCount, fetchExpiringAgentsCount, fetchPendingDebtsCount])
+    }, [isAdmin, fetchAllCounts, fetchOrdersCount, fetchShopsCount, fetchWithdrawalsCount, fetchAfaCount, fetchAirtimeCount, fetchComplaintsCount, fetchExpiringAgentsCount, fetchPendingDebtsCount])
 
     return { counts, refresh: fetchAllCounts }
 }
