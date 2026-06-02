@@ -21,21 +21,23 @@ const MOOLRE_SMS_ENDPOINT = '/sms/send'
 
 const MNOTIFY_BASE_URL = 'https://api.mnotify.com/api/sms/quick'
 
+function isValidApiKey(key: string | undefined): boolean {
+    if (!key || key.trim() === '') return false
+    const lower = key.toLowerCase()
+    if (lower.includes('placeholder') || lower.includes('your_') || lower.includes('_here')) return false
+    return true
+}
+
 /**
  * Validate SMS configuration on module load
  */
 function validateSMSConfig() {
-    const moolreApiKey = process.env.MOOLRE_API_KEY
-    const mnotifyApiKey = process.env.MNOTIFY_API_KEY
-
-    if (!moolreApiKey) {
-        console.warn('[SMS Config] WARNING: MOOLRE_API_KEY is not set. Moolre SMS features will fail.')
+    if (!isValidApiKey(process.env.MOOLRE_API_KEY)) {
+        console.warn('[SMS Config] WARNING: MOOLRE_API_KEY is not set or is a placeholder. Moolre SMS will use fallback.')
     }
-    if (!mnotifyApiKey) {
-        console.warn('[SMS Config] WARNING: MNOTIFY_API_KEY is not set. mNotify SMS features will fail.')
+    if (!isValidApiKey(process.env.MNOTIFY_API_KEY)) {
+        console.warn('[SMS Config] WARNING: MNOTIFY_API_KEY is not set or is a placeholder. mNotify SMS features will fail.')
     }
-
-    // SMS service initialized
 }
 
 // Run validation when module loads
@@ -45,11 +47,16 @@ validateSMSConfig()
  * Send a quick SMS via Moolre
  */
 export async function sendSMS(options: SMSOptions): Promise<SMSResult> {
+    if (process.env.SMS_ENABLED === 'false') {
+        console.log('[SMS Service] SMS_ENABLED=false — skipping send.')
+        return { success: true, messageId: 'sms_disabled' }
+    }
+
     const apiKey = process.env.MOOLRE_API_KEY
     const defaultSender = process.env.MOOLRE_SENDER_ID || 'DKGH'
 
-    if (!apiKey) {
-        console.error('[SMS Service] MOOLRE_API_KEY not configured. Falling back to mNotify.')
+    if (!isValidApiKey(apiKey)) {
+        console.error('[SMS Service] MOOLRE_API_KEY not configured or is a placeholder. Falling back to mNotify.')
         return await sendMnotifySMS(options)
     }
 
@@ -143,11 +150,16 @@ export async function sendSMS(options: SMSOptions): Promise<SMSResult> {
  * Send a quick SMS via mNotify
  */
 export async function sendMnotifySMS(options: SMSOptions): Promise<SMSResult> {
+    if (process.env.SMS_ENABLED === 'false') {
+        console.log('[SMS Service] SMS_ENABLED=false — skipping mNotify send.')
+        return { success: true, messageId: 'sms_disabled' }
+    }
+
     const apiKey = process.env.MNOTIFY_API_KEY
     const defaultSender = process.env.MNOTIFY_SENDER_ID || 'DKGH'
 
-    if (!apiKey) {
-        const error = 'MNOTIFY_API_KEY not configured in environment variables.'
+    if (!isValidApiKey(apiKey)) {
+        const error = 'MNOTIFY_API_KEY not configured or is a placeholder.'
         console.error('[SMS Service] ERROR:', error)
         return { success: false, error }
     }

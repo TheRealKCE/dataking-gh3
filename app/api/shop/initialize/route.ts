@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
         if (shopError || !shop) return NextResponse.json({ error: 'Shop not found' }, { status: 404 })
 
         const ownerRole = shop.owner?.role || 'customer'
-        if (shop.approval_status !== 'approved' || !shop.is_active || !['customer', 'agent', 'admin', 'sub-admin'].includes(shop.owner?.role)) {
+        if (shop.approval_status !== 'approved' || !shop.is_active || !['customer', 'agent', 'dealer', 'admin', 'sub-admin'].includes(shop.owner?.role)) {
             return NextResponse.json({
                 error: 'This shop is not currently active',
                 contact: { phone: shop.owner_phone, whatsapp: shop.whatsapp_number, email: shop.owner?.email }
@@ -185,11 +185,28 @@ export async function POST(request: NextRequest) {
             if (!shopPrice) return NextResponse.json({ error: 'Package not available in this shop' }, { status: 404 })
 
             sellingPrice = parseFloat(shopPrice.selling_price)
-            const isAgentOwner = shop.owner?.role === 'agent' && parseFloat(pkg.agent_price) > 0
-            costPrice = isAgentOwner ? parseFloat(pkg.agent_price) : (parseFloat(pkg.price) || 0)
-            profit = sellingPrice - costPrice
+            const ownerRole = shop.owner?.role || 'customer'
+            const ownerIsAgentTier = ['agent', 'dealer'].includes(ownerRole)
 
-            if (sellingPrice <= 0 || profit <= 0) {
+            // Use the correct cost price based on the owner's role tier
+            let tierPrice = 0
+            if (ownerRole === 'dealer' && parseFloat(pkg.dealer_price) > 0) {
+                tierPrice = parseFloat(pkg.dealer_price)
+            } else if (ownerRole === 'agent' && parseFloat(pkg.agent_price) > 0) {
+                tierPrice = parseFloat(pkg.agent_price)
+            }
+            const hasTierPrice = ownerIsAgentTier && tierPrice > 0
+            costPrice = hasTierPrice ? tierPrice : (parseFloat(pkg.price) || 0)
+            profit = hasTierPrice ? sellingPrice - costPrice : sellingPrice
+
+            if (sellingPrice <= 0) {
+                return NextResponse.json({ error: 'Invalid pricing configuration' }, { status: 400 })
+            }
+            // Only enforce profit margin when a known cost price exists
+            if (!ownerIsAgentTier && profit <= 0) {
+                return NextResponse.json({ error: 'Invalid pricing configuration' }, { status: 400 })
+            }
+            if (hasTierPrice && profit < 0) {
                 return NextResponse.json({ error: 'Invalid pricing configuration' }, { status: 400 })
             }
 
