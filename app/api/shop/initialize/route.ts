@@ -185,7 +185,7 @@ export async function POST(request: NextRequest) {
             if (!shopPrice) return NextResponse.json({ error: 'Package not available in this shop' }, { status: 404 })
 
             sellingPrice = parseFloat(shopPrice.selling_price)
-            const isAgentOwner = shop.owner?.role === 'agent' && parseFloat(pkg.agent_price) > 0
+            const isAgentOwner = ['agent', 'dealer'].includes(shop.owner?.role) && parseFloat(pkg.agent_price) > 0
             costPrice = isAgentOwner ? parseFloat(pkg.agent_price) : (parseFloat(pkg.price) || 0)
             profit = sellingPrice - costPrice
 
