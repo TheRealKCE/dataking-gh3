@@ -185,10 +185,19 @@ export async function POST(request: NextRequest) {
             if (!shopPrice) return NextResponse.json({ error: 'Package not available in this shop' }, { status: 404 })
 
             sellingPrice = parseFloat(shopPrice.selling_price)
-            const ownerIsAgentTier = ['agent', 'dealer'].includes(shop.owner?.role)
-            const hasAgentPrice = ownerIsAgentTier && parseFloat(pkg.agent_price) > 0
-            costPrice = hasAgentPrice ? parseFloat(pkg.agent_price) : (parseFloat(pkg.price) || 0)
-            profit = hasAgentPrice ? sellingPrice - costPrice : sellingPrice
+            const ownerRole = shop.owner?.role || 'customer'
+            const ownerIsAgentTier = ['agent', 'dealer'].includes(ownerRole)
+
+            // Use the correct cost price based on the owner's role tier
+            let tierPrice = 0
+            if (ownerRole === 'dealer' && parseFloat(pkg.dealer_price) > 0) {
+                tierPrice = parseFloat(pkg.dealer_price)
+            } else if (ownerRole === 'agent' && parseFloat(pkg.agent_price) > 0) {
+                tierPrice = parseFloat(pkg.agent_price)
+            }
+            const hasTierPrice = ownerIsAgentTier && tierPrice > 0
+            costPrice = hasTierPrice ? tierPrice : (parseFloat(pkg.price) || 0)
+            profit = hasTierPrice ? sellingPrice - costPrice : sellingPrice
 
             if (sellingPrice <= 0) {
                 return NextResponse.json({ error: 'Invalid pricing configuration' }, { status: 400 })
@@ -197,7 +206,7 @@ export async function POST(request: NextRequest) {
             if (!ownerIsAgentTier && profit <= 0) {
                 return NextResponse.json({ error: 'Invalid pricing configuration' }, { status: 400 })
             }
-            if (hasAgentPrice && profit < 0) {
+            if (hasTierPrice && profit < 0) {
                 return NextResponse.json({ error: 'Invalid pricing configuration' }, { status: 400 })
             }
 
