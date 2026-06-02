@@ -38,6 +38,7 @@ export default function AdminSettingsPage() {
     const [autoFulfillment, setAutoFulfillment] = useState(true)
     const [webPaymentProvider, setWebPaymentProvider] = useState<'moolre' | 'paystack'>('moolre')
     const [shopPaymentProvider, setShopPaymentProvider] = useState<'moolre' | 'paystack'>('moolre')
+    const [skipGoogleOauthOtp, setSkipGoogleOauthOtp] = useState(false)
 
     // Page access states
     const [pageAccessDashboard, setPageAccessDashboard] = useState(true)
@@ -92,6 +93,7 @@ export default function AdminSettingsPage() {
             const shopProvider = String(settingsMap.active_payment_provider_shop || 'moolre')
             setWebPaymentProvider(webProvider === 'paystack' ? 'paystack' : 'moolre')
             setShopPaymentProvider(shopProvider === 'paystack' ? 'paystack' : 'moolre')
+            setSkipGoogleOauthOtp(settingsMap.skip_google_oauth_otp === 'true')
 
             // Initialize page access values
             setPageAccessDashboard(settingsMap.page_access_dashboard !== 'false')
@@ -136,6 +138,7 @@ export default function AdminSettingsPage() {
                 { key: 'auto_fulfillment_enabled', value: String(autoFulfillment) },
                 { key: 'active_payment_provider_web', value: webPaymentProvider },
                 { key: 'active_payment_provider_shop', value: shopPaymentProvider },
+                { key: 'skip_google_oauth_otp', value: String(skipGoogleOauthOtp) },
                 // Page access settings
                 { key: 'page_access_dashboard', value: String(pageAccessDashboard) },
                 { key: 'page_access_data_packages', value: String(pageAccessDataPackages) },
@@ -484,6 +487,27 @@ export default function AdminSettingsPage() {
                                 <Switch
                                     checked={autoFulfillment}
                                     onCheckedChange={setAutoFulfillment}
+                                />
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Authentication</CardTitle>
+                            <CardDescription>Manage user authentication flows</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="flex items-center justify-between p-4 border rounded-lg">
+                                <div className="space-y-0.5">
+                                    <Label className="text-base">Skip OTP for Google Sign-ins</Label>
+                                    <p className="text-sm text-muted-foreground">
+                                        When ON, users signing in with Google will still provide their phone number but bypass the SMS OTP verification step.
+                                    </p>
+                                </div>
+                                <Switch
+                                    checked={skipGoogleOauthOtp}
+                                    onCheckedChange={setSkipGoogleOauthOtp}
                                 />
                             </div>
                         </CardContent>
