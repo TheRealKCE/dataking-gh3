@@ -185,11 +185,19 @@ export async function POST(request: NextRequest) {
             if (!shopPrice) return NextResponse.json({ error: 'Package not available in this shop' }, { status: 404 })
 
             sellingPrice = parseFloat(shopPrice.selling_price)
-            const isAgentOwner = ['agent', 'dealer'].includes(shop.owner?.role) && parseFloat(pkg.agent_price) > 0
-            costPrice = isAgentOwner ? parseFloat(pkg.agent_price) : (parseFloat(pkg.price) || 0)
-            profit = sellingPrice - costPrice
+            const ownerIsAgentTier = ['agent', 'dealer'].includes(shop.owner?.role)
+            const hasAgentPrice = ownerIsAgentTier && parseFloat(pkg.agent_price) > 0
+            costPrice = hasAgentPrice ? parseFloat(pkg.agent_price) : (parseFloat(pkg.price) || 0)
+            profit = hasAgentPrice ? sellingPrice - costPrice : sellingPrice
 
-            if (sellingPrice <= 0 || profit < 0) {
+            if (sellingPrice <= 0) {
+                return NextResponse.json({ error: 'Invalid pricing configuration' }, { status: 400 })
+            }
+            // Only enforce profit margin when a known cost price exists
+            if (!ownerIsAgentTier && profit <= 0) {
+                return NextResponse.json({ error: 'Invalid pricing configuration' }, { status: 400 })
+            }
+            if (hasAgentPrice && profit < 0) {
                 return NextResponse.json({ error: 'Invalid pricing configuration' }, { status: 400 })
             }
 
