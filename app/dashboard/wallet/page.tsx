@@ -25,11 +25,8 @@ import {
     Loader2,
     TrendingUp,
     TrendingDown,
-    AlertTriangle,
     MessageSquare,
-    MessageCircle,
     Send,
-    Copy,
     Check
 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -352,122 +349,6 @@ function WalletContent() {
                 </div>
             )}
 
-            {/* Universal Manual Top Up Instructions */}
-            <Card id="quick-topup-card" className="border-2 border-gray-100 bg-white overflow-hidden shadow-xl">
-                <CardHeader className="bg-white py-4 border-b border-gray-50">
-                    <div className="flex flex-col text-left">
-                        <CardTitle className="text-black text-lg sm:text-xl font-semibold flex items-center gap-2">
-                            <Plus className="w-5 h-5 text-[#FACC15]" />
-                            Quick Top Up
-                        </CardTitle>
-                        <span className="text-xs sm:text-sm font-bold text-[#25D366] ml-7">No Paystack Charges (Manual Approval)</span>
-                    </div>
-                </CardHeader>
-                <CardContent className="pt-8 space-y-8">
-                    <div className="space-y-8">
-                        {/* Step 1 */}
-                        <div className="flex gap-5">
-                            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#FACC15] flex items-center justify-center text-sm font-bold text-black shadow-sm">1</div>
-                            <div className="text-sm sm:text-base font-medium text-black leading-relaxed pt-1">
-                                Send payment via Mobile Money:
-                                <div className="mt-2 space-y-2">
-                                    {[
-                                        { label: 'MTN', value: '0597313605' },
-                                        { label: 'Name', value: 'AWUAH DERRICK' }
-                                    ].map((item) => (
-                                        <div key={item.label} className="flex items-center justify-between p-2 rounded-lg bg-gray-50 border border-gray-200 group">
-                                            <span className="text-xs font-bold text-gray-500 uppercase">{item.label}</span>
-                                            <div className="flex items-center gap-2">
-                                                <span className="font-bold text-yellow-700">{item.value}</span>
-                                                <Button
-                                                    variant="ghost" size="icon" className="h-6 w-6"
-                                                    onClick={() => {
-                                                        navigator.clipboard.writeText(item.value)
-                                                        toast.success(`${item.label} copied!`)
-                                                    }}
-                                                >
-                                                    <Copy className="w-3.5 h-3.5" />
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Step 2 */}
-                        <div className="flex gap-5">
-                            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#FACC15] flex items-center justify-center text-sm font-bold text-black shadow-sm">2</div>
-                            <div className="space-y-4 pt-1 flex-1">
-                                <p className="text-sm sm:text-base font-medium text-black leading-relaxed">
-                                    Use the reference below for instant detection, or send your receipt via WhatsApp/SMS.
-                                </p>
-                                
-                                <div className="p-4 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-between group">
-                                    <div className="flex flex-col">
-                                        <span className="text-[10px] font-bold text-blue-500 uppercase tracking-widest">Required Reference</span>
-                                        <span className="text-base font-black text-blue-900 tracking-tight">
-                                            {dbUser?.first_name} {dbUser?.last_name || ''}
-                                        </span>
-                                    </div>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="bg-white border-blue-200 hover:bg-blue-100 text-blue-600 font-bold gap-2"
-                                        onClick={() => {
-                                            const ref = `${dbUser?.first_name} ${dbUser?.last_name || ''}`.trim()
-                                            navigator.clipboard.writeText(ref)
-                                            toast.success('Reference copied!')
-                                        }}
-                                    >
-                                        <Copy className="w-4 h-4" />
-                                        Copy
-                                    </Button>
-                                </div>
-
-                                <div className="flex flex-wrap items-center gap-6 mt-4">
-                                    <Link
-                                        href={`sms:0597313605?body=Please I have sent the money so credit my account for me, account name is: ${dbUser?.first_name} ${dbUser?.last_name || dbUser?.email || 'N/A'}`}
-                                        className="group flex flex-col items-center gap-2"
-                                    >
-                                        <div className="p-3 rounded-full hover:bg-blue-50 transition-colors">
-                                            <MessageCircle className="w-8 h-8 text-[#007AFF]" strokeWidth={2} />
-                                        </div>
-                                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-tighter group-hover:text-[#007AFF]">tap here to send sms</span>
-                                    </Link>
-                                    <Link
-                                        href={`https://wa.me/233597313605?text=${encodeURIComponent(`Please I have sent the money so credit my account for me, account name is: ${dbUser?.first_name} ${dbUser?.last_name || dbUser?.email || 'N/A'}`)}`}
-                                        target="_blank"
-                                        className="group flex flex-col items-center gap-2"
-                                    >
-                                        <div className="p-3 rounded-full hover:bg-green-50 transition-colors">
-                                            <MessageCircle className="w-8 h-8 text-[#25D366]" strokeWidth={2} />
-                                        </div>
-                                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-tighter group-hover:text-[#25D366]">tap here to send whatsapp</span>
-                                    </Link>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Step 3 */}
-                        <div className="flex gap-5">
-                            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#FACC15] flex items-center justify-center text-sm font-bold text-black shadow-sm">3</div>
-                            <p className="text-sm sm:text-base font-medium text-black leading-relaxed pt-1">
-                                Wait for Admin final approval message and refresh your page thank you (Credit is Instant after Approval).
-                            </p>
-                        </div>
-                    </div>
-
-                    <div className="pt-6 border-t border-gray-50">
-                        <div className="inline-flex items-center gap-2 text-yellow-600 bg-yellow-50 px-4 py-2 rounded-xl">
-                            <AlertTriangle className="w-4 h-4" />
-                            <span className="text-sm font-bold uppercase tracking-wide">
-                                Minimum Amount: GH₵ 10.00
-                            </span>
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
 
 
 
