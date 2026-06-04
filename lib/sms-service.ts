@@ -16,8 +16,8 @@ interface SMSResult {
     error?: string
 }
 
-const MOOLRE_BASE_URL = process.env.MOOLRE_API_URL || 'https://moolre.com/api/v1'
-const MOOLRE_SMS_ENDPOINT = '/sms/send'
+const MOOLRE_BASE_URL = process.env.MOOLRE_API_URL || 'https://api.moolre.com'
+const MOOLRE_SMS_ENDPOINT = '/open/sms/send'
 
 const MNOTIFY_BASE_URL = 'https://api.mnotify.com/api/sms/quick'
 
@@ -83,6 +83,7 @@ export async function sendSMS(options: SMSOptions): Promise<SMSResult> {
         const payload = {
             recipient: normalizedPhone,
             message: options.message,
+            sender_id: options.sender || defaultSender,
         }
 
         const response = await fetch(url, {
@@ -119,30 +120,29 @@ export async function sendSMS(options: SMSOptions): Promise<SMSResult> {
 
         console.log('[SMS Service] Moolre response:', response.status, JSON.stringify(data))
 
+        // Moolre uses numeric status: 1 = success, 0 = failure
         const isSuccess =
+            data.status === 1 ||
             data.success === true ||
             data.status === 'success' ||
-            data.status === 'sent' ||
-            (response.status >= 200 && response.status < 300 && !data.error)
+            data.status === 'sent'
 
         if (isSuccess) {
-            const messageId = data.message_id || data.id || data.reference || 'sent'
+            const messageId = data.message_id || data.id || data.reference || data.data?.id || 'sent'
             return { success: true, messageId }
         } else {
-            // Log failure details
             console.error('[SMS Service] ❌ FAILED - Moolre rejected the message')
-            console.error('[SMS Service] Error data:', JSON.stringify(data, null, 2))
-            
-            // Fallback to mNotify
-            console.log('[SMS Service] Attempting fallback to mNotify...')
-            return await sendMnotifySMS(options)
+            console.error('[SMS Service] Code:', data.code, '| Message:', data.message)
+
+            if (data.code === 'AIN01') {
+                console.error('[SMS Service] AIN01 = Authentication Error. Check: 1) MOOLRE_API_KEY is correct 2) Account has SMS credits/balance')
+            }
+
+            return { success: false, error: `Moolre error ${data.code}: ${data.message}` }
         }
     } catch (error: any) {
-        console.error('[SMS Service] ❌ EXCEPTION occurred:', error)
-        
-        // Fallback to mNotify
-        console.log('[SMS Service] Attempting fallback to mNotify...')
-        return await sendMnotifySMS(options)
+        console.error('[SMS Service] ❌ EXCEPTION occurred:', error.message)
+        return { success: false, error: `SMS exception: ${error.message}` }
     }
 }
 
