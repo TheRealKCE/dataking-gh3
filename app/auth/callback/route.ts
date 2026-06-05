@@ -9,13 +9,8 @@ export async function GET(request: NextRequest) {
     const origin = requestUrl.origin
 
     if (!code) {
-        // If code is missing, it might be an implicit flow returning a URL fragment (#access_token=...)
-        // We redirect to verify-phone so the client-side Supabase can pick up the session.
-        const targetUrl = '/auth/verify-phone'
-        return new NextResponse(
-            `<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=${targetUrl}"><script>window.location.href = '${targetUrl}' + window.location.hash;</script></head><body>Redirecting...</body></html>`,
-            { status: 200, headers: { 'Content-Type': 'text/html' } }
-        )
+        // Implicit flow — fragment-based token, client-side Supabase will pick it up
+        return NextResponse.redirect(new URL('/auth/verify-phone', origin))
     }
 
     const cookieStore = await cookies()
@@ -54,7 +49,7 @@ export async function GET(request: NextRequest) {
         console.log('[OAuthCallback] existing user:', JSON.stringify(existingUser))
 
         // New Google users must enter their phone number (no OTP required)
-        let targetUrl = '/auth/verify-phone'
+        let targetPath = '/auth/verify-phone'
 
         if (!existingUser) {
             // Brand new user — create their record with Google name
@@ -79,22 +74,16 @@ export async function GET(request: NextRequest) {
 
             // Already has phone and verified — go straight to dashboard
             if (existingUser.phone_verified && existingUser.phone_number) {
-                targetUrl = '/dashboard'
+                targetPath = '/dashboard'
             }
         }
 
-        // Return HTML redirect to preserve Set-Cookie headers
-        return new NextResponse(
-            `<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=${targetUrl}"><script>window.location.href = '${targetUrl}';</script></head><body>Redirecting...</body></html>`,
-            { status: 200, headers: { 'Content-Type': 'text/html' } }
-        )
+        // Use NextResponse.redirect so Set-Cookie headers from exchangeCodeForSession
+        // are properly forwarded to the browser (a new NextResponse() would drop them)
+        return NextResponse.redirect(new URL(targetPath, origin))
 
     } catch (e) {
         console.error('[OAuthCallback] Error:', e)
-        const fallbackUrl = '/auth/verify-phone'
-        return new NextResponse(
-            `<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=${fallbackUrl}"><script>window.location.href = '${fallbackUrl}';</script></head><body>Redirecting...</body></html>`,
-            { status: 200, headers: { 'Content-Type': 'text/html' } }
-        )
+        return NextResponse.redirect(new URL('/auth/verify-phone', origin))
     }
 }
