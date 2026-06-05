@@ -317,7 +317,7 @@ export default function AdminEmailBroadcastPage() {
                                                     <span className="font-medium truncate">
                                                         {user.first_name} {user.last_name}
                                                     </span>
-                                                    <Badge className={\`text-[10px] \${getRoleBadgeColor(user.role)}\`}>
+                                                    <Badge className={`text-[10px] ${getRoleBadgeColor(user.role)}`}>
                                                         {user.role}
                                                     </Badge>
                                                 </div>
