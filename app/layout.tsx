@@ -17,6 +17,7 @@ import { GlobalLoader } from '@/components/ui/global-loader'
 import PwaInstallPrompt from '@/components/pwa-install-prompt'
 import { UIProvider } from '@/contexts/ui-context'
 import { SystemAnnouncementModal } from '@/components/system-announcement-modal'
+import { getPublicConfig } from '@/lib/public-config'
 
 const outfit = Outfit({
     weight: ['400', '600', '700'],
@@ -58,11 +59,14 @@ export const metadata: Metadata = {
     },
 }
 
-export default function RootLayout({
+export default async function RootLayout({
     children,
 }: {
     children: React.ReactNode
 }) {
+    const config = await getPublicConfig()
+    const systemAnnouncement = config.activeSystemAnnouncements?.find((item: any) => item.visible_on === 'main_site' || item.visible_on === 'both') || null;
+
     return (
         <html lang="en" suppressHydrationWarning className={`${outfit.variable} ${inter.variable}`}>
             <head>
@@ -86,7 +90,7 @@ export default function RootLayout({
                                 <GlobalLoader />
                             </Suspense>
                             {children}
-                            <SystemAnnouncementModal />
+                            <SystemAnnouncementModal initialAnnouncement={systemAnnouncement} />
                             <PwaInstallPrompt />
                             <Toaster position="top-right" richColors />
                         </UIProvider>

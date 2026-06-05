@@ -21,6 +21,7 @@ import { Loader2, Plus, Trash2, Bell, Megaphone, Pencil, X, Check, RefreshCw } f
 import { toast } from 'sonner'
 import { formatDate } from '@/lib/utils'
 import { SystemAnnouncement } from '@/types/supabase'
+import { revalidatePublicConfig } from './actions'
 
 export default function AdminAnnouncementsPage() {
     const [announcements, setAnnouncements] = useState<SystemAnnouncement[]>([])
@@ -90,7 +91,10 @@ export default function AdminAnnouncementsPage() {
             }
 
             // Revalidate public config cache so changes show up immediately for users
-            await fetch('/api/admin/revalidate-config', { method: 'POST' })
+            const revalidateResult = await revalidatePublicConfig()
+            if (revalidateResult.error) {
+                console.error('Revalidation failed:', revalidateResult.error)
+            }
 
             setAnnouncements([data, ...announcements])
             setTitle('')
@@ -128,7 +132,7 @@ export default function AdminAnnouncementsPage() {
             }
             
             // Revalidate public config cache
-            await fetch('/api/admin/revalidate-config', { method: 'POST' })
+            await revalidatePublicConfig()
             
             toast.success(`Announcement ${!currentStatus ? 'activated' : 'deactivated'}`)
         } catch (error) {
@@ -148,7 +152,7 @@ export default function AdminAnnouncementsPage() {
             if (error) throw error
 
             // Revalidate public config cache
-            await fetch('/api/admin/revalidate-config', { method: 'POST' })
+            await revalidatePublicConfig()
 
             setAnnouncements(announcements.filter(a => a.id !== id))
             toast.success('Announcement deleted')
@@ -208,7 +212,7 @@ export default function AdminAnnouncementsPage() {
             }
 
             // Revalidate public config cache
-            await fetch('/api/admin/revalidate-config', { method: 'POST' })
+            await revalidatePublicConfig()
 
             setEditingId(null)
             setEditTitle('')
