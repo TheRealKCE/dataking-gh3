@@ -14,6 +14,22 @@ const supabaseImageHost = (() => {
 const nextConfig: NextConfig = {
     reactStrictMode: true,
     poweredByHeader: false,
+    
+    async redirects() {
+    return [
+        {
+            source: '/:path*',
+            has: [
+                {
+                    type: 'host',
+                    value: 'shop.dataking.qzz.io',
+                },
+            ],
+            destination: 'https://www.dataking.qzz.io/shop/:path*',
+            permanent: true,
+        },
+    ]
+},
     images: {
         remotePatterns: supabaseImageHost
             ? [{
