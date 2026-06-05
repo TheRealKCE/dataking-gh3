@@ -260,7 +260,9 @@ export default function AdminEmailBroadcastPage() {
                                 </SelectTrigger>
                                 <SelectContent>
                                     <SelectItem value="all">All Roles</SelectItem>
-                                    <SelectItem value="user">Users Only</SelectItem>
+                                    <SelectItem value="customer">Customers</SelectItem>
+                                    <SelectItem value="agent">Agents / Shop Owners</SelectItem>
+                                    <SelectItem value="dealer">Dealers</SelectItem>
                                     <SelectItem value="sub-admin">Sub-Admins</SelectItem>
                                     <SelectItem value="admin">Admins</SelectItem>
                                 </SelectContent>

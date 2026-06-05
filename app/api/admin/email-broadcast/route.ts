@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
             subject: z.string().min(1).max(255),
             message: adminLongTextSchema,
             userIds: z.array(z.string().uuid()).max(500).optional(),
-            roleFilter: z.enum(['all', 'user', 'sub-admin']).optional(),
+            roleFilter: z.enum(['all', 'customer', 'sub-admin', 'admin', 'agent', 'dealer']).optional(),
         })
         
         const validation = broadcastSchema.safeParse(body)
