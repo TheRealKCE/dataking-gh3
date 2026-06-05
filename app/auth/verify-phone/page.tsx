@@ -190,7 +190,7 @@ export default function VerifyPhonePage() {
                             ARHMS <span className="text-blue-600">TECHNOLOGIES</span>
                         </h1>
                         <p className="text-sm font-bold text-muted-foreground tracking-widest uppercase mt-2 opacity-70">
-                            {isGoogleUser ? 'Enter Your Phone Number' : 'Phone Verification'}
+                            Enter Your Phone Number
                         </p>
                     </Link>
                 </div>
@@ -219,9 +219,7 @@ export default function VerifyPhonePage() {
                                 <div className="flex items-center gap-3 mb-6 p-4 bg-blue-500/10 border border-blue-500/20 rounded-2xl">
                                     <Phone className="w-5 h-5 text-blue-500 shrink-0" />
                                     <p className="text-xs font-bold text-blue-600 dark:text-blue-400">
-                                        {isGoogleUser
-                                            ? 'Enter your phone number to continue to your dashboard'
-                                            : 'Enter your phone number to receive a verification code'}
+                                        Enter your phone number to continue to your dashboard
                                     </p>
                                 </div>
 
@@ -249,11 +247,6 @@ export default function VerifyPhonePage() {
                                                 className="h-14 pl-12 bg-background/50 border-border/50 focus:border-primary/50 focus:ring-primary/20 rounded-2xl text-base font-medium"
                                             />
                                         </div>
-                                        <p className="text-[10px] text-muted-foreground ml-1 font-medium">
-                                            {isGoogleUser
-                                                ? 'Your number will be saved — no verification code needed'
-                                                : 'A 6-digit code will be sent via SMS'}
-                                        </p>
                                     </div>
 
                                     <Button
@@ -263,7 +256,7 @@ export default function VerifyPhonePage() {
                                     >
                                         {isSending ? <Loader2 className="w-6 h-6 animate-spin" /> : (
                                             <span className="flex items-center gap-2">
-                                                {isGoogleUser ? 'Continue' : 'Send Code'}
+                                                Continue
                                                 <ArrowRight className="w-5 h-5" />
                                             </span>
                                         )}
