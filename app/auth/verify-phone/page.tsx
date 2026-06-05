@@ -44,10 +44,19 @@ export default function VerifyPhonePage() {
     // On mount: directly check Supabase session to handle OAuth redirects
     // where the auth context may not have caught up yet
     useEffect(() => {
-        supabase.auth.getSession().then(({ data: { session } }) => {
-            setLocalSession(session)
-            setSessionChecked(true)
-        })
+        // Safety timeout: always unlock after 3s even if getSession hangs
+        const timeout = setTimeout(() => setSessionChecked(true), 3000)
+
+        supabase.auth.getSession()
+            .then(({ data: { session } }) => {
+                setLocalSession(session)
+                setSessionChecked(true)
+            })
+            .catch(() => {
+                // On error, still unlock so the page renders
+                setSessionChecked(true)
+            })
+            .finally(() => clearTimeout(timeout))
     }, [])
 
     // Pre-fill phone if already in DB
@@ -158,8 +167,9 @@ export default function VerifyPhonePage() {
         }
     }
 
-    // Wait for both: auth context AND direct session check
-    if (authLoading || !sessionChecked) {
+    // Show spinner only until the direct session check completes
+    // (don't wait for auth context — it's slower and can cause blank pages)
+    if (!sessionChecked) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-background">
                 <Loader2 className="w-8 h-8 animate-spin text-primary" />
