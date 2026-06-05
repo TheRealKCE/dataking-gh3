@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import { unstable_noStore as noStore } from 'next/cache'
 
 /**
  * Fetches the latest active system announcement DIRECTLY from the database
@@ -6,6 +7,7 @@ import { createClient } from '@supabase/supabase-js'
  * Used server-side in the root layout to guarantee fresh data on every request.
  */
 export async function getActiveAnnouncement() {
+    noStore() // Opt-out of Next.js static caching completely
     try {
         const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
         const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
