@@ -78,12 +78,20 @@ export async function GET(request: NextRequest) {
             }
         }
 
-        // Use NextResponse.redirect so Set-Cookie headers from exchangeCodeForSession
-        // are properly forwarded to the browser (a new NextResponse() would drop them)
-        return NextResponse.redirect(new URL(targetPath, origin))
+        // Use a 200 HTML meta-refresh instead of 302 redirect.
+        // Vercel's edge network can strip Set-Cookie headers from 302 responses,
+        // causing the session cookie to be lost. A 200 with meta-refresh ensures
+        // the browser stores the cookies BEFORE navigating to the next page.
+        return new NextResponse(
+            `<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=${targetPath}"><script>window.location.href = '${targetPath}';</script></head><body>Redirecting...</body></html>`,
+            { status: 200, headers: { 'Content-Type': 'text/html' } }
+        )
 
     } catch (e) {
         console.error('[OAuthCallback] Error:', e)
-        return NextResponse.redirect(new URL('/auth/verify-phone', origin))
+        return new NextResponse(
+            `<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=/auth/verify-phone"><script>window.location.href = '/auth/verify-phone';</script></head><body>Redirecting...</body></html>`,
+            { status: 200, headers: { 'Content-Type': 'text/html' } }
+        )
     }
 }
