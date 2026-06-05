@@ -90,7 +90,7 @@ export default async function RootLayout({
                                 <GlobalLoader />
                             </Suspense>
                             {children}
-                            <SystemAnnouncementModal initialAnnouncement={systemAnnouncement} />
+                            <SystemAnnouncementModal initialAnnouncement={systemAnnouncement as any} />
                             <PwaInstallPrompt />
                             <Toaster position="top-right" richColors />
                         </UIProvider>
