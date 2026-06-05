@@ -80,6 +80,7 @@ const adminNavItems = [
     { href: '/admin/complaints', label: 'Complaints', icon: MessageSquare },
     { href: '/admin/announcements', label: 'Announce', icon: Bell },
     { href: '/admin/sms-broadcast', label: 'SMS', icon: MessageSquare },
+    { href: '/admin/email-broadcast', label: 'Email', icon: Send },
     { href: '/admin/finance', label: 'Finance', icon: Banknote },
     { href: '/admin/profits-history', label: 'Profits', icon: Wallet },
     { href: '/admin/api-keys', label: 'API Keys', icon: Code2 },

@@ -70,7 +70,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<EmailResult>
 /**
  * Premium high-end HTML email template
  */
-function generatePremiumTemplate(title: string, content: string, accentColor: string = '#D4AF37'): string {
+export function generatePremiumTemplate(title: string, content: string, accentColor: string = '#D4AF37'): string {
     return `
 <!DOCTYPE html>
 <html lang="en">
