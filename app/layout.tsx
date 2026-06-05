@@ -17,7 +17,7 @@ import { GlobalLoader } from '@/components/ui/global-loader'
 import PwaInstallPrompt from '@/components/pwa-install-prompt'
 import { UIProvider } from '@/contexts/ui-context'
 import { SystemAnnouncementModal } from '@/components/system-announcement-modal'
-import { getPublicConfig } from '@/lib/public-config'
+import { getActiveAnnouncement } from '@/lib/get-active-announcement'
 
 const outfit = Outfit({
     weight: ['400', '600', '700'],
@@ -64,8 +64,8 @@ export default async function RootLayout({
 }: {
     children: React.ReactNode
 }) {
-    const config = await getPublicConfig()
-    const systemAnnouncement = config.activeSystemAnnouncements?.find((item: any) => item.visible_on === 'main_site' || item.visible_on === 'both') || null;
+    // Fetch the latest active announcement directly from DB (no cache, service role = no RLS)
+    const systemAnnouncement = await getActiveAnnouncement()
 
     return (
         <html lang="en" suppressHydrationWarning className={`${outfit.variable} ${inter.variable}`}>
