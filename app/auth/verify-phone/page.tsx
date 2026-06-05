@@ -30,9 +30,11 @@ export default function VerifyPhonePage() {
     const [isSending, setIsSending] = useState(false)
     const [error, setError] = useState('')
     const [cooldown, setCooldown] = useState(0)
-    const [otpBypassEnabled, setOtpBypassEnabled] = useState(false)
     const { user, dbUser, isLoading: authLoading } = useAuth()
     const router = useRouter()
+
+    // Detect Google sign-in from auth session metadata
+    const isGoogleUser = user?.app_metadata?.provider === 'google'
 
     // Pre-fill phone if already in DB
     useEffect(() => {
@@ -40,16 +42,6 @@ export default function VerifyPhonePage() {
             setPhoneNumber(dbUser.phone_number)
         }
     }, [dbUser])
-
-    // Fetch OTP bypass toggle
-    useEffect(() => {
-        fetch('/api/admin-settings?keys=skip_google_oauth_otp')
-            .then(r => r.json())
-            .then(data => {
-                if (data?.skip_google_oauth_otp === 'true') setOtpBypassEnabled(true)
-            })
-            .catch(() => {})
-    }, [])
 
     // Cooldown countdown
     useEffect(() => {
@@ -239,7 +231,7 @@ export default function VerifyPhonePage() {
                                             />
                                         </div>
                                         <p className="text-[10px] text-muted-foreground ml-1 font-medium">
-                                            {otpBypassEnabled
+                                            {isGoogleUser
                                                 ? 'Your number will be saved and you will be taken to your dashboard'
                                                 : 'A 6-digit code will be sent via SMS'
                                             }
@@ -253,7 +245,7 @@ export default function VerifyPhonePage() {
                                     >
                                         {isSending ? <Loader2 className="w-6 h-6 animate-spin" /> : (
                                             <span className="flex items-center gap-2">
-                                                {otpBypassEnabled ? 'Continue' : 'Send Code'}
+                                                {isGoogleUser ? 'Continue' : 'Send Code'}
                                                 <ArrowRight className="w-5 h-5" />
                                             </span>
                                         )}

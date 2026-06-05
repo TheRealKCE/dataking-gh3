@@ -16,7 +16,10 @@ interface SMSResult {
     error?: string
 }
 
-const MOOLRE_BASE_URL = process.env.MOOLRE_API_URL || 'https://api.moolre.com'
+// NOTE: Base URL is hardcoded (not read from env) to prevent HTML-response failures
+// when MOOLRE_API_URL is misconfigured or missing in production. This matches
+// the pattern used in moolre-transfer-service.ts.
+const MOOLRE_BASE_URL = 'https://api.moolre.com'
 const MOOLRE_SMS_ENDPOINT = '/open/sms/send'
 
 const MNOTIFY_BASE_URL = 'https://api.mnotify.com/api/sms/quick'
@@ -79,6 +82,7 @@ export async function sendSMS(options: SMSOptions): Promise<SMSResult> {
         }
 
         const url = MOOLRE_BASE_URL + MOOLRE_SMS_ENDPOINT
+        console.log('[SMS Service] Sending to URL:', url, '| Recipient:', normalizedPhone)
 
         const payload = {
             recipient: normalizedPhone,

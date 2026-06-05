@@ -53,6 +53,7 @@ export async function GET(request: NextRequest) {
 
         console.log('[OAuthCallback] existing user:', JSON.stringify(existingUser))
 
+        // New Google users must enter their phone number (no OTP required)
         let targetUrl = '/auth/verify-phone'
 
         if (!existingUser) {
@@ -68,7 +69,7 @@ export async function GET(request: NextRequest) {
                 status: 'active',
             })
         } else {
-            // Update name from Google if not already set
+            // Existing user — update name if needed
             const needsNameUpdate = !existingUser.first_name || existingUser.first_name === ''
             if (needsNameUpdate && firstName) {
                 await (adminClient.from('users') as any)
@@ -76,7 +77,7 @@ export async function GET(request: NextRequest) {
                     .eq('id', data.user.id)
             }
 
-            // Already verified — go straight to dashboard
+            // Already has phone and verified — go straight to dashboard
             if (existingUser.phone_verified && existingUser.phone_number) {
                 targetUrl = '/dashboard'
             }

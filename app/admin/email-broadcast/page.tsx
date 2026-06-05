@@ -15,7 +15,7 @@ import {
     SelectValue,
 } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
-import { Loader2, Send, MessageSquare, Users, Search, CheckSquare, XSquare } from 'lucide-react'
+import { Loader2, Send, Mail, Users, Search, CheckSquare, XSquare } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface User {
@@ -27,12 +27,13 @@ interface User {
     email: string
 }
 
-export default function AdminSMSBroadcastPage() {
+export default function AdminEmailBroadcastPage() {
     const [users, setUsers] = useState<User[]>([])
     const [filteredUsers, setFilteredUsers] = useState<User[]>([])
     const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set())
     const [loading, setLoading] = useState(true)
     const [sending, setSending] = useState(false)
+    const [subject, setSubject] = useState('')
     const [message, setMessage] = useState('')
     const [searchQuery, setSearchQuery] = useState('')
     const [roleFilter, setRoleFilter] = useState<string>('all')
@@ -47,7 +48,7 @@ export default function AdminSMSBroadcastPage() {
 
     const fetchUsers = async () => {
         try {
-            const response = await fetch('/api/admin/sms-broadcast/users')
+            const response = await fetch('/api/admin/email-broadcast/users')
             const result = await response.json()
 
             if (!response.ok) {
@@ -107,7 +108,12 @@ export default function AdminSMSBroadcastPage() {
         setSelectedUsers(newSelected)
     }
 
-    const handleSendSMS = async () => {
+    const handleSendEmail = async () => {
+        if (!subject.trim()) {
+            toast.error('Please enter a subject')
+            return
+        }
+
         if (!message.trim()) {
             toast.error('Please enter a message')
             return
@@ -120,11 +126,12 @@ export default function AdminSMSBroadcastPage() {
 
         setSending(true)
         try {
-            const response = await fetch('/api/admin/sms-broadcast', {
+            const response = await fetch('/api/admin/email-broadcast', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     userIds: Array.from(selectedUsers),
+                    subject: subject.trim(),
                     message: message.trim()
                 })
             })
@@ -132,21 +139,22 @@ export default function AdminSMSBroadcastPage() {
             const data = await response.json()
 
             if (!response.ok) {
-                throw new Error(data.error || 'Failed to send SMS')
+                throw new Error(data.error || 'Failed to send Email')
             }
 
-            toast.success(`SMS sent successfully! ${data.results.success}/${data.results.total} delivered`)
+            toast.success(`Email sent successfully! ${data.results.success}/${data.results.total} delivered`)
 
             if (data.results.failed > 0) {
-                console.warn('[SMSBroadcast] Failed deliveries:', data.results.errors)
+                console.warn('[EmailBroadcast] Failed deliveries:', data.results.errors)
             }
 
             // Clear form
+            setSubject('')
             setMessage('')
             setSelectedUsers(new Set())
         } catch (error: any) {
-            console.error('Error sending SMS:', error)
-            toast.error(error.message || 'Failed to send SMS')
+            console.error('Error sending Email:', error)
+            toast.error(error.message || 'Failed to send Email')
         } finally {
             setSending(false)
         }
@@ -160,43 +168,45 @@ export default function AdminSMSBroadcastPage() {
         }
     }
 
-    const characterCount = message.length
-    const smsCount = Math.ceil(characterCount / 160) || 1
-
     return (
         <div className="space-y-6">
             <div>
-                <h1 className="text-2xl font-bold">SMS Broadcast</h1>
-                <p className="text-muted-foreground">Send SMS alerts to your customers</p>
+                <h1 className="text-2xl font-bold">Email Broadcast</h1>
+                <p className="text-muted-foreground">Send email messages to your users</p>
             </div>
 
             <div className="grid gap-6 lg:grid-cols-2">
-                {/* Compose SMS Card */}
+                {/* Compose Email Card */}
                 <Card className="h-fit">
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
-                            <MessageSquare className="w-5 h-5 text-primary" />
-                            Compose SMS
+                            <Mail className="w-5 h-5 text-primary" />
+                            Compose Email
                         </CardTitle>
                         <CardDescription>
-                            Write your message below. Keep it concise for best delivery.
+                            Write your email message below. The content will be formatted nicely.
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="space-y-4">
                         <div className="space-y-2">
-                            <Label htmlFor="message">Message</Label>
+                            <Label htmlFor="subject">Subject</Label>
+                            <Input
+                                id="subject"
+                                placeholder="Enter email subject"
+                                value={subject}
+                                onChange={(e) => setSubject(e.target.value)}
+                            />
+                        </div>
+
+                        <div className="space-y-2">
+                            <Label htmlFor="message">Message (HTML supported)</Label>
                             <Textarea
                                 id="message"
-                                placeholder="Type your SMS message here..."
-                                className="min-h-[150px] resize-none"
+                                placeholder="Type your email message here... You can use HTML tags like <b>bold</b>, <i>italic</i>, etc."
+                                className="min-h-[250px] resize-y"
                                 value={message}
                                 onChange={(e) => setMessage(e.target.value)}
-                                maxLength={480}
                             />
-                            <div className="flex justify-between text-xs text-muted-foreground">
-                                <span>{characterCount} / 480 characters</span>
-                                <span>{smsCount} SMS{smsCount > 1 ? 's' : ''} (160 chars each)</span>
-                            </div>
                         </div>
 
                         <div className="p-3 rounded-lg bg-muted/50 space-y-1">
@@ -204,23 +214,19 @@ export default function AdminSMSBroadcastPage() {
                                 <span className="text-muted-foreground">Selected Recipients:</span>
                                 <span className="font-medium">{selectedUsers.size}</span>
                             </div>
-                            <div className="flex justify-between text-sm">
-                                <span className="text-muted-foreground">Est. SMS Cost:</span>
-                                <span className="font-medium">{selectedUsers.size * smsCount} SMS units</span>
-                            </div>
                         </div>
 
                         <Button
-                            onClick={handleSendSMS}
+                            onClick={handleSendEmail}
                             className="w-full"
-                            disabled={sending || selectedUsers.size === 0 || !message.trim()}
+                            disabled={sending || selectedUsers.size === 0 || !message.trim() || !subject.trim()}
                         >
                             {sending ? (
                                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                             ) : (
                                 <Send className="w-4 h-4 mr-2" />
                             )}
-                            Send SMS to {selectedUsers.size} Recipient{selectedUsers.size !== 1 ? 's' : ''}
+                            Send Email to {selectedUsers.size} Recipient{selectedUsers.size !== 1 ? 's' : ''}
                         </Button>
                     </CardContent>
                 </Card>
@@ -242,7 +248,7 @@ export default function AdminSMSBroadcastPage() {
                             <div className="flex-1 relative">
                                 <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                                 <Input
-                                    placeholder="Search by name, phone, or email..."
+                                    placeholder="Search by name, email..."
                                     value={searchQuery}
                                     onChange={(e) => setSearchQuery(e.target.value)}
                                     className="pl-9"
@@ -316,7 +322,7 @@ export default function AdminSMSBroadcastPage() {
                                                     </Badge>
                                                 </div>
                                                 <div className="text-xs text-muted-foreground truncate">
-                                                    {user.phone_number}
+                                                    {user.email}
                                                 </div>
                                             </div>
                                         </label>
@@ -326,7 +332,7 @@ export default function AdminSMSBroadcastPage() {
                         </div>
 
                         <div className="text-xs text-muted-foreground text-center">
-                            Showing {filteredUsers.length} of {users.length} users with phone numbers
+                            Showing {filteredUsers.length} of {users.length} users with email addresses
                         </div>
                     </CardContent>
                 </Card>

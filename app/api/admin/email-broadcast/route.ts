@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
-import { sendSMS } from '@/lib/sms-service'
+import { sendEmail, generatePremiumTemplate } from '@/lib/email-service'
 import { z } from 'zod'
 import { adminLongTextSchema } from '@/lib/validation'
 import { Ratelimit } from '@upstash/ratelimit'
@@ -11,7 +11,7 @@ import { Redis } from '@upstash/redis'
 const broadcastRateLimit = new Ratelimit({
     redis: Redis.fromEnv(),
     limiter: Ratelimit.slidingWindow(5, '1 h'),
-    prefix: 'rl:sms-broadcast',
+    prefix: 'rl:email-broadcast',
 })
 
 export async function POST(request: NextRequest) {
@@ -45,6 +45,7 @@ export async function POST(request: NextRequest) {
 
         const body = await request.json()
         const broadcastSchema = z.object({
+            subject: z.string().min(1).max(255),
             message: adminLongTextSchema,
             userIds: z.array(z.string().uuid()).max(500).optional(),
             roleFilter: z.enum(['all', 'customer', 'sub-admin', 'admin', 'agent', 'dealer']).optional(),
@@ -55,7 +56,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Invalid input', details: validation.error.errors }, { status: 400 })
         }
         
-        const { userIds, roleFilter, message } = validation.data
+        const { userIds, roleFilter, subject, message } = validation.data
 
         if (!userIds && !roleFilter) {
             return NextResponse.json({ error: 'Either userIds or roleFilter is required' }, { status: 400 })
@@ -67,8 +68,8 @@ export async function POST(request: NextRequest) {
         // Fetch recipients based on selection
         let query = supabase
             .from('users')
-            .select('id, first_name, phone_number, role')
-            .not('phone_number', 'is', null)
+            .select('id, first_name, email, role')
+            .not('email', 'is', null)
 
         if (userIds && userIds.length > 0) {
             // Specific users selected
@@ -81,17 +82,26 @@ export async function POST(request: NextRequest) {
         const { data: recipients, error: fetchError } = await query
 
         if (fetchError) {
-            console.error('[SMSBroadcast] Error fetching recipients:', fetchError)
+            console.error('[EmailBroadcast] Error fetching recipients:', fetchError)
             return NextResponse.json({ error: 'Failed to fetch recipients' }, { status: 500 })
         }
 
         if (!recipients || recipients.length === 0) {
-            return NextResponse.json({ error: 'No recipients found with valid phone numbers' }, { status: 400 })
+            return NextResponse.json({ error: 'No recipients found with valid email addresses' }, { status: 400 })
         }
 
-        // Send SMS to recipients
+        // Create the email template content
+        const emailContent = `
+            <h1 class="greeting">${subject}</h1>
+            <p class="message-text">
+                ${message.replace(/\\n/g, '<br/>')}
+            </p>
+        `
 
-        // Send SMS to each recipient
+        // Wrap with premium template
+        const htmlContent = generatePremiumTemplate(subject, emailContent)
+
+        // Send Email to each recipient
         const results = {
             total: recipients.length,
             success: 0,
@@ -99,18 +109,22 @@ export async function POST(request: NextRequest) {
             errors: [] as string[]
         }
 
+        // To avoid rate limits, we could do this in chunks, but for < 500 we can just use Promise.all or a loop.
+        // Let's use a loop to avoid hitting Brevo's concurrency limit too hard, or we can use Promise.all with chunks.
         for (const recipient of recipients as any[]) {
-            if (!recipient.phone_number) {
+            if (!recipient.email) {
                 results.failed++
-                results.errors.push(`${recipient.first_name || 'Unknown'}: No phone number`)
-                console.warn(`[SMSBroadcast] Skipping user ${recipient.first_name} - no phone number`)
+                results.errors.push(`${recipient.first_name || 'Unknown'}: No email`)
+                console.warn(`[EmailBroadcast] Skipping user ${recipient.first_name} - no email`)
                 continue
             }
 
             try {
-                const result = await sendSMS({
-                    recipient: recipient.phone_number,
-                    message: message.trim()
+                const result = await sendEmail({
+                    to: recipient.email,
+                    toName: recipient.first_name || 'User',
+                    subject: subject,
+                    htmlContent: htmlContent
                 })
 
                 if (result.success) {
@@ -118,23 +132,24 @@ export async function POST(request: NextRequest) {
                 } else {
                     results.failed++
                     results.errors.push(`${recipient.first_name || 'Unknown'}: ${result.error}`)
-                    console.error(`[SMSBroadcast] ❌ Failed for ${recipient.first_name}: ${result.error}`)
+                    console.error(`[EmailBroadcast] ❌ Failed for ${recipient.first_name}: ${result.error}`)
                 }
             } catch (err: any) {
                 results.failed++
                 results.errors.push(`${recipient.first_name || 'Unknown'}: ${err.message}`)
-                console.error(`[SMSBroadcast] ❌ Exception for ${recipient.first_name}:`, err)
+                console.error(`[EmailBroadcast] ❌ Exception for ${recipient.first_name}:`, err)
             }
+            
+            // Sleep briefly to avoid rate limiting
+            await new Promise(r => setTimeout(r, 50))
         }
-
-        // SMS broadcast complete
 
         return NextResponse.json({
             success: true,
             results
         })
     } catch (error: any) {
-        console.error('[SMSBroadcast] Error:', error)
+        console.error('[EmailBroadcast] Error:', error)
         return NextResponse.json({ error: error.message || 'Internal server error' }, { status: 500 })
     }
 }
