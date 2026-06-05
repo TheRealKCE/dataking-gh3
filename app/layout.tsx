@@ -16,6 +16,7 @@ import { ThemeProvider } from '@/components/theme-provider'
 import { GlobalLoader } from '@/components/ui/global-loader'
 import PwaInstallPrompt from '@/components/pwa-install-prompt'
 import { UIProvider } from '@/contexts/ui-context'
+import { SystemAnnouncementModal } from '@/components/system-announcement-modal'
 
 const outfit = Outfit({
     weight: ['400', '600', '700'],
@@ -85,6 +86,7 @@ export default function RootLayout({
                                 <GlobalLoader />
                             </Suspense>
                             {children}
+                            <SystemAnnouncementModal />
                             <PwaInstallPrompt />
                             <Toaster position="top-right" richColors />
                         </UIProvider>

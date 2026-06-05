@@ -2,7 +2,6 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { SystemAnnouncementModal } from '@/components/system-announcement-modal'
 import { AgentExpiryModal } from '@/components/agent-expiry-modal'
 import { useAuth } from '@/contexts/auth-context'
 import { UIProvider } from '@/contexts/ui-context'
@@ -77,7 +76,6 @@ export default function DashboardLayout({
     return (
         <div className="min-h-screen bg-background relative">
             <PushNotificationManager />
-            <SystemAnnouncementModal />
             <AgentExpiryModal />
             <DashboardSidebar />
             <div className={cn(
