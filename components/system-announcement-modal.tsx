@@ -18,7 +18,7 @@ export function SystemAnnouncementModal({ initialAnnouncement = null }: { initia
 
     useEffect(() => {
         checkAnnouncements()
-    }, [])
+    }, [initialAnnouncement?.id])
 
     const checkAnnouncements = async () => {
         try {

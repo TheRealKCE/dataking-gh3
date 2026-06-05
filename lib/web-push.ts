@@ -52,7 +52,7 @@ export async function sendPushToUser(userId: string, payload: PushPayload) {
                 )
             } catch (err: any) {
                 // 410 Gone = subscription expired; clean it up
-                if (err?.statusCode === 410 || err?.statusCode === 404 || err?.statusCode === 401) {
+                if (err?.statusCode === 410 || err?.statusCode === 404 || err?.statusCode === 401 || err?.statusCode === 403) {
                     expiredIds.push(sub.id)
                 }
             }
