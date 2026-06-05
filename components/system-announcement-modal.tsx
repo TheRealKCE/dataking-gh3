@@ -12,13 +12,22 @@ import { Button } from '@/components/ui/button'
 import { Megaphone } from 'lucide-react'
 import { SystemAnnouncement } from '@/types/supabase'
 
-export function SystemAnnouncementModal({ initialAnnouncement = null }: { initialAnnouncement?: Partial<SystemAnnouncement> | null }) {
+const ALLOWED_ROLES = ['customer', 'agent', 'dealer']
+
+export function SystemAnnouncementModal({
+    initialAnnouncement = null,
+    userRole,
+}: {
+    initialAnnouncement?: Partial<SystemAnnouncement> | null
+    userRole?: string
+}) {
     const [announcement, setAnnouncement] = useState<Partial<SystemAnnouncement> | null>(initialAnnouncement)
     const [isOpen, setIsOpen] = useState(false)
 
     useEffect(() => {
+        if (userRole && !ALLOWED_ROLES.includes(userRole)) return
         checkAnnouncements()
-    }, [])
+    }, [userRole])
 
     const checkAnnouncements = async () => {
         try {
