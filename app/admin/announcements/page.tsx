@@ -89,6 +89,9 @@ export default function AdminAnnouncementsPage() {
                     .eq('is_active', true)
             }
 
+            // Revalidate public config cache so changes show up immediately for users
+            await fetch('/api/admin/revalidate-config', { method: 'POST' })
+
             setAnnouncements([data, ...announcements])
             setTitle('')
             setMessage('')
@@ -123,6 +126,10 @@ export default function AdminAnnouncementsPage() {
                     .update({ is_active: false })
                     .eq('is_active', true)
             }
+            
+            // Revalidate public config cache
+            await fetch('/api/admin/revalidate-config', { method: 'POST' })
+            
             toast.success(`Announcement ${!currentStatus ? 'activated' : 'deactivated'}`)
         } catch (error) {
             toast.error('Failed to update status')
@@ -139,6 +146,9 @@ export default function AdminAnnouncementsPage() {
                 .eq('id', id)
 
             if (error) throw error
+
+            // Revalidate public config cache
+            await fetch('/api/admin/revalidate-config', { method: 'POST' })
 
             setAnnouncements(announcements.filter(a => a.id !== id))
             toast.success('Announcement deleted')
@@ -196,6 +206,9 @@ export default function AdminAnnouncementsPage() {
                     .update({ is_active: false })
                     .eq('is_active', true)
             }
+
+            // Revalidate public config cache
+            await fetch('/api/admin/revalidate-config', { method: 'POST' })
 
             setEditingId(null)
             setEditTitle('')
