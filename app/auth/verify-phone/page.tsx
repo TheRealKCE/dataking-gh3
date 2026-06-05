@@ -5,6 +5,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/auth-context'
+import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -30,11 +31,24 @@ export default function VerifyPhonePage() {
     const [isSending, setIsSending] = useState(false)
     const [error, setError] = useState('')
     const [cooldown, setCooldown] = useState(0)
+    // Local session state — used to handle OAuth redirect before auth context catches up
+    const [localSession, setLocalSession] = useState<any>(null)
+    const [sessionChecked, setSessionChecked] = useState(false)
     const { user, dbUser, isLoading: authLoading } = useAuth()
     const router = useRouter()
 
     // Detect Google sign-in from auth session metadata
-    const isGoogleUser = user?.app_metadata?.provider === 'google'
+    const authUser = user || localSession?.user
+    const isGoogleUser = authUser?.app_metadata?.provider === 'google'
+
+    // On mount: directly check Supabase session to handle OAuth redirects
+    // where the auth context may not have caught up yet
+    useEffect(() => {
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            setLocalSession(session)
+            setSessionChecked(true)
+        })
+    }, [])
 
     // Pre-fill phone if already in DB
     useEffect(() => {
@@ -144,7 +158,8 @@ export default function VerifyPhonePage() {
         }
     }
 
-    if (authLoading) {
+    // Wait for both: auth context AND direct session check
+    if (authLoading || !sessionChecked) {
         return (
             <div className="min-h-screen flex items-center justify-center bg-background">
                 <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -152,7 +167,7 @@ export default function VerifyPhonePage() {
         )
     }
 
-    if (!user) {
+    if (!authUser) {
         router.replace('/auth/login')
         return null
     }
