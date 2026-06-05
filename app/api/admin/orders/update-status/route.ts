@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { syncShopOrderStatus } from '@/lib/shop-service'
+import { sendPushToUser } from '@/lib/web-push'
 
 // Create a service role client to bypass RLS for admin updates functions
 const supabaseAdmin = createClient(
@@ -103,6 +104,30 @@ export async function POST(request: Request) {
                 console.error(`[UpdateStatus] syncShopOrderStatus failed for order ${targetOrderIds[i]}:`, r.reason)
             }
         })
+
+        // Push notification to affected users (awaited to prevent Vercel from killing)
+        if (status === 'completed' || status === 'failed') {
+            try {
+                const { data: orderData } = await supabaseAdmin
+                    .from('orders')
+                    .select('user_id, network, size, phone_number')
+                    .in('id', targetOrderIds)
+                if (orderData?.length) {
+                    const pushTitle = status === 'completed' ? 'Data Bundle Sent' : 'Order Failed'
+                    await Promise.allSettled(
+                        orderData.map((o: any) =>
+                            sendPushToUser(o.user_id, {
+                                title: pushTitle,
+                                body: status === 'completed'
+                                    ? `Your ${o.network} ${o.size} bundle for ${o.phone_number} has been sent.`
+                                    : `Your ${o.network} ${o.size} order for ${o.phone_number} could not be completed. Contact support.`,
+                                url: '/dashboard/my-orders',
+                            })
+                        )
+                    )
+                }
+            } catch {}
+        }
 
         return NextResponse.json({ success: true, count: targetOrderIds.length })
     } catch (error: any) {

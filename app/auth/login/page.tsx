@@ -14,6 +14,7 @@ import { Eye, EyeOff, Loader2, LogIn, Mail, Lock, Store, ExternalLink, AlertCirc
 import { toast } from 'sonner'
 import { BackgroundBubbles } from '@/components/background-bubbles'
 import { FloatingWhatsApp } from '@/components/floating-whatsapp'
+import { GoogleSignInButton } from '@/components/google-sign-in-button'
 
 export default function LoginPage() {
     const [email, setEmail] = useState('')
@@ -72,11 +73,11 @@ export default function LoginPage() {
                 {/* Logo & Branding */}
                 <div className="text-center mb-10">
                     <Link href="/" className="inline-flex flex-col items-center group">
-                        <div className="relative w-20 h-20 mb-6 transition-transform group-hover:scale-105">
-                            <div className="relative w-full h-full rounded-3xl shadow-blue-premium overflow-hidden">
+                        <div className="relative w-20 h-20 mb-6">
+                            <div className="relative w-full h-full rounded-3xl overflow-hidden bg-white shadow-[0_10px_40px_-10px_rgba(212,175,55,0.35)]">
                                 <Image
-                                    src="/logo.png"
-                                    alt="ARHMS"
+                                    src="/arhms-logo.png"
+                                    alt="ARHMS TECHNOLOGIES"
                                     fill
                                     className="object-contain"
                                     priority
@@ -84,7 +85,7 @@ export default function LoginPage() {
                             </div>
                         </div>
                         <h1 className="text-3xl font-black text-foreground tracking-tighter uppercase">
-                            ARHMS <span className="text-primary">DATA</span>
+                            ARHMS <span className="text-blue-600">TECHNOLOGIES</span>
                         </h1>
                         <p className="text-sm font-bold text-muted-foreground tracking-widest uppercase mt-2 opacity-70">
                             Login to Continue
@@ -94,6 +95,19 @@ export default function LoginPage() {
 
                 <Card className="w-full card-premium border-border/50 bg-card/70 backdrop-blur-xl shadow-premium overflow-hidden">
                     <CardContent className="p-8">
+                        <div className="mb-6 space-y-6">
+                            <GoogleSignInButton label="Continue with Google" />
+                            
+                            <div className="relative">
+                                <div className="absolute inset-0 flex items-center">
+                                    <div className="w-full border-t border-border/50"></div>
+                                </div>
+                                <div className="relative flex justify-center text-[10px] uppercase tracking-[0.3em] font-black">
+                                    <span className="bg-card px-4 text-muted-foreground/50">Or</span>
+                                </div>
+                            </div>
+                        </div>
+
                         <form onSubmit={handleSubmit} className="space-y-6">
                             {error && (
                                 <Alert variant="destructive" className="bg-destructive/10 border-destructive/20 text-destructive rounded-xl">
@@ -161,16 +175,8 @@ export default function LoginPage() {
                             </Button>
                         </form>
 
-                        <div className="relative my-8">
-                            <div className="absolute inset-0 flex items-center">
-                                <div className="w-full border-t border-border/50"></div>
-                            </div>
-                            <div className="relative flex justify-center text-[10px] uppercase tracking-[0.3em] font-black">
-                                <span className="bg-card px-4 text-muted-foreground/50">Discovery</span>
-                            </div>
-                        </div>
+                        <div className="grid gap-4 mt-8">
 
-                        <div className="grid gap-4">
                             <Button
                                 asChild
                                 variant="outline"

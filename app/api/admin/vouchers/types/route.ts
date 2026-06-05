@@ -53,7 +53,7 @@ export async function POST(request: NextRequest) {
         if (auth.error) return NextResponse.json({ error: auth.error }, { status: auth.status })
 
         const body = await request.json()
-        const { name, customer_price, agent_price, cost_price, display_order } = body
+        const { name, customer_price, agent_price, dealer_price, cost_price, display_order } = body
 
         if (!name || !customer_price || !agent_price || !cost_price) {
             return NextResponse.json({ error: 'Name, customer_price, agent_price, and cost_price are required' }, { status: 400 })
@@ -62,8 +62,9 @@ export async function POST(request: NextRequest) {
         // Server-side pricing sanity check
         const cp = parseFloat(customer_price);
         const ap = parseFloat(agent_price);
+        const dp = dealer_price ? parseFloat(dealer_price) : 0;
         const cost = parseFloat(cost_price);
-        if (cp < cost || ap < cost) {
+        if (cp < cost || ap < cost || (dp > 0 && dp < cost)) {
             return NextResponse.json({ error: 'Selling prices cannot be below cost price' }, { status: 400 })
         }
 
@@ -73,6 +74,7 @@ export async function POST(request: NextRequest) {
                 name,
                 customer_price: parseFloat(customer_price),
                 agent_price: parseFloat(agent_price),
+                dealer_price: dp,
                 cost_price: parseFloat(cost_price),
                 display_order: display_order || 0,
                 is_active: true,

@@ -27,7 +27,7 @@ export function SystemAnnouncementModal({
     useEffect(() => {
         if (userRole && !ALLOWED_ROLES.includes(userRole)) return
         checkAnnouncements()
-    }, [userRole])
+    }, [userRole, initialAnnouncement?.id])
 
     const checkAnnouncements = async () => {
         try {

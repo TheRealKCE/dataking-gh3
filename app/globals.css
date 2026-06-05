@@ -30,19 +30,19 @@
   }
 
   .dark {
-    /* Professional Dark Mode - Better surface separation */
-    --background: 224 29% 8%;
+    /* Professional Dark Mode - True Black */
+    --background: 0 0% 0%;
     --foreground: 210 40% 98%;
-    --card: 224 27% 11%;
+    --card: 0 0% 4%;
     --card-foreground: 210 40% 98%;
-    --popover: 224 29% 9%;
+    --popover: 0 0% 4%;
     --popover-foreground: 210 40% 98%;
     /* --- PRIMARY ACCENT (Modern Blue/Indigo) --- */
     --primary: 221 83% 53%;
     --primary-foreground: 0 0% 100%;
     
     /* --- SECONDARY & ACCENTS --- */
-    --secondary: 223 22% 16%;
+    --secondary: 0 0% 10%;
     --secondary-foreground: 210 40% 98%;
     
     --accent: 217 91% 60%;
@@ -51,15 +51,14 @@
     --destructive: 0 84% 60%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 219 24% 20%;
-    --input: 219 24% 20%;
+    --border: 0 0% 14%;
+    --input: 0 0% 14%;
     --ring: 221 83% 53%;
     --muted-foreground: 210 40% 65%;
 
     --radius: 1rem;
   }
 }
-
 @layer base {
   * {
     @apply border-border;
@@ -82,7 +81,7 @@
 
   h1, h2, h3, h4, h5, h6, .font-heading {
     font-family: var(--font-heading);
-    @apply font-bold tracking-tight text-foreground/90;
+    @apply font-bold tracking-tight;
   }
 
   h1 { @apply text-4xl md:text-5xl lg:text-6xl; }
@@ -112,7 +111,110 @@
   }
 
   .card-premium {
-    @apply bg-card border border-border/50 rounded-2xl shadow-sm transition-all duration-300 hover:shadow-md hover:border-primary/20;
+    @apply rounded-2xl shadow-sm;
+    background: #ffffff;
+    border: 1px solid rgba(0,0,0,0.08);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+  }
+  .dark .card-premium {
+    background: linear-gradient(145deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.015) 100%);
+    border: 1px solid rgba(255,255,255,0.08);
+    box-shadow: 0 1px 0 rgba(255,255,255,0.06) inset, 0 4px 24px rgba(0,0,0,0.4);
+  }
+
+  /* ── Hero carousel card skins (CSS-driven, no JS hydration needed) ── */
+  .hero-slide-1 {
+    background: linear-gradient(145deg,#ffffff,#eff6ff);
+    border: 1px solid rgba(37,99,235,0.12);
+    box-shadow: 0 25px 60px rgba(37,99,235,0.10);
+  }
+  .dark .hero-slide-1 {
+    background: linear-gradient(145deg,#09111f,#050816);
+    border: 1px solid rgba(255,255,255,0.09);
+    box-shadow: 0 32px 80px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.05);
+  }
+
+  .hero-slide-2 {
+    background: linear-gradient(145deg,#ffffff,#eef2ff);
+    border: 1px solid rgba(124,58,237,0.18);
+    box-shadow: 0 25px 60px rgba(124,58,237,0.08);
+  }
+  .dark .hero-slide-2 {
+    background: linear-gradient(145deg,#0f172a,#17143f);
+    border: 1px solid rgba(124,58,237,0.25);
+    box-shadow: 0 25px 60px rgba(124,58,237,0.15);
+  }
+
+  .hero-slide-3 {
+    background: linear-gradient(145deg,#ffffff,#eff6ff);
+    border: 1px solid rgba(37,99,235,0.18);
+    box-shadow: 0 25px 60px rgba(37,99,235,0.09);
+  }
+  .dark .hero-slide-3 {
+    background: linear-gradient(135deg,#7c3aed 0%,#2563eb 45%,#0ea5e9 100%);
+    border: 1px solid rgba(255,255,255,0.22);
+    box-shadow: 0 25px 70px rgba(37,99,235,0.28), 0 0 80px rgba(124,58,237,0.18);
+  }
+
+  /* Slide 3 pill chips flip from blue-tint (light) to frosted-white (dark) */
+  .hero-slide-3 .hero-pill {
+    background: rgba(37,99,235,0.08);
+    border: 1px solid rgba(37,99,235,0.18);
+  }
+  .dark .hero-slide-3 .hero-pill {
+    background: rgba(255,255,255,0.18);
+    border: 1px solid rgba(255,255,255,0.3);
+  }
+
+  .hero-slide-4 {
+    background: linear-gradient(145deg,#ffffff,#f5f3ff);
+    border: 1px solid rgba(124,58,237,0.18);
+    box-shadow: 0 25px 60px rgba(124,58,237,0.08);
+  }
+  .dark .hero-slide-4 {
+    background: linear-gradient(145deg,#10082a,#0e0530);
+    border: 1px solid rgba(124,58,237,0.2);
+    box-shadow: 0 25px 60px rgba(124,58,237,0.2);
+  }
+
+  /* ── Hero card mirror reflection (light mode only) ──────────────────── */
+  .hero-reflect {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    height: 90px;
+    border-radius: 0 0 24px 24px;
+    transform: scaleY(-1);
+    -webkit-mask-image: linear-gradient(to bottom, rgba(0,0,0,0.28) 0%, transparent 90%);
+    mask-image: linear-gradient(to bottom, rgba(0,0,0,0.28) 0%, transparent 90%);
+    filter: blur(1.5px);
+    pointer-events: none;
+    transition: opacity 500ms, transform 500ms;
+  }
+  .hero-reflect-1 { background: linear-gradient(145deg, #eff6ff, #ffffff); }
+  .hero-reflect-2 { background: linear-gradient(145deg, #eef2ff, #ffffff); }
+  .hero-reflect-3 { background: linear-gradient(145deg, #eff6ff, #ffffff); }
+  .hero-reflect-4 { background: linear-gradient(145deg, #f5f3ff, #ffffff); }
+
+  .hero-separator {
+    background: linear-gradient(to right, transparent, rgba(37,99,235,0.10) 30%, rgba(124,58,237,0.10) 70%, transparent);
+  }
+
+  .hero-reflect-wrap {
+    height: 90px;
+    z-index: 9;
+  }
+
+  .dark-mirror-section {
+    position: relative;
+    border-top: none;
+    background: transparent;
+  }
+
+  .landing-section {
+    border-top: none;
+    background: transparent;
   }
 
   .btn-premium {
@@ -178,6 +280,16 @@
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes ring {
+  0%, 100% { transform: rotate(0deg); transform-origin: top center; }
+  10%       { transform: rotate(14deg); transform-origin: top center; }
+  20%       { transform: rotate(-12deg); transform-origin: top center; }
+  30%       { transform: rotate(8deg); transform-origin: top center; }
+  40%       { transform: rotate(-5deg); transform-origin: top center; }
+  50%       { transform: rotate(3deg); transform-origin: top center; }
+  60%       { transform: rotate(0deg); transform-origin: top center; }
 }
 
   /* Physics-inspired rotation: fast shake → elastic overshoot → settle */
@@ -505,7 +617,8 @@
    users who have enabled Reduce Motion in Android accessibility settings */
 @media (prefers-reduced-motion: reduce) {
   .animate-elastic-ring,
-  .animate-slow-fade {
+  .animate-slow-fade,
+  [class*="animate-[ring"] {
     animation: none !important;
   }
 }

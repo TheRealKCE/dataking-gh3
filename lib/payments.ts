@@ -1,6 +1,7 @@
 import { createServerClient } from './supabase'
 import { sendWalletTopupSuccessEmail, sendPermanentAgentUpgradeSuccessEmail } from './email-service'
 import { sendWalletTopupSuccessSMS, sendAgentUpgradeSuccessSMS, sendAgentExtensionSuccessSMS, sendPermanentAgentUpgradeSuccessSMS } from './sms-service'
+import { sendPushToUser, sendPushToAdmins } from './web-push'
 
 /**
  * Processes a completed payment by updating the status, 
@@ -101,6 +102,13 @@ export async function processCompletedWalletPayment(reference: string, providerM
         console.error('[PaymentProcess] Notification error:', notifyError)
     }
 
+    // Await web push for payment confirmation so Vercel doesn't kill it
+    await sendPushToUser(payment.user_id, {
+        title: 'Wallet Topped Up',
+        body: `GHS ${payment.amount.toFixed(2)} added to your wallet.`,
+        url: '/dashboard/wallet',
+    }).catch((e: any) => console.error('[PaymentProcess] Push error:', e))
+
     // 7. Send email notification
     try {
         // Get user details for email
@@ -111,6 +119,13 @@ export async function processCompletedWalletPayment(reference: string, providerM
             .single()
 
         if (userData) {
+            // Notify admin of top-up
+            await sendPushToAdmins({
+                title: 'Wallet Top-Up',
+                body: `${(userData as any).first_name || 'User'} topped up GHS ${payment.amount.toFixed(2)}`,
+                url: '/admin/finance',
+            }).catch(() => {})
+
             await sendWalletTopupSuccessEmail(
                 (userData as any).email,
                 (userData as any).first_name || 'Customer',

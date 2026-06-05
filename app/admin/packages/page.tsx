@@ -50,6 +50,7 @@ interface PackageFormData {
     size: string
     price: number
     agent_price: number
+    dealer_price: number
     cost_price: number
     description: string
     is_available: boolean
@@ -61,6 +62,7 @@ const defaultFormData: PackageFormData = {
     size: '',
     price: 0,
     agent_price: 0,
+    dealer_price: 0,
     cost_price: 0,
     description: '',
     is_available: true,
@@ -111,6 +113,7 @@ export default function AdminPackagesPage() {
             size: pkg.size,
             price: pkg.price,
             agent_price: (pkg as any).agent_price || 0,
+            dealer_price: (pkg as any).dealer_price || 0,
             cost_price: (pkg as any).cost_price || 0,
             description: pkg.description || '',
             is_available: pkg.is_available,
@@ -288,6 +291,11 @@ export default function AdminPackagesPage() {
                                                             Agent: {formatCurrency((pkg as any).agent_price)}
                                                         </p>
                                                     )}
+                                                    {(pkg as any).dealer_price > 0 && (
+                                                        <p className="text-sm font-medium text-violet-600">
+                                                            Dealer: {formatCurrency((pkg as any).dealer_price)}
+                                                        </p>
+                                                    )}
                                                 </div>
                                             </div>
                                             <Switch
@@ -392,6 +400,16 @@ export default function AdminPackagesPage() {
                                     placeholder="0.00"
                                 />
                                 <p className="text-[10px] text-muted-foreground">Optional: Set specifically for agents</p>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Dealer Price (GHS)</Label>
+                                <Input
+                                    type="number"
+                                    value={formData.dealer_price}
+                                    onChange={(e) => setFormData(prev => ({ ...prev, dealer_price: parseFloat(e.target.value) || 0 }))}
+                                    placeholder="0.00"
+                                />
+                                <p className="text-[10px] text-muted-foreground">Optional: Set specifically for dealers</p>
                             </div>
                             <div className="space-y-2">
                                 <Label>Cost Price (GHS)</Label>

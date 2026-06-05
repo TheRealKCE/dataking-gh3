@@ -7,6 +7,52 @@ const config = {
         './components/**/*.{ts,tsx}',
         './app/**/*.{ts,tsx}',
         './src/**/*.{ts,tsx}',
+        './lib/**/*.{ts,tsx}',       // ← ensures roleConfig classes are never purged
+        './contexts/**/*.{ts,tsx}',  // ← covers any context-level class strings
+    ],
+    safelist: [
+        // Dealer sidebar – arbitrary hex gradient stops
+        'from-[#6b21a8]',
+        'to-[#4c1d95]',
+        // Shared gradient directions used in roleConfig
+        'bg-gradient-to-b',
+        'bg-gradient-to-r',
+        'bg-gradient-to-br',
+        // Dealer
+        'from-purple-800', 'to-indigo-900',
+        'from-purple-600', 'to-indigo-800', 'to-indigo-700',
+        'text-purple-100', 'text-purple-200',
+        'border-r-purple-700/30', 'border-purple-700/30',
+        'hover:bg-white/10', 'bg-white/15', 'bg-white/20',
+        'text-white/95', 'text-white/85', 'text-purple-200/80', 'text-purple-200/90',
+        'border-white/5', 'border-white/10', 'border-white/30',
+        'bg-black/25', 'bg-black/10',
+        // Agent
+        'from-blue-50/90', 'to-sky-100/50',
+        'dark:from-slate-950', 'dark:to-blue-950/20',
+        'border-r-blue-200/50', 'dark:border-r-blue-900/50',
+        'hover:text-blue-600', 'dark:hover:text-blue-400',
+        'hover:bg-blue-500/5',
+        'bg-blue-50/90', 'dark:bg-slate-900/80',
+        'border-blue-200/60', 'dark:border-b-blue-900/60',
+        'from-blue-600', 'to-indigo-700',
+        'bg-blue-500/10',
+        // Customer
+        'from-yellow-50/90', 'to-amber-100/50',
+        'dark:to-yellow-950/20',
+        'border-r-yellow-200/50', 'dark:border-r-yellow-900/50',
+        'hover:text-amber-600', 'dark:hover:text-amber-400',
+        'hover:bg-amber-500/5',
+        'bg-yellow-50/90',
+        'border-yellow-200/60', 'dark:border-b-yellow-900/60',
+        'from-amber-500', 'to-yellow-600',
+        'bg-amber-500/10',
+        // Badges / pills
+        'bg-violet-500/15', 'text-violet-600', 'dark:text-violet-400',
+        'bg-blue-500/15', 'text-blue-600', 'dark:text-blue-400',
+        'bg-amber-500/15', 'text-amber-600', 'dark:text-amber-400',
+        'bg-rose-500/15', 'text-rose-600', 'dark:text-rose-400',
+        'bg-emerald-500/15', 'text-emerald-600', 'dark:text-emerald-400',
     ],
     prefix: "",
     theme: {

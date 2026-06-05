@@ -43,6 +43,7 @@ export async function GET(request: Request) {
             'auto_fulfillment_enabled',
             'afa_price_customer',
             'afa_price_agent',
+            'afa_price_dealer',
             'guest_storefront_url',
             'whatsapp_group_link',
             'whatsapp_channel_link',
@@ -50,7 +51,9 @@ export async function GET(request: Request) {
             'whatsapp_community_link',
             'support_email',
             'footer_copyright_text',
-            'footer_branding_text'
+            'footer_branding_text',
+            'dealer_promo_enabled',
+            'skip_google_oauth_otp'
         ]
 
         const isAdmin = role === 'admin' || role === 'sub-admin'

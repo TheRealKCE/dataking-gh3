@@ -1,4 +1,6 @@
 import { createServerClient } from './supabase'
+import { createNotification } from './notification-service'
+import { sendPushToUser } from './web-push'
 
 /**
  * Syncs order status between mirrored main orders and original shop orders.
@@ -105,6 +107,43 @@ export async function syncShopOrderStatus(mainOrderId: string, status: string) {
             console.error(`[ShopSync] Failed to update shop order ${shopOrderId}:`, updateError)
         } else {
             console.log(`[ShopSync DEBUG] Successfully updated shop order status.`)
+
+            // Notify shop owner when their order is completed
+            if (status === 'completed') {
+                try {
+                    const { data: shopOrder } = await db
+                        .from('shop_orders')
+                        .select('network, package_size, guest_phone, selling_price, shop_id')
+                        .eq('id', shopOrderId)
+                        .single()
+
+                    const { data: shopProfile } = await db
+                        .from('shop_profiles')
+                        .select('owner_id, shop_name')
+                        .eq('id', shopOrder?.shop_id)
+                        .single()
+
+                    if (shopProfile?.owner_id && shopOrder) {
+                        const msg = `${shopOrder.network} ${shopOrder.package_size} to ${shopOrder.guest_phone} — GHS ${Number(shopOrder.selling_price).toFixed(2)}`
+
+                        createNotification({
+                            userId: shopProfile.owner_id,
+                            title: 'Shop Order Completed',
+                            message: msg,
+                            type: 'order_update',
+                            actionUrl: '/dashboard/my-orders',
+                        }).catch((e: any) => console.error('[ShopSync] In-app notify error:', e))
+
+                        await sendPushToUser(shopProfile.owner_id, {
+                            title: `${shopProfile.shop_name || 'Shop'}: Order Completed`,
+                            body: msg,
+                            url: '/dashboard/my-orders',
+                        }).catch((e: any) => console.error('[ShopSync] Push notify error:', e))
+                    }
+                } catch (notifyErr) {
+                    console.error('[ShopSync] Notify error (non-fatal):', notifyErr)
+                }
+            }
         }
 
         // 3b. If it's an airtime order (SHOP- reference), also sync airtime_orders

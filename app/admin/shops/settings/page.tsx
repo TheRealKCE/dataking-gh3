@@ -11,7 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Settings, ArrowLeft, Save, Loader2, AlertCircle, Users, UserCheck } from 'lucide-react'
+import { Settings, ArrowLeft, Save, Loader2, AlertCircle, Users, UserCheck, Store } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface RoleFeeConfig {
@@ -26,6 +26,7 @@ interface GlobalSettings {
     default_fulfillment_mode: 'auto' | 'manual'
     customer: RoleFeeConfig
     agent: RoleFeeConfig
+    dealer: RoleFeeConfig
 }
 
 const DEFAULTS: GlobalSettings = {
@@ -38,6 +39,12 @@ const DEFAULTS: GlobalSettings = {
         min_withdrawal_amount: '50.0',
     },
     agent: {
+        paystack_fee_percent: '1.50',
+        withdrawal_fee_percent: '3.0',
+        withdrawal_fee_flat: '0.0',
+        min_withdrawal_amount: '30.0',
+    },
+    dealer: {
         paystack_fee_percent: '1.50',
         withdrawal_fee_percent: '3.0',
         withdrawal_fee_flat: '0.0',
@@ -167,12 +174,18 @@ export default function AdminShopSettingsPage() {
                     withdrawal_fee_flat:    map.withdrawal_fee_flat_agent           != null ? String(parseFloat(map.withdrawal_fee_flat_agent))           : DEFAULTS.agent.withdrawal_fee_flat,
                     min_withdrawal_amount:  map.min_withdrawal_amount_agent         != null ? String(parseFloat(map.min_withdrawal_amount_agent))         : DEFAULTS.agent.min_withdrawal_amount,
                 },
+                dealer: {
+                    paystack_fee_percent:  map.shop_paystack_fee_percent_dealer    != null ? String(parseFloat(map.shop_paystack_fee_percent_dealer))    : DEFAULTS.dealer.paystack_fee_percent,
+                    withdrawal_fee_percent: map.withdrawal_fee_percent_dealer       != null ? String(parseFloat(map.withdrawal_fee_percent_dealer))       : DEFAULTS.dealer.withdrawal_fee_percent,
+                    withdrawal_fee_flat:    map.withdrawal_fee_flat_dealer          != null ? String(parseFloat(map.withdrawal_fee_flat_dealer))          : DEFAULTS.dealer.withdrawal_fee_flat,
+                    min_withdrawal_amount:  map.min_withdrawal_amount_dealer        != null ? String(parseFloat(map.min_withdrawal_amount_dealer))        : DEFAULTS.dealer.min_withdrawal_amount,
+                },
             })
         }
         setLoading(false)
     }
 
-    const updateRoleConfig = (role: 'customer' | 'agent', key: keyof RoleFeeConfig, value: string) => {
+    const updateRoleConfig = (role: 'customer' | 'agent' | 'dealer', key: keyof RoleFeeConfig, value: string) => {
         setSettings(prev => ({
             ...prev,
             [role]: { ...prev[role], [key]: value },
@@ -204,6 +217,11 @@ export default function AdminShopSettingsPage() {
                 { key: 'withdrawal_fee_percent_agent',        value: safeParse(settings.agent.withdrawal_fee_percent),    updated_at: now },
                 { key: 'withdrawal_fee_flat_agent',           value: safeParse(settings.agent.withdrawal_fee_flat),       updated_at: now },
                 { key: 'min_withdrawal_amount_agent',         value: safeParse(settings.agent.min_withdrawal_amount),     updated_at: now },
+                // Dealer-specific fees
+                { key: 'shop_paystack_fee_percent_dealer',    value: safeParse(settings.dealer.paystack_fee_percent),    updated_at: now },
+                { key: 'withdrawal_fee_percent_dealer',       value: safeParse(settings.dealer.withdrawal_fee_percent),   updated_at: now },
+                { key: 'withdrawal_fee_flat_dealer',          value: safeParse(settings.dealer.withdrawal_fee_flat),      updated_at: now },
+                { key: 'min_withdrawal_amount_dealer',        value: safeParse(settings.dealer.min_withdrawal_amount),    updated_at: now },
             ]
 
             // Use the server-side API route which uses the service role client.
@@ -282,7 +300,7 @@ export default function AdminShopSettingsPage() {
                     Fee Configuration by Role
                 </h2>
                 <p className="text-xs text-muted-foreground mb-4">
-                    These are the default fees applied to all shops based on whether the owner is a Customer or Agent.
+                    These are the default fees applied to all shops based on whether the owner is a Customer, Agent, or Dealer.
                     Shops with custom admin-set overrides will not be affected by changes here.
                 </p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -303,6 +321,15 @@ export default function AdminShopSettingsPage() {
                         borderColor="border-emerald-200 dark:border-emerald-800"
                         config={settings.agent}
                         onChange={(key, value) => updateRoleConfig('agent', key, value)}
+                    />
+                    <RoleFeeCard
+                        title="Dealer"
+                        subtitle="Applies to shops owned by dealers"
+                        icon={Store}
+                        iconColor="text-violet-600"
+                        borderColor="border-violet-200 dark:border-violet-800"
+                        config={settings.dealer}
+                        onChange={(key, value) => updateRoleConfig('dealer', key, value)}
                     />
                 </div>
             </div>

@@ -225,38 +225,43 @@ export default function ShopSetupPage() {
     }, [dbUser])
 
     const fetchExistingShop = async () => {
-        const { data } = await ((supabase as any)
-            .from('shop_profiles')
-            .select('*')
-            .eq('owner_id', dbUser!.id)
-            .maybeSingle())
+        try {
+            const { data } = await ((supabase as any)
+                .from('shop_profiles')
+                .select('*')
+                .eq('owner_id', dbUser!.id)
+                .maybeSingle())
 
-        if (data) {
-            setExistingShopId(data.id)
-            setLogoUrl(data.logo_url)
-            setLogoPreview(data.logo_url)
-            setBannerUrl(data.banner_url || null)
-            setBannerPreview(data.banner_url || null)
-            const normalizedWA = normalizeWhatsAppNumber(data.whatsapp_number || '')
-            setSavedIsActive(data.is_active ?? true)
-            setForm({
-                shop_name: data.shop_name || '',
-                shop_slug: data.shop_slug || '',
-                description: data.description || '',
-                owner_phone: data.owner_phone || '',
-                owner_email: data.owner_email || '',
-                whatsapp_number: normalizedWA,
-                community_link: data.community_link || '',
-                brand_color: data.brand_color || '#2563eb',
-                brand_accent: data.brand_accent || '#1e40af',
-                is_active: data.is_active ?? true,
-                divider_style: data.divider_style || 'asymmetric-curve',
-                banner_pos_x: data.banner_pos_x ?? 50,
-                banner_pos_y: data.banner_pos_y ?? 50,
-                banner_zoom: data.banner_zoom ?? 1,
-            })
+            if (data) {
+                setExistingShopId(data.id)
+                setLogoUrl(data.logo_url)
+                setLogoPreview(data.logo_url)
+                setBannerUrl(data.banner_url || null)
+                setBannerPreview(data.banner_url || null)
+                const normalizedWA = normalizeWhatsAppNumber(data.whatsapp_number || '')
+                setSavedIsActive(data.is_active ?? true)
+                setForm({
+                    shop_name: data.shop_name || '',
+                    shop_slug: data.shop_slug || '',
+                    description: data.description || '',
+                    owner_phone: data.owner_phone || '',
+                    owner_email: data.owner_email || '',
+                    whatsapp_number: normalizedWA,
+                    community_link: data.community_link || '',
+                    brand_color: data.brand_color || '#2563eb',
+                    brand_accent: data.brand_accent || '#1e40af',
+                    is_active: data.is_active ?? true,
+                    divider_style: data.divider_style || 'asymmetric-curve',
+                    banner_pos_x: data.banner_pos_x ?? 50,
+                    banner_pos_y: data.banner_pos_y ?? 50,
+                    banner_zoom: data.banner_zoom ?? 1,
+                })
+            }
+        } catch (err) {
+            console.error('[ShopSetup] Failed to fetch existing shop:', err)
+        } finally {
+            setLoading(false)
         }
-        setLoading(false)
     }
 
     const generateSlug = (name: string) =>
@@ -474,7 +479,7 @@ export default function ShopSetupPage() {
     const platform = detectPlatform(form.community_link)
 
     return (
-        <div className="space-y-6 max-w-2xl pb-32 setup-theme">
+        <div className="space-y-6 max-w-2xl pb-48 md:pb-32 setup-theme">
             {/* Dynamic CSS variables with sanitization */}
             <style dangerouslySetInnerHTML={{ __html: `
                 .setup-theme { 
@@ -1100,7 +1105,7 @@ export default function ShopSetupPage() {
             </Card>
 
             {/* ── Sticky Save Bar ─────────────────────────────────────────── */}
-            <div className="fixed bottom-0 left-0 right-0 z-40 p-4 bg-white/80 dark:bg-gray-950/80 backdrop-blur-md border-t border-gray-200 dark:border-gray-800 flex gap-3 max-w-2xl mx-auto">
+            <div className="fixed bottom-[68px] md:bottom-0 left-0 right-0 z-50 p-4 bg-white/80 dark:bg-gray-950/80 backdrop-blur-md border-t border-gray-200 dark:border-gray-800 flex gap-3 max-w-2xl mx-auto">
                 <Button
                     onClick={() => handleSave()}
                     disabled={saving || uploading || uploadingBanner || slugTaken}

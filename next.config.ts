@@ -1,5 +1,6 @@
 import type { NextConfig } from 'next'
 import withPWA from '@ducanh2912/next-pwa'
+import path from 'path'
 
 const supabaseImageHost = (() => {
     try {
@@ -95,6 +96,16 @@ const nextConfig: NextConfig = {
                     },
                 ],
             },
+            // Developer API v1 — open CORS for all external callers
+            {
+                source: '/api/v1/:path*',
+                headers: [
+                    { key: 'Access-Control-Allow-Origin',  value: '*' },
+                    { key: 'Access-Control-Allow-Methods', value: 'GET, POST, OPTIONS' },
+                    { key: 'Access-Control-Allow-Headers', value: 'Content-Type, Authorization' },
+                    { key: 'Access-Control-Max-Age',       value: '86400' },
+                ],
+            },
             // Security headers for application routes. Cache policy is set per route/API.
             {
                 source: '/:path*',
@@ -110,6 +121,7 @@ const withPWAConfig = withPWA({
     aggressiveFrontEndNavCaching: true,
     reloadOnOnline: true,
     disable: process.env.NODE_ENV === 'development',
+    customWorkerSrc: path.resolve(process.cwd(), 'worker'),
     workboxOptions: {
         disableDevLogs: true,
     },

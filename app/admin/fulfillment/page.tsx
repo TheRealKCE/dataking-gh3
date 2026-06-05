@@ -57,6 +57,7 @@ interface FulfillmentSettings {
     is_global_enabled: boolean
     networks: Record<string, boolean>
     codecraft_networks: Record<string, boolean>
+    kingflexy_networks: Record<string, boolean>
 }
 
 const NETWORKS = ['MTN', 'Telecel', 'AT-iShare', 'AT-BigTime']
@@ -86,22 +87,28 @@ export default function FulfillmentPage() {
     const [settings, setSettings] = useState<FulfillmentSettings>({
         is_global_enabled: true,
         networks: NETWORKS.reduce((acc, n) => ({ ...acc, [n]: false }), {}),
-        codecraft_networks: NETWORKS.reduce((acc, n) => ({ ...acc, [n]: false }), {})
+        codecraft_networks: NETWORKS.reduce((acc, n) => ({ ...acc, [n]: false }), {}),
+        kingflexy_networks: NETWORKS.reduce((acc, n) => ({ ...acc, [n]: false }), {})
     })
     const [isSavingSettings, setIsSavingSettings] = useState(false)
 
     // Balance state
     const [balance, setBalance] = useState<{ amount: number; currency: string } | null>(null)
     const [codecraftBalance, setCodecraftBalance] = useState<{ amount: number; currency: string } | null>(null)
+    const [kingflexyBalance, setKingflexyBalance] = useState<{ amount: number; currency: string } | null>(null)
     const [isLoadingBalance, setIsLoadingBalance] = useState(false)
 
     // Sync CodeCraft Status state
     const [isSyncing, setIsSyncing] = useState(false)
     const [syncCooldown, setSyncCooldown] = useState(false)
-    
+
     // Sync Dakazina Status state
     const [isSyncingDakazina, setIsSyncingDakazina] = useState(false)
     const [dakazinaSyncCooldown, setDakazinaSyncCooldown] = useState(false)
+
+    // Sync KingFlexy Status state
+    const [isSyncingKingFlexy, setIsSyncingKingFlexy] = useState(false)
+    const [kingflexySyncCooldown, setKingflexySyncCooldown] = useState(false)
 
     // Cron Settings state
     const [cronRefulfillEnabled, setCronRefulfillEnabled] = useState(false)
@@ -178,6 +185,7 @@ export default function FulfillmentPage() {
 
             const dbNetworks: Record<string, boolean> = dbFulfillmentSettings.networks || {}
             const dbCodecraftNetworks: Record<string, boolean> = dbFulfillmentSettings.codecraft_networks || {}
+            const dbKingflexyNetworks: Record<string, boolean> = dbFulfillmentSettings.kingflexy_networks || {}
 
             setSettings({
                 is_global_enabled: String(map.auto_fulfillment_enabled) !== 'false',
@@ -188,6 +196,10 @@ export default function FulfillmentPage() {
                 codecraft_networks: NETWORKS.reduce((acc, n) => ({
                     ...acc,
                     [n]: dbCodecraftNetworks[n] === true
+                }), {} as Record<string, boolean>),
+                kingflexy_networks: NETWORKS.reduce((acc, n) => ({
+                    ...acc,
+                    [n]: dbKingflexyNetworks[n] === true
                 }), {} as Record<string, boolean>)
             })
 
@@ -227,7 +239,7 @@ export default function FulfillmentPage() {
         try {
             const updates = [
                 { key: 'auto_fulfillment_enabled', value: String(newSettings.is_global_enabled) },
-                { key: 'fulfillment_settings', value: JSON.stringify({ networks: newSettings.networks, codecraft_networks: newSettings.codecraft_networks }) }
+                { key: 'fulfillment_settings', value: JSON.stringify({ networks: newSettings.networks, codecraft_networks: newSettings.codecraft_networks, kingflexy_networks: newSettings.kingflexy_networks }) }
             ]
 
             const { error } = await (supabase
@@ -244,21 +256,28 @@ export default function FulfillmentPage() {
         }
     }
 
-    const toggleNetwork = (network: string, provider: 'datakazina' | 'codecraft') => {
+    const toggleNetwork = (network: string, provider: 'datakazina' | 'codecraft' | 'kingflexy') => {
         const newSettings = { ...settings }
         if (provider === 'datakazina') {
             const isCurrentlyEnabled = settings.networks[network]
             newSettings.networks = { ...settings.networks, [network]: !isCurrentlyEnabled }
-            // If turning DataKazina ON, strictly turn CodeCraft OFF
             if (!isCurrentlyEnabled) {
                 newSettings.codecraft_networks = { ...settings.codecraft_networks, [network]: false }
+                newSettings.kingflexy_networks = { ...settings.kingflexy_networks, [network]: false }
             }
-        } else {
+        } else if (provider === 'codecraft') {
             const isCurrentlyEnabled = settings.codecraft_networks[network]
             newSettings.codecraft_networks = { ...settings.codecraft_networks, [network]: !isCurrentlyEnabled }
-            // If turning CodeCraft ON, strictly turn DataKazina OFF
             if (!isCurrentlyEnabled) {
                 newSettings.networks = { ...settings.networks, [network]: false }
+                newSettings.kingflexy_networks = { ...settings.kingflexy_networks, [network]: false }
+            }
+        } else {
+            const isCurrentlyEnabled = settings.kingflexy_networks[network]
+            newSettings.kingflexy_networks = { ...settings.kingflexy_networks, [network]: !isCurrentlyEnabled }
+            if (!isCurrentlyEnabled) {
+                newSettings.networks = { ...settings.networks, [network]: false }
+                newSettings.codecraft_networks = { ...settings.codecraft_networks, [network]: false }
             }
         }
         saveSettings(newSettings)
@@ -360,11 +379,37 @@ export default function FulfillmentPage() {
             if (data.codecraft_currency !== undefined) {
                 setCodecraftBalance({ amount: data.codecraft_balance, currency: data.codecraft_currency })
             }
+            if (data.kingflexy_currency !== undefined) {
+                setKingflexyBalance({ amount: data.kingflexy_balance, currency: data.kingflexy_currency })
+            }
         } catch (error: any) {
             console.error('Balance fetch error:', error)
             toast.error('Failed to fetch supplier balance')
         } finally {
             setIsLoadingBalance(false)
+        }
+    }
+
+    const handleSyncKingFlexy = async () => {
+        if (isSyncingKingFlexy || kingflexySyncCooldown) return
+        setIsSyncingKingFlexy(true)
+        try {
+            const response = await fetch('/api/admin/fulfillment/sync-kingflexy', {
+                method: 'POST',
+            })
+            const result = await response.json()
+            if (!response.ok) {
+                toast.error('Sync failed: ' + (result.error || 'Unknown error'))
+            } else {
+                toast.success(`${result.checked} checked, ${result.updated} updated, ${result.failed} failed`)
+                await fetchOrders(true)
+            }
+        } catch (err: any) {
+            toast.error('Sync error: ' + err.message)
+        } finally {
+            setIsSyncingKingFlexy(false)
+            setKingflexySyncCooldown(true)
+            setTimeout(() => setKingflexySyncCooldown(false), 30000)
         }
     }
 
@@ -526,6 +571,34 @@ export default function FulfillmentPage() {
                     </CardContent>
                 </Card>
 
+                <Card className="bg-gradient-to-br from-violet-600 to-purple-800 text-white border-none shadow-lg">
+                    <CardContent className="p-4 md:p-5">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div className="flex items-center gap-3">
+                                <div className="bg-white/20 p-2.5 rounded-lg">
+                                    <Server className="w-5 h-5 md:w-6 md:h-6" />
+                                </div>
+                                <div>
+                                    <p className="text-[10px] md:text-xs font-bold uppercase tracking-wider opacity-90">KingFlexyGH Balance</p>
+                                    <p className="text-2xl md:text-3xl font-black">
+                                        {kingflexyBalance ? `${kingflexyBalance.currency} ${kingflexyBalance.amount.toFixed(2)}` : (isLoadingBalance ? 'Loading...' : 'GHS 0.00')}
+                                    </p>
+                                </div>
+                            </div>
+                            <Button
+                                onClick={fetchBalance}
+                                disabled={isLoadingBalance}
+                                variant="secondary"
+                                size="sm"
+                                className="bg-white/20 hover:bg-white/30 text-white border-white/30"
+                            >
+                                <RefreshCw className={`w-4 h-4 mr-2 ${isLoadingBalance ? 'animate-spin' : ''}`} />
+                                Refresh
+                            </Button>
+                        </div>
+                    </CardContent>
+                </Card>
+
                 <Card className="bg-gradient-to-br from-blue-700 to-indigo-800 text-white border-none shadow-lg">
                     <CardContent className="p-4 md:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div className="flex items-center gap-3">
@@ -577,6 +650,34 @@ export default function FulfillmentPage() {
                                 : dakazinaSyncCooldown
                                     ? <><RefreshCw className="w-4 h-4 mr-2" />Cooling down...</>
                                     : <><RefreshCw className="w-4 h-4 mr-2" />Sync DataKazina Status</>
+                            }
+                        </Button>
+                    </CardContent>
+                </Card>
+
+                <Card className="bg-gradient-to-br from-violet-700 to-purple-900 text-white border-none shadow-lg">
+                    <CardContent className="p-4 md:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                            <div className="bg-white/20 p-2.5 rounded-lg">
+                                <RefreshCw className="w-5 h-5 md:w-6 md:h-6" />
+                            </div>
+                            <div>
+                                <p className="text-[10px] md:text-xs font-bold uppercase tracking-wider opacity-90">KingFlexyGH Status Sync</p>
+                                <p className="text-xs text-white/70 mt-0.5">Updates processing KingFlexy orders to completed or failed</p>
+                            </div>
+                        </div>
+                        <Button
+                            onClick={handleSyncKingFlexy}
+                            disabled={isSyncingKingFlexy || kingflexySyncCooldown}
+                            variant="secondary"
+                            size="sm"
+                            className="bg-white/20 hover:bg-white/30 text-white border-white/30 disabled:opacity-50"
+                        >
+                            {isSyncingKingFlexy
+                                ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Syncing...</>
+                                : kingflexySyncCooldown
+                                    ? <><RefreshCw className="w-4 h-4 mr-2" />Cooling down...</>
+                                    : <><RefreshCw className="w-4 h-4 mr-2" />Sync KingFlexy Status</>
                             }
                         </Button>
                     </CardContent>
@@ -654,6 +755,44 @@ export default function FulfillmentPage() {
                                         <div className={`w-1.5 h-1.5 rounded-full ${settings.codecraft_networks[net] ? 'bg-blue-500' : 'bg-gray-300'}`} />
                                         <span className="font-bold text-blue-600 dark:text-blue-400">CodeCraft</span>
                                         {settings.codecraft_networks[net] && <span className="text-blue-500 font-semibold">· Active</span>}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </div>
+                </div>
+
+                {/* KingFlexyGH Row */}
+                <div>
+                    <div className="flex items-center gap-2 mb-2">
+                        <Server className="w-3.5 h-3.5 text-violet-500" />
+                        <span className="text-xs font-bold uppercase tracking-wide text-violet-700 dark:text-violet-400">KingFlexyGH Networks</span>
+                        <span className="text-[10px] text-muted-foreground">(enabling a network here auto-disables DataKazina and CodeCraft for same network)</span>
+                    </div>
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+                        {NETWORKS.map(net => (
+                            <Card key={`kingflexy-${net}`} className={`border-l-4 transition-colors ${settings.kingflexy_networks[net] ? 'border-l-violet-500' : 'border-l-gray-300 dark:border-l-gray-600'}`}>
+                                <CardContent className="p-3 md:p-4">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <div className="flex items-center gap-2">
+                                            <Activity className={`w-3.5 h-3.5 ${settings.kingflexy_networks[net] ? 'text-violet-500' : 'text-gray-400'}`} />
+                                            <span className="font-semibold text-xs md:text-sm">{net}</span>
+                                        </div>
+                                        <Button
+                                            id={`kf-toggle-${net}`}
+                                            variant={settings.kingflexy_networks[net] ? 'outline' : 'default'}
+                                            size="sm"
+                                            className={`h-6 text-[10px] md:text-xs px-2 ${settings.kingflexy_networks[net] ? 'border-violet-500 text-violet-600' : ''}`}
+                                            onClick={() => toggleNetwork(net, 'kingflexy')}
+                                            disabled={isSavingSettings}
+                                        >
+                                            {settings.kingflexy_networks[net] ? 'Disconnect' : 'Connect'}
+                                        </Button>
+                                    </div>
+                                    <div className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                        <div className={`w-1.5 h-1.5 rounded-full ${settings.kingflexy_networks[net] ? 'bg-violet-500' : 'bg-gray-300'}`} />
+                                        <span className="font-bold text-violet-600 dark:text-violet-400">KingFlexyGH</span>
+                                        {settings.kingflexy_networks[net] && <span className="text-violet-500 font-semibold">· Active</span>}
                                     </div>
                                 </CardContent>
                             </Card>

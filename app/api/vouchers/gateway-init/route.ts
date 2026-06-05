@@ -31,11 +31,20 @@ export async function POST(request: NextRequest) {
             customerName,
             customerEmail,
             customerPhone,
-            gateway = 'paystack',  // 'paystack' | 'moolre'
             momoPhone,
             momoNetwork,
             otpCode,
         } = body
+
+        // Resolve gateway from admin setting (runtime toggle, no redeployment needed)
+        const { createServerClient: createAdminClient } = await import('@/lib/supabase')
+        const dbAdmin = createAdminClient()
+        const { data: providerRow } = await (dbAdmin.from('admin_settings') as any)
+            .select('value')
+            .eq('key', 'active_payment_provider_web')
+            .single()
+        const gateway: 'paystack' | 'moolre' =
+            String(providerRow?.value || 'moolre') === 'paystack' ? 'paystack' : 'moolre'
 
         if (!typeId || !quantity || quantity <= 0 || !customerEmail) {
             return NextResponse.json({ error: 'Invalid request payload. Email and quantity are required.' }, { status: 400 })

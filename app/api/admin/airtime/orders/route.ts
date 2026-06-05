@@ -3,6 +3,7 @@ import { createServerClient } from '@/lib/supabase'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import { sendAirtimeBeneficiarySMS, sendAirtimeCompletedSMS } from '@/lib/sms-service'
+import { sendPushToUser } from '@/lib/web-push'
 
 async function verifyAdmin(supabaseUserClient: any) {
     const { data: { user: authUser }, error: authError } = await supabaseUserClient.auth.getUser()
@@ -159,6 +160,19 @@ export async function PATCH(request: NextRequest) {
             type: 'order_update',
             action_url: '/dashboard/airtime',
         }).then(() => {}).catch((e: any) => console.error('[Admin Airtime] Notification error:', e))
+
+        // Push notification to order owner
+        await sendPushToUser(existing.user_id, {
+            title: status === 'completed'
+                ? (isMashup ? 'Mashup Bundle Sent' : 'Airtime Sent')
+                : (isMashup ? 'Mashup Order Failed' : 'Airtime Order Failed'),
+            body: status === 'completed'
+                ? (isMashup
+                    ? `Your MTN Mashup bundle for ${existing.beneficiary_phone} has been activated.`
+                    : `GHS ${existing.airtime_amount.toFixed(2)} airtime for ${existing.beneficiary_phone} sent successfully.`)
+                : `Your ${isMashup ? 'Mashup' : 'airtime'} order ${existing.reference_code} could not be completed. Contact support.`,
+            url: '/dashboard/airtime',
+        }).catch(() => {})
 
         // Trigger the completed SMS alert
         if (status === 'completed') {

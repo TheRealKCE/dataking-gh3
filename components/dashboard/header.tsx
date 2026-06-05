@@ -18,6 +18,7 @@ import {
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { roleConfig } from '@/lib/roles'
 import { supabase } from '@/lib/supabase'
+import { toast } from 'sonner'
 import { Menu, X, Bell, User, Settings, LogOut } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -26,21 +27,49 @@ export function DashboardHeader() {
     const { toggleSidebar, isCollapsed, isInternalSidebarOpen } = useUI()
     const [unreadCount, setUnreadCount] = useState(0)
 
-    useEffect(() => {
-        if (dbUser) {
-            fetchUnreadNotifications()
-        }
-    }, [dbUser])
-
-    const fetchUnreadNotifications = async () => {
+    const fetchUnreadNotifications = async (userId: string) => {
         const { count } = await supabase
             .from('notifications')
             .select('*', { count: 'exact', head: true })
-            .eq('user_id', dbUser?.id as any)
+            .eq('user_id', userId as any)
             .eq('is_read', false)
-
         setUnreadCount(count || 0)
     }
+
+    useEffect(() => {
+        if (!dbUser) return
+
+        fetchUnreadNotifications(dbUser.id)
+
+        // Real-time subscription — update count and toast new arrivals
+        const channel = supabase
+            .channel(`notifications:${dbUser.id}`)
+            .on(
+                'postgres_changes' as any,
+                {
+                    event: '*',
+                    schema: 'public',
+                    table: 'notifications',
+                    filter: `user_id=eq.${dbUser.id}`,
+                },
+                (payload: any) => {
+                    fetchUnreadNotifications(dbUser.id)
+                    if (payload.eventType === 'INSERT' && payload.new) {
+                        const n = payload.new
+                        toast(n.title, {
+                            description: n.message,
+                            duration: 6000,
+                            action: n.action_url
+                                ? { label: 'View', onClick: () => { window.location.href = n.action_url } }
+                                : undefined,
+                        })
+                    }
+                }
+            )
+            .subscribe()
+
+        return () => { supabase.removeChannel(channel) }
+    }, [dbUser])
 
     const getInitials = () => {
         if (!dbUser) return 'U'
@@ -53,7 +82,7 @@ export function DashboardHeader() {
     return (
         <header className={cn(
             'fixed top-0 left-0 right-0 z-40 h-16 transition-all duration-300 ease-in-out',
-            'bg-card/85 backdrop-blur-xl border-b border-border/60',
+            currentRole.headerBg,
             // Desktop only: offset header by sidebar width
             isCollapsed ? 'lg:left-20' : 'lg:left-[260px]',
         )}>
@@ -62,7 +91,10 @@ export function DashboardHeader() {
                     <Button
                         variant="ghost"
                         size="icon"
-                        className="lg:hidden text-foreground hover:bg-secondary/50 rounded-xl"
+                        className={cn(
+                            "lg:hidden rounded-xl",
+                            currentRole.headerButton
+                        )}
                         onClick={toggleSidebar}
                     >
                         {isInternalSidebarOpen
@@ -71,20 +103,38 @@ export function DashboardHeader() {
                     </Button>
 
                     <div className="hidden sm:block min-w-0">
-                        <h1 className="text-base lg:text-lg font-heading font-black tracking-tight text-foreground truncate">
-                            Welcome, <span className="text-primary">{dbUser?.first_name || 'User'}</span>
+                        <h1 className={cn("text-base lg:text-lg font-heading font-black tracking-tight truncate", currentRole.headerText)}>
+                            {dbUser?.role === 'dealer' ? (
+                                <>Welcome back, <span className="text-white">{dbUser?.first_name || 'User'}! 👋</span></>
+                            ) : (
+                                <>Welcome, <span className="text-primary">{dbUser?.first_name || 'User'}</span></>
+                            )}
                         </h1>
-                        <p className="text-xs font-medium text-muted-foreground tracking-wide uppercase">
-                            Platform Overview • {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}
+                        <p className={cn("text-xs font-medium tracking-wide uppercase", currentRole.headerSubText)}>
+                            {dbUser?.role === 'dealer' 
+                                ? "Here's what's happening with your account" 
+                                : `Platform Overview • ${new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}`}
                         </p>
                     </div>
 
                     <div className="sm:hidden">
-                        <p className="text-sm font-black tracking-tight text-foreground">Dashboard</p>
+                        <p className={cn("text-sm font-black tracking-tight", currentRole.headerText)}>
+                            {dbUser?.role === 'dealer' ? 'Dealer Dashboard' : 'Dashboard'}
+                        </p>
                     </div>
                 </div>
 
                 <div className="flex items-center gap-2 sm:gap-3">
+                    {dbUser?.role === 'dealer' && (
+                        <Button
+                            variant="outline"
+                            size="sm"
+                            className="hidden sm:inline-flex border-white/30 text-white hover:bg-white/10 hover:text-white rounded-xl h-9 font-bold"
+                        >
+                            Install App
+                        </Button>
+                    )}
+
                     <div>
                         <AnnouncementBell inline />
                     </div>
@@ -95,11 +145,21 @@ export function DashboardHeader() {
                             <Button
                                 variant="ghost"
                                 size="icon"
-                                className="relative text-muted-foreground hover:text-foreground hover:bg-secondary/50 rounded-xl"
+                                className={cn(
+                                    "relative rounded-xl",
+                                    currentRole.headerButton
+                                )}
                             >
                                 <Bell className="w-[18px] h-[18px]" />
                                 {unreadCount > 0 && (
-                                    <span className="absolute top-2 right-2 w-2 h-2 bg-primary rounded-full ring-2 ring-background animate-pulse" />
+                                    <span className={cn(
+                                        "absolute -top-1 -right-1 min-w-[18px] h-[18px] px-1 text-[10px] font-black rounded-full ring-2 flex items-center justify-center leading-none",
+                                        dbUser?.role === 'dealer'
+                                            ? "bg-white text-purple-950 ring-purple-900"
+                                            : "bg-primary text-primary-foreground ring-background"
+                                    )}>
+                                        {unreadCount > 99 ? '99+' : unreadCount}
+                                    </span>
                                 )}
                             </Button>
                         </Link>
@@ -107,7 +167,10 @@ export function DashboardHeader() {
 
                     <DropdownMenu>
                         <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" className="flex items-center gap-2 sm:gap-3 px-2 h-10 sm:h-11 rounded-xl hover:bg-secondary/50 transition-all group">
+                            <Button variant="ghost" className={cn(
+                                "flex items-center gap-2 sm:gap-3 px-2 h-10 sm:h-11 rounded-xl transition-all group",
+                                currentRole.headerButton
+                            )}>
                                 <div className="flex flex-col items-end hidden md:flex">
                                     <span
                                         className={cn(

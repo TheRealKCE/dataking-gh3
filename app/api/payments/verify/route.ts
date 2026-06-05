@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
 
         const { data: paymentRecord, error: paymentLookupError } = await (supabase
             .from('wallet_payments') as any)
-            .select('id, user_id, amount, total_amount, status')
+            .select('id, user_id, amount, total_amount, status, provider')
             .eq('reference', reference)
             .single()
 
@@ -56,6 +56,12 @@ export async function GET(request: NextRequest) {
         } else if (paymentRecord.status === 'failed') {
             if (isInline) return NextResponse.json({ success: false, status: 'failed', message: 'Payment failed' }, { status: 400 })
             return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/wallet?error=payment_failed`)
+        }
+
+        // For Paystack payments: webhook handles completion; just return pending so frontend keeps polling
+        if ((paymentRecord as any).provider === 'paystack') {
+            if (isInline) return NextResponse.json({ success: true, status: 'pending', message: 'Waiting for payment confirmation...' })
+            return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/wallet`)
         }
 
         // Verify with Moolre

@@ -25,17 +25,12 @@ import {
     Loader2,
     TrendingUp,
     TrendingDown,
-    AlertTriangle,
     MessageSquare,
-    MessageCircle,
     Send,
-    Copy,
     Check
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { WalletTransaction } from '@/types/supabase'
-import { useTutorial } from '@/hooks/useTutorial'
-import { HelpButton } from '@/components/tutorial/HelpButton'
 import {
     Dialog,
     DialogContent,
@@ -65,11 +60,8 @@ function WalletContent() {
     const [otpRequired, setOtpRequired] = useState(false)
     const [otpCode, setOtpCode] = useState('')
     const [paymentReference, setPaymentReference] = useState<string | null>(null)
+    const [webPaymentProvider, setWebPaymentProvider] = useState<'moolre' | 'paystack'>('moolre')
     const searchParams = useSearchParams()
-
-    // Tutorial hook
-    const userRole = dbUser?.role === 'agent' ? 'agent' : 'customer'
-    const { startTutorial } = useTutorial(userRole as 'customer' | 'agent', '/wallet')
 
     useEffect(() => {
         if (dbUser) {
@@ -80,20 +72,23 @@ function WalletContent() {
     useEffect(() => {
         const success = searchParams.get('success')
         const error = searchParams.get('error')
+        const paystackRef = searchParams.get('reference')
 
         if (success === 'true') {
             toast.success('Wallet topped up successfully!')
             fetchWalletData()
-            // Clean up URL
+            router.replace('/dashboard/wallet')
+        } else if (paystackRef && !success && !error) {
+            // Returning from Paystack checkout — start polling for webhook completion
+            setPollingRef(paystackRef)
+            setIsProcessing(true)
             router.replace('/dashboard/wallet')
         } else if (error) {
             let message = 'Failed to process payment'
             if (error === 'payment_failed') message = 'Payment was not successful'
             if (error === 'verification_failed') message = 'Could not verify payment'
             if (error === 'no_reference') message = 'Invalid payment reference'
-
             toast.error(message)
-            // Clean up URL
             router.replace('/dashboard/wallet')
         }
     }, [searchParams, router])
@@ -154,7 +149,7 @@ function WalletContent() {
                 supabase
                     .from('admin_settings')
                     .select('key, value')
-                    .in('key', ['paystack_fee_percent', 'agent_paystack_fee_percent'])
+                    .in('key', ['paystack_fee_percent', 'agent_paystack_fee_percent', 'active_payment_provider_web'])
             ])
 
             const wallet = walletRes.data
@@ -170,17 +165,20 @@ function WalletContent() {
             setTransactions(txns || [])
 
             if (feeSettings && Array.isArray(feeSettings)) {
+                const settings = feeSettings as any[]
+
+                const providerRow = settings.find(s => s.key === 'active_payment_provider_web')
+                if (providerRow) {
+                    setWebPaymentProvider(String(providerRow.value || 'moolre') === 'paystack' ? 'paystack' : 'moolre')
+                }
+
                 let targetKey = 'paystack_fee_percent'
                 if (dbUser?.role === 'agent') {
                     targetKey = 'agent_paystack_fee_percent'
                 }
-                
-                const settings = feeSettings as any[]
                 const feeSetting = settings.find(s => s.key === targetKey) || settings.find(s => s.key === 'paystack_fee_percent')
-
                 if (feeSetting && feeSetting.value) {
                     const val = feeSetting.value
-                    // Handle possible string "1.95" or number 1.95
                     const parsed = typeof val === 'string' ? parseFloat(val) : (typeof val === 'number' ? val : 1.95)
                     if (!isNaN(parsed)) setPaystackFeePercent(parsed)
                 }
@@ -209,7 +207,7 @@ function WalletContent() {
             return
         }
 
-        if (!paymentPhone || !paymentNetwork) {
+        if (webPaymentProvider === 'moolre' && (!paymentPhone || !paymentNetwork)) {
             toast.error('Please provide a valid Mobile Money number and select a network')
             return
         }
@@ -217,7 +215,6 @@ function WalletContent() {
         setIsProcessing(true)
 
         try {
-            // Initialize payment on server
             const response = await fetch('/api/payments/initialize', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -231,8 +228,12 @@ function WalletContent() {
                 throw new Error(data.error || 'Failed to initialize payment')
             }
 
-            // Moolre always sends an OTP for MoMo collections.
-            // Show the OTP modal immediately after a successful first-call.
+            if (data.gateway === 'paystack') {
+                window.location.href = data.authorization_url
+                return
+            }
+
+            // Moolre: show OTP modal
             setPaymentReference(data.reference)
             setOtpRequired(true)
             setIsProcessing(false)
@@ -307,7 +308,6 @@ function WalletContent() {
                     <h1 className="text-2xl font-bold">Load Wallet</h1>
                     <p className="text-muted-foreground">Top up your wallet to continue shopping</p>
                 </div>
-                <HelpButton onClick={startTutorial} />
             </div>
 
             {/* Balance Card at top for Agents */}
@@ -349,122 +349,6 @@ function WalletContent() {
                 </div>
             )}
 
-            {/* Universal Manual Top Up Instructions */}
-            <Card id="quick-topup-card" className="border-2 border-gray-100 bg-white overflow-hidden shadow-xl">
-                <CardHeader className="bg-white py-4 border-b border-gray-50">
-                    <div className="flex flex-col text-left">
-                        <CardTitle className="text-black text-lg sm:text-xl font-semibold flex items-center gap-2">
-                            <Plus className="w-5 h-5 text-[#FACC15]" />
-                            Quick Top Up
-                        </CardTitle>
-                        <span className="text-xs sm:text-sm font-bold text-[#25D366] ml-7">No Paystack Charges (Manual Approval)</span>
-                    </div>
-                </CardHeader>
-                <CardContent className="pt-8 space-y-8">
-                    <div className="space-y-8">
-                        {/* Step 1 */}
-                        <div className="flex gap-5">
-                            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#FACC15] flex items-center justify-center text-sm font-bold text-black shadow-sm">1</div>
-                            <div className="text-sm sm:text-base font-medium text-black leading-relaxed pt-1">
-                                Send payment via Mobile Money:
-                                <div className="mt-2 space-y-2">
-                                    {[
-                                        { label: 'MTN', value: '0597313605' },
-                                        { label: 'Name', value: 'AWUAH DERRICK' }
-                                    ].map((item) => (
-                                        <div key={item.label} className="flex items-center justify-between p-2 rounded-lg bg-gray-50 border border-gray-200 group">
-                                            <span className="text-xs font-bold text-gray-500 uppercase">{item.label}</span>
-                                            <div className="flex items-center gap-2">
-                                                <span className="font-bold text-yellow-700">{item.value}</span>
-                                                <Button
-                                                    variant="ghost" size="icon" className="h-6 w-6"
-                                                    onClick={() => {
-                                                        navigator.clipboard.writeText(item.value)
-                                                        toast.success(`${item.label} copied!`)
-                                                    }}
-                                                >
-                                                    <Copy className="w-3.5 h-3.5" />
-                                                </Button>
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Step 2 */}
-                        <div className="flex gap-5">
-                            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#FACC15] flex items-center justify-center text-sm font-bold text-black shadow-sm">2</div>
-                            <div className="space-y-4 pt-1 flex-1">
-                                <p className="text-sm sm:text-base font-medium text-black leading-relaxed">
-                                    Use the reference below for instant detection, or send your receipt via WhatsApp/SMS.
-                                </p>
-                                
-                                <div className="p-4 rounded-xl bg-blue-50 border border-blue-100 flex items-center justify-between group">
-                                    <div className="flex flex-col">
-                                        <span className="text-[10px] font-bold text-blue-500 uppercase tracking-widest">Required Reference</span>
-                                        <span className="text-base font-black text-blue-900 tracking-tight">
-                                            {dbUser?.first_name} {dbUser?.last_name || ''}
-                                        </span>
-                                    </div>
-                                    <Button
-                                        variant="outline"
-                                        size="sm"
-                                        className="bg-white border-blue-200 hover:bg-blue-100 text-blue-600 font-bold gap-2"
-                                        onClick={() => {
-                                            const ref = `${dbUser?.first_name} ${dbUser?.last_name || ''}`.trim()
-                                            navigator.clipboard.writeText(ref)
-                                            toast.success('Reference copied!')
-                                        }}
-                                    >
-                                        <Copy className="w-4 h-4" />
-                                        Copy
-                                    </Button>
-                                </div>
-
-                                <div className="flex flex-wrap items-center gap-6 mt-4">
-                                    <Link
-                                        href={`sms:0597313605?body=Please I have sent the money so credit my account for me, account name is: ${dbUser?.first_name} ${dbUser?.last_name || dbUser?.email || 'N/A'}`}
-                                        className="group flex flex-col items-center gap-2"
-                                    >
-                                        <div className="p-3 rounded-full hover:bg-blue-50 transition-colors">
-                                            <MessageCircle className="w-8 h-8 text-[#007AFF]" strokeWidth={2} />
-                                        </div>
-                                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-tighter group-hover:text-[#007AFF]">tap here to send sms</span>
-                                    </Link>
-                                    <Link
-                                        href={`https://wa.me/233597313605?text=${encodeURIComponent(`Please I have sent the money so credit my account for me, account name is: ${dbUser?.first_name} ${dbUser?.last_name || dbUser?.email || 'N/A'}`)}`}
-                                        target="_blank"
-                                        className="group flex flex-col items-center gap-2"
-                                    >
-                                        <div className="p-3 rounded-full hover:bg-green-50 transition-colors">
-                                            <MessageCircle className="w-8 h-8 text-[#25D366]" strokeWidth={2} />
-                                        </div>
-                                        <span className="text-[10px] font-bold text-gray-500 uppercase tracking-tighter group-hover:text-[#25D366]">tap here to send whatsapp</span>
-                                    </Link>
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* Step 3 */}
-                        <div className="flex gap-5">
-                            <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#FACC15] flex items-center justify-center text-sm font-bold text-black shadow-sm">3</div>
-                            <p className="text-sm sm:text-base font-medium text-black leading-relaxed pt-1">
-                                Wait for Admin final approval message and refresh your page thank you (Credit is Instant after Approval).
-                            </p>
-                        </div>
-                    </div>
-
-                    <div className="pt-6 border-t border-gray-50">
-                        <div className="inline-flex items-center gap-2 text-yellow-600 bg-yellow-50 px-4 py-2 rounded-xl">
-                            <AlertTriangle className="w-4 h-4" />
-                            <span className="text-sm font-bold uppercase tracking-wide">
-                                Minimum Amount: GH₵ 10.00
-                            </span>
-                        </div>
-                    </div>
-                </CardContent>
-            </Card>
 
 
 
@@ -577,36 +461,38 @@ function WalletContent() {
                                     </div>
                                 )}
 
-                                {/* Payment Details */}
-                                <div>
-                                    <Label className="text-sm text-muted-foreground mb-3 block">Payment Details</Label>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div>
-                                            <Label htmlFor="network" className="text-xs">Network</Label>
-                                            <Select value={paymentNetwork} onValueChange={setPaymentNetwork}>
-                                                <SelectTrigger id="network" className="mt-1 h-12">
-                                                    <SelectValue placeholder="Select Network" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="MTN">MTN MoMo</SelectItem>
-                                                    <SelectItem value="Telecel">Telecel Cash</SelectItem>
-                                                    <SelectItem value="AT">AT Money</SelectItem>
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                        <div>
-                                            <Label htmlFor="phone" className="text-xs">Mobile Number</Label>
-                                            <Input
-                                                id="phone"
-                                                type="tel"
-                                                placeholder="e.g. 0540000000"
-                                                value={paymentPhone}
-                                                onChange={(e) => setPaymentPhone(e.target.value)}
-                                                className="mt-1 h-12"
-                                            />
+                                {/* Payment Details — MoMo fields only for Moolre */}
+                                {webPaymentProvider === 'moolre' && (
+                                    <div>
+                                        <Label className="text-sm text-muted-foreground mb-3 block">Payment Details</Label>
+                                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                            <div>
+                                                <Label htmlFor="network" className="text-xs">Network</Label>
+                                                <Select value={paymentNetwork} onValueChange={setPaymentNetwork}>
+                                                    <SelectTrigger id="network" className="mt-1 h-12">
+                                                        <SelectValue placeholder="Select Network" />
+                                                    </SelectTrigger>
+                                                    <SelectContent>
+                                                        <SelectItem value="MTN">MTN MoMo</SelectItem>
+                                                        <SelectItem value="Telecel">Telecel Cash</SelectItem>
+                                                        <SelectItem value="AT">AT Money</SelectItem>
+                                                    </SelectContent>
+                                                </Select>
+                                            </div>
+                                            <div>
+                                                <Label htmlFor="phone" className="text-xs">Mobile Number</Label>
+                                                <Input
+                                                    id="phone"
+                                                    type="tel"
+                                                    placeholder="e.g. 0540000000"
+                                                    value={paymentPhone}
+                                                    onChange={(e) => setPaymentPhone(e.target.value)}
+                                                    className="mt-1 h-12"
+                                                />
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
+                                )}
 
                                 {/* Payment Methods Icons (Visual Only) */}
                                 <div>
@@ -631,12 +517,22 @@ function WalletContent() {
                                 <Button
                                     type="submit"
                                     className="w-full h-12 text-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-                                    disabled={isProcessing || !topUpAmount || parseFloat(topUpAmount) < MIN_AMOUNT || !paymentPhone || !paymentNetwork}
+                                    disabled={
+                                        isProcessing ||
+                                        !topUpAmount ||
+                                        parseFloat(topUpAmount) < MIN_AMOUNT ||
+                                        (webPaymentProvider === 'moolre' && (!paymentPhone || !paymentNetwork))
+                                    }
                                 >
                                     {isProcessing ? (
                                         <>
                                             <Loader2 className="w-5 h-5 mr-2 animate-spin" />
                                             {pollingRef ? 'Waiting for Approval...' : 'Processing...'}
+                                        </>
+                                    ) : webPaymentProvider === 'paystack' ? (
+                                        <>
+                                            <CreditCard className="w-5 h-5 mr-2" />
+                                            Pay with Paystack
                                         </>
                                     ) : (
                                         <>

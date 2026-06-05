@@ -11,6 +11,7 @@ import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Loader2, Save } from 'lucide-react'
 import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
 
 export default function AdminSettingsPage() {
     const [settings, setSettings] = useState<any>({})
@@ -24,6 +25,8 @@ export default function AdminSettingsPage() {
     const [agentUpgradePrice, setAgentUpgradePrice] = useState('100')
     const [afaPriceCustomer, setAfaPriceCustomer] = useState('15')
     const [afaPriceAgent, setAfaPriceAgent] = useState('15')
+    const [afaPriceDealer, setAfaPriceDealer] = useState('15')
+    const [dealerPromoEnabled, setDealerPromoEnabled] = useState(false)
     const [supportEmail, setSupportEmail] = useState('')
     const [guestStorefrontUrl, setGuestStorefrontUrl] = useState('')
     const [whatsappGroupLink, setWhatsappGroupLink] = useState('')
@@ -33,6 +36,9 @@ export default function AdminSettingsPage() {
     const [footerCopyrightText, setFooterCopyrightText] = useState('')
     const [footerBrandingText, setFooterBrandingText] = useState('')
     const [autoFulfillment, setAutoFulfillment] = useState(true)
+    const [webPaymentProvider, setWebPaymentProvider] = useState<'moolre' | 'paystack'>('moolre')
+    const [shopPaymentProvider, setShopPaymentProvider] = useState<'moolre' | 'paystack'>('moolre')
+    const [skipGoogleOauthOtp, setSkipGoogleOauthOtp] = useState(false)
 
     // Page access states
     const [pageAccessDashboard, setPageAccessDashboard] = useState(true)
@@ -72,15 +78,22 @@ export default function AdminSettingsPage() {
             setAgentUpgradePrice(settingsMap.agent_upgrade_price || '100')
             setAfaPriceCustomer(settingsMap.afa_price_customer || '15')
             setAfaPriceAgent(settingsMap.afa_price_agent || '15')
+            setAfaPriceDealer(settingsMap.afa_price_dealer || '15')
+            setDealerPromoEnabled(settingsMap.dealer_promo_enabled === 'true')
             setSupportEmail(settingsMap.support_email || '')
             setGuestStorefrontUrl(settingsMap.guest_storefront_url || `${process.env.NEXT_PUBLIC_APP_URL || ''}/shop/demo`)
             setWhatsappGroupLink(settingsMap.whatsapp_group_link || '')
             setWhatsappChannelLink(settingsMap.whatsapp_channel_link || '')
             setWhatsappAdminNumber(settingsMap.whatsapp_admin_number || '')
             setWhatsappCommunityLink(settingsMap.whatsapp_community_link || '')
-            setFooterCopyrightText(settingsMap.footer_copyright_text || `2025 ARHMS DATA LIMITED`)
+            setFooterCopyrightText(settingsMap.footer_copyright_text || `2025 ARHMS TECHNOLOGIES`)
             setFooterBrandingText(settingsMap.footer_branding_text || 'ARHMS')
             setAutoFulfillment(String(settingsMap.auto_fulfillment_enabled) !== 'false')
+            const webProvider = String(settingsMap.active_payment_provider_web || 'moolre')
+            const shopProvider = String(settingsMap.active_payment_provider_shop || 'moolre')
+            setWebPaymentProvider(webProvider === 'paystack' ? 'paystack' : 'moolre')
+            setShopPaymentProvider(shopProvider === 'paystack' ? 'paystack' : 'moolre')
+            setSkipGoogleOauthOtp(settingsMap.skip_google_oauth_otp === 'true')
 
             // Initialize page access values
             setPageAccessDashboard(settingsMap.page_access_dashboard !== 'false')
@@ -112,6 +125,8 @@ export default function AdminSettingsPage() {
                 { key: 'agent_upgrade_price', value: agentUpgradePrice },
                 { key: 'afa_price_customer', value: afaPriceCustomer },
                 { key: 'afa_price_agent', value: afaPriceAgent },
+                { key: 'afa_price_dealer', value: afaPriceDealer },
+                { key: 'dealer_promo_enabled', value: String(dealerPromoEnabled) },
                 { key: 'support_email', value: supportEmail },
                 { key: 'guest_storefront_url', value: guestStorefrontUrl },
                 { key: 'whatsapp_group_link', value: whatsappGroupLink },
@@ -121,6 +136,9 @@ export default function AdminSettingsPage() {
                 { key: 'footer_copyright_text', value: footerCopyrightText },
                 { key: 'footer_branding_text', value: footerBrandingText },
                 { key: 'auto_fulfillment_enabled', value: String(autoFulfillment) },
+                { key: 'active_payment_provider_web', value: webPaymentProvider },
+                { key: 'active_payment_provider_shop', value: shopPaymentProvider },
+                { key: 'skip_google_oauth_otp', value: String(skipGoogleOauthOtp) },
                 // Page access settings
                 { key: 'page_access_dashboard', value: String(pageAccessDashboard) },
                 { key: 'page_access_data_packages', value: String(pageAccessDataPackages) },
@@ -330,6 +348,80 @@ export default function AdminSettingsPage() {
 
                     <Card>
                         <CardHeader>
+                            <CardTitle>Payment Gateway</CardTitle>
+                            <CardDescription>Select the active payment provider for each transaction context. Changes take effect immediately — no redeployment needed.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="flex items-center justify-between p-4 border rounded-lg">
+                                <div className="space-y-0.5">
+                                    <Label className="text-base">Main Site Payments</Label>
+                                    <p className="text-sm text-muted-foreground">Wallet top-ups, agent upgrades &amp; RC vouchers</p>
+                                </div>
+                                <div className="flex rounded-lg border overflow-hidden">
+                                    <button
+                                        type="button"
+                                        onClick={() => setWebPaymentProvider('moolre')}
+                                        className={cn(
+                                            'px-4 py-2 text-sm font-medium transition-colors',
+                                            webPaymentProvider === 'moolre'
+                                                ? 'bg-primary text-primary-foreground'
+                                                : 'bg-background hover:bg-muted text-foreground'
+                                        )}
+                                    >
+                                        Moolre
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setWebPaymentProvider('paystack')}
+                                        className={cn(
+                                            'px-4 py-2 text-sm font-medium transition-colors border-l',
+                                            webPaymentProvider === 'paystack'
+                                                ? 'bg-primary text-primary-foreground'
+                                                : 'bg-background hover:bg-muted text-foreground'
+                                        )}
+                                    >
+                                        Paystack
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="flex items-center justify-between p-4 border rounded-lg">
+                                <div className="space-y-0.5">
+                                    <Label className="text-base">Shop Payments</Label>
+                                    <p className="text-sm text-muted-foreground">Public storefront guest checkout orders</p>
+                                </div>
+                                <div className="flex rounded-lg border overflow-hidden">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShopPaymentProvider('moolre')}
+                                        className={cn(
+                                            'px-4 py-2 text-sm font-medium transition-colors',
+                                            shopPaymentProvider === 'moolre'
+                                                ? 'bg-primary text-primary-foreground'
+                                                : 'bg-background hover:bg-muted text-foreground'
+                                        )}
+                                    >
+                                        Moolre
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShopPaymentProvider('paystack')}
+                                        className={cn(
+                                            'px-4 py-2 text-sm font-medium transition-colors border-l',
+                                            shopPaymentProvider === 'paystack'
+                                                ? 'bg-primary text-primary-foreground'
+                                                : 'bg-background hover:bg-muted text-foreground'
+                                        )}
+                                    >
+                                        Paystack
+                                    </button>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader>
                             <CardTitle>AFA Application Pricing</CardTitle>
                             <CardDescription>Set application fees for Authorized Field Agent registrations</CardDescription>
                         </CardHeader>
@@ -356,6 +448,24 @@ export default function AdminSettingsPage() {
                                 />
                                 <p className="text-xs text-muted-foreground">Fee charged to agents for AFA application</p>
                             </div>
+                            <div className="space-y-2">
+                                <Label>Dealer Application Fee (GHS)</Label>
+                                <Input
+                                    type="number"
+                                    value={afaPriceDealer}
+                                    onChange={(e) => setAfaPriceDealer(e.target.value)}
+                                    step="0.01"
+                                    min="0"
+                                />
+                                <p className="text-xs text-muted-foreground">Fee charged to dealers for AFA application</p>
+                            </div>
+                            <div className="flex items-center justify-between p-4 border rounded-lg">
+                                <div className="space-y-0.5">
+                                    <Label className="text-base">Free Dealer Trial Promo</Label>
+                                    <p className="text-sm text-muted-foreground">When ON, new users (registered after May 29 2026) can claim a free 1-month dealer trial</p>
+                                </div>
+                                <Switch checked={dealerPromoEnabled} onCheckedChange={setDealerPromoEnabled} />
+                            </div>
                         </CardContent>
                     </Card>
                 </TabsContent>
@@ -377,6 +487,27 @@ export default function AdminSettingsPage() {
                                 <Switch
                                     checked={autoFulfillment}
                                     onCheckedChange={setAutoFulfillment}
+                                />
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Authentication</CardTitle>
+                            <CardDescription>Manage user authentication flows</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="flex items-center justify-between p-4 border rounded-lg">
+                                <div className="space-y-0.5">
+                                    <Label className="text-base">Skip OTP for Google Sign-ins</Label>
+                                    <p className="text-sm text-muted-foreground">
+                                        When ON, users signing in with Google will still provide their phone number but bypass the SMS OTP verification step.
+                                    </p>
+                                </div>
+                                <Switch
+                                    checked={skipGoogleOauthOtp}
+                                    onCheckedChange={setSkipGoogleOauthOtp}
                                 />
                             </div>
                         </CardContent>

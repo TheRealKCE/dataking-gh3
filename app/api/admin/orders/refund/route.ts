@@ -3,6 +3,7 @@ import { createServerClient } from '@/lib/supabase'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import { sendOrderRefundSMS } from '@/lib/sms-service'
+import { sendPushToUser } from '@/lib/web-push'
 
 export async function POST(request: NextRequest) {
     try {
@@ -163,7 +164,14 @@ export async function POST(request: NextRequest) {
             // Don't fail the refund if notification fails
         }
 
-        // 8. Send SMS notification
+        // 8. Push notification to user
+        await sendPushToUser((order as any).user_id, {
+            title: 'Order Refunded',
+            body: `GHS ${refundAmount.toFixed(2)} refunded to your wallet for order ${(order as any).reference_code}.`,
+            url: '/dashboard/wallet',
+        }).catch(() => {})
+
+        // 9. Send SMS notification
         const userPhone = (order as any).users?.phone_number
         if (userPhone) {
             sendOrderRefundSMS(

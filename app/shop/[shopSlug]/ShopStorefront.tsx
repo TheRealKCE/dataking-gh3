@@ -437,8 +437,12 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 return
             }
 
-            // Moolre always sends an OTP for MoMo collections.
-            // Show the OTP modal immediately after a successful first-call.
+            if (data.gateway === 'paystack') {
+                window.location.href = data.authorization_url
+                return
+            }
+
+            // Moolre: show OTP modal
             try { localStorage.setItem('shop_last_phone', cleanPhone) } catch (_) { }
             setOtpReference(data.reference)
             setOtpOrderType('data')
@@ -487,8 +491,12 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 return
             }
 
-            // Moolre always sends an OTP for MoMo collections.
-            // Show the OTP modal immediately after a successful first-call.
+            if (data.gateway === 'paystack') {
+                window.location.href = data.authorization_url
+                return
+            }
+
+            // Moolre: show OTP modal
             try { localStorage.setItem('shop_last_phone', cleanPhone) } catch (_) { }
             setOtpReference(data.reference)
             setOtpOrderType('airtime')
@@ -735,7 +743,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-950 theme-shop">
+        <div className="min-h-screen bg-gray-950 theme-shop">
             <style dangerouslySetInnerHTML={{ __html: `
                 .theme-shop { 
                     --brand-color: ${safeBrandColor}; 
@@ -816,7 +824,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                     </div>
                 </div>
                 {/* 5. Divider SVG — always at absolute bottom */}
-                <DividerSVG style={shop.divider_style} fillClass="fill-gray-50 dark:fill-gray-950" />
+                <DividerSVG style={shop.divider_style} fillClass="fill-gray-950" />
             </div>
 
             <div className="max-w-2xl mx-auto px-4 pb-40 -mt-2">

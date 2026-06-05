@@ -5,6 +5,7 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
 import { sendOrderSuccessEmail, sendAdminNewOrderAlert } from '@/lib/email-service'
 import { sendOrderSuccessSMS, sendAdminAgentOrderAlert } from '@/lib/sms-service'
+import { sendPushToUser, sendPushToAdmins } from '@/lib/web-push'
 import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
 
@@ -115,11 +116,15 @@ export async function POST(request: NextRequest) {
             .eq('id', userId)
             .single()
 
-        const isAgent = (userRoleData as any)?.role === 'agent'
+        const userRole = (userRoleData as any)?.role
+        const isAgent = userRole === 'agent'
+        const isDealer = userRole === 'dealer'
 
-        const priceToCharge = (isAgent && (pkg as any).agent_price > 0)
-            ? (pkg as any).agent_price
-            : (pkg as any).price
+        const priceToCharge = (isDealer && (pkg as any).dealer_price > 0)
+            ? (pkg as any).dealer_price
+            : (isAgent && (pkg as any).agent_price > 0)
+                ? (pkg as any).agent_price
+                : (pkg as any).price
 
         // === SECURITY: Atomic wallet deduction (prevents double-spend) ===
         const { data: deductResult, error: deductError } = await (supabase as any)
@@ -193,7 +198,7 @@ export async function POST(request: NextRequest) {
             status: 'completed',
         }).then(() => {}).catch((e: any) => console.error('[Purchase] Tx insert error:', e))
 
-        // === PERFORMANCE: Create notification (fire-and-forget) ===
+        // === PERFORMANCE: Create notification + web push (fire-and-forget) ===
         ;(supabase.from('notifications') as any).insert({
             user_id: userId,
             title: 'Order Placed',
@@ -201,6 +206,12 @@ export async function POST(request: NextRequest) {
             type: 'order_update',
             action_url: `/dashboard/my-orders`,
         }).then(() => {}).catch((e: any) => console.error('[Purchase] Notification error:', e))
+
+        await sendPushToUser(userId, {
+            title: 'Order Placed',
+            body: `Your ${(pkg as any).size} bundle for ${phoneNumber} is being processed.`,
+            url: '/dashboard/my-orders',
+        }).catch((e: any) => console.error('[Purchase] Push error:', e))
 
         // === NOTIFICATIONS & AUTO-FULFILLMENT: Awaited to ensure Vercel doesn't kill process ===
         try {
@@ -247,6 +258,13 @@ export async function POST(request: NextRequest) {
                     await sendAdminAgentOrderAlert()
                         .catch((err: Error) => console.error('[Purchase] Admin agent alert failed:', err))
                 }
+
+                // 4. Notify admin via push
+                await sendPushToAdmins({
+                    title: 'New Data Order',
+                    body: `${firstName} · ${(pkg as any).network} ${(pkg as any).size} → ${phoneNumber} (GHS ${priceToCharge.toFixed(2)})`,
+                    url: '/admin/orders',
+                }).catch(() => {})
 
                 // 4. Trigger Auto-Fulfillment
                 await triggerFulfillment((order as any).id, (pkg as any).network, {
@@ -357,11 +375,12 @@ async function triggerFulfillment(orderId: string, network: string, user: { emai
             return
         }
 
-        // ── Parse both supplier network settings ───────────────────────────
+        // ── Parse all supplier network settings ───────────────────────────
         let fulfillmentSettings: {
             networks: Record<string, boolean>
             codecraft_networks: Record<string, boolean>
-        } = { networks: {}, codecraft_networks: {} }
+            kingflexy_networks: Record<string, boolean>
+        } = { networks: {}, codecraft_networks: {}, kingflexy_networks: {} }
         try {
             if (settingsMap.fulfillment_settings) {
                 const parsed = typeof settingsMap.fulfillment_settings === 'string'
@@ -369,6 +388,7 @@ async function triggerFulfillment(orderId: string, network: string, user: { emai
                     : settingsMap.fulfillment_settings
                 fulfillmentSettings.networks = parsed.networks || {}
                 fulfillmentSettings.codecraft_networks = parsed.codecraft_networks || {}
+                fulfillmentSettings.kingflexy_networks = parsed.kingflexy_networks || {}
             }
         } catch (e) {
             console.error('[Fulfillment] Failed to parse fulfillment_settings:', e)
@@ -376,26 +396,28 @@ async function triggerFulfillment(orderId: string, network: string, user: { emai
 
         const isDataKazinaEnabled = fulfillmentSettings.networks[network] === true
         const isCodeCraftEnabled = fulfillmentSettings.codecraft_networks[network] === true
+        const isKingFlexyEnabled = fulfillmentSettings.kingflexy_networks[network] === true
 
         // ── Conflict Guard ─────────────────────────────────────────────────
-        if (isDataKazinaEnabled && isCodeCraftEnabled) {
+        const activeSupplierCount = [isDataKazinaEnabled, isCodeCraftEnabled, isKingFlexyEnabled].filter(Boolean).length
+        if (activeSupplierCount > 1) {
             console.error(`[Fulfillment] CONFLICT DETECTED for ${network} on order ${orderId}`)
             await sendAdminNewOrderAlert({
                 ...alertDetails,
-                reason: `⚠️ SYSTEM HALTED: Both DataKazina and CodeCraft are active for ${network}. Order ${orderId} kept pending. Fix in admin panel immediately.`
+                reason: `⚠️ SYSTEM HALTED: Multiple suppliers are active for ${network}. Order ${orderId} kept pending. Fix in admin panel immediately.`
             }).catch(err => console.error('[Fulfillment] Conflict alert failed:', err))
             return
         }
 
         // ── No Supplier Guard ──────────────────────────────────────────────
-        if (!isDataKazinaEnabled && !isCodeCraftEnabled) {
+        if (!isDataKazinaEnabled && !isCodeCraftEnabled && !isKingFlexyEnabled) {
             console.log(`[Fulfillment] No active supplier for network ${network}. Order ${orderId} kept pending.`)
             await sendAdminNewOrderAlert({ ...alertDetails, reason: `No active supplier configured for network: ${network}` })
                 .catch(err => console.error('[Fulfillment] No-supplier alert failed:', err))
             return
         }
 
-        const supplierLabel = isCodeCraftEnabled ? 'codecraft' : 'datakazina'
+        const supplierLabel = isCodeCraftEnabled ? 'codecraft' : isKingFlexyEnabled ? 'kingflexy' : 'datakazina'
         console.log(`[Fulfillment] Routing to ${supplierLabel} for order ${orderId} | network: ${network}`)
 
         // ── Idempotency check ──────────────────────────────────────────────
@@ -416,6 +438,9 @@ async function triggerFulfillment(orderId: string, network: string, user: { emai
             if (isCodeCraftEnabled) {
                 const { fulfillOrder: ccFulfill } = await import('@/lib/codecraft-service')
                 result = await ccFulfill(network, (order as any).phone_number, (order as any).size, orderId)
+            } else if (isKingFlexyEnabled) {
+                const { fulfillOrder: kfFulfill } = await import('@/lib/kingflexy-service')
+                result = await kfFulfill(network, (order as any).phone_number, (order as any).size, orderId)
             } else {
                 const { fulfillOrder: dkFulfill } = await import('@/lib/fulfillment-service')
                 result = await dkFulfill(network, (order as any).phone_number, (order as any).size, orderId)
@@ -437,7 +462,10 @@ async function triggerFulfillment(orderId: string, network: string, user: { emai
             if (isCodeCraftEnabled && (result.transactionId || result.reference)) {
                 ordersUpdate.codecraft_reference = result.transactionId || result.reference
             }
-            if (!isCodeCraftEnabled && (result.transactionId || result.reference)) {
+            if (isKingFlexyEnabled && (result.transactionId || result.reference)) {
+                ordersUpdate.kingflexy_reference = result.transactionId || result.reference
+            }
+            if (!isCodeCraftEnabled && !isKingFlexyEnabled && (result.transactionId || result.reference)) {
                 ordersUpdate.dakazina_reference = result.transactionId || result.reference
             }
 
@@ -447,6 +475,19 @@ async function triggerFulfillment(orderId: string, network: string, user: { emai
 
             if (updateError) {
                 console.error(`[OrderPurchase] Failed to update order ${orderId} status:`, updateError.message)
+                // If the error is a check-constraint violation on fulfillment_method (migration not yet run),
+                // retry without that field so the order is not left stuck as 'pending'.
+                if (updateError.message?.includes('fulfillment_method_check') || updateError.code === '23514') {
+                    const { fulfillment_method: _drop, ...fallbackUpdate } = ordersUpdate
+                    const { error: retryError } = await (supabase.from('orders') as any)
+                        .update(fallbackUpdate)
+                        .eq('id', orderId)
+                    if (retryError) {
+                        console.error(`[OrderPurchase] Fallback update also failed for ${orderId}:`, retryError.message)
+                    } else {
+                        console.warn(`[OrderPurchase] Order ${orderId} marked processing WITHOUT fulfillment_method — run migration 20260528_add_kingflexy_fulfillment_method.sql in Supabase to fix constraint`)
+                    }
+                }
             }
 
             await (supabase.from('mtn_fulfillment_tracking') as any).insert({

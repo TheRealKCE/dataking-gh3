@@ -94,7 +94,7 @@ const fallbackConfig: PublicConfigData = {
     whatsappAdminNumber: '',
     whatsappCommunityLink: '',
     supportEmail: '',
-    footerCopyrightText: '2025 ARHMS DATA LIMITED',
+    footerCopyrightText: '2025 ARHMS TECHNOLOGIES',
     footerBrandingText: 'ARHMS',
     announcementEnabled: false,
     announcementTitle: '',

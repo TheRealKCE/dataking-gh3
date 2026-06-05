@@ -16,9 +16,12 @@ export interface Database {
                     first_name: string
                     last_name: string
                     phone_number: string
-                    role: 'customer' | 'agent' | 'admin' | 'sub-admin'
+                    phone_verified: boolean
+                    role: 'customer' | 'agent' | 'admin' | 'sub-admin' | 'dealer'
                     status: 'active' | 'suspended' | 'inactive'
                     agent_expires_at: string | null
+                    dealer_claimed_at: string | null
+                    dealer_expires_at: string | null
                     created_at: string
                     updated_at: string
                 }
@@ -28,9 +31,12 @@ export interface Database {
                     first_name: string
                     last_name: string
                     phone_number: string
-                    role?: 'customer' | 'agent' | 'admin' | 'sub-admin'
+                    phone_verified?: boolean
+                    role?: 'customer' | 'agent' | 'admin' | 'sub-admin' | 'dealer'
                     status?: 'active' | 'suspended' | 'inactive'
                     agent_expires_at?: string | null
+                    dealer_claimed_at?: string | null
+                    dealer_expires_at?: string | null
                     created_at?: string
                     updated_at?: string
                 }
@@ -40,9 +46,12 @@ export interface Database {
                     first_name?: string
                     last_name?: string
                     phone_number?: string
-                    role?: 'customer' | 'agent' | 'admin' | 'sub-admin'
+                    phone_verified?: boolean
+                    role?: 'customer' | 'agent' | 'admin' | 'sub-admin' | 'dealer'
                     status?: 'active' | 'suspended' | 'inactive'
                     agent_expires_at?: string | null
+                    dealer_claimed_at?: string | null
+                    dealer_expires_at?: string | null
                     updated_at?: string
                 }
             }
@@ -145,6 +154,8 @@ export interface Database {
                     network: 'MTN' | 'Telecel' | 'AT-iShare' | 'AT-BigTime'
                     size: string
                     price: number
+                    agent_price?: number | null
+                    dealer_price?: number | null
                     cost_price?: number
                     description: string | null
                     is_available: boolean
@@ -157,6 +168,8 @@ export interface Database {
                     network: 'MTN' | 'Telecel' | 'AT-iShare' | 'AT-BigTime'
                     size: string
                     price: number
+                    agent_price?: number | null
+                    dealer_price?: number | null
                     description?: string | null
                     is_available?: boolean
                     sort_order?: number
@@ -167,6 +180,8 @@ export interface Database {
                     network?: 'MTN' | 'Telecel' | 'AT-iShare' | 'AT-BigTime'
                     size?: string
                     price?: number
+                    agent_price?: number | null
+                    dealer_price?: number | null
                     description?: string | null
                     is_available?: boolean
                     sort_order?: number

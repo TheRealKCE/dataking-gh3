@@ -26,6 +26,8 @@ export interface PricingData {
     whatsappChannelLink: string
     whatsappAdminNumber: string
     whatsappCommunityLink: string
+    dealerPrice6m: number
+    dealerPrice3m: number
 }
 
 interface CachedData extends PricingData {
@@ -61,7 +63,9 @@ export async function getCachedPricing(): Promise<PricingData> {
                     whatsappGroupLink: data.whatsappGroupLink,
                     whatsappChannelLink: data.whatsappChannelLink,
                     whatsappAdminNumber: data.whatsappAdminNumber,
-                    whatsappCommunityLink: data.whatsappCommunityLink
+                    whatsappCommunityLink: data.whatsappCommunityLink,
+                    dealerPrice6m: data.dealerPrice6m ?? 0,
+                    dealerPrice3m: data.dealerPrice3m ?? 0,
                 }
             }
         }

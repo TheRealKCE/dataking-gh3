@@ -15,6 +15,7 @@ import { toast } from 'sonner'
 import { validateGhanaianPhone } from '@/lib/phone-validation'
 import { BackgroundBubbles } from '@/components/background-bubbles'
 import { FloatingWhatsApp } from '@/components/floating-whatsapp'
+import { GoogleSignInButton } from '@/components/google-sign-in-button'
 
 export default function SignupPage() {
     const [formData, setFormData] = useState({
@@ -157,11 +158,11 @@ export default function SignupPage() {
                 {/* Logo & Branding */}
                 <div className="text-center mb-8">
                     <Link href="/" className="inline-flex flex-col items-center group">
-                        <div className="relative w-16 h-16 mb-4 transition-transform group-hover:scale-105">
-                            <div className="relative w-full h-full rounded-2xl shadow-blue-premium overflow-hidden">
+                        <div className="relative w-16 h-16 mb-4">
+                            <div className="relative w-full h-full rounded-2xl overflow-hidden bg-white shadow-[0_10px_40px_-10px_rgba(212,175,55,0.35)]">
                                 <Image
-                                    src="/logo.png"
-                                    alt="ARHMS"
+                                    src="/arhms-logo.png"
+                                    alt="ARHMS TECHNOLOGIES"
                                     fill
                                     className="object-contain"
                                     priority
@@ -169,7 +170,7 @@ export default function SignupPage() {
                             </div>
                         </div>
                         <h1 className="text-2xl font-black text-foreground tracking-tighter uppercase">
-                            ARHMS <span className="text-primary">DATA</span>
+                            ARHMS <span className="text-blue-600">TECHNOLOGIES</span>
                         </h1>
                         <p className="text-[10px] font-black text-muted-foreground tracking-[0.3em] uppercase mt-1 opacity-60">
                             Create Your Account
@@ -179,6 +180,19 @@ export default function SignupPage() {
 
                 <Card className="w-full card-premium border-border/50 bg-card/70 backdrop-blur-xl shadow-premium overflow-hidden">
                     <CardContent className="p-8">
+                        <div className="mb-6 space-y-6">
+                            <GoogleSignInButton label="Sign up with Google" />
+                            
+                            <div className="relative">
+                                <div className="absolute inset-0 flex items-center">
+                                    <div className="w-full border-t border-border/50"></div>
+                                </div>
+                                <div className="relative flex justify-center text-[10px] uppercase tracking-[0.3em] font-black">
+                                    <span className="bg-card px-4 text-muted-foreground/50">Or</span>
+                                </div>
+                            </div>
+                        </div>
+
                         <form onSubmit={handleSubmit} className="space-y-5">
                             {error && (
                                 <Alert variant="destructive" className="bg-destructive/10 border-destructive/20 text-destructive rounded-xl">
@@ -309,24 +323,17 @@ export default function SignupPage() {
                             </Button>
                         </form>
 
-                        <div className="relative my-8">
-                            <div className="absolute inset-0 flex items-center">
-                                <div className="w-full border-t border-border/50"></div>
-                            </div>
-                            <div className="relative flex justify-center text-[10px] uppercase tracking-[0.3em] font-black">
-                                <span className="bg-card px-4 text-muted-foreground/50">Already Registered?</span>
-                            </div>
+                        <div className="grid gap-4 mt-6">
+                            <Button
+                                asChild
+                                variant="outline"
+                                className="w-full h-14 rounded-2xl border-border/50 hover:bg-secondary/50 font-black uppercase tracking-widest text-xs transition-all"
+                            >
+                                <Link href="/auth/login">
+                                    Back to Login
+                                </Link>
+                            </Button>
                         </div>
-
-                        <Button
-                            asChild
-                            variant="outline"
-                            className="w-full h-14 rounded-2xl border-border/50 hover:bg-secondary/50 font-black uppercase tracking-widest text-xs transition-all"
-                        >
-                            <Link href="/auth/login">
-                                Back to Login
-                            </Link>
-                        </Button>
 
                         <p className="text-[9px] text-center text-muted-foreground font-bold tracking-widest uppercase mt-8 opacity-40">
                             By registering, you agree to our <Link href="/terms" className="text-foreground hover:text-primary transition-colors">Terms</Link> & <Link href="/privacy" className="text-foreground hover:text-primary transition-colors">Policy</Link>

@@ -22,13 +22,13 @@ import {
     Phone,
     Zap,
 } from 'lucide-react'
-import { useTutorial } from '@/hooks/useTutorial'
-import { HelpButton } from '@/components/tutorial/HelpButton'
 import { RoleGreetingBox } from '@/components/dashboard/RoleGreetingBox'
 import { RecentOrdersWidget } from '@/components/dashboard/RecentOrdersWidget'
 import { BusinessPerformanceWidget } from '@/components/dashboard/BusinessPerformanceWidget'
 import { ShopDashboardSection } from '@/components/dashboard/ShopDashboardSection'
 import { TodaysOrdersSummary } from '@/components/dashboard/TodaysOrdersSummary'
+import { DealerWelcomeModal } from '@/components/dashboard/DealerWelcomeModal'
+import { DealerExpiryBanner } from '@/components/dashboard/DealerExpiryBanner'
 
 interface DashboardStats {
     totalOrders: number
@@ -68,9 +68,19 @@ export default function DashboardPage() {
     const [shopStatus, setShopStatus] = useState<ShopStatus>({
         isLoading: true, hasShop: false, hasPricingConfigured: false, isApproved: false
     })
-    const userRole = dbUser?.role === 'agent' ? 'agent' : 'customer'
-    const { hasSeenTutorial, startTutorial } = useTutorial(userRole as 'customer' | 'agent', '/dashboard')
+    const DEALER_FEATURE_LAUNCH = new Date('2026-05-29T00:00:00Z')
+    const isNewUser = dbUser?.created_at ? new Date(dbUser.created_at) >= DEALER_FEATURE_LAUNCH : false
+    const [dealerPromoEnabled, setDealerPromoEnabled] = useState(false)
+    const showDealerModal = dbUser?.role === 'customer' && !(dbUser as any)?.dealer_claimed_at && isNewUser && dealerPromoEnabled
+    const dealerExpiresAt = (dbUser as any)?.dealer_expires_at as string | null
 
+
+    useEffect(() => {
+        fetch('/api/admin-settings?keys=dealer_promo_enabled')
+            .then(r => r.ok ? r.json() : null)
+            .then(d => { if (d) setDealerPromoEnabled(d.dealer_promo_enabled === 'true') })
+            .catch(() => {})
+    }, [])
 
     useEffect(() => {
         if (dbUser) {
@@ -79,16 +89,6 @@ export default function DashboardPage() {
         }
     }, [dbUser])
 
-    // Auto-start tutorial for first-time users
-    useEffect(() => {
-        if (!isLoading && !hasSeenTutorial && dbUser) {
-            // Delay 1 second for page to fully load
-            const timer = setTimeout(() => {
-                startTutorial()
-            }, 1000)
-            return () => clearTimeout(timer)
-        }
-    }, [isLoading, hasSeenTutorial, dbUser, startTutorial])
 
 
 
@@ -259,13 +259,22 @@ export default function DashboardPage() {
 
     return (
         <div className="space-y-8 animate-slow-fade">
+            {/* Dealer Welcome Modal — shown once to eligible customers */}
+            {showDealerModal && (
+                <DealerWelcomeModal onClaimed={() => window.location.reload()} />
+            )}
+
+            {/* Dealer Expiry Banner — shown when expiry is within 7 days or past */}
+            {dbUser?.role === 'dealer' && dealerExpiresAt && (
+                <DealerExpiryBanner dealerExpiresAt={dealerExpiresAt} />
+            )}
+
             {/* Header Section with Tutorial Button */}
             <div className="flex items-center justify-between gap-4">
                 <div>
                     <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground">Dashboard</h2>
                     <p className="text-sm font-medium text-muted-foreground mt-1">Manage your business and track your performance</p>
                 </div>
-                <HelpButton onClick={startTutorial} />
             </div>
 
             {/* Dynamic Role Greeting Box */}

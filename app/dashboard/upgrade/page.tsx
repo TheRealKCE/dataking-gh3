@@ -3,30 +3,21 @@
 import React, { useEffect, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/contexts/auth-context'
-import { supabase } from '@/lib/supabase'
 import { getCachedPricing } from '@/lib/pricing-cache'
 import { Button } from '@/components/ui/button'
-import { Crown, Sparkles, Zap, Star, CheckCircle } from 'lucide-react'
-import { formatCurrency } from '@/lib/utils'
+import { Crown, Sparkles, Zap, CheckCircle, Store, Calendar } from 'lucide-react'
 import { toast } from 'sonner'
 import CongratsModal from '@/components/upgrade/CongratsModal'
 import { cn } from '@/lib/utils'
-import { useTutorial } from '@/hooks/useTutorial'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Loader2, Phone, Smartphone } from 'lucide-react'
-import { HelpButton } from '@/components/tutorial/HelpButton'
-
 export default function UpgradePage() {
     const { dbUser, refreshUser } = useAuth()
     const router = useRouter()
     const searchParams = useSearchParams()
-
-    // Tutorial hook
-    const userRole = dbUser?.role === 'agent' ? 'agent' : 'customer'
-    const { startTutorial } = useTutorial(userRole as 'customer' | 'agent', '/upgrade')
 
     // Congrats modal state
     const [showCongrats, setShowCongrats] = useState(false)
@@ -57,9 +48,14 @@ export default function UpgradePage() {
         'permanent': 0
     })
 
+    const [dealerPrice6m, setDealerPrice6m] = useState(0)
+    const [dealerPrice3m, setDealerPrice3m] = useState(0)
     const [showStrikethrough, setShowStrikethrough] = useState(false)
     const [isLoading, setIsLoading] = useState(true)
     const [isProcessing, setIsProcessing] = useState<string | null>(null)
+    const [isDealerClaiming, setIsDealerClaiming] = useState(false)
+    const [isDealerPaymentFlow, setIsDealerPaymentFlow] = useState(false)
+    const [dealerPromoEnabled, setDealerPromoEnabled] = useState(false)
 
     // Store initial expiry date when user data is available
     useEffect(() => {
@@ -78,6 +74,8 @@ export default function UpgradePage() {
                 setPrices(data.prices)
                 setOldPrices(data.oldPrices || { '3d': 0, '14d': 0, '30d': 0, 'permanent': 0 })
                 setShowStrikethrough(data.showStrikethrough || false)
+                setDealerPrice6m(data.dealerPrice6m ?? 0)
+                setDealerPrice3m(data.dealerPrice3m ?? 0)
                 setIsLoading(false)
             } catch (err) {
                 console.error('Failed to fetch upgrade prices:', err)
@@ -87,33 +85,52 @@ export default function UpgradePage() {
         }
 
         fetchPrices()
+
+        fetch('/api/admin-settings?key=dealer_promo_enabled')
+            .then(r => r.ok ? r.json() : null)
+            .then(d => { if (d) setDealerPromoEnabled(d.value === 'true') })
+            .catch(() => {})
     }, [])
 
 
 
 
+    // Handle return from Paystack checkout
+    useEffect(() => {
+        const paystackRef = searchParams.get('reference')
+        if (paystackRef && !pollingRef) {
+            setPollingRef(paystackRef)
+            router.replace('/dashboard/upgrade')
+        }
+    }, [searchParams]) // eslint-disable-line react-hooks/exhaustive-deps
+
     // Poll for payment status when reference is set
     useEffect(() => {
         let interval: NodeJS.Timeout
         if (pollingRef) {
+            const isDealerRef = pollingRef.startsWith('dealer_sub_')
+            const verifyUrl = isDealerRef
+                ? `/api/user/dealer-subscribe?reference=${pollingRef}`
+                : `/api/user/upgrade/verify?reference=${pollingRef}`
+
             interval = setInterval(async () => {
                 try {
-                    const res = await fetch(`/api/user/upgrade/verify?reference=${pollingRef}`, {
-                        headers: { 'Accept': 'application/json' }
-                    })
+                    const res = await fetch(verifyUrl, { headers: { 'Accept': 'application/json' } })
                     const data = await res.json()
-                    
+
                     if (data.status === 'completed') {
                         clearInterval(interval)
                         setPollingRef(null)
                         setShowPaymentModal(false)
-                        toast.success('Upgrade payment completed successfully!')
+                        setIsDealerPaymentFlow(false)
+                        toast.success(isDealerRef ? 'Dealer subscription activated!' : 'Upgrade payment completed successfully!')
                         await refreshUser()
-                        setShowCongrats(true)
+                        if (!isDealerRef) setShowCongrats(true)
                     } else if (data.status === 'failed') {
                         clearInterval(interval)
                         setPollingRef(null)
                         setShowPaymentModal(false)
+                        setIsDealerPaymentFlow(false)
                         toast.error(data.error || 'Payment failed or cancelled.')
                         setIsProcessing(null)
                     }
@@ -127,24 +144,76 @@ export default function UpgradePage() {
 
     const handleUpgradeSelect = (plan: string) => {
         setSelectedPlan(plan)
+        setIsDealerPaymentFlow(false)
         setShowPaymentModal(true)
     }
 
+    const handleDealerSubscribeClick = (plan: 'dealer_3m' | 'dealer_6m' = 'dealer_6m') => {
+        setSelectedPlan(plan)
+        setIsDealerPaymentFlow(true)
+        setShowPaymentModal(true)
+    }
+
+    const handleDealerClaim = async () => {
+        setIsDealerClaiming(true)
+        try {
+            const res = await fetch('/api/user/claim-dealer', { method: 'POST' })
+            const data = await res.json()
+            if (!res.ok) throw new Error(data.error || 'Failed to claim dealership')
+            toast.success('Dealership claimed! Enjoy your free 1-month trial.')
+            await refreshUser()
+        } catch (error: any) {
+            toast.error(error.message || 'Failed to claim dealership')
+        } finally {
+            setIsDealerClaiming(false)
+        }
+    }
+
     const handleUpgradeSubmit = async () => {
-        if (!paymentPhone || paymentPhone.replace(/\s/g, '').length < 10) {
-            toast.error('Please enter a valid phone number')
+        setIsProcessing(selectedPlan)
+
+        if (isDealerPaymentFlow) {
+            try {
+                const response = await fetch('/api/user/dealer-subscribe', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        phone: paymentPhone.replace(/\s/g, ''),
+                        network: paymentNetwork,
+                        planType: selectedPlan,
+                    })
+                })
+                const data = await response.json()
+                if (!response.ok) throw new Error(data.error || 'Failed to initialize dealer subscription')
+                if (data.gateway === 'paystack') {
+                    window.location.href = data.authorization_url
+                    return
+                }
+                setPaymentReference(data.reference)
+                if (data.otpRequired) {
+                    setOtpRequired(true)
+                    setIsProcessing(null)
+                    setShowPaymentModal(false)
+                    return
+                }
+                setPollingRef(data.reference)
+                setIsProcessing(null)
+                setShowPaymentModal(false)
+            } catch (error: any) {
+                toast.error(error.message || 'Failed to start dealer subscription')
+                setIsProcessing(null)
+            }
             return
         }
 
-        setIsProcessing(selectedPlan)
         try {
             const response = await fetch('/api/user/upgrade/initialize', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
+                body: JSON.stringify({
                     plan: selectedPlan,
                     phone: paymentPhone.replace(/\s/g, ''),
-                    network: paymentNetwork
+                    network: paymentNetwork,
                 })
             })
 
@@ -154,8 +223,12 @@ export default function UpgradePage() {
                 throw new Error(data.error || 'Failed to initialize upgrade')
             }
 
-            // Moolre always sends an OTP for MoMo collections.
-            // Show the OTP modal immediately after a successful first-call.
+            if (data.gateway === 'paystack') {
+                window.location.href = data.authorization_url
+                return
+            }
+
+            // Moolre: show OTP modal
             setPaymentReference(data.reference)
             setOtpRequired(true)
             setIsProcessing(null)
@@ -174,16 +247,15 @@ export default function UpgradePage() {
 
         setIsProcessing(selectedPlan)
         try {
-            const response = await fetch('/api/user/upgrade/initialize', {
+            const endpoint = isDealerPaymentFlow ? '/api/user/dealer-subscribe' : '/api/user/upgrade/initialize'
+            const body = isDealerPaymentFlow
+                ? { phone: paymentPhone.replace(/\s/g, ''), network: paymentNetwork, otpCode: otpCode.trim(), reference: paymentReference, planType: selectedPlan }
+                : { plan: selectedPlan, phone: paymentPhone.replace(/\s/g, ''), network: paymentNetwork, otpCode: otpCode.trim(), reference: paymentReference }
+
+            const response = await fetch(endpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                    plan: selectedPlan,
-                    phone: paymentPhone.replace(/\s/g, ''),
-                    network: paymentNetwork,
-                    otpCode: otpCode.trim(),
-                    reference: paymentReference
-                })
+                body: JSON.stringify(body)
             })
 
             const data = await response.json()
@@ -300,6 +372,383 @@ export default function UpgradePage() {
     // Identify if user is already a permanent agent
     const isPermanentAgent = dbUser?.role === 'agent' && dbUser?.agent_expires_at === null
 
+    // ── DEALER / CUSTOMER VIEW ─────────────────────────────────────────────────
+    const isDealer = (dbUser as any)?.role === 'dealer'
+    const isCustomer = dbUser?.role === 'customer'
+    const viewAgentPlans = searchParams.get('view') === 'agent'
+    const viewDealerPlans = searchParams.get('view') === 'dealer'
+
+    // Customer landing — show two-path choice page
+    if (isCustomer && !viewAgentPlans && !viewDealerPlans) {
+        return (
+            <div className="relative -m-4 sm:-m-6 min-h-[calc(100vh+2rem)] lg:min-h-screen bg-gradient-to-br from-yellow-400 via-amber-500 to-yellow-600 overflow-x-hidden px-4 sm:px-6 py-10 sm:py-16 flex flex-col items-center [font-family:'Fira_Sans',sans-serif]">
+                <div className="relative z-10 w-full max-w-2xl flex flex-col items-center">
+                    <div className="text-center mb-10 space-y-3">
+                        <div className="flex justify-center mb-4">
+                            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-white/20 backdrop-blur flex items-center justify-center shadow-xl">
+                                <Crown className="w-10 h-10 sm:w-12 sm:h-12 text-white" />
+                            </div>
+                        </div>
+                        <h1 className="text-4xl sm:text-5xl font-black text-[#b45309] leading-tight">UPGRADE YOUR ACCOUNT</h1>
+                        <p className="text-sm sm:text-base text-white font-bold max-w-md mx-auto drop-shadow-sm">
+                            Choose the membership that fits your goals.
+                        </p>
+                    </div>
+
+                    <div className="w-full flex flex-col gap-5">
+                        {/* Become an Agent */}
+                        <div className="w-full rounded-2xl bg-white/90 backdrop-blur border-2 border-amber-300 shadow-xl p-6">
+                            <div className="flex items-center gap-4 mb-4">
+                                <div className="w-14 h-14 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                                    <Crown className="w-7 h-7 text-amber-600" />
+                                </div>
+                                <div>
+                                    <p className="font-black text-gray-900 text-lg">Become an Agent</p>
+                                    <p className="text-xs text-gray-500 font-bold">Premium reseller membership</p>
+                                </div>
+                                <span className="ml-auto px-3 py-1 rounded-full bg-amber-100 text-amber-700 text-xs font-black">PREMIUM</span>
+                            </div>
+                            <div className="space-y-2 mb-5">
+                                {['Lowest agent pricing on all bundles', 'Resell packages to earn commissions', 'Priority order processing & support', 'Flexible plans: 3 days to lifetime'].map((f) => (
+                                    <div key={f} className="flex items-center gap-2.5">
+                                        <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                                        <span className="text-xs font-bold text-gray-700">{f}</span>
+                                    </div>
+                                ))}
+                            </div>
+                            <Button
+                                onClick={() => router.push('/dashboard/upgrade?view=agent')}
+                                className="w-full bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-white font-black h-11 rounded-xl shadow-lg"
+                            >
+                                See Agent Plans
+                            </Button>
+                        </div>
+
+                        {/* Become a Dealer */}
+                        <div className="w-full rounded-2xl bg-white/90 backdrop-blur border-2 border-violet-300 shadow-xl p-6">
+                            <div className="flex items-center gap-4 mb-4">
+                                <div className="w-14 h-14 rounded-full bg-violet-100 flex items-center justify-center flex-shrink-0">
+                                    <Store className="w-7 h-7 text-violet-600" />
+                                </div>
+                                <div>
+                                    <p className="font-black text-gray-900 text-lg">Become a Dealer</p>
+                                    <p className="text-xs text-gray-500 font-bold">Special dealer pricing access</p>
+                                </div>
+                                <span className="ml-auto px-3 py-1 rounded-full bg-violet-100 text-violet-700 text-xs font-black">DEALER</span>
+                            </div>
+                            <div className="space-y-2 mb-5">
+                                {['Exclusive dealer pricing on all bundles', 'Priority order processing', '3-month or 6-month plans available', dealerPromoEnabled ? 'Free 1-month trial for new users' : 'Flexible subscription options'].map((f) => (
+                                    <div key={f} className="flex items-center gap-2.5">
+                                        <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                                        <span className="text-xs font-bold text-gray-700">{f}</span>
+                                    </div>
+                                ))}
+                            </div>
+                            <Button
+                                onClick={() => router.push('/dashboard/upgrade?view=dealer')}
+                                className="w-full bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 text-white font-black h-11 rounded-xl shadow-lg"
+                            >
+                                See Dealer Plans
+                            </Button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        )
+    }
+
+    if (isDealer || (isCustomer && viewDealerPlans)) {
+        const dealerClaimedAt = (dbUser as any)?.dealer_claimed_at
+        const dealerExpiresAt = (dbUser as any)?.dealer_expires_at
+        const expiryDate = dealerExpiresAt ? new Date(dealerExpiresAt) : null
+        const now = new Date()
+        const daysLeft = expiryDate ? Math.ceil((expiryDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24)) : 0
+        const isExpired = expiryDate ? expiryDate < now : false
+        const DEALER_FEATURE_LAUNCH = new Date('2026-05-29T00:00:00Z')
+        const isNewUser = dbUser?.created_at ? new Date(dbUser.created_at) >= DEALER_FEATURE_LAUNCH : false
+
+        const paymentModal = (
+            <>
+                <Dialog open={showPaymentModal && !pollingRef} onOpenChange={setShowPaymentModal}>
+                    <DialogContent className="sm:max-w-md">
+                        <DialogHeader>
+                            <DialogTitle>Complete Payment</DialogTitle>
+                            <DialogDescription>
+                                Enter your Mobile Money number to receive the payment prompt.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="space-y-4 py-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="network-d">Network</Label>
+                                <Select value={paymentNetwork} onValueChange={setPaymentNetwork}>
+                                    <SelectTrigger id="network-d">
+                                        <SelectValue placeholder="Select network" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        <SelectItem value="MTN">MTN</SelectItem>
+                                        <SelectItem value="Telecel">Telecel</SelectItem>
+                                        <SelectItem value="AT">AT</SelectItem>
+                                    </SelectContent>
+                                </Select>
+                            </div>
+                            <div className="space-y-2">
+                                <Label htmlFor="phone-d">Mobile Money Number</Label>
+                                <div className="relative">
+                                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                    <Input
+                                        id="phone-d"
+                                        type="tel"
+                                        placeholder="024XXXXXXX"
+                                        className="pl-9"
+                                        value={paymentPhone}
+                                        onChange={(e) => setPaymentPhone(e.target.value)}
+                                    />
+                                </div>
+                            </div>
+                        </div>
+                        <div className="flex gap-3 justify-end">
+                            <Button variant="outline" onClick={() => setShowPaymentModal(false)}>Cancel</Button>
+                            <Button onClick={handleUpgradeSubmit} disabled={isProcessing !== null} className="bg-violet-700 text-white hover:bg-violet-800">
+                                {isProcessing !== null ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing</> : 'Send Prompt'}
+                            </Button>
+                        </div>
+                    </DialogContent>
+                </Dialog>
+
+                <Dialog open={otpRequired} onOpenChange={(open) => !open && setOtpRequired(false)}>
+                    <DialogContent className="sm:max-w-md">
+                        <DialogHeader>
+                            <DialogTitle>OTP Verification</DialogTitle>
+                            <DialogDescription>
+                                Please enter the OTP sent to your phone to complete the payment.
+                            </DialogDescription>
+                        </DialogHeader>
+                        <div className="flex flex-col space-y-4 py-4">
+                            <div className="space-y-2">
+                                <Label htmlFor="otp-d">Enter OTP</Label>
+                                <Input id="otp-d" type="text" placeholder="Enter code" value={otpCode} onChange={(e) => setOtpCode(e.target.value)} className="h-12 text-center text-2xl tracking-widest font-bold" />
+                            </div>
+                        </div>
+                        <div className="flex gap-3 justify-end">
+                            <Button variant="outline" onClick={() => setOtpRequired(false)}>Cancel</Button>
+                            <Button onClick={handleVerifyOtp} disabled={isProcessing !== null || !otpCode} className="bg-violet-700 text-white hover:bg-violet-800">
+                                {isProcessing !== null ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Verify & Continue'}
+                            </Button>
+                        </div>
+                    </DialogContent>
+                </Dialog>
+
+                {pollingRef && (
+                    <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-[100] p-6 backdrop-blur-sm">
+                        <div className="flex flex-col items-center gap-6 max-w-sm w-full bg-white rounded-2xl p-8 shadow-2xl text-center">
+                            <div className="relative w-16 h-16 flex items-center justify-center">
+                                <div className="absolute inset-0 border-4 border-violet-100 rounded-full" />
+                                <div className="absolute inset-0 border-4 border-violet-500 rounded-full border-t-transparent animate-spin" />
+                                <Smartphone className="w-6 h-6 text-violet-500" />
+                            </div>
+                            <div className="space-y-2">
+                                <h2 className="text-xl font-black text-gray-900">Awaiting Approval</h2>
+                                <p className="text-sm font-medium text-gray-500">
+                                    {paymentPhone ? `Please check your phone (${paymentPhone}) and authorize the transaction.` : 'Confirming your payment...'}
+                                </p>
+                            </div>
+                            <p className="text-xs text-violet-600 bg-violet-50 px-3 py-1.5 rounded-full font-bold">Do not close this page</p>
+                        </div>
+                    </div>
+                )}
+            </>
+        )
+
+        return (
+            <>
+                {paymentModal}
+                <div className="relative -m-4 sm:-m-6 min-h-[calc(100vh+2rem)] lg:min-h-screen bg-gradient-to-br from-yellow-400 via-amber-500 to-yellow-600 overflow-x-hidden selection:bg-yellow-200 px-4 sm:px-6 py-10 sm:py-16 flex flex-col items-center [font-family:'Fira_Sans',sans-serif]">
+                    <div className="relative z-10 w-full max-w-2xl flex flex-col items-center">
+
+                        {/* Header */}
+                        <div className="text-center mb-10 space-y-3">
+                            <div className="flex justify-center mb-4">
+                                <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-white/20 backdrop-blur flex items-center justify-center shadow-xl">
+                                    <Store className="w-10 h-10 sm:w-12 sm:h-12 text-white" />
+                                </div>
+                            </div>
+                            <h1 className="text-4xl sm:text-5xl font-black text-[#b45309] leading-tight">
+                                {isDealer ? 'YOUR DEALERSHIP' : 'BECOME A DEALER'}
+                            </h1>
+                            <p className="text-sm sm:text-base text-white font-bold max-w-md mx-auto drop-shadow-sm">
+                                {isDealer
+                                    ? 'Manage your dealer subscription and access exclusive pricing.'
+                                    : 'Get access to special dealer pricing. Start with a free 1-month trial.'}
+                            </p>
+                        </div>
+
+                        {/* Dealer status card */}
+                        {isDealer && expiryDate && (
+                            <div className={cn(
+                                'w-full rounded-2xl p-5 mb-6 border-2 flex items-start gap-4',
+                                isExpired
+                                    ? 'bg-red-50 border-red-300'
+                                    : daysLeft <= 7
+                                        ? 'bg-amber-50 border-amber-300'
+                                        : 'bg-green-50 border-green-300'
+                            )}>
+                                <Calendar className={cn('w-6 h-6 mt-0.5 flex-shrink-0', isExpired ? 'text-red-500' : daysLeft <= 7 ? 'text-amber-500' : 'text-green-600')} />
+                                <div>
+                                    <p className={cn('font-black text-sm', isExpired ? 'text-red-700' : daysLeft <= 7 ? 'text-amber-700' : 'text-green-700')}>
+                                        {isExpired
+                                            ? 'Your dealer subscription has expired'
+                                            : daysLeft <= 7
+                                                ? `Expires soon — ${daysLeft} day${daysLeft !== 1 ? 's' : ''} left`
+                                                : `Active — ${daysLeft} day${daysLeft !== 1 ? 's' : ''} remaining`}
+                                    </p>
+                                    <p className="text-xs text-gray-500 mt-1">
+                                        Expiry: {expiryDate.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}
+                                    </p>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Claim card — only for new customers (registered after feature launch) when promo is active */}
+                        {isCustomer && !dealerClaimedAt && isNewUser && dealerPromoEnabled && (
+                            <div className="w-full rounded-2xl bg-white/90 backdrop-blur border-2 border-violet-300 shadow-xl p-6 mb-5">
+                                <div className="flex items-center gap-3 mb-3">
+                                    <div className="w-10 h-10 rounded-full bg-violet-100 flex items-center justify-center">
+                                        <Store className="w-5 h-5 text-violet-600" />
+                                    </div>
+                                    <div>
+                                        <p className="font-black text-gray-900 text-sm">Free 1-Month Trial</p>
+                                        <p className="text-xs text-gray-500">No payment required</p>
+                                    </div>
+                                    <span className="ml-auto px-3 py-1 rounded-full bg-green-100 text-green-700 text-xs font-black">FREE</span>
+                                </div>
+                                <p className="text-sm text-gray-600 mb-4">
+                                    Claim your free dealer role and enjoy special dealer pricing for a full month.
+                                </p>
+                                <Button
+                                    onClick={handleDealerClaim}
+                                    disabled={isDealerClaiming}
+                                    className="w-full bg-violet-700 hover:bg-violet-800 text-white font-black h-11 rounded-xl"
+                                >
+                                    {isDealerClaiming ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Claiming...</> : 'Claim Now — Free'}
+                                </Button>
+                            </div>
+                        )}
+
+                        {/* 3-month subscription card */}
+                        {dealerPrice3m > 0 && (
+                            <div className="w-full rounded-2xl bg-white/90 backdrop-blur border-2 border-violet-300 shadow-xl p-6 relative">
+                                <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                                    <span className="px-4 py-1.5 rounded-full bg-gradient-to-r from-violet-500 to-purple-500 text-white text-xs font-black shadow-lg">
+                                        {isDealer && !isExpired ? 'EXTEND' : 'SUBSCRIBE'}
+                                    </span>
+                                </div>
+                                <div className="relative pt-2">
+                                    <div className="flex items-center gap-3 mb-4">
+                                        <div className="w-10 h-10 rounded-full bg-violet-100 flex items-center justify-center">
+                                            <Store className="w-5 h-5 text-violet-600" />
+                                        </div>
+                                        <div>
+                                            <p className="font-black text-gray-900 text-sm">3-Month Dealer Subscription</p>
+                                            <p className="text-xs text-gray-500">90 days of dealer pricing</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="text-center py-3 mb-4">
+                                        <span className="text-4xl font-black text-violet-700">GHS {dealerPrice3m.toFixed(2)}</span>
+                                        <p className="text-xs text-gray-500 mt-1">One-time payment</p>
+                                    </div>
+
+                                    <div className="space-y-2 mb-5">
+                                        {['Exclusive dealer pricing on all bundles', 'Priority order processing', '90 days of access'].map((f) => (
+                                            <div key={f} className="flex items-center gap-2.5">
+                                                <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                                                <span className="text-xs font-bold text-gray-700">{f}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+
+                                    <Button
+                                        onClick={() => handleDealerSubscribeClick('dealer_3m')}
+                                        disabled={isProcessing !== null || pollingRef !== null}
+                                        className="w-full bg-gradient-to-r from-violet-500 to-purple-500 hover:from-violet-600 hover:to-purple-600 text-white font-black h-11 rounded-xl shadow-lg"
+                                    >
+                                        {isProcessing === 'dealer_3m' ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing...</> : 'Subscribe — 3 Months'}
+                                    </Button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* 6-month subscription card */}
+                        <div className="w-full rounded-2xl bg-white/90 backdrop-blur border-2 border-amber-300 shadow-xl p-6">
+                            <div className="absolute -top-3 left-1/2 -translate-x-1/2">
+                                <span className="px-4 py-1.5 rounded-full bg-gradient-to-r from-amber-500 to-yellow-500 text-white text-xs font-black shadow-lg">
+                                    {isDealer && !isExpired ? 'RENEW / EXTEND' : 'SUBSCRIBE'}
+                                </span>
+                            </div>
+                            <div className="relative pt-2">
+                                <div className="flex items-center gap-3 mb-4">
+                                    <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center">
+                                        <Crown className="w-5 h-5 text-amber-600" />
+                                    </div>
+                                    <div>
+                                        <p className="font-black text-gray-900 text-sm">6-Month Dealer Subscription</p>
+                                        <p className="text-xs text-gray-500">180 days of dealer pricing</p>
+                                    </div>
+                                </div>
+
+                                {dealerPrice6m > 0 ? (
+                                    <div className="text-center py-3 mb-4">
+                                        <span className="text-4xl font-black text-amber-700">GHS {dealerPrice6m.toFixed(2)}</span>
+                                        <p className="text-xs text-gray-500 mt-1">One-time payment</p>
+                                    </div>
+                                ) : (
+                                    <div className="text-center py-3 mb-4 text-gray-400 text-sm font-bold">Price not set — contact admin</div>
+                                )}
+
+                                <div className="space-y-2 mb-5">
+                                    {['Exclusive dealer pricing on all bundles', 'Priority order processing', '180 days of access'].map((f) => (
+                                        <div key={f} className="flex items-center gap-2.5">
+                                            <CheckCircle className="w-4 h-4 text-green-500 flex-shrink-0" />
+                                            <span className="text-xs font-bold text-gray-700">{f}</span>
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <Button
+                                    onClick={() => handleDealerSubscribeClick('dealer_6m')}
+                                    disabled={isProcessing !== null || pollingRef !== null || dealerPrice6m <= 0}
+                                    className="w-full bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-white font-black h-11 rounded-xl shadow-lg"
+                                >
+                                    {isProcessing === 'dealer_6m' ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing...</> : 'Subscribe — 6 Months'}
+                                </Button>
+                            </div>
+                        </div>
+
+                        <div className="mt-8 flex flex-col items-center gap-2">
+                            {isCustomer && (
+                                <button
+                                    onClick={() => router.push('/dashboard/upgrade')}
+                                    className="text-xs text-white/70 underline hover:text-white"
+                                >
+                                    ← Back to all options
+                                </button>
+                            )}
+                            <p className="text-xs text-white/70 text-center">
+                                Want agent-level access instead?{' '}
+                                <button
+                                    onClick={() => router.push('/dashboard/upgrade?view=agent')}
+                                    className="underline text-white font-bold hover:text-yellow-200"
+                                >
+                                    See agent plans
+                                </button>
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </>
+        )
+    }
+
     return (
         <>
             {/* Congrats Modal */}
@@ -316,11 +765,6 @@ export default function UpgradePage() {
 
                     {/* Header Section */}
                     <div className="text-center mb-8 sm:mb-12 space-y-3 sm:space-y-4 relative w-full">
-                        {/* Help Button - Absolute positioning top right of header section */}
-                        <div className="absolute top-0 right-0 z-20">
-                            <HelpButton onClick={startTutorial} />
-                        </div>
-
                         <div className="mb-4 sm:mb-6 flex justify-center">
                             <div className="relative">
                                 <Crown className="w-20 h-20 sm:w-28 sm:h-28 text-black animate-[bounce_2s_infinite] drop-shadow-xl" />
@@ -468,6 +912,45 @@ export default function UpgradePage() {
                                 ))}
                             </div>
 
+                            {/* Dealer Subscription Section — available to agents */}
+                            {dbUser?.role === 'agent' && (
+                                <div className="w-full max-w-3xl mb-8">
+                                    <div className="w-full rounded-2xl bg-white/90 backdrop-blur border-2 border-violet-300 shadow-xl p-6 relative overflow-hidden">
+                                        <div className="absolute -top-3 left-6">
+                                            <span className="px-4 py-1.5 rounded-full bg-gradient-to-r from-violet-600 to-purple-500 text-white text-xs font-black shadow-lg">
+                                                ALSO AVAILABLE
+                                            </span>
+                                        </div>
+                                        <div className="flex items-center gap-3 mb-4 mt-2">
+                                            <div className="w-10 h-10 rounded-full bg-violet-100 flex items-center justify-center flex-shrink-0">
+                                                <Store className="w-5 h-5 text-violet-600" />
+                                            </div>
+                                            <div>
+                                                <p className="font-black text-gray-900 text-sm">Dealer Subscription — 6 Months</p>
+                                                <p className="text-xs text-gray-500">Unlock exclusive dealer pricing for your shop</p>
+                                            </div>
+                                            {dealerPrice6m > 0 && (
+                                                <span className="ml-auto text-xl font-black text-violet-700">
+                                                    GH₵{dealerPrice6m.toFixed(2)}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="space-y-2 mb-4 text-sm text-gray-600">
+                                            <div className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-violet-500 flex-shrink-0" /> Access dealer cost prices on all data packages</div>
+                                            <div className="flex items-center gap-2"><CheckCircle className="w-4 h-4 text-violet-500 flex-shrink-0" /> Your shop earns from dealer-tier rates for 6 months</div>
+                                            <div className="flex items-center gap-2"><Calendar className="w-4 h-4 text-violet-400 flex-shrink-0" /> 180 days of dealer access from payment date</div>
+                                        </div>
+                                        <Button
+                                            onClick={() => handleDealerSubscribeClick('dealer_6m')}
+                                            disabled={isLoading || dealerPrice6m <= 0}
+                                            className="w-full bg-violet-600 hover:bg-violet-700 text-white font-black h-11 rounded-xl"
+                                        >
+                                            {dealerPrice6m > 0 ? `Subscribe — GH₵${dealerPrice6m.toFixed(2)}` : 'Loading price...'}
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
+
                             {/* Secure Badge Section */}
                             <div className="w-full max-w-3xl">
                                 <div className="bg-white/60 backdrop-blur-xl rounded-2xl p-6 sm:p-10 border-2 border-[#EEEEEE] shadow-[0_8px_30px_rgba(238,238,238,0.8)] flex flex-col items-center text-center space-y-6">
@@ -553,9 +1036,13 @@ export default function UpgradePage() {
                                 <Smartphone className="w-6 h-6 text-amber-500" />
                             </div>
                             <div className="space-y-2">
-                                <h2 className="text-xl font-black text-gray-900">Awaiting Approval</h2>
+                                <h2 className="text-xl font-black text-gray-900">
+                                    {paymentPhone ? 'Awaiting Approval' : 'Confirming Payment'}
+                                </h2>
                                 <p className="text-sm font-medium text-gray-500">
-                                    Please check your phone ({paymentPhone}) and authorize the transaction to activate your premium membership.
+                                    {paymentPhone
+                                        ? `Please check your phone (${paymentPhone}) and authorize the transaction to activate your premium membership.`
+                                        : 'Please wait while we confirm your payment and activate your membership.'}
                                 </p>
                             </div>
                             <p className="text-xs text-amber-600 bg-amber-50 px-3 py-1.5 rounded-full font-bold">

@@ -47,7 +47,7 @@ export async function POST(request: NextRequest) {
         }
 
         const u = user as any
-        const message = `Hi ${u.first_name}, this is a friendly reminder of your GHS ${Number(amount).toFixed(2)} pending balance at ARHMS DATA LTD. Thanks!`
+        const message = `Hi ${u.first_name}, this is a friendly reminder of your GHS ${Number(amount).toFixed(2)} pending balance at ARHMS TECHNOLOGIES. Thanks!`
 
         const result = await sendSMS({
             recipient: u.phone_number,

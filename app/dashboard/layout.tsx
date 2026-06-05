@@ -2,15 +2,16 @@
 
 import { useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { SystemAnnouncementModal } from '@/components/system-announcement-modal'
 import { AgentExpiryModal } from '@/components/agent-expiry-modal'
 import { useAuth } from '@/contexts/auth-context'
 import { UIProvider } from '@/contexts/ui-context'
 import { DashboardSidebar } from '@/components/dashboard/sidebar'
 import { DashboardHeader } from '@/components/dashboard/header'
+import { MobileBottomNav } from '@/components/dashboard/mobile-bottom-nav'
 import { PageAccessGuard } from '@/components/dashboard/page-access-guard'
 import { Skeleton } from '@/components/ui/skeleton'
 import { FloatingWhatsApp } from '@/components/floating-whatsapp'
+import { PushNotificationManager } from '@/components/PushNotificationManager'
 import { cn } from '@/lib/utils'
 import { useUI } from '@/contexts/ui-context'
 // import { SupportChatWidget } from '@/components/dashboard/support-chat-widget'
@@ -74,6 +75,7 @@ export default function DashboardLayout({
 
     return (
         <div className="min-h-screen bg-background relative">
+            <PushNotificationManager />
             <SystemAnnouncementModal userRole={dbUser?.role} />
             <AgentExpiryModal />
             <DashboardSidebar />
@@ -83,7 +85,7 @@ export default function DashboardLayout({
             )}>
                 <DashboardHeader />
                 <div className="h-16 flex-shrink-0" />
-                <main className="p-4 lg:p-6 flex-1">
+                <main className="p-4 pb-24 md:pb-4 lg:p-6 flex-1">
                     <PageAccessGuard>
                         {children}
                     </PageAccessGuard>
@@ -91,6 +93,7 @@ export default function DashboardLayout({
                 <CopyrightFooter className="bg-background/60" />
             </div>
             <FloatingWhatsApp variant="auth" />
+            <MobileBottomNav />
             {/* <SupportChatWidget /> */}
         </div>
     )

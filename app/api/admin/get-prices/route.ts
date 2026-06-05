@@ -39,7 +39,9 @@ export async function GET(request: NextRequest) {
                 'agent_upgrade_price_3d', 'agent_upgrade_price_14d', 'agent_upgrade_price_30d', 'agent_upgrade_price_permanent',
                 'agent_upgrade_price_3d_old', 'agent_upgrade_price_14d_old', 'agent_upgrade_price_30d_old', 'agent_upgrade_price_permanent_old',
                 'show_price_strikethrough', 'guest_storefront_url',
-                'whatsapp_group_link', 'whatsapp_channel_link', 'whatsapp_admin_number', 'whatsapp_community_link'
+                'whatsapp_group_link', 'whatsapp_channel_link', 'whatsapp_admin_number', 'whatsapp_community_link',
+                'dealer_subscription_price_6m',
+                'dealer_subscription_price_3m'
             ])
 
         if (error) {
@@ -70,15 +72,20 @@ export async function GET(request: NextRequest) {
         const whatsappAdminNumber = data?.find(s => s.key === 'whatsapp_admin_number')?.value || ''
         const whatsappCommunityLink = data?.find(s => s.key === 'whatsapp_community_link')?.value || ''
 
-        return NextResponse.json({ 
-            prices, 
-            oldPrices, 
-            showStrikethrough, 
+        const dealerPrice6m = parseFloat(data?.find(s => s.key === 'dealer_subscription_price_6m')?.value || '0')
+        const dealerPrice3m = parseFloat(data?.find(s => s.key === 'dealer_subscription_price_3m')?.value || '0')
+
+        return NextResponse.json({
+            prices,
+            oldPrices,
+            showStrikethrough,
             guestStorefrontUrl,
             whatsappGroupLink,
             whatsappChannelLink,
             whatsappAdminNumber,
-            whatsappCommunityLink
+            whatsappCommunityLink,
+            dealerPrice6m,
+            dealerPrice3m,
         })
 
     } catch (error: any) {

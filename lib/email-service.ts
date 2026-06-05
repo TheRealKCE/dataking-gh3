@@ -2,7 +2,7 @@
  * Brevo Email Service
  * 
  * This service handles all transactional emails using Brevo (formerly Sendinblue).
- * Premium high-end email templates for ARHMS DATA LTD.
+ * Premium high-end email templates for ARHMS TECHNOLOGIES.
  */
 
 // @ts-ignore - Brevo SDK doesn't have complete type definitions
@@ -18,7 +18,7 @@ apiInstance.setApiKey(SibApiV3Sdk.TransactionalEmailsApiApiKeys.apiKey, process.
 
 // Sender configuration
 const DEFAULT_SENDER = {
-    name: process.env.BREVO_SENDER_NAME || 'ARHMS DATA LTD',
+    name: process.env.BREVO_SENDER_NAME || 'ARHMS TECHNOLOGIES',
     email: process.env.BREVO_SENDER_EMAIL || 'ARHMSdatalimited@gmail.com'
 }
 
@@ -70,7 +70,7 @@ export async function sendEmail(options: SendEmailOptions): Promise<EmailResult>
 /**
  * Premium high-end HTML email template
  */
-function generatePremiumTemplate(title: string, content: string, accentColor: string = '#D4AF37'): string {
+export function generatePremiumTemplate(title: string, content: string, accentColor: string = '#D4AF37'): string {
     return `
 <!DOCTYPE html>
 <html lang="en">
@@ -429,7 +429,7 @@ function generatePremiumTemplate(title: string, content: string, accentColor: st
                     <div class="logo-icon">
                         <span class="logo-text">A</span>
                     </div>
-                    <div class="brand-name">ARHMS DATA</div>
+                    <div class="brand-name">ARHMS TECHNOLOGIES</div>
                     <div class="brand-tagline">Premium Data Solutions</div>
                 </div>
             </div>
@@ -447,7 +447,7 @@ function generatePremiumTemplate(title: string, content: string, accentColor: st
                     <strong>ARHMSdatalimited@gmail.com</strong>
                 </p>
                 <p class="footer-copyright">
-                    © ${new Date().getFullYear()} ARHMS DATA LTD. All rights reserved.<br>
+                    © ${new Date().getFullYear()} ARHMS TECHNOLOGIES. All rights reserved.<br>
                     Ghana's Premium Data Reseller Platform
                 </p>
             </div>
@@ -473,7 +473,7 @@ export async function sendWelcomeEmail(
         <p class="subtitle">Your premium data journey begins now</p>
         
         <p class="message-text">
-            Thank you for joining <strong>ARHMS DATA LTD</strong> – Ghana's most trusted 
+            Thank you for joining <strong>ARHMS TECHNOLOGIES</strong> – Ghana's most trusted 
             premium data reseller platform. Your account has been successfully created and 
             you're now part of an exclusive community.
         </p>
@@ -518,7 +518,7 @@ export async function sendWelcomeEmail(
     return sendEmail({
         to: email,
         toName: firstName,
-        subject: `Welcome to ARHMS DATA LTD, ${firstName}! 🎉`,
+        subject: `Welcome to ARHMS TECHNOLOGIES, ${firstName}! 🎉`,
         htmlContent: generatePremiumTemplate('Welcome', content)
     })
 }

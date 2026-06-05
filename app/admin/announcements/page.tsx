@@ -21,6 +21,7 @@ import { Loader2, Plus, Trash2, Bell, Megaphone, Pencil, X, Check, RefreshCw } f
 import { toast } from 'sonner'
 import { formatDate } from '@/lib/utils'
 import { SystemAnnouncement } from '@/types/supabase'
+import { revalidatePublicConfig } from './actions'
 
 export default function AdminAnnouncementsPage() {
     const [announcements, setAnnouncements] = useState<SystemAnnouncement[]>([])
@@ -89,6 +90,12 @@ export default function AdminAnnouncementsPage() {
                     .eq('is_active', true)
             }
 
+            // Revalidate public config cache so changes show up immediately for users
+            const revalidateResult = await revalidatePublicConfig()
+            if (revalidateResult.error) {
+                console.error('Revalidation failed:', revalidateResult.error)
+            }
+
             setAnnouncements([data, ...announcements])
             setTitle('')
             setMessage('')
@@ -123,6 +130,10 @@ export default function AdminAnnouncementsPage() {
                     .update({ is_active: false })
                     .eq('is_active', true)
             }
+            
+            // Revalidate public config cache
+            await revalidatePublicConfig()
+            
             toast.success(`Announcement ${!currentStatus ? 'activated' : 'deactivated'}`)
         } catch (error) {
             toast.error('Failed to update status')
@@ -139,6 +150,9 @@ export default function AdminAnnouncementsPage() {
                 .eq('id', id)
 
             if (error) throw error
+
+            // Revalidate public config cache
+            await revalidatePublicConfig()
 
             setAnnouncements(announcements.filter(a => a.id !== id))
             toast.success('Announcement deleted')
@@ -196,6 +210,9 @@ export default function AdminAnnouncementsPage() {
                     .update({ is_active: false })
                     .eq('is_active', true)
             }
+
+            // Revalidate public config cache
+            await revalidatePublicConfig()
 
             setEditingId(null)
             setEditTitle('')

@@ -16,26 +16,28 @@ interface SMSResult {
     error?: string
 }
 
-const MOOLRE_BASE_URL = 'https://api.moolre.com'
-const MOOLRE_SMS_ENDPOINT = '/open/sms/send' // Correct endpoint from Moolre documentation
+const MOOLRE_BASE_URL = process.env.MOOLRE_API_URL || 'https://api.moolre.com'
+const MOOLRE_SMS_ENDPOINT = '/open/sms/send'
 
 const MNOTIFY_BASE_URL = 'https://api.mnotify.com/api/sms/quick'
+
+function isValidApiKey(key: string | undefined): boolean {
+    if (!key || key.trim() === '') return false
+    const lower = key.toLowerCase()
+    if (lower.includes('placeholder') || lower.includes('your_') || lower.includes('_here')) return false
+    return true
+}
 
 /**
  * Validate SMS configuration on module load
  */
 function validateSMSConfig() {
-    const moolreApiKey = process.env.MOOLRE_API_KEY
-    const mnotifyApiKey = process.env.MNOTIFY_API_KEY
-
-    if (!moolreApiKey) {
-        console.warn('[SMS Config] WARNING: MOOLRE_API_KEY is not set. Moolre SMS features will fail.')
+    if (!isValidApiKey(process.env.MOOLRE_API_KEY)) {
+        console.warn('[SMS Config] WARNING: MOOLRE_API_KEY is not set or is a placeholder. Moolre SMS will use fallback.')
     }
-    if (!mnotifyApiKey) {
-        console.warn('[SMS Config] WARNING: MNOTIFY_API_KEY is not set. mNotify SMS features will fail.')
+    if (!isValidApiKey(process.env.MNOTIFY_API_KEY)) {
+        console.warn('[SMS Config] WARNING: MNOTIFY_API_KEY is not set or is a placeholder. mNotify SMS features will fail.')
     }
-
-    // SMS service initialized
 }
 
 // Run validation when module loads
@@ -45,11 +47,16 @@ validateSMSConfig()
  * Send a quick SMS via Moolre
  */
 export async function sendSMS(options: SMSOptions): Promise<SMSResult> {
+    if (process.env.SMS_ENABLED === 'false') {
+        console.log('[SMS Service] SMS_ENABLED=false — skipping send.')
+        return { success: true, messageId: 'sms_disabled' }
+    }
+
     const apiKey = process.env.MOOLRE_API_KEY
     const defaultSender = process.env.MOOLRE_SENDER_ID || 'ARHMS'
 
-    if (!apiKey) {
-        console.error('[SMS Service] MOOLRE_API_KEY not configured. Falling back to mNotify.')
+    if (!isValidApiKey(apiKey)) {
+        console.error('[SMS Service] MOOLRE_API_KEY not configured or is a placeholder. Falling back to mNotify.')
         return await sendMnotifySMS(options)
     }
 
@@ -71,35 +78,20 @@ export async function sendSMS(options: SMSOptions): Promise<SMSResult> {
             return { success: false, error: 'Phone number must be in Ghana format (0XXXXXXXXX or 233XXXXXXXXX)' }
         }
 
-        // Build the full URL
         const url = MOOLRE_BASE_URL + MOOLRE_SMS_ENDPOINT
 
-        // Generate a unique reference for tracking
-        const reference = `SMS-${Date.now()}-${Math.random().toString(36).substring(7)}`
-
-        // Moolre API payload format (exact format from documentation)
         const payload = {
-            type: 1,  // Type 1 for sending SMS
-            senderid: options.sender || defaultSender,
-            messages: [
-                {
-                    recipient: normalizedPhone,
-                    message: options.message,
-                    ref: reference  // Unique reference for this message
-                }
-            ]
+            recipient: normalizedPhone,
+            message: options.message,
+            sender_id: options.sender || defaultSender,
         }
 
-        // Sending SMS to Moolre API
-
-        // Moolre uses X-API-KEY and X-API-VASKEY headers for authentication
         const response = await fetch(url, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
-                'X-API-KEY': apiKey,
-                'X-API-VASKEY': apiKey  // Moolre also uses VASKEY (same as API key)
+                'Authorization': `Bearer ${apiKey}`,
             },
             body: JSON.stringify(payload)
         })
@@ -126,34 +118,31 @@ export async function sendSMS(options: SMSOptions): Promise<SMSResult> {
             }
         }
 
-        // Response parsed successfully
+        console.log('[SMS Service] Moolre response:', response.status, JSON.stringify(data))
 
-        // Success response check - Common patterns for SMS APIs
-        // Moolre might return: success: true, status: 'success', code: 200, etc.
+        // Moolre uses numeric status: 1 = success, 0 = failure
         const isSuccess =
+            data.status === 1 ||
             data.success === true ||
             data.status === 'success' ||
-            data.status === 'sent' ||
-            (response.status >= 200 && response.status < 300 && !data.error)
+            data.status === 'sent'
 
         if (isSuccess) {
-            const messageId = data.message_id || data.id || data.reference || 'sent'
+            const messageId = data.message_id || data.id || data.reference || data.data?.id || 'sent'
             return { success: true, messageId }
         } else {
-            // Log failure details
             console.error('[SMS Service] ❌ FAILED - Moolre rejected the message')
-            console.error('[SMS Service] Error data:', JSON.stringify(data, null, 2))
-            
-            // Fallback to mNotify
-            console.log('[SMS Service] Attempting fallback to mNotify...')
-            return await sendMnotifySMS(options)
+            console.error('[SMS Service] Code:', data.code, '| Message:', data.message)
+
+            if (data.code === 'AIN01') {
+                console.error('[SMS Service] AIN01 = Authentication Error. Check: 1) MOOLRE_API_KEY is correct 2) Account has SMS credits/balance')
+            }
+
+            return { success: false, error: `Moolre error ${data.code}: ${data.message}` }
         }
     } catch (error: any) {
-        console.error('[SMS Service] ❌ EXCEPTION occurred:', error)
-        
-        // Fallback to mNotify
-        console.log('[SMS Service] Attempting fallback to mNotify...')
-        return await sendMnotifySMS(options)
+        console.error('[SMS Service] ❌ EXCEPTION occurred:', error.message)
+        return { success: false, error: `SMS exception: ${error.message}` }
     }
 }
 
@@ -161,11 +150,16 @@ export async function sendSMS(options: SMSOptions): Promise<SMSResult> {
  * Send a quick SMS via mNotify
  */
 export async function sendMnotifySMS(options: SMSOptions): Promise<SMSResult> {
+    if (process.env.SMS_ENABLED === 'false') {
+        console.log('[SMS Service] SMS_ENABLED=false — skipping mNotify send.')
+        return { success: true, messageId: 'sms_disabled' }
+    }
+
     const apiKey = process.env.MNOTIFY_API_KEY
     const defaultSender = process.env.MNOTIFY_SENDER_ID || 'ARHMSGh'
 
-    if (!apiKey) {
-        const error = 'MNOTIFY_API_KEY not configured in environment variables.'
+    if (!isValidApiKey(apiKey)) {
+        const error = 'MNOTIFY_API_KEY not configured or is a placeholder.'
         console.error('[SMS Service] ERROR:', error)
         return { success: false, error }
     }
@@ -323,6 +317,23 @@ export async function sendWelcomeSMS(
  * Send Agent upgrade success SMS
  * Updated Template: "Congratulations! Your Agent membership has been upgraded until [Remaining_days]"
  */
+export async function sendDealerUpgradeSuccessSMS(
+    phoneNumber: string,
+    firstName: string,
+    expiryDate: string
+) {
+    const date = new Date(expiryDate)
+    const day = date.getDate()
+    const month = date.toLocaleString('default', { month: 'long' })
+    const year = date.getFullYear()
+    const suffix = ["th", "st", "nd", "rd"][((day % 100) > 10 && (day % 100) < 20) ? 0 : (day % 10 < 4) ? day % 10 : 0]
+    const formattedDate = `${month} ${day}${suffix}, ${year}`
+
+    const message = `Congratulations ${firstName}! You have been upgraded to Dealer on ARHMSGh. You now enjoy exclusive Dealer prices valid until ${formattedDate}. Login to start selling!\n\nARHMSGh`
+
+    return sendSMS({ recipient: phoneNumber, message })
+}
+
 export async function sendAgentUpgradeSuccessSMS(
     phoneNumber: string,
     firstName: string,

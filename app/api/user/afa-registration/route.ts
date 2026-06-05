@@ -173,7 +173,7 @@ export async function POST(request: NextRequest) {
         const { data: settingsData, error: settingsError } = await supabaseAdmin
             .from('admin_settings')
             .select('key, value')
-            .in('key', ['afa_price_customer', 'afa_price_agent'])
+            .in('key', ['afa_price_customer', 'afa_price_agent', 'afa_price_dealer'])
 
         if (settingsError) {
             console.error('[AFA Registration] Failed to fetch pricing settings:', settingsError)
@@ -191,7 +191,7 @@ export async function POST(request: NextRequest) {
             {}
         )
 
-        const priceKey = userRole === 'agent' ? 'afa_price_agent' : 'afa_price_customer'
+        const priceKey = userRole === 'agent' ? 'afa_price_agent' : userRole === 'dealer' ? 'afa_price_dealer' : 'afa_price_customer'
         const rawPrice = settingsMap[priceKey]
 
         if (!rawPrice) {

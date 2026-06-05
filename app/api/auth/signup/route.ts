@@ -61,6 +61,23 @@ export async function POST(request: NextRequest) {
       phoneNumber
     }).catch(err => console.error('[Signup] Admin new user alert failed:', err))
 
+    import('@/lib/web-push').then(({ sendPushToAdmins }) => {
+      sendPushToAdmins({
+        title: 'New User Registration 🎉',
+        body: `${firstName} ${lastName} just created an account!`,
+        url: '/admin/users'
+      }).catch(err => console.error('[Signup] Admin push alert failed:', err))
+    })
+
+    import('@/lib/notification-service').then(({ notifyAllAdmins }) => {
+      notifyAllAdmins({
+        title: 'New User Registration 🎉',
+        message: `${firstName} ${lastName} (${phoneNumber}) just created a new account.`,
+        type: 'system',
+        actionUrl: '/admin/users'
+      }).catch(err => console.error('[Signup] Admin in-app notification failed:', err))
+    })
+
     return NextResponse.json({ user: data.user, session: data.session })
   } catch {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

@@ -13,6 +13,7 @@ interface AuthContextType {
     isLoading: boolean
     isAdmin: boolean
     isSubAdmin: boolean
+    phoneVerified: boolean
     signIn: (email: string, password: string) => Promise<{ error: Error | null }>
     signUp: (data: SignUpData) => Promise<{ error: any, data: { user: User | null, session: Session | null } | null }>
     signOut: () => Promise<void>
@@ -41,6 +42,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const isAdmin = dbUser?.role === 'admin'
     const isSubAdmin = dbUser?.role === 'sub-admin'
+    const phoneVerified = dbUser?.phone_verified ?? false
 
     const fetchDbUser = useCallback(async (userId: string) => {
         try {
@@ -58,9 +60,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     first_name,
                     last_name,
                     phone_number,
+                    phone_verified,
                     role,
                     status,
                     agent_expires_at,
+                    dealer_claimed_at,
+                    dealer_expires_at,
                     created_at,
                     updated_at
                 `)
@@ -87,9 +92,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
     }, [])
 
-    // Auto-downgrade expired agents
+    // Auto-downgrade expired agents and dealers
     useEffect(() => {
-        const checkAndDowngradeExpiredAgent = async () => {
+        const checkAndDowngradeExpired = async () => {
             if (dbUser?.role === 'agent' && dbUser?.agent_expires_at) {
                 const expiryDate = new Date(dbUser.agent_expires_at)
                 const now = new Date()
@@ -103,7 +108,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
                         if (response.ok) {
                             console.log('[AuthContext] Auto-downgrade successful')
-                            // Refresh user data to get updated role
                             await refreshUser()
                         } else {
                             console.error('[AuthContext] Auto-downgrade failed:', await response.text())
@@ -113,10 +117,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                     }
                 }
             }
+
+            if (dbUser?.role === 'dealer' && (dbUser as any)?.dealer_expires_at) {
+                const expiryDate = new Date((dbUser as any).dealer_expires_at)
+                const now = new Date()
+
+                if (expiryDate < now) {
+                    console.log('[AuthContext] Dealer expired, auto-downgrading to customer')
+                    try {
+                        const response = await fetch('/api/user/dealer-downgrade', {
+                            method: 'POST'
+                        })
+
+                        if (response.ok) {
+                            console.log('[AuthContext] Dealer auto-downgrade successful')
+                            await refreshUser()
+                        } else {
+                            console.error('[AuthContext] Dealer auto-downgrade failed:', await response.text())
+                        }
+                    } catch (error) {
+                        console.error('[AuthContext] Dealer auto-downgrade error:', error)
+                    }
+                }
+            }
         }
 
-        checkAndDowngradeExpiredAgent()
-    }, [dbUser?.role, dbUser?.agent_expires_at])
+        checkAndDowngradeExpired()
+    }, [dbUser?.role, dbUser?.agent_expires_at, (dbUser as any)?.dealer_expires_at])
 
     const refreshUser = useCallback(async () => {
         if (user) {
@@ -249,6 +276,33 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // Initialize auth state
     useEffect(() => {
         const initAuth = async () => {
+            if (typeof window !== 'undefined') {
+                const params = new URLSearchParams(window.location.search)
+                const mockRole = params.get('mockRole')
+                if (mockRole) {
+                    const mockData = {
+                        id: 'mock-id',
+                        email: 'derrick@example.com',
+                        first_name: 'Derrick',
+                        last_name: 'Awuah',
+                        phone_number: '0240000000',
+                        phone_verified: true,
+                        role: mockRole as 'admin' | 'sub-admin' | 'agent' | 'dealer' | 'customer',
+                        status: 'active' as 'active' | 'suspended' | 'inactive',
+                        dealer_claimed_at: new Date().toISOString(),
+                        dealer_expires_at: new Date(Date.now() + 531 * 24 * 60 * 60 * 1000).toISOString(),
+                        agent_expires_at: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString(),
+                        created_at: new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString(),
+                        updated_at: new Date().toISOString()
+                    }
+                    setSession({ user: mockData } as any)
+                    setUser(mockData as any)
+                    setDbUser(mockData)
+                    setIsLoading(false)
+                    return
+                }
+            }
+
             try {
                 // Add 8 second total timeout for initialization
                 const timeout = new Promise((_, reject) =>
@@ -279,6 +333,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         const { data: { subscription } } = supabase.auth.onAuthStateChange(
             async (event, session) => {
+                if (typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('mockRole')) {
+                    return
+                }
                 setSession(session)
                 setUser(session?.user ?? null)
 
@@ -302,6 +359,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
                 isLoading,
                 isAdmin,
                 isSubAdmin,
+                phoneVerified,
                 signIn,
                 signUp,
                 signOut,
