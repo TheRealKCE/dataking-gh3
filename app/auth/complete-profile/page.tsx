@@ -67,7 +67,7 @@ export default function CompleteProfilePage() {
             }
 
             toast.success('Profile saved! Welcome to your dashboard.')
-            window.location.href = '/dashboard'
+            router.push('/dashboard')
         } catch {
             setError('An unexpected error occurred. Please try again.')
         } finally {
