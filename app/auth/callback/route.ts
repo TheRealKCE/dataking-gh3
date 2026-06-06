@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
 
     if (!code) {
         // Implicit flow — fragment-based token, client-side Supabase will pick it up
-        return NextResponse.redirect(new URL('/auth/verify-phone', origin))
+        return NextResponse.redirect(new URL('/dashboard', origin))
     }
 
     const cookieStore = await cookies()
@@ -48,9 +48,6 @@ export async function GET(request: NextRequest) {
 
         console.log('[OAuthCallback] existing user:', JSON.stringify(existingUser))
 
-        // New Google users must enter their phone number (no OTP required)
-        let targetPath = '/auth/verify-phone'
-
         if (!existingUser) {
             // Brand new user — create their record with Google name
             await (adminClient.from('users') as any).insert({
@@ -71,26 +68,23 @@ export async function GET(request: NextRequest) {
                     .update({ first_name: firstName, last_name: lastName })
                     .eq('id', data.user.id)
             }
-
-            // Already has phone and verified — go straight to dashboard
-            if (existingUser.phone_verified && existingUser.phone_number) {
-                targetPath = '/dashboard'
-            }
         }
 
+        // Always go straight to dashboard — no phone verification required.
         // Use a 200 HTML meta-refresh instead of 302 redirect.
         // Vercel's edge network can strip Set-Cookie headers from 302 responses,
         // causing the session cookie to be lost. A 200 with meta-refresh ensures
         // the browser stores the cookies BEFORE navigating to the next page.
         return new NextResponse(
-            `<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=${targetPath}"><script>window.location.href = '${targetPath}';</script></head><body>Redirecting...</body></html>`,
+            `<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=/dashboard"><script>window.location.href = '/dashboard';</script></head><body>Redirecting...</body></html>`,
             { status: 200, headers: { 'Content-Type': 'text/html' } }
         )
 
     } catch (e) {
         console.error('[OAuthCallback] Error:', e)
+        // Even on error, go to dashboard (fail open)
         return new NextResponse(
-            `<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=/auth/verify-phone"><script>window.location.href = '/auth/verify-phone';</script></head><body>Redirecting...</body></html>`,
+            `<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=/dashboard"><script>window.location.href = '/dashboard';</script></head><body>Redirecting...</body></html>`,
             { status: 200, headers: { 'Content-Type': 'text/html' } }
         )
     }
