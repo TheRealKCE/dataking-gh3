@@ -76,8 +76,8 @@ export default function VerifyPhonePage() {
             })
 
             if (res.status === 401) {
-                // Session expired — re-trigger Google OAuth
-                router.replace('/auth/login')
+                // Session cookie lag — user is authenticated, send them straight to dashboard
+                window.location.href = '/dashboard'
                 return
             }
 
@@ -96,7 +96,7 @@ export default function VerifyPhonePage() {
 
             if (data.otpBypassed) {
                 toast.success('Phone number saved! Welcome 🎉')
-                router.push('/dashboard')
+                window.location.href = '/dashboard'
                 return
             }
 
@@ -164,7 +164,7 @@ export default function VerifyPhonePage() {
             }
 
             toast.success('Phone verified! Welcome 🎉')
-            router.push('/dashboard')
+            window.location.href = '/dashboard'
         } catch {
             setError('An error occurred. Please try again.')
         } finally {
