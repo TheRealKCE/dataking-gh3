@@ -96,8 +96,9 @@ export default function VerifyPhonePage() {
 
             if (data.otpBypassed) {
                 toast.success('Welcome back!')
-                router.refresh()
-                router.push('/dashboard')
+                setTimeout(() => {
+                    window.location.href = '/dashboard'
+                }, 1000)
                 return
             }
 
