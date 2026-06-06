@@ -96,7 +96,7 @@ export default function VerifyPhonePage() {
 
             if (data.otpBypassed) {
                 toast.success('Phone number saved! Welcome 🎉')
-                router.replace('/dashboard')
+                window.location.href = '/dashboard'
                 return
             }
 
@@ -164,7 +164,7 @@ export default function VerifyPhonePage() {
             }
 
             toast.success('Phone verified! Welcome 🎉')
-            router.replace('/dashboard')
+            window.location.href = '/dashboard'
         } catch {
             setError('An error occurred. Please try again.')
         } finally {
