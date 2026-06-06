@@ -44,11 +44,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 401 })
     }
 
-    // Password users already have a public.users row in the current schema,
-    // including a non-null phone_number. Avoid an extra RLS-sensitive profile
-    // query here; the dashboard middleware remains the source of truth for any
-    // exceptional incomplete-profile redirects.
-    const response = NextResponse.json({ user: data.user, session: data.session, redirectTo: '/dashboard' })
+    const { data: profile } = await supabase
+      .from('users')
+      .select('phone_number')
+      .eq('id', data.user.id)
+      .maybeSingle()
+
+    const redirectTo = profile?.phone_number ? '/dashboard' : '/auth/complete-profile'
+    const response = NextResponse.json({ user: data.user, session: data.session, redirectTo })
 
     cookiesToSet.forEach(({ name, value, options }) => {
       response.cookies.set(name, value, options)
