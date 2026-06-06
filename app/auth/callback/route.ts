@@ -10,7 +10,7 @@ export async function GET(request: NextRequest) {
 
     if (!code) {
         // Implicit flow — fragment-based token, client-side Supabase will pick it up
-        return NextResponse.redirect(new URL('/dashboard', origin))
+        return NextResponse.redirect(new URL('/auth/verify-phone', origin))
     }
 
     const cookieStore = await cookies()
@@ -42,14 +42,16 @@ export async function GET(request: NextRequest) {
         // Check if user already exists in public.users
         const { data: existingUser } = await adminClient
             .from('users')
-            .select('id, phone_number, phone_verified, first_name, last_name')
+            .select('id, phone_number, first_name, last_name')
             .eq('id', data.user.id)
             .single()
 
         console.log('[OAuthCallback] existing user:', JSON.stringify(existingUser))
 
+        let targetPath = '/auth/verify-phone' // default: new users must enter phone
+
         if (!existingUser) {
-            // Brand new user — create their record with Google name
+            // Brand new user — create their record with Google name, no phone yet
             await (adminClient.from('users') as any).insert({
                 id: data.user.id,
                 email: data.user.email,
@@ -61,30 +63,33 @@ export async function GET(request: NextRequest) {
                 status: 'active',
             })
         } else {
-            // Existing user — update name if needed
+            // Update name if missing
             const needsNameUpdate = !existingUser.first_name || existingUser.first_name === ''
             if (needsNameUpdate && firstName) {
                 await (adminClient.from('users') as any)
                     .update({ first_name: firstName, last_name: lastName })
                     .eq('id', data.user.id)
             }
+
+            // Returning user who already has a phone number → go straight to dashboard
+            if (existingUser.phone_number && existingUser.phone_number !== '') {
+                targetPath = '/dashboard'
+            }
         }
 
-        // Always go straight to dashboard — no phone verification required.
         // Use a 200 HTML meta-refresh instead of 302 redirect.
         // Vercel's edge network can strip Set-Cookie headers from 302 responses,
         // causing the session cookie to be lost. A 200 with meta-refresh ensures
         // the browser stores the cookies BEFORE navigating to the next page.
         return new NextResponse(
-            `<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=/dashboard"><script>window.location.href = '/dashboard';</script></head><body>Redirecting...</body></html>`,
+            `<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=${targetPath}"><script>window.location.href = '${targetPath}';</script></head><body>Redirecting...</body></html>`,
             { status: 200, headers: { 'Content-Type': 'text/html' } }
         )
 
     } catch (e) {
         console.error('[OAuthCallback] Error:', e)
-        // Even on error, go to dashboard (fail open)
         return new NextResponse(
-            `<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=/dashboard"><script>window.location.href = '/dashboard';</script></head><body>Redirecting...</body></html>`,
+            `<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=/auth/verify-phone"><script>window.location.href = '/auth/verify-phone';</script></head><body>Redirecting...</body></html>`,
             { status: 200, headers: { 'Content-Type': 'text/html' } }
         )
     }
