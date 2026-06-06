@@ -84,17 +84,14 @@ export async function GET(request: NextRequest) {
         // using older Supabase packages does not always automatically attach the Set-Cookie headers 
         // to a newly instantiated NextResponse. We must explicitly copy them over.
         cookieStore.getAll().forEach(cookie => {
-            response.cookies.set({
-                name: cookie.name,
-                value: cookie.value,
-                domain: cookie.domain,
-                path: cookie.path,
-                maxAge: cookie.maxAge,
-                expires: cookie.expires,
-                httpOnly: cookie.httpOnly,
-                secure: cookie.secure,
-                sameSite: cookie.sameSite,
-            })
+            if (cookie.name.startsWith('sb-') || cookie.name.startsWith('supabase-')) {
+                response.cookies.set(cookie.name, cookie.value, {
+                    path: '/',
+                    sameSite: 'lax',
+                    secure: process.env.NODE_ENV === 'production',
+                    maxAge: 60 * 60 * 24 * 365,
+                })
+            }
         })
 
         return response
