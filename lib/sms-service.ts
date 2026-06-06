@@ -99,9 +99,8 @@ export async function sendSMS(options: SMSOptions): Promise<SMSResult> {
         const response = await fetch(url, {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json',
                 'X-API-VASKEY': apiKey as string,
+                'Content-Type': 'application/json'
             },
             body: JSON.stringify(payload)
         })
