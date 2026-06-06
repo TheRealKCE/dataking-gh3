@@ -16,9 +16,35 @@ interface SMSResult {
     error?: string
 }
 
-// NOTE: Base URL is strictly from the Moolre SMS documentation
+// NOTE: Base URL is hardcoded (not read from env) to prevent HTML-response failures
+// when MOOLRE_API_URL is misconfigured or missing in production. This matches
+// the pattern used in moolre-transfer-service.ts.
 const MOOLRE_BASE_URL = 'https://api.moolre.com'
 const MOOLRE_SMS_ENDPOINT = '/open/sms/send'
+
+const MNOTIFY_BASE_URL = 'https://api.mnotify.com/api/sms/quick'
+
+function isValidApiKey(key: string | undefined): boolean {
+    if (!key || key.trim() === '') return false
+    const lower = key.toLowerCase()
+    if (lower.includes('placeholder') || lower.includes('your_') || lower.includes('_here')) return false
+    return true
+}
+
+/**
+ * Validate SMS configuration on module load
+ */
+function validateSMSConfig() {
+    if (!isValidApiKey(process.env.MOOLRE_API_KEY)) {
+        console.warn('[SMS Config] WARNING: MOOLRE_API_KEY is not set or is a placeholder. Moolre SMS will use fallback.')
+    }
+    if (!isValidApiKey(process.env.MNOTIFY_API_KEY)) {
+        console.warn('[SMS Config] WARNING: MNOTIFY_API_KEY is not set or is a placeholder. mNotify SMS features will fail.')
+    }
+}
+
+// Run validation when module loads
+validateSMSConfig()
 
 /**
  * Send a quick SMS via Moolre
@@ -32,43 +58,140 @@ export async function sendSMS(options: SMSOptions): Promise<SMSResult> {
     const apiKey = process.env.MOOLRE_API_KEY
     const defaultSender = process.env.MOOLRE_SENDER_ID || 'ARHMS'
 
-    if (!apiKey || apiKey.includes('placeholder')) {
-        console.error('[SMS Service] MOOLRE_API_KEY not configured or is a placeholder.')
-        return { success: false, error: 'MOOLRE_API_KEY is not configured.' }
+    if (!isValidApiKey(apiKey)) {
+        console.error('[SMS Service] MOOLRE_API_KEY not configured or is a placeholder. Falling back to mNotify.')
+        return await sendMnotifySMS(options)
     }
 
     try {
-        // Normalize phone number to strict international format (233...) if it's local
+        // Normalize phone number to strict international format (233...)
         let normalizedPhone = options.recipient
             .replace(/\s+/g, '') // Remove spaces
             .replace(/-/g, '')   // Remove dashes
             .replace(/\+/g, '')  // Remove plus sign
 
+        // Convert 0XXXXXXXXX to 233XXXXXXXXX
         if (normalizedPhone.startsWith('0') && normalizedPhone.length === 10) {
             normalizedPhone = '233' + normalizedPhone.slice(1)
+        }
+
+        // Ensure it starts with 233
+        if (!normalizedPhone.startsWith('233')) {
+            console.error('[SMS Service] Invalid phone format:', options.recipient)
+            return { success: false, error: 'Phone number must be in Ghana format (0XXXXXXXXX or 233XXXXXXXXX)' }
         }
 
         const url = MOOLRE_BASE_URL + MOOLRE_SMS_ENDPOINT
         console.log('[SMS Service] Sending to URL:', url, '| Recipient:', normalizedPhone)
 
-        // Exact match with the provided Moolre documentation payload
         const payload = {
-            type: 1,
-            senderid: options.sender || defaultSender,
-            messages: [
-                {
-                    recipient: normalizedPhone,
-                    message: options.message,
-                    ref: `sms-${Date.now()}`
-                }
-            ]
+            recipient: normalizedPhone,
+            message: options.message,
+            sender_id: options.sender || defaultSender,
         }
 
-        // Exact match with the provided Moolre documentation headers
         const response = await fetch(url, {
             method: 'POST',
             headers: {
-                'X-API-VASKEY': apiKey,
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'Authorization': `Bearer ${apiKey}`,
+            },
+            body: JSON.stringify(payload)
+        })
+
+        const responseText = await response.text()
+
+        let data: any
+        try {
+            data = JSON.parse(responseText)
+        } catch (parseError) {
+            console.error('[SMS Service] Failed to parse response as JSON:', parseError)
+
+            // Check if it's an HTML error page (common when endpoint is wrong)
+            if (responseText.toLowerCase().includes('<!doctype') || responseText.toLowerCase().includes('<html')) {
+                return {
+                    success: false,
+                    error: 'Invalid API endpoint - received HTML instead of JSON. Please verify the Moolre SMS endpoint.'
+                }
+            }
+
+            return {
+                success: false,
+                error: `Invalid API response: ${responseText.substring(0, 100)}`
+            }
+        }
+
+        console.log('[SMS Service] Moolre response:', response.status, JSON.stringify(data))
+
+        // Moolre uses numeric status: 1 = success, 0 = failure
+        const isSuccess =
+            data.status === 1 ||
+            data.success === true ||
+            data.status === 'success' ||
+            data.status === 'sent'
+
+        if (isSuccess) {
+            const messageId = data.message_id || data.id || data.reference || data.data?.id || 'sent'
+            return { success: true, messageId }
+        } else {
+            console.error('[SMS Service] ❌ FAILED - Moolre rejected the message')
+            console.error('[SMS Service] Code:', data.code, '| Message:', data.message)
+
+            if (data.code === 'AIN01') {
+                console.error('[SMS Service] AIN01 = Authentication Error. Check: 1) MOOLRE_API_KEY is correct 2) Account has SMS credits/balance')
+            }
+
+            return { success: false, error: `Moolre error ${data.code}: ${data.message}` }
+        }
+    } catch (error: any) {
+        console.error('[SMS Service] ❌ EXCEPTION occurred:', error.message)
+        return { success: false, error: `SMS exception: ${error.message}` }
+    }
+}
+
+/**
+ * Send a quick SMS via mNotify
+ */
+export async function sendMnotifySMS(options: SMSOptions): Promise<SMSResult> {
+    if (process.env.SMS_ENABLED === 'false') {
+        console.log('[SMS Service] SMS_ENABLED=false — skipping mNotify send.')
+        return { success: true, messageId: 'sms_disabled' }
+    }
+
+    const apiKey = process.env.MNOTIFY_API_KEY
+    const defaultSender = process.env.MNOTIFY_SENDER_ID || 'ARHMSGh'
+
+    if (!isValidApiKey(apiKey)) {
+        const error = 'MNOTIFY_API_KEY not configured or is a placeholder.'
+        console.error('[SMS Service] ERROR:', error)
+        return { success: false, error }
+    }
+
+    try {
+        let normalizedPhone = options.recipient
+            .replace(/\s+/g, '')
+            .replace(/-/g, '')
+            .replace(/\+/g, '')
+
+        if (normalizedPhone.startsWith('233')) {
+            normalizedPhone = '0' + normalizedPhone.slice(3)
+        }
+
+        const url = `${MNOTIFY_BASE_URL}?key=${apiKey}`
+        
+        const payload = {
+            recipient: [normalizedPhone],
+            sender: options.sender || defaultSender,
+            message: options.message,
+            is_schedule: false,
+            schedule_date: ''
+        }
+
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json',
                 'Content-Type': 'application/json'
             },
             body: JSON.stringify(payload)
@@ -76,32 +199,22 @@ export async function sendSMS(options: SMSOptions): Promise<SMSResult> {
 
         const responseText = await response.text()
         let data: any
-
         try {
             data = JSON.parse(responseText)
-        } catch (parseError) {
-            console.error('[SMS Service] Failed to parse response as JSON:', responseText)
-            return {
-                success: false,
-                error: `Invalid API response (not JSON): ${responseText.substring(0, 100)}`
-            }
+        } catch (e) {
+            console.error('[SMS Service] mNotify JSON parse error:', responseText)
+            return { success: false, error: 'Invalid mNotify response' }
         }
 
-        console.log('[SMS Service] Moolre response:', response.status, JSON.stringify(data))
-
-        // Moolre uses numeric status: 1 = success
-        const isSuccess = data.status === 1 || data.success === true || data.status === 'success' || data.status === 'sent'
-
-        if (isSuccess) {
-            const messageId = data.message_id || data.id || data.reference || data.data?.id || 'sent'
-            return { success: true, messageId }
+        if (data.status === "success" || data.code === "2000") {
+            return { success: true, messageId: data.summary?._id || 'mNotify_sent' }
         } else {
-            console.error('[SMS Service] ❌ FAILED - Moolre rejected the message:', data)
-            return { success: false, error: `Moolre error ${data.code || data.status}: ${data.message || 'Unknown Error'}` }
+            console.error('[SMS Service] mNotify API Error:', data.message || data.error || responseText)
+            return { success: false, error: data.message || data.error || 'mNotify API Error' }
         }
     } catch (error: any) {
-        console.error('[SMS Service] ❌ EXCEPTION occurred:', error.message)
-        return { success: false, error: `SMS exception: ${error.message}` }
+        console.error('[SMS Service] mNotify Exception:', error.message)
+        return { success: false, error: `System error: ${error.message}` }
     }
 }
 
