@@ -2,21 +2,7 @@ import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
-import { Redis } from '@upstash/redis'
-import { Ratelimit } from '@upstash/ratelimit'
-import { sendSMS } from '@/lib/sms-service'
 import { z } from 'zod'
-
-let redis: Redis | null = null
-try {
-    redis = Redis.fromEnv()
-} catch {
-    console.error('[SendOTP] Redis init failed')
-}
-
-const otpSendLimiter = redis
-    ? new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(3, '15 m'), prefix: 'otp_send' })
-    : null
 
 const bodySchema = z.object({
     phone_number: z.string().min(9).max(15).optional(),
@@ -35,14 +21,14 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        // Parse optional phone_number from request body
+        // Parse phone_number from request body
         let submittedPhone: string | undefined
         try {
             const raw = await request.json()
             const parsed = bodySchema.safeParse(raw)
             if (parsed.success) submittedPhone = parsed.data.phone_number?.trim()
         } catch {
-            // No body or invalid JSON — that's fine, phone_number is optional
+            // No body or invalid JSON
         }
 
         const adminClient = createClient(
@@ -50,9 +36,8 @@ export async function POST(request: NextRequest) {
             process.env.SUPABASE_SERVICE_ROLE_KEY!
         )
 
-        // If a new phone number was submitted, save it first
+        // If a new phone number was submitted, check uniqueness first
         if (submittedPhone) {
-            // Check phone uniqueness
             const { data: existing } = await adminClient
                 .from('users')
                 .select('id')
@@ -63,125 +48,58 @@ export async function POST(request: NextRequest) {
             if (existing) {
                 return NextResponse.json({ error: 'This phone number is already registered to another account.' }, { status: 409 })
             }
-
-            // Try to update first
-            const { error: updateErr, data: updatedData } = await (adminClient.from('users') as any)
-                .update({ phone_number: submittedPhone })
-                .eq('id', authUser.id)
-                .select('id')
-
-            // If no rows were updated (user doesn't exist in public.users), we must insert them
-            if (!updateErr && (!updatedData || updatedData.length === 0)) {
-                console.warn('[SendOTP] User missing from public.users, inserting now...')
-                const { error: insertErr } = await (adminClient.from('users') as any)
-                    .insert({
-                        id: authUser.id,
-                        email: authUser.email,
-                        phone_number: submittedPhone,
-                        phone_verified: false,
-                        role: 'customer',
-                        status: 'active'
-                    })
-                if (insertErr) console.error('[SendOTP] User insert error:', insertErr)
-            } else if (updateErr) {
-                console.error('[SendOTP] Phone save error:', updateErr)
-            }
         }
 
-        // Fetch phone number — try combined query first, fall back if phone_verified column missing
-        let phoneNumber: string | null = null
-        let alreadyVerified = false
+        // Determine the phone number to save/use
+        const phoneToSave = submittedPhone ?? null
 
-        const { data: dbUser, error: dbErr } = await adminClient
-            .from('users')
-            .select('phone_number, phone_verified')
+        if (!phoneToSave) {
+            return NextResponse.json({ error: 'Please enter your phone number.' }, { status: 400 })
+        }
+
+        // Try to update existing user record
+        const { error: updateErr, data: updatedData } = await (adminClient.from('users') as any)
+            .update({ phone_number: phoneToSave, phone_verified: true })
             .eq('id', authUser.id)
-            .single()
+            .select('id')
 
-        if (dbErr) {
-            // phone_verified column may not exist yet — fetch phone_number only
-            console.warn('[SendOTP] Combined query failed, falling back:', dbErr.message)
-            const { data: phoneOnly } = await adminClient
-                .from('users')
-                .select('phone_number')
-                .eq('id', authUser.id)
-                .single()
-            phoneNumber = phoneOnly?.phone_number ?? null
-        } else {
-            phoneNumber = dbUser?.phone_number ?? null
-            alreadyVerified = dbUser?.phone_verified === true
-        }
-
-        console.log('[SendOTP] phoneNumber:', phoneNumber, 'alreadyVerified:', alreadyVerified)
-
-        if (!phoneNumber || phoneNumber === '') {
-            return NextResponse.json({ error: 'No phone number on file. Please enter your phone number first.' }, { status: 400 })
-        }
-
-        // --- Google OAuth bypass ---
-        // Google users never receive an OTP. As soon as they submit their phone number,
-        // we save it and mark it as verified so they proceed straight to the dashboard.
-        const isGoogleUser = authUser.app_metadata?.provider === 'google' || 
-                             (authUser.app_metadata?.providers && authUser.app_metadata.providers.includes('google'))
-
-        console.log('[SendOTP] isGoogleUser:', isGoogleUser, 'app_metadata:', authUser.app_metadata)
-
-        if (isGoogleUser) {
-            console.log('[SendOTP] Google user — bypassing OTP, marking phone verified')
-            const { error: bypassErr } = await (adminClient.from('users') as any)
-                .update({ phone_verified: true })
-                .eq('id', authUser.id)
-
-            if (bypassErr) {
-                console.error('[SendOTP] Error marking phone verified for Google user:', bypassErr)
+        // If no rows were updated, user doesn't exist in public.users — insert them
+        if (!updateErr && (!updatedData || updatedData.length === 0)) {
+            console.warn('[SendOTP] User missing from public.users, inserting now...')
+            const { error: insertErr } = await (adminClient.from('users') as any)
+                .insert({
+                    id: authUser.id,
+                    email: authUser.email,
+                    phone_number: phoneToSave,
+                    phone_verified: true,
+                    role: 'customer',
+                    status: 'active'
+                })
+            if (insertErr) {
+                console.error('[SendOTP] User insert error:', insertErr)
+                return NextResponse.json({ error: 'Failed to save phone number. Please try again.' }, { status: 500 })
             }
-
-            const bypassResponse = NextResponse.json({ success: true, otpBypassed: true })
-            // Set a short-lived cookie so the middleware can skip the phone-verified DB check
-            // on the immediately following /dashboard redirect (prevents race condition).
-            bypassResponse.cookies.set('phone_just_verified', '1', {
-                httpOnly: true,
-                secure: process.env.NODE_ENV === 'production',
-                sameSite: 'lax',
-                maxAge: 10, // 10 seconds — just long enough to survive the redirect
-                path: '/'
-            })
-            return bypassResponse
-        }
-        // --- End Google bypass ---
-
-        if (alreadyVerified) {
-            return NextResponse.json({ error: 'Phone number is already verified.' }, { status: 400 })
+        } else if (updateErr) {
+            console.error('[SendOTP] Phone save error:', updateErr)
+            return NextResponse.json({ error: 'Failed to save phone number. Please try again.' }, { status: 500 })
         }
 
-        if (otpSendLimiter) {
-            const { success, reset } = await otpSendLimiter.limit(`phone:${phoneNumber}`)
-            if (!success) {
-                const retryAfter = Math.ceil((reset - Date.now()) / 1000)
-                return NextResponse.json(
-                    { error: 'Too many OTP requests. Please wait 15 minutes before trying again.' },
-                    { status: 429, headers: { 'Retry-After': retryAfter.toString() } }
-                )
-            }
-        }
+        console.log('[SendOTP] Phone saved and verified for user:', authUser.id)
 
-        const otp = Math.floor(100000 + Math.random() * 900000).toString()
+        // All users bypass OTP — return otpBypassed so the frontend redirects to dashboard
+        const response = NextResponse.json({ success: true, otpBypassed: true })
 
-        if (redis) {
-            await redis.set(`otp:${authUser.id}`, otp, { ex: 300 })
-        }
-
-        const smsResult = await sendSMS({
-            recipient: phoneNumber,
-            message: `Your ARHMS verification code is: ${otp}\n\nValid for 5 minutes. Do not share this code.\n\nARHMSGh`,
+        // Set a short-lived cookie so the middleware skips the phone-verified DB check
+        // on the immediately following /dashboard redirect (prevents race condition).
+        response.cookies.set('phone_just_verified', '1', {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: 30, // 30 seconds — enough to survive the redirect
+            path: '/'
         })
 
-        if (!smsResult.success) {
-            console.error('[SendOTP] SMS delivery failed:', smsResult.error)
-            return NextResponse.json({ error: 'Failed to send OTP. Please try again.' }, { status: 500 })
-        }
-
-        return NextResponse.json({ success: true, message: 'OTP sent successfully' })
+        return response
     } catch (e) {
         console.error('[SendOTP] Error:', e)
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
