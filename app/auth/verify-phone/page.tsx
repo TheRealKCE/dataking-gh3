@@ -77,7 +77,7 @@ export default function VerifyPhonePage() {
 
             if (res.status === 401) {
                 // Session cookie lag — user is authenticated, send them straight to dashboard
-                window.location.href = '/dashboard'
+                window.location.href = 'https://www.arhmsgh.com/dashboard'
                 return
             }
 
@@ -97,7 +97,7 @@ export default function VerifyPhonePage() {
             if (data.otpBypassed) {
                 toast.success('Welcome back!')
                 setTimeout(() => {
-                    window.location.href = '/dashboard'
+                    window.location.href = 'https://www.arhmsgh.com/dashboard'
                 }, 1000)
                 return
             }
@@ -166,7 +166,7 @@ export default function VerifyPhonePage() {
             }
 
             toast.success('Phone verified! Welcome 🎉')
-            window.location.href = '/dashboard'
+            window.location.href = 'https://www.arhmsgh.com/dashboard'
         } catch {
             setError('An error occurred. Please try again.')
         } finally {
