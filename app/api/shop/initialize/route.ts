@@ -271,7 +271,7 @@ export async function POST(request: NextRequest) {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    email: validatedGuestEmail || `guest-${cleanPhone}@checkout.arhmsgh.com`,
+                    email: validatedGuestEmail || `guest-${cleanPhone}@checkout.dataking.qzz.io`,
                     amount: totalAmount, // already in pesewas
                     reference: shopRef,
                     callback_url: `${process.env.NEXT_PUBLIC_APP_URL}/shop/${shopSlug}/success?reference=${shopRef}`,

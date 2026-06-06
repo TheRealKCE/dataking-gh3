@@ -14,7 +14,7 @@ interface AuthContextType {
     isAdmin: boolean
     isSubAdmin: boolean
     phoneVerified: boolean
-    signIn: (email: string, password: string) => Promise<{ error: Error | null }>
+    signIn: (email: string, password: string) => Promise<{ error: Error | null, redirectTo?: string }>
     signUp: (data: SignUpData) => Promise<{ error: any, data: { user: User | null, session: Session | null } | null }>
     signOut: () => Promise<void>
     refreshUser: () => Promise<void>
@@ -172,10 +172,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             return { error: { message: data.error } as Error }
         }
 
-        // Refresh the Supabase client session from the server-set cookie
-        await supabase.auth.getSession()
+        // Refresh the Supabase client session from the server-set cookie and
+        // fall back to the returned tokens so protected middleware can see the
+        // session before we navigate away from the login page.
+        let { data: { session } } = await supabase.auth.getSession()
 
-        return { error: null }
+        if (!session && data.session?.access_token && data.session?.refresh_token) {
+            const { data: sessionData } = await supabase.auth.setSession({
+                access_token: data.session.access_token,
+                refresh_token: data.session.refresh_token,
+            })
+            session = sessionData.session
+        }
+
+        if (!session) {
+            return { error: { message: 'Login succeeded, but your session was not established. Please try again.' } as Error }
+        }
+
+        return { error: null, redirectTo: data.redirectTo ?? '/dashboard' }
     }
 
     const signUp = async (data: SignUpData) => {

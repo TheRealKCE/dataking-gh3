@@ -25,7 +25,7 @@ export default function LoginPage() {
     const [lockoutMinutes, setLockoutMinutes] = useState<number | null>(null)
     const { signIn } = useAuth()
     const router = useRouter()
-    const [guestUrl, setGuestUrl] = useState('https://arhmsgh.com/shop/demo')
+    const [guestUrl, setGuestUrl] = useState('https://www.dataking.qzz.io/shop/demo')
 
     useEffect(() => {
         fetch('/api/public/config').then(response => response.ok ? response.json() : null).then(data => {
@@ -41,7 +41,7 @@ export default function LoginPage() {
         setIsLoading(true)
 
         try {
-            const { error } = await signIn(email, password)
+            const { error, redirectTo } = await signIn(email, password)
 
             if (error) {
                 if (error.message.startsWith('TOO_MANY_ATTEMPTS:')) {
@@ -56,7 +56,7 @@ export default function LoginPage() {
             }
 
             toast.success('Welcome back!')
-            window.location.href = '/dashboard'
+            window.location.href = redirectTo ?? '/dashboard'
         } catch (err) {
             setError('An unexpected error occurred')
         } finally {
@@ -123,7 +123,7 @@ export default function LoginPage() {
                                     <Input
                                         id="email"
                                         type="email"
-                                        placeholder="you@arhmsgh.com"
+                                        placeholder="you@dataking.qzz.io"
                                         value={email}
                                         onChange={(e) => setEmail(e.target.value)}
                                         required
