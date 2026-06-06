@@ -121,9 +121,10 @@ export async function POST(request: NextRequest) {
         // --- Google OAuth bypass ---
         // Google users never receive an OTP. As soon as they submit their phone number,
         // we save it and mark it as verified so they proceed straight to the dashboard.
-        const isGoogleUser = authUser.app_metadata?.provider === 'google'
+        const isGoogleUser = authUser.app_metadata?.provider === 'google' || 
+                             (authUser.app_metadata?.providers && authUser.app_metadata.providers.includes('google'))
 
-        console.log('[SendOTP] isGoogleUser:', isGoogleUser)
+        console.log('[SendOTP] isGoogleUser:', isGoogleUser, 'app_metadata:', authUser.app_metadata)
 
         if (isGoogleUser) {
             console.log('[SendOTP] Google user — bypassing OTP, marking phone verified')
