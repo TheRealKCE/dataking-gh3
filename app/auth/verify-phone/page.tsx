@@ -95,8 +95,9 @@ export default function VerifyPhonePage() {
             }
 
             if (data.otpBypassed) {
-                toast.success('Phone number saved! Welcome 🎉')
-                window.location.href = '/dashboard'
+                toast.success('Welcome back!')
+                router.refresh()
+                router.push('/dashboard')
                 return
             }
 
