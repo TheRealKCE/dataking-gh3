@@ -66,8 +66,8 @@ export default function CompleteProfilePage() {
                 return
             }
 
-            toast.success('Profile saved! Now let\'s verify your number.')
-            router.push('/auth/verify-phone')
+            toast.success('Profile saved! Welcome to your dashboard.')
+            window.location.href = '/dashboard'
         } catch {
             setError('An unexpected error occurred. Please try again.')
         } finally {
