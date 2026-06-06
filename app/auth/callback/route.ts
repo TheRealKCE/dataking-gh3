@@ -78,7 +78,26 @@ export async function GET(request: NextRequest) {
         }
 
         // Next.js 15 handles cookies perfectly with 302 redirects, no need for the HTML workaround
-        return NextResponse.redirect(new URL(targetPath, requestUrl.origin))
+        const response = NextResponse.redirect(new URL(targetPath, requestUrl.origin))
+        
+        // IMPORTANT FIX: In Next.js 15, mutating the cookie store inside a route handler 
+        // using older Supabase packages does not always automatically attach the Set-Cookie headers 
+        // to a newly instantiated NextResponse. We must explicitly copy them over.
+        cookieStore.getAll().forEach(cookie => {
+            response.cookies.set({
+                name: cookie.name,
+                value: cookie.value,
+                domain: cookie.domain,
+                path: cookie.path,
+                maxAge: cookie.maxAge,
+                expires: cookie.expires,
+                httpOnly: cookie.httpOnly,
+                secure: cookie.secure,
+                sameSite: cookie.sameSite,
+            })
+        })
+
+        return response
 
     } catch (e) {
         console.error('[OAuthCallback] Error:', e)
