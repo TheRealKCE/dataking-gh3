@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * SMS Diagnostic Script
  * Run with: npx tsx scripts/diagnose-sms.ts
@@ -63,12 +64,19 @@ async function diagnose() {
 
         const targetUrl = `${MOOLRE_API_URL}/open/sms/send`
         const payload = {
-            recipient: phone,
-            message: '[ARHMS Diagnostic Test] SMS is working.',
-            sender_id: MOOLRE_SENDER_ID,
+            type: 1,
+            senderid: MOOLRE_SENDER_ID,
+            messages: [
+                {
+                    recipient: phone,
+                    message: '[ARHMS Diagnostic Test] SMS is working.',
+                    ref: `sms-${Date.now()}`
+                }
+            ]
         }
 
         const authMethods = [
+            { label: 'Official X-API-VASKEY format', headers: { 'X-API-VASKEY': MOOLRE_API_KEY } },
             { label: 'Bearer token',      headers: { 'Authorization': `Bearer ${MOOLRE_API_KEY}` } },
             { label: 'X-API with ArhmsTech',  headers: { 'X-API-Key': MOOLRE_API_KEY, 'X-API-USER': 'ArhmsTech' } },
             { label: 'X-API with ARHMS',  headers: { 'X-API-Key': MOOLRE_API_KEY, 'X-API-USER': 'ARHMS' } },
@@ -78,7 +86,7 @@ async function diagnose() {
 
         for (const method of authMethods) {
             const url = (method as any).url || targetUrl
-            const body = { ...payload, ...(method.extraBody || {}) }
+            const body = { ...payload, ...((method as any).extraBody || {}) }
             console.log(`\nTrying auth: ${method.label}`)
 
             try {
