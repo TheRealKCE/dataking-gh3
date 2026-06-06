@@ -9,12 +9,12 @@ import { Ratelimit } from '@upstash/ratelimit'
 // NEVER add a wildcard (*) here. Never reflect the raw Origin.
 // ============================================================
 const STATIC_ALLOWED_ORIGINS = [
-    'https://arhms-data-ltd.vercel.app',
-    'https://project-d3owc.vercel.app',
-    'https://arhmsgh.com',
-    'https://www.arhmsgh.com',
-    'http://localhost:3000',
-    'http://localhost:8081',
+    'https://dataking.qzz.io',
+    'https://www.dataking.qzz.io',
+    'https://shop.dataking.qzz.io',
+    'https://datakingenterprise.qzz.io',
+    'https://www.datakingenterprise.qzz.io',
+    'https://shop.datakingenterprise.qzz.io',
 ] as const
 
 function normalizeOrigin(value?: string | null): string | null {
