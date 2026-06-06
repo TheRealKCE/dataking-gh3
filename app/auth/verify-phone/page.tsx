@@ -95,10 +95,7 @@ export default function VerifyPhonePage() {
             }
 
             if (data.otpBypassed) {
-                toast.success('Welcome back!')
-                setTimeout(() => {
-                    window.location.href = 'https://www.arhmsgh.com/dashboard'
-                }, 1000)
+                window.location.href = 'https://www.arhmsgh.com/dashboard'
                 return
             }
 
