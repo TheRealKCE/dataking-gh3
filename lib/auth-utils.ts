@@ -4,7 +4,7 @@ import { NextResponse } from 'next/server'
 import { SupabaseClient, User } from '@supabase/supabase-js'
 
 export type AdminAccessResult = 
-    | { user: User; role: string; supabase: SupabaseClient; error: null }
+    | { user: User; role: string; supabase: SupabaseClient; error: null; status: number }
     | { user: null; role: null; supabase: null; error: string; status: number }
 
 /**
@@ -45,7 +45,7 @@ export async function validateAdminAccess(
         
         // 1. Admin always has access
         if (role === 'admin') {
-            return { user: authUser, role, supabase, error: null }
+            return { user: authUser, role, supabase, error: null, status: 200 }
         }
         
         // 2. Sub-admin access (strictly restricted to specific logic)
@@ -64,7 +64,7 @@ export async function validateAdminAccess(
                         return { user: null, role: null, supabase: null, error: 'Forbidden: Sub-admin limited to orders', status: 403 }
                     }
                 }
-                return { user: authUser, role, supabase, error: null }
+                return { user: authUser, role, supabase, error: null, status: 200 }
             } else {
                 return { user: null, role: null, supabase: null, error: 'Forbidden: Admin access required', status: 403 }
             }
