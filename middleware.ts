@@ -365,30 +365,36 @@ export async function middleware(request: NextRequest) {
             return addNoCacheHeaders(NextResponse.redirect(new URL('/auth/login', request.url)))
         }
 
-        // Phone verification guard — redirect if phone not set or not verified
-        try {
-            const phoneTimeout = new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('Phone check timeout')), 5000)
-            )
-            const phoneQuery = supabase
-                .from('users')
-                .select('phone_number, phone_verified')
-                .eq('id', authUser.id)
-                .single()
+        // Phone verification guard — redirect if phone not set or not verified.
+        // SKIP if the user just completed verification (cookie set by confirm-otp / send-otp bypass).
+        // This prevents a race condition where the DB write hasn't propagated yet.
+        const justVerified = request.cookies.get('phone_just_verified')?.value === '1'
 
-            const { data: userStatus } = await Promise.race([phoneQuery, phoneTimeout]) as any
+        if (!justVerified) {
+            try {
+                const phoneTimeout = new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('Phone check timeout')), 5000)
+                )
+                const phoneQuery = supabase
+                    .from('users')
+                    .select('phone_number, phone_verified')
+                    .eq('id', authUser.id)
+                    .single()
 
-            if (userStatus) {
-                if (!userStatus.phone_number || userStatus.phone_number === '') {
-                    return addNoCacheHeaders(NextResponse.redirect(new URL('/auth/complete-profile', request.url)))
+                const { data: userStatus } = await Promise.race([phoneQuery, phoneTimeout]) as any
+
+                if (userStatus) {
+                    if (!userStatus.phone_number || userStatus.phone_number === '') {
+                        return addNoCacheHeaders(NextResponse.redirect(new URL('/auth/complete-profile', request.url)))
+                    }
+                    if (!userStatus.phone_verified) {
+                        return addNoCacheHeaders(NextResponse.redirect(new URL('/auth/verify-phone', request.url)))
+                    }
                 }
-                if (!userStatus.phone_verified) {
-                    return addNoCacheHeaders(NextResponse.redirect(new URL('/auth/verify-phone', request.url)))
-                }
+            } catch (error) {
+                // Fail open — never block dashboard access due to infra issues
+                console.error('[Middleware] Phone verification check failed, failing open:', error)
             }
-        } catch (error) {
-            // Fail open — never block dashboard access due to infra issues
-            console.error('[Middleware] Phone verification check failed, failing open:', error)
         }
     }
 

@@ -136,7 +136,17 @@ export async function POST(request: NextRequest) {
                 console.error('[SendOTP] Error marking phone verified for Google user:', bypassErr)
             }
 
-            return NextResponse.json({ success: true, otpBypassed: true })
+            const bypassResponse = NextResponse.json({ success: true, otpBypassed: true })
+            // Set a short-lived cookie so the middleware can skip the phone-verified DB check
+            // on the immediately following /dashboard redirect (prevents race condition).
+            bypassResponse.cookies.set('phone_just_verified', '1', {
+                httpOnly: true,
+                secure: process.env.NODE_ENV === 'production',
+                sameSite: 'lax',
+                maxAge: 10, // 10 seconds — just long enough to survive the redirect
+                path: '/'
+            })
+            return bypassResponse
         }
         // --- End Google bypass ---
 

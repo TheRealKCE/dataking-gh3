@@ -101,7 +101,7 @@ export async function sendSMS(options: SMSOptions): Promise<SMSResult> {
             headers: {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
-                'X-API-VASKEY': apiKey,
+                'X-API-VASKEY': apiKey as string,
             },
             body: JSON.stringify(payload)
         })
