@@ -1,4 +1,4 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { createServerClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
@@ -11,13 +11,24 @@ const bodySchema = z.object({
 export async function POST(request: NextRequest) {
     try {
         const cookieStore = await cookies()
-        const supabase = createRouteHandlerClient({
-            // @ts-expect-error
-            cookies: () => cookieStore
-        })
+        const supabase = createServerClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+            {
+                cookies: {
+                    getAll() { return cookieStore.getAll() },
+                    setAll(cookiesToSet) {
+                        cookiesToSet.forEach(({ name, value, options }) =>
+                            cookieStore.set(name, value, options)
+                        )
+                    },
+                },
+            }
+        )
 
         const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
         if (authError || !authUser) {
+            console.error('[SendOTP] Auth error:', authError?.message)
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
