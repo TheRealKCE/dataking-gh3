@@ -41,12 +41,14 @@ export async function GET(request: NextRequest) {
         // Deep Search: If search term provided, find batches containing matching orders
         let batchIdsFromSearch: string[] = []
         if (search) {
-            const { data: matchingOrders } = await supabase
+            const { data: matchingOrdersRaw } = await supabase
                 .from('orders')
                 .select('download_batch_id')
                 .or(`phone_number.ilike.%${search}%,reference_code.ilike.%${search}%`)
                 .not('download_batch_id', 'is', null)
                 .limit(100)
+
+            const matchingOrders = matchingOrdersRaw as any[] | null
 
             if (matchingOrders && matchingOrders.length > 0) {
                 batchIdsFromSearch = [...new Set(matchingOrders.map((o: any) => o.download_batch_id))]
