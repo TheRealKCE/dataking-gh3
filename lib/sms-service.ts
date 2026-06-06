@@ -483,7 +483,7 @@ export async function sendShopPricingApprovedSMS(
     phoneNumber: string,
     firstName: string
 ) {
-    const message = `${firstName} Great news! Your shop pricing has been approved. Your prices are now live on your shop. Visit- ARHMSgh.com/dashboard/shop
+    const message = `${firstName} Great news! Your shop pricing has been approved. Your prices are now live on your shop. Visit- dataking.qzz.io/dashboard/shop
 
 ARHMSGh`
 
@@ -512,7 +512,7 @@ export async function sendShopProfileApprovedSMS(
     phoneNumber: string,
     shopName: string
 ) {
-    const message = `Congrats! Your shop "${shopName}" has been approved. You can now set your prices and go live. - ARHMSgh.com
+    const message = `Congrats! Your shop "${shopName}" has been approved. You can now set your prices and go live. - dataking.qzz.io
 
 ARHMSGh`
 
@@ -527,7 +527,7 @@ export async function sendShopProfileRejectedSMS(
     firstName: string,
     reason: string
 ) {
-    const message = `${firstName} Your shop application was not approved. Reason: ${reason}. Log in to update your profile. - ARHMSgh.com
+    const message = `${firstName} Your shop application was not approved. Reason: ${reason}. Log in to update your profile. - dataking.qzz.io
 
 ARHMSGh`
 
