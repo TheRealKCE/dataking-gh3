@@ -1,4 +1,4 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { createServerClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
@@ -14,10 +14,26 @@ export async function GET(request: NextRequest) {
     }
 
     const cookieStore = await cookies()
-    const supabase = createRouteHandlerClient({
-        // @ts-expect-error - auth-helpers types expect Promise but runtime needs synchronous object
-        cookies: () => cookieStore
-    })
+    // Create a dummy response to hold the cookies during initialization
+    let sessionResponse = new NextResponse()
+
+    const supabase = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+            cookies: {
+                getAll() {
+                    return cookieStore.getAll()
+                },
+                setAll(cookiesToSet) {
+                    cookiesToSet.forEach(({ name, value, options }) => {
+                        cookieStore.set(name, value, options)
+                        sessionResponse.cookies.set({ name, value, ...options })
+                    })
+                },
+            },
+        }
+    )
 
     const { data, error } = await supabase.auth.exchangeCodeForSession(code)
 
@@ -81,10 +97,21 @@ export async function GET(request: NextRequest) {
         // Vercel's edge network can strip Set-Cookie headers from 302 responses,
         // causing the session cookie to be lost. A 200 with meta-refresh ensures
         // the browser stores the cookies BEFORE navigating to the next page.
-        return new NextResponse(
+        const htmlResponse = new NextResponse(
             `<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=${targetPath}"><script>window.location.href = '${targetPath}';</script></head><body>Redirecting...</body></html>`,
             { status: 200, headers: { 'Content-Type': 'text/html' } }
         )
+
+        // Explicitly copy the generated session cookies to the final response
+        sessionResponse.cookies.getAll().forEach(cookie => {
+            htmlResponse.cookies.set({
+                name: cookie.name,
+                value: cookie.value,
+                ...cookie
+            })
+        })
+
+        return htmlResponse
 
     } catch (e) {
         console.error('[OAuthCallback] Error:', e)
