@@ -104,11 +104,7 @@ export async function GET(request: NextRequest) {
 
         // Explicitly copy the generated session cookies to the final response
         sessionResponse.cookies.getAll().forEach(cookie => {
-            htmlResponse.cookies.set({
-                name: cookie.name,
-                value: cookie.value,
-                ...cookie
-            })
+            htmlResponse.cookies.set(cookie)
         })
 
         return htmlResponse
