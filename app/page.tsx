@@ -37,7 +37,7 @@ export default async function HomePage() {
                 .single() as any)
 
             if (shop?.shop_slug) {
-                const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://arhmsgh.com'
+                const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://www.dataking.qzz.io'
                 guestUrl = `${baseUrl}/shop/${shop.shop_slug}`
             } else {
                 guestUrl = ''

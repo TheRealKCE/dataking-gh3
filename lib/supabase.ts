@@ -1,12 +1,15 @@
 import { createClient } from '@supabase/supabase-js'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { createBrowserClient } from '@supabase/ssr'
 import { Database } from '@/types/supabase'
 
-// Standard browser client that syncs with cookies
-export const supabase = createClientComponentClient<Database>({
-    supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    supabaseKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-})
+// Standard browser client that syncs with the same cookie format used by
+// middleware and route handlers from @supabase/ssr. Keeping the browser client
+// on @supabase/ssr prevents a successful login from being invisible to the
+// dashboard auth guard after navigation.
+export const supabase = createBrowserClient<Database>(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+)
 
 function requireServerEnv(name: string) {
     const value = process.env[name]
