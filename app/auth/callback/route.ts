@@ -1,4 +1,4 @@
-import { createServerClient } from '@supabase/ssr'
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { NextRequest, NextResponse } from 'next/server'
@@ -14,26 +14,10 @@ export async function GET(request: NextRequest) {
     }
 
     const cookieStore = await cookies()
-    // Create a dummy response to hold the cookies during initialization
-    const sessionResponse = new NextResponse()
-
-    const supabase = createServerClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-        {
-            cookies: {
-                getAll() {
-                    return cookieStore.getAll()
-                },
-                setAll(cookiesToSet) {
-                    cookiesToSet.forEach(({ name, value, options }) => {
-                        cookieStore.set(name, value, options)
-                        sessionResponse.cookies.set({ name, value, ...options })
-                    })
-                },
-            },
-        }
-    )
+    const supabase = createRouteHandlerClient({
+        // @ts-expect-error - auth-helpers types expect Promise but runtime needs synchronous object
+        cookies: () => cookieStore
+    })
 
     const { data, error } = await supabase.auth.exchangeCodeForSession(code)
 
@@ -60,7 +44,7 @@ export async function GET(request: NextRequest) {
             .from('users')
             .select('id, phone_number, first_name, last_name')
             .eq('id', data.user.id)
-            .single()
+            .maybeSingle()
 
         console.log('[OAuthCallback] existing user:', JSON.stringify(existingUser))
 
@@ -97,17 +81,10 @@ export async function GET(request: NextRequest) {
         // Vercel's edge network can strip Set-Cookie headers from 302 responses,
         // causing the session cookie to be lost. A 200 with meta-refresh ensures
         // the browser stores the cookies BEFORE navigating to the next page.
-        const htmlResponse = new NextResponse(
+        return new NextResponse(
             `<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=${targetPath}"><script>window.location.href = '${targetPath}';</script></head><body>Redirecting...</body></html>`,
             { status: 200, headers: { 'Content-Type': 'text/html' } }
         )
-
-        // Explicitly copy the generated session cookies to the final response
-        sessionResponse.cookies.getAll().forEach(cookie => {
-            htmlResponse.cookies.set(cookie)
-        })
-
-        return htmlResponse
 
     } catch (e) {
         console.error('[OAuthCallback] Error:', e)
