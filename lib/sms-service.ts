@@ -36,10 +36,7 @@ function isValidApiKey(key: string | undefined): boolean {
  */
 function validateSMSConfig() {
     if (!isValidApiKey(process.env.MOOLRE_API_KEY)) {
-        console.warn('[SMS Config] WARNING: MOOLRE_API_KEY is not set or is a placeholder. Moolre SMS will use fallback.')
-    }
-    if (!isValidApiKey(process.env.MNOTIFY_API_KEY)) {
-        console.warn('[SMS Config] WARNING: MNOTIFY_API_KEY is not set or is a placeholder. mNotify SMS features will fail.')
+        console.warn('[SMS Config] WARNING: MOOLRE_API_KEY is not set or is a placeholder. Moolre SMS will fail.')
     }
 }
 
@@ -59,8 +56,9 @@ export async function sendSMS(options: SMSOptions): Promise<SMSResult> {
     const defaultSender = process.env.MOOLRE_SENDER_ID || 'ARHMS'
 
     if (!isValidApiKey(apiKey)) {
-        console.error('[SMS Service] MOOLRE_API_KEY not configured or is a placeholder. Falling back to mNotify.')
-        return await sendMnotifySMS(options)
+        const error = 'MOOLRE_API_KEY not configured or is a placeholder.'
+        console.error('[SMS Service] ERROR:', error)
+        return { success: false, error }
     }
 
     try {
@@ -85,9 +83,15 @@ export async function sendSMS(options: SMSOptions): Promise<SMSResult> {
         console.log('[SMS Service] Sending to URL:', url, '| Recipient:', normalizedPhone)
 
         const payload = {
-            recipient: normalizedPhone,
-            message: options.message,
-            sender_id: options.sender || defaultSender,
+            type: 1,
+            senderid: options.sender || defaultSender,
+            messages: [
+                {
+                    recipient: normalizedPhone,
+                    message: options.message,
+                    ref: `ref_${Date.now()}`,
+                }
+            ]
         }
 
         const response = await fetch(url, {
@@ -95,7 +99,7 @@ export async function sendSMS(options: SMSOptions): Promise<SMSResult> {
             headers: {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
-                'Authorization': `Bearer ${apiKey}`,
+                'X-API-VASKEY': apiKey!,
             },
             body: JSON.stringify(payload)
         })
