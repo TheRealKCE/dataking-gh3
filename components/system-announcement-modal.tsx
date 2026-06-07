@@ -30,19 +30,17 @@ export function SystemAnnouncementModal({ initialAnnouncement = null }: { initia
 
     const fetchAndCheck = async () => {
         try {
-            // Always fetch fresh data from the API so we don't rely on the
-            // stale server-rendered prop (which may have been baked in before login)
+            // Use the dedicated announcement endpoint:
+            // - No caching (Cache-Control: no-store) → always fresh after login
+            // - Uses service role key on server → bypasses RLS, no permission issues
+            // - Falls back to the server-passed prop if the API fails
             let announcementData: Partial<SystemAnnouncement> | null = null
 
             try {
-                const res = await fetch('/api/public/config', { cache: 'no-store' })
+                const res = await fetch('/api/public/announcement', { cache: 'no-store' })
                 if (res.ok) {
-                    const config = await res.json()
-                    const list: SystemAnnouncement[] = (config.activeSystemAnnouncements ?? [])
-                        .filter((a: SystemAnnouncement) =>
-                            a.visible_on === 'main_site' || a.visible_on === 'both'
-                        )
-                    announcementData = list[0] ?? null
+                    const json = await res.json()
+                    announcementData = json.announcement ?? null
                 }
             } catch {
                 // If the API fails, fall back to the server-passed prop
