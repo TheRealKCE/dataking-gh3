@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { usePathname } from 'next/navigation'
 import {
     Dialog,
     DialogContent,
@@ -15,10 +16,17 @@ import { SystemAnnouncement } from '@/types/supabase'
 export function SystemAnnouncementModal({ initialAnnouncement = null }: { initialAnnouncement?: Partial<SystemAnnouncement> | null }) {
     const [announcement, setAnnouncement] = useState<Partial<SystemAnnouncement> | null>(initialAnnouncement)
     const [isOpen, setIsOpen] = useState(false)
+    const pathname = usePathname()
+
+    // Only show the announcement on authenticated routes (dashboard, admin).
+    // This prevents the modal from firing on the login/signup pages and consuming
+    // the sessionStorage "seen" flag before the user reaches the dashboard.
+    const isAuthenticatedRoute = pathname?.startsWith('/dashboard') || pathname?.startsWith('/admin')
 
     useEffect(() => {
+        if (!isAuthenticatedRoute) return
         checkAnnouncements()
-    }, [initialAnnouncement?.id])
+    }, [initialAnnouncement?.id, isAuthenticatedRoute])
 
     const checkAnnouncements = async () => {
         try {
