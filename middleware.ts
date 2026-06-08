@@ -479,7 +479,9 @@ export async function middleware(request: NextRequest) {
         // - /auth/callback: OAuth handler that CREATES the session (no session exists yet)
         // - /auth/verify-phone: Immediately follows callback; session cookie may not propagate
         //   in time for the middleware to see it. The page handles auth client-side via useAuth().
-        if (pathname.startsWith('/auth/callback') || pathname.startsWith('/auth/verify-phone')) {
+        // - /auth/phone-setup: Dedicated phone collection page for new Google sign-up users;
+        //   user is authenticated but hasn't completed setup yet.
+        if (pathname.startsWith('/auth/callback') || pathname.startsWith('/auth/verify-phone') || pathname.startsWith('/auth/phone-setup')) {
             return addNoCacheHeaders(setCORSHeaders(res, request, origin))
         }
 
