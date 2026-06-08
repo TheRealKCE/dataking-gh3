@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+﻿import { NextRequest, NextResponse } from 'next/server'
+import { createRouteHandlerClient } from '@/lib/supabase-server'
 import { cookies } from 'next/headers'
 import { createServerClient } from '@/lib/supabase'
 import { randomBytes } from 'crypto'
@@ -12,10 +12,7 @@ import bcrypt from 'bcryptjs'
 export async function GET() {
     try {
         const cookieStore = await cookies()
-        const supabaseUser = createRouteHandlerClient({
-            // @ts-expect-error
-            cookies: () => cookieStore,
-        })
+        const supabaseUser = await createRouteHandlerClient()
         const { data: { user }, error } = await supabaseUser.auth.getUser()
         if (error || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -34,10 +31,7 @@ export async function GET() {
 export async function POST(request: NextRequest) {
     try {
         const cookieStore = await cookies()
-        const supabaseUser = createRouteHandlerClient({
-            // @ts-expect-error
-            cookies: () => cookieStore,
-        })
+        const supabaseUser = await createRouteHandlerClient()
         const { data: { user }, error } = await supabaseUser.auth.getUser()
         if (error || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -100,10 +94,7 @@ export async function POST(request: NextRequest) {
 export async function DELETE() {
     try {
         const cookieStore = await cookies()
-        const supabaseUser = createRouteHandlerClient({
-            // @ts-expect-error
-            cookies: () => cookieStore,
-        })
+        const supabaseUser = await createRouteHandlerClient()
         const { data: { user }, error } = await supabaseUser.auth.getUser()
         if (error || !user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 

@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { processCompletedWalletPayment } from '@/lib/payments'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { createRouteHandlerClient } from '@/lib/supabase-server'
 import { cookies } from 'next/headers'
 import { checkPaymentStatus } from '@/lib/moolre-payment-service'
 
@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
     try {
         // Auth check — only the wallet owner (an authenticated user) may trigger verification
         const cookieStore = await cookies()
-        const supabase = createRouteHandlerClient({ cookies: () => cookieStore as any })
+        const supabase = await createRouteHandlerClient()
         const { data: { user }, error: authError } = await supabase.auth.getUser()
 
         if (authError || !user) {

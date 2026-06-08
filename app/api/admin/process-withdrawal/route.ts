@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+﻿import { NextRequest, NextResponse } from 'next/server'
+import { createRouteHandlerClient } from '@/lib/supabase-server'
 import { cookies } from 'next/headers'
 import { createServerClient } from '@/lib/supabase'
 import { z } from 'zod'
@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
     try {
         // 1. Auth — must be an admin (verified server-side, not trusting client role)
         const cookieStore = await cookies()
-        const supabase = createRouteHandlerClient({ cookies: () => cookieStore as any })
+        const supabase = await createRouteHandlerClient()
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 

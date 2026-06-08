@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { createRouteHandlerClient } from '@/lib/supabase-server'
 import { cookies } from 'next/headers'
 import { z } from 'zod'
 import {
@@ -57,10 +57,7 @@ async function handleShopProfileWrite(request: NextRequest, mode: 'create' | 'up
     try {
         // 1. Authenticate
         const cookieStore = await cookies()
-        const supabaseUserClient = createRouteHandlerClient({
-            // @ts-expect-error - auth-helpers types expect Promise but runtime needs synchronous object
-            cookies: () => cookieStore,
-        })
+        const supabaseUserClient = await createRouteHandlerClient()
 
         const { data: { user: authUser }, error: authError } = await supabaseUserClient.auth.getUser()
         if (authError || !authUser) {

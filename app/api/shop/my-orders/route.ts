@@ -1,7 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
+import { createRouteHandlerClient } from '@/lib/supabase-server'
 
 // Service-role client to bypass RLS
 const supabaseAdmin = createClient(
@@ -12,8 +11,7 @@ const supabaseAdmin = createClient(
 export async function GET(req: NextRequest) {
     try {
         // Verify the caller is authenticated
-        const cookieStore = cookies()
-        const supabase = createServerComponentClient({ cookies: () => cookieStore })
+        const supabase = await createRouteHandlerClient()
         const { data: { user } } = await supabase.auth.getUser()
 
         if (!user) {

@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+﻿import { NextRequest, NextResponse } from 'next/server'
+import { createRouteHandlerClient } from '@/lib/supabase-server'
 import { cookies } from 'next/headers'
 import { z } from 'zod'
 import { phoneSchema } from '@/lib/validation'
@@ -33,7 +33,7 @@ const withdrawSchema = z.object({
 export async function POST(req: NextRequest) {
     try {
         const cookieStore = await cookies()
-        const supabase = createRouteHandlerClient({ cookies: () => cookieStore as any })
+        const supabase = await createRouteHandlerClient()
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 

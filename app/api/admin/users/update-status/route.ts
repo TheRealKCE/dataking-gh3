@@ -1,4 +1,4 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+﻿import { createRouteHandlerClient } from '@/lib/supabase-server'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
@@ -24,7 +24,7 @@ export async function POST(request: Request) {
         // Verify requester is admin
         const cookieStore = await cookies()
         // @ts-expect-error - auth-helpers types conflict with Next.js 15
-        const supabase = createRouteHandlerClient({ cookies: () => cookieStore })
+        const supabase = await createRouteHandlerClient()
         const { data: { user: authUser } } = await supabase.auth.getUser()
 
         if (!authUser) {

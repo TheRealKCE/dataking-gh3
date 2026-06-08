@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+﻿import { NextRequest, NextResponse } from 'next/server'
+import { createRouteHandlerClient } from '@/lib/supabase-server'
 import { cookies } from 'next/headers'
 import { createClient } from '@supabase/supabase-js'
 import { syncShopOrderStatus } from '@/lib/shop-service'
@@ -18,7 +18,7 @@ const supabaseAdmin = createClient(
 export async function POST(request: NextRequest) {
     try {
         const cookieStore = await cookies()
-        const supabaseUserClient = createRouteHandlerClient({ cookies: () => cookieStore as any })
+        const supabaseUserClient = await createRouteHandlerClient()
         const { data: { user: authUser }, error: authError } = await supabaseUserClient.auth.getUser()
 
         if (authError || !authUser) {

@@ -1,7 +1,7 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { supabase } from '@/lib/supabase'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -20,7 +20,6 @@ type DateFilter = 'All' | 'Today' | 'Yesterday' | 'This Week' | 'This Month'
 type DateRange = { start: string, end: string } | null
 
 export default function ProfitLogsClient() {
-    const supabase = createClientComponentClient()
 
     // Filters
     const [dateFilter, setDateFilter] = useState<DateFilter>('Today')

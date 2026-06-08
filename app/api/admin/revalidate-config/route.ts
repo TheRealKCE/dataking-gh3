@@ -1,13 +1,13 @@
-import { NextResponse } from 'next/server'
+﻿import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { PUBLIC_CONFIG_CACHE_TAG } from '@/lib/cache-tags'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { createRouteHandlerClient } from '@/lib/supabase-server'
 import { cookies } from 'next/headers'
 
 export async function POST() {
     try {
         const cookieStore = await cookies()
-        const supabaseAuth = createRouteHandlerClient({ cookies: () => cookieStore as any })
+        const supabaseAuth = await createRouteHandlerClient()
         const { data: { user }, error: authError } = await supabaseAuth.auth.getUser()
 
         if (authError || !user) {

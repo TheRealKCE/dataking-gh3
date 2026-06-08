@@ -1,6 +1,6 @@
-import { NextResponse } from 'next/server'
+﻿import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { createRouteHandlerClient } from '@/lib/supabase-server'
 import { cookies } from 'next/headers'
 import { revalidateTag } from 'next/cache'
 import { PUBLIC_CONFIG_CACHE_TAG } from '@/lib/cache-tags'
@@ -24,7 +24,7 @@ function getAdminSettingsClient(): ReturnType<typeof createClient> {
 export async function GET(request: Request) {
     try {
         const cookieStore = await cookies()
-        const supabaseAuth = createRouteHandlerClient({ cookies: () => cookieStore as any })
+        const supabaseAuth = await createRouteHandlerClient()
         const { data: { user }, error: authError } = await supabaseAuth.auth.getUser()
 
         if (authError || !user) {
@@ -112,7 +112,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
     try {
         const cookieStore = await cookies()
-        const supabaseAuth = createRouteHandlerClient({ cookies: () => cookieStore as any })
+        const supabaseAuth = await createRouteHandlerClient()
         const { data: { user }, error: authError } = await supabaseAuth.auth.getUser()
 
         if (authError || !user) {

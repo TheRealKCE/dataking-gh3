@@ -1,11 +1,11 @@
-import { NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+﻿import { NextResponse } from 'next/server'
+import { createRouteHandlerClient } from '@/lib/supabase-server'
 import { cookies } from 'next/headers'
 import { createServerClient } from '@/lib/supabase'
 
 export async function GET() {
     try {
-        const supabaseAuth = createRouteHandlerClient({ cookies })
+        const supabaseAuth = await createRouteHandlerClient()
         const { data: { user: authUser } } = await supabaseAuth.auth.getUser()
         
         if (!authUser) {
@@ -36,7 +36,7 @@ export async function GET() {
 
 export async function POST(req: Request) {
     try {
-        const supabase = createRouteHandlerClient({ cookies })
+        const supabase = await createRouteHandlerClient()
         
         // Ensure user is authenticated
         const { data: { user: authUser } } = await supabase.auth.getUser()

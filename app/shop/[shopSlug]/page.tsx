@@ -2,8 +2,7 @@ import { Metadata } from 'next'
 import Image from 'next/image'
 import { notFound } from 'next/navigation'
 import { createServerClient } from '@/lib/supabase'
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
+import { createRouteHandlerClient } from '@/lib/supabase-server'
 import dynamic from 'next/dynamic'
 
 // Lazy-load the 66KB ShopStorefront into a separate JS chunk
@@ -56,7 +55,7 @@ export default async function ShopPage({ params }: Props) {
     // Service-role client for all public data reads — anonymous visitors have no session cookie
     const supabaseAdmin = createServerClient()
     // Session client only for the admin pass-through check
-    const supabase = createServerComponentClient({ cookies })
+    const supabase = await createRouteHandlerClient()
 
     // Fetch shop using service-role so unauthenticated visitors can load the page
     const { data: shop } = await (supabaseAdmin

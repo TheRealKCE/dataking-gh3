@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+﻿import { NextResponse } from 'next/server'
+import { createRouteHandlerClient } from '@/lib/supabase-server'
 import { cookies } from 'next/headers'
 import { z } from 'zod'
 import { messageSchema } from '@/lib/validation'
@@ -20,10 +20,7 @@ export async function POST(request: Request) {
 
         // Create a single authenticated client for all DB operations in this request
         const cookieStore = await cookies()
-        const supabase = createRouteHandlerClient({
-            // @ts-expect-error - auth-helpers types expect Promise but runtime needs synchronous object
-            cookies: () => cookieStore
-        })
+        const supabase = await createRouteHandlerClient()
 
         let userName = 'Anonymous'
 

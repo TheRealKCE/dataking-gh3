@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { createRouteHandlerClient } from '@/lib/supabase-server'
 import { cookies } from 'next/headers'
 import { sendWalletTopupSuccessEmail } from '@/lib/email-service'
 import { sendWalletTopupSuccessSMS } from '@/lib/sms-service'
@@ -8,10 +8,7 @@ import { sendWalletTopupSuccessSMS } from '@/lib/sms-service'
 export async function POST(request: NextRequest) {
     try {
         const cookieStore = await cookies()
-        const supabaseUserClient = createRouteHandlerClient({
-            // @ts-expect-error - auth-helpers types expect Promise but runtime needs synchronous object
-            cookies: () => cookieStore
-        })
+        const supabaseUserClient = await createRouteHandlerClient()
         const { data: { user: authUser }, error: authError } = await supabaseUserClient.auth.getUser()
 
         if (authError || !authUser) {

@@ -1,15 +1,12 @@
-import { NextResponse } from 'next/server'
+﻿import { NextResponse } from 'next/server'
 import { fetchDataGodBalance } from '@/lib/datagod-service'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { createRouteHandlerClient } from '@/lib/supabase-server'
 import { cookies } from 'next/headers'
 
 export async function GET() {
     try {
         const cookieStore = await cookies()
-        const supabase = createRouteHandlerClient({
-            // @ts-expect-error - auth-helpers types expect Promise but runtime needs synchronous object
-            cookies: () => cookieStore
-        })
+        const supabase = await createRouteHandlerClient()
         const { data: { user } } = await supabase.auth.getUser()
 
         if (!user) {

@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+﻿import { NextRequest, NextResponse } from 'next/server'
+import { createRouteHandlerClient } from '@/lib/supabase-server'
 import { cookies } from 'next/headers'
 import { processCompletedUpgradePayment } from '@/lib/payments'
 import { checkPaymentStatus } from '@/lib/moolre-payment-service'
@@ -9,7 +9,7 @@ export async function GET(request: NextRequest) {
     try {
         // 1. Auth check
         const cookieStore = await cookies()
-        const supabase = createRouteHandlerClient({ cookies: () => cookieStore as any })
+        const supabase = await createRouteHandlerClient()
         const { data: { user }, error: authError } = await supabase.auth.getUser()
 
         if (authError || !user) {

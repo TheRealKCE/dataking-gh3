@@ -1,5 +1,5 @@
-import { NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+﻿import { NextResponse } from 'next/server'
+import { createRouteHandlerClient } from '@/lib/supabase-server'
 import { createServerClient } from '@/lib/supabase'
 import { cookies } from 'next/headers'
 import { checkOrderStatus } from '@/lib/kingflexy-service'
@@ -13,10 +13,7 @@ import { checkOrderStatus } from '@/lib/kingflexy-service'
 export async function POST() {
     try {
         const cookieStore = await cookies()
-        const supabase = createRouteHandlerClient({
-            // @ts-expect-error - auth-helpers types expect Promise but runtime needs synchronous object
-            cookies: () => cookieStore
-        })
+        const supabase = await createRouteHandlerClient()
         const { data: { user: authUser } } = await supabase.auth.getUser()
         if (!authUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 

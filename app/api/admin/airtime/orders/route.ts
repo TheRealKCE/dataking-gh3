@@ -1,6 +1,6 @@
-import { NextRequest, NextResponse } from 'next/server'
+﻿import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { createRouteHandlerClient } from '@/lib/supabase-server'
 import { cookies } from 'next/headers'
 import { sendAirtimeBeneficiarySMS, sendAirtimeCompletedSMS } from '@/lib/sms-service'
 import { sendPushToUser } from '@/lib/web-push'
@@ -19,12 +19,7 @@ async function verifyAdmin(supabaseUserClient: any) {
 export async function GET(request: NextRequest) {
     try {
         const cookieStore = await cookies()
-        const supabaseUserClient = createRouteHandlerClient({
-            // @ts-expect-error
-            cookies: () => cookieStore,
-            supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
-            supabaseKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder'
-        })
+        const supabaseUserClient = await createRouteHandlerClient()
         const admin = await verifyAdmin(supabaseUserClient)
         if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
@@ -80,12 +75,7 @@ export async function GET(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
     try {
         const cookieStore = await cookies()
-        const supabaseUserClient = createRouteHandlerClient({
-            // @ts-expect-error
-            cookies: () => cookieStore,
-            supabaseUrl: process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
-            supabaseKey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder'
-        })
+        const supabaseUserClient = await createRouteHandlerClient()
         const admin = await verifyAdmin(supabaseUserClient)
         if (!admin) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 

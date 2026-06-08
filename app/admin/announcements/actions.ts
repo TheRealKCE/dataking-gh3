@@ -1,14 +1,12 @@
-'use server'
+﻿'use server'
 
 import { revalidateTag } from 'next/cache'
 import { PUBLIC_CONFIG_CACHE_TAG } from '@/lib/cache-tags'
-import { cookies } from 'next/headers'
-import { createServerActionClient } from '@supabase/auth-helpers-nextjs'
+import { createRouteHandlerClient } from '@/lib/supabase-server'
 
 export async function revalidatePublicConfig() {
     try {
-        const cookieStore = await cookies()
-        const supabase = createServerActionClient({ cookies: () => cookieStore as any })
+        const supabase = await createRouteHandlerClient()
         const { data: { user } } = await supabase.auth.getUser()
 
         if (!user) return { error: 'Unauthorized' }

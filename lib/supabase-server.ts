@@ -1,9 +1,32 @@
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { Database } from '@/types/supabase'
 
-// Route handler client for API routes (reads session from cookies)
-// This file should only be imported in server-side code (API routes, server components)
-export const createRouteClient = () => {
-    return createRouteHandlerClient<Database>({ cookies })
+/**
+ * Drop-in async replacement for createRouteHandlerClient from @supabase/auth-helpers-nextjs.
+ * Uses @supabase/ssr so the cookie format matches the middleware and browser client.
+ *
+ * Usage:  const supabase = await createRouteHandlerClient()
+ */
+export async function createRouteHandlerClient(_options?: any) {
+    const cookieStore = await cookies()
+    return createServerClient<Database>(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+            cookies: {
+                getAll() {
+                    return cookieStore.getAll()
+                },
+                setAll(cookiesToSet) {
+                    cookiesToSet.forEach(({ name, value, options }) => {
+                        try { cookieStore.set(name, value, options) } catch {}
+                    })
+                },
+            },
+        }
+    )
 }
+
+// Alias kept for backward-compat with existing imports of createRouteClient
+export const createRouteClient = createRouteHandlerClient

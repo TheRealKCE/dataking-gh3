@@ -1,12 +1,11 @@
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'
-import { cookies } from 'next/headers'
+﻿import { createRouteHandlerClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import ProfitLogsClient from './ProfitLogsClient'
 
 export const dynamic = 'force-dynamic'
 
 export default async function AdminProfitLogsPage() {
-    const supabase = createServerComponentClient({ cookies })
+    const supabase = await createRouteHandlerClient()
     const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
 
     if (authError || !authUser) redirect('/admin/login')

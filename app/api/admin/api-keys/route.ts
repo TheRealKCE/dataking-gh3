@@ -1,5 +1,5 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+﻿import { NextRequest, NextResponse } from 'next/server'
+import { createRouteHandlerClient } from '@/lib/supabase-server'
 import { cookies } from 'next/headers'
 import { createServerClient } from '@/lib/supabase'
 import { sendPushToAdmins } from '@/lib/web-push'
@@ -17,7 +17,7 @@ async function verifyAdmin(supabaseUser: any) {
 export async function GET(request: NextRequest) {
     try {
         const cookieStore = await cookies()
-        const supabaseUser = createRouteHandlerClient({ cookies: () => cookieStore as any })
+        const supabaseUser = await createRouteHandlerClient()
         if (!await verifyAdmin(supabaseUser)) {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
         }
@@ -60,7 +60,7 @@ export async function GET(request: NextRequest) {
 export async function PATCH(request: NextRequest) {
     try {
         const cookieStore = await cookies()
-        const supabaseUser = createRouteHandlerClient({ cookies: () => cookieStore as any })
+        const supabaseUser = await createRouteHandlerClient()
         if (!await verifyAdmin(supabaseUser)) {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
         }
