@@ -205,8 +205,16 @@ export default function AdminSMSBroadcastPage() {
                                 <span className="font-medium">{selectedUsers.size}</span>
                             </div>
                             <div className="flex justify-between text-sm">
-                                <span className="text-muted-foreground">Est. SMS Cost:</span>
-                                <span className="font-medium">{selectedUsers.size * smsCount} SMS units</span>
+                                <span className="text-muted-foreground">SMS per recipient:</span>
+                                <span className="font-medium">{smsCount} SMS</span>
+                            </div>
+                            <div className="flex justify-between text-sm font-semibold">
+                                <span className="text-muted-foreground">Est. Total Cost:</span>
+                                <span className="font-medium">
+                                    {selectedUsers.size > 0
+                                        ? `${selectedUsers.size * smsCount} SMS units`
+                                        : `— (select recipients)`}
+                                </span>
                             </div>
                         </div>
 
