@@ -64,7 +64,7 @@ export async function GET(request: NextRequest) {
 
         console.log('[OAuthCallback] existing user:', JSON.stringify(existingUser))
 
-        let targetPath = '/auth/verify-phone' // default: new users must enter phone
+        let targetPath = '/auth/phone-setup' // default: new Google users must enter phone
 
         if (!existingUser) {
             // Brand new user — create their record with Google name, no phone yet
@@ -105,7 +105,7 @@ export async function GET(request: NextRequest) {
     } catch (e) {
         console.error('[OAuthCallback] Error:', e)
         return new NextResponse(
-            `<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=/auth/verify-phone"><script>window.location.href = '/auth/verify-phone';</script></head><body>Redirecting...</body></html>`,
+            `<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=/auth/phone-setup"><script>window.location.href = '/auth/phone-setup';</script></head><body>Redirecting...</body></html>`,
             { status: 200, headers: { 'Content-Type': 'text/html' } }
         )
     }
