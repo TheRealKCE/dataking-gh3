@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { usePathname } from 'next/navigation'
 import {
     Dialog,
     DialogContent,
@@ -12,40 +13,49 @@ import { Button } from '@/components/ui/button'
 import { Megaphone } from 'lucide-react'
 import { SystemAnnouncement } from '@/types/supabase'
 
-const ALLOWED_ROLES = ['customer', 'agent', 'dealer']
-
-export function SystemAnnouncementModal({
-    initialAnnouncement = null,
-    userRole,
-}: {
-    initialAnnouncement?: Partial<SystemAnnouncement> | null
-    userRole?: string
-}) {
-    const [announcement, setAnnouncement] = useState<Partial<SystemAnnouncement> | null>(initialAnnouncement)
+export function SystemAnnouncementModal({ initialAnnouncement = null }: { initialAnnouncement?: Partial<SystemAnnouncement> | null }) {
+    const [announcement, setAnnouncement] = useState<Partial<SystemAnnouncement> | null>(null)
     const [isOpen, setIsOpen] = useState(false)
+    const pathname = usePathname()
+
+    // Only show the announcement on authenticated routes (dashboard, admin).
+    // This prevents the sessionStorage "seen" key being consumed on auth/login pages
+    // before the user ever reaches the dashboard.
+    const isAuthenticatedRoute = pathname?.startsWith('/dashboard') || pathname?.startsWith('/admin')
 
     useEffect(() => {
-        if (userRole && !ALLOWED_ROLES.includes(userRole)) return
-        checkAnnouncements()
-    }, [userRole, initialAnnouncement?.id])
+        if (!isAuthenticatedRoute) return
+        fetchAndCheck()
+    }, [isAuthenticatedRoute])
 
-    const checkAnnouncements = async () => {
+    const fetchAndCheck = async () => {
         try {
-            const announcementData = initialAnnouncement as any
-            if (!announcementData) {
-                return
+            // Use the dedicated announcement endpoint:
+            // - No caching (Cache-Control: no-store) → always fresh after login
+            // - Uses service role key on server → bypasses RLS, no permission issues
+            // - Falls back to the server-passed prop if the API fails
+            let announcementData: Partial<SystemAnnouncement> | null = null
+
+            try {
+                const res = await fetch('/api/public/announcement', { cache: 'no-store' })
+                if (res.ok) {
+                    const json = await res.json()
+                    announcementData = json.announcement ?? null
+                }
+            } catch {
+                // If the API fails, fall back to the server-passed prop
+                announcementData = initialAnnouncement
             }
 
-            if (announcementData) {
-                // Check if this specific announcement has been seen in this session
-                const seenKey = `announcement_seen_${announcementData.id}`
-                // Use sessionStorage so it survives refresh but clears on tab close (or manual clear)
-                const hasSeen = sessionStorage.getItem(seenKey)
+            if (!announcementData?.id) return
 
-                if (!hasSeen) {
-                    setAnnouncement(announcementData)
-                    setIsOpen(true)
-                }
+            // Check if this specific announcement has already been seen in this session
+            const seenKey = `announcement_seen_${announcementData.id}`
+            const hasSeen = sessionStorage.getItem(seenKey)
+
+            if (!hasSeen) {
+                setAnnouncement(announcementData)
+                setIsOpen(true)
             }
         } catch (error) {
             console.error('Failed to check announcements', error)
@@ -53,8 +63,7 @@ export function SystemAnnouncementModal({
     }
 
     const handleDismiss = () => {
-        if (announcement) {
-            // Mark as seen for this session
+        if (announcement?.id) {
             sessionStorage.setItem(`announcement_seen_${announcement.id}`, 'true')
             setIsOpen(false)
         }

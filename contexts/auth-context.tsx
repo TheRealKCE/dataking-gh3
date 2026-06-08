@@ -154,53 +154,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, [user, fetchDbUser])
 
     const signIn = async (email: string, password: string) => {
-        const response = await fetch('/api/auth/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email, password })
+        // We use the client-side Supabase instance directly to guarantee the session cookie is set natively in the browser.
+        // This avoids Vercel Edge stripping Set-Cookie headers from API responses.
+        const { data, error } = await supabase.auth.signInWithPassword({
+            email,
+            password
         })
 
-        if (response.status === 429) {
-            const retryAfter = response.headers.get('Retry-After')
-            const minutes = retryAfter ? Math.ceil(parseInt(retryAfter) / 60) : 10
-            return { error: { message: `TOO_MANY_ATTEMPTS:${minutes}` } as Error }
+        if (error) {
+            if (error.message.includes('rate limit') || error.message.includes('Too many')) {
+                return { error: { message: `TOO_MANY_ATTEMPTS:5` } as Error }
+            }
+            return { error: { message: error.message } as Error }
         }
 
-        const data = await response.json()
-
-        if (!response.ok) {
-            return { error: { message: data.error } as Error }
-        }
-
-        // Refresh the Supabase client session from the server-set cookie
+        // Wait a brief moment for the auth state to propagate to cookies
         await supabase.auth.getSession()
 
         return { error: null }
     }
 
     const signUp = async (data: SignUpData) => {
-        const response = await fetch('/api/auth/signup', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(data)
+        // Use client-side Supabase instance directly
+        const { data: authData, error } = await supabase.auth.signUp({
+            email: data.email,
+            password: data.password,
+            options: {
+                data: {
+                    first_name: data.firstName,
+                    last_name: data.lastName,
+                    phone_number: data.phoneNumber
+                }
+            }
         })
 
-        if (response.status === 429) {
-            const retryAfter = response.headers.get('Retry-After')
-            const minutes = retryAfter ? Math.ceil(parseInt(retryAfter) / 60) : 10
-            return { error: { message: `TOO_MANY_ATTEMPTS:${minutes}` } as Error, data: null }
+        if (error) {
+            if (error.message.includes('rate limit') || error.message.includes('Too many')) {
+                return { error: { message: `TOO_MANY_ATTEMPTS:5` } as Error, data: null }
+            }
+            return { error: { message: error.message, details: error.name }, data: null }
         }
 
-        const responseData = await response.json()
-
-        if (!response.ok) {
-            return { error: { message: responseData.error, details: responseData.details }, data: null }
-        }
-
-        // Refresh the Supabase client session from the server-set cookie
+        // Wait a brief moment for auth state to propagate
         await supabase.auth.getSession()
 
-        return { error: null, data: { user: responseData.user, session: responseData.session } }
+        return { error: null, data: { user: authData.user, session: authData.session } }
     }
 
     const signOut = async () => {

@@ -50,6 +50,28 @@ export default function DashboardLayout({
         return null
     }
 
+    if (user && !dbUser) {
+        return (
+            <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
+                <div className="text-center max-w-md animate-in fade-in zoom-in duration-500">
+                    <div className="bg-red-100 dark:bg-red-900/20 p-4 rounded-full inline-flex mb-6">
+                        <svg className="w-10 h-10 text-red-600 dark:text-red-500" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
+                    </div>
+                    <h2 className="text-2xl font-bold mb-3">Connection Error</h2>
+                    <p className="text-muted-foreground mb-6">
+                        We securely authenticated you, but couldn't load your dashboard profile. This can happen during network delays or system updates.
+                    </p>
+                    <button 
+                        onClick={() => window.location.reload()}
+                        className="inline-flex items-center justify-center rounded-xl bg-primary px-8 py-3 text-sm font-bold text-primary-foreground shadow hover:bg-primary/90 transition-colors w-full sm:w-auto"
+                    >
+                        Reload Dashboard
+                    </button>
+                </div>
+            </div>
+        )
+    }
+
     const isSuspended = dbUser?.status === 'suspended' && (dbUser?.role === 'agent' || dbUser?.role === 'customer')
 
     if (isSuspended) {
