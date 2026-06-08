@@ -1,7 +1,6 @@
 ﻿import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { createRouteHandlerClient } from '@/lib/supabase-server'
-import { cookies } from 'next/headers'
 
 /**
  * GET endpoint to fetch all users with phone numbers for SMS broadcast
@@ -9,7 +8,6 @@ import { cookies } from 'next/headers'
  */
 export async function GET(request: NextRequest) {
     try {
-        const cookieStore = await cookies()
         const supabaseUserClient = await createRouteHandlerClient()
         const { data: { user: authUser }, error: authError } = await supabaseUserClient.auth.getUser()
 

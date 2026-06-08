@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Moolre SMS Service
  * 
  * Handles sending SMS notifications via Moolre API.
@@ -48,12 +48,12 @@ validateSMSConfig()
  */
 export async function sendSMS(options: SMSOptions): Promise<SMSResult> {
     if (process.env.SMS_ENABLED === 'false') {
-        console.log('[SMS Service] SMS_ENABLED=false â€” skipping send.')
+        console.log('[SMS Service] SMS_ENABLED=false - skipping send.')
         return { success: true, messageId: 'sms_disabled' }
     }
 
     const apiKey = process.env.MOOLRE_API_KEY
-    const defaultSender = process.env.MOOLRE_SENDER_ID || 'ARHMS'
+    const defaultSender = (process.env.MOOLRE_SENDER_ID || 'ARHMS').trim()
 
     if (!isValidApiKey(apiKey)) {
         const error = 'MOOLRE_API_KEY not configured or is a placeholder.'
@@ -139,7 +139,7 @@ export async function sendSMS(options: SMSOptions): Promise<SMSResult> {
             const messageId = data.message_id || data.id || data.reference || data.data?.id || 'sent'
             return { success: true, messageId }
         } else {
-            console.error('[SMS Service] âŒ FAILED - Moolre rejected the message')
+            console.error('[SMS Service] FAILED - Moolre rejected the message')
             console.error('[SMS Service] Code:', data.code, '| Message:', data.message)
             
             if (data.code === 'AIN01') {
@@ -149,7 +149,7 @@ export async function sendSMS(options: SMSOptions): Promise<SMSResult> {
             return { success: false, error: `Moolre error ${data.code}: ${data.message}` }
         }
     } catch (error: any) {
-        console.error('[SMS Service] âŒ EXCEPTION occurred:', error.message)
+        console.error('[SMS Service] EXCEPTION occurred:', error.message)
         return { success: false, error: `SMS exception: ${error.message}` }
     }
 }
@@ -159,7 +159,7 @@ export async function sendSMS(options: SMSOptions): Promise<SMSResult> {
  */
 export async function sendMnotifySMS(options: SMSOptions): Promise<SMSResult> {
     if (process.env.SMS_ENABLED === 'false') {
-        console.log('[SMS Service] SMS_ENABLED=false â€” skipping mNotify send.')
+        console.log('[SMS Service] SMS_ENABLED=false - skipping mNotify send.')
         return { success: true, messageId: 'sms_disabled' }
     }
 
@@ -481,7 +481,7 @@ ARHMSGh`
 // ==========================================
 
 /**
- * Alert 3 Â· Pricing Approved â€” SMS to shop owner
+ * Alert 3 - Pricing Approved â€” SMS to shop owner
  */
 export async function sendShopPricingApprovedSMS(
     phoneNumber: string,
@@ -495,7 +495,7 @@ ARHMSGh`
 }
 
 /**
- * Alert 4 Â· Pricing Rejected â€” SMS to shop owner
+ * Alert 4 - Pricing Rejected â€” SMS to shop owner
  */
 export async function sendShopPricingRejectedSMS(
     phoneNumber: string,
@@ -510,7 +510,7 @@ ARHMSGh`
 }
 
 /**
- * Alert 5 Â· Shop Profile Approved â€” SMS to shop owner
+ * Alert 5 - Shop Profile Approved â€” SMS to shop owner
  */
 export async function sendShopProfileApprovedSMS(
     phoneNumber: string,
@@ -524,7 +524,7 @@ ARHMSGh`
 }
 
 /**
- * Alert 6 Â· Shop Profile Rejected â€” SMS to shop owner
+ * Alert 6 - Shop Profile Rejected â€” SMS to shop owner
  */
 export async function sendShopProfileRejectedSMS(
     phoneNumber: string,
@@ -539,7 +539,7 @@ ARHMSGh`
 }
 
 /**
- * Alert 7 Â· Withdrawal Processed (Paid) â€” SMS to shop owner
+ * Alert 7 - Withdrawal Processed (Paid) â€” SMS to shop owner
  */
 export async function sendShopWithdrawalProcessedSMS(
     phoneNumber: string,
@@ -554,7 +554,7 @@ export async function sendShopWithdrawalProcessedSMS(
 }
 
 /**
- * Alert 7b Â· Withdrawal Rejected â€” SMS to shop owner
+ * Alert 7b - Withdrawal Rejected â€” SMS to shop owner
  */
 export async function sendShopWithdrawalRejectedSMS(
     phoneNumber: string,
