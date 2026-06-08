@@ -85,9 +85,15 @@ export async function sendSMS(options: SMSOptions): Promise<SMSResult> {
         console.log('[SMS Service] Sending to URL:', url, '| Recipient:', normalizedPhone)
 
         const payload = {
-            recipient: normalizedPhone,
-            message: options.message,
-            sender_id: options.sender || defaultSender,
+            type: 1,
+            senderid: options.sender || defaultSender,
+            messages: [
+                {
+                    recipient: normalizedPhone,
+                    message: options.message,
+                    ref: `ref_${Date.now()}`,
+                }
+            ]
         }
 
         const response = await fetch(url, {
@@ -95,7 +101,7 @@ export async function sendSMS(options: SMSOptions): Promise<SMSResult> {
             headers: {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
-                'Authorization': `Bearer ${apiKey}`,
+                'X-API-VASKEY': apiKey!,
             },
             body: JSON.stringify(payload)
         })
