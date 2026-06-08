@@ -71,7 +71,17 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Verification failed. Please contact support.' }, { status: 500 })
         }
 
-        return NextResponse.json({ success: true, message: 'Phone number verified successfully' })
+        const successResponse = NextResponse.json({ success: true, message: 'Phone number verified successfully' })
+        // Set a short-lived cookie so the middleware can skip the phone-verified DB check
+        // on the immediately following /dashboard redirect (prevents race condition).
+        successResponse.cookies.set('phone_just_verified', '1', {
+            httpOnly: true,
+            secure: process.env.NODE_ENV === 'production',
+            sameSite: 'lax',
+            maxAge: 10, // 10 seconds — just long enough to survive the redirect
+            path: '/'
+        })
+        return successResponse
     } catch (e) {
         console.error('[ConfirmOTP] Error:', e)
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

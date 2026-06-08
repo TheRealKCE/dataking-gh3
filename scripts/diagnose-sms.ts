@@ -1,3 +1,4 @@
+// @ts-nocheck
 /**
  * SMS Diagnostic Script
  * Run with: npx tsx scripts/diagnose-sms.ts
@@ -9,10 +10,10 @@ import * as dotenv from 'dotenv'
 import * as path from 'path'
 
 // Load .env.local
-dotenv.config({ path: path.resolve(process.cwd(), '.env.local') })
+dotenv.config({ path: path.join(__dirname, '..', '.env.local') })
 
 const MOOLRE_API_KEY = process.env.MOOLRE_API_KEY
-const MOOLRE_API_URL = process.env.MOOLRE_API_URL || 'https://moolre.com/api/v1'
+const MOOLRE_API_URL = process.env.MOOLRE_API_URL?.replace('/open/sms/send', '') || 'https://api.moolre.com'
 const MOOLRE_SENDER_ID = process.env.MOOLRE_SENDER_ID || 'ARHMS'
 const MNOTIFY_API_KEY = process.env.MNOTIFY_API_KEY
 const MNOTIFY_SENDER_ID = process.env.MNOTIFY_SENDER_ID || 'ARHMSGh'
@@ -63,23 +64,29 @@ async function diagnose() {
 
         const targetUrl = `${MOOLRE_API_URL}/open/sms/send`
         const payload = {
-            recipient: phone,
-            message: '[ARHMS Diagnostic Test] SMS is working.',
-            sender_id: MOOLRE_SENDER_ID,
+            type: 1,
+            senderid: MOOLRE_SENDER_ID,
+            messages: [
+                {
+                    recipient: phone,
+                    message: '[ARHMS Diagnostic Test] SMS is working.',
+                    ref: `sms-${Date.now()}`
+                }
+            ]
         }
 
         const authMethods = [
+            { label: 'Official X-API-VASKEY format', headers: { 'X-API-VASKEY': MOOLRE_API_KEY } },
             { label: 'Bearer token',      headers: { 'Authorization': `Bearer ${MOOLRE_API_KEY}` } },
-            { label: 'Token header',      headers: { 'Authorization': `Token ${MOOLRE_API_KEY}` } },
-            { label: 'X-API-Key header',  headers: { 'X-API-Key': MOOLRE_API_KEY } },
+            { label: 'X-API with ArhmsTech',  headers: { 'X-API-Key': MOOLRE_API_KEY, 'X-API-USER': 'ArhmsTech' } },
+            { label: 'X-API with ARHMS',  headers: { 'X-API-Key': MOOLRE_API_KEY, 'X-API-USER': 'ARHMS' } },
+            { label: 'X-API with elitedatahub3',  headers: { 'X-API-Key': MOOLRE_API_KEY, 'X-API-USER': 'elitedatahub3' } },
             { label: 'api_key query param', url: `${targetUrl}?api_key=${MOOLRE_API_KEY}`, headers: {} },
-            { label: 'token query param',   url: `${targetUrl}?token=${MOOLRE_API_KEY}`, headers: {} },
-            { label: 'key in body',       headers: {}, extraBody: { api_key: MOOLRE_API_KEY } },
         ]
 
         for (const method of authMethods) {
             const url = (method as any).url || targetUrl
-            const body = { ...payload, ...(method.extraBody || {}) }
+            const body = { ...payload, ...((method as any).extraBody || {}) }
             console.log(`\nTrying auth: ${method.label}`)
 
             try {

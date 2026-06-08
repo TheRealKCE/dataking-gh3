@@ -31,12 +31,9 @@ export function SystemAnnouncementModal({
 
     const checkAnnouncements = async () => {
         try {
-            let announcementData = initialAnnouncement as any
+            const announcementData = initialAnnouncement as any
             if (!announcementData) {
-                const response = await fetch('/api/public/config')
-                if (!response.ok) return
-                const config = await response.json()
-                announcementData = config.activeSystemAnnouncements?.find((item: any) => item.visible_on === 'main_site' || item.visible_on === 'both')
+                return
             }
 
             if (announcementData) {

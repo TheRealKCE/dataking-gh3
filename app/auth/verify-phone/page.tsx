@@ -1,19 +1,19 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { useAuth } from '@/contexts/auth-context'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Loader2, ShieldCheck, AlertCircle, Phone, RefreshCw, CheckCircle2, ArrowRight } from 'lucide-react'
+import { Loader2, AlertCircle, Phone, ArrowRight, CheckCircle2, ShieldCheck, RefreshCw } from 'lucide-react'
 import { toast } from 'sonner'
 import { BackgroundBubbles } from '@/components/background-bubbles'
 import { FloatingWhatsApp } from '@/components/floating-whatsapp'
+import { supabase } from '@/lib/supabase'
 
 const RESEND_COOLDOWN = 60
 
@@ -30,25 +30,19 @@ export default function VerifyPhonePage() {
     const [isSending, setIsSending] = useState(false)
     const [error, setError] = useState('')
     const [cooldown, setCooldown] = useState(0)
-    const [otpBypassEnabled, setOtpBypassEnabled] = useState(false)
-    const { user, dbUser, isLoading: authLoading } = useAuth()
+    const [isGoogleUser, setIsGoogleUser] = useState(false)
     const router = useRouter()
 
-    // Pre-fill phone if already in DB
+    // Detect session on mount — works even before auth context catches up
     useEffect(() => {
-        if (dbUser?.phone_number && dbUser.phone_number !== '') {
-            setPhoneNumber(dbUser.phone_number)
-        }
-    }, [dbUser])
-
-    // Fetch OTP bypass toggle
-    useEffect(() => {
-        fetch('/api/admin-settings?keys=skip_google_oauth_otp')
-            .then(r => r.json())
-            .then(data => {
-                if (data?.skip_google_oauth_otp === 'true') setOtpBypassEnabled(true)
-            })
-            .catch(() => {})
+        supabase.auth.getSession().then(({ data: { session } }) => {
+            if (session?.user) {
+                const provider = session.user.app_metadata?.provider
+                setIsGoogleUser(provider === 'google')
+            }
+        }).catch(() => {
+            // Fail silently — form still shows, API handles auth
+        })
     }, [])
 
     // Cooldown countdown
@@ -58,45 +52,6 @@ export default function VerifyPhonePage() {
         return () => clearTimeout(timer)
     }, [cooldown])
 
-    const sendOtp = useCallback(async (phone?: string) => {
-        setIsSending(true)
-        setError('')
-        try {
-            const body = phone ? JSON.stringify({ phone_number: phone }) : undefined
-            const res = await fetch('/api/auth/verify-phone/send-otp', {
-                method: 'POST',
-                headers: body ? { 'Content-Type': 'application/json' } : {},
-                body,
-            })
-            const data = await res.json()
-
-            if (res.status === 429) {
-                const retryAfter = parseInt(res.headers.get('Retry-After') || '900')
-                setError(`Too many requests. Please wait ${Math.ceil(retryAfter / 60)} minutes.`)
-                return
-            }
-
-            if (!res.ok) {
-                setError(data.error || 'Failed to send OTP. Please try again.')
-                return
-            }
-
-            if (data.otpBypassed) {
-                toast.success('Phone number saved! Welcome to ARHMS 🎉')
-                router.replace('/dashboard')
-                return
-            }
-
-            toast.success('Verification code sent to your phone!')
-            setCooldown(RESEND_COOLDOWN)
-            setStep('enter-otp')
-        } catch {
-            setError('Failed to send OTP. Please check your connection.')
-        } finally {
-            setIsSending(false)
-        }
-    }, [])
-
     const handleSendOtp = async (e: React.FormEvent) => {
         e.preventDefault()
         const clean = phoneNumber.trim()
@@ -104,13 +59,77 @@ export default function VerifyPhonePage() {
             setError('Please enter your phone number')
             return
         }
-        // Basic Ghana phone validation
         const digits = clean.replace(/\D/g, '')
         if (digits.length < 9 || digits.length > 12) {
             setError('Please enter a valid Ghana phone number (e.g. 0241234567)')
             return
         }
-        await sendOtp(clean)
+
+        setIsSending(true)
+        setError('')
+
+        try {
+            const res = await fetch('/api/auth/verify-phone/send-otp', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phone_number: clean }),
+            })
+
+            if (res.status === 401) {
+                // Session cookie lag — user is authenticated, send them straight to dashboard
+                window.location.href = 'https://www.arhmsgh.com/dashboard'
+                return
+            }
+
+            if (res.status === 429) {
+                const retryAfter = parseInt(res.headers.get('Retry-After') || '900')
+                setError(`Too many requests. Please wait ${Math.ceil(retryAfter / 60)} minutes.`)
+                return
+            }
+
+            const data = await res.json()
+
+            if (!res.ok) {
+                setError(data.error || 'Failed. Please try again.')
+                return
+            }
+
+            if (data.otpBypassed) {
+                window.location.href = 'https://www.arhmsgh.com/dashboard'
+                return
+            }
+
+            toast.success('Verification code sent!')
+            setCooldown(RESEND_COOLDOWN)
+            setStep('enter-otp')
+        } catch {
+            setError('Connection error. Please try again.')
+        } finally {
+            setIsSending(false)
+        }
+    }
+
+    const handleResend = async () => {
+        setIsSending(true)
+        setError('')
+        try {
+            const res = await fetch('/api/auth/verify-phone/send-otp', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phone_number: phoneNumber }),
+            })
+            const data = await res.json()
+            if (!res.ok) {
+                setError(data.error || 'Failed to resend.')
+                return
+            }
+            toast.success('Code resent!')
+            setCooldown(RESEND_COOLDOWN)
+        } catch {
+            setError('Connection error. Please try again.')
+        } finally {
+            setIsSending(false)
+        }
     }
 
     const handleVerify = async (e: React.FormEvent) => {
@@ -143,26 +162,13 @@ export default function VerifyPhonePage() {
                 return
             }
 
-            toast.success('Phone verified! Welcome to ARHMS 🎉')
-            router.replace('/dashboard')
+            toast.success('Phone verified! Welcome 🎉')
+            window.location.href = 'https://www.arhmsgh.com/dashboard'
         } catch {
             setError('An error occurred. Please try again.')
         } finally {
             setIsSubmitting(false)
         }
-    }
-
-    if (authLoading) {
-        return (
-            <div className="min-h-screen flex items-center justify-center bg-background">
-                <Loader2 className="w-8 h-8 animate-spin text-primary" />
-            </div>
-        )
-    }
-
-    if (!user) {
-        router.replace('/auth/login')
-        return null
     }
 
     return (
@@ -183,7 +189,7 @@ export default function VerifyPhonePage() {
                             ARHMS <span className="text-blue-600">TECHNOLOGIES</span>
                         </h1>
                         <p className="text-sm font-bold text-muted-foreground tracking-widest uppercase mt-2 opacity-70">
-                            Phone Verification
+                            Enter Your Phone Number
                         </p>
                     </Link>
                 </div>
@@ -191,18 +197,20 @@ export default function VerifyPhonePage() {
                 <Card className="w-full card-premium border-border/50 bg-card/70 backdrop-blur-xl shadow-premium overflow-hidden">
                     <CardContent className="p-8">
 
-                        {/* Step indicators */}
-                        <div className="flex items-center gap-3 mb-8">
-                            <div className={`flex items-center justify-center w-8 h-8 rounded-full text-xs font-black transition-all ${step === 'enter-phone' ? 'bg-primary text-primary-foreground' : 'bg-green-500 text-white'}`}>
-                                {step === 'enter-otp' ? <CheckCircle2 className="w-4 h-4" /> : '1'}
+                        {/* Step indicators — only for non-Google (2-step OTP flow) */}
+                        {!isGoogleUser && (
+                            <div className="flex items-center gap-3 mb-8">
+                                <div className={`flex items-center justify-center w-8 h-8 rounded-full text-xs font-black transition-all ${step === 'enter-phone' ? 'bg-primary text-primary-foreground' : 'bg-green-500 text-white'}`}>
+                                    {step === 'enter-otp' ? <CheckCircle2 className="w-4 h-4" /> : '1'}
+                                </div>
+                                <div className="flex-1 h-0.5 bg-border rounded-full overflow-hidden">
+                                    <div className={`h-full bg-primary transition-all duration-500 ${step === 'enter-otp' ? 'w-full' : 'w-0'}`} />
+                                </div>
+                                <div className={`flex items-center justify-center w-8 h-8 rounded-full text-xs font-black transition-all ${step === 'enter-otp' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
+                                    2
+                                </div>
                             </div>
-                            <div className="flex-1 h-0.5 bg-border rounded-full overflow-hidden">
-                                <div className={`h-full bg-primary transition-all duration-500 ${step === 'enter-otp' ? 'w-full' : 'w-0'}`} />
-                            </div>
-                            <div className={`flex items-center justify-center w-8 h-8 rounded-full text-xs font-black transition-all ${step === 'enter-otp' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'}`}>
-                                2
-                            </div>
-                        </div>
+                        )}
 
                         {/* ── STEP 1: Enter Phone ── */}
                         {step === 'enter-phone' && (
@@ -210,7 +218,7 @@ export default function VerifyPhonePage() {
                                 <div className="flex items-center gap-3 mb-6 p-4 bg-blue-500/10 border border-blue-500/20 rounded-2xl">
                                     <Phone className="w-5 h-5 text-blue-500 shrink-0" />
                                     <p className="text-xs font-bold text-blue-600 dark:text-blue-400">
-                                        Enter your phone number to receive a verification code
+                                        Enter your phone number to continue to your dashboard
                                     </p>
                                 </div>
 
@@ -238,12 +246,6 @@ export default function VerifyPhonePage() {
                                                 className="h-14 pl-12 bg-background/50 border-border/50 focus:border-primary/50 focus:ring-primary/20 rounded-2xl text-base font-medium"
                                             />
                                         </div>
-                                        <p className="text-[10px] text-muted-foreground ml-1 font-medium">
-                                            {otpBypassEnabled
-                                                ? 'Your number will be saved and you will be taken to your dashboard'
-                                                : 'A 6-digit code will be sent via SMS'
-                                            }
-                                        </p>
                                     </div>
 
                                     <Button
@@ -253,7 +255,7 @@ export default function VerifyPhonePage() {
                                     >
                                         {isSending ? <Loader2 className="w-6 h-6 animate-spin" /> : (
                                             <span className="flex items-center gap-2">
-                                                {otpBypassEnabled ? 'Continue' : 'Send Code'}
+                                                Continue
                                                 <ArrowRight className="w-5 h-5" />
                                             </span>
                                         )}
@@ -316,7 +318,7 @@ export default function VerifyPhonePage() {
                                         <button
                                             type="button"
                                             disabled={cooldown > 0 || isSending}
-                                            onClick={() => sendOtp(phoneNumber)}
+                                            onClick={handleResend}
                                             className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-primary hover:text-primary/80 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                                         >
                                             <RefreshCw className="w-3 h-3" />

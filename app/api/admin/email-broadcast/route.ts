@@ -79,12 +79,14 @@ export async function POST(request: NextRequest) {
             query = query.eq('role', roleFilter)
         }
 
-        const { data: recipients, error: fetchError } = await query
+        const { data: recipientsRaw, error: fetchError } = await query
 
         if (fetchError) {
             console.error('[EmailBroadcast] Error fetching recipients:', fetchError)
             return NextResponse.json({ error: 'Failed to fetch recipients' }, { status: 500 })
         }
+
+        const recipients = recipientsRaw as any[] | null
 
         if (!recipients || recipients.length === 0) {
             return NextResponse.json({ error: 'No recipients found with valid email addresses' }, { status: 400 })

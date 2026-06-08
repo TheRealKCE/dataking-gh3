@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
 import { cookies } from 'next/headers'
-import { sendSMS, sendMnotifySMS } from '@/lib/sms-service'
+import { sendSMS } from '@/lib/sms-service'
 import { z } from 'zod'
 
 const testSchema = z.object({
@@ -48,16 +48,11 @@ export async function POST(request: NextRequest) {
         const { phone, provider } = parsed.data
         const message = `[ARHMS SMS Test] Diagnostic message sent at ${new Date().toISOString()}. If you received this, SMS delivery is working. ARHMSGh`
 
-        let result
-        if (provider === 'mnotify') {
-            result = await sendMnotifySMS({ recipient: phone, message })
-        } else {
-            result = await sendSMS({ recipient: phone, message })
-        }
+        const result = await sendSMS({ recipient: phone, message })
 
         return NextResponse.json({
             success: result.success,
-            provider,
+            provider: 'moolre',
             phone,
             messageId: result.messageId ?? null,
             error: result.error ?? null,

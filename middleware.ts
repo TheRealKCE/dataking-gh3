@@ -1,4 +1,4 @@
-import { createMiddlewareClient } from '@supabase/auth-helpers-nextjs'
+import { createServerClient } from '@supabase/ssr'
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { Redis } from '@upstash/redis'
@@ -190,8 +190,28 @@ export async function middleware(request: NextRequest) {
         )
     }
 
-    const res = NextResponse.next()
-    const supabase = createMiddlewareClient({ req: request, res })
+    let res = NextResponse.next({
+        request: { headers: request.headers },
+    })
+
+    const supabase = createServerClient(
+        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+        {
+            cookies: {
+                getAll() {
+                    return request.cookies.getAll()
+                },
+                setAll(cookiesToSet) {
+                    cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
+                    res = NextResponse.next({ request })
+                    cookiesToSet.forEach(({ name, value, options }) =>
+                        res.cookies.set(name, value, options)
+                    )
+                },
+            },
+        }
+    )
 
 
     let authUser = null
@@ -365,30 +385,34 @@ export async function middleware(request: NextRequest) {
             return addNoCacheHeaders(NextResponse.redirect(new URL('/auth/login', request.url)))
         }
 
-        // Phone verification guard — redirect if phone not set or not verified
-        try {
-            const phoneTimeout = new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('Phone check timeout')), 5000)
-            )
-            const phoneQuery = supabase
-                .from('users')
-                .select('phone_number, phone_verified')
-                .eq('id', authUser.id)
-                .single()
+        // Phone verification guard — redirect if phone not set or not verified.
+        // SKIP if the user just completed verification (cookie set by confirm-otp / send-otp bypass).
+        // This prevents a race condition where the DB write hasn't propagated yet.
+        const justVerified = request.cookies.get('phone_just_verified')?.value === '1'
 
-            const { data: userStatus } = await Promise.race([phoneQuery, phoneTimeout]) as any
+        if (!justVerified) {
+            try {
+                const phoneTimeout = new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('Phone check timeout')), 5000)
+                )
+                const phoneQuery = supabase
+                    .from('users')
+                    .select('phone_number, phone_verified')
+                    .eq('id', authUser.id)
+                    .single()
 
-            if (userStatus) {
-                if (!userStatus.phone_number || userStatus.phone_number === '') {
-                    return addNoCacheHeaders(NextResponse.redirect(new URL('/auth/complete-profile', request.url)))
+                const { data: userStatus } = await Promise.race([phoneQuery, phoneTimeout]) as any
+
+                if (userStatus) {
+                    if (!userStatus.phone_number || userStatus.phone_number === '') {
+                        return addNoCacheHeaders(NextResponse.redirect(new URL('/auth/complete-profile', request.url)))
+                    }
+                    // phone_verified check removed to allow users to go straight to dashboard
                 }
-                if (!userStatus.phone_verified) {
-                    return addNoCacheHeaders(NextResponse.redirect(new URL('/auth/verify-phone', request.url)))
-                }
+            } catch (error) {
+                // Fail open — never block dashboard access due to infra issues
+                console.error('[Middleware] Phone verification check failed, failing open:', error)
             }
-        } catch (error) {
-            // Fail open — never block dashboard access due to infra issues
-            console.error('[Middleware] Phone verification check failed, failing open:', error)
         }
     }
 

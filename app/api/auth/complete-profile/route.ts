@@ -65,7 +65,7 @@ export async function POST(request: NextRequest) {
                     first_name: first_name.trim(),
                     last_name: last_name.trim(),
                     phone_number: phone_number.trim(),
-                    phone_verified: false,
+                    phone_verified: true,
                     updated_at: new Date().toISOString(),
                 })
                 .eq('id', authUser.id)
@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
                     first_name: first_name.trim(),
                     last_name: last_name.trim(),
                     phone_number: phone_number.trim(),
-                    phone_verified: false,
+                    phone_verified: true,
                     role: 'customer',
                     status: 'active',
                     updated_at: new Date().toISOString(),
