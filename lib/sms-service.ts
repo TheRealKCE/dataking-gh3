@@ -1,6 +1,6 @@
-﻿/**
+/**
  * Moolre SMS Service
- * 
+ *
  * Handles sending SMS notifications via Moolre API.
  */
 
@@ -36,7 +36,10 @@ function isValidApiKey(key: string | undefined): boolean {
  */
 function validateSMSConfig() {
     if (!isValidApiKey(process.env.MOOLRE_API_KEY)) {
-        console.warn('[SMS Config] WARNING: MOOLRE_API_KEY is not set or is a placeholder. Moolre SMS will fail.')
+        console.warn('[SMS Config] WARNING: MOOLRE_API_KEY is not set or is a placeholder. Moolre SMS will use fallback.')
+    }
+    if (!isValidApiKey(process.env.MNOTIFY_API_KEY)) {
+        console.warn('[SMS Config] WARNING: MNOTIFY_API_KEY is not set or is a placeholder. mNotify SMS features will fail.')
     }
 }
 
@@ -56,9 +59,8 @@ export async function sendSMS(options: SMSOptions): Promise<SMSResult> {
     const defaultSender = (process.env.MOOLRE_SENDER_ID || 'ARHMS').trim()
 
     if (!isValidApiKey(apiKey)) {
-        const error = 'MOOLRE_API_KEY not configured or is a placeholder.'
-        console.error('[SMS Service] ERROR:', error)
-        return { success: false, error }
+        console.error('[SMS Service] MOOLRE_API_KEY not configured or is a placeholder. Falling back to mNotify.')
+        return await sendMnotifySMS(options)
     }
 
     try {
@@ -83,15 +85,9 @@ export async function sendSMS(options: SMSOptions): Promise<SMSResult> {
         console.log('[SMS Service] Sending to URL:', url, '| Recipient:', normalizedPhone)
 
         const payload = {
-            type: 1,
-            senderid: options.sender || defaultSender,
-            messages: [
-                {
-                    recipient: normalizedPhone,
-                    message: options.message,
-                    ref: `ref_${Date.now()}`,
-                }
-            ]
+            recipient: normalizedPhone,
+            message: options.message,
+            sender_id: options.sender || defaultSender,
         }
 
         const response = await fetch(url, {
@@ -99,7 +95,7 @@ export async function sendSMS(options: SMSOptions): Promise<SMSResult> {
             headers: {
                 'Content-Type': 'application/json',
                 'Accept': 'application/json',
-                'X-API-VASKEY': apiKey!,
+                'Authorization': `Bearer ${apiKey}`,
             },
             body: JSON.stringify(payload)
         })
@@ -141,7 +137,7 @@ export async function sendSMS(options: SMSOptions): Promise<SMSResult> {
         } else {
             console.error('[SMS Service] FAILED - Moolre rejected the message')
             console.error('[SMS Service] Code:', data.code, '| Message:', data.message)
-            
+
             if (data.code === 'AIN01') {
                 console.error('[SMS Service] AIN01 = Authentication Error. Check: 1) MOOLRE_API_KEY is correct 2) Account has SMS credits/balance')
             }
@@ -183,7 +179,7 @@ export async function sendMnotifySMS(options: SMSOptions): Promise<SMSResult> {
         }
 
         const url = `${MNOTIFY_BASE_URL}?key=${apiKey}`
-        
+
         const payload = {
             recipient: [normalizedPhone],
             sender: options.sender || defaultSender,
@@ -223,7 +219,6 @@ export async function sendMnotifySMS(options: SMSOptions): Promise<SMSResult> {
 }
 
 // ==========================================
-
 // SPECIFIC SMS FUNCTIONS
 // ==========================================
 
@@ -241,12 +236,10 @@ export async function sendOrderSuccessSMS(
         currentBalance: number
     }
 ) {
-    // Updated Template: "Your order for [Data Size] has been received and is being processed. You will receive your data in less than 1hr thank you."
     const message = `Your order for ${details.size} has been received and is being processed. You will receive your data in less than 1hr thank you.
 
 ARHMSGh`
 
-    // ROUTE: Moolre (Temporary fallback)
     return sendSMS({
         recipient: details.recipientNumber,
         message
@@ -264,20 +257,11 @@ export async function sendStatusUpdateSMS(
     }
 ) {
     // DISABLED AS REQUESTED
-    /*
-    const message = `Order Update: Your order ${details.referenceCode} is now ${details.status.toUpperCase()}. Check your dashboard for details.`
-
-    return sendSMS({
-        recipient: phoneNumber,
-        message
-    })
-    */
-    return { success: true, messageId: 'disabled', error: undefined } // Mock success to prevent errors
+    return { success: true, messageId: 'disabled', error: undefined }
 }
 
 /**
  * Send wallet top-up success SMS
- * Optimized for MTN delivery - uses stealth keywords to bypass content filters
  */
 export async function sendWalletTopupSuccessSMS(
     phoneNumber: string,
@@ -286,12 +270,10 @@ export async function sendWalletTopupSuccessSMS(
         newBalance: number
     }
 ) {
-    // Updated Template: "Hello! You have added GH[Amount] to your Flexy-Wallet. Your Flexy-Wallet is now GH[New_Balance]"
     const message = `Hello! You have added GH${details.amount.toFixed(2)} to your Flexy-Wallet. Your Flexy-Wallet is now GH${details.newBalance.toFixed(2)}
 
 ARHMSGh`
 
-    // ROUTE: Moolre
     return sendSMS({
         recipient: phoneNumber,
         message
@@ -300,30 +282,17 @@ ARHMSGh`
 
 /**
  * Send welcome SMS to new users
- * Optimized for MTN delivery - uses stealth keywords to bypass content filters
  */
 export async function sendWelcomeSMS(
     phoneNumber: string,
     firstName: string
 ) {
     // DISABLED AS REQUESTED
-    /*
-    const message = `Hello! Welcome to ARHMSGh Ltd. All we do here is instant Delivery (PA-TU-PA) start ordering your package now. Chat us on WhatsApp:578065809`
-
-    return sendSMS({
-        recipient: phoneNumber,
-        message
-    })
-    */
     return { success: true, messageId: 'disabled', error: undefined }
 }
+
 /**
- * Send Agent upgrade success SMS
- * Template: "Hi [User First Name]! Your [Plan purchase days] Upgrade to Agent Role was Successful! Your Agent role is now valid for [Remaining Agent Role Days] thank you. ARHMSGh"
- */
-/**
- * Send Agent upgrade success SMS
- * Updated Template: "Congratulations! Your Agent membership has been upgraded until [Remaining_days]"
+ * Send Dealer upgrade success SMS
  */
 export async function sendDealerUpgradeSuccessSMS(
     phoneNumber: string,
@@ -342,6 +311,9 @@ export async function sendDealerUpgradeSuccessSMS(
     return sendSMS({ recipient: phoneNumber, message })
 }
 
+/**
+ * Send Agent upgrade success SMS
+ */
 export async function sendAgentUpgradeSuccessSMS(
     phoneNumber: string,
     firstName: string,
@@ -351,7 +323,6 @@ export async function sendAgentUpgradeSuccessSMS(
 ) {
     const message = `Congratulation ${firstName}! Your Agent membership has been activated for ${planDays}. You now have access to our cheapest Agent prices. Login to enjoy! \n\nARHMSGh`
 
-    // ROUTE: Moolre (Temporary fallback)
     return sendSMS({ recipient: phoneNumber, message })
 }
 
@@ -363,13 +334,11 @@ export async function sendPermanentAgentUpgradeSuccessSMS(
 ) {
     const message = `Congratulations! Your Agent membership is now PERMANENT. You have lifetime access to premium agent benefits. Thank you for choosing ARHMSGh.`
 
-    // ROUTE: Moolre (Temporary fallback)
     return sendSMS({ recipient: phoneNumber, message })
 }
 
 /**
  * Send Agent Extend/Renewal Success SMS
- * Template: "Congratulations! Your Agent membership has been extended until [Formatted_Date]"
  */
 export async function sendAgentExtensionSuccessSMS(
     phoneNumber: string,
@@ -379,16 +348,13 @@ export async function sendAgentExtensionSuccessSMS(
     const day = date.getDate()
     const month = date.toLocaleString('default', { month: 'long' })
     const year = date.getFullYear()
-
     const suffix = ["th", "st", "nd", "rd"][((day % 100) > 10 && (day % 100) < 20) ? 0 : (day % 10 < 4) ? day % 10 : 0]
-
     const formattedDate = `${month} ${day}${suffix}, ${year}`
 
     const message = `Congratulations! Your Agent membership has been extended until ${formattedDate}
 
 ARHMSGh`
 
-    // ROUTE: Moolre (Temporary fallback)
     return sendSMS({
         recipient: phoneNumber,
         message
@@ -397,42 +363,21 @@ ARHMSGh`
 
 /**
  * Send Admin Alert for New Agent Order
- * Template: "NEW AGENT ORDER"
  */
 export async function sendAdminAgentOrderAlert() {
     // DISABLED AS REQUESTED
-    /*
-    // Strictly use the requested number for agent orders: 0551617309
-    const targetNumber = '0551617309'
-
-    return sendSMS({
-        recipient: targetNumber,
-        message: 'NEW AGENT ORDER'
-    })
-    */
-    return { success: true, messageId: 'disabled', error: undefined } // Mock success to prevent errors
+    return { success: true, messageId: 'disabled', error: undefined }
 }
 
 /**
- * Send Agent renewal reminder SMS (1 day left)
- * Template: "Hi [Agent First Name]! Your Agent Role plan is about to expire, kindly extend your plan to continue enjoying the benefits thank you. ARHMSGh."
+ * Send Agent renewal reminder SMS
  */
 export async function sendAgentRenewalReminderSMS(
     phoneNumber: string,
     firstName: string
 ) {
     // DISABLED AS REQUESTED
-    /*
-    const message = `Hi ${firstName}! Your Agent Role plan is about to expire, kindly extend your plan to continue enjoying the benefits thank you.
-
-ARHMSGh.`
-
-    return sendSMS({
-        recipient: phoneNumber,
-        message
-    })
-    */
-    return { success: true, messageId: 'disabled', error: undefined } // Mock success to prevent errors
+    return { success: true, messageId: 'disabled', error: undefined }
 }
 
 /**
@@ -446,7 +391,6 @@ export async function sendAgentExpiryNotificationSMS(
 
 ARHMSGh`
 
-    // ROUTE: Moolre
     return sendSMS({
         recipient: phoneNumber,
         message
@@ -462,14 +406,12 @@ export async function sendOrderRefundSMS(
     refundAmount: number,
     newBalance: number
 ) {
-    // Format recipient number - remove country code prefix for display
     const displayNumber = recipientNumber.replace(/^233/, '').replace(/^0/, '')
 
     const message = `Your order for ${displayNumber} has been refunded due to an error. Refund was GH${refundAmount.toFixed(2)}. Your new Flexy-wallet is now GH${newBalance.toFixed(2)} thank you.
 
 ARHMSGh`
 
-    // ROUTE: Moolre (Temporary fallback)
     return sendSMS({
         recipient: phoneNumber,
         message
@@ -481,7 +423,7 @@ ARHMSGh`
 // ==========================================
 
 /**
- * Alert 3 - Pricing Approved â€” SMS to shop owner
+ * Alert 3 - Pricing Approved - SMS to shop owner
  */
 export async function sendShopPricingApprovedSMS(
     phoneNumber: string,
@@ -495,7 +437,7 @@ ARHMSGh`
 }
 
 /**
- * Alert 4 - Pricing Rejected â€” SMS to shop owner
+ * Alert 4 - Pricing Rejected - SMS to shop owner
  */
 export async function sendShopPricingRejectedSMS(
     phoneNumber: string,
@@ -510,7 +452,7 @@ ARHMSGh`
 }
 
 /**
- * Alert 5 - Shop Profile Approved â€” SMS to shop owner
+ * Alert 5 - Shop Profile Approved - SMS to shop owner
  */
 export async function sendShopProfileApprovedSMS(
     phoneNumber: string,
@@ -524,7 +466,7 @@ ARHMSGh`
 }
 
 /**
- * Alert 6 - Shop Profile Rejected â€” SMS to shop owner
+ * Alert 6 - Shop Profile Rejected - SMS to shop owner
  */
 export async function sendShopProfileRejectedSMS(
     phoneNumber: string,
@@ -539,7 +481,7 @@ ARHMSGh`
 }
 
 /**
- * Alert 7 - Withdrawal Processed (Paid) â€” SMS to shop owner
+ * Alert 7 - Withdrawal Processed (Paid) - SMS to shop owner
  */
 export async function sendShopWithdrawalProcessedSMS(
     phoneNumber: string,
@@ -554,7 +496,7 @@ export async function sendShopWithdrawalProcessedSMS(
 }
 
 /**
- * Alert 7b - Withdrawal Rejected â€” SMS to shop owner
+ * Alert 7b - Withdrawal Rejected - SMS to shop owner
  */
 export async function sendShopWithdrawalRejectedSMS(
     phoneNumber: string,
@@ -571,7 +513,6 @@ export async function sendShopWithdrawalRejectedSMS(
 
 /**
  * Send beneficiary confirmation SMS when airtime order is placed
- * Triggered immediately after successful wallet deduction
  */
 export async function sendAirtimeBeneficiarySMS(
     beneficiaryPhone: string,
@@ -586,8 +527,7 @@ export async function sendAirtimeBeneficiarySMS(
 }
 
 /**
- * Send admin alert when a new airtime order is placed (both shop and main site)
- * Sent only to admins, excluding sub-admins.
+ * Send admin alert when a new airtime order is placed
  */
 export async function sendAdminAirtimeAlertSMS(
     adminPhones: string[],
@@ -600,9 +540,8 @@ export async function sendAdminAirtimeAlertSMS(
         bundlePreference?: 'balanced' | 'data' | 'voice'
     }
 ): Promise<void> {
-    const amountNum = typeof details.amount === 'string' ? parseFloat(details.amount) : details.amount;
+    const amountNum = typeof details.amount === 'string' ? parseFloat(details.amount) : details.amount
 
-    // Anti-spam: Mashup uses a different title to bypass carrier keyword filters
     const isMashup = details.orderType === 'mashup'
     const prefCodeMap: Record<string, string> = { balanced: 'B', data: 'D', voice: 'V' }
     const prefCode = isMashup && details.bundlePreference ? prefCodeMap[details.bundlePreference] || 'B' : null
@@ -620,7 +559,6 @@ Receiver : ${details.receiver}
 Amount: GH ${amountNum.toFixed(2)}
 Network: ${details.network}`
 
-    // Send to all provided admins in parallel
     const promises = adminPhones.map(phone => sendSMS({ recipient: phone, message }))
     await Promise.allSettled(promises)
 }
