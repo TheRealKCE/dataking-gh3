@@ -17,6 +17,7 @@ import { useUI } from '@/contexts/ui-context'
 // import { SupportChatWidget } from '@/components/dashboard/support-chat-widget'
 import { SuspendedAccount } from '@/components/dashboard/SuspendedAccount'
 import { CopyrightFooter } from '@/components/CopyrightFooter'
+import { SystemAnnouncementModal } from '@/components/system-announcement-modal'
 
 
 export default function DashboardLayout({
