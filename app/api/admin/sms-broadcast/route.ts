@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
 
         // Send SMS to recipients
 
-        // Send SMS to each recipient
+        // Send SMS in parallel batches of 10 to avoid Vercel timeout
         const results = {
             total: recipients.length,
             success: 0,
@@ -94,35 +94,33 @@ export async function POST(request: NextRequest) {
             errors: [] as string[]
         }
 
-        for (const recipient of recipients as any[]) {
-            if (!recipient.phone_number) {
-                results.failed++
-                results.errors.push(`${recipient.first_name || 'Unknown'}: No phone number`)
-                console.warn(`[SMSBroadcast] Skipping user ${recipient.first_name} - no phone number`)
-                continue
-            }
+        const trimmedMessage = message.trim()
+        const BATCH_SIZE = 10
 
-            try {
-                const result = await sendSMS({
-                    recipient: recipient.phone_number,
-                    message: message.trim()
+        for (let i = 0; i < (recipients as any[]).length; i += BATCH_SIZE) {
+            const batch = (recipients as any[]).slice(i, i + BATCH_SIZE)
+            await Promise.allSettled(
+                batch.map(async (recipient: any) => {
+                    if (!recipient.phone_number) {
+                        results.failed++
+                        results.errors.push(`${recipient.first_name || 'Unknown'}: No phone number`)
+                        return
+                    }
+                    try {
+                        const result = await sendSMS({ recipient: recipient.phone_number, message: trimmedMessage })
+                        if (result.success) {
+                            results.success++
+                        } else {
+                            results.failed++
+                            results.errors.push(`${recipient.first_name || 'Unknown'}: ${result.error}`)
+                        }
+                    } catch (err: any) {
+                        results.failed++
+                        results.errors.push(`${recipient.first_name || 'Unknown'}: ${err.message}`)
+                    }
                 })
-
-                if (result.success) {
-                    results.success++
-                } else {
-                    results.failed++
-                    results.errors.push(`${recipient.first_name || 'Unknown'}: ${result.error}`)
-                    console.error(`[SMSBroadcast] ❌ Failed for ${recipient.first_name}: ${result.error}`)
-                }
-            } catch (err: any) {
-                results.failed++
-                results.errors.push(`${recipient.first_name || 'Unknown'}: ${err.message}`)
-                console.error(`[SMSBroadcast] ❌ Exception for ${recipient.first_name}:`, err)
-            }
+            )
         }
-
-        // SMS broadcast complete
 
         return NextResponse.json({
             success: true,

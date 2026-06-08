@@ -361,7 +361,7 @@ export async function sendAgentUpgradeSuccessSMS(
 export async function sendPermanentAgentUpgradeSuccessSMS(
     phoneNumber: string
 ) {
-    const message = `Congratulations! Your Agent membership is now PERMANENT ðŸ‘‘. You have lifetime access to premium agent benefits. Thank you for choosing ARHMSGh.`
+    const message = `Congratulations! Your Agent membership is now PERMANENT. You have lifetime access to premium agent benefits. Thank you for choosing ARHMSGh.`
 
     // ROUTE: Moolre (Temporary fallback)
     return sendSMS({ recipient: phoneNumber, message })
