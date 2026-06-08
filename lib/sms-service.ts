@@ -56,7 +56,7 @@ export async function sendSMS(options: SMSOptions): Promise<SMSResult> {
     }
 
     const apiKey = process.env.MOOLRE_API_KEY
-    const defaultSender = (process.env.MOOLRE_SENDER_ID || 'ARHMS').trim()
+    const defaultSender = (process.env.MOOLRE_SENDER_ID || 'ArhmsTech').trim()
 
     if (!isValidApiKey(apiKey)) {
         console.error('[SMS Service] MOOLRE_API_KEY not configured or is a placeholder. Falling back to mNotify.')
