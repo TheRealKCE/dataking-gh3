@@ -31,19 +31,27 @@ export default function VerifyPhonePage() {
     const [error, setError] = useState('')
     const [cooldown, setCooldown] = useState(0)
     const [isGoogleUser, setIsGoogleUser] = useState(false)
+    const [authChecked, setAuthChecked] = useState(false)
     const router = useRouter()
 
-    // Detect session on mount — works even before auth context catches up
+    // Detect session on mount — works even before auth context catches up.
+    // Must wait for session before rendering the form so we know the user is
+    // actually authenticated (session cookie set by /auth/callback).
     useEffect(() => {
         supabase.auth.getSession().then(({ data: { session } }) => {
             if (session?.user) {
                 const provider = session.user.app_metadata?.provider
                 setIsGoogleUser(provider === 'google')
+                setAuthChecked(true)
+            } else {
+                // No session at all — send back to login
+                router.replace('/auth/login')
             }
         }).catch(() => {
-            // Fail silently — form still shows, API handles auth
+            // On network error, still show the form — the API will return 401 if needed
+            setAuthChecked(true)
         })
-    }, [])
+    }, [router])
 
     // Cooldown countdown
     useEffect(() => {
@@ -77,7 +85,7 @@ export default function VerifyPhonePage() {
 
             if (res.status === 401) {
                 // Session cookie lag — user is authenticated, send them straight to dashboard
-                window.location.href = 'https://www.arhmsgh.com/dashboard'
+                window.location.href = '/dashboard'
                 return
             }
 
@@ -95,7 +103,7 @@ export default function VerifyPhonePage() {
             }
 
             if (data.otpBypassed) {
-                window.location.href = 'https://www.arhmsgh.com/dashboard'
+                window.location.href = '/dashboard'
                 return
             }
 
@@ -163,12 +171,25 @@ export default function VerifyPhonePage() {
             }
 
             toast.success('Phone verified! Welcome 🎉')
-            window.location.href = 'https://www.arhmsgh.com/dashboard'
+            window.location.href = '/dashboard'
         } catch {
             setError('An error occurred. Please try again.')
         } finally {
             setIsSubmitting(false)
         }
+    }
+
+    // Show a spinner while we check if the user has an active session.
+    // This prevents a flash of the unauthenticated form before the cookie is read.
+    if (!authChecked) {
+        return (
+            <div className="min-h-screen bg-background flex items-center justify-center">
+                <div className="flex flex-col items-center gap-4">
+                    <div className="w-10 h-10 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+                    <p className="text-sm font-medium text-muted-foreground">Setting up your account...</p>
+                </div>
+            </div>
+        )
     }
 
     return (
