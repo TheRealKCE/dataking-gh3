@@ -404,10 +404,14 @@ export async function middleware(request: NextRequest) {
                 const { data: userStatus } = await Promise.race([phoneQuery, phoneTimeout]) as any
 
                 if (userStatus) {
-                    if (!userStatus.phone_number || userStatus.phone_number === '') {
-                        return addNoCacheHeaders(NextResponse.redirect(new URL('/auth/complete-profile', request.url)))
+                    const phone = userStatus.phone_number ?? ''
+                    const hasRealPhone = phone !== ''
+                        && !phone.startsWith('oauth_')
+                        && !phone.startsWith('google_')
+
+                    if (!hasRealPhone) {
+                        return addNoCacheHeaders(NextResponse.redirect(new URL('/auth/verify-phone', request.url)))
                     }
-                    // phone_verified check removed to allow users to go straight to dashboard
                 }
             } catch (error) {
                 // Fail open — never block dashboard access due to infra issues

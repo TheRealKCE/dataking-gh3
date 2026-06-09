@@ -87,8 +87,14 @@ export async function GET(request: NextRequest) {
                     .eq('id', data.user.id)
             }
 
-            // Returning user who already has a phone number → go straight to dashboard
-            if (existingUser.phone_number && existingUser.phone_number !== '') {
+            // Returning user who already has a REAL phone number → go straight to dashboard.
+            // Reject oauth_ / google_ placeholder values that were previously auto-inserted —
+            // those users must still go through the phone entry page.
+            const phone = existingUser.phone_number ?? ''
+            const hasRealPhone = phone !== ''
+                && !phone.startsWith('oauth_')
+                && !phone.startsWith('google_')
+            if (hasRealPhone) {
                 targetPath = '/dashboard'
             }
         }
