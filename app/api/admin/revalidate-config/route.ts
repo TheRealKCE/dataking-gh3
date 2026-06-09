@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { revalidateTag } from 'next/cache'
 import { PUBLIC_CONFIG_CACHE_TAG } from '@/lib/cache-tags'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { createRouteHandlerClient } from '@/lib/supabase-server'
 import { cookies } from 'next/headers'
 
 export async function POST() {

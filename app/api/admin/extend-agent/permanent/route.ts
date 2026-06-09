@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { createRouteHandlerClient } from '@/lib/supabase-server'
 import { cookies } from 'next/headers'
 import { sendPermanentAgentUpgradeSuccessSMS } from '@/lib/sms-service'
 import { sendPermanentAgentUpgradeSuccessEmail } from '@/lib/email-service'

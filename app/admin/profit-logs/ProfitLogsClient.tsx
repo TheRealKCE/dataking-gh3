@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { createClientComponentClient } from '@supabase/auth-helpers-nextjs'
+import { supabase } from '@/lib/supabase'
 import { formatCurrency, formatDate } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
@@ -20,8 +20,6 @@ type DateFilter = 'All' | 'Today' | 'Yesterday' | 'This Week' | 'This Month'
 type DateRange = { start: string, end: string } | null
 
 export default function ProfitLogsClient() {
-    const supabase = createClientComponentClient()
-
     // Filters
     const [dateFilter, setDateFilter] = useState<DateFilter>('Today')
     const [typeFilter, setTypeFilter] = useState<'All' | 'main' | 'shop'>('All')
@@ -94,7 +92,7 @@ export default function ProfitLogsClient() {
                 .select('id, phone_number')
                 .in('id', mainIds)
             
-            mainOrders?.forEach(o => { mainOrdersMap[o.id] = o })
+            mainOrders?.forEach((o: any) => { mainOrdersMap[o.id] = o })
         }
 
         if (shopIds.length > 0) {
@@ -103,7 +101,7 @@ export default function ProfitLogsClient() {
                 .select('id, shop_name')
                 .in('id', shopIds)
             
-            shopOrders?.forEach(o => { shopOrdersMap[o.id] = o })
+            shopOrders?.forEach((o: any) => { shopOrdersMap[o.id] = o })
         }
 
         return rawLogs.map(log => ({

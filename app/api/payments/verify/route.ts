@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { processCompletedWalletPayment } from '@/lib/payments'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { createRouteHandlerClient } from '@/lib/supabase-server'
 import { cookies } from 'next/headers'
 import { checkPaymentStatus } from '@/lib/moolre-payment-service'
 

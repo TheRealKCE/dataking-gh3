@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { fetchDataGodBalance } from '@/lib/datagod-service'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { createRouteHandlerClient } from '@/lib/supabase-server'
 import { cookies } from 'next/headers'
 
 export async function GET() {

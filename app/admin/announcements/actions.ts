@@ -3,7 +3,7 @@
 import { revalidateTag } from 'next/cache'
 import { PUBLIC_CONFIG_CACHE_TAG } from '@/lib/cache-tags'
 import { cookies } from 'next/headers'
-import { createServerActionClient } from '@supabase/auth-helpers-nextjs'
+import { createServerActionClient } from '@/lib/supabase-server'
 
 export async function revalidatePublicConfig() {
     try {

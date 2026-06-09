@@ -2,7 +2,7 @@ import { Metadata } from 'next'
 import Image from 'next/image'
 import { notFound } from 'next/navigation'
 import { createServerClient } from '@/lib/supabase'
-import { createServerComponentClient } from '@supabase/auth-helpers-nextjs'
+import { createServerComponentClient } from '@/lib/supabase-server'
 import { cookies } from 'next/headers'
 import dynamic from 'next/dynamic'
 
