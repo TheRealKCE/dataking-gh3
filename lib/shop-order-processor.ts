@@ -116,7 +116,10 @@ export async function processShopOrder(
             
             verifiedSellingPrice = actualAirtimeAmount
             verifiedCostPrice = actualAirtimeAmount
-            verifiedProfit = actualAirtimeAmount > 0 ? actualAirtimeAmount * (shopFee / 100) : 0
+            // BUG FIX: Profit should be calculated on originalAmount (the amount the fee % was applied to),
+            // NOT on actualAirtimeAmount (after fee deduction). Using actualAirtimeAmount caused a small
+            // compounding under-credit each transaction.
+            verifiedProfit = originalAmount > 0 ? originalAmount * (shopFee / 100) : 0
             adminCostAtTime = actualAirtimeAmount
         } else {
             // --- Role-Aware Paystack Fee Resolution ---
@@ -159,9 +162,18 @@ export async function processShopOrder(
             const paystackFee = Math.round(dbSellingPrice * (paystackFeePercent / 100) * 100) / 100
             expectedTotalPesewas = Math.round((dbSellingPrice + paystackFee) * 100)
             
-            const isAgentOwner = ownerRole === 'agent' && parseFloat(pkg?.agent_price) > 0
+            // BUG FIX: Original code only checked for 'agent', completely ignoring 'dealer'.
+            // Dealers were falling through to the standard customer price, losing their tier discount.
+            const isDealerOwner = ownerRole === 'dealer' && parseFloat(pkg?.dealer_price) > 0
+            const isAgentOwner  = ownerRole === 'agent'  && parseFloat(pkg?.agent_price)  > 0
             verifiedSellingPrice = dbSellingPrice
-            verifiedCostPrice = isAgentOwner ? parseFloat(pkg?.agent_price) : (parseFloat(pkg?.price) || 0)
+            if (isDealerOwner) {
+                verifiedCostPrice = parseFloat(pkg?.dealer_price)
+            } else if (isAgentOwner) {
+                verifiedCostPrice = parseFloat(pkg?.agent_price)
+            } else {
+                verifiedCostPrice = parseFloat(pkg?.price) || 0
+            }
             verifiedProfit = dbSellingPrice - verifiedCostPrice
             adminCostAtTime = parseFloat(pkg?.cost_price) || 0
         }
