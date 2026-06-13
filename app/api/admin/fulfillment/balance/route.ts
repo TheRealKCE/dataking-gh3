@@ -1,4 +1,4 @@
-﻿import { NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@/lib/supabase-server'
 import { cookies } from 'next/headers'
 import { fetchSupplierBalance } from '@/lib/fulfillment-service'
@@ -39,21 +39,25 @@ export async function GET() {
                 codecraft_currency: (balanceCache as any).codecraft_currency,
                 kingflexy_balance: (balanceCache as any).kingflexy_balance,
                 kingflexy_currency: (balanceCache as any).kingflexy_currency,
+                eazydata_balance: (balanceCache as any).eazydata_balance,
+                eazydata_currency: (balanceCache as any).eazydata_currency,
                 cached: true
             })
         }
 
-        // 4. Fetch balances from all three suppliers in parallel
+        // 4. Fetch balances from all four suppliers in parallel
         const { fetchSupplierBalance: fetchCodeCraftBalance } = await import('@/lib/codecraft-service')
         const { fetchSupplierBalance: fetchKingFlexyBalance } = await import('@/lib/kingflexy-service')
+        const { fetchSupplierBalance: fetchEazyDataBalance } = await import('@/lib/eazydata-service')
 
-        const [dakazinaResult, codecraftResult, kingflexyResult] = await Promise.all([
+        const [dakazinaResult, codecraftResult, kingflexyResult, eazydataResult] = await Promise.all([
             fetchSupplierBalance(),
             fetchCodeCraftBalance(),
-            fetchKingFlexyBalance()
+            fetchKingFlexyBalance(),
+            fetchEazyDataBalance()
         ])
 
-        if (!dakazinaResult.success && !codecraftResult.success && !kingflexyResult.success) {
+        if (!dakazinaResult.success && !codecraftResult.success && !kingflexyResult.success && !eazydataResult.success) {
             return NextResponse.json({ error: 'Failed to fetch balances from all suppliers' }, { status: 500 })
         }
 
@@ -65,6 +69,8 @@ export async function GET() {
             codecraft_currency: codecraftResult.currency || 'GHS',
             kingflexy_balance: kingflexyResult.balance || 0,
             kingflexy_currency: kingflexyResult.currency || 'GHS',
+            eazydata_balance: eazydataResult.balance || 0,
+            eazydata_currency: eazydataResult.currency || 'GHS',
             timestamp: now
         } as any
 
@@ -75,6 +81,8 @@ export async function GET() {
             codecraft_currency: codecraftResult.currency || 'GHS',
             kingflexy_balance: kingflexyResult.balance || 0,
             kingflexy_currency: kingflexyResult.currency || 'GHS',
+            eazydata_balance: eazydataResult.balance || 0,
+            eazydata_currency: eazydataResult.currency || 'GHS',
             cached: false
         })
 

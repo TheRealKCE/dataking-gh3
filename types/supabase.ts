@@ -202,6 +202,7 @@ export interface Database {
                     reference_code: string
                     fulfillment_method: 'auto' | 'manual'
                     codecraft_reference: string | null
+                    eazydata_reference: string | null
                     error_message: string | null
                     download_batch_id: string | null
                     shop_order_id: string | null
@@ -220,6 +221,7 @@ export interface Database {
                     reference_code: string
                     fulfillment_method?: 'auto' | 'manual'
                     codecraft_reference?: string | null
+                    eazydata_reference?: string | null
                     error_message?: string | null
                     download_batch_id?: string | null
                     shop_order_id?: string | null
@@ -230,6 +232,7 @@ export interface Database {
                     status?: 'pending' | 'processing' | 'completed' | 'failed'
                     payment_status?: 'paid' | 'refunded'
                     codecraft_reference?: string | null
+                    eazydata_reference?: string | null
                     error_message?: string | null
                     download_batch_id?: string | null
                     shop_order_id?: string | null
