@@ -58,6 +58,7 @@ interface FulfillmentSettings {
     networks: Record<string, boolean>
     codecraft_networks: Record<string, boolean>
     kingflexy_networks: Record<string, boolean>
+    eazydata_networks: Record<string, boolean>
 }
 
 const NETWORKS = ['MTN', 'Telecel', 'AT-iShare', 'AT-BigTime']
@@ -88,7 +89,8 @@ export default function FulfillmentPage() {
         is_global_enabled: true,
         networks: NETWORKS.reduce((acc, n) => ({ ...acc, [n]: false }), {}),
         codecraft_networks: NETWORKS.reduce((acc, n) => ({ ...acc, [n]: false }), {}),
-        kingflexy_networks: NETWORKS.reduce((acc, n) => ({ ...acc, [n]: false }), {})
+        kingflexy_networks: NETWORKS.reduce((acc, n) => ({ ...acc, [n]: false }), {}),
+        eazydata_networks: NETWORKS.reduce((acc, n) => ({ ...acc, [n]: false }), {})
     })
     const [isSavingSettings, setIsSavingSettings] = useState(false)
 
@@ -96,6 +98,7 @@ export default function FulfillmentPage() {
     const [balance, setBalance] = useState<{ amount: number; currency: string } | null>(null)
     const [codecraftBalance, setCodecraftBalance] = useState<{ amount: number; currency: string } | null>(null)
     const [kingflexyBalance, setKingflexyBalance] = useState<{ amount: number; currency: string } | null>(null)
+    const [eazydataBalance, setEazydataBalance] = useState<{ amount: number; currency: string } | null>(null)
     const [isLoadingBalance, setIsLoadingBalance] = useState(false)
 
     // Sync CodeCraft Status state
@@ -109,6 +112,10 @@ export default function FulfillmentPage() {
     // Sync KingFlexy Status state
     const [isSyncingKingFlexy, setIsSyncingKingFlexy] = useState(false)
     const [kingflexySyncCooldown, setKingflexySyncCooldown] = useState(false)
+
+    // Sync EazyData Status state
+    const [isSyncingEazyData, setIsSyncingEazyData] = useState(false)
+    const [eazydataSyncCooldown, setEazydataSyncCooldown] = useState(false)
 
     // Cron Settings state
     const [cronRefulfillEnabled, setCronRefulfillEnabled] = useState(false)
@@ -186,6 +193,7 @@ export default function FulfillmentPage() {
             const dbNetworks: Record<string, boolean> = dbFulfillmentSettings.networks || {}
             const dbCodecraftNetworks: Record<string, boolean> = dbFulfillmentSettings.codecraft_networks || {}
             const dbKingflexyNetworks: Record<string, boolean> = dbFulfillmentSettings.kingflexy_networks || {}
+            const dbEazydataNetworks: Record<string, boolean> = dbFulfillmentSettings.eazydata_networks || {}
 
             setSettings({
                 is_global_enabled: String(map.auto_fulfillment_enabled) !== 'false',
@@ -200,6 +208,10 @@ export default function FulfillmentPage() {
                 kingflexy_networks: NETWORKS.reduce((acc, n) => ({
                     ...acc,
                     [n]: dbKingflexyNetworks[n] === true
+                }), {} as Record<string, boolean>),
+                eazydata_networks: NETWORKS.reduce((acc, n) => ({
+                    ...acc,
+                    [n]: dbEazydataNetworks[n] === true
                 }), {} as Record<string, boolean>)
             })
 
@@ -239,7 +251,7 @@ export default function FulfillmentPage() {
         try {
             const updates = [
                 { key: 'auto_fulfillment_enabled', value: String(newSettings.is_global_enabled) },
-                { key: 'fulfillment_settings', value: JSON.stringify({ networks: newSettings.networks, codecraft_networks: newSettings.codecraft_networks, kingflexy_networks: newSettings.kingflexy_networks }) }
+                { key: 'fulfillment_settings', value: JSON.stringify({ networks: newSettings.networks, codecraft_networks: newSettings.codecraft_networks, kingflexy_networks: newSettings.kingflexy_networks, eazydata_networks: newSettings.eazydata_networks }) }
             ]
 
             const { error } = await (supabase
@@ -256,7 +268,7 @@ export default function FulfillmentPage() {
         }
     }
 
-    const toggleNetwork = (network: string, provider: 'datakazina' | 'codecraft' | 'kingflexy') => {
+    const toggleNetwork = (network: string, provider: 'datakazina' | 'codecraft' | 'kingflexy' | 'eazydata') => {
         const newSettings = { ...settings }
         if (provider === 'datakazina') {
             const isCurrentlyEnabled = settings.networks[network]
@@ -264,6 +276,7 @@ export default function FulfillmentPage() {
             if (!isCurrentlyEnabled) {
                 newSettings.codecraft_networks = { ...settings.codecraft_networks, [network]: false }
                 newSettings.kingflexy_networks = { ...settings.kingflexy_networks, [network]: false }
+                newSettings.eazydata_networks = { ...settings.eazydata_networks, [network]: false }
             }
         } else if (provider === 'codecraft') {
             const isCurrentlyEnabled = settings.codecraft_networks[network]
@@ -271,13 +284,23 @@ export default function FulfillmentPage() {
             if (!isCurrentlyEnabled) {
                 newSettings.networks = { ...settings.networks, [network]: false }
                 newSettings.kingflexy_networks = { ...settings.kingflexy_networks, [network]: false }
+                newSettings.eazydata_networks = { ...settings.eazydata_networks, [network]: false }
             }
-        } else {
+        } else if (provider === 'kingflexy') {
             const isCurrentlyEnabled = settings.kingflexy_networks[network]
             newSettings.kingflexy_networks = { ...settings.kingflexy_networks, [network]: !isCurrentlyEnabled }
             if (!isCurrentlyEnabled) {
                 newSettings.networks = { ...settings.networks, [network]: false }
                 newSettings.codecraft_networks = { ...settings.codecraft_networks, [network]: false }
+                newSettings.eazydata_networks = { ...settings.eazydata_networks, [network]: false }
+            }
+        } else {
+            const isCurrentlyEnabled = settings.eazydata_networks[network]
+            newSettings.eazydata_networks = { ...settings.eazydata_networks, [network]: !isCurrentlyEnabled }
+            if (!isCurrentlyEnabled) {
+                newSettings.networks = { ...settings.networks, [network]: false }
+                newSettings.codecraft_networks = { ...settings.codecraft_networks, [network]: false }
+                newSettings.kingflexy_networks = { ...settings.kingflexy_networks, [network]: false }
             }
         }
         saveSettings(newSettings)
@@ -382,6 +405,9 @@ export default function FulfillmentPage() {
             if (data.kingflexy_currency !== undefined) {
                 setKingflexyBalance({ amount: data.kingflexy_balance, currency: data.kingflexy_currency })
             }
+            if (data.eazydata_currency !== undefined) {
+                setEazydataBalance({ amount: data.eazydata_balance, currency: data.eazydata_currency })
+            }
         } catch (error: any) {
             console.error('Balance fetch error:', error)
             toast.error('Failed to fetch supplier balance')
@@ -410,6 +436,29 @@ export default function FulfillmentPage() {
             setIsSyncingKingFlexy(false)
             setKingflexySyncCooldown(true)
             setTimeout(() => setKingflexySyncCooldown(false), 30000)
+        }
+    }
+
+    const handleSyncEazyData = async () => {
+        if (isSyncingEazyData || eazydataSyncCooldown) return
+        setIsSyncingEazyData(true)
+        try {
+            const response = await fetch('/api/admin/fulfillment/sync-eazydata', {
+                method: 'POST',
+            })
+            const result = await response.json()
+            if (!response.ok) {
+                toast.error('Sync failed: ' + (result.error || 'Unknown error'))
+            } else {
+                toast.success(`${result.checked} checked, ${result.updated} updated, ${result.failed} failed`)
+                await fetchOrders(true)
+            }
+        } catch (err: any) {
+            toast.error('Sync error: ' + err.message)
+        } finally {
+            setIsSyncingEazyData(false)
+            setEazydataSyncCooldown(true)
+            setTimeout(() => setEazydataSyncCooldown(false), 30000)
         }
     }
 
@@ -682,6 +731,34 @@ export default function FulfillmentPage() {
                         </Button>
                     </CardContent>
                 </Card>
+
+                <Card className="bg-gradient-to-br from-rose-700 to-pink-900 text-white border-none shadow-lg">
+                    <CardContent className="p-4 md:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                            <div className="bg-white/20 p-2.5 rounded-lg">
+                                <RefreshCw className="w-5 h-5 md:w-6 md:h-6" />
+                            </div>
+                            <div>
+                                <p className="text-[10px] md:text-xs font-bold uppercase tracking-wider opacity-90">Eazy Data Status Sync</p>
+                                <p className="text-xs text-white/70 mt-0.5">Updates processing Eazy Data orders to completed or failed</p>
+                            </div>
+                        </div>
+                        <Button
+                            onClick={handleSyncEazyData}
+                            disabled={isSyncingEazyData || eazydataSyncCooldown}
+                            variant="secondary"
+                            size="sm"
+                            className="bg-white/20 hover:bg-white/30 text-white border-white/30 disabled:opacity-50"
+                        >
+                            {isSyncingEazyData
+                                ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Syncing...</>
+                                : eazydataSyncCooldown
+                                    ? <><RefreshCw className="w-4 h-4 mr-2" />Cooling down...</>
+                                    : <><RefreshCw className="w-4 h-4 mr-2" />Sync Eazy Data Status</>
+                            }
+                        </Button>
+                    </CardContent>
+                </Card>
             </div>
 
             {/* Network Connections — Mutex Toggle System */}
@@ -793,6 +870,44 @@ export default function FulfillmentPage() {
                                         <div className={`w-1.5 h-1.5 rounded-full ${settings.kingflexy_networks[net] ? 'bg-violet-500' : 'bg-gray-300'}`} />
                                         <span className="font-bold text-violet-600 dark:text-violet-400">KingFlexyGH</span>
                                         {settings.kingflexy_networks[net] && <span className="text-violet-500 font-semibold">· Active</span>}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Eazy Data Row */}
+                <div>
+                    <div className="flex items-center gap-2 mb-2">
+                        <Server className="w-3.5 h-3.5 text-rose-500" />
+                        <span className="text-xs font-bold uppercase tracking-wide text-rose-700 dark:text-rose-400">Eazy Data Networks</span>
+                        <span className="text-[10px] text-muted-foreground">(enabling a network here auto-disables others for same network)</span>
+                    </div>
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+                        {NETWORKS.map(net => (
+                            <Card key={`eazydata-${net}`} className={`border-l-4 transition-colors ${settings.eazydata_networks[net] ? 'border-l-rose-500' : 'border-l-gray-300 dark:border-l-gray-600'}`}>
+                                <CardContent className="p-3 md:p-4">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <div className="flex items-center gap-2">
+                                            <Activity className={`w-3.5 h-3.5 ${settings.eazydata_networks[net] ? 'text-rose-500' : 'text-gray-400'}`} />
+                                            <span className="font-semibold text-xs md:text-sm">{net}</span>
+                                        </div>
+                                        <Button
+                                            id={`ed-toggle-${net}`}
+                                            variant={settings.eazydata_networks[net] ? 'outline' : 'default'}
+                                            size="sm"
+                                            className={`h-6 text-[10px] md:text-xs px-2 ${settings.eazydata_networks[net] ? 'border-rose-500 text-rose-600' : ''}`}
+                                            onClick={() => toggleNetwork(net, 'eazydata')}
+                                            disabled={isSavingSettings}
+                                        >
+                                            {settings.eazydata_networks[net] ? 'Disconnect' : 'Connect'}
+                                        </Button>
+                                    </div>
+                                    <div className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                        <div className={`w-1.5 h-1.5 rounded-full ${settings.eazydata_networks[net] ? 'bg-rose-500' : 'bg-gray-300'}`} />
+                                        <span className="font-bold text-rose-600 dark:text-rose-400">Eazy Data</span>
+                                        {settings.eazydata_networks[net] && <span className="text-rose-500 font-semibold">· Active</span>}
                                     </div>
                                 </CardContent>
                             </Card>
