@@ -648,6 +648,34 @@ export default function FulfillmentPage() {
                     </CardContent>
                 </Card>
 
+                <Card className="bg-gradient-to-br from-rose-600 to-pink-800 text-white border-none shadow-lg">
+                    <CardContent className="p-4 md:p-5">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div className="flex items-center gap-3">
+                                <div className="bg-white/20 p-2.5 rounded-lg">
+                                    <Server className="w-5 h-5 md:w-6 md:h-6" />
+                                </div>
+                                <div>
+                                    <p className="text-[10px] md:text-xs font-bold uppercase tracking-wider opacity-90">Eazy Data Balance</p>
+                                    <p className="text-2xl md:text-3xl font-black">
+                                        {eazydataBalance ? `${eazydataBalance.currency} ${eazydataBalance.amount.toFixed(2)}` : (isLoadingBalance ? 'Loading...' : 'GHS 0.00')}
+                                    </p>
+                                </div>
+                            </div>
+                            <Button
+                                onClick={fetchBalance}
+                                disabled={isLoadingBalance}
+                                variant="secondary"
+                                size="sm"
+                                className="bg-white/20 hover:bg-white/30 text-white border-white/30"
+                            >
+                                <RefreshCw className={`w-4 h-4 mr-2 ${isLoadingBalance ? 'animate-spin' : ''}`} />
+                                Refresh
+                            </Button>
+                        </div>
+                    </CardContent>
+                </Card>
+
                 <Card className="bg-gradient-to-br from-blue-700 to-indigo-800 text-white border-none shadow-lg">
                     <CardContent className="p-4 md:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div className="flex items-center gap-3">
