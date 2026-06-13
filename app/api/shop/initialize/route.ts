@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { createRouteHandlerClient } from '@/lib/supabase-server'
 import { Redis } from '@upstash/redis'
 import { initiatePayment, MOOLRE_PAYMENT_CHANNEL_MAP } from '@/lib/moolre-payment-service'
 
@@ -197,7 +197,11 @@ export async function POST(request: NextRequest) {
             }
             const hasTierPrice = ownerIsAgentTier && tierPrice > 0
             costPrice = hasTierPrice ? tierPrice : (parseFloat(pkg.price) || 0)
-            profit = hasTierPrice ? sellingPrice - costPrice : sellingPrice
+            // BUG FIX: Previous code set profit = sellingPrice for customer-tier owners,
+            // meaning the metadata stored in Redis was massively inflated (full price, not margin).
+            // The secure processor recalculated it correctly, but this caused logging/display bugs.
+            // Now profit is always sellingPrice - costPrice, which is correct for ALL roles.
+            profit = sellingPrice - costPrice
 
             if (sellingPrice <= 0) {
                 return NextResponse.json({ error: 'Invalid pricing configuration' }, { status: 400 })

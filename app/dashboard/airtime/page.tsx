@@ -134,21 +134,16 @@ function SuccessModal({ order, onClose, onBuyMore }: { order: AirtimeOrder | nul
                         <CheckCircle className="w-8 h-8 text-emerald-500" />
                     </div>
                     <h2 className="text-xl font-bold text-slate-900 mb-0.5">
-                        {order.type === 'mashup' ? 'Mashup Order Placed! 🎯' : 'Order Placed!'}
+                        Order Placed!
                     </h2>
                     <p className="text-slate-500 text-[13px] mb-4">
-                        {order.type === 'mashup'
-                            ? 'Your MTN Bundle request is pending — admin will fulfil via My MTN App'
-                            : 'Your airtime is being processed'}
+                        Your airtime is being processed
                     </p>
 
                     <div className="bg-slate-50 rounded-2xl p-4 mb-4 text-left space-y-2.5">
                         <div className="flex justify-between text-sm"><span className="text-slate-500">Network</span><span className="font-semibold text-slate-900">{order.network}</span></div>
                         <div className="flex justify-between text-sm"><span className="text-slate-500">Recipient</span><span className="font-semibold text-slate-900">{order.beneficiary_phone}</span></div>
-                        {order.type === 'mashup' && order.bundle_preference && (
-                            <div className="flex justify-between text-sm"><span className="text-slate-500">Preference</span><span className="font-semibold text-amber-600 capitalize">{order.bundle_preference === 'data' ? 'Data Focus 📊' : order.bundle_preference === 'voice' ? 'Voice Focus 🎙️' : 'Balanced ⚖️'}</span></div>
-                        )}
-                        <div className="flex justify-between text-sm"><span className="text-slate-500">{order.type === 'mashup' ? 'Bundle Value' : 'Airtime'}</span><span className="font-semibold text-emerald-600">GHS {order.airtime_amount.toFixed(2)}</span></div>
+                        <div className="flex justify-between text-sm"><span className="text-slate-500">Airtime</span><span className="font-semibold text-emerald-600">GHS {order.airtime_amount.toFixed(2)}</span></div>
                         <div className="flex justify-between text-sm border-t border-slate-200 pt-2.5 mt-1"><span className="text-slate-500 font-medium">You Paid</span><span className="font-bold text-slate-900">GHS {order.total_paid.toFixed(2)}</span></div>
                     </div>
 
@@ -161,9 +156,7 @@ function SuccessModal({ order, onClose, onBuyMore }: { order: AirtimeOrder | nul
                     </button>
 
                     <p className="text-xs text-slate-400 mb-5 font-medium leading-tight">
-                        {order.type === 'mashup'
-                            ? 'Admin will buy the bundle via My MTN App and credit your number shortly.'
-                            : 'The network provider will send a confirmation SMS once credited.'}
+                        The network provider will send a confirmation SMS once credited.
                     </p>
 
                     <div className="flex gap-3">
@@ -181,7 +174,7 @@ function SuccessModal({ order, onClose, onBuyMore }: { order: AirtimeOrder | nul
 // ─── Confirm Sheet ─────────────────────────────────────────────────────────────
 function ConfirmSheet({ open, onCancel, onConfirm, isLoading, details }: {
     open: boolean; onCancel: () => void; onConfirm: () => void; isLoading: boolean
-    details: { network: string; phone: string; airtime: number; fee: number; total: number; mode: boolean; orderType?: 'airtime' | 'mashup'; preference?: string }
+    details: { network: string; phone: string; airtime: number; fee: number; total: number; mode: boolean }
 }) {
     if (!open) return null
     return (
@@ -194,10 +187,7 @@ function ConfirmSheet({ open, onCancel, onConfirm, isLoading, details }: {
                     <div className="space-y-2.5 mb-6">
                         <div className="flex justify-between text-sm"><span className="text-slate-500">Network</span><span className="font-semibold">{details.network}</span></div>
                         <div className="flex justify-between text-sm"><span className="text-slate-500">Recipient</span><span className="font-semibold">{details.phone}</span></div>
-                        {details.orderType === 'mashup' && details.preference && (
-                            <div className="flex justify-between text-sm"><span className="text-slate-500">Bundle Pref</span><span className="font-semibold text-amber-600 capitalize">{details.preference === 'data' ? 'Data Focus' : details.preference === 'voice' ? 'Voice Focus' : 'Balanced'}</span></div>
-                        )}
-                        <div className="flex justify-between text-sm"><span className="text-slate-500">{details.orderType === 'mashup' ? 'Bundle Value' : 'Airtime to send'}</span><span className="font-semibold text-emerald-600">GHS {details.airtime.toFixed(2)}</span></div>
+                        <div className="flex justify-between text-sm"><span className="text-slate-500">Airtime to send</span><span className="font-semibold text-emerald-600">GHS {details.airtime.toFixed(2)}</span></div>
                         <div className="flex justify-between text-sm"><span className="text-slate-500">Service fee</span><span className="font-semibold">GHS {details.fee.toFixed(2)}</span></div>
                         <div className="flex justify-between text-sm border-t border-slate-100 pt-2.5 mt-1">
                             <span className="font-bold text-slate-800">Total to Pay</span>
@@ -220,28 +210,6 @@ function ConfirmSheet({ open, onCancel, onConfirm, isLoading, details }: {
     )
 }
 
-// ─── Hybrid Bundle Estimation Engine ────────────────────────────────────────
-const SKEW = {
-    balanced: { data: 1.00, voice: 1.00 },
-    data:     { data: 1.25, voice: 0.60 },
-    voice:    { data: 0.60, voice: 1.40 },
-}
-const TIERS = [
-    { amount: 1,  dataMB: 10,  voiceMin: 9  },
-    { amount: 2,  dataMB: 20,  voiceMin: 18 },
-    { amount: 5,  dataMB: 75,  voiceMin: 72 },
-]
-type BundleEst = { mode: 'exact'; dataMB: number; voiceMin: number } | { mode: 'estimate'; dataLowMB: number; dataHighMB: number; voiceLowMin: number; voiceHighMin: number }
-function estimateMashupBundle(amount: number, pref: 'balanced' | 'data' | 'voice'): BundleEst {
-    const skew = SKEW[pref]
-    if (amount >= 10) {
-        return { mode: 'exact', dataMB: Math.round(amount * 18 * skew.data), voiceMin: Math.round(amount * 17.3 * skew.voice) }
-    }
-    const lower = [...TIERS].reverse().find(t => t.amount <= amount) || TIERS[0]
-    const upper = TIERS.find(t => t.amount >= amount) || TIERS[TIERS.length - 1]
-    return { mode: 'estimate', dataLowMB: lower.dataMB, dataHighMB: upper.dataMB, voiceLowMin: lower.voiceMin, voiceHighMin: upper.voiceMin }
-}
-
 // ─── Main Page ────────────────────────────────────────────────────────────────
 function AirtimePageInner() {
     const { dbUser } = useAuth()
@@ -260,23 +228,11 @@ function AirtimePageInner() {
     const [phone, setPhone] = useState('')
     const [amount, setAmount] = useState('')
     const [useExact, setUseExact] = useState(false)
-    const [mode, setMode] = useState<'airtime' | 'mashup'>('airtime')
-    const [bundlePreference, setBundlePreference] = useState<'balanced' | 'data' | 'voice'>('balanced')
 
     // UI state
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [showConfirm, setShowConfirm] = useState(false)
     const [successOrder, setSuccessOrder] = useState<AirtimeOrder | null>(null)
-
-    // Handle query params
-    useEffect(() => {
-        const modeParam = searchParams.get('mode')
-        if (modeParam === 'mashup') {
-            setMode('mashup')
-            setSelectedNetwork('MTN')
-            setIsManualSelection(true)
-        }
-    }, [searchParams])
 
     // History & Filtering
     const [orders, setOrders] = useState<AirtimeOrder[]>([])
@@ -408,8 +364,7 @@ function AirtimePageInner() {
                     network: selectedNetwork,
                     amount: parsedAmount,
                     useExactAmount: useExact,
-                    type: mode,
-                    bundlePreference: mode === 'mashup' ? bundlePreference : undefined,
+                    type: 'airtime',
                 }),
             })
             const data = await res.json()
@@ -534,22 +489,8 @@ function AirtimePageInner() {
             {/* ── BUY TAB ─────────────────────────────────────────────────────────── */}
             {activeTab === 'buy' && (
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                    {/* Mode Toggle */}
-                    <div className="flex bg-slate-100 dark:bg-slate-800 rounded-xl p-1 gap-1">
-                        <button onClick={() => setMode('airtime')} className={cn('flex-1 py-2.5 rounded-lg text-sm font-black transition-all flex items-center justify-center gap-2', mode === 'airtime' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300')}>
-                            <Phone className="w-4 h-4" /> Airtime
-                        </button>
-                        <button onClick={() => { setMode('mashup'); setSelectedNetwork('MTN'); setIsManualSelection(true) }} className={cn('flex-1 py-2.5 rounded-lg text-sm font-black transition-all flex items-center justify-center gap-2', mode === 'mashup' ? 'bg-amber-500 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300')}>
-                            🎯 Mashup
-                        </button>
-                    </div>
-                    {mode === 'mashup' && (
-                        <div className="rounded-2xl bg-amber-50 dark:bg-amber-950/10 border border-amber-200 dark:border-amber-800 px-4 py-3">
-                            <p className="text-xs font-bold text-amber-700 dark:text-amber-400">🎯 <strong>MTN Mashup:</strong> Estimates shown below. Admin fulfils via My MTN App after payment.</p>
-                        </div>
-                    )}
                     <div>
-                        <Label className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-3 block">{mode === 'mashup' ? 'Network (MTN Only 🔒)' : 'Select Network'}</Label>
+                        <Label className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-3 block">Select Network</Label>
                         <div className="grid grid-cols-3 gap-3">
                             {NETWORKS.map(net => {
                                 const enabledKey = `enabled_${net.id.toLowerCase()}` as keyof AirtimeSettings
@@ -559,7 +500,7 @@ function AirtimePageInner() {
                                     <button
                                         key={net.id}
                                         onClick={() => { setSelectedNetwork(net.id); setIsManualSelection(true) }}
-                                        disabled={!isEnabled || (mode === 'mashup' && net.id !== 'MTN')}
+                                        disabled={!isEnabled}
                                         className={cn(
                                             'relative flex flex-col items-center gap-2.5 p-4 rounded-2xl border-2 transition-all duration-200 font-bold text-sm',
                                             isSelected
@@ -580,21 +521,6 @@ function AirtimePageInner() {
                         </div>
                     </div>
 
-                    {/* Bundle Preference — Mashup only */}
-                    {mode === 'mashup' && (
-                        <div>
-                            <Label className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-3 block">Bundle Preference</Label>
-                            <div className="grid grid-cols-3 gap-3">
-                                {([{ id: 'balanced' as const, label: 'Balanced', icon: '⚖️', desc: 'Data & Voice' }, { id: 'data' as const, label: 'Data Focus', icon: '📊', desc: '+25% Data' }, { id: 'voice' as const, label: 'Voice Focus', icon: '🎙️', desc: '+40% Voice' }]).map(pref => (
-                                    <button key={pref.id} onClick={() => setBundlePreference(pref.id)} className={cn('flex flex-col items-center gap-1.5 p-3.5 rounded-2xl border-2 transition-all', bundlePreference === pref.id ? 'bg-amber-50 border-amber-400 shadow-md dark:bg-amber-950/20 dark:border-amber-600' : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 hover:border-amber-200')}>
-                                        <span className="text-xl">{pref.icon}</span>
-                                        <span className={cn('text-xs font-black', bundlePreference === pref.id ? 'text-amber-700 dark:text-amber-400' : 'text-slate-600 dark:text-slate-400')}>{pref.label}</span>
-                                        <span className="text-[9px] text-slate-400 font-semibold">{pref.desc}</span>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    )}
                     <div>
                         <Label htmlFor="beneficiary-phone" className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-2 block">
                             Beneficiary Phone Number
@@ -668,30 +594,6 @@ function AirtimePageInner() {
                             />
                         </div>
                     </div>
-
-                    {/* Mashup Bundle Estimator */}
-                    {mode === 'mashup' && parsedAmount > 0 && selectedNetwork === 'MTN' && (() => {
-                        const est = estimateMashupBundle(parsedAmount, bundlePreference)
-                        return (
-                            <div className="rounded-2xl border-2 border-amber-200 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-950/10 overflow-hidden">
-                                <div className="px-4 py-3 bg-amber-100/60 dark:bg-amber-900/20 border-b border-amber-200 dark:border-amber-800 flex items-center justify-between">
-                                    <p className="text-sm font-black text-amber-800 dark:text-amber-400">🎯 Estimated Bundle</p>
-                                    <span className={cn('text-[9px] font-black px-2 py-1 rounded-full uppercase tracking-wider', est.mode === 'exact' ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400' : 'bg-amber-100 text-amber-700 dark:bg-amber-950/30 dark:text-amber-400')}>{est.mode === 'exact' ? '✓ Exact' : '~ Estimate'}</span>
-                                </div>
-                                <div className="p-4 grid grid-cols-2 gap-3">
-                                    <div className="bg-white dark:bg-slate-800 rounded-xl p-3 border border-amber-100 dark:border-slate-700 text-center">
-                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">📊 Data</p>
-                                        <p className="text-sm font-black text-slate-900 dark:text-white">{est.mode === 'exact' ? (est.dataMB >= 1024 ? `${(est.dataMB/1024).toFixed(1)} GB` : `${est.dataMB} MB`) : `${est.dataLowMB}–${est.dataHighMB} MB`}</p>
-                                    </div>
-                                    <div className="bg-white dark:bg-slate-800 rounded-xl p-3 border border-amber-100 dark:border-slate-700 text-center">
-                                        <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">🎙️ Voice</p>
-                                        <p className="text-sm font-black text-slate-900 dark:text-white">{est.mode === 'exact' ? `${est.voiceMin} Mins` : `${est.voiceLowMin}–${est.voiceHighMin} Mins`}</p>
-                                    </div>
-                                </div>
-                                <p className="text-[10px] text-slate-400 font-bold px-4 pb-3 leading-tight">{est.mode === 'exact' ? 'Estimated values — actual bundle may vary slightly.' : "Range estimate — actual bundle depends on MTN's current rates."}</p>
-                            </div>
-                        )
-                    })()}
 
                     <div 
                         onClick={() => setUseExact(!useExact)}
@@ -875,11 +777,8 @@ function AirtimePageInner() {
                                             </div>
                                             <div>
                                                 <div className="flex items-center gap-2 mb-0.5">
-                                                    <span className="font-black text-slate-900 dark:text-white uppercase tracking-tight">{order.network} {order.type === 'mashup' ? 'Mashup' : 'Airtime'}</span>
+                                                    <span className="font-black text-slate-900 dark:text-white uppercase tracking-tight">{order.network} Airtime</span>
                                                     <StatusBadge status={order.status} />
-                                                    {order.type === 'mashup' && (
-                                                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-black bg-amber-100 text-amber-700 border border-amber-200 dark:bg-amber-950/30 dark:text-amber-400 dark:border-amber-800">🎯 Mashup</span>
-                                                    )}
                                                 </div>
                                                 <div className="flex items-center gap-1.5 text-slate-500 text-sm font-bold">
                                                     <Phone className="w-3.5 h-3.5" />
@@ -942,7 +841,7 @@ function AirtimePageInner() {
                 onCancel={() => setShowConfirm(false)}
                 onConfirm={handleSubmit}
                 isLoading={isSubmitting}
-                details={{ network: selectedNetwork || '', phone, airtime: airtimeAmount, fee: feeAmount, total: totalPaid, mode: useExact, orderType: mode, preference: mode === 'mashup' ? bundlePreference : undefined }}
+                details={{ network: selectedNetwork || '', phone, airtime: parsedAmount, fee: feeAmount, total: totalPaid, mode: useExact }}
             />
             <SuccessModal order={successOrder} onClose={handleSuccessClose} onBuyMore={handleBuyMore} />
 

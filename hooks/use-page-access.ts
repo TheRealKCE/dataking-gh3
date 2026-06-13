@@ -46,7 +46,10 @@ export function usePageAccess() {
 
     const fetchPageAccess = async () => {
         try {
-            const response = await fetch('/api/settings/page-access')
+            const controller = new AbortController()
+            const timeoutId = setTimeout(() => controller.abort(), 5000)
+            const response = await fetch('/api/settings/page-access', { signal: controller.signal })
+            clearTimeout(timeoutId)
             if (!response.ok) throw new Error('Failed to fetch settings')
             const settingsMap = await response.json()
 

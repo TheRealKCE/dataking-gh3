@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { generateReferenceCode } from '@/lib/utils'
-import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs'
+import { createRouteHandlerClient } from '@/lib/supabase-server'
 import { cookies } from 'next/headers'
 import { sendAirtimeBeneficiarySMS, sendAdminAirtimeAlertSMS } from '@/lib/sms-service'
 import { sendAdminAirtimeOrderEmail } from '@/lib/email-service'
