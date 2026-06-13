@@ -88,7 +88,8 @@ export async function processShopOrder(
         if (metadata.order_type === 'airtime') {
             const { data: settingsRows } = await db.from('admin_settings').select('key, value').in('key', [
                 `airtime_fee_${metadata.network.toLowerCase()}_customer`, 
-                `airtime_fee_${metadata.network.toLowerCase()}_agent`
+                `airtime_fee_${metadata.network.toLowerCase()}_agent`,
+                `airtime_fee_${metadata.network.toLowerCase()}_dealer`
             ])
             const settingsMap = (settingsRows || []).reduce((acc: any, curr: any) => ({ ...acc, [curr.key]: curr.value }), {})
             
@@ -153,7 +154,7 @@ export async function processShopOrder(
             }
             // else: keep hardcoded default 1.95
 
-            const { data: pkg } = await db.from('data_packages').select('price, agent_price, cost_price').eq('id', metadata.package_id).single()
+            const { data: pkg } = await db.from('data_packages').select('price, agent_price, dealer_price, cost_price').eq('id', metadata.package_id).single()
             const { data: shopPrice } = await db.from('shop_pricing').select('selling_price').eq('shop_id', metadata.shop_id).eq('package_id', metadata.package_id).single()
 
             if (!shopPrice || !pkg) return { success: false, error: 'Price configuration missing' }
@@ -167,6 +168,7 @@ export async function processShopOrder(
             const isDealerOwner = ownerRole === 'dealer' && parseFloat(pkg?.dealer_price) > 0
             const isAgentOwner  = ownerRole === 'agent'  && parseFloat(pkg?.agent_price)  > 0
             verifiedSellingPrice = dbSellingPrice
+
             if (isDealerOwner) {
                 verifiedCostPrice = parseFloat(pkg?.dealer_price)
             } else if (isAgentOwner) {
@@ -445,7 +447,8 @@ async function triggerShopFulfillment(
             networks: Record<string, boolean>
             codecraft_networks: Record<string, boolean>
             kingflexy_networks: Record<string, boolean>
-        } = { networks: {}, codecraft_networks: {}, kingflexy_networks: {} }
+            eazydata_networks: Record<string, boolean>
+        } = { networks: {}, codecraft_networks: {}, kingflexy_networks: {}, eazydata_networks: {} }
 
         try {
             if (settingsMap.fulfillment_settings) {
@@ -455,15 +458,17 @@ async function triggerShopFulfillment(
                 fulfillmentSettings.networks = parsed.networks || {}
                 fulfillmentSettings.codecraft_networks = parsed.codecraft_networks || {}
                 fulfillmentSettings.kingflexy_networks = parsed.kingflexy_networks || {}
+                fulfillmentSettings.eazydata_networks = parsed.eazydata_networks || {}
             }
         } catch (e) { /* ignore parse failure — defaults to empty */ }
 
         const isDataKazinaEnabled = fulfillmentSettings.networks[network] === true
         const isCodeCraftEnabled = fulfillmentSettings.codecraft_networks[network] === true
         const isKingFlexyEnabled = fulfillmentSettings.kingflexy_networks[network] === true
+        const isEazyDataEnabled = fulfillmentSettings.eazydata_networks[network] === true
 
         // ── 3. FULFILLMENT_CONFLICT Guard (absolute last line of defense) ──
-        const activeCount = [isDataKazinaEnabled, isCodeCraftEnabled, isKingFlexyEnabled].filter(Boolean).length
+        const activeCount = [isDataKazinaEnabled, isCodeCraftEnabled, isKingFlexyEnabled, isEazyDataEnabled].filter(Boolean).length
         if (activeCount > 1) {
             console.error(`[Fulfillment] CONFLICT DETECTED for ${network} on order ${orderId}`)
             await sendAdminNewOrderAlert({
@@ -475,14 +480,14 @@ async function triggerShopFulfillment(
         }
 
         // ── 4. No active supplier ──────────────────────────────────────────
-        if (!isDataKazinaEnabled && !isCodeCraftEnabled && !isKingFlexyEnabled) {
+        if (!isDataKazinaEnabled && !isCodeCraftEnabled && !isKingFlexyEnabled && !isEazyDataEnabled) {
             console.log(`[Shop Order Processor] No active supplier for network ${network}. Order ${orderId} kept pending.`)
             await sendAdminNewOrderAlert({ ...alertDetails, reason: `No active supplier configured for network: ${network}` })
             return
         }
 
         // ── 5. Determine supplier and stamp fulfilled_by ATOMICALLY first ──
-        const supplierLabel = isCodeCraftEnabled ? 'codecraft' : isKingFlexyEnabled ? 'kingflexy' : 'datakazina'
+        const supplierLabel = isCodeCraftEnabled ? 'codecraft' : isKingFlexyEnabled ? 'kingflexy' : isEazyDataEnabled ? 'eazydata' : 'datakazina'
         await db.from('shop_orders').update({ fulfilled_by: supplierLabel }).eq('id', orderId)
         console.log(`[Shop Order Processor] Routing to ${supplierLabel} for order ${orderId} | network: ${network}`)
 
@@ -496,6 +501,9 @@ async function triggerShopFulfillment(
             } else if (isKingFlexyEnabled) {
                 const { fulfillOrder: kfFulfill } = await import('./kingflexy-service')
                 result = await kfFulfill(network, phone, extra.size || '', orderId)
+            } else if (isEazyDataEnabled) {
+                const { fulfillOrder: edFulfill } = await import('./eazydata-service')
+                result = await edFulfill(network, phone, extra.size || '', orderId)
             } else {
                 const { fulfillOrder: dkFulfill } = await import('./fulfillment-service')
                 result = await dkFulfill(network, phone, extra.size || '', orderId)
@@ -524,6 +532,9 @@ async function triggerShopFulfillment(
             if (isKingFlexyEnabled && result.transactionId) {
                 updatePayload.kingflexy_reference = result.transactionId
             }
+            if (isEazyDataEnabled && result.transactionId) {
+                updatePayload.eazydata_reference = result.transactionId
+            }
 
             await db.from('shop_orders').update(updatePayload).eq('id', orderId)
             const ordersUpdate: Record<string, string> = { status: 'processing' }
@@ -535,9 +546,13 @@ async function triggerShopFulfillment(
                 ordersUpdate.kingflexy_reference = result.transactionId
                 ordersUpdate.fulfillment_method = 'kingflexy'
             }
+            if (isEazyDataEnabled && result.transactionId) {
+                ordersUpdate.eazydata_reference = result.transactionId
+                ordersUpdate.fulfillment_method = 'eazydata'
+            }
             await db.from('orders').update(ordersUpdate).eq('shop_order_id', orderId)
 
-            if (!isCodeCraftEnabled && !isKingFlexyEnabled && (result.transactionId || result.reference)) {
+            if (!isCodeCraftEnabled && !isKingFlexyEnabled && !isEazyDataEnabled && (result.transactionId || result.reference)) {
                 const { error: refError } = await db
                     .from('orders')
                     .update({ dakazina_reference: result.transactionId || result.reference })
