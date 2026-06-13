@@ -33,3 +33,20 @@ export function validateCronSecret(): void {
         )
     }
 }
+
+/**
+ * Checks if the request has a valid Authorization header matching CRON_SECRET.
+ * Handles potential whitespace and case-sensitivity in header names.
+ */
+export function isValidCronRequest(request: Request): boolean {
+    const secret = process.env.CRON_SECRET
+    if (!secret) return false
+
+    const authHeader = request.headers.get('authorization') || request.headers.get('Authorization')
+    if (!authHeader) return false
+
+    const [type, token] = authHeader.split(' ')
+    if (type.toLowerCase() !== 'bearer' || !token) return false
+
+    return token.trim() === secret.trim()
+}

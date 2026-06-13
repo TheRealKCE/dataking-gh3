@@ -3,14 +3,16 @@ import { createServerClient } from '@/lib/supabase'
 import { checkPaymentStatus } from '@/lib/moolre-payment-service'
 import { processCompletedWalletPayment, processCompletedUpgradePayment } from '@/lib/payments'
 import { Redis } from '@upstash/redis'
+import { areCronJobsEnabled, cronDisabledResponse, isValidCronRequest } from '@/lib/cron-control'
 
 const redis = Redis.fromEnv()
 
 export async function GET(request: NextRequest) {
+    if (!areCronJobsEnabled()) return cronDisabledResponse()
+
     const startTime = Date.now()
-    // Verify cron secret
-    const authHeader = request.headers.get('authorization')
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+
+    if (!isValidCronRequest(request)) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

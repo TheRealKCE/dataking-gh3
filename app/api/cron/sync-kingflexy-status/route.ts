@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { checkOrderStatus } from '@/lib/kingflexy-service'
-import { areCronJobsEnabled, cronDisabledResponse } from '@/lib/cron-control'
+import { areCronJobsEnabled, cronDisabledResponse, isValidCronRequest } from '@/lib/cron-control'
 
 // Rules:
 //   KingFlexy → completed  : update order to completed
@@ -12,8 +12,7 @@ import { areCronJobsEnabled, cronDisabledResponse } from '@/lib/cron-control'
 export async function GET(request: NextRequest) {
     if (!areCronJobsEnabled()) return cronDisabledResponse()
 
-    const authHeader = request.headers.get('authorization')
-    if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+    if (!isValidCronRequest(request)) {
         return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 

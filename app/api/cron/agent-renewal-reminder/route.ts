@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { sendAgentRenewalReminderSMS } from '@/lib/sms-service'
-import { areCronJobsEnabled, cronDisabledResponse } from '@/lib/cron-control'
+import { areCronJobsEnabled, cronDisabledResponse, isValidCronRequest } from '@/lib/cron-control'
 
 let supabaseAdmin: SupabaseClient | null = null
 
@@ -25,9 +25,7 @@ export async function GET(request: Request) {
     try {
         if (!areCronJobsEnabled()) return cronDisabledResponse()
 
-        // Authenticate the request via CRON_SECRET bearer token
-        const authHeader = request.headers.get('authorization')
-        if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+        if (!isValidCronRequest(request)) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 

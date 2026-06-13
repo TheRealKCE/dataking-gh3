@@ -1,5 +1,6 @@
 ﻿import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
+import { areCronJobsEnabled, cronDisabledResponse, isValidCronRequest } from '@/lib/cron-control'
 
 /**
  * Cron Job: Release expired Results Checker voucher reservations.
@@ -7,12 +8,10 @@ import { createServerClient } from '@/lib/supabase'
  * Secured with a Bearer token via the CRON_SECRET environment variable.
  */
 export async function GET(request: NextRequest) {
-    try {
-        // Verify the Authorization Bearer token
-        const authHeader = request.headers.get('Authorization')
-        const token = authHeader?.replace('Bearer ', '').trim()
+    if (!areCronJobsEnabled()) return cronDisabledResponse()
 
-        if (!token || token !== process.env.CRON_SECRET) {
+    try {
+        if (!isValidCronRequest(request)) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
