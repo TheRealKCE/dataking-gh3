@@ -985,17 +985,17 @@ export default function DataPackagesPage() {
                                                     <NetworkIcon network={pkg.network} size={28} variant="card" />
                                                 </div>
 
-                                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none px-12">
-                                                    <h3 className={`font-black tracking-tight text-center leading-tight ${isMtn || isMashup ? '!text-black' : '!text-white'} ${isMashup ? 'text-lg sm:text-xl' : 'text-4xl'}`}>
+                                                <div className="absolute inset-y-0 left-[52px] right-[80px] flex items-center justify-center pointer-events-none">
+                                                    <h3 className={`font-black tracking-tight text-center leading-tight ${isMtn || isMashup ? '!text-black' : '!text-white'} ${isMashup ? 'text-sm sm:text-base' : 'text-4xl'}`}>
                                                         {pkg.size}
                                                     </h3>
                                                 </div>
 
-                                                <Badge className={`text-[10px] font-bold px-2 py-0.5 border-none shadow-md uppercase tracking-wider ${isMtn ? 'bg-[#004F9F] text-white' :
+                                                <Badge className={`text-[10px] font-bold px-2 py-0.5 border-none shadow-md uppercase tracking-wider z-10 ${isMtn ? 'bg-[#004F9F] text-white' :
                                                     isMashup ? 'bg-white text-[#004F9F]' :
                                                     'bg-white text-black'
                                                     }`}>
-                                                    {pkg.network}
+                                                    {isMashup ? 'MASHUP' : pkg.network}
                                                 </Badge>
                                             </div>
 
