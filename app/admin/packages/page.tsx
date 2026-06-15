@@ -278,7 +278,7 @@ export default function AdminPackagesPage() {
             {/* Network-based Card Grid */}
             {!isLoading && hasAnyPackages && allGroupKeys.map(network => {
                 const networkPackages = packagesByNetwork[network] || []
-                if (networkPackages.length === 0) return null
+                if (networkPackages.length === 0 && network === 'Other') return null // Only hide 'Other' if empty
 
                 return (
                     <div key={network} className="space-y-4">
@@ -308,7 +308,17 @@ export default function AdminPackagesPage() {
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                            {networkPackages.map((pkg) => (
+                            {networkPackages.length === 0 ? (
+                                <div className="col-span-full py-8 text-center bg-muted/30 rounded-xl border border-dashed">
+                                    <p className="text-sm text-muted-foreground font-medium">No packages configured for this network.</p>
+                                    <Button variant="link" size="sm" onClick={() => {
+                                        setFormData(prev => ({ ...prev, network: network as typeof NETWORKS[number] }))
+                                        setIsDialogOpen(true)
+                                    }} className="mt-1 h-auto py-0">
+                                        Click here to add one
+                                    </Button>
+                                </div>
+                            ) : networkPackages.map((pkg) => (
                                 <Card key={pkg.id} className="hover:shadow-lg transition-shadow">
                                     <CardHeader className="pb-3">
                                         <div className="flex items-start justify-between">
