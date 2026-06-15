@@ -74,7 +74,7 @@ const rateLimiters = redis ? {
     ordersPurchase: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, '1 m') }),
     ordersBulk: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(3, '1 m') }),
     // ── Payments ──────────────────────────────────────────────
-    paymentsInitialize: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(10, '1 m') }),
+    paymentsInitialize: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(30, '1 m') }),
     paymentsVerify: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(30, '1 m') }),
     // ── Shop ──────────────────────────────────────────────────
     shopValidateAccount: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, '1 m') }),
