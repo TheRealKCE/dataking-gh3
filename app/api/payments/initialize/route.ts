@@ -50,6 +50,18 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Valid phone number and network are required' }, { status: 400 })
         }
 
+        // ── Guard: Paystack env vars must be set ──────────────────────────────────
+        if (provider === 'paystack') {
+            if (!process.env.PAYSTACK_SECRET_KEY) {
+                console.error('[WalletInit] MISSING ENV: PAYSTACK_SECRET_KEY is not set in Vercel environment variables')
+                return NextResponse.json({ error: 'Payment gateway is not configured. Please contact support.' }, { status: 503 })
+            }
+            if (!process.env.NEXT_PUBLIC_APP_URL) {
+                console.error('[WalletInit] MISSING ENV: NEXT_PUBLIC_APP_URL is not set in Vercel environment variables')
+                return NextResponse.json({ error: 'Payment gateway misconfigured. Please contact support.' }, { status: 503 })
+            }
+        }
+
         // Get or create wallet
         let { data: wallet } = await (supabaseAdmin.from('wallets') as any)
             .select('id')
@@ -57,10 +69,14 @@ export async function POST(request: NextRequest) {
             .single()
 
         if (!wallet) {
-            const { data: newWallet } = await (supabaseAdmin.from('wallets') as any)
+            const { data: newWallet, error: walletError } = await (supabaseAdmin.from('wallets') as any)
                 .insert({ user_id: userId })
                 .select()
                 .single()
+            if (walletError || !newWallet) {
+                console.error('[WalletInit] Failed to create wallet:', walletError)
+                return NextResponse.json({ error: 'Failed to initialize wallet. Please try again.' }, { status: 500 })
+            }
             wallet = newWallet
         }
 
@@ -90,7 +106,7 @@ export async function POST(request: NextRequest) {
             const { data: payment, error: paymentError } = await (supabaseAdmin.from('wallet_payments') as any)
                 .insert({
                     user_id: userId,
-                    wallet_id: (wallet as any)!.id,
+                    wallet_id: (wallet as any).id,
                     amount,
                     fee,
                     total_amount: totalAmount,
@@ -102,15 +118,21 @@ export async function POST(request: NextRequest) {
                 .select()
                 .single()
 
-            if (paymentError) {
-                console.error('[WalletInit] Payment record error:', paymentError)
-                return NextResponse.json({ error: 'Failed to create payment' }, { status: 500 })
+            if (paymentError || !payment) {
+                console.error('[WalletInit] Payment record insert error:', paymentError)
+                return NextResponse.json({ error: 'Failed to create payment record' }, { status: 500 })
             }
             paymentId = (payment as any).id
         }
 
         // ── PAYSTACK BRANCH ──────────────────────────────────────────────────────
         if (provider === 'paystack') {
+            const userEmail = (user as any)?.email
+            if (!userEmail) {
+                console.error('[WalletInit] User email not found for userId:', userId)
+                return NextResponse.json({ error: 'Account email is required for payment. Please update your profile.' }, { status: 400 })
+            }
+
             const paystackRes = await fetch('https://api.paystack.co/transaction/initialize', {
                 method: 'POST',
                 headers: {
@@ -118,8 +140,8 @@ export async function POST(request: NextRequest) {
                     'Content-Type': 'application/json',
                 },
                 body: JSON.stringify({
-                    email: (user as any)?.email,
-                    amount: Math.round(totalAmount * 100), // kobo
+                    email: userEmail,
+                    amount: Math.round(totalAmount * 100), // pesewas
                     reference,
                     callback_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/wallet?reference=${reference}`,
                     metadata: { user_id: userId, amount, fee, type: 'wallet_topup' },
@@ -128,10 +150,10 @@ export async function POST(request: NextRequest) {
 
             const paystackData = await paystackRes.json()
 
-            if (!paystackData.status) {
-                console.error('[WalletInit] Paystack init failed:', paystackData)
+            if (!paystackData.status || !paystackData.data?.authorization_url) {
+                console.error('[WalletInit] Paystack init failed. HTTP status:', paystackRes.status, '| Response:', JSON.stringify(paystackData))
                 await (supabaseAdmin.from('wallet_payments') as any).update({ status: 'failed' }).eq('id', paymentId)
-                return NextResponse.json({ error: 'Payment gateway error' }, { status: 500 })
+                return NextResponse.json({ error: paystackData.message || 'Payment gateway error. Please try again.' }, { status: 500 })
             }
 
             return NextResponse.json({
@@ -187,8 +209,8 @@ export async function POST(request: NextRequest) {
             reference,
             message: 'Payment prompt sent to your phone. Please approve to complete top-up.',
         })
-    } catch (error) {
-        console.error('Payment initialization error:', error)
+    } catch (error: any) {
+        console.error('[WalletInit] Unhandled exception:', error?.message || error)
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 }
