@@ -27,6 +27,7 @@ function parseNetworkFromPackageSize(packageSize: string): string {
     if (upper.startsWith('AT-ISHARE') || upper.startsWith('ATISHARE')) return 'AT-iShare'
     if (upper.startsWith('AT')) return 'AT-iShare' // safe fallback for plain 'AT'
     if (upper.startsWith('TELECEL')) return 'Telecel'
+    if (upper.startsWith('SPECIAL MTN MASHUP')) return 'Special MTN Mashup'
     if (upper.startsWith('MTN')) return 'MTN'
     return ''
 }
@@ -66,6 +67,8 @@ export async function GET(request: NextRequest) {
                     const packageSize: string = order.package_size || ''
                     const network = parseNetworkFromPackageSize(packageSize)
                     const gigValue = parseGigValue(packageSize)
+
+                    if (network === 'Special MTN Mashup') continue
 
                     if (!network || gigValue <= 0) {
                         console.warn(`[CronSync] shop_orders: Cannot parse network/gig from package_size="${packageSize}" for order ${order.id}`)
@@ -126,9 +129,10 @@ export async function GET(request: NextRequest) {
             for (const order of mainOrders || []) {
                 totalChecked++
                 try {
-                    // network column stores exact strings: 'MTN', 'Telecel', 'AT-iShare', 'AT-BigTime'
                     const network: string = order.network || ''
                     const gigValue = parseGigValue(order.size || '')
+
+                    if (network === 'Special MTN Mashup') continue
 
                     if (!network || gigValue <= 0) {
                         console.warn(`[CronSync] orders: Cannot parse network/gig for order ${order.id} (network="${network}", size="${order.size}")`)

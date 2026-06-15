@@ -107,7 +107,7 @@ interface StorefrontAnnouncement {
 }
 
 // Fixed network order + brand colors (matches main platform)
-const NETWORK_ORDER = ['MTN', 'Telecel', 'AT-iShare', 'AT-BigTime', 'AT']
+const NETWORK_ORDER = ['MTN', 'Telecel', 'AT-iShare', 'AT-BigTime', 'AT', 'Special MTN Mashup']
 
 const networkColors: Record<string, { bgClass: string; textClass: string; borderClass: string; gradient: string }> = {
     MTN: { bgClass: 'bg-[#FFCE00]', textClass: 'text-[#000000]', borderClass: 'border-[#e6b800]', gradient: 'from-yellow-400 to-yellow-500' },
@@ -115,6 +115,7 @@ const networkColors: Record<string, { bgClass: string; textClass: string; border
     'AT-iShare': { bgClass: 'bg-[#0056B3]', textClass: 'text-[#ffffff]', borderClass: 'border-[#004494]', gradient: 'from-blue-600 to-blue-700' },
     'AT-BigTime': { bgClass: 'bg-[#6f42c1]', textClass: 'text-[#ffffff]', borderClass: 'border-[#5a32a3]', gradient: 'from-purple-600 to-purple-700' },
     AT: { bgClass: 'bg-[#F97316]', textClass: 'text-[#ffffff]', borderClass: 'border-[#ea580c]', gradient: 'from-orange-500 to-orange-600' },
+    'Special MTN Mashup': { bgClass: 'bg-[#FFCE00]', textClass: 'text-[#000000]', borderClass: 'border-[#e6b800]', gradient: 'from-yellow-300 to-yellow-500' },
 }
 
 const QUICK_AMOUNTS = [1, 2, 5, 10, 20, 50, 100]

@@ -151,7 +151,7 @@ export interface Database {
             data_packages: {
                 Row: {
                     id: string
-                    network: 'MTN' | 'Telecel' | 'AT-iShare' | 'AT-BigTime'
+                    network: 'MTN' | 'Telecel' | 'AT-iShare' | 'AT-BigTime' | 'Special MTN Mashup'
                     size: string
                     price: number
                     agent_price?: number | null
@@ -165,7 +165,7 @@ export interface Database {
                 }
                 Insert: {
                     id?: string
-                    network: 'MTN' | 'Telecel' | 'AT-iShare' | 'AT-BigTime'
+                    network: 'MTN' | 'Telecel' | 'AT-iShare' | 'AT-BigTime' | 'Special MTN Mashup'
                     size: string
                     price: number
                     agent_price?: number | null
@@ -177,7 +177,7 @@ export interface Database {
                     updated_at?: string
                 }
                 Update: {
-                    network?: 'MTN' | 'Telecel' | 'AT-iShare' | 'AT-BigTime'
+                    network?: 'MTN' | 'Telecel' | 'AT-iShare' | 'AT-BigTime' | 'Special MTN Mashup'
                     size?: string
                     price?: number
                     agent_price?: number | null

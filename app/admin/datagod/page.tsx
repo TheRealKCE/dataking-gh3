@@ -43,7 +43,7 @@ interface Order {
     }>
 }
 
-const NETWORKS = ['MTN', 'Telecel', 'AT-iShare', 'AT-BigTime']
+const NETWORKS = ['MTN', 'Telecel', 'AT-iShare', 'AT-BigTime', 'Special MTN Mashup']
 
 export default function DataGodConsolePage() {
     const { dbUser } = useAuth()

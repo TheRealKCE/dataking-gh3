@@ -26,6 +26,7 @@ function parseNetworkFromPackageSize(packageSize: string): string {
     if (upper.startsWith('AT-ISHARE') || upper.startsWith('ATISHARE')) return 'AT-iShare'
     if (upper.startsWith('AT')) return 'AT-iShare'
     if (upper.startsWith('TELECEL')) return 'Telecel'
+    if (upper.startsWith('SPECIAL MTN MASHUP')) return 'Special MTN Mashup'
     if (upper.startsWith('MTN')) return 'MTN'
     return ''
 }
@@ -61,6 +62,8 @@ export async function POST(request: NextRequest) {
                     const packageSize: string = order.package_size || ''
                     const network = parseNetworkFromPackageSize(packageSize)
                     const gigValue = parseGigValue(packageSize)
+
+                    if (network === 'Special MTN Mashup') continue
 
                     if (!network || gigValue <= 0) {
                         errors.push(`shop_orders: Cannot parse network/gig from "${packageSize}" for order ${order.id}`)
@@ -119,6 +122,8 @@ export async function POST(request: NextRequest) {
                 try {
                     const network: string = order.network || ''
                     const gigValue = parseGigValue(order.size || '')
+
+                    if (network === 'Special MTN Mashup') continue
 
                     if (!network || gigValue <= 0) {
                         errors.push(`orders: Cannot parse network/gig for order ${order.id}`)

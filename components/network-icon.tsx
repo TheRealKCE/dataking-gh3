@@ -15,20 +15,21 @@ export function NetworkIcon({ network, size = 40, className = '', variant = 'def
 
     // Standardize network name for file path
     const getFileName = (name: string) => {
+        if (name === 'Special MTN Mashup') return 'mtn.png' // Reuse MTN logo
         if (name.includes('AT')) return 'at.png' // Both AT-iShare and AT-BigTime use AT logo
         return `${name.toLowerCase()}.png`
     }
 
     // Fallback styling if image not found
     const getFallbackStyle = (name: string) => {
-        if (name === 'MTN') return 'bg-yellow-400 text-black'
+        if (name === 'MTN' || name === 'Special MTN Mashup') return 'bg-yellow-400 text-black'
         if (name === 'Telecel') return 'bg-red-600 text-white'
         if (name.includes('AT')) return 'bg-blue-700 text-white'
         return 'bg-gray-800 text-white'
     }
 
     const getFallbackInitial = (name: string) => {
-        if (name === 'MTN') return 'M'
+        if (name === 'MTN' || name === 'Special MTN Mashup') return 'M'
         if (name === 'Telecel') return 'T'
         if (name.includes('AT')) return 'A'
         return name[0]

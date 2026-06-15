@@ -57,9 +57,10 @@ const networkColors: Record<string, string> = {
     'AT-iShare': 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
     'AT-BigTime': 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
     AT: 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400',
+    'Special MTN Mashup': 'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400',
 }
 
-const NETWORKS = ['MTN', 'Telecel', 'AT-iShare', 'AT-BigTime']
+const NETWORKS = ['MTN', 'Telecel', 'AT-iShare', 'AT-BigTime', 'Special MTN Mashup']
 const AIRTIME_NETWORKS = ['MTN', 'Telecel', 'AT']
 
 export default function ShopPricingPage() {

@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { useAuth } from '@/contexts/auth-context'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
@@ -60,15 +61,18 @@ interface ValidationResult {
 }
 
 
-const NETWORKS = ['MTN', 'Telecel', 'AT-iShare', 'AT-BigTime'] as const
+const NETWORKS = ['MTN', 'Telecel', 'AT-iShare', 'AT-BigTime', 'Special MTN Mashup'] as const
 
 export default function DataPackagesPage() {
     const { dbUser, session } = useAuth()
     const router = useRouter()
+    const searchParams = useSearchParams()
 
     const [packages, setPackages] = useState<DataPackage[]>([])
     const [filteredPackages, setFilteredPackages] = useState<DataPackage[]>([])
-    const [selectedNetwork, setSelectedNetwork] = useState<string>('MTN')
+    const [selectedNetwork, setSelectedNetwork] = useState<string>(
+        searchParams.get('network') || 'MTN'
+    )
     const [searchQuery, setSearchQuery] = useState('')
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
     const [isLoading, setIsLoading] = useState(true)
@@ -931,10 +935,10 @@ export default function DataPackagesPage() {
 
             {/* Network Tabs */}
             <Tabs value={selectedNetwork} onValueChange={setSelectedNetwork}>
-                <TabsList className="grid grid-cols-4 gap-1 sm:gap-2 w-full">
+                <TabsList className="grid grid-cols-5 gap-1 sm:gap-2 w-full">
                     {NETWORKS.map((network) => {
                         const getNetworkColor = () => {
-                            if (network === 'MTN') return 'data-[state=active]:bg-[#FACC15] data-[state=active]:text-black'
+                            if (network === 'MTN' || network === 'Special MTN Mashup') return 'data-[state=active]:bg-[#FACC15] data-[state=active]:text-black'
                             if (network === 'Telecel') return 'data-[state=active]:bg-[#E60000] data-[state=active]:text-white'
                             return 'data-[state=active]:bg-[#0056B3] data-[state=active]:text-white'
                         }
@@ -946,8 +950,8 @@ export default function DataPackagesPage() {
                                 className={`flex items-center justify-center gap-1 text-xs sm:text-sm px-2 py-2 ${getNetworkColor()}`}
                             >
                                 <NetworkIcon network={network} size={24} className="mr-1" />
-                                <span className="hidden sm:inline">{network}</span>
-                                <span className="sm:hidden">{network === 'AT-iShare' ? 'AT-iS' : network === 'AT-BigTime' ? 'AT-BT' : network}</span>
+                                <span className="hidden sm:inline">{network === 'Special MTN Mashup' ? 'Special Mashup' : network}</span>
+                                <span className="sm:hidden">{network === 'AT-iShare' ? 'AT-iS' : network === 'AT-BigTime' ? 'AT-BT' : network === 'Special MTN Mashup' ? 'Mashup' : network}</span>
                             </TabsTrigger>
                         )
                     })}
@@ -965,10 +969,10 @@ export default function DataPackagesPage() {
                                 return (
                                     <Card
                                         key={pkg.id}
-                                        className={`overflow-hidden relative isolate border border-border/50 shadow-md dark:shadow-[#E5E7EB]/20 ${pkg.network === 'MTN' ? 'bg-[#FFCC00] text-black shadow-black/20' :
+                                        className={`overflow-hidden relative isolate border border-border/50 shadow-md dark:shadow-[#E5E7EB]/20 ${pkg.network === 'MTN' || pkg.network === 'Special MTN Mashup' ? 'bg-[#FFCC00] text-black shadow-black/20' :
                                             pkg.network === 'Telecel' ? 'bg-[#E60000] text-white shadow-black/20' :
                                                 'bg-[#0056B3] text-white shadow-black/20'
-                                            }`}
+                                        }`}
                                     >
                                         <CardContent className="p-0 flex flex-col h-full">
                                             {/* Top Section: Logo - Size - Badge */}
