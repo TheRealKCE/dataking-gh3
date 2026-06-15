@@ -234,8 +234,11 @@ export default function DataPackagesPage() {
                 setPhoneError(validation.error || 'Invalid phone number')
             } else if (selectedPackage) {
                 // Check if network matches
+                // 'Special MTN Mashup' uses MTN numbers, so treat it as MTN for validation
                 const detectedNet = detectNetwork(value)
-                const packageNetwork = selectedPackage.network.includes('AT') ? 'AirtelTigo' : selectedPackage.network
+                const packageNetwork = selectedPackage.network === 'Special MTN Mashup'
+                    ? 'MTN'
+                    : selectedPackage.network.includes('AT') ? 'AirtelTigo' : selectedPackage.network
                 if (detectedNet !== packageNetwork && selectedPackage.network !== 'AT-BigTime') {
                     setPhoneError(`This number is for ${detectedNet}, not ${selectedPackage.network}`)
                 }
