@@ -966,11 +966,15 @@ export default function DataPackagesPage() {
                     ) : viewMode === 'grid' ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                             {filteredPackages.map((pkg) => {
+                                const isMtn = pkg.network === 'MTN'
+                                const isMashup = pkg.network === 'Special MTN Mashup'
+                                const isTelecel = pkg.network === 'Telecel'
+
                                 return (
                                     <Card
                                         key={pkg.id}
-                                        className={`overflow-hidden relative isolate border border-border/50 shadow-md dark:shadow-[#E5E7EB]/20 ${pkg.network === 'MTN' || pkg.network === 'Special MTN Mashup' ? 'bg-[#FFCC00] text-black shadow-black/20' :
-                                            pkg.network === 'Telecel' ? 'bg-[#E60000] text-white shadow-black/20' :
+                                        className={`overflow-hidden relative isolate border border-border/50 shadow-md dark:shadow-[#E5E7EB]/20 ${isMtn || isMashup ? 'bg-[#FFCC00] text-black shadow-black/20' :
+                                            isTelecel ? 'bg-[#E60000] text-white shadow-black/20' :
                                                 'bg-[#0056B3] text-white shadow-black/20'
                                         }`}
                                     >
@@ -982,13 +986,14 @@ export default function DataPackagesPage() {
                                                 </div>
 
                                                 <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                                    <h3 className={`text-4xl font-black tracking-tighter ${pkg.network === 'MTN' ? '!text-black' : '!text-white'
+                                                    <h3 className={`text-4xl font-black tracking-tighter ${isMtn ? '!text-black' : '!text-white'
                                                         }`}>
                                                         {pkg.size}
                                                     </h3>
                                                 </div>
 
-                                                <Badge className={`text-[10px] font-bold px-2 py-0.5 border-none shadow-md uppercase tracking-wider ${pkg.network === 'MTN' ? 'bg-[#004F9F] text-white' :
+                                                <Badge className={`text-[10px] font-bold px-2 py-0.5 border-none shadow-md uppercase tracking-wider ${isMtn ? 'bg-[#004F9F] text-white' :
+                                                    isMashup ? 'bg-white text-[#004F9F]' :
                                                     'bg-white text-black'
                                                     }`}>
                                                     {pkg.network}
@@ -1001,7 +1006,7 @@ export default function DataPackagesPage() {
                                                     {formatCurrency(getEffectivePrice(pkg))}
                                                 </div>
 
-                                                <div className={`flex items-center gap-2 text-xs font-bold uppercase tracking-wide px-4 py-1.5 rounded-full border border-white/10 ${pkg.network === 'MTN' ? 'bg-black/10 text-black' : 'bg-white/10 text-white'
+                                                <div className={`flex items-center gap-2 text-xs font-bold uppercase tracking-wide px-4 py-1.5 rounded-full border border-white/10 ${isMtn || isMashup ? 'bg-black/10 text-black' : 'bg-white/10 text-white'
                                                     }`}>
                                                     <span className="text-base">⏳</span>
                                                     <span className="flex items-center gap-1">
@@ -1020,8 +1025,9 @@ export default function DataPackagesPage() {
                                             <div className="mt-auto pt-2">
                                                 <Button
                                                     variant="outline"
-                                                    className={`w-full rounded-t-none rounded-b-xl h-12 text-md font-bold uppercase tracking-widest border-0 rounded-none transition-colors shadow-none ${pkg.network === 'MTN' ? 'bg-black text-white hover:bg-black/90' :
-                                                        pkg.network === 'Telecel' ? 'bg-white text-[#E60000] hover:bg-gray-100' :
+                                                    className={`w-full rounded-t-none rounded-b-xl h-12 text-md font-bold uppercase tracking-widest border-0 transition-colors shadow-none ${isMtn ? 'bg-black text-white hover:bg-black/90' :
+                                                        isMashup ? 'bg-white text-[#004F9F] hover:bg-gray-100' :
+                                                        isTelecel ? 'bg-white text-[#E60000] hover:bg-gray-100' :
                                                             'bg-white text-[#0056B3] hover:bg-gray-100'
                                                         }`}
                                                     onClick={() => handlePurchaseClick(pkg)}
