@@ -52,7 +52,6 @@ const userNavItems = [
     { href: '/dashboard/upgrade', label: 'Membership', icon: Crown },
     { href: '/dashboard/data-packages', label: 'Data Packages', icon: Package },
     { href: '/dashboard/airtime', label: 'Buy Airtime', icon: Phone },
-    { href: '/dashboard/airtime?mode=mashup', label: 'Mashup', icon: Zap },
     { href: '/dashboard/data-packages?network=Special%20MTN%20Mashup', label: 'Special MTN Mashup', icon: Zap },
     { href: '/dashboard/my-orders', label: 'Orders', icon: ShoppingCart },
     { href: '/dashboard/wallet', label: 'Wallet', icon: Wallet },
