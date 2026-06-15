@@ -17,7 +17,7 @@ const supabaseAdmin = createClient(
 )
 
 export async function GET(request: NextRequest) {
-    const supabase = createRouteClient()
+    const supabase = await createRouteClient()
     const { data: { user: authUser } } = await supabase.auth.getUser()
 
     if (!authUser) {
@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
 }
 
 export async function POST(request: NextRequest) {
-    const supabase = createRouteClient()
+    const supabase = await createRouteClient()
     const { data: { user: authUser } } = await supabase.auth.getUser()
 
     if (!authUser) {
@@ -95,7 +95,7 @@ export async function POST(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
-    const supabase = createRouteClient()
+    const supabase = await createRouteClient()
     const { data: { user: authUser } } = await supabase.auth.getUser()
 
     if (!authUser) {
@@ -150,7 +150,7 @@ export async function PUT(request: NextRequest) {
 }
 
 export async function DELETE(request: NextRequest) {
-    const supabase = createRouteClient()
+    const supabase = await createRouteClient()
     const { data: { user: authUser } } = await supabase.auth.getUser()
 
     if (!authUser) {
