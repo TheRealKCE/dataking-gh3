@@ -1348,7 +1348,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
 
                 {/* ── Network Filter Tabs ── */}
                 {networks.length > 1 && (
-                    <div className="flex gap-2 overflow-x-auto pb-1 mb-4 scrollbar-hide">
+                    <div className="flex gap-3 overflow-x-auto pb-2 mb-6 scrollbar-hide">
                         {networks.map(net => {
                             const isActive = activeNetwork === net
                             const netStyle = networkColors[net]
@@ -1356,7 +1356,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                                 <button
                                     key={net} onClick={() => { setActiveNetwork(net); setSelectedPackage(null); setIsAirtimeOpen(false) }}
                                     className={cn(
-                                        'flex-shrink-0 px-4 py-1.5 rounded-full text-sm font-bold transition-all border-2',
+                                        'flex-shrink-0 px-6 py-2.5 rounded-full text-base sm:text-lg font-extrabold transition-all border-2',
                                         isActive && !netStyle && 'bg-[var(--brand-color)] text-white border-[var(--brand-color)]',
                                         isActive && netStyle && netStyle.bgClass,
                                         isActive && netStyle && netStyle.textClass,
