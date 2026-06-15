@@ -230,11 +230,19 @@ export default function AdminPackagesPage() {
         }
     }
 
-    // Group packages by network for display
-    const packagesByNetwork = NETWORKS.reduce((acc, network) => {
-        acc[network] = packages.filter(p => p.network === network)
-        return acc
-    }, {} as Record<typeof NETWORKS[number], DataPackage[]>)
+    // Group packages by network — include an 'Other' bucket for any unrecognized network values
+    const knownNetworkSet = new Set<string>(NETWORKS)
+    const packagesByNetwork: Record<string, DataPackage[]> = {}
+    NETWORKS.forEach(n => { packagesByNetwork[n] = [] })
+    packagesByNetwork['Other'] = []
+
+    packages.forEach(p => {
+        const key = knownNetworkSet.has(p.network) ? p.network : 'Other'
+        packagesByNetwork[key].push(p)
+    })
+
+    const allGroupKeys = [...NETWORKS, 'Other'] as string[]
+    const hasAnyPackages = packages.length > 0
 
     return (
         <div className="space-y-6">
@@ -249,9 +257,27 @@ export default function AdminPackagesPage() {
                 </Button>
             </div>
 
+            {/* Loading skeleton */}
+            {isLoading && (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                    {[...Array(8)].map((_, i) => (
+                        <div key={i} className="h-48 rounded-xl bg-muted animate-pulse" />
+                    ))}
+                </div>
+            )}
+
+            {/* Empty state */}
+            {!isLoading && !hasAnyPackages && (
+                <div className="flex flex-col items-center justify-center py-24 border-2 border-dashed rounded-xl text-center">
+                    <Package className="w-12 h-12 text-muted-foreground/40 mb-4" />
+                    <h3 className="text-lg font-semibold">No Packages Found</h3>
+                    <p className="text-muted-foreground text-sm mt-1">Click &quot;Add Package&quot; to create your first data package.</p>
+                </div>
+            )}
+
             {/* Network-based Card Grid */}
-            {NETWORKS.map(network => {
-                const networkPackages = packagesByNetwork[network]
+            {!isLoading && hasAnyPackages && allGroupKeys.map(network => {
+                const networkPackages = packagesByNetwork[network] || []
                 if (networkPackages.length === 0) return null
 
                 return (
@@ -261,21 +287,24 @@ export default function AdminPackagesPage() {
                                 <span className={`px-3 py-1 rounded-full text-sm ${
                                     network === 'MTN' || network === 'Special MTN Mashup' ? 'bg-yellow-500 text-black' :
                                     network === 'Telecel' ? 'bg-red-600 text-white' :
+                                    network === 'Other' ? 'bg-gray-500 text-white' :
                                     'bg-blue-600 text-white'
                                 }`}>
                                     {network}
                                 </span>
                                 <span className="text-muted-foreground text-sm">({networkPackages.length} packages)</span>
                             </h2>
-                            <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => openNetworkDescDialog(network)}
-                                className="gap-2"
-                            >
-                                <FileEdit className="w-4 h-4" />
-                                Edit Description
-                            </Button>
+                            {network !== 'Other' && (
+                                <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => openNetworkDescDialog(network as typeof NETWORKS[number])}
+                                    className="gap-2"
+                                >
+                                    <FileEdit className="w-4 h-4" />
+                                    Edit Description
+                                </Button>
+                            )}
                         </div>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
