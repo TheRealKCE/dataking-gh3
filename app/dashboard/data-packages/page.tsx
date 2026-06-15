@@ -985,9 +985,8 @@ export default function DataPackagesPage() {
                                                     <NetworkIcon network={pkg.network} size={28} variant="card" />
                                                 </div>
 
-                                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                                                    <h3 className={`text-4xl font-black tracking-tighter ${isMtn ? '!text-black' : '!text-white'
-                                                        }`}>
+                                                <div className="absolute inset-0 flex items-center justify-center pointer-events-none px-12">
+                                                    <h3 className={`font-black tracking-tight text-center leading-tight ${isMtn || isMashup ? '!text-black' : '!text-white'} ${isMashup ? 'text-lg sm:text-xl' : 'text-4xl'}`}>
                                                         {pkg.size}
                                                     </h3>
                                                 </div>
@@ -1025,8 +1024,7 @@ export default function DataPackagesPage() {
                                             <div className="mt-auto pt-2">
                                                 <Button
                                                     variant="outline"
-                                                    className={`w-full rounded-t-none rounded-b-xl h-12 text-md font-bold uppercase tracking-widest border-0 transition-colors shadow-none ${isMtn ? 'bg-black text-white hover:bg-black/90' :
-                                                        isMashup ? 'bg-white text-[#004F9F] hover:bg-gray-100' :
+                                                    className={`w-full rounded-t-none rounded-b-xl h-12 text-md font-bold uppercase tracking-widest border-0 transition-colors shadow-none ${isMtn || isMashup ? 'bg-black text-white hover:bg-black/90' :
                                                         isTelecel ? 'bg-white text-[#E60000] hover:bg-gray-100' :
                                                             'bg-white text-[#0056B3] hover:bg-gray-100'
                                                         }`}
