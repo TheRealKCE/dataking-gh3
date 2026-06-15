@@ -26,14 +26,15 @@ export async function POST(request: NextRequest) {
     }
 
     // ── Step 1: Build admin client (checks env vars without throwing) ─────────
-    const { client: supabaseAdmin, error: adminError } = buildAdminClient()
-    if (!supabaseAdmin) {
+    const { client, error: adminError } = buildAdminClient()
+    if (!client) {
         console.error('[WalletInit] Admin client error:', adminError)
         return NextResponse.json(
             { error: 'Server configuration error. Please contact support. (DB)' },
             { status: 503 }
         )
     }
+    const supabaseAdmin = client as any
 
     try {
         // ── Step 2: Parse request body ────────────────────────────────────────
@@ -55,7 +56,7 @@ export async function POST(request: NextRequest) {
         }
 
         // ── Step 4: Authenticate user ─────────────────────────────────────────
-        const supabase = createRouteClient()
+        const supabase = await createRouteClient()
         const { data: { user: authUser }, error: authError } = await supabase.auth.getUser()
         if (!authUser) {
             console.error('[WalletInit] Auth failed:', authError?.message)
