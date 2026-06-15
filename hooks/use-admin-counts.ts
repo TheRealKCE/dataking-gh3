@@ -14,6 +14,7 @@ export interface AdminCounts {
     pendingComplaints: number
     expiringAgents: number
     pendingDebts: number
+    pendingMashupOrders: number
 }
 
 const initialCounts: AdminCounts = {
@@ -25,7 +26,8 @@ const initialCounts: AdminCounts = {
     pendingAirtime: 0,
     pendingComplaints: 0,
     expiringAgents: 0,
-    pendingDebts: 0
+    pendingDebts: 0,
+    pendingMashupOrders: 0
 }
 
 export function useAdminCounts() {
@@ -53,6 +55,15 @@ export function useAdminCounts() {
             pendingOrders: count || 0,
             pendingFulfillment: fulfillmentCount || 0
         }))
+    }, [])
+
+    const fetchMashupOrdersCount = useCallback(async () => {
+        const { count } = await (supabase
+            .from('orders')
+            .select('*', { count: 'exact', head: true })
+            .eq('network', 'Special MTN Mashup')
+            .eq('status', 'pending') as any)
+        setCounts(prev => ({ ...prev, pendingMashupOrders: count || 0 }))
     }, [])
 
     const fetchShopsCount = useCallback(async () => {
@@ -138,7 +149,8 @@ export function useAdminCounts() {
         fetchComplaintsCount()
         fetchExpiringAgentsCount()
         fetchPendingDebtsCount()
-    }, [fetchOrdersCount, fetchShopsCount, fetchWithdrawalsCount, fetchAfaCount, fetchAirtimeCount, fetchComplaintsCount, fetchExpiringAgentsCount, fetchPendingDebtsCount])
+        fetchMashupOrdersCount()
+    }, [fetchOrdersCount, fetchShopsCount, fetchWithdrawalsCount, fetchAfaCount, fetchAirtimeCount, fetchComplaintsCount, fetchExpiringAgentsCount, fetchPendingDebtsCount, fetchMashupOrdersCount])
 
     useEffect(() => {
         if (!isAdmin) return
@@ -147,7 +159,10 @@ export function useAdminCounts() {
 
         // Realtime Subscriptions
         const ordersChannel = supabase.channel('admin-counts-orders')
-            .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, fetchOrdersCount)
+            .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
+                fetchOrdersCount()
+                fetchMashupOrdersCount()
+            })
             .subscribe()
 
         const shopsChannel = supabase.channel('admin-counts-shops')
@@ -188,7 +203,7 @@ export function useAdminCounts() {
             supabase.removeChannel(usersChannel)
             supabase.removeChannel(debtsChannel)
         }
-    }, [isAdmin, fetchAllCounts, fetchOrdersCount, fetchShopsCount, fetchWithdrawalsCount, fetchAfaCount, fetchAirtimeCount, fetchComplaintsCount, fetchExpiringAgentsCount, fetchPendingDebtsCount])
+    }, [isAdmin, fetchAllCounts, fetchOrdersCount, fetchShopsCount, fetchWithdrawalsCount, fetchAfaCount, fetchAirtimeCount, fetchComplaintsCount, fetchExpiringAgentsCount, fetchPendingDebtsCount, fetchMashupOrdersCount])
 
     return { counts, refresh: fetchAllCounts }
 }

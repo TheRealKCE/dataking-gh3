@@ -567,6 +567,8 @@ export function DashboardSidebar() {
                                 const badgeCount =
                                     item.href === '/admin/afa-management' ? adminCounts.pendingAfa :
                                     item.href === '/admin/airtime' ? adminCounts.pendingAirtime :
+                                    item.href === '/admin/shops/withdrawals' ? adminCounts.pendingWithdrawals :
+                                    item.href === '/admin/mashup-orders' ? adminCounts.pendingMashupOrders :
                                     0
                                 return (
                                     <Link key={item.href} href={item.href} onClick={() => {
