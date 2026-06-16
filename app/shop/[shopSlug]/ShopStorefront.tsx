@@ -716,7 +716,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
     const safeBrandColor = isValidHex(brandColor) ? brandColor : '#2563eb'
     
     const brandContrastText = isLightColor(safeBrandColor) ? '#030712' : '#ffffff'
-    const filteredPackages = packages.filter(p => p.network === activeNetwork)
+    const filteredPackages = packages.filter(p => p.network === (activeTab === 'mashup' ? 'Special MTN Mashup' : activeNetwork))
     const { feeAmount: airFee, totalPay: airTotal, airtimeToReceive } = calculateAirtimeFees()
 
     if (pageLoading) {
@@ -1089,183 +1089,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 )}
 
                 {/* ── MTN Mashup Tab Content ── */}
-                {activeTab === 'mashup' && (
-                    <div className="mb-6 bg-white dark:bg-gray-900 rounded-[2rem] border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden p-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                        <div className="flex items-center gap-3 mb-5 border-b border-gray-100 dark:border-gray-800 pb-5">
-                            <div className="w-12 h-12 rounded-xl flex items-center justify-center text-white bg-amber-500 shadow-sm">
-                                <Target className="w-6 h-6" />
-                            </div>
-                            <div className="text-left flex-1">
-                                <h3 className="text-lg font-black text-gray-900 dark:text-white uppercase tracking-tighter">MTN Mashup</h3>
-                                <p className="text-[10px] font-bold text-gray-500 uppercase tracking-widest leading-tight">Create your custom bundle</p>
-                            </div>
-                            <NetworkLogo id="MTN" />
-                        </div>
-
-                        <div className="space-y-5">
-                            <div className="space-y-4">
-                                <div className="relative">
-                                    <Phone className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                    <input
-                                        type="tel" value={mashupPhone} onChange={(e) => setMashupPhone(e.target.value)}
-                                        placeholder="MTN Receiver Phone (e.g. 024XXXXXXX)"
-                                        className="w-full pl-12 pr-12 py-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-base font-bold transition-all focus:outline-none focus:ring-2 focus:ring-amber-500"
-                                    />
-                                    <div className="absolute right-3 top-1/2 -translate-y-1/2">
-                                        <div className="px-2 py-1 tracking-widest text-[10px] uppercase font-black rounded-lg shadow-sm bg-yellow-400 text-black">
-                                            MTN
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="space-y-3">
-                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Bundle Amount</p>
-                                    <div className="flex gap-2 flex-wrap mb-1">
-                                        {[1, 2, 5, 10].map(q => (
-                                            <button
-                                                key={q}
-                                                onClick={() => setMashupAmount(String(q))}
-                                                className={cn(
-                                                    "px-4 py-2 rounded-xl text-xs font-black border-2 transition-all",
-                                                    mashupAmount === String(q)
-                                                        ? "bg-amber-500 text-white border-amber-500 shadow-md scale-105"
-                                                        : "bg-gray-50 dark:bg-gray-800 text-gray-500 border-gray-100 dark:border-gray-700 hover:border-gray-300"
-                                                )}
-                                            >
-                                                {q}
-                                            </button>
-                                        ))}
-                                    </div>
-                                    <div className="relative">
-                                        <span className="absolute left-5 top-1/2 -translate-y-1/2 font-black text-gray-400 text-sm">GHS</span>
-                                        <input
-                                            type="number" min="1" step="0.5" value={mashupAmount} onChange={(e) => setMashupAmount(e.target.value)}
-                                            placeholder={`Custom Amount`}
-                                            className="w-full pl-14 pr-4 py-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-lg font-black transition-all focus:outline-none focus:ring-2 focus:ring-amber-500"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="space-y-3">
-                                    <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1">Bundle Preference</p>
-                                    <div className="grid grid-cols-3 gap-2">
-                                        {(['balanced', 'data', 'voice'] as const).map(pref => (
-                                            <button
-                                                key={pref}
-                                                onClick={() => setBundlePreference(pref)}
-                                                className={cn(
-                                                    "py-3 px-2 rounded-xl text-xs font-black uppercase tracking-tight transition-all border-2",
-                                                    bundlePreference === pref
-                                                        ? "bg-amber-50 dark:bg-amber-900/20 text-amber-700 dark:text-amber-400 border-amber-400 shadow-sm"
-                                                        : "bg-gray-50 dark:bg-gray-800 text-gray-500 border-gray-100 dark:border-gray-700 hover:border-gray-300"
-                                                )}
-                                            >
-                                                {pref}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-
-                                <div className="relative">
-                                    <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-                                    <input
-                                        type="email" value={mashupEmail} onChange={(e) => setMashupEmail(e.target.value)}
-                                        placeholder="Email for receipt (Optional)"
-                                        className="w-full pl-12 pr-4 py-4 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm font-bold transition-all focus:outline-none focus:ring-2 focus:ring-amber-500"
-                                    />
-                                </div>
-
-                                {/* Pay Separately Toggle */}
-                                <div 
-                                    onClick={() => setMashupUseExact(!mashupUseExact)}
-                                    className={cn(
-                                        "flex items-start gap-3 p-4 rounded-2xl border transition-all cursor-pointer group",
-                                        mashupUseExact 
-                                            ? "bg-amber-50 dark:bg-amber-900/10 border-amber-400 shadow-sm" 
-                                            : "bg-gray-50 dark:bg-gray-800/40 border-gray-100 dark:border-gray-700 hover:border-gray-200"
-                                    )}
-                                >
-                                    <div className={cn(
-                                        "mt-0.5 w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all",
-                                        mashupUseExact ? "bg-amber-500 border-amber-500 text-white" : "border-gray-300 dark:border-gray-600 group-hover:border-gray-400"
-                                    )}>
-                                        {mashupUseExact && <Check className="w-3.5 h-3.5 stroke-[3px]" />}
-                                    </div>
-                                    <div className="flex-1">
-                                        <p className={cn("text-xs font-black uppercase tracking-tight mb-0.5", mashupUseExact ? "text-amber-700 dark:text-amber-400" : "text-gray-700 dark:text-gray-300")}>
-                                            Pay processing fee separately
-                                        </p>
-                                        <p className="text-[10px] font-bold text-gray-500 leading-tight">
-                                            {mashupUseExact ? "You'll pay a bit more, but recipient gets exactly the bundle value typed." : "Standard: Fee is deducted from the bundle value."}
-                                        </p>
-                                    </div>
-                                </div>
-
-                                {(() => {
-                                    const { feeAmount: mashupFee, totalPay: mashupTotal, bundleValue } = calculateMashupFees()
-                                    if (mashupAmount === '' || parseFloat(mashupAmount) <= 0) return null
-                                    const est = estimateMashupBundle(bundleValue, bundlePreference)
-
-                                    return (
-                                        <div className="bg-amber-50/50 dark:bg-amber-900/10 rounded-2xl p-5 border border-amber-100 dark:border-amber-800/50 shadow-inner">
-                                            <div className="space-y-3">
-                                                <div className="flex justify-between items-center text-xs font-bold text-gray-500 uppercase tracking-widest">
-                                                    <span>Bundle Value</span>
-                                                    <span className="text-gray-900 dark:text-gray-200 font-black">{formatCurrency(parseFloat(mashupAmount))}</span>
-                                                </div>
-                                                
-                                                <div className="flex justify-between items-center text-xs font-bold">
-                                                    <span className="text-gray-500 uppercase tracking-widest flex items-center gap-1">Processing Fee ({(((mashupFee) / (mashupUseExact ? parseFloat(mashupAmount) : parseFloat(mashupAmount) - mashupFee)) * 100).toFixed(0)}%)</span>
-                                                    <span className="text-gray-600 dark:text-gray-400">{mashupUseExact ? '+' : '–'} {formatCurrency(mashupFee)}</span>
-                                                </div>
-
-                                                <div className="py-3 px-3 rounded-xl bg-amber-100/50 dark:bg-amber-900/30 border border-amber-200/50 dark:border-amber-800/50 space-y-2">
-                                                    <div className="flex items-center gap-1.5 mb-1">
-                                                        <Sparkles className="w-4 h-4 text-amber-600 dark:text-amber-400" />
-                                                        <span className="text-[10px] font-black text-amber-700 dark:text-amber-400 uppercase tracking-widest">
-                                                            Estimated Package ({formatCurrency(bundleValue)})
-                                                        </span>
-                                                    </div>
-                                                    <div className="grid grid-cols-2 gap-2 text-center">
-                                                        <div className="bg-white/60 dark:bg-gray-800/60 rounded-lg py-2 border border-white/40 dark:border-gray-700/40">
-                                                            <div className="text-[9px] font-black uppercase text-gray-500 tracking-wider">Data</div>
-                                                            <div className="font-black text-sm text-gray-800 dark:text-gray-200">
-                                                                {est.mode === 'exact' ? `${est.dataMB} MB` : `${est.dataLowMB}-${est.dataHighMB} MB`}
-                                                            </div>
-                                                        </div>
-                                                        <div className="bg-white/60 dark:bg-gray-800/60 rounded-lg py-2 border border-white/40 dark:border-gray-700/40">
-                                                            <div className="text-[9px] font-black uppercase text-gray-500 tracking-wider">Voice</div>
-                                                            <div className="font-black text-sm text-gray-800 dark:text-gray-200">
-                                                                {est.mode === 'exact' ? `${est.voiceMin} Min` : `${est.voiceLowMin}-${est.voiceHighMin} Min`}
-                                                            </div>
-                                                        </div>
-                                                    </div>
-                                                    <p className="text-[9px] font-bold text-amber-600/70 dark:text-amber-500/70 text-center leading-tight mt-1">
-                                                        *Estimates based on current MTN rates. Actual bundle may vary slightly.
-                                                    </p>
-                                                </div>
-
-                                                <div className="pt-2 border-t border-amber-200/50 dark:border-amber-800/50">
-                                                    <div className="flex justify-between items-center">
-                                                        <span className="text-sm font-black text-amber-900 dark:text-amber-100 uppercase tracking-tighter">You Pay Total</span>
-                                                        <span className="text-2xl font-black text-amber-600 dark:text-amber-400">{formatCurrency(mashupTotal)}</span>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )
-                                })()}
-
-                                <button
-                                    onClick={handleBuyMashup} disabled={loading || parseFloat(mashupAmount || '0') <= 0}
-                                    className="w-full py-4 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-black text-base uppercase tracking-widest shadow-lg flex justify-center items-center gap-3 transition-transform active:scale-95 disabled:opacity-50 disabled:active:scale-100"
-                                >
-                                    {loading ? <><Loader2 className="w-5 h-5 animate-spin" /> {pollingRef ? 'Waiting for Approval...' : 'Processing...'}</> : <><Target className="w-5 h-5"/> Buy Mashup</>}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
+                {/* Custom Mashup Form Removed - Now using predefined packages in Data Packages tab */}
 
                 {/* ── Results Checker Tab Content ── */}
                 {isShopRcEnabled && activeTab === 'results_checker' && (
@@ -1346,11 +1170,11 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
 
 
                 {/* ── Data Packages Tab Content ── */}
-                {activeTab === 'data' && (
+                {(activeTab === 'data' || activeTab === 'mashup') && (
                     <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-4">
 
                 {/* ── Network Filter Tabs ── */}
-                {networks.length > 1 && (
+                {activeTab === 'data' && networks.length > 1 && (
                     <div className="flex gap-3 overflow-x-auto pb-2 mb-6 scrollbar-hide">
                         {networks.map(net => {
                             const isActive = activeNetwork === net
@@ -1402,7 +1226,11 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                                         {pkg.network}
                                     </div>
 
-                                    <p className={cn('text-base font-black leading-tight', isSelected ? 'text-white' : 'text-gray-900 dark:text-white')}>
+                                    <p className={cn(
+                                        pkg.network === 'Special MTN Mashup' ? 'text-xl sm:text-2xl' : 'text-base',
+                                        'font-black leading-tight', 
+                                        isSelected ? 'text-white' : 'text-gray-900 dark:text-white'
+                                    )}>
                                         {pkg.size}
                                     </p>
                                     <p className={cn('text-sm font-bold', isSelected ? 'text-white/90' : 'text-gray-600 dark:text-gray-300')}>
