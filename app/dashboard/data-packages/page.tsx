@@ -989,7 +989,7 @@ export default function DataPackagesPage() {
                                                 </div>
 
                                                 <div className="absolute inset-y-0 left-[52px] right-[80px] flex items-center justify-center pointer-events-none">
-                                                    <h3 className={`font-black tracking-tight text-center leading-tight ${isMtn || isMashup ? '!text-black' : '!text-white'} ${isMashup ? 'text-sm sm:text-base' : 'text-4xl'}`}>
+                                                    <h3 className={`font-black tracking-tight text-center leading-tight ${isMtn || isMashup ? '!text-black' : '!text-white'} ${isMashup ? 'text-xl sm:text-2xl w-[120%]' : 'text-4xl'}`}>
                                                         {pkg.size}
                                                     </h3>
                                                 </div>
@@ -1071,7 +1071,7 @@ export default function DataPackagesPage() {
                                                 </div>
                                                 <div>
                                                     <div className="flex items-center gap-3 mb-1">
-                                                        <h3 className="font-bold text-lg leading-none">{pkg.size}</h3>
+                                                        <h3 className="font-black text-xl sm:text-2xl leading-tight">{pkg.size}</h3>
                                                         <Badge variant="outline" className={`text-[10px] font-bold px-2 py-0.5 border-current ${pkg.network === 'MTN' ? 'text-black border-black/20' : 'text-white border-white/20'
                                                             }`}>
                                                             {pkg.network}

@@ -831,25 +831,28 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
             <div className="max-w-2xl mx-auto px-4 pb-40 -mt-2">
                 
                 {/* ── Main Layout Tabs ── */}
-                <div className="flex items-center gap-2 mb-5 bg-gray-200/50 dark:bg-gray-800/50 p-1.5 rounded-2xl">
-                    <button onClick={() => setActiveTab('data')} className={cn("flex-1 py-3 rounded-xl font-black text-sm transition-all flex items-center justify-center gap-2", activeTab === 'data' ? "bg-white dark:bg-gray-900 shadow-sm text-gray-900 dark:text-white" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300")}>
-                        <Zap className="w-4 h-4" /> Data Packages
-                    </button>
-                    {isShopAirtimeEnabled && (
-                        <button onClick={() => setActiveTab('airtime')} className={cn("flex-1 py-3 rounded-xl font-black text-sm transition-all flex items-center justify-center gap-2", activeTab === 'airtime' ? "bg-white dark:bg-gray-900 shadow-sm text-gray-900 dark:text-white" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300")}>
-                            <Smartphone className="w-4 h-4" /> Airtime Recharge
+                <div className="flex flex-col gap-3 mb-6">
+                    <div className="flex items-center gap-2 bg-gray-200/50 dark:bg-gray-800/50 p-2 rounded-2xl">
+                        <button onClick={() => setActiveTab('data')} className={cn("flex-1 py-4 rounded-xl font-black text-base sm:text-lg transition-all flex items-center justify-center gap-2", activeTab === 'data' ? "bg-white dark:bg-gray-900 shadow-md text-gray-900 dark:text-white" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300")}>
+                            <Zap className="w-5 h-5" /> Data Packages
                         </button>
-                    )}
-                    {isGlobalMashupEnabled && (
-                        <button onClick={() => setActiveTab('mashup')} className={cn("flex-1 py-3 rounded-xl font-black text-sm transition-all flex items-center justify-center gap-2", activeTab === 'mashup' ? "bg-amber-500 text-white shadow-sm" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300")}>
-                            <Target className="w-4 h-4" /> Mashup
+                        {isShopAirtimeEnabled && (
+                            <button onClick={() => setActiveTab('airtime')} className={cn("flex-1 py-4 rounded-xl font-black text-base sm:text-lg transition-all flex items-center justify-center gap-2", activeTab === 'airtime' ? "bg-white dark:bg-gray-900 shadow-md text-gray-900 dark:text-white" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300")}>
+                                <Smartphone className="w-5 h-5" /> Airtime Recharge
+                            </button>
+                        )}
+                    </div>
+                    
+                    <div className="flex flex-col sm:flex-row items-stretch gap-3">
+                        <button onClick={() => setActiveTab('mashup')} className={cn("flex-1 py-4 px-4 rounded-2xl font-black text-base sm:text-lg transition-all flex items-center justify-center gap-2 border-2", activeTab === 'mashup' ? "bg-amber-500 text-white border-amber-600 shadow-lg scale-[1.02]" : "bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800/50 hover:bg-amber-100 dark:hover:bg-amber-900/40")}>
+                            <Target className="w-6 h-6 animate-pulse" /> Special MTN Mashup
                         </button>
-                    )}
-                    {isShopRcEnabled && (
-                        <button onClick={() => setActiveTab('results_checker')} className={cn("flex-1 py-3 rounded-xl font-black text-sm transition-all flex items-center justify-center gap-2", activeTab === 'results_checker' ? "bg-white dark:bg-gray-900 shadow-sm text-gray-900 dark:text-white" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300")}>
-                            <GraduationCap className="w-4 h-4" /> Exams
-                        </button>
-                    )}
+                        {isShopRcEnabled && (
+                            <button onClick={() => setActiveTab('results_checker')} className={cn("flex-1 py-4 px-4 rounded-2xl font-black text-base sm:text-lg transition-all flex items-center justify-center gap-2 border-2", activeTab === 'results_checker' ? "bg-blue-600 text-white border-blue-700 shadow-lg scale-[1.02]" : "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800/50 hover:bg-blue-100 dark:hover:bg-blue-900/40")}>
+                                <GraduationCap className="w-6 h-6" /> Exams
+                            </button>
+                        )}
+                    </div>
                 </div>
 
                 {/* ── Need Help? Contact Card ── */}

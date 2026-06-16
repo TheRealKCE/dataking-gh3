@@ -82,7 +82,7 @@ export default function MashupOrdersPage() {
                order.users?.last_name?.toLowerCase().includes(searchQuery.toLowerCase())
     })
 
-    const handleUpdateStatus = async (status: 'completed' | 'failed') => {
+    const handleUpdateStatus = async (status: 'completed' | 'failed' | 'processing') => {
         if (selectedOrders.size === 0) {
             toast.error('No orders selected')
             return
@@ -92,16 +92,16 @@ export default function MashupOrdersPage() {
 
         setIsUpdating(true)
         try {
-            // Using a loop here since bulk update endpoints usually use batches
             const orderIds = Array.from(selectedOrders)
+            const res = await fetch('/api/admin/orders/update-status', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ orderIds, status }),
+            })
             
-            for (const orderId of orderIds) {
-                const res = await fetch('/api/admin/orders/update-status', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ orderId, status }),
-                })
-                if (!res.ok) throw new Error('Failed to update order ' + orderId)
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}))
+                throw new Error(data.error || 'Failed to update orders')
             }
 
             toast.success(`Successfully marked ${selectedOrders.size} orders as ${status}`)
@@ -122,9 +122,13 @@ export default function MashupOrdersPage() {
             const res = await fetch('/api/admin/orders/update-status', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ orderId, status }),
+                body: JSON.stringify({ orderIds: [orderId], status }),
             })
-            if (!res.ok) throw new Error('Failed to update order')
+            
+            if (!res.ok) {
+                const data = await res.json().catch(() => ({}))
+                throw new Error(data.error || 'Failed to update order')
+            }
 
             toast.success(`Order marked as ${status}`)
             fetchOrders()
@@ -221,6 +225,15 @@ export default function MashupOrdersPage() {
                                 >
                                     {isUpdating ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <XCircle className="w-4 h-4 mr-2" />}
                                     Mark Failed
+                                </Button>
+                                <Button
+                                    size="sm"
+                                    onClick={() => handleUpdateStatus('processing')}
+                                    className="h-9 md:h-10 text-xs md:text-sm px-4 bg-blue-600 hover:bg-blue-700 text-white font-bold shadow-sm"
+                                    disabled={isUpdating}
+                                >
+                                    {isUpdating ? <RefreshCw className="w-4 h-4 mr-2 animate-spin" /> : <Activity className="w-4 h-4 mr-2" />}
+                                    Mark Processing
                                 </Button>
                                 <Button
                                     size="sm"

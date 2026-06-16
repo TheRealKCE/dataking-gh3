@@ -534,20 +534,7 @@ function AirtimePageInner() {
             {/* ── BUY TAB ─────────────────────────────────────────────────────────── */}
             {activeTab === 'buy' && (
                 <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
-                    {/* Mode Toggle */}
-                    <div className="flex bg-slate-100 dark:bg-slate-800 rounded-xl p-1 gap-1">
-                        <button onClick={() => setMode('airtime')} className={cn('flex-1 py-2.5 rounded-lg text-sm font-black transition-all flex items-center justify-center gap-2', mode === 'airtime' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300')}>
-                            <Phone className="w-4 h-4" /> Airtime
-                        </button>
-                        <button onClick={() => { setMode('mashup'); setSelectedNetwork('MTN'); setIsManualSelection(true) }} className={cn('flex-1 py-2.5 rounded-lg text-sm font-black transition-all flex items-center justify-center gap-2', mode === 'mashup' ? 'bg-amber-500 text-white shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300')}>
-                            🎯 Mashup
-                        </button>
-                    </div>
-                    {mode === 'mashup' && (
-                        <div className="rounded-2xl bg-amber-50 dark:bg-amber-950/10 border border-amber-200 dark:border-amber-800 px-4 py-3">
-                            <p className="text-xs font-bold text-amber-700 dark:text-amber-400">🎯 <strong>MTN Mashup:</strong> Estimates shown below. Admin fulfils via My MTN App after payment.</p>
-                        </div>
-                    )}
+
                     <div>
                         <Label className="text-sm font-bold text-slate-700 dark:text-slate-300 mb-3 block">{mode === 'mashup' ? 'Network (MTN Only 🔒)' : 'Select Network'}</Label>
                         <div className="grid grid-cols-3 gap-3">

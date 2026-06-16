@@ -371,7 +371,6 @@ export default function DashboardPage() {
                         <CardContent className="space-y-2">
                             {[
                                 { href: '/dashboard/airtime', label: 'Buy Airtime', icon: Phone },
-                                { href: '/dashboard/airtime?mode=mashup', label: 'Mashup Bundle', icon: Zap },
                                 { href: '/dashboard/data-packages', label: 'Buy Data Bundles', icon: Package },
                                 { href: '/dashboard/wallet', label: 'Wallet History', icon: Wallet },
                                 { href: '/dashboard/complaints', label: 'Help & Support', icon: AlertCircle },
