@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { createRouteHandlerClient } from '@/lib/supabase-server'
 
@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
             .eq('id', authUser.id)
             .single()
 
-        if (userData?.role !== 'admin') {
+        if (!userData || (userData as any).role !== 'admin') {
             return NextResponse.json({ error: 'Forbidden - Admin only' }, { status: 403 })
         }
 
@@ -41,9 +41,33 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Failed to fetch users' }, { status: 500 })
         }
 
+        // Fetch all shops to get shop owners
+        const { data: shops, error: shopsError } = await supabase
+            .from('shops')
+            .select('id, shop_name, owner_phone, owner_email')
+            .not('owner_phone', 'is', null)
+
+        let combinedUsers = users || []
+
+        if (shops && !shopsError) {
+            const shopOwners = (shops as any[]).map(shop => ({
+                id: `shop_${shop.id}`,
+                first_name: 'Shop Owner:',
+                last_name: shop.shop_name,
+                phone_number: shop.owner_phone,
+                role: 'shop_owner',
+                email: shop.owner_email || ''
+            }))
+
+            const existingPhones = new Set(combinedUsers.map(u => u.phone_number.replace(/\s+/g, '')))
+            const uniqueShopOwners = shopOwners.filter(so => !existingPhones.has(so.phone_number.replace(/\s+/g, '')))
+            
+            combinedUsers = [...combinedUsers, ...uniqueShopOwners]
+        }
+
         return NextResponse.json({
             success: true,
-            users: users || []
+            users: combinedUsers
         })
     } catch (error: any) {
         console.error('[SMSBroadcast] Error:', error)

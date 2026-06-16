@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { createRouteHandlerClient } from '@/lib/supabase-server'
 import { sendSMS } from '@/lib/sms-service'
@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
             .eq('id', authUser.id)
             .single()
 
-        if (userData?.role !== 'admin') {
+        if (!userData || (userData as any).role !== 'admin') {
             return NextResponse.json({ error: 'Forbidden - Admin only' }, { status: 403 })
         }
 
@@ -41,8 +41,8 @@ export async function POST(request: NextRequest) {
         const body = await request.json()
         const broadcastSchema = z.object({
             message: adminLongTextSchema,
-            userIds: z.array(z.string().uuid()).max(500).optional(),
-            roleFilter: z.enum(['all', 'customer', 'sub-admin', 'admin', 'agent', 'dealer']).optional(),
+            userIds: z.array(z.string()).max(500).optional(),
+            roleFilter: z.enum(['all', 'customer', 'sub-admin', 'admin', 'agent', 'dealer', 'shop_owner']).optional(),
         })
         
         const validation = broadcastSchema.safeParse(body)
@@ -59,25 +59,66 @@ export async function POST(request: NextRequest) {
         // Service role client to bypass RLS
         const supabase = createServerClient()
 
-        // Fetch recipients based on selection
-        let query = supabase
-            .from('users')
-            .select('id, first_name, phone_number, role')
-            .not('phone_number', 'is', null)
+        // Extract real user UUIDs vs shop IDs
+        const realUserIds = userIds ? userIds.filter(id => !id.startsWith('shop_')) : []
+        const shopIds = userIds ? userIds.filter(id => id.startsWith('shop_')).map(id => id.replace('shop_', '')) : []
 
-        if (userIds && userIds.length > 0) {
-            // Specific users selected
-            query = query.in('id', userIds)
-        } else if (roleFilter && roleFilter !== 'all') {
-            // Filter by role
-            query = query.eq('role', roleFilter)
+        let recipients: any[] = []
+
+        // Fetch from users table
+        if (!userIds || realUserIds.length > 0 || (roleFilter && roleFilter !== 'all')) {
+            let query = supabase
+                .from('users')
+                .select('id, first_name, phone_number, role')
+                .not('phone_number', 'is', null)
+
+            if (userIds && userIds.length > 0) {
+                query = query.in('id', realUserIds)
+            } else if (roleFilter && roleFilter !== 'all' && roleFilter !== 'shop_owner') {
+                query = query.eq('role', roleFilter)
+            }
+            
+            const { data: usersData, error: fetchError } = await query
+            if (fetchError) {
+                console.error('[SMSBroadcast] Error fetching users:', fetchError)
+                return NextResponse.json({ error: 'Failed to fetch recipients' }, { status: 500 })
+            }
+            
+            if (usersData && roleFilter !== 'shop_owner') {
+                recipients = [...recipients, ...usersData]
+            }
         }
 
-        const { data: recipients, error: fetchError } = await query
+        // Fetch from shops table
+        if ((userIds && shopIds.length > 0) || roleFilter === 'shop_owner' || roleFilter === 'all') {
+            let shopQuery = supabase
+                .from('shops')
+                .select('id, shop_name, owner_phone')
+                .not('owner_phone', 'is', null)
 
-        if (fetchError) {
-            console.error('[SMSBroadcast] Error fetching recipients:', fetchError)
-            return NextResponse.json({ error: 'Failed to fetch recipients' }, { status: 500 })
+            if (userIds && shopIds.length > 0) {
+                shopQuery = shopQuery.in('id', shopIds)
+            }
+
+            const { data: shopsData, error: shopsError } = await shopQuery
+            if (shopsError) {
+                console.error('[SMSBroadcast] Error fetching shops:', shopsError)
+            }
+
+            if (shopsData) {
+                const mappedShops = (shopsData as any[]).map(s => ({
+                    id: `shop_${s.id}`,
+                    first_name: `Shop Owner (${s.shop_name})`,
+                    phone_number: s.owner_phone,
+                    role: 'shop_owner'
+                }))
+                
+                // Deduplicate phones
+                const existingPhones = new Set(recipients.map(r => r.phone_number.replace(/\s+/g, '')))
+                const uniqueShops = mappedShops.filter(s => !existingPhones.has(s.phone_number.replace(/\s+/g, '')))
+                
+                recipients = [...recipients, ...uniqueShops]
+            }
         }
 
         if (!recipients || recipients.length === 0) {

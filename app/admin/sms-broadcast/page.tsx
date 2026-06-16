@@ -156,6 +156,7 @@ export default function AdminSMSBroadcastPage() {
         switch (role) {
             case 'admin': return 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400'
             case 'sub-admin': return 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-400'
+            case 'shop_owner': return 'bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-400'
             default: return 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400'
         }
     }
@@ -263,7 +264,8 @@ export default function AdminSMSBroadcastPage() {
                                 <SelectContent>
                                     <SelectItem value="all">All Roles</SelectItem>
                                     <SelectItem value="customer">Customers</SelectItem>
-                                    <SelectItem value="agent">Agents / Shop Owners</SelectItem>
+                                    <SelectItem value="agent">Agents</SelectItem>
+                                    <SelectItem value="shop_owner">Shop Owners</SelectItem>
                                     <SelectItem value="dealer">Dealers</SelectItem>
                                     <SelectItem value="sub-admin">Sub-Admins</SelectItem>
                                     <SelectItem value="admin">Admins</SelectItem>
