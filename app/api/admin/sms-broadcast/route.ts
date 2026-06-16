@@ -92,7 +92,7 @@ export async function POST(request: NextRequest) {
         // Fetch from shops table
         if ((userIds && shopIds.length > 0) || roleFilter === 'shop_owner' || roleFilter === 'all') {
             let shopQuery = supabase
-                .from('shops')
+                .from('shop_profiles')
                 .select('id, shop_name, owner_phone')
                 .not('owner_phone', 'is', null)
 

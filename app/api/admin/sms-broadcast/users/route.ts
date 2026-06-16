@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
 
         // Fetch all shops to get shop owners
         const { data: shops, error: shopsError } = await supabase
-            .from('shops')
+            .from('shop_profiles')
             .select('id, shop_name, owner_phone, owner_email')
             .not('owner_phone', 'is', null)
 
@@ -59,10 +59,7 @@ export async function GET(request: NextRequest) {
                 email: shop.owner_email || ''
             }))
 
-            const existingPhones = new Set(combinedUsers.map(u => u.phone_number.replace(/\s+/g, '')))
-            const uniqueShopOwners = shopOwners.filter(so => !existingPhones.has(so.phone_number.replace(/\s+/g, '')))
-            
-            combinedUsers = [...combinedUsers, ...uniqueShopOwners]
+            combinedUsers = [...combinedUsers, ...shopOwners]
         }
 
         return NextResponse.json({
