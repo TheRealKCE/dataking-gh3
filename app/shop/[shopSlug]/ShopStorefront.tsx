@@ -1089,7 +1089,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 )}
 
                 {/* ── MTN Mashup Tab Content ── */}
-                {isGlobalMashupEnabled && activeTab === 'mashup' && (
+                {activeTab === 'mashup' && (
                     <div className="mb-6 bg-white dark:bg-gray-900 rounded-[2rem] border border-gray-200 dark:border-gray-800 shadow-sm overflow-hidden p-5 animate-in fade-in slide-in-from-bottom-2 duration-300">
                         <div className="flex items-center gap-3 mb-5 border-b border-gray-100 dark:border-gray-800 pb-5">
                             <div className="w-12 h-12 rounded-xl flex items-center justify-center text-white bg-amber-500 shadow-sm">
