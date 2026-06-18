@@ -141,16 +141,13 @@ export default function DataPackagesPage() {
 
     const fetchMashupSetting = async () => {
         try {
-            const { data } = await (supabase
-                .from('admin_settings') as any)
-                .select('value')
-                .eq('key', 'special_mtn_mashup_hidden')
-                .single()
-            if (data) {
-                setHideMashup(String(data.value) === 'true')
+            const res = await fetch('/api/admin-settings?keys=special_mtn_mashup_hidden')
+            if (res.ok) {
+                const settings = await res.json()
+                setHideMashup(String(settings.special_mtn_mashup_hidden) === 'true')
             }
         } catch (_) {
-            // setting not yet saved — defaults to visible
+            // fallback
         }
     }
 

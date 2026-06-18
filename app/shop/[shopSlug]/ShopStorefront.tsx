@@ -235,15 +235,36 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
     const isShopAirtimeEnabled = isGlobalAirtimeEnabled && airtimeNetworks.length > 0
     const isShopRcEnabled = isGlobalRcEnabled && rcTypes.length > 0
 
-    // Data Networks
-    const isSpecialMtnMashupHidden = adminSettings['special_mtn_mashup_hidden'] === 'true'
-    const availableNetworks = NETWORK_ORDER.filter(n => {
-        if (n === 'Special MTN Mashup' && isSpecialMtnMashupHidden) return false
-        return packages.some(p => p.network === n)
-    })
-    const extraNetworks = [...new Set(packages.map(p => p.network))].filter(n => !NETWORK_ORDER.includes(n))
-    const networks = [...availableNetworks, ...extraNetworks]
+    const [isSpecialMtnMashupHidden, setIsSpecialMtnMashupHidden] = useState(adminSettings['special_mtn_mashup_hidden'] === 'true')
+
+    useEffect(() => {
+        // Bypass ISR cache to get the very latest toggle status
+        fetch('/api/admin-settings?keys=special_mtn_mashup_hidden', { cache: 'no-store' })
+            .then(res => res.json())
+            .then(data => {
+                if (data && typeof data.special_mtn_mashup_hidden !== 'undefined') {
+                    setIsSpecialMtnMashupHidden(String(data.special_mtn_mashup_hidden) === 'true')
+                }
+            })
+            .catch(() => {})
+    }, [])
+
+    const networks = useMemo(() => {
+        const available = NETWORK_ORDER.filter(n => {
+            if (n === 'Special MTN Mashup' && isSpecialMtnMashupHidden) return false
+            return packages.some(p => p.network === n)
+        })
+        const extra = [...new Set(packages.map(p => p.network))].filter(n => !NETWORK_ORDER.includes(n))
+        return [...available, ...extra]
+    }, [packages, isSpecialMtnMashupHidden])
+
     const [activeNetwork, setActiveNetwork] = useState<string>(networks[0] || '')
+
+    useEffect(() => {
+        if (activeNetwork && !networks.includes(activeNetwork)) {
+            setActiveNetwork(networks[0] || '')
+        }
+    }, [networks, activeNetwork])
 
     useEffect(() => {
         setPageLoading(false)

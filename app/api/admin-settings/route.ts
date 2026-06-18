@@ -1,4 +1,4 @@
-﻿import { NextResponse } from 'next/server'
+import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { createRouteHandlerClient } from '@/lib/supabase-server'
 import { cookies } from 'next/headers'
@@ -32,7 +32,7 @@ export async function GET(request: Request) {
         }
 
         const { data: dbUser } = await supabaseAuth.from('users').select('role').eq('id', user.id).single()
-        const role = dbUser?.role
+        const role = (dbUser as any)?.role
 
         const PUBLIC_SAFE_KEYS = [
             'paystack_fee_percent',
@@ -53,7 +53,8 @@ export async function GET(request: Request) {
             'footer_copyright_text',
             'footer_branding_text',
             'dealer_promo_enabled',
-            'skip_google_oauth_otp'
+            'skip_google_oauth_otp',
+            'special_mtn_mashup_hidden'
         ]
 
         const isAdmin = role === 'admin' || role === 'sub-admin'
@@ -120,7 +121,7 @@ export async function POST(request: Request) {
         }
 
         const { data: dbUser } = await supabaseAuth.from('users').select('role').eq('id', user.id).single()
-        if (dbUser?.role !== 'admin') {
+        if ((dbUser as any)?.role !== 'admin') {
             return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
         }
 
