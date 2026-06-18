@@ -61,7 +61,7 @@ interface ValidationResult {
 }
 
 
-const NETWORKS = ['MTN', 'Telecel', 'AT-iShare', 'AT-BigTime', 'Special MTN Mashup'] as const
+const ALL_NETWORKS = ['MTN', 'Telecel', 'AT-iShare', 'AT-BigTime', 'Special MTN Mashup'] as const
 
 export default function DataPackagesPage() {
     const { dbUser, session } = useAuth()
@@ -77,6 +77,7 @@ export default function DataPackagesPage() {
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
     const [isLoading, setIsLoading] = useState(true)
     const [walletBalance, setWalletBalance] = useState(0)
+    const [specialMtnMashupEnabled, setSpecialMtnMashupEnabled] = useState(true)
 
     const [ordersToday, setOrdersToday] = useState(0)
 
@@ -124,6 +125,7 @@ export default function DataPackagesPage() {
         fetchPackages()
         fetchWalletBalance()
         fetchOrdersToday()
+        fetchMashupSetting()
     }, [dbUser])
 
     useEffect(() => {
@@ -136,6 +138,21 @@ export default function DataPackagesPage() {
             textareaRef.current.style.height = `${textareaRef.current.scrollHeight}px`
         }
     }, [bulkText])
+
+    const fetchMashupSetting = async () => {
+        try {
+            const { data } = await (supabase
+                .from('admin_settings') as any)
+                .select('value')
+                .eq('key', 'special_mtn_mashup_enabled')
+                .single()
+            if (data) {
+                setSpecialMtnMashupEnabled(String(data.value) !== 'false')
+            }
+        } catch (_) {
+            // setting not yet saved — defaults to enabled
+        }
+    }
 
     const fetchPackages = async () => {
         try {
@@ -662,7 +679,7 @@ export default function DataPackagesPage() {
                                             <div className="space-y-1">
                                                 <Label className="text-[#E60000] font-black text-xs uppercase tracking-widest">Select Network</Label>
                                                 <div className="flex gap-2 flex-wrap">
-                                                    {NETWORKS.map(net => (
+                                                    {ALL_NETWORKS.filter(net => specialMtnMashupEnabled || net !== 'Special MTN Mashup').map(net => (
                                                         <Button
                                                             key={net}
                                                             variant={bulkNetwork === net ? "default" : "outline"}
@@ -938,8 +955,8 @@ export default function DataPackagesPage() {
 
             {/* Network Tabs */}
             <Tabs value={selectedNetwork} onValueChange={setSelectedNetwork}>
-                <TabsList className="grid grid-cols-5 gap-1 sm:gap-2 w-full">
-                    {NETWORKS.map((network) => {
+                <TabsList className={`grid gap-1 sm:gap-2 w-full ${specialMtnMashupEnabled ? 'grid-cols-5' : 'grid-cols-4'}`}>
+                    {ALL_NETWORKS.filter(network => specialMtnMashupEnabled || network !== 'Special MTN Mashup').map((network) => {
                         const getNetworkColor = () => {
                             if (network === 'MTN' || network === 'Special MTN Mashup') return 'data-[state=active]:bg-[#FACC15] data-[state=active]:text-black'
                             if (network === 'Telecel') return 'data-[state=active]:bg-[#E60000] data-[state=active]:text-white'

@@ -51,6 +51,7 @@ export default function AdminSettingsPage() {
     const [pageAccessShop, setPageAccessShop] = useState(true)
     const [pageAccessStorefront, setPageAccessStorefront] = useState(true)
     const [pageAccessAirtime, setPageAccessAirtime] = useState(true)
+    const [specialMtnMashupEnabled, setSpecialMtnMashupEnabled] = useState(true)
 
     useEffect(() => {
         fetchSettings()
@@ -106,6 +107,7 @@ export default function AdminSettingsPage() {
             setPageAccessShop(settingsMap.page_access_shop !== 'false')
             setPageAccessStorefront(settingsMap.page_access_storefront !== 'false')
             setPageAccessAirtime(settingsMap.page_access_airtime !== 'false')
+            setSpecialMtnMashupEnabled(settingsMap.special_mtn_mashup_enabled !== 'false')
 
         } catch (error) {
             console.error('Error fetching settings:', error)
@@ -149,7 +151,8 @@ export default function AdminSettingsPage() {
                 { key: 'page_access_profile', value: String(pageAccessProfile) },
                 { key: 'page_access_shop', value: String(pageAccessShop) },
                 { key: 'page_access_storefront', value: String(pageAccessStorefront) },
-                { key: 'page_access_airtime', value: String(pageAccessAirtime) }
+                { key: 'page_access_airtime', value: String(pageAccessAirtime) },
+                { key: 'special_mtn_mashup_enabled', value: String(specialMtnMashupEnabled) },
             ]
 
             const response = await fetch('/api/admin-settings', {
@@ -644,6 +647,23 @@ export default function AdminSettingsPage() {
                                 <Switch
                                     checked={pageAccessAirtime}
                                     onCheckedChange={setPageAccessAirtime}
+                                />
+                            </div>
+
+                            <div className="flex items-center justify-between p-4 border rounded-lg border-yellow-100 dark:border-yellow-900 bg-yellow-50/50 dark:bg-yellow-900/10">
+                                <div className="space-y-0.5">
+                                    <Label className="text-base text-yellow-700 dark:text-yellow-400 font-bold flex items-center gap-2">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>
+                                        Special MTN Mashup
+                                    </Label>
+                                    <p className="text-sm text-yellow-700/60 dark:text-yellow-300/60 font-medium">
+                                        Show or hide the "Special MTN Mashup" bundle category on both the main site and all storefronts
+                                    </p>
+                                </div>
+                                <Switch
+                                    checked={specialMtnMashupEnabled}
+                                    onCheckedChange={setSpecialMtnMashupEnabled}
+                                    className="data-[state=checked]:bg-yellow-500"
                                 />
                             </div>
 
