@@ -85,7 +85,7 @@ export default async function ShopPage({ params }: Props) {
             'airtime_fee_at_agent',
             'airtime_min_amount',
             'airtime_max_amount',
-            'special_mtn_mashup_enabled',
+            'special_mtn_mashup_hidden',
         ]) as any)
 
     const adminSettingsMap: Record<string, string> = {}

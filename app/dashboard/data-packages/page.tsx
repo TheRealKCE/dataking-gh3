@@ -77,7 +77,7 @@ export default function DataPackagesPage() {
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
     const [isLoading, setIsLoading] = useState(true)
     const [walletBalance, setWalletBalance] = useState(0)
-    const [specialMtnMashupEnabled, setSpecialMtnMashupEnabled] = useState(true)
+    const [hideMashup, setHideMashup] = useState(false)
 
     const [ordersToday, setOrdersToday] = useState(0)
 
@@ -144,13 +144,13 @@ export default function DataPackagesPage() {
             const { data } = await (supabase
                 .from('admin_settings') as any)
                 .select('value')
-                .eq('key', 'special_mtn_mashup_enabled')
+                .eq('key', 'special_mtn_mashup_hidden')
                 .single()
             if (data) {
-                setSpecialMtnMashupEnabled(String(data.value) !== 'false')
+                setHideMashup(String(data.value) === 'true')
             }
         } catch (_) {
-            // setting not yet saved — defaults to enabled
+            // setting not yet saved — defaults to visible
         }
     }
 
@@ -679,7 +679,7 @@ export default function DataPackagesPage() {
                                             <div className="space-y-1">
                                                 <Label className="text-[#E60000] font-black text-xs uppercase tracking-widest">Select Network</Label>
                                                 <div className="flex gap-2 flex-wrap">
-                                                    {ALL_NETWORKS.filter(net => specialMtnMashupEnabled || net !== 'Special MTN Mashup').map(net => (
+                                                    {ALL_NETWORKS.filter(net => !hideMashup || net !== 'Special MTN Mashup').map(net => (
                                                         <Button
                                                             key={net}
                                                             variant={bulkNetwork === net ? "default" : "outline"}
@@ -955,8 +955,8 @@ export default function DataPackagesPage() {
 
             {/* Network Tabs */}
             <Tabs value={selectedNetwork} onValueChange={setSelectedNetwork}>
-                <TabsList className={`grid gap-1 sm:gap-2 w-full ${specialMtnMashupEnabled ? 'grid-cols-5' : 'grid-cols-4'}`}>
-                    {ALL_NETWORKS.filter(network => specialMtnMashupEnabled || network !== 'Special MTN Mashup').map((network) => {
+                <TabsList className={`grid gap-1 sm:gap-2 w-full ${hideMashup ? 'grid-cols-4' : 'grid-cols-5'}`}>
+                    {ALL_NETWORKS.filter(network => !hideMashup || network !== 'Special MTN Mashup').map((network) => {
                         const getNetworkColor = () => {
                             if (network === 'MTN' || network === 'Special MTN Mashup') return 'data-[state=active]:bg-[#FACC15] data-[state=active]:text-black'
                             if (network === 'Telecel') return 'data-[state=active]:bg-[#E60000] data-[state=active]:text-white'

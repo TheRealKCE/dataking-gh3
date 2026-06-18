@@ -236,9 +236,9 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
     const isShopRcEnabled = isGlobalRcEnabled && rcTypes.length > 0
 
     // Data Networks
-    const isSpecialMtnMashupEnabled = adminSettings['special_mtn_mashup_enabled'] !== 'false'
+    const isSpecialMtnMashupHidden = adminSettings['special_mtn_mashup_hidden'] === 'true'
     const availableNetworks = NETWORK_ORDER.filter(n => {
-        if (n === 'Special MTN Mashup' && !isSpecialMtnMashupEnabled) return false
+        if (n === 'Special MTN Mashup' && isSpecialMtnMashupHidden) return false
         return packages.some(p => p.network === n)
     })
     const extraNetworks = [...new Set(packages.map(p => p.network))].filter(n => !NETWORK_ORDER.includes(n))
