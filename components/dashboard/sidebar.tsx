@@ -110,6 +110,18 @@ export function DashboardSidebar() {
     const [webProvider, setWebProvider] = useState<'moolre' | 'paystack'>('moolre')
     const [shopProvider, setShopProvider] = useState<'moolre' | 'paystack'>('moolre')
     const [providerSaving, setProviderSaving] = useState<'web' | 'shop' | null>(null)
+    const [hideMashup, setHideMashup] = useState(false)
+
+    useEffect(() => {
+        fetch('/api/admin-settings?keys=special_mtn_mashup_hidden')
+            .then(r => r.ok ? r.json() : null)
+            .then(data => {
+                if (data && String(data.special_mtn_mashup_hidden) === 'true') {
+                    setHideMashup(true)
+                }
+            })
+            .catch(() => {})
+    }, [])
 
     useEffect(() => {
         if (!isAdmin) return
@@ -425,7 +437,9 @@ export function DashboardSidebar() {
                         </p>
                     )}
 
-                    {userNavItems.map((item) => {
+                    {userNavItems
+                        .filter(item => !hideMashup || item.label !== 'Special MTN Mashup')
+                        .map((item) => {
                         const isActive = isLinkActive(item.href)
                         return (
                             <Link key={item.href} href={item.href} onClick={() => {

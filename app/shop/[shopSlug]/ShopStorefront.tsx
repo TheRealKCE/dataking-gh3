@@ -869,9 +869,11 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                     </div>
                     
                     <div className="flex flex-col sm:flex-row items-stretch gap-3">
-                        <button onClick={() => setActiveTab('mashup')} className={cn("flex-1 py-4 px-4 rounded-2xl font-black text-base sm:text-lg transition-all flex items-center justify-center gap-2 border-2", activeTab === 'mashup' ? "bg-amber-500 text-white border-amber-600 shadow-lg scale-[1.02]" : "bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800/50 hover:bg-amber-100 dark:hover:bg-amber-900/40")}>
-                            <Target className="w-6 h-6 animate-pulse" /> Special MTN Mashup
-                        </button>
+                        {!isSpecialMtnMashupHidden && (
+                            <button onClick={() => setActiveTab('mashup')} className={cn("flex-1 py-4 px-4 rounded-2xl font-black text-base sm:text-lg transition-all flex items-center justify-center gap-2 border-2", activeTab === 'mashup' ? "bg-amber-500 text-white border-amber-600 shadow-lg scale-[1.02]" : "bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800/50 hover:bg-amber-100 dark:hover:bg-amber-900/40")}>
+                                <Target className="w-6 h-6 animate-pulse" /> Special MTN Mashup
+                            </button>
+                        )}
                         {isShopRcEnabled && (
                             <button onClick={() => setActiveTab('results_checker')} className={cn("flex-1 py-4 px-4 rounded-2xl font-black text-base sm:text-lg transition-all flex items-center justify-center gap-2 border-2", activeTab === 'results_checker' ? "bg-blue-600 text-white border-blue-700 shadow-lg scale-[1.02]" : "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800/50 hover:bg-blue-100 dark:hover:bg-blue-900/40")}>
                                 <GraduationCap className="w-6 h-6" /> Exams
