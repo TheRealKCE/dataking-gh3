@@ -28,7 +28,14 @@ export async function POST(request: NextRequest) {
         const user = authUser
         const userId = user.id
 
-        const { success: rateLimitOk } = await purchaseRateLimit.limit(userId)
+        let rateLimitOk = true;
+        try {
+            const rlResult = await purchaseRateLimit.limit(userId)
+            rateLimitOk = rlResult.success
+        } catch (rlError) {
+            console.error('[Purchase] Rate limit error, bypassing:', rlError)
+        }
+        
         if (!rateLimitOk) {
             return NextResponse.json({ error: 'Too many requests. Please wait.' }, { status: 429 })
         }
@@ -287,9 +294,9 @@ export async function POST(request: NextRequest) {
                 new_balance: newBalance,
             },
         })
-    } catch (error) {
+    } catch (error: any) {
         console.error('Purchase error:', error)
-        return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+        return NextResponse.json({ error: error.message ? `Internal server error: ${error.message}` : 'Internal server error' }, { status: 500 })
     }
 }
 
