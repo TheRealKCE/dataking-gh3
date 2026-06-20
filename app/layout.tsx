@@ -18,6 +18,7 @@ import PwaInstallPrompt from '@/components/pwa-install-prompt'
 import { UIProvider } from '@/contexts/ui-context'
 import { SystemAnnouncementModal } from '@/components/system-announcement-modal'
 import { getActiveAnnouncement } from '@/lib/get-active-announcement'
+import { SpeedInsights } from '@vercel/speed-insights/next'
 
 const outfit = Outfit({
     weight: ['400', '600', '700'],
@@ -96,6 +97,7 @@ export default async function RootLayout({
                         </UIProvider>
                     </AuthProvider>
                 </ThemeProvider>
+                <SpeedInsights />
             </body>
         </html>
     )
