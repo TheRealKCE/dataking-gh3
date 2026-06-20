@@ -271,10 +271,25 @@ export async function POST(request: NextRequest) {
                 }).catch(() => {})
 
                 // 4. Trigger Auto-Fulfillment
-                await triggerFulfillment((order as any).id, (pkg as any).network, {
-                    email: userEmail || 'Unknown',
-                    name: `${firstName} ${(userData as any).last_name || ''}`.trim() || 'Customer'
-                })
+                // EXPRESS MTN is always manual — skip auto-fulfillment, just alert admin
+                if ((pkg as any).network === 'EXPRESS MTN') {
+                    await sendAdminNewOrderAlert({
+                        referenceCode: (order as any).reference_code,
+                        phoneNumber: (order as any).phone_number,
+                        network: (order as any).network,
+                        size: (order as any).size,
+                        price: priceToCharge,
+                        customerName: `${firstName} ${(userData as any).last_name || ''}`.trim() || 'Customer',
+                        customerEmail: userEmail || 'Unknown',
+                        source: 'main_site' as const,
+                        reason: 'EXPRESS MTN — Manual fulfillment required'
+                    }).catch(err => console.error('[Purchase] EXPRESS MTN admin alert failed:', err))
+                } else {
+                    await triggerFulfillment((order as any).id, (pkg as any).network, {
+                        email: userEmail || 'Unknown',
+                        name: `${firstName} ${(userData as any).last_name || ''}`.trim() || 'Customer'
+                    })
+                }
             }
         } catch (postPurchaseError) {
             console.error('[Purchase] Post-purchase notification/fulfillment failed:', postPurchaseError)

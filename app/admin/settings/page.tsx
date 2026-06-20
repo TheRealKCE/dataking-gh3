@@ -52,6 +52,7 @@ export default function AdminSettingsPage() {
     const [pageAccessStorefront, setPageAccessStorefront] = useState(true)
     const [pageAccessAirtime, setPageAccessAirtime] = useState(true)
     const [hideMashup, setHideMashup] = useState(false)
+    const [hideExpressMtn, setHideExpressMtn] = useState(false)
 
     useEffect(() => {
         fetchSettings()
@@ -108,6 +109,7 @@ export default function AdminSettingsPage() {
             setPageAccessStorefront(settingsMap.page_access_storefront !== 'false')
             setPageAccessAirtime(settingsMap.page_access_airtime !== 'false')
             setHideMashup(settingsMap.special_mtn_mashup_hidden === 'true')
+            setHideExpressMtn(settingsMap.express_mtn_hidden === 'true')
 
         } catch (error) {
             console.error('Error fetching settings:', error)
@@ -153,6 +155,7 @@ export default function AdminSettingsPage() {
                 { key: 'page_access_storefront', value: String(pageAccessStorefront) },
                 { key: 'page_access_airtime', value: String(pageAccessAirtime) },
                 { key: 'special_mtn_mashup_hidden', value: String(hideMashup) },
+                { key: 'express_mtn_hidden', value: String(hideExpressMtn) },
             ]
 
             const response = await fetch('/api/admin-settings', {
@@ -664,6 +667,23 @@ export default function AdminSettingsPage() {
                                     checked={hideMashup}
                                     onCheckedChange={setHideMashup}
                                     className="data-[state=checked]:bg-yellow-500"
+                                />
+                            </div>
+
+                            <div className="flex items-center justify-between p-4 border rounded-lg border-orange-100 dark:border-orange-900 bg-orange-50/50 dark:bg-orange-900/10">
+                                <div className="space-y-0.5">
+                                    <Label className="text-base text-orange-700 dark:text-orange-400 font-bold flex items-center gap-2">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                                        Hide EXPRESS MTN
+                                    </Label>
+                                    <p className="text-sm text-orange-700/60 dark:text-orange-300/60 font-medium">
+                                        When ON, the "EXPRESS MTN" category is hidden from both the main site and all storefronts
+                                    </p>
+                                </div>
+                                <Switch
+                                    checked={hideExpressMtn}
+                                    onCheckedChange={setHideExpressMtn}
+                                    className="data-[state=checked]:bg-orange-500"
                                 />
                             </div>
 

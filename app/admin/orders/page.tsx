@@ -984,14 +984,14 @@ export default function AdminOrdersPage() {
                                     />
                                 </div>
                                 <div className="flex flex-wrap gap-1.5">
-                                    {['All', 'MTN', 'Telecel', 'AT-iShare', 'AT-BigTime', 'Special MTN Mashup'].map((network) => (
+                                    {['All', 'MTN', 'Telecel', 'AT-iShare', 'AT-BigTime', 'Special MTN Mashup', 'EXPRESS MTN'].map((network) => (
                                         <Button
                                             key={network}
                                             variant={availableNetworkFilter === (network === 'All' ? 'all' : network) ? 'default' : 'outline'}
                                             size="sm"
                                             onClick={() => setAvailableNetworkFilter(network === 'All' ? 'all' : network)}
                                             className={`transition-all duration-150 active:scale-95 ${availableNetworkFilter === (network === 'All' ? 'all' : network)
-                                                ? network === 'MTN' || network === 'Special MTN Mashup'
+                                                ? network === 'MTN' || network === 'Special MTN Mashup' || network === 'EXPRESS MTN'
                                                     ? 'bg-yellow-500 hover:bg-yellow-600 text-black'
                                                     : network === 'Telecel'
                                                         ? 'bg-red-600 hover:bg-red-700 text-white'
@@ -1001,7 +1001,7 @@ export default function AdminOrdersPage() {
                                                 : 'hover:bg-muted'
                                                 }`}
                                         >
-                                            {network === 'AT-BigTime' ? 'BigTime' : network === 'Special MTN Mashup' ? 'Mashup' : network}
+                                            {network === 'AT-BigTime' ? 'BigTime' : network === 'Special MTN Mashup' ? 'Mashup' : network === 'EXPRESS MTN' ? 'Express' : network}
                                         </Button>
                                     ))}
                                 </div>
@@ -1122,16 +1122,16 @@ export default function AdminOrdersPage() {
                             />
                         </div>
                         <div className="flex flex-wrap gap-1.5 pt-1">
-                            {['All', 'MTN', 'Telecel', 'AT-iShare', 'AT-BigTime', 'Special MTN Mashup'].map((network) => (
+                            {['All', 'MTN', 'Telecel', 'AT-iShare', 'AT-BigTime', 'Special MTN Mashup', 'EXPRESS MTN'].map((network) => (
                                 <Button
                                     key={network}
-                                    id={`network-filter-${network.toLowerCase()}`}
-                                    name={`network-filter-${network.toLowerCase()}`}
+                                    id={`network-filter-${network.toLowerCase().replace(/\s+/g, '-')}`}
+                                    name={`network-filter-${network.toLowerCase().replace(/\s+/g, '-')}`}
                                     variant={historyNetworkFilter === (network === 'All' ? 'all' : network) ? 'default' : 'outline'}
                                     size="sm"
                                     onClick={() => setHistoryNetworkFilter(network === 'All' ? 'all' : network)}
                                     className={`transition-all duration-150 active:scale-95 text-[10px] h-8 ${historyNetworkFilter === (network === 'All' ? 'all' : network)
-                                        ? network === 'MTN' || network === 'Special MTN Mashup'
+                                        ? network === 'MTN' || network === 'Special MTN Mashup' || network === 'EXPRESS MTN'
                                             ? 'bg-yellow-500 hover:bg-yellow-600 text-black'
                                             : network === 'Telecel'
                                                 ? 'bg-red-600 hover:bg-red-700 text-white'
@@ -1141,7 +1141,7 @@ export default function AdminOrdersPage() {
                                         : 'hover:bg-muted'
                                         }`}
                                 >
-                                    {network === 'AT-BigTime' ? 'BigTime' : network === 'Special MTN Mashup' ? 'Mashup' : network}
+                                    {network === 'AT-BigTime' ? 'BigTime' : network === 'Special MTN Mashup' ? 'Mashup' : network === 'EXPRESS MTN' ? 'Express' : network}
                                 </Button>
                             ))}
                         </div>

@@ -61,7 +61,7 @@ interface ValidationResult {
 }
 
 
-const ALL_NETWORKS = ['MTN', 'Telecel', 'AT-iShare', 'AT-BigTime', 'Special MTN Mashup'] as const
+const ALL_NETWORKS = ['MTN', 'Telecel', 'AT-iShare', 'AT-BigTime', 'Special MTN Mashup', 'EXPRESS MTN'] as const
 
 export default function DataPackagesPage() {
     const { dbUser, session } = useAuth()
@@ -78,6 +78,7 @@ export default function DataPackagesPage() {
     const [isLoading, setIsLoading] = useState(true)
     const [walletBalance, setWalletBalance] = useState(0)
     const [hideMashup, setHideMashup] = useState(false)
+    const [hideExpressMtn, setHideExpressMtn] = useState(false)
 
     const [ordersToday, setOrdersToday] = useState(0)
 
@@ -141,10 +142,11 @@ export default function DataPackagesPage() {
 
     const fetchMashupSetting = async () => {
         try {
-            const res = await fetch('/api/admin-settings?keys=special_mtn_mashup_hidden')
+            const res = await fetch('/api/admin-settings?keys=special_mtn_mashup_hidden,express_mtn_hidden')
             if (res.ok) {
                 const settings = await res.json()
                 setHideMashup(String(settings.special_mtn_mashup_hidden) === 'true')
+                setHideExpressMtn(String(settings.express_mtn_hidden) === 'true')
             }
         } catch (_) {
             // fallback
@@ -250,7 +252,7 @@ export default function DataPackagesPage() {
                 // Check if network matches
                 // 'Special MTN Mashup' uses MTN numbers, so treat it as MTN for validation
                 const detectedNet = detectNetwork(value)
-                const packageNetwork = selectedPackage.network === 'Special MTN Mashup'
+                const packageNetwork = (selectedPackage.network === 'Special MTN Mashup' || selectedPackage.network === 'EXPRESS MTN')
                     ? 'MTN'
                     : selectedPackage.network.includes('AT') ? 'AirtelTigo' : selectedPackage.network
                 if (detectedNet !== packageNetwork && selectedPackage.network !== 'AT-BigTime') {
@@ -676,7 +678,7 @@ export default function DataPackagesPage() {
                                             <div className="space-y-1">
                                                 <Label className="text-[#E60000] font-black text-xs uppercase tracking-widest">Select Network</Label>
                                                 <div className="flex gap-2 flex-wrap">
-                                                    {ALL_NETWORKS.filter(net => !hideMashup || net !== 'Special MTN Mashup').map(net => (
+                                                    {ALL_NETWORKS.filter(net => (!hideMashup || net !== 'Special MTN Mashup') && (!hideExpressMtn || net !== 'EXPRESS MTN')).map(net => (
                                                         <Button
                                                             key={net}
                                                             variant={bulkNetwork === net ? "default" : "outline"}
@@ -952,10 +954,10 @@ export default function DataPackagesPage() {
 
             {/* Network Tabs */}
             <Tabs value={selectedNetwork} onValueChange={setSelectedNetwork}>
-                <TabsList className={`grid gap-1 sm:gap-2 w-full ${hideMashup ? 'grid-cols-4' : 'grid-cols-5'}`}>
-                    {ALL_NETWORKS.filter(network => !hideMashup || network !== 'Special MTN Mashup').map((network) => {
+                <TabsList className={`grid gap-1 sm:gap-2 w-full ${hideMashup && hideExpressMtn ? 'grid-cols-4' : (hideMashup || hideExpressMtn) ? 'grid-cols-5' : 'grid-cols-6'}`}>
+                    {ALL_NETWORKS.filter(network => (!hideMashup || network !== 'Special MTN Mashup') && (!hideExpressMtn || network !== 'EXPRESS MTN')).map((network) => {
                         const getNetworkColor = () => {
-                            if (network === 'MTN' || network === 'Special MTN Mashup') return 'data-[state=active]:bg-[#FACC15] data-[state=active]:text-black'
+                            if (network === 'MTN' || network === 'Special MTN Mashup' || network === 'EXPRESS MTN') return 'data-[state=active]:bg-[#FACC15] data-[state=active]:text-black'
                             if (network === 'Telecel') return 'data-[state=active]:bg-[#E60000] data-[state=active]:text-white'
                             return 'data-[state=active]:bg-[#0056B3] data-[state=active]:text-white'
                         }
@@ -967,8 +969,8 @@ export default function DataPackagesPage() {
                                 className={`flex items-center justify-center gap-1 text-xs sm:text-sm px-2 py-2 ${getNetworkColor()}`}
                             >
                                 <NetworkIcon network={network} size={24} className="mr-1" />
-                                <span className="hidden sm:inline">{network === 'Special MTN Mashup' ? 'Special Mashup' : network}</span>
-                                <span className="sm:hidden">{network === 'AT-iShare' ? 'AT-iS' : network === 'AT-BigTime' ? 'AT-BT' : network === 'Special MTN Mashup' ? 'Mashup' : network}</span>
+                                <span className="hidden sm:inline">{network === 'Special MTN Mashup' ? 'Special Mashup' : network === 'EXPRESS MTN' ? 'Express MTN' : network}</span>
+                                <span className="sm:hidden">{network === 'AT-iShare' ? 'AT-iS' : network === 'AT-BigTime' ? 'AT-BT' : network === 'Special MTN Mashup' ? 'Mashup' : network === 'EXPRESS MTN' ? 'Xpress' : network}</span>
                             </TabsTrigger>
                         )
                     })}
@@ -984,7 +986,7 @@ export default function DataPackagesPage() {
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                             {filteredPackages.map((pkg) => {
                                 const isMtn = pkg.network === 'MTN'
-                                const isMashup = pkg.network === 'Special MTN Mashup'
+                                const isMashup = pkg.network === 'Special MTN Mashup' || pkg.network === 'EXPRESS MTN'
                                 const isTelecel = pkg.network === 'Telecel'
 
                                 return (

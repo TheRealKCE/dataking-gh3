@@ -15,14 +15,14 @@ export function NetworkIcon({ network, size = 40, className = '', variant = 'def
 
     // Standardize network name for file path
     const getFileName = (name: string) => {
-        if (name === 'Special MTN Mashup') return 'mtn.png' // Reuse MTN logo
+        if (name === 'Special MTN Mashup' || name === 'EXPRESS MTN') return 'mtn.png' // Reuse MTN logo
         if (name.includes('AT')) return 'at.png' // Both AT-iShare and AT-BigTime use AT logo
         return `${name.toLowerCase()}.png`
     }
 
     // Fallback styling if image not found
     const getFallbackStyle = (name: string) => {
-        if (name === 'MTN' || name === 'Special MTN Mashup') return 'bg-yellow-400 text-black'
+        if (name === 'MTN' || name === 'Special MTN Mashup' || name === 'EXPRESS MTN') return 'bg-yellow-400 text-black'
         if (name === 'Telecel') return 'bg-red-600 text-white'
         if (name.includes('AT')) return 'bg-blue-700 text-white'
         return 'bg-gray-800 text-white'
@@ -30,6 +30,7 @@ export function NetworkIcon({ network, size = 40, className = '', variant = 'def
 
     const getFallbackInitial = (name: string) => {
         if (name === 'MTN' || name === 'Special MTN Mashup') return 'M'
+        if (name === 'EXPRESS MTN') return 'E'
         if (name === 'Telecel') return 'T'
         if (name.includes('AT')) return 'A'
         return name[0]
@@ -37,7 +38,9 @@ export function NetworkIcon({ network, size = 40, className = '', variant = 'def
 
     if (!imageError) {
         return (
-            <div className={`relative overflow-hidden rounded-full ${className}`} style={{ width: size, height: size }}>
+            <>
+                <style>{`.net-icon-${size} { width: ${size}px; height: ${size}px; }`}</style>
+                <div className={`relative overflow-hidden rounded-full net-icon-${size} ${className}`}>
                 <Image
                     src={`/images/networks/${getFileName(network)}`}
                     alt={network}
@@ -48,16 +51,19 @@ export function NetworkIcon({ network, size = 40, className = '', variant = 'def
                     onError={() => setImageError(true)}
                 />
             </div>
+            </>
         )
     }
 
     // Fallback UI
     return (
-        <div
-            className={`flex items-center justify-center rounded-full font-bold shadow-sm ${getFallbackStyle(network)} ${className}`}
-            style={{ width: size, height: size, fontSize: size * 0.5 }}
-        >
-            {getFallbackInitial(network)}
-        </div>
+        <>
+            <style>{`.net-fallback-${size} { width: ${size}px; height: ${size}px; font-size: ${size * 0.5}px; }`}</style>
+            <div
+                className={`flex items-center justify-center rounded-full font-bold shadow-sm ${getFallbackStyle(network)} net-fallback-${size} ${className}`}
+            >
+                {getFallbackInitial(network)}
+            </div>
+        </>
     )
 }

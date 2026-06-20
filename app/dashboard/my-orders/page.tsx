@@ -40,7 +40,7 @@ interface OrderWithComplaints extends Order {
     complaints?: Complaint[]
 }
 
-const NETWORKS = ['All', 'MTN', 'Telecel', 'AT-iShare', 'AT-BigTime', 'Special MTN Mashup']
+const NETWORKS = ['All', 'MTN', 'Telecel', 'AT-iShare', 'AT-BigTime', 'Special MTN Mashup', 'EXPRESS MTN']
 const STATUSES = ['All', 'pending', 'processing', 'completed', 'failed']
 const TIME_PERIODS = ['Today', 'Yesterday', 'This Week', 'This Month', 'Custom']
 

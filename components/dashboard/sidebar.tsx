@@ -53,6 +53,7 @@ const userNavItems = [
     { href: '/dashboard/data-packages', label: 'Data Packages', icon: Package },
     { href: '/dashboard/airtime', label: 'Buy Airtime', icon: Phone },
     { href: '/dashboard/data-packages?network=Special%20MTN%20Mashup', label: 'Special MTN Mashup', icon: Zap },
+    { href: '/dashboard/data-packages?network=EXPRESS%20MTN', label: 'EXPRESS MTN', icon: Zap },
     { href: '/dashboard/my-orders', label: 'Orders', icon: ShoppingCart },
     { href: '/dashboard/wallet', label: 'Wallet', icon: Wallet },
     { href: '/dashboard/transactions', label: 'Transactions', icon: Activity },
@@ -72,6 +73,7 @@ const adminNavItems = [
     { href: '/admin/datagod', label: 'DataGod Console', icon: Activity },
     { href: '/admin/airtime', label: 'Airtime', icon: Phone },
     { href: '/admin/mashup-orders', label: 'Special MTN Mashup', icon: Zap },
+    { href: '/admin/express-orders', label: 'EXPRESS MTN', icon: Zap },
     { href: '/admin/shops', label: 'Shops', icon: Store },
     { href: '/admin/shops/withdrawals', label: 'Shop Withdrawals', icon: Banknote },
     { href: '/admin/afa-management', label: 'AFA Management', icon: BadgeCheck },
@@ -111,13 +113,17 @@ export function DashboardSidebar() {
     const [shopProvider, setShopProvider] = useState<'moolre' | 'paystack'>('moolre')
     const [providerSaving, setProviderSaving] = useState<'web' | 'shop' | null>(null)
     const [hideMashup, setHideMashup] = useState(false)
+    const [hideExpressMtn, setHideExpressMtn] = useState(false)
 
     useEffect(() => {
-        fetch('/api/admin-settings?keys=special_mtn_mashup_hidden')
+        fetch('/api/admin-settings?keys=special_mtn_mashup_hidden,express_mtn_hidden')
             .then(r => r.ok ? r.json() : null)
             .then(data => {
                 if (data && String(data.special_mtn_mashup_hidden) === 'true') {
                     setHideMashup(true)
+                }
+                if (data && String(data.express_mtn_hidden) === 'true') {
+                    setHideExpressMtn(true)
                 }
             })
             .catch(() => {})
@@ -327,9 +333,9 @@ export function DashboardSidebar() {
                                 {dealerProgress && (
                                     <>
                                         <div className="w-full h-1.5 rounded-full bg-white/10 overflow-hidden mb-1.5">
+                                            <style>{`.dlr-prog { width: ${dealerProgress.pct}%; }`}</style>
                                             <div
-                                                className="h-full rounded-full bg-gradient-to-r from-violet-400 to-purple-300 transition-all"
-                                                style={{ width: `${dealerProgress.pct}%` }}
+                                                className="h-full rounded-full bg-gradient-to-r from-violet-400 to-purple-300 transition-all dlr-prog"
                                             />
                                         </div>
                                         <div className="flex justify-between text-[9px] text-purple-200/60 font-bold">
@@ -438,7 +444,7 @@ export function DashboardSidebar() {
                     )}
 
                     {userNavItems
-                        .filter(item => !hideMashup || item.label !== 'Special MTN Mashup')
+                    .filter(item => (!hideMashup || item.label !== 'Special MTN Mashup') && (!hideExpressMtn || item.label !== 'EXPRESS MTN'))
                         .map((item) => {
                         const isActive = isLinkActive(item.href)
                         return (
