@@ -248,11 +248,31 @@ export async function fulfillOrder(
         if (normalizedPhone.startsWith('233')) normalizedPhone = '0' + normalizedPhone.slice(3)
         else if (!normalizedPhone.startsWith('0')) normalizedPhone = '0' + normalizedPhone
 
-        const requestBody = {
+        // Check if the admin has enabled the hardcoded package_id: 6 override for MTN
+        let mtnPackageId6Enabled = false
+        if (network === 'MTN') {
+            try {
+                const supabase = createServerClient()
+                const { data: setting } = await (supabase.from('admin_settings') as any)
+                    .select('value')
+                    .eq('key', 'dk_mtn_plan_id_6_enabled')
+                    .maybeSingle()
+                mtnPackageId6Enabled = setting?.value === 'true'
+            } catch {
+                // Silently ignore — fall back to standard payload
+            }
+        }
+
+        const requestBody: Record<string, any> = {
             recipient_msisdn: normalizedPhone,
             network_id: networkId,
             shared_bundle: volumeNumber, // ✅ FIX: send the numeric volume, e.g. 15 for "15GB"
             incoming_api_ref: orderId,
+        }
+
+        if (mtnPackageId6Enabled) {
+            requestBody.package_id = 6
+            console.log(`[DataKazina] MTN package_id override: using package_id=6`)
         }
 
         console.log(`[DataKazina] Request payload:`, sanitizeForLog(requestBody))
