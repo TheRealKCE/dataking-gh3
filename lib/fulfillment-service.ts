@@ -35,6 +35,7 @@ const NETWORK_IDS: Record<string, number> = {
     'Telecel': 2,
     'AT-iShare': 1,
     'AT-BigTime': 4,
+    'EXPRESS MTN': 3,
 }
 
 // Cache for bundle mappings (will be populated from API or Supabase)
@@ -184,12 +185,6 @@ export async function fulfillOrder(
     dataSize: string,
     orderId: string
 ): Promise<FulfillmentResponse> {
-    // const { isPhoneFlagged } = await import('@/lib/security')
-    // if (isPhoneFlagged(phoneNumber)) {
-    //     console.warn(`[Fulfillment Security] Blocked fulfillment for flagged phone: ${phoneNumber}`)
-    //     return { success: false, error: 'Security block: Suspicious activity detected' }
-    // }
-
     if (!checkCircuit()) return { success: false, error: 'Service temporarily unavailable' }
     if (!DATAKAZINA_API_KEY) return { success: false, error: 'API key not configured' }
 
@@ -248,11 +243,31 @@ export async function fulfillOrder(
         if (normalizedPhone.startsWith('233')) normalizedPhone = '0' + normalizedPhone.slice(3)
         else if (!normalizedPhone.startsWith('0')) normalizedPhone = '0' + normalizedPhone
 
-        const requestBody = {
+        // Check if the admin has enabled the hardcoded package_id: 6 override for standard MTN
+        let mtnPackageId6Enabled = false
+        if (network === 'MTN') {
+            try {
+                const supabase = createServerClient()
+                const { data: setting } = await (supabase.from('admin_settings') as any)
+                    .select('value')
+                    .eq('key', 'dk_mtn_plan_id_6_enabled')
+                    .maybeSingle()
+                mtnPackageId6Enabled = setting?.value === 'true'
+            } catch {
+                // Silently ignore — fall back to standard payload
+            }
+        }
+
+        const requestBody: Record<string, any> = {
             recipient_msisdn: normalizedPhone,
             network_id: networkId,
             shared_bundle: volumeNumber, // ✅ FIX: send the numeric volume, e.g. 15 for "15GB"
             incoming_api_ref: orderId,
+        }
+
+        if (network === 'EXPRESS MTN' || mtnPackageId6Enabled) {
+            requestBody.package_id = 6
+            console.log(`[DataKazina] MTN/EXPRESS MTN override: using package_id=6`)
         }
 
         console.log(`[DataKazina] Request payload:`, sanitizeForLog(requestBody))
