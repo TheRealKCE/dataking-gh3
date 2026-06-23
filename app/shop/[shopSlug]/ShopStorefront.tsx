@@ -238,10 +238,11 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
 
     const [isSpecialMtnMashupHidden, setIsSpecialMtnMashupHidden] = useState(adminSettings['special_mtn_mashup_hidden'] === 'true')
     const [isExpressMtnHidden, setIsExpressMtnHidden] = useState(adminSettings['express_mtn_hidden'] === 'true')
+    const [isStandardMtnHidden, setIsStandardMtnHidden] = useState(adminSettings['standard_mtn_hidden'] === 'true')
 
     useEffect(() => {
         // Bypass ISR cache to get the very latest toggle status
-        fetch('/api/admin-settings?keys=special_mtn_mashup_hidden,express_mtn_hidden', { cache: 'no-store' })
+        fetch('/api/admin-settings?keys=special_mtn_mashup_hidden,express_mtn_hidden,standard_mtn_hidden', { cache: 'no-store' })
             .then(res => res.json())
             .then(data => {
                 if (data && typeof data.special_mtn_mashup_hidden !== 'undefined') {
@@ -249,6 +250,9 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 }
                 if (data && typeof data.express_mtn_hidden !== 'undefined') {
                     setIsExpressMtnHidden(String(data.express_mtn_hidden) === 'true')
+                }
+                if (data && typeof data.standard_mtn_hidden !== 'undefined') {
+                    setIsStandardMtnHidden(String(data.standard_mtn_hidden) === 'true')
                 }
             })
             .catch(() => {})
@@ -258,11 +262,12 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
         const available = NETWORK_ORDER.filter(n => {
             if (n === 'Special MTN Mashup' && isSpecialMtnMashupHidden) return false
             if (n === 'EXPRESS MTN' && isExpressMtnHidden) return false
+            if (n === 'MTN' && isStandardMtnHidden) return false
             return packages.some(p => p.network === n)
         })
         const extra = [...new Set(packages.map(p => p.network))].filter(n => !NETWORK_ORDER.includes(n))
         return [...available, ...extra]
-    }, [packages, isSpecialMtnMashupHidden, isExpressMtnHidden])
+    }, [packages, isSpecialMtnMashupHidden, isExpressMtnHidden, isStandardMtnHidden])
 
     const [activeNetwork, setActiveNetwork] = useState<string>(networks[0] || '')
 

@@ -54,7 +54,8 @@ export async function GET(request: Request) {
             'footer_branding_text',
             'dealer_promo_enabled',
             'skip_google_oauth_otp',
-            'special_mtn_mashup_hidden'
+            'special_mtn_mashup_hidden',
+            'standard_mtn_hidden'
         ]
 
         const isAdmin = role === 'admin' || role === 'sub-admin'
