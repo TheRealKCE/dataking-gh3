@@ -57,7 +57,7 @@ export async function POST(request: NextRequest) {
         const broadcastSchema = z.object({
             subject: z.string().min(1).max(255),
             message: adminLongTextSchema,
-            userIds: z.array(z.string().uuid()).max(500).optional(),
+            userIds: z.array(z.string().uuid()).max(20000).optional(),
             roleFilter: z.enum(['all', 'customer', 'sub-admin', 'admin', 'agent', 'dealer']).optional(),
         })
         
