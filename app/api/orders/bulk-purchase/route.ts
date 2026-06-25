@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { generateReferenceCode } from '@/lib/utils'
 import { createRouteHandlerClient } from '@/lib/supabase-server'
@@ -8,11 +8,17 @@ import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
 import { checkFraudSignals, logSuspiciousActivity } from '@/lib/security'
 
-const bulkRateLimit = new Ratelimit({
-    redis: Redis.fromEnv(),
-    limiter: Ratelimit.slidingWindow(1, '5 s'),
-    prefix: 'rl:bulk-purchase',
-})
+// Lazy-init so a missing env var or exhausted Redis limit does not crash the module
+let bulkRateLimit: Ratelimit | null = null
+try {
+    bulkRateLimit = new Ratelimit({
+        redis: Redis.fromEnv(),
+        limiter: Ratelimit.slidingWindow(1, '5 s'),
+        prefix: 'rl:bulk-purchase',
+    })
+} catch (e) {
+    console.error('[BulkPurchase] Redis init failed — rate limit disabled:', e)
+}
 
 interface BulkOrderItem {
     packageId: string
@@ -40,10 +46,16 @@ export async function POST(request: NextRequest) {
 
         const userId = authUser.id
 
-        // === SECURITY: Rate limit purchases ===
-        const { success: rateLimitOk } = await bulkRateLimit.limit(userId)
-        if (!rateLimitOk) {
-            return NextResponse.json({ error: 'Too many requests. Please wait a few seconds.' }, { status: 429 })
+        // Fail-open: if Redis is exhausted, allow the request rather than blocking
+        try {
+            if (bulkRateLimit) {
+                const { success: rateLimitOk } = await bulkRateLimit.limit(userId)
+                if (!rateLimitOk) {
+                    return NextResponse.json({ error: 'Too many requests. Please wait a few seconds.' }, { status: 429 })
+                }
+            }
+        } catch (rlErr) {
+            console.error('[BulkPurchase] Rate limit check failed (Redis exhausted?), proceeding:', rlErr)
         }
 
         let body: { orders: BulkOrderItem[] }

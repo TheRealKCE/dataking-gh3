@@ -7,11 +7,17 @@ import { adminLongTextSchema } from '@/lib/validation'
 import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
 
-const broadcastRateLimit = new Ratelimit({
-    redis: Redis.fromEnv(),
-    limiter: Ratelimit.slidingWindow(5, '1 h'),
-    prefix: 'rl:sms-broadcast',
-})
+// Lazy-init so a missing env var or exhausted Redis limit does not crash the module
+let broadcastRateLimit: Ratelimit | null = null
+try {
+    broadcastRateLimit = new Ratelimit({
+        redis: Redis.fromEnv(),
+        limiter: Ratelimit.slidingWindow(5, '1 h'),
+        prefix: 'rl:sms-broadcast',
+    })
+} catch (e) {
+    console.error('[SMSBroadcast] Redis init failed — broadcast rate limit disabled:', e)
+}
 
 export async function POST(request: NextRequest) {
     try {
@@ -33,9 +39,18 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Forbidden - Admin only' }, { status: 403 })
         }
 
-        const { success: rlOk } = await broadcastRateLimit.limit(authUser.id)
-        if (!rlOk) {
-            return NextResponse.json({ error: 'Rate limit: max 5 broadcasts per hour' }, { status: 429 })
+        // Fail-open: if Redis is exhausted or unavailable, allow the broadcast through
+        // rather than showing a confusing ERR max requests error to the admin.
+        try {
+            if (broadcastRateLimit) {
+                const { success: rlOk } = await broadcastRateLimit.limit(authUser.id)
+                if (!rlOk) {
+                    return NextResponse.json({ error: 'Rate limit: max 5 broadcasts per hour' }, { status: 429 })
+                }
+            }
+        } catch (rlErr) {
+            // Redis limit exhausted or unavailable — log and continue (fail-open)
+            console.error('[SMSBroadcast] Rate limit check failed (Redis exhausted?), proceeding:', rlErr)
         }
 
         const body = await request.json()

@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { createRouteHandlerClient } from '@/lib/supabase-server'
 import { cookies } from 'next/headers'
@@ -8,11 +8,17 @@ import { adminLongTextSchema } from '@/lib/validation'
 import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
 
-const broadcastRateLimit = new Ratelimit({
-    redis: Redis.fromEnv(),
-    limiter: Ratelimit.slidingWindow(5, '1 h'),
-    prefix: 'rl:email-broadcast',
-})
+// Lazy-init so a missing env var or exhausted Redis limit does not crash the module
+let broadcastRateLimit: Ratelimit | null = null
+try {
+    broadcastRateLimit = new Ratelimit({
+        redis: Redis.fromEnv(),
+        limiter: Ratelimit.slidingWindow(5, '1 h'),
+        prefix: 'rl:email-broadcast',
+    })
+} catch (e) {
+    console.error('[EmailBroadcast] Redis init failed — broadcast rate limit disabled:', e)
+}
 
 export async function POST(request: NextRequest) {
     try {
@@ -31,13 +37,20 @@ export async function POST(request: NextRequest) {
             .eq('id', authUser.id)
             .single()
 
-        if (userData?.role !== 'admin') {
+        if (!userData || (userData as any).role !== 'admin') {
             return NextResponse.json({ error: 'Forbidden - Admin only' }, { status: 403 })
         }
 
-        const { success: rlOk } = await broadcastRateLimit.limit(authUser.id)
-        if (!rlOk) {
-            return NextResponse.json({ error: 'Rate limit: max 5 broadcasts per hour' }, { status: 429 })
+        // Fail-open: if Redis is exhausted or unavailable, allow the broadcast through
+        try {
+            if (broadcastRateLimit) {
+                const { success: rlOk } = await broadcastRateLimit.limit(authUser.id)
+                if (!rlOk) {
+                    return NextResponse.json({ error: 'Rate limit: max 5 broadcasts per hour' }, { status: 429 })
+                }
+            }
+        } catch (rlErr) {
+            console.error('[EmailBroadcast] Rate limit check failed (Redis exhausted?), proceeding:', rlErr)
         }
 
         const body = await request.json()
