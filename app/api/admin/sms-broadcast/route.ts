@@ -82,42 +82,73 @@ export async function POST(request: NextRequest) {
 
         // Fetch from users table
         if (!userIds || realUserIds.length > 0 || (roleFilter && roleFilter !== 'all')) {
-            let query = supabase
-                .from('users')
-                .select('id, first_name, phone_number, role')
-                .not('phone_number', 'is', null)
-
-            if (userIds && userIds.length > 0) {
-                query = query.in('id', realUserIds)
-            } else if (roleFilter && roleFilter !== 'all' && roleFilter !== 'shop_owner') {
-                query = query.eq('role', roleFilter)
+            let usersData: any[] = []
+            
+            if (userIds && realUserIds.length > 0) {
+                // Chunk queries to avoid URI Too Long error
+                const CHUNK_SIZE = 150
+                for (let i = 0; i < realUserIds.length; i += CHUNK_SIZE) {
+                    const chunk = realUserIds.slice(i, i + CHUNK_SIZE)
+                    const { data, error } = await supabase
+                        .from('users')
+                        .select('id, first_name, phone_number, role')
+                        .not('phone_number', 'is', null)
+                        .in('id', chunk)
+                    
+                    if (error) {
+                        console.error('[SMSBroadcast] Error fetching users chunk:', error)
+                        return NextResponse.json({ error: 'Failed to fetch recipients' }, { status: 500 })
+                    }
+                    if (data) usersData.push(...(data as any[]))
+                }
+            } else {
+                let query = supabase
+                    .from('users')
+                    .select('id, first_name, phone_number, role')
+                    .not('phone_number', 'is', null)
+                    
+                if (roleFilter && roleFilter !== 'all' && roleFilter !== 'shop_owner') {
+                    query = query.eq('role', roleFilter)
+                }
+                
+                const { data, error } = await query
+                if (error) {
+                    console.error('[SMSBroadcast] Error fetching users:', error)
+                    return NextResponse.json({ error: 'Failed to fetch recipients' }, { status: 500 })
+                }
+                if (data) usersData = data
             }
             
-            const { data: usersData, error: fetchError } = await query
-            if (fetchError) {
-                console.error('[SMSBroadcast] Error fetching users:', fetchError)
-                return NextResponse.json({ error: 'Failed to fetch recipients' }, { status: 500 })
-            }
-            
-            if (usersData && roleFilter !== 'shop_owner') {
+            if (usersData.length > 0 && roleFilter !== 'shop_owner') {
                 recipients = [...recipients, ...usersData]
             }
         }
 
         // Fetch from shops table
         if ((userIds && shopIds.length > 0) || roleFilter === 'shop_owner' || roleFilter === 'all') {
-            let shopQuery = supabase
-                .from('shop_profiles')
-                .select('id, shop_name, owner_phone')
-                .not('owner_phone', 'is', null)
-
+            let shopsData: any[] = []
+            
             if (userIds && shopIds.length > 0) {
-                shopQuery = shopQuery.in('id', shopIds)
-            }
-
-            const { data: shopsData, error: shopsError } = await shopQuery
-            if (shopsError) {
-                console.error('[SMSBroadcast] Error fetching shops:', shopsError)
+                const CHUNK_SIZE = 150
+                for (let i = 0; i < shopIds.length; i += CHUNK_SIZE) {
+                    const chunk = shopIds.slice(i, i + CHUNK_SIZE)
+                    const { data, error } = await supabase
+                        .from('shop_profiles')
+                        .select('id, shop_name, owner_phone')
+                        .not('owner_phone', 'is', null)
+                        .in('id', chunk)
+                        
+                    if (error) console.error('[SMSBroadcast] Error fetching shops chunk:', error)
+                    if (data) shopsData.push(...(data as any[]))
+                }
+            } else {
+                const { data, error } = await supabase
+                    .from('shop_profiles')
+                    .select('id, shop_name, owner_phone')
+                    .not('owner_phone', 'is', null)
+                    
+                if (error) console.error('[SMSBroadcast] Error fetching shops:', error)
+                if (data) shopsData = data
             }
 
             if (shopsData) {
