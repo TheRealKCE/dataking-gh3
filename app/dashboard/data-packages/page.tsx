@@ -79,6 +79,7 @@ export default function DataPackagesPage() {
     const [walletBalance, setWalletBalance] = useState(0)
     const [hideMashup, setHideMashup] = useState(false)
     const [hideExpressMtn, setHideExpressMtn] = useState(false)
+    const [hideStandardMtn, setHideStandardMtn] = useState(false)
 
     const [ordersToday, setOrdersToday] = useState(0)
 
@@ -142,11 +143,12 @@ export default function DataPackagesPage() {
 
     const fetchMashupSetting = async () => {
         try {
-            const res = await fetch('/api/admin-settings?keys=special_mtn_mashup_hidden,express_mtn_hidden')
+            const res = await fetch('/api/admin-settings?keys=special_mtn_mashup_hidden,express_mtn_hidden,standard_mtn_hidden')
             if (res.ok) {
                 const settings = await res.json()
                 setHideMashup(String(settings.special_mtn_mashup_hidden) === 'true')
                 setHideExpressMtn(String(settings.express_mtn_hidden) === 'true')
+                setHideStandardMtn(String(settings.standard_mtn_hidden) === 'true')
             }
         } catch (_) {
             // fallback
@@ -678,7 +680,7 @@ export default function DataPackagesPage() {
                                             <div className="space-y-1">
                                                 <Label className="text-[#E60000] font-black text-xs uppercase tracking-widest">Select Network</Label>
                                                 <div className="flex gap-2 flex-wrap">
-                                                    {ALL_NETWORKS.filter(net => (!hideMashup || net !== 'Special MTN Mashup') && (!hideExpressMtn || net !== 'EXPRESS MTN')).map(net => (
+                                                    {ALL_NETWORKS.filter(net => (!hideMashup || net !== 'Special MTN Mashup') && (!hideExpressMtn || net !== 'EXPRESS MTN') && (!hideStandardMtn || net !== 'MTN')).map(net => (
                                                         <Button
                                                             key={net}
                                                             variant={bulkNetwork === net ? "default" : "outline"}
@@ -954,8 +956,8 @@ export default function DataPackagesPage() {
 
             {/* Network Tabs */}
             <Tabs value={selectedNetwork} onValueChange={setSelectedNetwork}>
-                <TabsList className={`grid gap-1 sm:gap-2 w-full ${hideMashup && hideExpressMtn ? 'grid-cols-4' : (hideMashup || hideExpressMtn) ? 'grid-cols-5' : 'grid-cols-6'}`}>
-                    {ALL_NETWORKS.filter(network => (!hideMashup || network !== 'Special MTN Mashup') && (!hideExpressMtn || network !== 'EXPRESS MTN')).map((network) => {
+                <TabsList className={`grid gap-1 sm:gap-2 w-full ${[hideMashup, hideExpressMtn, hideStandardMtn].filter(Boolean).length === 3 ? 'grid-cols-3' : [hideMashup, hideExpressMtn, hideStandardMtn].filter(Boolean).length === 2 ? 'grid-cols-4' : [hideMashup, hideExpressMtn, hideStandardMtn].filter(Boolean).length === 1 ? 'grid-cols-5' : 'grid-cols-6'}`}>
+                    {ALL_NETWORKS.filter(network => (!hideMashup || network !== 'Special MTN Mashup') && (!hideExpressMtn || network !== 'EXPRESS MTN') && (!hideStandardMtn || network !== 'MTN')).map((network) => {
                         const getNetworkColor = () => {
                             if (network === 'MTN' || network === 'Special MTN Mashup' || network === 'EXPRESS MTN') return 'data-[state=active]:bg-[#FACC15] data-[state=active]:text-black'
                             if (network === 'Telecel') return 'data-[state=active]:bg-[#E60000] data-[state=active]:text-white'

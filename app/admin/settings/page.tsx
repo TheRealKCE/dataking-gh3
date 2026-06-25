@@ -53,6 +53,7 @@ export default function AdminSettingsPage() {
     const [pageAccessAirtime, setPageAccessAirtime] = useState(true)
     const [hideMashup, setHideMashup] = useState(false)
     const [hideExpressMtn, setHideExpressMtn] = useState(false)
+    const [hideStandardMtn, setHideStandardMtn] = useState(false)
 
     useEffect(() => {
         fetchSettings()
@@ -110,6 +111,7 @@ export default function AdminSettingsPage() {
             setPageAccessAirtime(settingsMap.page_access_airtime !== 'false')
             setHideMashup(settingsMap.special_mtn_mashup_hidden === 'true')
             setHideExpressMtn(settingsMap.express_mtn_hidden === 'true')
+            setHideStandardMtn(settingsMap.standard_mtn_hidden === 'true')
 
         } catch (error) {
             console.error('Error fetching settings:', error)
@@ -156,6 +158,7 @@ export default function AdminSettingsPage() {
                 { key: 'page_access_airtime', value: String(pageAccessAirtime) },
                 { key: 'special_mtn_mashup_hidden', value: String(hideMashup) },
                 { key: 'express_mtn_hidden', value: String(hideExpressMtn) },
+                { key: 'standard_mtn_hidden', value: String(hideStandardMtn) },
             ]
 
             const response = await fetch('/api/admin-settings', {
@@ -684,6 +687,23 @@ export default function AdminSettingsPage() {
                                     checked={hideExpressMtn}
                                     onCheckedChange={setHideExpressMtn}
                                     className="data-[state=checked]:bg-orange-500"
+                                />
+                            </div>
+
+                            <div className="flex items-center justify-between p-4 border rounded-lg border-blue-100 dark:border-blue-900 bg-blue-50/50 dark:bg-blue-900/10">
+                                <div className="space-y-0.5">
+                                    <Label className="text-base text-blue-700 dark:text-blue-400 font-bold flex items-center gap-2">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+                                        Hide Standard MTN
+                                    </Label>
+                                    <p className="text-sm text-blue-700/60 dark:text-blue-300/60 font-medium">
+                                        When ON, the standard "MTN" category is hidden from both the main site and all storefronts
+                                    </p>
+                                </div>
+                                <Switch
+                                    checked={hideStandardMtn}
+                                    onCheckedChange={setHideStandardMtn}
+                                    className="data-[state=checked]:bg-blue-500"
                                 />
                             </div>
 

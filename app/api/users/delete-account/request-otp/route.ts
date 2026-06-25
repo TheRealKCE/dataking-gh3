@@ -1,14 +1,20 @@
-﻿import { createRouteHandlerClient } from '@/lib/supabase-server'
+import { createRouteHandlerClient } from '@/lib/supabase-server'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
 
-const otpRateLimit = new Ratelimit({
-    redis: Redis.fromEnv(),
-    limiter: Ratelimit.slidingWindow(3, '10 m'), // 3 requests per 10 minutes
-    prefix: 'rl:delete-otp',
-})
+// Lazy-init so a missing env var or exhausted Redis limit does not crash the module
+let otpRateLimit: Ratelimit | null = null
+try {
+    otpRateLimit = new Ratelimit({
+        redis: Redis.fromEnv(),
+        limiter: Ratelimit.slidingWindow(3, '10 m'), // 3 requests per 10 minutes
+        prefix: 'rl:delete-otp',
+    })
+} catch (e) {
+    console.error('[DeleteOTP] Redis init failed — rate limit disabled:', e)
+}
 
 export async function POST(request: Request) {
     try {
@@ -20,9 +26,16 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        const { success: rateLimitOk } = await otpRateLimit.limit(authUser.id)
-        if (!rateLimitOk) {
-            return NextResponse.json({ error: 'Too many requests. Please try again later.' }, { status: 429 })
+        // Fail-open: if Redis is exhausted, allow the request rather than blocking
+        try {
+            if (otpRateLimit) {
+                const { success: rateLimitOk } = await otpRateLimit.limit(authUser.id)
+                if (!rateLimitOk) {
+                    return NextResponse.json({ error: 'Too many requests. Please try again later.' }, { status: 429 })
+                }
+            }
+        } catch (rlErr) {
+            console.error('[DeleteOTP] Rate limit check failed (Redis exhausted?), proceeding:', rlErr)
         }
 
         const { error } = await supabase.auth.signInWithOtp({ email: authUser.email })

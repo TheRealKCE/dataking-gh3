@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { createRouteHandlerClient } from '@/lib/supabase-server'
 import { cookies } from 'next/headers'
@@ -8,11 +8,17 @@ import { adminLongTextSchema } from '@/lib/validation'
 import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
 
-const broadcastRateLimit = new Ratelimit({
-    redis: Redis.fromEnv(),
-    limiter: Ratelimit.slidingWindow(5, '1 h'),
-    prefix: 'rl:email-broadcast',
-})
+// Lazy-init so a missing env var or exhausted Redis limit does not crash the module
+let broadcastRateLimit: Ratelimit | null = null
+try {
+    broadcastRateLimit = new Ratelimit({
+        redis: Redis.fromEnv(),
+        limiter: Ratelimit.slidingWindow(5, '1 h'),
+        prefix: 'rl:email-broadcast',
+    })
+} catch (e) {
+    console.error('[EmailBroadcast] Redis init failed — broadcast rate limit disabled:', e)
+}
 
 export async function POST(request: NextRequest) {
     try {
@@ -31,20 +37,27 @@ export async function POST(request: NextRequest) {
             .eq('id', authUser.id)
             .single()
 
-        if (userData?.role !== 'admin') {
+        if (!userData || (userData as any).role !== 'admin') {
             return NextResponse.json({ error: 'Forbidden - Admin only' }, { status: 403 })
         }
 
-        const { success: rlOk } = await broadcastRateLimit.limit(authUser.id)
-        if (!rlOk) {
-            return NextResponse.json({ error: 'Rate limit: max 5 broadcasts per hour' }, { status: 429 })
+        // Fail-open: if Redis is exhausted or unavailable, allow the broadcast through
+        try {
+            if (broadcastRateLimit) {
+                const { success: rlOk } = await broadcastRateLimit.limit(authUser.id)
+                if (!rlOk) {
+                    return NextResponse.json({ error: 'Rate limit: max 5 broadcasts per hour' }, { status: 429 })
+                }
+            }
+        } catch (rlErr) {
+            console.error('[EmailBroadcast] Rate limit check failed (Redis exhausted?), proceeding:', rlErr)
         }
 
         const body = await request.json()
         const broadcastSchema = z.object({
             subject: z.string().min(1).max(255),
             message: adminLongTextSchema,
-            userIds: z.array(z.string().uuid()).max(500).optional(),
+            userIds: z.array(z.string().uuid()).max(20000).optional(),
             roleFilter: z.enum(['all', 'customer', 'sub-admin', 'admin', 'agent', 'dealer']).optional(),
         })
         
@@ -63,24 +76,42 @@ export async function POST(request: NextRequest) {
         const supabase = createServerClient()
 
         // Fetch recipients based on selection
-        let query = supabase
-            .from('users')
-            .select('id, first_name, email, role')
-            .not('email', 'is', null)
+        let recipientsRaw: any[] = []
 
         if (userIds && userIds.length > 0) {
-            // Specific users selected
-            query = query.in('id', userIds)
-        } else if (roleFilter && roleFilter !== 'all') {
-            // Filter by role
-            query = query.eq('role', roleFilter)
-        }
+            // Specific users selected (chunked to avoid URI Too Long errors on 1000+ users)
+            const CHUNK_SIZE = 150
+            for (let i = 0; i < userIds.length; i += CHUNK_SIZE) {
+                const chunk = userIds.slice(i, i + CHUNK_SIZE)
+                const { data, error } = await supabase
+                    .from('users')
+                    .select('id, first_name, email, role')
+                    .not('email', 'is', null)
+                    .in('id', chunk)
+                    
+                if (error) {
+                    console.error('[EmailBroadcast] Error fetching recipients chunk:', error)
+                    return NextResponse.json({ error: 'Failed to fetch recipients' }, { status: 500 })
+                }
+                if (data) recipientsRaw.push(...(data as any[]))
+            }
+        } else {
+            let query = supabase
+                .from('users')
+                .select('id, first_name, email, role')
+                .not('email', 'is', null)
 
-        const { data: recipientsRaw, error: fetchError } = await query
+            if (roleFilter && roleFilter !== 'all') {
+                // Filter by role
+                query = query.eq('role', roleFilter)
+            }
 
-        if (fetchError) {
-            console.error('[EmailBroadcast] Error fetching recipients:', fetchError)
-            return NextResponse.json({ error: 'Failed to fetch recipients' }, { status: 500 })
+            const { data, error } = await query
+            if (error) {
+                console.error('[EmailBroadcast] Error fetching recipients:', error)
+                return NextResponse.json({ error: 'Failed to fetch recipients' }, { status: 500 })
+            }
+            if (data) recipientsRaw = data
         }
 
         const recipients = recipientsRaw as any[] | null
