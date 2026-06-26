@@ -42,7 +42,8 @@ export async function GET(request: NextRequest) {
         } else if (batchId) {
             query = query.eq('download_batch_id', batchId)
         } else if (available) {
-            query = query.is('download_batch_id', null).eq('status', 'pending')
+            // If available is passed, we get all orders instead of filtering
+            // query = query.is('download_batch_id', null)
         }
 
         const { data: orders, count, error: fetchError } = await query
