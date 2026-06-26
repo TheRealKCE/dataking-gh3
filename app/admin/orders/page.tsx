@@ -76,7 +76,7 @@ export default function AdminOrdersPage() {
     const [loading, setLoading] = useState(true)
     const [searchTerm, setSearchTerm] = useState('')
     const [debouncedSearch, setDebouncedSearch] = useState('')
-    const [availableNetworkFilter, setAvailableNetworkFilter] = useState('MTN')
+    const [availableNetworkFilter, setAvailableNetworkFilter] = useState('all')
     const [historyNetworkFilter, setHistoryNetworkFilter] = useState('all')
     const [batches, setBatches] = useState<any[]>([])
     const [activeTab, setActiveTab] = useState('available')
@@ -152,7 +152,7 @@ export default function AdminOrdersPage() {
         }
 
         try {
-            const response = await fetch('/api/admin/orders?available=true&limit=200')
+            const response = await fetch('/api/admin/orders?limit=200')
             if (!response.ok) {
                 const result = await response.json()
                 throw new Error(result.error || 'Failed to fetch orders')
@@ -964,7 +964,7 @@ export default function AdminOrdersPage() {
 
             <Tabs defaultValue="available" value={activeTab} onValueChange={setActiveTab}>
                 <TabsList className="grid w-full grid-cols-2 max-w-[400px]">
-                    <TabsTrigger value="available">Available ({orders.length})</TabsTrigger>
+                    <TabsTrigger value="available">All Orders ({orders.length})</TabsTrigger>
                     <TabsTrigger value="downloaded">Downloaded History ({batchTotalCount})</TabsTrigger>
                 </TabsList>
 
