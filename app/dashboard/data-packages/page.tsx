@@ -1072,58 +1072,57 @@ export default function DataPackagesPage() {
                             })}
                         </div>
                     ) : (
-                        <div className="space-y-3">
+                        <div className="space-y-2">
                             {filteredPackages.map((pkg) => {
+                                const isMtn = pkg.network === 'MTN' || pkg.network === 'Special MTN Mashup' || pkg.network === 'EXPRESS MTN'
+                                const isTelecel = pkg.network === 'Telecel'
+                                const isAT = pkg.network.includes('AT')
+
                                 const getBuyButtonStyle = () => {
-                                    if (pkg.network === 'Telecel') {
-                                        return 'bg-white text-[#E60000] hover:bg-gray-100 border-0 shadow-md font-bold px-6'
-                                    }
-                                    if (pkg.network.startsWith('AT')) {
-                                        return 'bg-white text-[#0056B3] hover:bg-gray-100 border-0 shadow-md font-bold px-6'
-                                    }
-                                    return 'bg-black text-white hover:bg-black/90 border-0 shadow-md font-bold px-6'
+                                    if (isTelecel) return 'bg-white text-[#E60000] hover:bg-gray-100 border-0 shadow font-bold px-4 h-8 text-xs'
+                                    if (isAT) return 'bg-white text-[#0056B3] hover:bg-gray-100 border-0 shadow font-bold px-4 h-8 text-xs'
+                                    return 'bg-black text-white hover:bg-black/90 border-0 shadow font-bold px-4 h-8 text-xs'
                                 }
 
                                 return (
-                                    <Card
+                                    <div
                                         key={pkg.id}
-                                        className={`cursor-pointer border border-border/50 mb-3 overflow-hidden ${pkg.network === 'MTN' ? 'bg-[#FACC15] text-black' :
-                                            pkg.network === 'Telecel' ? 'bg-[#E60000] text-white' :
-                                                'bg-[#0056B3] text-white'
-                                            }`}
+                                        className={`cursor-pointer rounded-xl border border-white/10 overflow-hidden flex items-center gap-3 px-3 py-2.5 transition-opacity hover:opacity-90 ${
+                                            isMtn ? 'bg-[#FFCC00] text-black' :
+                                            isTelecel ? 'bg-[#E60000] text-white' :
+                                            'bg-[#0056B3] text-white'
+                                        }`}
                                         onClick={() => handlePurchaseClick(pkg)}
                                     >
-                                        <CardContent className="p-4 flex items-center justify-between">
-                                            <div className="flex items-center gap-5">
-                                                <div className="p-2 bg-white/20 rounded-xl shadow-sm">
-                                                    <NetworkIcon network={pkg.network} size={40} />
-                                                </div>
-                                                <div>
-                                                    <div className="flex items-center gap-3 mb-1">
-                                                        <h3 className="font-black text-xl sm:text-2xl leading-tight">{pkg.size}</h3>
-                                                        <Badge variant="outline" className={`text-[10px] font-bold px-2 py-0.5 border-current ${pkg.network === 'MTN' ? 'text-black border-black/20' : 'text-white border-white/20'
-                                                            }`}>
-                                                            {pkg.network}
-                                                        </Badge>
-                                                    </div>
-                                                    <p className={`text-xs font-medium ${pkg.network === 'MTN' ? 'text-black/70' : 'text-white/80'
-                                                        }`}>
-                                                        {pkg.description || 'Data Bundle'}
-                                                    </p>
-                                                </div>
+                                        {/* Icon */}
+                                        <div className="shrink-0 w-9 h-9 rounded-lg bg-white/20 flex items-center justify-center">
+                                            <NetworkIcon network={pkg.network} size={28} />
+                                        </div>
+                                        {/* Info */}
+                                        <div className="flex-1 min-w-0">
+                                            <div className="flex items-center gap-2">
+                                                <span className="font-black text-base leading-tight">{pkg.size}</span>
+                                                <span className={`text-[9px] font-black uppercase tracking-wider px-1.5 py-0.5 rounded-full ${isMtn ? 'bg-black/10 text-black' : 'bg-white/20 text-white'}`}>
+                                                    {pkg.network === 'Special MTN Mashup' ? 'MASHUP' : pkg.network === 'EXPRESS MTN' ? 'EXPRESS' : pkg.network}
+                                                </span>
                                             </div>
-                                            <div className="flex items-center gap-6">
-                                                <span className="text-xl font-black">{formatCurrency(getEffectivePrice(pkg))}</span>
-                                                <Button
-                                                    variant="outline"
-                                                    size="sm"
-                                                    className={getBuyButtonStyle()}
-                                                >
-                                                    Buy
-                                                </Button>
-                                            </div>
-                                        </CardContent>
-                                    </Card>
+                                            <p className={`text-[10px] font-medium truncate ${isMtn ? 'text-black/60' : 'text-white/70'}`}>
+                                                {pkg.description || 'Data Bundle'}
+                                            </p>
+                                        </div>
+                                        {/* Price + Buy */}
+                                        <div className="flex items-center gap-3 shrink-0">
+                                            <span className="text-sm font-black">{formatCurrency(getEffectivePrice(pkg))}</span>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className={getBuyButtonStyle()}
+                                                onClick={(e) => { e.stopPropagation(); handlePurchaseClick(pkg) }}
+                                            >
+                                                Buy
+                                            </Button>
+                                        </div>
+                                    </div>
                                 )
                             })}
                         </div>

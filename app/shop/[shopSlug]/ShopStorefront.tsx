@@ -124,12 +124,9 @@ const QUICK_AMOUNTS = [1, 2, 5, 10, 20, 50, 100]
 function MTNLogo() {
     return (
         <svg viewBox="0 0 60 60" className="w-full h-full" fill="none" xmlns="http://www.w3.org/2000/svg">
-            {/* Yellow background circle */}
             <circle cx="30" cy="30" r="30" fill="#FFCC00" />
-            {/* White oval with red outline - like real MTN logo */}
-            <ellipse cx="30" cy="30" rx="22" ry="13" fill="white" stroke="#cc0000" strokeWidth="2.5" />
-            {/* MTN text in navy blue */}
-            <text x="30" y="34.5" textAnchor="middle" fontSize="13" fontWeight="900" fill="#003087" fontFamily="Arial Black, Arial, sans-serif">MTN</text>
+            <ellipse cx="30" cy="30" rx="23" ry="13" fill="#0056b3" stroke="white" strokeWidth="2" />
+            <text x="30" y="35" textAnchor="middle" fontSize="14" fontWeight="900" fill="white" fontStyle="italic" fontFamily="Arial Black, Arial, sans-serif" letterSpacing="0.5">MTN</text>
         </svg>
     )
 }
@@ -810,10 +807,14 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
         <div className="min-h-screen bg-gray-50 dark:bg-[#0a0f1c] text-gray-900 dark:text-white theme-shop">
             <style dangerouslySetInnerHTML={{ __html: `.theme-shop { --brand-color: ${safeBrandColor}; }` }} />
             
-            {/* Header / Nav (like KOFI screenshot) */}
+            {/* Header / Nav */}
             <header className="sticky top-0 z-50 flex items-center justify-between p-3.5 bg-[#06080f] text-white shadow-md">
                 <div className="flex items-center gap-3">
-                    <button aria-label="Open Menu" className="bg-[#FFB800] text-black p-1.5 rounded-lg hover:bg-yellow-500 transition-colors">
+                    <button
+                        aria-label="Open Menu"
+                        onClick={() => setIsSidebarOpen(true)}
+                        className="bg-[#FFB800] text-black p-1.5 rounded-lg hover:bg-yellow-500 transition-colors"
+                    >
                         <Menu className="w-5 h-5" />
                     </button>
                     <span className="font-extrabold text-[15px] tracking-wide uppercase">{shop.shop_name}</span>
@@ -822,6 +823,95 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                     <ThemeToggle />
                 </div>
             </header>
+
+            {/* Sidebar Overlay */}
+            {isSidebarOpen && (
+                <div
+                    className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm"
+                    onClick={() => setIsSidebarOpen(false)}
+                />
+            )}
+
+            {/* Sidebar Drawer */}
+            <div className={cn(
+                "fixed top-0 left-0 h-full w-72 z-[70] bg-[#06080f] text-white flex flex-col shadow-2xl transition-transform duration-300 ease-in-out",
+                isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+            )}>
+                {/* Sidebar Header */}
+                <div className="flex items-center justify-between p-4 border-b border-white/10">
+                    <span className="font-extrabold text-sm tracking-widest uppercase text-white/80">{shop.shop_name}</span>
+                    <button
+                        aria-label="Close Menu"
+                        onClick={() => setIsSidebarOpen(false)}
+                        className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors"
+                    >
+                        <X className="w-4 h-4" />
+                    </button>
+                </div>
+
+                {/* Shop Logo */}
+                <div className="flex flex-col items-center gap-2 py-6 border-b border-white/10">
+                    {shop.logo_url ? (
+                        <div className="w-20 h-20 rounded-2xl overflow-hidden border-2 border-white/20">
+                            <Image src={shop.logo_url} alt={shop.shop_name} width={80} height={80} className="object-cover w-full h-full" />
+                        </div>
+                    ) : (
+                        <div className="w-20 h-20 rounded-2xl bg-[var(--brand-color)] flex items-center justify-center text-2xl font-black">
+                            {shop.shop_name[0]}
+                        </div>
+                    )}
+                    <p className="text-sm font-bold text-white/90">{shop.shop_name}</p>
+                    {shop.description && <p className="text-xs text-white/50 text-center px-4 leading-relaxed">{shop.description}</p>}
+                </div>
+
+                {/* Nav Links */}
+                <nav className="flex-1 flex flex-col gap-1 p-4 overflow-y-auto">
+                    <a
+                        href={`/shop/${shop.shop_slug}/about`}
+                        className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+                    >
+                        <Info className="w-4 h-4" /> About Shop
+                    </a>
+                    {shop.whatsapp_number && (
+                        <a
+                            href={`https://wa.me/${shop.whatsapp_number}?text=Hello, I need help with ${shop.shop_name}`}
+                            target="_blank" rel="noopener noreferrer"
+                            className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+                        >
+                            <MessageCircle className="w-4 h-4 text-[#25D366]" /> WhatsApp Support
+                        </a>
+                    )}
+                    {shop.community_link && (
+                        <a
+                            href={shop.community_link}
+                            target="_blank" rel="noopener noreferrer"
+                            className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+                        >
+                            <Users className="w-4 h-4 text-emerald-400" /> Join Community
+                        </a>
+                    )}
+                    {(shop.owner_phone || shop.whatsapp_number) && (
+                        <a
+                            href={`tel:${shop.owner_phone || shop.whatsapp_number}`}
+                            className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+                        >
+                            <Phone className="w-4 h-4 text-blue-400" /> {shop.owner_phone || shop.whatsapp_number}
+                        </a>
+                    )}
+                </nav>
+
+                {/* Install Button */}
+                {(isInstallable || isIOS) && !isInstalled && (
+                    <div className="p-4 border-t border-white/10">
+                        <button
+                            onClick={handleInstallShop}
+                            className="w-full flex items-center justify-center gap-2 bg-[#FFB800] text-black font-black text-sm py-3 rounded-xl hover:bg-yellow-400 transition-colors"
+                        >
+                            Install App
+                        </button>
+                    </div>
+                )}
+            </div>
 
             {/* Hero Section */}
             <div ref={heroRef} className="relative pt-6 pb-20 overflow-hidden bg-[var(--brand-color)]">
@@ -858,13 +948,6 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                     )}
                     <h1 className="text-2xl sm:text-3xl font-black text-white drop-shadow-md mb-1.5 tracking-tight uppercase">{shop.shop_name}</h1>
                     <p className="text-white/90 text-[11px] sm:text-[13px] font-medium max-w-md mx-auto leading-tight">{shop.description}</p>
-                    
-                    {/* Network Logos in Hero */}
-                    <div className="flex justify-center items-center gap-2 mt-4">
-                        <div className="w-7 h-7 rounded-full bg-black/20 backdrop-blur-sm ring-1 ring-white/10 flex items-center justify-center overflow-hidden"><MTNLogo /></div>
-                        <div className="w-7 h-7 rounded-full bg-black/20 backdrop-blur-sm ring-1 ring-white/10 flex items-center justify-center overflow-hidden"><TelecelLogo /></div>
-                        <div className="w-7 h-7 rounded-full bg-black/20 backdrop-blur-sm ring-1 ring-white/10 flex items-center justify-center overflow-hidden"><ATLogo /></div>
-                    </div>
                 </div>
                 <DividerSVG style={shop.divider_style} fillClass="fill-gray-50 dark:fill-[#0a0f1c]" />
             </div>
