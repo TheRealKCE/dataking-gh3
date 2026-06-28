@@ -802,23 +802,57 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-[#0a0f1c] text-gray-900 dark:text-white">
-            {/* Top Navigation */}
-            <div className="flex items-center justify-between px-6 pt-12 pb-6 max-w-2xl mx-auto">
-                <div className="w-12"></div> {/* Spacer for centering */}
-                <h1 className="text-xs font-black tracking-[0.2em] text-gray-500 dark:text-gray-400">CHOOSE A SERVICE</h1>
-                <button 
-                    onClick={() => { setShowAnnouncementModal(true); setAnnouncementDismissed(true); }}
-                    className="relative w-12 h-12 rounded-[1.2rem] bg-white dark:bg-[#1c2333] border border-gray-200 dark:border-transparent flex items-center justify-center text-amber-500 shadow-lg"
-                >
-                    <Bell className="w-5 h-5" />
-                    {!announcementDismissed && announcement && (
-                        <span className="absolute top-0 right-0 w-3 h-3 rounded-full bg-red-500 border-[3px] border-white dark:border-[#1c2333]" />
+        <div className="min-h-screen bg-gray-50 dark:bg-[#0a0f1c] text-gray-900 dark:text-white theme-shop">
+            <style dangerouslySetInnerHTML={{ __html: `.theme-shop { --brand-color: ${safeBrandColor}; }` }} />
+            {/* Hero Section */}
+            <div ref={heroRef} className="relative pt-12 pb-24 overflow-hidden bg-[var(--brand-color)]">
+                {shop.banner_url && (
+                    <div className="absolute inset-0 opacity-20">
+                        <Image src={shop.banner_url} alt="Shop Banner" fill className="object-cover" />
+                        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/50" />
+                    </div>
+                )}
+                
+                {/* Top Navigation inside Hero */}
+                <div className="relative z-20 flex items-center justify-end px-6 max-w-2xl mx-auto mb-6">
+                    <button 
+                        onClick={() => { setShowAnnouncementModal(true); setAnnouncementDismissed(true); }}
+                        className="relative w-10 h-10 rounded-xl bg-black/20 hover:bg-black/30 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white shadow-lg transition-colors"
+                    >
+                        <Bell className="w-5 h-5" />
+                        {!announcementDismissed && announcement && (
+                            <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-red-500 border-2 border-[var(--brand-color)]" />
+                        )}
+                    </button>
+                </div>
+
+                <div className="relative z-10 max-w-2xl mx-auto px-6 text-center mt-4">
+                    {shop.logo_url ? (
+                        <div className="relative w-24 h-24 mx-auto rounded-3xl overflow-hidden bg-white/20 shadow-xl mb-4 border border-white/10 backdrop-blur-sm">
+                            <Image src={shop.logo_url} alt="Logo" fill className="object-contain" />
+                        </div>
+                    ) : (
+                        <div className="w-24 h-24 mx-auto rounded-3xl bg-white/20 flex items-center justify-center shadow-xl mb-4 border border-white/10 backdrop-blur-sm">
+                            <ShoppingCart className="w-10 h-10 text-white" />
+                        </div>
                     )}
-                </button>
+                    <h1 className="text-3xl sm:text-4xl font-black text-white drop-shadow-md mb-2 tracking-tight">{shop.shop_name}</h1>
+                    <p className="text-white/90 text-sm sm:text-base font-medium max-w-md mx-auto">{shop.description}</p>
+                    
+                    {/* Network Logos in Hero */}
+                    <div className="flex justify-center items-center gap-3 mt-6">
+                        <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm border border-white/10 flex items-center justify-center shadow-sm"><MTNLogo /></div>
+                        <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm border border-white/10 flex items-center justify-center shadow-sm"><TelecelLogo /></div>
+                        <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm border border-white/10 flex items-center justify-center shadow-sm"><ATLogo /></div>
+                    </div>
+                </div>
+                <DividerSVG style={shop.divider_style} fillClass="fill-gray-50 dark:fill-[#0a0f1c]" />
             </div>
 
-            <div className="max-w-2xl mx-auto px-6 pb-40">
+            <div className="max-w-2xl mx-auto px-6 pb-40 -mt-6 relative z-20">
+                <div className="flex items-center justify-center mb-6">
+                    <h2 className="text-xs font-black tracking-[0.2em] text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-[#0a0f1c] px-4">CHOOSE A SERVICE</h2>
+                </div>
                 {/* Services Grid */}
                 <div className="grid grid-cols-2 gap-4 mb-4">
                     {/* DATA Button */}
