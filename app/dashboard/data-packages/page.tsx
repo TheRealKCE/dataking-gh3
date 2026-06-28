@@ -956,23 +956,34 @@ export default function DataPackagesPage() {
 
             {/* Network Tabs */}
             <Tabs value={selectedNetwork} onValueChange={setSelectedNetwork}>
-                <TabsList className={`grid gap-1 sm:gap-2 w-full ${[hideMashup, hideExpressMtn, hideStandardMtn].filter(Boolean).length === 3 ? 'grid-cols-3' : [hideMashup, hideExpressMtn, hideStandardMtn].filter(Boolean).length === 2 ? 'grid-cols-4' : [hideMashup, hideExpressMtn, hideStandardMtn].filter(Boolean).length === 1 ? 'grid-cols-5' : 'grid-cols-6'}`}>
+                <TabsList className="h-auto p-0 bg-transparent grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-3 w-full mb-2">
                     {ALL_NETWORKS.filter(network => (!hideMashup || network !== 'Special MTN Mashup') && (!hideExpressMtn || network !== 'EXPRESS MTN') && (!hideStandardMtn || network !== 'MTN')).map((network) => {
-                        const getNetworkColor = () => {
-                            if (network === 'MTN' || network === 'Special MTN Mashup' || network === 'EXPRESS MTN') return 'data-[state=active]:bg-[#FACC15] data-[state=active]:text-black'
-                            if (network === 'Telecel') return 'data-[state=active]:bg-[#E60000] data-[state=active]:text-white'
-                            return 'data-[state=active]:bg-[#0056B3] data-[state=active]:text-white'
-                        }
-
+                        const isSelected = selectedNetwork === network;
                         return (
                             <TabsTrigger
                                 key={network}
                                 value={network}
-                                className={`flex items-center justify-center gap-1 text-xs sm:text-sm px-2 py-2 ${getNetworkColor()}`}
+                                className={cn(
+                                    "relative flex flex-col items-center justify-center gap-2 py-4 px-2 rounded-xl border-2 transition-all bg-white dark:bg-zinc-900 shadow-sm",
+                                    "data-[state=active]:border-purple-600 data-[state=active]:shadow-[0_0_15px_rgba(147,51,234,0.15)] data-[state=active]:scale-[1.02]",
+                                    "border-gray-100 dark:border-zinc-800 hover:border-gray-200 dark:hover:border-zinc-700",
+                                    "data-[state=active]:bg-white dark:data-[state=active]:bg-zinc-900 data-[state=active]:text-gray-900 dark:data-[state=active]:text-white"
+                                )}
                             >
-                                <NetworkIcon network={network} size={24} className="mr-1" />
-                                <span className="hidden sm:inline">{network === 'Special MTN Mashup' ? 'Special Mashup' : network === 'EXPRESS MTN' ? 'Express MTN' : network}</span>
-                                <span className="sm:hidden">{network === 'AT-iShare' ? 'AT-iS' : network === 'AT-BigTime' ? 'AT-BT' : network === 'Special MTN Mashup' ? 'Mashup' : network === 'EXPRESS MTN' ? 'Xpress' : network}</span>
+                                {isSelected && (
+                                    <div className="absolute top-2 right-2 bg-white dark:bg-zinc-900 rounded-full z-10">
+                                        <CheckCircle2 className="w-4 h-4 text-emerald-500 fill-emerald-50 dark:fill-emerald-950" />
+                                    </div>
+                                )}
+                                <div className="w-10 h-10 rounded-full flex items-center justify-center">
+                                    <NetworkIcon network={network} size={32} />
+                                </div>
+                                <span className="text-sm font-bold text-gray-900 dark:text-white text-center leading-tight">
+                                    {network === 'Special MTN Mashup' ? 'Special Mashup' : network === 'EXPRESS MTN' ? 'Express MTN' : network === 'AT-iShare' ? 'AT iShare' : network === 'AT-BigTime' ? 'AT BigTime' : network}
+                                </span>
+                                <div className="flex items-center justify-center gap-1.5 text-[11px] font-bold text-emerald-500">
+                                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-[pulse_2s_ease-in-out_infinite]" /> Live
+                                </div>
                             </TabsTrigger>
                         )
                     })}
