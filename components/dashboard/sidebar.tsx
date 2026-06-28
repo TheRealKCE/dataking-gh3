@@ -51,6 +51,8 @@ const userNavItems = [
     { href: '/dashboard', label: 'Home', icon: LayoutDashboard },
     { href: '/dashboard/upgrade', label: 'Membership', icon: Crown },
     { href: '/dashboard/data-packages', label: 'Data Packages', icon: Package },
+    { href: '/dashboard/results-checker', label: 'Results Checker', icon: Tag },
+    { href: '/dashboard/afa-orders', label: 'AFA Application', icon: BadgeCheck },
     { href: '/dashboard/airtime', label: 'Buy Airtime', icon: Phone },
     { href: '/dashboard/data-packages?network=Special%20MTN%20Mashup', label: 'Special MTN Mashup', icon: Zap },
     { href: '/dashboard/data-packages?network=EXPRESS%20MTN', label: 'EXPRESS MTN', icon: Zap },
@@ -59,9 +61,7 @@ const userNavItems = [
     { href: '/dashboard/transactions', label: 'Transactions', icon: Activity },
     { href: '/dashboard/complaints', label: 'Complaints', icon: MessageSquare },
     { href: '/dashboard/profile', label: 'Profile', icon: User },
-    { href: '/dashboard/afa-orders', label: 'AFA Application', icon: BadgeCheck },
     { href: '/dashboard/install', label: 'Download App', icon: Download },
-    { href: '/dashboard/results-checker', label: 'Results Checker', icon: Tag },
     { href: '/dashboard/developer-api', label: 'Developer API', icon: Code2 },
 ]
 
