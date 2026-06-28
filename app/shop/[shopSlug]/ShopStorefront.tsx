@@ -867,17 +867,39 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
 
             <div className="max-w-2xl mx-auto px-6 pb-40 -mt-6 relative z-20">
                 {/* Need Help Section */}
-                {(shop.owner_phone || shop.whatsapp_number) && (
-                    <div className="bg-white dark:bg-[#151c2c] rounded-2xl border border-gray-100 dark:border-gray-800 p-4 mb-8 text-center shadow-sm w-full">
-                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">NEED HELP?</p>
-                        <div className="flex items-center justify-center gap-1.5 text-sm font-bold text-gray-600 dark:text-gray-300">
-                            <Phone className="w-4 h-4" />
-                            <a href={`tel:${shop.owner_phone || shop.whatsapp_number}`} className="hover:text-[var(--brand-color)] transition-colors">
-                                {shop.owner_phone || shop.whatsapp_number}
-                            </a>
+                <div className={cn(
+                    "grid gap-3 mb-8 w-full",
+                    (shop.owner_phone || shop.whatsapp_number) && shop.community_link ? "grid-cols-2" : "grid-cols-1"
+                )}>
+                    {/* Need Help Card */}
+                    {(shop.owner_phone || shop.whatsapp_number) && (
+                        <div className="bg-white dark:bg-[#151c2c] rounded-2xl border border-gray-100 dark:border-gray-800 p-4 mb-0 text-center shadow-sm w-full flex flex-col justify-center items-center">
+                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">NEED HELP?</p>
+                            <div className="flex items-center justify-center gap-1.5 text-sm font-bold text-gray-600 dark:text-gray-300">
+                                <Phone className="w-4 h-4 text-gray-400" />
+                                <a href={`tel:${shop.owner_phone || shop.whatsapp_number}`} className="hover:text-[var(--brand-color)] transition-colors">
+                                    {shop.owner_phone || shop.whatsapp_number}
+                                </a>
+                            </div>
                         </div>
-                    </div>
-                )}
+                    )}
+                    
+                    {/* Community Card */}
+                    {shop.community_link && (
+                        <a 
+                            href={shop.community_link} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="bg-white dark:bg-[#151c2c] rounded-2xl border border-gray-100 dark:border-gray-800 p-4 mb-0 text-center shadow-sm w-full flex flex-col justify-center items-center hover:border-emerald-500/50 dark:hover:border-emerald-500/50 transition-colors group"
+                        >
+                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">COMMUNITY</p>
+                            <div className="flex items-center justify-center gap-1.5 text-sm font-bold text-gray-600 dark:text-gray-300 group-hover:text-emerald-500 dark:group-hover:text-emerald-400 transition-colors">
+                                <Users className="w-4 h-4 text-gray-400 group-hover:text-emerald-500 dark:group-hover:text-emerald-400 transition-colors" />
+                                <span>Join Community</span>
+                            </div>
+                        </a>
+                    )}
+                </div>
 
                 <div className="flex items-center justify-center mb-6">
                     <h2 className="text-xs font-black tracking-[0.2em] text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-[#0a0f1c] px-4 uppercase">CHOOSE A SERVICE</h2>
