@@ -804,46 +804,60 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-[#0a0f1c] text-gray-900 dark:text-white theme-shop">
             <style dangerouslySetInnerHTML={{ __html: `.theme-shop { --brand-color: ${safeBrandColor}; }` }} />
+            
+            {/* Header / Nav (like KOFI screenshot) */}
+            <header className="sticky top-0 z-50 flex items-center justify-between p-3.5 bg-[#06080f] text-white shadow-md">
+                <div className="flex items-center gap-3">
+                    <button className="bg-[#FFB800] text-black p-1.5 rounded-lg hover:bg-yellow-500 transition-colors">
+                        <Menu className="w-5 h-5" />
+                    </button>
+                    <span className="font-extrabold text-[15px] tracking-wide uppercase">{shop.shop_name}</span>
+                </div>
+                <div className="flex items-center gap-3">
+                    <ThemeToggle />
+                </div>
+            </header>
+
             {/* Hero Section */}
-            <div ref={heroRef} className="relative pt-12 pb-24 overflow-hidden bg-[var(--brand-color)]">
+            <div ref={heroRef} className="relative pt-6 pb-20 overflow-hidden bg-[var(--brand-color)]">
                 {shop.banner_url && (
                     <div className="absolute inset-0 opacity-20">
                         <Image src={shop.banner_url} alt="Shop Banner" fill className="object-cover" />
-                        <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/50" />
+                        <div className="absolute inset-0 bg-gradient-to-b from-[#06080f]/50 via-transparent to-[#0a0f1c]/50" />
                     </div>
                 )}
                 
-                {/* Top Navigation inside Hero */}
-                <div className="relative z-20 flex items-center justify-end px-6 max-w-2xl mx-auto mb-6">
+                {/* Top Navigation inside Hero (Notification Bell) */}
+                <div className="relative z-20 flex items-center justify-end px-6 max-w-2xl mx-auto mb-2">
                     <button 
                         onClick={() => { setShowAnnouncementModal(true); setAnnouncementDismissed(true); }}
-                        className="relative w-10 h-10 rounded-xl bg-black/20 hover:bg-black/30 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white shadow-lg transition-colors"
+                        className="relative w-8 h-8 rounded-full bg-black/30 hover:bg-black/50 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white shadow-lg transition-colors"
                     >
-                        <Bell className="w-5 h-5" />
+                        <Bell className="w-4 h-4" />
                         {!announcementDismissed && announcement && (
-                            <span className="absolute -top-1 -right-1 w-3 h-3 rounded-full bg-red-500 border-2 border-[var(--brand-color)]" />
+                            <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-red-500 border-[1.5px] border-[#0a0f1c]" />
                         )}
                     </button>
                 </div>
 
-                <div className="relative z-10 max-w-2xl mx-auto px-6 text-center mt-4">
+                <div className="relative z-10 max-w-2xl mx-auto px-6 text-center mt-0">
                     {shop.logo_url ? (
-                        <div className="relative w-24 h-24 mx-auto rounded-3xl overflow-hidden bg-white/20 shadow-xl mb-4 border border-white/10 backdrop-blur-sm">
+                        <div className="relative w-20 h-20 mx-auto rounded-[1.2rem] overflow-hidden bg-black/20 shadow-2xl mb-3 border border-white/10 backdrop-blur-sm">
                             <Image src={shop.logo_url} alt="Logo" fill className="object-contain" />
                         </div>
                     ) : (
-                        <div className="w-24 h-24 mx-auto rounded-3xl bg-white/20 flex items-center justify-center shadow-xl mb-4 border border-white/10 backdrop-blur-sm">
-                            <ShoppingCart className="w-10 h-10 text-white" />
+                        <div className="w-20 h-20 mx-auto rounded-[1.2rem] bg-black/20 flex items-center justify-center shadow-2xl mb-3 border border-white/10 backdrop-blur-sm">
+                            <ShoppingCart className="w-8 h-8 text-white" />
                         </div>
                     )}
-                    <h1 className="text-3xl sm:text-4xl font-black text-white drop-shadow-md mb-2 tracking-tight">{shop.shop_name}</h1>
-                    <p className="text-white/90 text-sm sm:text-base font-medium max-w-md mx-auto">{shop.description}</p>
+                    <h1 className="text-2xl sm:text-3xl font-black text-white drop-shadow-md mb-1.5 tracking-tight uppercase">{shop.shop_name}</h1>
+                    <p className="text-white/90 text-[11px] sm:text-[13px] font-medium max-w-md mx-auto leading-tight">{shop.description}</p>
                     
                     {/* Network Logos in Hero */}
-                    <div className="flex justify-center items-center gap-3 mt-6">
-                        <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm border border-white/10 flex items-center justify-center shadow-sm"><MTNLogo /></div>
-                        <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm border border-white/10 flex items-center justify-center shadow-sm"><TelecelLogo /></div>
-                        <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm border border-white/10 flex items-center justify-center shadow-sm"><ATLogo /></div>
+                    <div className="flex justify-center items-center gap-2 mt-4">
+                        <div className="w-7 h-7 rounded-full bg-black/20 backdrop-blur-sm ring-1 ring-white/10 flex items-center justify-center overflow-hidden"><MTNLogo /></div>
+                        <div className="w-7 h-7 rounded-full bg-black/20 backdrop-blur-sm ring-1 ring-white/10 flex items-center justify-center overflow-hidden"><TelecelLogo /></div>
+                        <div className="w-7 h-7 rounded-full bg-black/20 backdrop-blur-sm ring-1 ring-white/10 flex items-center justify-center overflow-hidden"><ATLogo /></div>
                     </div>
                 </div>
                 <DividerSVG style={shop.divider_style} fillClass="fill-gray-50 dark:fill-[#0a0f1c]" />
