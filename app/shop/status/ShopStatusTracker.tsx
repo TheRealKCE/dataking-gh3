@@ -153,13 +153,13 @@ export default function ShopStatusTracker() {
         const cleanPhone = phone.replace(/\s+/g, '')
         const cleanReference = reference.trim()
         const ghanaPhoneRegex = /^(0\d{9}|233\d{9})$/
-        const referenceRegex = /^SHOP-[A-Za-z0-9_-]{3,120}$/
+        const referenceRegex = /^(RC-)?SHOP-[A-Za-z0-9_-]{3,120}$/
         if (!ghanaPhoneRegex.test(cleanPhone)) {
             toast.error('Enter a valid Ghana phone number (e.g. 0244123456)')
             return
         }
         if (!referenceRegex.test(cleanReference)) {
-            toast.error('Enter a valid shop payment reference')
+            toast.error('Enter a valid shop payment reference (starts with SHOP- or RC-SHOP-)')
             return
         }
 
