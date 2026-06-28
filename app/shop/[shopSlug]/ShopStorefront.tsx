@@ -808,7 +808,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
             {/* Header / Nav (like KOFI screenshot) */}
             <header className="sticky top-0 z-50 flex items-center justify-between p-3.5 bg-[#06080f] text-white shadow-md">
                 <div className="flex items-center gap-3">
-                    <button className="bg-[#FFB800] text-black p-1.5 rounded-lg hover:bg-yellow-500 transition-colors">
+                    <button aria-label="Open Menu" className="bg-[#FFB800] text-black p-1.5 rounded-lg hover:bg-yellow-500 transition-colors">
                         <Menu className="w-5 h-5" />
                     </button>
                     <span className="font-extrabold text-[15px] tracking-wide uppercase">{shop.shop_name}</span>
@@ -830,6 +830,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 {/* Top Navigation inside Hero (Notification Bell) */}
                 <div className="relative z-20 flex items-center justify-end px-6 max-w-2xl mx-auto mb-2">
                     <button 
+                        aria-label="View announcements"
                         onClick={() => { setShowAnnouncementModal(true); setAnnouncementDismissed(true); }}
                         className="relative w-8 h-8 rounded-full bg-black/30 hover:bg-black/50 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white shadow-lg transition-colors"
                     >
