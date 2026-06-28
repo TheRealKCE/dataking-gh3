@@ -1371,7 +1371,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
 
                 {/* ── Network Filter Tabs ── */}
                 {activeTab === 'data' && networks.length > 1 && (
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+                    <div className="grid grid-cols-4 gap-2 sm:gap-3 mb-6">
                         {networks.map(net => {
                             const isActive = activeNetwork === net
                             
@@ -1379,7 +1379,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                                 <button
                                     key={net} onClick={() => { setActiveNetwork(net); setSelectedPackage(null); setIsAirtimeOpen(false) }}
                                     className={cn(
-                                        "relative flex flex-col items-center justify-center gap-3 py-4 px-2 rounded-[14px] border transition-all bg-white dark:bg-zinc-900 shadow-sm",
+                                        "relative flex flex-col items-center justify-center gap-2 sm:gap-3 py-3 px-1 sm:py-4 sm:px-2 rounded-[14px] border transition-all bg-white dark:bg-zinc-900 shadow-sm",
                                         isActive
                                             ? "border-[#8a2be2] shadow-sm scale-[1.01]"
                                             : "border-gray-100 dark:border-zinc-800 hover:border-gray-200 dark:hover:border-zinc-700",
@@ -1387,18 +1387,18 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                                     )}
                                 >
                                     {isActive && (
-                                        <div className="absolute top-2 right-2 z-10 bg-white rounded-full">
-                                            <CheckCircle2 className="w-4 h-4 text-[#20d880]" strokeWidth={2.5} />
+                                        <div className="absolute top-1 right-1 sm:top-2 sm:right-2 z-10 bg-white rounded-full">
+                                            <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#20d880]" strokeWidth={2.5} />
                                         </div>
                                     )}
-                                    <div className="w-10 h-10 rounded-full flex items-center justify-center mt-1">
+                                    <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center mt-1">
                                         {net === 'MTN' || net === 'EXPRESS MTN' || net === 'Special MTN Mashup' ? <MTNLogo /> :
                                          net === 'Telecel' ? <TelecelLogo /> : <ATLogo />}
                                     </div>
-                                    <span className="text-[13px] font-bold text-gray-700 dark:text-gray-200 text-center leading-tight">
+                                    <span className="text-[10px] sm:text-[13px] font-bold text-gray-700 dark:text-gray-200 text-center leading-tight">
                                         {net === 'Special MTN Mashup' ? 'Special Mashup' : net === 'EXPRESS MTN' ? 'Express MTN' : net === 'AT-iShare' ? 'AT iShare' : net === 'AT-BigTime' ? 'AT BigTime' : net}
                                     </span>
-                                    <div className="flex items-center justify-center gap-1.5 text-[11px] font-bold text-[#20d880] mb-1">
+                                    <div className="flex items-center justify-center gap-1 sm:gap-1.5 text-[9px] sm:text-[11px] font-bold text-[#20d880] mb-0.5 sm:mb-1">
                                         <div className="w-1.5 h-1.5 rounded-full bg-[#20d880]" /> Live
                                     </div>
                                 </button>
