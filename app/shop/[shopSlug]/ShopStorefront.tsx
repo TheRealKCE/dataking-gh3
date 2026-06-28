@@ -325,26 +325,35 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
         }
     }, [searchParams])
 
+    // RC voucher delivery state
+    const [rcVouchers, setRcVouchers] = useState<{ pin: string; serial_number: string }[]>([])
+    const [showRcDelivery, setShowRcDelivery] = useState(false)
+
     // Poll for payment status when reference is set
     useEffect(() => {
         let interval: NodeJS.Timeout
         if (pollingRef) {
             interval = setInterval(async () => {
                 try {
-                    const endpoint = pollingRef.startsWith('RC_') 
+                    const isRcOrder = pollingRef.startsWith('RC-SHOP-')
+                    const endpoint = isRcOrder
                         ? `/api/shop/rc/verify?ref=${pollingRef}&slug=${shop.shop_slug}`
                         : `/api/shop/verify?ref=${pollingRef}&slug=${shop.shop_slug}`
-                    const res = await fetch(endpoint, {
-                        headers: { 'Accept': 'application/json' }
-                    })
+                    const res = await fetch(endpoint, { headers: { 'Accept': 'application/json' } })
                     const data = await res.json()
-                    
+
                     if (data.status === 'completed') {
                         clearInterval(interval)
                         setPollingRef(null)
                         setLoading(false)
-                        toast.success('Payment completed successfully!')
-                        window.location.href = `/shop/${shop.shop_slug}/success?ref=${pollingRef}`
+                        if (isRcOrder && data.vouchers?.length > 0) {
+                            // Show vouchers instantly on-screen
+                            setRcVouchers(data.vouchers)
+                            setShowRcDelivery(true)
+                        } else {
+                            toast.success('Payment completed successfully!')
+                            window.location.href = `/shop/${shop.shop_slug}/success?ref=${pollingRef}`
+                        }
                     } else if (data.status === 'failed') {
                         clearInterval(interval)
                         setPollingRef(null)
@@ -649,16 +658,29 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 })
             })
             const data = await res.json()
-            if (!res.ok || !data.reference) {
+            if (!res.ok || !data.success) {
                 setErrorMsg(data.error || 'Failed to initialize payment')
                 setLoading(false)
                 return
             }
+
+            if (data.gateway === 'paystack') {
+                window.location.href = data.authorization_url
+                return
+            }
+
             try { localStorage.setItem('shop_last_phone', cleanPhone) } catch (_) { }
-            setOtpReference(data.reference)
-            setOtpOrderType('results_checker')
-            setOtpRequired(true)
-            setLoading(false)
+            if (data.otpRequired) {
+                // AT network requires OTP — show OTP modal
+                setOtpReference(data.reference)
+                setOtpOrderType('results_checker')
+                setOtpRequired(true)
+                setLoading(false)
+            } else {
+                // MTN/Telecel: MoMo prompt sent — start polling
+                toast.success(data.message || 'Payment prompt sent! Please approve on your phone.')
+                setPollingRef(data.reference)
+            }
         } catch (err) {
             toast.error('Network error. Please try again.')
             setLoading(false)
@@ -868,29 +890,28 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 
                 {/* ── Main Layout Tabs ── */}
                 <div className="flex flex-col gap-3 mb-6">
-                    <div className="flex items-center gap-2 bg-gray-200/50 dark:bg-gray-800/50 p-2 rounded-2xl">
-                        <button onClick={() => setActiveTab('data')} className={cn("flex-1 py-4 rounded-xl font-black text-base sm:text-lg transition-all flex items-center justify-center gap-2", activeTab === 'data' ? "bg-white dark:bg-gray-900 shadow-md text-gray-900 dark:text-white" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300")}>
-                            <Zap className="w-5 h-5" /> Data Packages
+                    <div className="flex items-center gap-2 bg-gray-200/50 dark:bg-gray-800/50 p-2 rounded-2xl overflow-x-auto scrollbar-hide">
+                        <button onClick={() => setActiveTab('data')} className={cn("flex-shrink-0 flex-1 min-w-[110px] py-4 rounded-xl font-black text-sm sm:text-base transition-all flex items-center justify-center gap-1.5", activeTab === 'data' ? "bg-white dark:bg-gray-900 shadow-md text-gray-900 dark:text-white" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300")}>
+                            <Zap className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" /> Data Packages
                         </button>
                         {isShopAirtimeEnabled && (
-                            <button onClick={() => setActiveTab('airtime')} className={cn("flex-1 py-4 rounded-xl font-black text-base sm:text-lg transition-all flex items-center justify-center gap-2", activeTab === 'airtime' ? "bg-white dark:bg-gray-900 shadow-md text-gray-900 dark:text-white" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300")}>
-                                <Smartphone className="w-5 h-5" /> Airtime Recharge
+                            <button onClick={() => setActiveTab('airtime')} className={cn("flex-shrink-0 flex-1 min-w-[100px] py-4 rounded-xl font-black text-sm sm:text-base transition-all flex items-center justify-center gap-1.5", activeTab === 'airtime' ? "bg-white dark:bg-gray-900 shadow-md text-gray-900 dark:text-white" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300")}>
+                                <Smartphone className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" /> Airtime
                             </button>
                         )}
+
                     </div>
                     
-                    <div className="flex flex-col sm:flex-row items-stretch gap-3">
-                        {!isSpecialMtnMashupHidden && (
-                            <button onClick={() => setActiveTab('mashup')} className={cn("flex-1 py-4 px-4 rounded-2xl font-black text-base sm:text-lg transition-all flex items-center justify-center gap-2 border-2", activeTab === 'mashup' ? "bg-amber-500 text-white border-amber-600 shadow-lg scale-[1.02]" : "bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800/50 hover:bg-amber-100 dark:hover:bg-amber-900/40")}>
-                                <Target className="w-6 h-6 animate-pulse" /> Special MTN Mashup
-                            </button>
-                        )}
-                        {isShopRcEnabled && (
-                            <button onClick={() => setActiveTab('results_checker')} className={cn("flex-1 py-4 px-4 rounded-2xl font-black text-base sm:text-lg transition-all flex items-center justify-center gap-2 border-2", activeTab === 'results_checker' ? "bg-blue-600 text-white border-blue-700 shadow-lg scale-[1.02]" : "bg-blue-50 dark:bg-blue-900/20 text-blue-600 dark:text-blue-400 border-blue-200 dark:border-blue-800/50 hover:bg-blue-100 dark:hover:bg-blue-900/40")}>
-                                <GraduationCap className="w-6 h-6" /> Exams
-                            </button>
-                        )}
-                    </div>
+                    {!isSpecialMtnMashupHidden && (
+                        <button onClick={() => setActiveTab('mashup')} className={cn("w-full py-4 px-4 rounded-2xl font-black text-base sm:text-lg transition-all flex items-center justify-center gap-2 border-2", activeTab === 'mashup' ? "bg-amber-500 text-white border-amber-600 shadow-lg scale-[1.01]" : "bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800/50 hover:bg-amber-100 dark:hover:bg-amber-900/40")}>
+                            <Target className="w-6 h-6 animate-pulse" /> Special MTN Mashup
+                        </button>
+                    )}
+                    {isShopRcEnabled && (
+                        <button onClick={() => setActiveTab('results_checker')} className={cn("w-full py-4 px-4 rounded-2xl font-black text-base sm:text-lg transition-all flex items-center justify-center gap-2 border-2", activeTab === 'results_checker' ? "bg-emerald-600 text-white border-emerald-700 shadow-lg scale-[1.01]" : "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/40")}>
+                            <GraduationCap className="w-6 h-6 animate-pulse" /> Result Checker
+                        </button>
+                    )}
                 </div>
 
                 {/* ── Need Help? Contact Card ── */}
@@ -1137,15 +1158,18 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                                 const isSelected = selectedRc?.id === type.id
                                 return (
                                     <button
-                                        key={type.id} onClick={() => setSelectedRc(isSelected ? null : type)}
+                                        key={type.id} 
+                                        disabled={type.stock_count === 0}
+                                        onClick={() => type.stock_count > 0 && setSelectedRc(isSelected ? null : type)}
                                         className={cn(
-                                            'relative p-4 rounded-2xl border-2 text-left transition-all duration-200 active:scale-95 flex flex-col gap-1.5',
-                                            isSelected ? 'bg-[var(--brand-color)] border-[var(--brand-color)] shadow-lg scale-[1.02]' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-md'
+                                            'relative p-4 rounded-2xl border-2 text-left transition-all duration-200 flex flex-col gap-1.5',
+                                            type.stock_count === 0 ? 'bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 opacity-70 cursor-not-allowed' :
+                                            isSelected ? 'bg-[var(--brand-color)] border-[var(--brand-color)] shadow-lg scale-[1.02] active:scale-95' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-md active:scale-95'
                                         )}
                                     >
                                         {isSelected && <div className="absolute top-2 right-2"><CheckCircle2 className="w-4 h-4 text-white" /></div>}
                                         
-                                        <div className={cn("inline-block text-[10px] font-black px-2 py-0.5 rounded-full self-start bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400")}>
+                                        <div className={cn("inline-block text-[10px] font-black px-2 py-0.5 rounded-full self-start", type.stock_count === 0 ? "bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300" : "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400")}>
                                             PIN + SERIAL
                                         </div>
                                         
@@ -1155,9 +1179,16 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                                         <p className={cn('text-sm font-bold', isSelected ? 'text-white/90' : 'text-gray-600 dark:text-gray-300')}>
                                             {formatCurrency(type.selling_price)}
                                         </p>
-                                        <div className={cn('inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full mt-0.5 self-start', isSelected ? 'bg-white/20 text-white' : 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400')}>
-                                            <Zap className="w-2.5 h-2.5" /> Instant Delivery
-                                        </div>
+                                        
+                                        {type.stock_count === 0 ? (
+                                            <div className="inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full mt-0.5 self-start bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                                                Out of Stock
+                                            </div>
+                                        ) : (
+                                            <div className={cn('inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full mt-0.5 self-start', isSelected ? 'bg-white/20 text-white' : 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400')}>
+                                                <Zap className="w-2.5 h-2.5" /> Instant Delivery
+                                            </div>
+                                        )}
                                     </button>
                                 )
                             })}
@@ -1411,9 +1442,9 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                             </button>
                         )}
                         {isShopRcEnabled && (
-                            <button onClick={() => { setIsSidebarOpen(false); setActiveTab('results_checker'); }} className={cn("mt-2 w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all shadow-sm border", activeTab === 'results_checker' ? "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 border-gray-200 dark:border-gray-700" : "hover:bg-gray-100 dark:hover:bg-gray-900 text-gray-600 dark:text-gray-400 border-transparent")}>
-                                <GraduationCap className={cn("w-5 h-5", activeTab === 'results_checker' ? "text-[var(--brand-color)]" : "text-gray-400")} /> <span className="font-bold flex-1 text-left">Results Checkers</span>
-                                {activeTab === 'results_checker' && <Check className="w-4 h-4 text-[var(--brand-color)]" />}
+                            <button onClick={() => { setIsSidebarOpen(false); setActiveTab('results_checker'); }} className={cn("mt-2 w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all shadow-sm border", activeTab === 'results_checker' ? "bg-blue-600 text-white border-blue-700" : "hover:bg-gray-100 dark:hover:bg-gray-900 text-gray-600 dark:text-gray-400 border-transparent")}>
+                                <GraduationCap className={cn("w-5 h-5", activeTab === 'results_checker' ? "text-white" : "text-blue-500")} /> <span className="font-bold flex-1 text-left">Result Checker</span>
+                                {activeTab === 'results_checker' && <Check className="w-4 h-4 text-white" />}
                             </button>
                         )}
                         <div className="my-4 border-t border-gray-200 dark:border-gray-800" />
@@ -1535,6 +1566,78 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                             className="bg-blue-600 hover:bg-blue-700"
                         >
                             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Verify & Continue'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* ── RC Voucher Delivery Modal ── */}
+            <Dialog open={showRcDelivery} onOpenChange={setShowRcDelivery}>
+                <DialogContent className="max-w-sm mx-auto">
+                    <DialogHeader>
+                        <div className="flex justify-center mb-2">
+                            <div className="w-14 h-14 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
+                                <GraduationCap className="w-7 h-7 text-emerald-600 dark:text-emerald-400" />
+                            </div>
+                        </div>
+                        <DialogTitle className="text-center text-lg font-black">
+                            🎉 Payment Successful!
+                        </DialogTitle>
+                        <DialogDescription className="text-center text-sm">
+                            Your Result Checker {rcVouchers.length > 1 ? 'vouchers are' : 'voucher is'} ready. Copy and save your PIN and Serial Number.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-3 my-2">
+                        {rcVouchers.map((v, i) => (
+                            <div key={i} className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 space-y-3">
+                                {rcVouchers.length > 1 && (
+                                    <p className="text-xs font-black text-gray-500 uppercase tracking-wider">Voucher {i + 1}</p>
+                                )}
+                                <div className="space-y-2">
+                                    <div>
+                                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-wider mb-0.5">PIN</p>
+                                        <div className="flex items-center justify-between bg-white dark:bg-gray-900 rounded-lg px-3 py-2 border border-gray-200 dark:border-gray-700">
+                                            <span className="font-mono text-base font-black text-gray-900 dark:text-white tracking-widest">{v.pin}</span>
+                                            <button
+                                                onClick={() => { navigator.clipboard.writeText(v.pin); toast.success('PIN copied!') }}
+                                                title="Copy PIN"
+                                                className="ml-2 p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-600 transition-colors"
+                                            >
+                                                <Copy className="w-3.5 h-3.5" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-wider mb-0.5">Serial Number</p>
+                                        <div className="flex items-center justify-between bg-white dark:bg-gray-900 rounded-lg px-3 py-2 border border-gray-200 dark:border-gray-700">
+                                            <span className="font-mono text-base font-black text-gray-900 dark:text-white tracking-widest">{v.serial_number}</span>
+                                            <button
+                                                onClick={() => { navigator.clipboard.writeText(v.serial_number); toast.success('Serial copied!') }}
+                                                title="Copy Serial Number"
+                                                className="ml-2 p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-600 transition-colors"
+                                            >
+                                                <Copy className="w-3.5 h-3.5" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-3">
+                        <p className="text-xs text-amber-700 dark:text-amber-400 font-medium text-center">
+                            ⚠️ Save your PIN and Serial Number now. This screen will not appear again.
+                        </p>
+                    </div>
+
+                    <DialogFooter>
+                        <Button
+                            className="w-full"
+                            onClick={() => { setShowRcDelivery(false); setSelectedRc(null); setRcPhone(''); setRcEmail('') }}
+                        >
+                            Done — Close
                         </Button>
                     </DialogFooter>
                 </DialogContent>

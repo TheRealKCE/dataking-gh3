@@ -3,7 +3,8 @@ import { createServerClient } from '@/lib/supabase'
 import { Redis } from '@upstash/redis'
 import { initiatePayment, MOOLRE_PAYMENT_CHANNEL_MAP } from '@/lib/moolre-payment-service'
 
-const redis = Redis.fromEnv()
+let redis: Redis | null = null
+try { redis = Redis.fromEnv() } catch (_) {}
 
 export async function POST(request: NextRequest) {
     try {
@@ -45,15 +46,19 @@ export async function POST(request: NextRequest) {
         const db = createServerClient() as any
 
         // ── 1. Check global toggle ────────────────────────────────────────────────
-        const { data: settingRow } = await db
+        const { data: settingsRows } = await db
             .from('admin_settings')
-            .select('value')
-            .eq('key', 'storefront_rc_enabled')
-            .maybeSingle()
+            .select('key, value')
+            .in('key', ['storefront_rc_enabled', 'active_payment_provider_shop'])
 
-        if (!settingRow || settingRow.value !== 'true') {
+        const adminSettings: Record<string, string> = {}
+        for (const row of (settingsRows || [])) adminSettings[row.key] = row.value
+
+        if (adminSettings['storefront_rc_enabled'] !== 'true') {
             return NextResponse.json({ error: 'Results Checker is not available on storefronts' }, { status: 503 })
         }
+
+        const provider = String(adminSettings['active_payment_provider_shop'] || 'paystack') === 'paystack' ? 'paystack' : 'moolre'
 
         // ── 2. Fetch shop ─────────────────────────────────────────────────────────
         const { data: shop } = await db
@@ -78,7 +83,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'This voucher type is not available in this shop' }, { status: 404 })
         }
 
-        // ── 4. Fetch RC type (cost price, name, availability) ─────────────────────
+        // ── 4. Fetch RC type ──────────────────────────────────────────────────────
         const { data: rcType } = await db
             .from('results_checker_types')
             .select('id, name, cost_price, is_active')
@@ -95,10 +100,13 @@ export async function POST(request: NextRequest) {
         const totalAmount = sellingPrice * qty
 
         // ── 5. Reserve vouchers ───────────────────────────────────────────────────
-        // Use a temp order ID for reservation; will be replaced by real order below
-        const tempOrderId = existingRef
-            ? await redis.get<string>(`shop:rc:orderid:${existingRef}`) || crypto.randomUUID()
-            : crypto.randomUUID()
+        let tempOrderId = crypto.randomUUID()
+        if (existingRef) {
+            try {
+                const redisOrderId = redis ? await redis.get<string>(`shop:rc:orderid:${existingRef}`) : null
+                if (redisOrderId) tempOrderId = redisOrderId
+            } catch (_) {}
+        }
 
         if (!existingRef) {
             // Only reserve on the first call (not OTP retry)
@@ -154,10 +162,8 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({ error: 'Failed to initialize order' }, { status: 500 })
             }
 
-            // Store mapping: moolreRef → orderId for use in verify route
-            const moolreRef = `RC-SHOP-${shop.id.slice(0, 8)}-${Date.now()}`
-            await redis.set(`shop:rc:orderid:${moolreRef}`, order.id, { ex: 86400 })
-            await redis.set(`shop:rc:meta:${moolreRef}`, JSON.stringify({
+            // Cache metadata for verify route
+            const meta = {
                 shop_id: shop.id,
                 shop_name: shop.shop_name,
                 rc_type_id: rcTypeId,
@@ -169,9 +175,60 @@ export async function POST(request: NextRequest) {
                 shop_markup: shopMarkup,
                 total_paid: totalAmount,
                 owner_id: shop.owner_id,
-            }), { ex: 86400 })
+            }
 
-            // ── 7. Auto-detect payment network ────────────────────────────────────
+            try {
+                if (redis) {
+                    await redis.set(`shop:rc:orderid:${referenceCode}`, order.id, { ex: 86400 })
+                    await redis.set(`shop:rc:meta:${referenceCode}`, JSON.stringify(meta), { ex: 86400 })
+                }
+            } catch (redisErr) {
+                console.error('[shop/rc/initialize] Redis cache error (non-fatal):', redisErr)
+            }
+
+            // ── PAYSTACK BRANCH ───────────────────────────────────────────────────
+            if (provider === 'paystack') {
+                const guestEmail = validEmail || `guest-${cleanPhone}@checkout.arhmsgh.com`
+                const amountInPesewas = Math.round(totalAmount * 100)
+
+                const paystackRes = await fetch('https://api.paystack.co/transaction/initialize', {
+                    method: 'POST',
+                    headers: {
+                        Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: guestEmail,
+                        amount: amountInPesewas,
+                        reference: referenceCode,
+                        callback_url: `${process.env.NEXT_PUBLIC_APP_URL}/shop/${shopSlug}/success?reference=${referenceCode}`,
+                        metadata: {
+                            type: 'rc_voucher',
+                            shop_slug: shopSlug,
+                            rc_type_name: rcType.name,
+                            order_id: order.id,
+                            customer_phone: cleanPhone,
+                            ...meta,
+                        },
+                    }),
+                })
+
+                const paystackData = await paystackRes.json()
+
+                if (!paystackData.status || !paystackData.data?.authorization_url) {
+                    console.error('[shop/rc/initialize] Paystack init failed:', paystackData)
+                    return NextResponse.json({ error: 'Payment gateway error. Please try again.' }, { status: 500 })
+                }
+
+                return NextResponse.json({
+                    success: true,
+                    gateway: 'paystack',
+                    authorization_url: paystackData.data.authorization_url,
+                    reference: referenceCode,
+                })
+            }
+
+            // ── MOOLRE BRANCH ─────────────────────────────────────────────────────
             const prefix = cleanPhone.substring(0, 3)
             let paymentNetwork = 'MTN'
             if (['020', '050'].includes(prefix)) paymentNetwork = 'Telecel'
@@ -182,12 +239,11 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({ error: 'Unsupported payment network' }, { status: 400 })
             }
 
-            // ── 8. Initiate Moolre MoMo payment ──────────────────────────────────
             let moolreResponse = await initiatePayment({
                 amount: totalAmount,
                 payerPhone: cleanPhone,
                 channel: channelId,
-                externalRef: moolreRef,
+                externalRef: referenceCode,
                 otpCode: undefined,
             })
 
@@ -199,25 +255,24 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({
                     success: true,
                     otpRequired: true,
-                    reference: moolreRef,
+                    reference: referenceCode,
                     message: 'OTP required. Please enter the code sent to your phone.',
                 })
             }
 
             return NextResponse.json({
                 success: true,
-                reference: moolreRef,
+                reference: referenceCode,
                 otpRequired: false,
                 message: 'Payment prompt sent to your phone. Please approve to complete your purchase.',
             })
         }
 
-        // ── OTP retry path ────────────────────────────────────────────────────────
+        // ── OTP retry path (Moolre only) ──────────────────────────────────────────
         if (!otpCode) {
             return NextResponse.json({ error: 'OTP code is required to complete payment' }, { status: 400 })
         }
 
-        // Re-detect network from original phone
         const prefix = cleanPhone.substring(0, 3)
         let paymentNetwork = 'MTN'
         if (['020', '050'].includes(prefix)) paymentNetwork = 'Telecel'
