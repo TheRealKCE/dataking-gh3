@@ -195,6 +195,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
     const [rcPhone, setRcPhone] = useState('')
     const [rcEmail, setRcEmail] = useState('')
     const [selectedRc, setSelectedRc] = useState<any | null>(null)
+    const [rcQuantity, setRcQuantity] = useState(1)
 
     const { isInstallable, isInstalled, isIOS, installPwa } = usePwa()
 
@@ -654,7 +655,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 body: JSON.stringify({
                     shopSlug: shop.shop_slug,
                     rcTypeId: selectedRc.id,
-                    quantity: 1,
+                    quantity: rcQuantity,
                     customerPhone: cleanPhone,
                     customerEmail: rcEmail.trim() || undefined
                 })
@@ -712,7 +713,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
             } : otpOrderType === 'results_checker' ? {
                 shopSlug: shop.shop_slug,
                 rcTypeId: selectedRc?.id,
-                quantity: 1,
+                quantity: rcQuantity,
                 customerPhone: rcPhone.replace(/\s+/g, ''),
                 customerEmail: rcEmail.trim() || undefined,
                 otpCode: otpCode.trim(),
@@ -1320,8 +1321,17 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                                     <div className="text-right">
                                         <p className="text-xs text-muted-foreground">Total</p>
                                         <p className="font-black text-lg text-[var(--brand-color)]">
-                                            {formatCurrency(selectedRc.selling_price)}
+                                            {formatCurrency(selectedRc.selling_price * rcQuantity)}
                                         </p>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-800 p-3 rounded-xl border border-gray-200 dark:border-gray-700">
+                                    <p className="text-sm font-bold text-gray-700 dark:text-gray-300">Quantity</p>
+                                    <div className="flex items-center gap-3">
+                                        <button onClick={() => setRcQuantity(Math.max(1, rcQuantity - 1))} className="w-8 h-8 rounded-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 flex items-center justify-center font-bold shadow-sm active:scale-95 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">-</button>
+                                        <span className="font-black text-lg w-4 text-center">{rcQuantity}</span>
+                                        <button onClick={() => setRcQuantity(Math.min(10, rcQuantity + 1))} className="w-8 h-8 rounded-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 flex items-center justify-center font-bold shadow-sm active:scale-95 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">+</button>
                                     </div>
                                 </div>
 
@@ -1345,7 +1355,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                                     onClick={handleBuyRc} disabled={loading}
                                     className="w-full py-3.5 rounded-xl text-white font-bold text-base flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-70 bg-[var(--brand-color)]"
                                 >
-                                    {loading ? <><Loader2 className="w-5 h-5 animate-spin" /> {pollingRef ? 'Waiting for Approval...' : 'Processing...'}</> : <><ShoppingCart className="w-5 h-5" /> Pay {formatCurrency(selectedRc.selling_price)}</>}
+                                    {loading ? <><Loader2 className="w-5 h-5 animate-spin" /> {pollingRef ? 'Waiting for Approval...' : 'Processing...'}</> : <><ShoppingCart className="w-5 h-5" /> Pay {formatCurrency(selectedRc.selling_price * rcQuantity)}</>}
                                 </button>
                                 <p className="text-[10px] text-center text-muted-foreground">Direct MoMo Prompt</p>
                             </div>
