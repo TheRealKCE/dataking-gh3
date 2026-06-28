@@ -893,16 +893,17 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                                 <Smartphone className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" /> Airtime
                             </button>
                         )}
-                        {isShopRcEnabled && (
-                            <button onClick={() => setActiveTab('results_checker')} className={cn("flex-shrink-0 flex-1 min-w-[130px] py-4 rounded-xl font-black text-sm sm:text-base transition-all flex items-center justify-center gap-1.5", activeTab === 'results_checker' ? "bg-blue-600 text-white shadow-md" : "text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300")}>
-                                <GraduationCap className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" /> Result Checker
-                            </button>
-                        )}
+
                     </div>
                     
                     {!isSpecialMtnMashupHidden && (
                         <button onClick={() => setActiveTab('mashup')} className={cn("w-full py-4 px-4 rounded-2xl font-black text-base sm:text-lg transition-all flex items-center justify-center gap-2 border-2", activeTab === 'mashup' ? "bg-amber-500 text-white border-amber-600 shadow-lg scale-[1.01]" : "bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800/50 hover:bg-amber-100 dark:hover:bg-amber-900/40")}>
                             <Target className="w-6 h-6 animate-pulse" /> Special MTN Mashup
+                        </button>
+                    )}
+                    {isShopRcEnabled && (
+                        <button onClick={() => setActiveTab('results_checker')} className={cn("w-full py-4 px-4 rounded-2xl font-black text-base sm:text-lg transition-all flex items-center justify-center gap-2 border-2", activeTab === 'results_checker' ? "bg-emerald-600 text-white border-emerald-700 shadow-lg scale-[1.01]" : "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/40")}>
+                            <GraduationCap className="w-6 h-6 animate-pulse" /> Result Checker
                         </button>
                     )}
                 </div>
