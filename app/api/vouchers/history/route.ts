@@ -4,7 +4,7 @@ import { createServerClient } from '@/lib/supabase'
 
 export async function GET(request: NextRequest) {
     try {
-        const supabase = createRouteClient()
+        const supabase = await createRouteClient()
         
         // Verify authentication
         const { data: { session }, error: authError } = await supabase.auth.getSession()
