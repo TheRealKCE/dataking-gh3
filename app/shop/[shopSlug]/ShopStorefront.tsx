@@ -850,25 +850,42 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
             </div>
 
             <div className="max-w-2xl mx-auto px-6 pb-40 -mt-6 relative z-20">
+                {/* Need Help Section */}
+                {(shop.owner_phone || shop.whatsapp_number) && (
+                    <div className="bg-white dark:bg-[#151c2c] rounded-2xl border border-gray-100 dark:border-gray-800 p-4 mb-8 text-center shadow-sm w-full">
+                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">NEED HELP?</p>
+                        <div className="flex items-center justify-center gap-1.5 text-sm font-bold text-gray-600 dark:text-gray-300">
+                            <Phone className="w-4 h-4" />
+                            <a href={`tel:${shop.owner_phone || shop.whatsapp_number}`} className="hover:text-[var(--brand-color)] transition-colors">
+                                {shop.owner_phone || shop.whatsapp_number}
+                            </a>
+                        </div>
+                    </div>
+                )}
+
                 <div className="flex items-center justify-center mb-6">
-                    <h2 className="text-xs font-black tracking-[0.2em] text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-[#0a0f1c] px-4">CHOOSE A SERVICE</h2>
+                    <h2 className="text-xs font-black tracking-[0.2em] text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-[#0a0f1c] px-4 uppercase">CHOOSE A SERVICE</h2>
                 </div>
                 {/* Services Grid */}
-                <div className="grid grid-cols-2 gap-4 mb-4">
+                <div className={cn(
+                    "grid gap-3 mb-8 w-full",
+                    [true, isShopAirtimeEnabled, isShopRcEnabled].filter(Boolean).length === 3 ? "grid-cols-3" : 
+                    [true, isShopAirtimeEnabled, isShopRcEnabled].filter(Boolean).length === 2 ? "grid-cols-2" : "grid-cols-1"
+                )}>
                     {/* DATA Button */}
                     <button 
                         onClick={() => { setActiveTab('data'); setIsAirtimeOpen(false) }}
                         className={cn(
-                            "relative flex flex-col items-center justify-center gap-4 p-8 rounded-[2rem] border-2 transition-all",
+                            "relative flex flex-col items-center justify-center gap-3 py-6 px-2 rounded-xl border-2 transition-all",
                             activeTab === 'data' 
-                                ? "bg-emerald-50 dark:bg-[#0f1b29] border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.15)]" 
-                                : "bg-white dark:bg-[#151c2c] border-gray-100 dark:border-transparent hover:border-gray-200"
+                                ? "bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-400 text-emerald-700 dark:text-emerald-400" 
+                                : "bg-white dark:bg-[#151c2c] border-gray-100 dark:border-gray-800 hover:border-gray-200 text-gray-500"
                         )}
                     >
-                        <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center transition-colors", activeTab === 'data' ? "bg-emerald-400 shadow-lg shadow-emerald-500/20" : "bg-gray-100 dark:bg-[#232c40]")}>
-                            <Zap className={cn("w-7 h-7", activeTab === 'data' ? "text-emerald-950 fill-emerald-950" : "text-gray-400")} />
+                        <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center transition-colors", activeTab === 'data' ? "bg-emerald-500 shadow-sm" : "bg-gray-100 dark:bg-gray-800")}>
+                            <Zap className={cn("w-6 h-6", activeTab === 'data' ? "text-white fill-white" : "text-gray-400")} />
                         </div>
-                        <span className={cn("text-xs font-extrabold tracking-widest", activeTab === 'data' ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-500 dark:text-gray-400')}>DATA</span>
+                        <span className="text-[10px] sm:text-[11px] font-black tracking-widest uppercase">DATA</span>
                     </button>
 
                     {/* AIRTIME Button */}
@@ -876,37 +893,37 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                         <button 
                             onClick={() => { setActiveTab('airtime'); setIsAirtimeOpen(true) }}
                             className={cn(
-                                "relative flex flex-col items-center justify-center gap-4 p-8 rounded-[2rem] border-2 transition-all",
+                                "relative flex flex-col items-center justify-center gap-3 py-6 px-2 rounded-xl border-2 transition-all",
                                 activeTab === 'airtime' 
-                                    ? "bg-indigo-50 dark:bg-[#0f1b29] border-indigo-500 shadow-[0_0_20px_rgba(99,102,241,0.15)]" 
-                                    : "bg-white dark:bg-[#151c2c] border-gray-100 dark:border-transparent hover:border-gray-200"
+                                    ? "bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-400 text-emerald-700 dark:text-emerald-400" 
+                                    : "bg-white dark:bg-[#151c2c] border-gray-100 dark:border-gray-800 hover:border-gray-200 text-gray-500"
                             )}
                         >
-                            <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center transition-colors", activeTab === 'airtime' ? "bg-indigo-400 shadow-lg shadow-indigo-500/20" : "bg-gray-100 dark:bg-[#232c40]")}>
-                                <Smartphone className={cn("w-7 h-7", activeTab === 'airtime' ? "text-indigo-950" : "text-gray-400")} />
+                            <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center transition-colors", activeTab === 'airtime' ? "bg-emerald-500 shadow-sm" : "bg-gray-100 dark:bg-gray-800")}>
+                                <Smartphone className={cn("w-6 h-6", activeTab === 'airtime' ? "text-white" : "text-gray-400")} />
                             </div>
-                            <span className={cn("text-xs font-extrabold tracking-widest", activeTab === 'airtime' ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400')}>AIRTIME</span>
+                            <span className="text-[10px] sm:text-[11px] font-black tracking-widest uppercase">AIRTIME</span>
+                        </button>
+                    )}
+
+                    {/* RESULTS CHECKER Button */}
+                    {isShopRcEnabled && (
+                        <button 
+                            onClick={() => { setActiveTab('results_checker'); setIsAirtimeOpen(false) }}
+                            className={cn(
+                                "relative flex flex-col items-center justify-center gap-3 py-6 px-2 rounded-xl border-2 transition-all",
+                                activeTab === 'results_checker' 
+                                    ? "bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-400 text-emerald-700 dark:text-emerald-400" 
+                                    : "bg-white dark:bg-[#151c2c] border-gray-100 dark:border-gray-800 hover:border-gray-200 text-gray-500"
+                            )}
+                        >
+                            <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center transition-colors", activeTab === 'results_checker' ? "bg-emerald-500 shadow-sm" : "bg-gray-100 dark:bg-gray-800")}>
+                                <GraduationCap className={cn("w-6 h-6", activeTab === 'results_checker' ? "text-white" : "text-gray-400")} />
+                            </div>
+                            <span className="text-[10px] sm:text-[11px] font-black tracking-widest uppercase text-center">RESULTS CHECKER</span>
                         </button>
                     )}
                 </div>
-
-                {/* RESULTS CHECKER Button */}
-                {isShopRcEnabled && (
-                    <button 
-                        onClick={() => { setActiveTab('results_checker'); setIsAirtimeOpen(false) }}
-                        className={cn(
-                            "w-full sm:w-[calc(50%-0.5rem)] mb-8 flex flex-col items-center justify-center gap-4 p-6 rounded-[2rem] border-2 transition-all",
-                            activeTab === 'results_checker' 
-                                ? "bg-blue-50 dark:bg-[#0f1b29] border-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.15)]" 
-                                : "bg-white dark:bg-[#151c2c] border-gray-100 dark:border-transparent hover:border-gray-200"
-                        )}
-                    >
-                        <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center transition-colors", activeTab === 'results_checker' ? "bg-blue-400 shadow-lg shadow-blue-500/20" : "bg-gray-100 dark:bg-[#232c40]")}>
-                            <GraduationCap className={cn("w-6 h-6", activeTab === 'results_checker' ? "text-blue-950" : "text-gray-400")} />
-                        </div>
-                        <span className={cn("text-[11px] font-extrabold tracking-widest uppercase", activeTab === 'results_checker' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400')}>RESULTS CHECKER</span>
-                    </button>
-                )}
 
                 {/* Error banner */}
                 {errorMsg && (
@@ -1218,34 +1235,35 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
 
                 {/* ── Network Filter Tabs ── */}
                 {activeTab === 'data' && networks.length > 1 && (
-                    <div className="flex gap-4 overflow-x-auto pb-4 mb-4 scrollbar-hide">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
                         {networks.map(net => {
                             const isActive = activeNetwork === net
-                            const netStyle = networkColors[net] || { borderClass: 'border-emerald-500' }
                             
                             return (
                                 <button
                                     key={net} onClick={() => { setActiveNetwork(net); setSelectedPackage(null); setIsAirtimeOpen(false) }}
                                     className={cn(
-                                        'relative flex-shrink-0 w-28 h-28 flex flex-col items-center justify-center gap-2 rounded-[1.5rem] border-[3px] transition-all duration-300',
-                                        isActive 
-                                            ? `bg-white dark:bg-[#151c2c] shadow-md ${netStyle.borderClass}` 
-                                            : 'bg-white dark:bg-[#151c2c] border-gray-100 dark:border-transparent opacity-70 hover:opacity-100'
+                                        "relative flex flex-col items-center justify-center gap-2 py-4 px-2 rounded-xl border-2 transition-all bg-white dark:bg-zinc-900 shadow-sm",
+                                        isActive
+                                            ? "border-purple-600 shadow-[0_0_15px_rgba(147,51,234,0.15)] scale-[1.02]"
+                                            : "border-gray-100 dark:border-zinc-800 hover:border-gray-200 dark:hover:border-zinc-700",
+                                        isActive && "bg-white dark:bg-zinc-900 text-gray-900 dark:text-white"
                                     )}
                                 >
                                     {isActive && (
-                                        <div className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-emerald-500 border-[3px] border-white dark:border-[#0a0f1c] flex items-center justify-center z-10">
-                                            <Check className="w-3.5 h-3.5 text-white stroke-[4px]" />
+                                        <div className="absolute top-2 right-2 bg-white dark:bg-zinc-900 rounded-full z-10">
+                                            <CheckCircle2 className="w-4 h-4 text-emerald-500 fill-emerald-50 dark:fill-emerald-950" />
                                         </div>
                                     )}
                                     <div className="w-10 h-10 rounded-full flex items-center justify-center">
                                         {net === 'MTN' || net === 'EXPRESS MTN' || net === 'Special MTN Mashup' ? <MTNLogo /> :
                                          net === 'Telecel' ? <TelecelLogo /> : <ATLogo />}
                                     </div>
-                                    <span className="text-xs font-bold text-gray-900 dark:text-white tracking-wide">{net}</span>
-                                    <div className="flex items-center gap-1 mt-0.5">
-                                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                                        <span className="text-[10px] text-emerald-600 dark:text-emerald-500 font-bold tracking-wider">Live</span>
+                                    <span className="text-sm font-bold text-gray-900 dark:text-white text-center leading-tight">
+                                        {net === 'Special MTN Mashup' ? 'Special Mashup' : net === 'EXPRESS MTN' ? 'Express MTN' : net === 'AT-iShare' ? 'AT iShare' : net === 'AT-BigTime' ? 'AT BigTime' : net}
+                                    </span>
+                                    <div className="flex items-center justify-center gap-1.5 text-[11px] font-bold text-emerald-500 mt-0.5">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-[pulse_2s_ease-in-out_infinite]" /> Live
                                     </div>
                                 </button>
                             )
