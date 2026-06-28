@@ -325,26 +325,35 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
         }
     }, [searchParams])
 
+    // RC voucher delivery state
+    const [rcVouchers, setRcVouchers] = useState<{ pin: string; serial_number: string }[]>([])
+    const [showRcDelivery, setShowRcDelivery] = useState(false)
+
     // Poll for payment status when reference is set
     useEffect(() => {
         let interval: NodeJS.Timeout
         if (pollingRef) {
             interval = setInterval(async () => {
                 try {
-                    const endpoint = pollingRef.startsWith('RC-SHOP-') 
+                    const isRcOrder = pollingRef.startsWith('RC-SHOP-')
+                    const endpoint = isRcOrder
                         ? `/api/shop/rc/verify?ref=${pollingRef}&slug=${shop.shop_slug}`
                         : `/api/shop/verify?ref=${pollingRef}&slug=${shop.shop_slug}`
-                    const res = await fetch(endpoint, {
-                        headers: { 'Accept': 'application/json' }
-                    })
+                    const res = await fetch(endpoint, { headers: { 'Accept': 'application/json' } })
                     const data = await res.json()
-                    
+
                     if (data.status === 'completed') {
                         clearInterval(interval)
                         setPollingRef(null)
                         setLoading(false)
-                        toast.success('Payment completed successfully!')
-                        window.location.href = `/shop/${shop.shop_slug}/success?ref=${pollingRef}`
+                        if (isRcOrder && data.vouchers?.length > 0) {
+                            // Show vouchers instantly on-screen
+                            setRcVouchers(data.vouchers)
+                            setShowRcDelivery(true)
+                        } else {
+                            toast.success('Payment completed successfully!')
+                            window.location.href = `/shop/${shop.shop_slug}/success?ref=${pollingRef}`
+                        }
                     } else if (data.status === 'failed') {
                         clearInterval(interval)
                         setPollingRef(null)
@@ -1550,6 +1559,78 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                             className="bg-blue-600 hover:bg-blue-700"
                         >
                             {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Verify & Continue'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
+            {/* ── RC Voucher Delivery Modal ── */}
+            <Dialog open={showRcDelivery} onOpenChange={setShowRcDelivery}>
+                <DialogContent className="max-w-sm mx-auto">
+                    <DialogHeader>
+                        <div className="flex justify-center mb-2">
+                            <div className="w-14 h-14 rounded-full bg-emerald-100 dark:bg-emerald-900/30 flex items-center justify-center">
+                                <GraduationCap className="w-7 h-7 text-emerald-600 dark:text-emerald-400" />
+                            </div>
+                        </div>
+                        <DialogTitle className="text-center text-lg font-black">
+                            🎉 Payment Successful!
+                        </DialogTitle>
+                        <DialogDescription className="text-center text-sm">
+                            Your Result Checker {rcVouchers.length > 1 ? 'vouchers are' : 'voucher is'} ready. Copy and save your PIN and Serial Number.
+                        </DialogDescription>
+                    </DialogHeader>
+
+                    <div className="space-y-3 my-2">
+                        {rcVouchers.map((v, i) => (
+                            <div key={i} className="bg-gray-50 dark:bg-gray-800 rounded-xl p-4 border border-gray-200 dark:border-gray-700 space-y-3">
+                                {rcVouchers.length > 1 && (
+                                    <p className="text-xs font-black text-gray-500 uppercase tracking-wider">Voucher {i + 1}</p>
+                                )}
+                                <div className="space-y-2">
+                                    <div>
+                                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-wider mb-0.5">PIN</p>
+                                        <div className="flex items-center justify-between bg-white dark:bg-gray-900 rounded-lg px-3 py-2 border border-gray-200 dark:border-gray-700">
+                                            <span className="font-mono text-base font-black text-gray-900 dark:text-white tracking-widest">{v.pin}</span>
+                                            <button
+                                                onClick={() => { navigator.clipboard.writeText(v.pin); toast.success('PIN copied!') }}
+                                                title="Copy PIN"
+                                                className="ml-2 p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-600 transition-colors"
+                                            >
+                                                <Copy className="w-3.5 h-3.5" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-wider mb-0.5">Serial Number</p>
+                                        <div className="flex items-center justify-between bg-white dark:bg-gray-900 rounded-lg px-3 py-2 border border-gray-200 dark:border-gray-700">
+                                            <span className="font-mono text-base font-black text-gray-900 dark:text-white tracking-widest">{v.serial_number}</span>
+                                            <button
+                                                onClick={() => { navigator.clipboard.writeText(v.serial_number); toast.success('Serial copied!') }}
+                                                title="Copy Serial Number"
+                                                className="ml-2 p-1.5 rounded-md hover:bg-gray-100 dark:hover:bg-gray-800 text-gray-400 hover:text-gray-600 transition-colors"
+                                            >
+                                                <Copy className="w-3.5 h-3.5" />
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+
+                    <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-3">
+                        <p className="text-xs text-amber-700 dark:text-amber-400 font-medium text-center">
+                            ⚠️ Save your PIN and Serial Number now. This screen will not appear again.
+                        </p>
+                    </div>
+
+                    <DialogFooter>
+                        <Button
+                            className="w-full"
+                            onClick={() => { setShowRcDelivery(false); setSelectedRc(null); setRcPhone(''); setRcEmail('') }}
+                        >
+                            Done — Close
                         </Button>
                     </DialogFooter>
                 </DialogContent>
