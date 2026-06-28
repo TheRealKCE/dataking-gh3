@@ -11,7 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
-import { Loader2, Package, CheckCircle2, ShoppingCart, CreditCard, Wallet, AlertCircle, Copy, Clock, FileText } from 'lucide-react'
+import { Loader2, Package, CheckCircle2, ShoppingCart, CreditCard, Wallet, AlertCircle, Copy, Clock, FileText, Zap } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface BulkTier { min_qty: number; max_qty: number; unit_price: number }
@@ -203,25 +203,50 @@ export default function ResultsCheckerPage() {
                     <CardContent>
                         <form onSubmit={handlePurchase} className="space-y-5">
                             
-                            <div className="space-y-1.5">
+                            <div className="space-y-3">
                                 <Label>Voucher Type</Label>
-                                <Select value={selectedTypeId} onValueChange={setSelectedTypeId}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select examination..." />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {types.map(t => (
-                                            <SelectItem key={t.id} value={t.id}>
-                                                <div className="flex justify-between items-center w-full min-w-[200px]">
-                                                    <span>{t.name}</span>
-                                                    <span className="font-semibold text-emerald-600 ml-4">
-                                                        {formatCurrency(isAgent ? t.agent_price : t.customer_price)}
-                                                    </span>
+                                <div className="grid grid-cols-2 gap-3">
+                                    {types.map((t) => {
+                                        const isSelected = selectedTypeId === t.id
+                                        const outOfStock = !t.stock || t.stock.available === 0
+                                        const displayPrice = isAgent ? t.agent_price : (isDealer && (t as any).dealer_price > 0 ? (t as any).dealer_price : t.customer_price)
+                                        return (
+                                            <button
+                                                key={t.id}
+                                                type="button"
+                                                disabled={outOfStock}
+                                                onClick={() => !outOfStock && setSelectedTypeId(isSelected ? '' : t.id)}
+                                                className={`relative p-4 rounded-2xl border-2 text-left transition-all duration-200 flex flex-col gap-1.5 ${
+                                                    outOfStock ? 'bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 opacity-70 cursor-not-allowed' :
+                                                    isSelected ? 'bg-primary border-primary shadow-lg scale-[1.02] active:scale-95' : 'bg-card border-border/50 hover:border-primary/30 hover:bg-muted/30 hover:shadow-md active:scale-95'
+                                                }`}
+                                            >
+                                                {isSelected && <div className="absolute top-2 right-2"><CheckCircle2 className="w-4 h-4 text-primary-foreground" /></div>}
+                                                
+                                                <div className={`inline-block text-[10px] font-black px-2 py-0.5 rounded-full self-start ${outOfStock ? "bg-muted text-muted-foreground" : "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"}`}>
+                                                    PIN + SERIAL
                                                 </div>
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                                
+                                                <p className={`text-base font-black leading-tight ${isSelected ? 'text-primary-foreground' : 'text-foreground'}`}>
+                                                    {t.name}
+                                                </p>
+                                                <p className={`text-sm font-bold ${isSelected ? 'text-primary-foreground/90' : 'text-muted-foreground'}`}>
+                                                    {formatCurrency(displayPrice)}
+                                                </p>
+                                                
+                                                {outOfStock ? (
+                                                    <div className="inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full mt-0.5 self-start bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                                                        Out of Stock
+                                                    </div>
+                                                ) : (
+                                                    <div className={`inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full mt-0.5 self-start ${isSelected ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'}`}>
+                                                        <Zap className="w-2.5 h-2.5" /> Instant Delivery
+                                                    </div>
+                                                )}
+                                            </button>
+                                        )
+                                    })}
+                                </div>
                             </div>
 
                             <div className="space-y-1.5">
