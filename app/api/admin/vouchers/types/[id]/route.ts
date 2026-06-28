@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { validateAdminAccess } from '@/lib/auth-utils'
 import { createServerClient } from '@/lib/supabase'
+import { validateBulkTiers } from '@/lib/vouchers/pricing'
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     const auth = await validateAdminAccess(false)
     if (auth.error) return NextResponse.json({ error: auth.error }, { status: auth.status })
-    const { id } = await params;
+    const { id } = await params
 
     const supabase = createServerClient()
     const body = await request.json()
@@ -19,40 +20,39 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (body.display_order !== undefined) updates.display_order = parseInt(body.display_order)
     if (body.is_active !== undefined) updates.is_active = body.is_active
 
-    // Bulk pricing fields
-    if ('bulk_quantity_threshold' in body) {
-        updates.bulk_quantity_threshold = body.bulk_quantity_threshold ? parseInt(body.bulk_quantity_threshold) : null
-    }
-    if ('bulk_customer_price' in body) {
-        updates.bulk_customer_price = body.bulk_customer_price ? parseFloat(body.bulk_customer_price) : null
-    }
-    if ('bulk_agent_price' in body) {
-        updates.bulk_agent_price = body.bulk_agent_price ? parseFloat(body.bulk_agent_price) : null
-    }
-    if ('bulk_dealer_price' in body) {
-        updates.bulk_dealer_price = body.bulk_dealer_price ? parseFloat(body.bulk_dealer_price) : null
+    // JSONB bulk pricing tiers
+    if ('bulk_pricing' in body) {
+        const tiers = Array.isArray(body.bulk_pricing) ? body.bulk_pricing : []
+
+        // We need cost_price to validate tiers — fetch from DB if not provided
+        let costForValidation = updates.cost_price
+        if (costForValidation === undefined) {
+            const { data: existing } = await (supabase as any)
+                .from('results_checker_types')
+                .select('cost_price')
+                .eq('id', id)
+                .single()
+            costForValidation = existing?.cost_price ?? 0
+        }
+
+        const tierError = validateBulkTiers(tiers, costForValidation)
+        if (tierError) return NextResponse.json({ error: tierError }, { status: 400 })
+
+        updates.bulk_pricing = tiers
     }
 
+    // Pricing sanity checks
     const cp = updates.customer_price
     const ap = updates.agent_price
     const dp = updates.dealer_price
     const cost = updates.cost_price
+
     if (cp !== undefined && cost !== undefined && cp < cost)
         return NextResponse.json({ error: 'Customer price cannot be below cost price' }, { status: 400 })
     if (ap !== undefined && cost !== undefined && ap < cost)
         return NextResponse.json({ error: 'Agent price cannot be below cost price' }, { status: 400 })
     if (dp !== undefined && dp > 0 && cost !== undefined && dp < cost)
         return NextResponse.json({ error: 'Dealer price cannot be below cost price' }, { status: 400 })
-    // Bulk price checks (only when cost is also provided)
-    const effectiveCost = cost ?? undefined
-    if (effectiveCost !== undefined) {
-        if (updates.bulk_customer_price && updates.bulk_customer_price < effectiveCost)
-            return NextResponse.json({ error: 'Bulk customer price cannot be below cost price' }, { status: 400 })
-        if (updates.bulk_agent_price && updates.bulk_agent_price < effectiveCost)
-            return NextResponse.json({ error: 'Bulk agent price cannot be below cost price' }, { status: 400 })
-        if (updates.bulk_dealer_price && updates.bulk_dealer_price < effectiveCost)
-            return NextResponse.json({ error: 'Bulk dealer price cannot be below cost price' }, { status: 400 })
-    }
 
     const { data, error } = await (supabase as any)
         .from('results_checker_types')
@@ -62,13 +62,16 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         .single()
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    return NextResponse.json({ data })
+
+    // Never send cost_price back to the client
+    const { cost_price: _omit, ...safeData } = data
+    return NextResponse.json({ data: safeData })
 }
 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     const auth = await validateAdminAccess(false)
     if (auth.error) return NextResponse.json({ error: auth.error }, { status: auth.status })
-    const { id } = await params;
+    const { id } = await params
 
     const supabase = createServerClient()
     const { error } = await (supabase as any)
@@ -79,4 +82,3 @@ export async function DELETE(request: NextRequest, { params }: { params: Promise
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ success: true })
 }
-

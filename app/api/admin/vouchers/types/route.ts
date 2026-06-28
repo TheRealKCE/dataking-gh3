@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { validateAdminAccess } from '@/lib/auth-utils'
+import { validateBulkTiers } from '@/lib/vouchers/pricing'
 
 // GET: Fetch all voucher types with stock counts
 export async function GET() {
@@ -35,7 +36,13 @@ export async function GET() {
                     .eq('type_id', type.id)
                     .eq('status', 'sold')
 
-                return { ...type, stock: { available: available || 0, reserved: reserved || 0, sold: sold || 0 } }
+                // Never expose cost_price to the client — omit it
+                const { cost_price: _omit, ...safeType } = type
+                return {
+                    ...safeType,
+                    bulk_pricing: Array.isArray(type.bulk_pricing) ? type.bulk_pricing : [],
+                    stock: { available: available || 0, reserved: reserved || 0, sold: sold || 0 }
+                }
             })
         )
 
@@ -53,28 +60,27 @@ export async function POST(request: NextRequest) {
         if (auth.error) return NextResponse.json({ error: auth.error }, { status: auth.status })
 
         const body = await request.json()
-        const { name, customer_price, agent_price, dealer_price, cost_price, display_order,
-                bulk_quantity_threshold, bulk_customer_price, bulk_agent_price, bulk_dealer_price } = body
+        const { name, customer_price, agent_price, dealer_price, cost_price, display_order, bulk_pricing } = body
 
         if (!name || !customer_price || !agent_price || !cost_price) {
             return NextResponse.json({ error: 'Name, customer_price, agent_price, and cost_price are required' }, { status: 400 })
         }
 
+        // Parse prices
+        const cp = parseFloat(customer_price)
+        const ap = parseFloat(agent_price)
+        const dp = dealer_price ? parseFloat(dealer_price) : 0
+        const cost = parseFloat(cost_price)
+
         // Server-side pricing sanity check
-        const cp = parseFloat(customer_price);
-        const ap = parseFloat(agent_price);
-        const dp = dealer_price ? parseFloat(dealer_price) : 0;
-        const cost = parseFloat(cost_price);
         if (cp < cost || ap < cost || (dp > 0 && dp < cost)) {
             return NextResponse.json({ error: 'Selling prices cannot be below cost price' }, { status: 400 })
         }
-        // Bulk price checks
-        const bcp = bulk_customer_price ? parseFloat(bulk_customer_price) : null
-        const bap = bulk_agent_price ? parseFloat(bulk_agent_price) : null
-        const bdp = bulk_dealer_price ? parseFloat(bulk_dealer_price) : null
-        if (bcp && bcp < cost) return NextResponse.json({ error: 'Bulk customer price cannot be below cost price' }, { status: 400 })
-        if (bap && bap < cost) return NextResponse.json({ error: 'Bulk agent price cannot be below cost price' }, { status: 400 })
-        if (bdp && bdp < cost) return NextResponse.json({ error: 'Bulk dealer price cannot be below cost price' }, { status: 400 })
+
+        // Validate bulk pricing tiers
+        const tiers = Array.isArray(bulk_pricing) ? bulk_pricing : []
+        const tierError = validateBulkTiers(tiers, cost)
+        if (tierError) return NextResponse.json({ error: tierError }, { status: 400 })
 
         const supabase = createServerClient()
         const { data, error } = await (supabase.from('results_checker_types') as any)
@@ -86,10 +92,7 @@ export async function POST(request: NextRequest) {
                 cost_price: cost,
                 display_order: display_order || 0,
                 is_active: true,
-                bulk_quantity_threshold: bulk_quantity_threshold ? parseInt(bulk_quantity_threshold) : null,
-                bulk_customer_price: bcp,
-                bulk_agent_price: bap,
-                bulk_dealer_price: bdp,
+                bulk_pricing: tiers,
             })
             .select()
             .single()
@@ -99,7 +102,9 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: error.message }, { status: 500 })
         }
 
-        return NextResponse.json({ data })
+        // Never send cost_price back to the client
+        const { cost_price: _omit, ...safeData } = data
+        return NextResponse.json({ data: safeData })
     } catch (err: any) {
         console.error('[RC Types POST]', err)
         return NextResponse.json({ error: 'Failed to create type' }, { status: 500 })

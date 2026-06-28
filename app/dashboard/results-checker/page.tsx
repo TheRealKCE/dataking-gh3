@@ -14,12 +14,10 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Loader2, Package, CheckCircle2, ShoppingCart, CreditCard, Wallet, AlertCircle, Copy, Clock, FileText } from 'lucide-react'
 import { toast } from 'sonner'
 
+interface BulkTier { min_qty: number; max_qty: number; unit_price: number }
 interface RCType {
     id: string; name: string; customer_price: number; agent_price: number; dealer_price?: number; is_active: boolean
-    bulk_quantity_threshold?: number | null
-    bulk_customer_price?: number | null
-    bulk_agent_price?: number | null
-    bulk_dealer_price?: number | null
+    bulk_pricing?: BulkTier[]
     stock?: { available: number; reserved: number; sold: number }
 }
 
@@ -106,24 +104,21 @@ export default function ResultsCheckerPage() {
     const role = dbUser?.role || 'customer'
     const isDealer = role === 'dealer'
 
-    // Standard unit price based on role
-    const standardUnitPrice = selectedType
+    // 1. Base role price
+    const baseUnitPrice = selectedType
         ? isAgent ? selectedType.agent_price
         : isDealer && (selectedType as any).dealer_price > 0 ? (selectedType as any).dealer_price
         : selectedType.customer_price
         : 0
 
-    // Bulk pricing logic
-    const bulkThreshold = selectedType?.bulk_quantity_threshold
-    const isBulkActive = bulkThreshold != null && quantity >= bulkThreshold
-    const bulkUnitPrice = isBulkActive && selectedType
-        ? isAgent && selectedType.bulk_agent_price ? selectedType.bulk_agent_price
-        : isDealer && selectedType.bulk_dealer_price ? selectedType.bulk_dealer_price
-        : selectedType.bulk_customer_price ?? null
-        : null
+    // 2. JSONB bulk tier match — identical to server's findMatchingTier()
+    const tiers: BulkTier[] = Array.isArray(selectedType?.bulk_pricing) ? selectedType!.bulk_pricing : []
+    const matchedTier = tiers.find(t => quantity >= t.min_qty && quantity <= t.max_qty) ?? null
+    const isBulk = matchedTier !== null
 
-    const unitPrice = (isBulkActive && bulkUnitPrice != null) ? bulkUnitPrice : standardUnitPrice
-    const subtotal = unitPrice * quantity
+    // 3. Effective unit price (bulk overrides base, no proration)
+    const unitPrice = isBulk ? matchedTier!.unit_price : baseUnitPrice
+    const subtotal = parseFloat((unitPrice * quantity).toFixed(2))
     const canAffordWallet = walletBalance >= subtotal
 
     const handlePurchase = async (e: React.FormEvent) => {
@@ -230,23 +225,42 @@ export default function ResultsCheckerPage() {
                             </div>
 
                             <div className="space-y-1.5">
-                                <Label>Quantity</Label>
-                                <div className="flex items-center gap-3">
-                                    <Button type="button" variant="outline" size="icon" onClick={() => setQuantity(Math.max(1, quantity - 1))} disabled={quantity <= 1}>-</Button>
-                                    <Input type="number" min="1" max="100" value={quantity} onChange={e => setQuantity(Math.max(1, parseInt(e.target.value) || 1))} className="text-center w-20 font-bold" />
-                                    <Button type="button" variant="outline" size="icon" onClick={() => setQuantity(quantity + 1)}>+</Button>
+                                <div className="flex items-center justify-between">
+                                    <Label>Quantity</Label>
+                                    {tiers.length > 0 && (
+                                        <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-widest">Bulk Pricing Available</span>
+                                    )}
                                 </div>
-                                {/* Bulk discount hint */}
-                                {selectedType?.bulk_quantity_threshold && (
-                                    <p className="text-xs text-purple-600 dark:text-purple-400 font-medium mt-1">
-                                        {isBulkActive
-                                            ? `✅ Bulk discount applied! ${formatCurrency(bulkUnitPrice ?? standardUnitPrice)} per voucher`
-                                            : `🏷️ Buy ${selectedType.bulk_quantity_threshold}+ vouchers for ${formatCurrency(
-                                                isAgent && selectedType.bulk_agent_price ? selectedType.bulk_agent_price
-                                                : selectedType.bulk_customer_price ?? standardUnitPrice
-                                              )} each`
-                                        }
-                                    </p>
+                                <div className="flex items-center gap-3">
+                                    <Button type="button" variant="outline" size="icon" onClick={() => setQuantity(Math.max(1, quantity - 1))} disabled={quantity <= 1}>−</Button>
+                                    <Input
+                                        type="number" min="1" max="100" value={quantity}
+                                        onChange={e => setQuantity(Math.max(1, Math.min(100, parseInt(e.target.value) || 1)))}
+                                        className="text-center w-20 font-bold [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                    />
+                                    <Button type="button" variant="outline" size="icon" onClick={() => setQuantity(Math.min(100, quantity + 1))}>+</Button>
+                                </div>
+                                <p className="text-xs text-muted-foreground">Bulk discounts apply automatically · Max 100</p>
+
+                                {/* Amber Tier Strip */}
+                                {tiers.length > 0 && (
+                                    <div className="flex flex-wrap gap-2 mt-2">
+                                        {tiers.map((tier, i) => {
+                                            const isMatch = quantity >= tier.min_qty && quantity <= tier.max_qty
+                                            return (
+                                                <span
+                                                    key={i}
+                                                    className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold transition-all ${
+                                                        isMatch
+                                                            ? 'bg-amber-500 text-white shadow-sm scale-105'
+                                                            : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                                                    }`}
+                                                >
+                                                    {tier.min_qty}–{tier.max_qty} · {formatCurrency(tier.unit_price)}/ea
+                                                </span>
+                                            )
+                                        })}
+                                    </div>
                                 )}
                             </div>
 
@@ -298,7 +312,12 @@ export default function ResultsCheckerPage() {
                             </div>
                             <div className="flex justify-between items-center text-sm">
                                 <span className="text-muted-foreground">Unit Price:</span>
-                                <span>{formatCurrency(unitPrice)}</span>
+                                <div className="flex items-center gap-2">
+                                    <span>{formatCurrency(unitPrice)}</span>
+                                    {isBulk && (
+                                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">bulk</span>
+                                    )}
+                                </div>
                             </div>
                             <div className="flex justify-between items-center text-sm">
                                 <span className="text-muted-foreground">Quantity:</span>
