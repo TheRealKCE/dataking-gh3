@@ -802,137 +802,77 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
     }
 
     return (
-        <div className="min-h-screen bg-gray-950 theme-shop">
-            <style dangerouslySetInnerHTML={{ __html: `
-                .theme-shop { 
-                    --brand-color: ${safeBrandColor}; 
-                    --brand-contrast-text: ${brandContrastText};
-                }
-                @keyframes shake { 0%, 100% { transform: rotate(0deg); } 25% { transform: rotate(15deg); } 75% { transform: rotate(-15deg); } }
-                .animate-shake { animation: shake 0.5s ease-in-out 3; transform-origin: top center; }
-            ` }} />
-            {/* ── Permanent Top Bar ── */}
-            <div className="fixed top-0 left-0 w-full z-[45] shadow-lg border-b border-black/5 dark:border-white/5 bg-[var(--brand-color)] transition-all duration-300 ease-in-out">
-                <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                        <button onClick={() => setIsSidebarOpen(true)} className="p-1 bg-[#FFCE00] hover:bg-[#E6B800] rounded-lg transition-colors flex-shrink-0 text-black border border-black/10 shadow-sm" aria-label="Open menu">
-                            <Menu className="w-6 h-6 text-black" />
-                        </button>
-                        {shop.logo_url && (
-                            <div className="relative w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 border border-black/5 shadow-sm bg-white/20">
-                                <Image src={shop.logo_url} alt="Logo" fill className="object-contain" />
-                            </div>
-                        )}
-                        <h1 className="font-black text-[15px] sm:text-lg truncate text-[var(--brand-contrast-text)] transition-colors">
-                            {shop.shop_name}
-                        </h1>
-                    </div>
-                    <ThemeToggle />
-                </div>
-            </div>
-            {/* Spacer to account for fixed top bar height */}
-            <div className="h-[60px] flex-shrink-0" />
-
-            {/* ── Floating Notification Bell ── */}
-            {announcement && (
+        <div className="min-h-screen bg-gray-50 dark:bg-[#0a0f1c] text-gray-900 dark:text-white">
+            {/* Top Navigation */}
+            <div className="flex items-center justify-between px-6 pt-12 pb-6 max-w-2xl mx-auto">
+                <div className="w-12"></div> {/* Spacer for centering */}
+                <h1 className="text-xs font-black tracking-[0.2em] text-gray-500 dark:text-gray-400">CHOOSE A SERVICE</h1>
                 <button 
                     onClick={() => { setShowAnnouncementModal(true); setAnnouncementDismissed(true); }}
-                    className="fixed top-[76px] right-4 z-[40] p-3 rounded-full bg-white dark:bg-gray-800 shadow-xl border border-gray-100 dark:border-gray-700 hover:scale-110 transition-transform group"
-                    aria-label="Announcements"
+                    className="relative w-12 h-12 rounded-[1.2rem] bg-white dark:bg-[#1c2333] border border-gray-200 dark:border-transparent flex items-center justify-center text-amber-500 shadow-lg"
                 >
-                    <Bell className={cn("w-6 h-6 text-amber-500", !announcementDismissed && "animate-shake")} />
-                    {!announcementDismissed && <span className="absolute top-0 right-0 w-3 h-3 rounded-full bg-red-500 border-2 border-white dark:border-gray-800 animate-pulse" />}
+                    <Bell className="w-5 h-5" />
+                    {!announcementDismissed && announcement && (
+                        <span className="absolute top-0 right-0 w-3 h-3 rounded-full bg-red-500 border-[3px] border-white dark:border-[#1c2333]" />
+                    )}
                 </button>
-            )}
-
-            {/* Header / Hero */}
-            <div ref={heroRef} className="relative transition-colors duration-300 pt-6 pb-16 bg-[var(--brand-color)]">
-                <div className="max-w-2xl mx-auto px-4 text-center">
-                    <div className="flex flex-col items-center gap-3">
-                        {/* 1. Logo */}
-                        {shop.logo_url ? (
-                            <div className="relative w-24 h-24 rounded-3xl overflow-hidden bg-white/20 flex-shrink-0 shadow-lg">
-                                <Image src={shop.logo_url} alt={shop.shop_name} fill className="object-contain" />
-                            </div>
-                        ) : (
-                            <div className="w-24 h-24 rounded-3xl bg-white/20 flex items-center justify-center flex-shrink-0">
-                                <ShoppingCart className="w-10 h-10 text-white" />
-                            </div>
-                        )}
-                        {/* 2. Shop Name */}
-                        <h1 className="text-3xl font-black text-white leading-tight">{shop.shop_name}</h1>
-                        {/* 3. Description */}
-                        {shop.description && (
-                            <p className="text-white/90 text-sm max-w-sm mx-auto leading-relaxed">{shop.description}</p>
-                        )}
-                        {/* 4. Banner Image (below description, only if set) */}
-                        {shop.banner_url && (
-                            <div className="relative w-full h-[180px] rounded-2xl overflow-hidden mt-4 shadow-lg bg-black/5 border border-white/10">
-                                <Image 
-                                    src={shop.banner_url} 
-                                    alt={`${shop.shop_name} banner`} 
-                                    fill 
-                                    className="object-cover transition-opacity duration-700"
-                                    style={{ 
-                                        objectPosition: `${shop.banner_pos_x ?? 50}% ${shop.banner_pos_y ?? 50}%`,
-                                        transform: `scale(${shop.banner_zoom ?? 1})`
-                                    }}
-                                />
-                            </div>
-                        )}
-                    </div>
-                </div>
-                {/* 5. Divider SVG — always at absolute bottom */}
-                <DividerSVG style={shop.divider_style} fillClass="fill-gray-950" />
             </div>
 
-            <div className="max-w-2xl mx-auto px-4 pb-40 -mt-2">
-                
-                {/* ── Main Layout Tabs ── */}
-                <div className="flex flex-col gap-3 mb-6">
-                    <div className="flex items-center gap-2 bg-gray-200/50 dark:bg-gray-800/50 p-2 rounded-2xl overflow-x-auto scrollbar-hide">
-                        <button onClick={() => setActiveTab('data')} className={cn("flex-shrink-0 flex-1 min-w-[110px] py-4 rounded-xl font-black text-sm sm:text-base transition-all flex items-center justify-center gap-1.5", activeTab === 'data' ? "bg-white dark:bg-gray-900 shadow-md text-gray-900 dark:text-white" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300")}>
-                            <Zap className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" /> Data Packages
-                        </button>
-                        {isShopAirtimeEnabled && (
-                            <button onClick={() => setActiveTab('airtime')} className={cn("flex-shrink-0 flex-1 min-w-[100px] py-4 rounded-xl font-black text-sm sm:text-base transition-all flex items-center justify-center gap-1.5", activeTab === 'airtime' ? "bg-white dark:bg-gray-900 shadow-md text-gray-900 dark:text-white" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300")}>
-                                <Smartphone className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" /> Airtime
-                            </button>
+            <div className="max-w-2xl mx-auto px-6 pb-40">
+                {/* Services Grid */}
+                <div className="grid grid-cols-2 gap-4 mb-4">
+                    {/* DATA Button */}
+                    <button 
+                        onClick={() => { setActiveTab('data'); setIsAirtimeOpen(false) }}
+                        className={cn(
+                            "relative flex flex-col items-center justify-center gap-4 p-8 rounded-[2rem] border-2 transition-all",
+                            activeTab === 'data' 
+                                ? "bg-emerald-50 dark:bg-[#0f1b29] border-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.15)]" 
+                                : "bg-white dark:bg-[#151c2c] border-gray-100 dark:border-transparent hover:border-gray-200"
                         )}
+                    >
+                        <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center transition-colors", activeTab === 'data' ? "bg-emerald-400 shadow-lg shadow-emerald-500/20" : "bg-gray-100 dark:bg-[#232c40]")}>
+                            <Zap className={cn("w-7 h-7", activeTab === 'data' ? "text-emerald-950 fill-emerald-950" : "text-gray-400")} />
+                        </div>
+                        <span className={cn("text-xs font-extrabold tracking-widest", activeTab === 'data' ? 'text-emerald-600 dark:text-emerald-400' : 'text-gray-500 dark:text-gray-400')}>DATA</span>
+                    </button>
 
-                    </div>
-                    
-                    {!isSpecialMtnMashupHidden && (
-                        <button onClick={() => setActiveTab('mashup')} className={cn("w-full py-4 px-4 rounded-2xl font-black text-base sm:text-lg transition-all flex items-center justify-center gap-2 border-2", activeTab === 'mashup' ? "bg-amber-500 text-white border-amber-600 shadow-lg scale-[1.01]" : "bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800/50 hover:bg-amber-100 dark:hover:bg-amber-900/40")}>
-                            <Target className="w-6 h-6 animate-pulse" /> Special MTN Mashup
-                        </button>
-                    )}
-                    {isShopRcEnabled && (
-                        <button onClick={() => setActiveTab('results_checker')} className={cn("w-full py-4 px-4 rounded-2xl font-black text-base sm:text-lg transition-all flex items-center justify-center gap-2 border-2", activeTab === 'results_checker' ? "bg-emerald-600 text-white border-emerald-700 shadow-lg scale-[1.01]" : "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/40")}>
-                            <GraduationCap className="w-6 h-6 animate-pulse" /> Result Checker
+                    {/* AIRTIME Button */}
+                    {isShopAirtimeEnabled && (
+                        <button 
+                            onClick={() => { setActiveTab('airtime'); setIsAirtimeOpen(true) }}
+                            className={cn(
+                                "relative flex flex-col items-center justify-center gap-4 p-8 rounded-[2rem] border-2 transition-all",
+                                activeTab === 'airtime' 
+                                    ? "bg-indigo-50 dark:bg-[#0f1b29] border-indigo-500 shadow-[0_0_20px_rgba(99,102,241,0.15)]" 
+                                    : "bg-white dark:bg-[#151c2c] border-gray-100 dark:border-transparent hover:border-gray-200"
+                            )}
+                        >
+                            <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center transition-colors", activeTab === 'airtime' ? "bg-indigo-400 shadow-lg shadow-indigo-500/20" : "bg-gray-100 dark:bg-[#232c40]")}>
+                                <Smartphone className={cn("w-7 h-7", activeTab === 'airtime' ? "text-indigo-950" : "text-gray-400")} />
+                            </div>
+                            <span className={cn("text-xs font-extrabold tracking-widest", activeTab === 'airtime' ? 'text-indigo-600 dark:text-indigo-400' : 'text-gray-500 dark:text-gray-400')}>AIRTIME</span>
                         </button>
                     )}
                 </div>
 
-                {/* ── Need Help? Contact Card ── */}
-                <div className="mb-6 rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm px-4 py-4 space-y-3">
-                    <p className="text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1.5 text-center">Need Help?</p>
-                    <div className="flex flex-wrap justify-center gap-x-4 gap-y-2">
-                        <a href={`tel:${shop.owner_phone}`} className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-700 dark:text-gray-200 hover:text-emerald-600 transition-colors">
-                            <Phone className="w-4 h-4" /> {shop.owner_phone}
-                        </a>
-                        {shop.owner_email && (
-                            <a href={`mailto:${shop.owner_email}`} className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-700 dark:text-gray-200 hover:text-emerald-600 transition-colors">
-                                <Mail className="w-4 h-4" /> Email Us
-                            </a>
+                {/* RESULTS CHECKER Button */}
+                {isShopRcEnabled && (
+                    <button 
+                        onClick={() => { setActiveTab('results_checker'); setIsAirtimeOpen(false) }}
+                        className={cn(
+                            "w-full sm:w-[calc(50%-0.5rem)] mb-8 flex flex-col items-center justify-center gap-4 p-6 rounded-[2rem] border-2 transition-all",
+                            activeTab === 'results_checker' 
+                                ? "bg-blue-50 dark:bg-[#0f1b29] border-blue-500 shadow-[0_0_20px_rgba(59,130,246,0.15)]" 
+                                : "bg-white dark:bg-[#151c2c] border-gray-100 dark:border-transparent hover:border-gray-200"
                         )}
-                    </div>
-                    {shop.community_link && (
-                        <a href={shop.community_link} target="_blank" rel="noopener noreferrer" className="mt-2 flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl font-bold text-sm text-white transition-all hover:opacity-90 active:scale-95 shadow-md bg-[var(--brand-color)]">
-                            <Users className="w-4 h-4" /> Join Our Community
-                        </a>
-                    )}
-                </div>
+                    >
+                        <div className={cn("w-12 h-12 rounded-2xl flex items-center justify-center transition-colors", activeTab === 'results_checker' ? "bg-blue-400 shadow-lg shadow-blue-500/20" : "bg-gray-100 dark:bg-[#232c40]")}>
+                            <GraduationCap className={cn("w-6 h-6", activeTab === 'results_checker' ? "text-blue-950" : "text-gray-400")} />
+                        </div>
+                        <span className={cn("text-[11px] font-extrabold tracking-widest uppercase", activeTab === 'results_checker' ? 'text-blue-600 dark:text-blue-400' : 'text-gray-500 dark:text-gray-400')}>RESULTS CHECKER</span>
+                    </button>
+                )}
 
                 {/* Error banner */}
                 {errorMsg && (
@@ -1244,34 +1184,66 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
 
                 {/* ── Network Filter Tabs ── */}
                 {activeTab === 'data' && networks.length > 1 && (
-                    <div className="flex gap-3 overflow-x-auto pb-2 mb-6 scrollbar-hide">
+                    <div className="flex gap-4 overflow-x-auto pb-4 mb-4 scrollbar-hide">
                         {networks.map(net => {
                             const isActive = activeNetwork === net
-                            const netStyle = networkColors[net]
+                            const netStyle = networkColors[net] || { borderClass: 'border-emerald-500' }
+                            
                             return (
                                 <button
                                     key={net} onClick={() => { setActiveNetwork(net); setSelectedPackage(null); setIsAirtimeOpen(false) }}
                                     className={cn(
-                                        'flex-shrink-0 px-6 py-2.5 rounded-full text-base sm:text-lg font-extrabold transition-all border-2',
-                                        isActive && !netStyle && 'bg-[var(--brand-color)] text-white border-[var(--brand-color)]',
-                                        isActive && netStyle && netStyle.bgClass,
-                                        isActive && netStyle && netStyle.textClass,
-                                        isActive && netStyle && netStyle.borderClass,
-                                        isActive ? 'shadow-md scale-[1.03]' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                                        'relative flex-shrink-0 w-28 h-28 flex flex-col items-center justify-center gap-2 rounded-[1.5rem] border-[3px] transition-all duration-300',
+                                        isActive 
+                                            ? `bg-white dark:bg-[#151c2c] shadow-md ${netStyle.borderClass}` 
+                                            : 'bg-white dark:bg-[#151c2c] border-gray-100 dark:border-transparent opacity-70 hover:opacity-100'
                                     )}
                                 >
-                                    {net}
+                                    {isActive && (
+                                        <div className="absolute -top-1.5 -right-1.5 w-6 h-6 rounded-full bg-emerald-500 border-[3px] border-white dark:border-[#0a0f1c] flex items-center justify-center z-10">
+                                            <Check className="w-3.5 h-3.5 text-white stroke-[4px]" />
+                                        </div>
+                                    )}
+                                    <div className="w-10 h-10 rounded-full flex items-center justify-center">
+                                        {net === 'MTN' || net === 'EXPRESS MTN' || net === 'Special MTN Mashup' ? <MTNLogo /> :
+                                         net === 'Telecel' ? <TelecelLogo /> : <ATLogo />}
+                                    </div>
+                                    <span className="text-xs font-bold text-gray-900 dark:text-white tracking-wide">{net}</span>
+                                    <div className="flex items-center gap-1 mt-0.5">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                                        <span className="text-[10px] text-emerald-600 dark:text-emerald-500 font-bold tracking-wider">Live</span>
+                                    </div>
                                 </button>
                             )
                         })}
                     </div>
                 )}
 
+                {/* Search Bar matching screenshot */}
+                {activeTab === 'data' && (
+                    <div className="flex gap-3 mb-8">
+                        <div className="relative flex-1">
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                            <input 
+                                type="text" 
+                                placeholder="Search packages..." 
+                                className="w-full pl-11 pr-4 py-3.5 bg-white dark:bg-[#0e1423] border border-gray-200 dark:border-gray-800/60 rounded-xl text-sm font-medium text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-gray-300 dark:focus:border-gray-600 shadow-sm dark:shadow-none transition-colors"
+                            />
+                        </div>
+                        <div className="flex rounded-xl overflow-hidden border border-gray-200 dark:border-gray-800/60 bg-white dark:bg-[#0e1423] shrink-0 shadow-sm dark:shadow-none">
+                            <button aria-label="Grid View" className="w-12 h-full flex items-center justify-center bg-gray-100 dark:bg-white text-gray-900"><Menu className="w-5 h-5" /></button>
+                            <button aria-label="List View" className="w-12 h-full flex items-center justify-center text-gray-400 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-transparent transition-colors"><Menu className="w-5 h-5 opacity-50" /></button>
+                        </div>
+                    </div>
+                )}
+
                 {/* Package grid */}
                 {filteredPackages.length === 0 ? (
-                    <div className="text-center py-16 text-gray-400">
-                        <ShoppingCart className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                        <p className="text-sm">No packages available for this network.</p>
+                    <div className="text-center py-24 text-gray-400 flex flex-col items-center">
+                        <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-900 flex items-center justify-center mb-6">
+                            <AlertCircle className="w-8 h-8 opacity-40" />
+                        </div>
+                        <p className="text-[15px] font-bold text-gray-600 dark:text-gray-300">{activeNetwork} is Out of Stock at the Moment</p>
                     </div>
                 ) : (
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
@@ -1642,6 +1614,32 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+            {/* Floating Bottom Action Bar */}
+            <div className="fixed bottom-0 left-0 w-full z-[45] pb-8 pt-4 pointer-events-none">
+                <div className="max-w-2xl mx-auto px-6 flex justify-between items-end">
+                    <button className="pointer-events-auto bg-white dark:bg-[#1c2333] border border-gray-200 dark:border-gray-800/60 text-gray-700 dark:text-gray-300 rounded-[1.5rem] px-5 py-3.5 flex items-center gap-3 shadow-xl transition-transform hover:scale-105">
+                        <Bell className="w-5 h-5 text-amber-500" />
+                        <span className="text-sm font-bold tracking-wide">Get Notified</span>
+                    </button>
+                    
+                    <div className="relative pointer-events-auto group">
+                        <div className="absolute -top-12 right-1/2 translate-x-1/2 bg-white dark:bg-[#1c2333] border border-gray-200 dark:border-gray-800/60 text-gray-700 dark:text-gray-300 px-4 py-2 rounded-2xl text-xs font-bold tracking-wide shadow-lg opacity-100 transition-opacity whitespace-nowrap">
+                            Need Help?
+                            <div className="absolute -bottom-1.5 left-1/2 -translate-x-1/2 w-3 h-3 bg-white dark:bg-[#1c2333] border-b border-r border-gray-200 dark:border-gray-800/60 transform rotate-45" />
+                        </div>
+                        <a 
+                            href={`https://wa.me/${shop.whatsapp_number || shop.owner_phone}?text=Hello, I need help with ${shop.shop_name}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label="Need Help on WhatsApp"
+                            className="bg-[#25D366] text-white w-14 h-14 rounded-full flex items-center justify-center shadow-[0_4px_20px_rgba(37,211,102,0.4)] transition-transform hover:scale-110 active:scale-95"
+                        >
+                            <svg viewBox="0 0 24 24" className="w-7 h-7 fill-current"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>
+                        </a>
+                    </div>
+                </div>
+            </div>
+
         </div>
     )
 }
