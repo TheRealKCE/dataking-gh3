@@ -32,17 +32,48 @@ export default async function ShopSuccessPage({ params, searchParams }: Props) {
 
     // Fetch order details
     let order: any = null
+    let isRc = false
+    let rcVouchers: any[] = []
+
     if (ref) {
-        const { data } = await (supabase
-            .from('shop_orders')
-            .select('guest_phone, network, package_size, selling_price, status, package_id')
-            .eq('paystack_reference', ref)
-            .single() as any)
-        order = data
+        if (ref.startsWith('RC-')) {
+            isRc = true
+            const { data } = await (supabase
+                .from('results_checker_orders')
+                .select('customer_phone, type_name, quantity, total_paid, status, payment_status, id')
+                .eq('reference_code', ref)
+                .single() as any)
+            
+            if (data) {
+                order = {
+                    guest_phone: data.customer_phone,
+                    network: 'Voucher',
+                    package_size: `${data.quantity}x ${data.type_name?.toUpperCase()}`,
+                    selling_price: data.total_paid,
+                    status: data.status,
+                    package_id: 'rc_voucher', // acts as a flag to not be airtime
+                }
+                
+                if (data.status === 'completed') {
+                    const { data: vouchers } = await (supabase
+                        .from('results_checker_inventory')
+                        .select('pin, serial_number')
+                        .eq('order_id', data.id) as any)
+                    rcVouchers = vouchers || []
+                }
+            }
+        } else {
+            const { data } = await (supabase
+                .from('shop_orders')
+                .select('guest_phone, network, package_size, selling_price, status, package_id')
+                .eq('paystack_reference', ref)
+                .single() as any)
+            order = data
+        }
     }
 
     const brandColor = shop?.brand_color || '#059669'
-    const isAirtime = order?.package_id == null && !!order
+    const isAirtime = !isRc && order?.package_id == null && !!order
     const orderStatus = order?.status || 'pending'
     const isFailed = orderStatus === 'failed'
     const isPending = orderStatus === 'pending' || orderStatus === 'processing'
@@ -146,6 +177,40 @@ export default async function ShopSuccessPage({ params, searchParams }: Props) {
                             <p className="text-xs text-red-700 dark:text-red-400 font-medium leading-relaxed">
                                 Please contact the shop owner on WhatsApp with your reference code to resolve this issue. Do not attempt to repurchase until you have spoken to the shop team.
                             </p>
+                        </div>
+                    )}
+
+                    {/* RC Vouchers Delivery */}
+                    {isRc && !isFailed && !isPending && rcVouchers.length > 0 && (
+                        <div className="space-y-3">
+                            <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-3 mb-4">
+                                <p className="text-xs text-amber-700 dark:text-amber-400 font-medium text-center">
+                                    ⚠️ Please copy and save your PIN and Serial Number now.
+                                </p>
+                            </div>
+                            {rcVouchers.map((v, i) => (
+                                <div key={i} className="bg-white dark:bg-gray-800 rounded-xl p-4 border border-emerald-200 dark:border-emerald-800 shadow-sm space-y-3 text-left">
+                                    {rcVouchers.length > 1 && (
+                                        <p className="text-[10px] font-black text-gray-400 uppercase tracking-wider">Voucher {i + 1}</p>
+                                    )}
+                                    <div className="space-y-3">
+                                        <div>
+                                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-wider mb-1">PIN</p>
+                                            <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-900 rounded-lg px-3 py-2 border border-gray-100 dark:border-gray-700">
+                                                <span className="font-mono text-lg font-black text-gray-900 dark:text-white tracking-widest">{v.pin}</span>
+                                                <CopyButton text={v.pin} />
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-wider mb-1">Serial Number</p>
+                                            <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-900 rounded-lg px-3 py-2 border border-gray-100 dark:border-gray-700">
+                                                <span className="font-mono text-base font-black text-gray-900 dark:text-white tracking-widest">{v.serial_number}</span>
+                                                <CopyButton text={v.serial_number} />
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
                         </div>
                     )}
 

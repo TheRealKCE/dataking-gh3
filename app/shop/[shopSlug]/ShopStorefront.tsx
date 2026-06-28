@@ -663,6 +663,12 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 setLoading(false)
                 return
             }
+
+            if (data.gateway === 'paystack') {
+                window.location.href = data.authorization_url
+                return
+            }
+
             try { localStorage.setItem('shop_last_phone', cleanPhone) } catch (_) { }
             if (data.otpRequired) {
                 // AT network requires OTP — show OTP modal
