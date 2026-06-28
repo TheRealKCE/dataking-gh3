@@ -1243,27 +1243,27 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                                 <button
                                     key={net} onClick={() => { setActiveNetwork(net); setSelectedPackage(null); setIsAirtimeOpen(false) }}
                                     className={cn(
-                                        "relative flex flex-col items-center justify-center gap-2 py-4 px-2 rounded-xl border-2 transition-all bg-white dark:bg-zinc-900 shadow-sm",
+                                        "relative flex flex-col items-center justify-center gap-3 py-4 px-2 rounded-[14px] border transition-all bg-white dark:bg-zinc-900 shadow-sm",
                                         isActive
-                                            ? "border-purple-600 shadow-[0_0_15px_rgba(147,51,234,0.15)] scale-[1.02]"
+                                            ? "border-[#8a2be2] shadow-sm scale-[1.01]"
                                             : "border-gray-100 dark:border-zinc-800 hover:border-gray-200 dark:hover:border-zinc-700",
                                         isActive && "bg-white dark:bg-zinc-900 text-gray-900 dark:text-white"
                                     )}
                                 >
                                     {isActive && (
-                                        <div className="absolute top-2 right-2 bg-white dark:bg-zinc-900 rounded-full z-10">
-                                            <CheckCircle2 className="w-4 h-4 text-emerald-500 fill-emerald-50 dark:fill-emerald-950" />
+                                        <div className="absolute top-2 right-2 z-10 bg-white rounded-full">
+                                            <CheckCircle2 className="w-4 h-4 text-[#20d880]" strokeWidth={2.5} />
                                         </div>
                                     )}
-                                    <div className="w-10 h-10 rounded-full flex items-center justify-center">
+                                    <div className="w-10 h-10 rounded-full flex items-center justify-center mt-1">
                                         {net === 'MTN' || net === 'EXPRESS MTN' || net === 'Special MTN Mashup' ? <MTNLogo /> :
                                          net === 'Telecel' ? <TelecelLogo /> : <ATLogo />}
                                     </div>
-                                    <span className="text-sm font-bold text-gray-900 dark:text-white text-center leading-tight">
+                                    <span className="text-[13px] font-bold text-gray-700 dark:text-gray-200 text-center leading-tight">
                                         {net === 'Special MTN Mashup' ? 'Special Mashup' : net === 'EXPRESS MTN' ? 'Express MTN' : net === 'AT-iShare' ? 'AT iShare' : net === 'AT-BigTime' ? 'AT BigTime' : net}
                                     </span>
-                                    <div className="flex items-center justify-center gap-1.5 text-[11px] font-bold text-emerald-500 mt-0.5">
-                                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-[pulse_2s_ease-in-out_infinite]" /> Live
+                                    <div className="flex items-center justify-center gap-1.5 text-[11px] font-bold text-[#20d880] mb-1">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-[#20d880]" /> Live
                                     </div>
                                 </button>
                             )
