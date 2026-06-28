@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { validateAdminAccess } from '@/lib/auth-utils'
 
@@ -53,7 +53,8 @@ export async function POST(request: NextRequest) {
         if (auth.error) return NextResponse.json({ error: auth.error }, { status: auth.status })
 
         const body = await request.json()
-        const { name, customer_price, agent_price, dealer_price, cost_price, display_order } = body
+        const { name, customer_price, agent_price, dealer_price, cost_price, display_order,
+                bulk_quantity_threshold, bulk_customer_price, bulk_agent_price, bulk_dealer_price } = body
 
         if (!name || !customer_price || !agent_price || !cost_price) {
             return NextResponse.json({ error: 'Name, customer_price, agent_price, and cost_price are required' }, { status: 400 })
@@ -67,17 +68,28 @@ export async function POST(request: NextRequest) {
         if (cp < cost || ap < cost || (dp > 0 && dp < cost)) {
             return NextResponse.json({ error: 'Selling prices cannot be below cost price' }, { status: 400 })
         }
+        // Bulk price checks
+        const bcp = bulk_customer_price ? parseFloat(bulk_customer_price) : null
+        const bap = bulk_agent_price ? parseFloat(bulk_agent_price) : null
+        const bdp = bulk_dealer_price ? parseFloat(bulk_dealer_price) : null
+        if (bcp && bcp < cost) return NextResponse.json({ error: 'Bulk customer price cannot be below cost price' }, { status: 400 })
+        if (bap && bap < cost) return NextResponse.json({ error: 'Bulk agent price cannot be below cost price' }, { status: 400 })
+        if (bdp && bdp < cost) return NextResponse.json({ error: 'Bulk dealer price cannot be below cost price' }, { status: 400 })
 
         const supabase = createServerClient()
         const { data, error } = await (supabase.from('results_checker_types') as any)
             .insert({
                 name,
-                customer_price: parseFloat(customer_price),
-                agent_price: parseFloat(agent_price),
+                customer_price: cp,
+                agent_price: ap,
                 dealer_price: dp,
-                cost_price: parseFloat(cost_price),
+                cost_price: cost,
                 display_order: display_order || 0,
                 is_active: true,
+                bulk_quantity_threshold: bulk_quantity_threshold ? parseInt(bulk_quantity_threshold) : null,
+                bulk_customer_price: bcp,
+                bulk_agent_price: bap,
+                bulk_dealer_price: bdp,
             })
             .select()
             .single()

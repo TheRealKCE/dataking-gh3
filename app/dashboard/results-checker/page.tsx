@@ -15,7 +15,11 @@ import { Loader2, Package, CheckCircle2, ShoppingCart, CreditCard, Wallet, Alert
 import { toast } from 'sonner'
 
 interface RCType {
-    id: string; name: string; customer_price: number; agent_price: number; is_active: boolean
+    id: string; name: string; customer_price: number; agent_price: number; dealer_price?: number; is_active: boolean
+    bulk_quantity_threshold?: number | null
+    bulk_customer_price?: number | null
+    bulk_agent_price?: number | null
+    bulk_dealer_price?: number | null
     stock?: { available: number; reserved: number; sold: number }
 }
 
@@ -99,7 +103,26 @@ export default function ResultsCheckerPage() {
 
 
     const selectedType = types.find(t => t.id === selectedTypeId)
-    const unitPrice = selectedType ? (isAgent ? selectedType.agent_price : selectedType.customer_price) : 0
+    const role = dbUser?.role || 'customer'
+    const isDealer = role === 'dealer'
+
+    // Standard unit price based on role
+    const standardUnitPrice = selectedType
+        ? isAgent ? selectedType.agent_price
+        : isDealer && (selectedType as any).dealer_price > 0 ? (selectedType as any).dealer_price
+        : selectedType.customer_price
+        : 0
+
+    // Bulk pricing logic
+    const bulkThreshold = selectedType?.bulk_quantity_threshold
+    const isBulkActive = bulkThreshold != null && quantity >= bulkThreshold
+    const bulkUnitPrice = isBulkActive && selectedType
+        ? isAgent && selectedType.bulk_agent_price ? selectedType.bulk_agent_price
+        : isDealer && selectedType.bulk_dealer_price ? selectedType.bulk_dealer_price
+        : selectedType.bulk_customer_price ?? null
+        : null
+
+    const unitPrice = (isBulkActive && bulkUnitPrice != null) ? bulkUnitPrice : standardUnitPrice
     const subtotal = unitPrice * quantity
     const canAffordWallet = walletBalance >= subtotal
 
@@ -213,6 +236,18 @@ export default function ResultsCheckerPage() {
                                     <Input type="number" min="1" max="100" value={quantity} onChange={e => setQuantity(Math.max(1, parseInt(e.target.value) || 1))} className="text-center w-20 font-bold" />
                                     <Button type="button" variant="outline" size="icon" onClick={() => setQuantity(quantity + 1)}>+</Button>
                                 </div>
+                                {/* Bulk discount hint */}
+                                {selectedType?.bulk_quantity_threshold && (
+                                    <p className="text-xs text-purple-600 dark:text-purple-400 font-medium mt-1">
+                                        {isBulkActive
+                                            ? `✅ Bulk discount applied! ${formatCurrency(bulkUnitPrice ?? standardUnitPrice)} per voucher`
+                                            : `🏷️ Buy ${selectedType.bulk_quantity_threshold}+ vouchers for ${formatCurrency(
+                                                isAgent && selectedType.bulk_agent_price ? selectedType.bulk_agent_price
+                                                : selectedType.bulk_customer_price ?? standardUnitPrice
+                                              )} each`
+                                        }
+                                    </p>
+                                )}
                             </div>
 
                             <div className="space-y-3 pt-2">

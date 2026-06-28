@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { validateAdminAccess } from '@/lib/auth-utils'
 import { createServerClient } from '@/lib/supabase'
 
@@ -19,6 +19,20 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     if (body.display_order !== undefined) updates.display_order = parseInt(body.display_order)
     if (body.is_active !== undefined) updates.is_active = body.is_active
 
+    // Bulk pricing fields
+    if ('bulk_quantity_threshold' in body) {
+        updates.bulk_quantity_threshold = body.bulk_quantity_threshold ? parseInt(body.bulk_quantity_threshold) : null
+    }
+    if ('bulk_customer_price' in body) {
+        updates.bulk_customer_price = body.bulk_customer_price ? parseFloat(body.bulk_customer_price) : null
+    }
+    if ('bulk_agent_price' in body) {
+        updates.bulk_agent_price = body.bulk_agent_price ? parseFloat(body.bulk_agent_price) : null
+    }
+    if ('bulk_dealer_price' in body) {
+        updates.bulk_dealer_price = body.bulk_dealer_price ? parseFloat(body.bulk_dealer_price) : null
+    }
+
     const cp = updates.customer_price
     const ap = updates.agent_price
     const dp = updates.dealer_price
@@ -29,6 +43,16 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         return NextResponse.json({ error: 'Agent price cannot be below cost price' }, { status: 400 })
     if (dp !== undefined && dp > 0 && cost !== undefined && dp < cost)
         return NextResponse.json({ error: 'Dealer price cannot be below cost price' }, { status: 400 })
+    // Bulk price checks (only when cost is also provided)
+    const effectiveCost = cost ?? undefined
+    if (effectiveCost !== undefined) {
+        if (updates.bulk_customer_price && updates.bulk_customer_price < effectiveCost)
+            return NextResponse.json({ error: 'Bulk customer price cannot be below cost price' }, { status: 400 })
+        if (updates.bulk_agent_price && updates.bulk_agent_price < effectiveCost)
+            return NextResponse.json({ error: 'Bulk agent price cannot be below cost price' }, { status: 400 })
+        if (updates.bulk_dealer_price && updates.bulk_dealer_price < effectiveCost)
+            return NextResponse.json({ error: 'Bulk dealer price cannot be below cost price' }, { status: 400 })
+    }
 
     const { data, error } = await (supabase as any)
         .from('results_checker_types')

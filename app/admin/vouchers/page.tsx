@@ -14,7 +14,7 @@ import { Plus, Upload, RefreshCw, Loader2, Pencil, AlertTriangle, Eye, Wrench, P
 import { toast } from 'sonner'
 import { formatCurrency, formatDate } from '@/lib/utils'
 
-interface RCType { id: string; name: string; customer_price: number; agent_price: number; dealer_price: number; cost_price: number; is_active: boolean; display_order: number; created_at: string; stock?: { available: number; reserved: number; sold: number } }
+interface RCType { id: string; name: string; customer_price: number; agent_price: number; dealer_price: number; cost_price: number; is_active: boolean; display_order: number; created_at: string; bulk_quantity_threshold?: number | null; bulk_customer_price?: number | null; bulk_agent_price?: number | null; bulk_dealer_price?: number | null; stock?: { available: number; reserved: number; sold: number } }
 interface RCOrder { id: string; reference_code: string; customer_name: string; customer_email: string; customer_phone: string; type_name: string; quantity: number; unit_price: number; total_paid: number; status: string; payment_status: string; created_at: string; fulfilled_at: string | null }
 interface Stats { revenue: number; cost: number; profit: number; totalOrders: number; completedOrders: number; pendingOrders: number; stockSummary: Array<{ id: string; name: string; available: number; sold: number; lowStock: boolean; is_active: boolean }> }
 
@@ -40,7 +40,7 @@ export default function VouchersAdminPage() {
     const [orderTypeId, setOrderTypeId] = useState('all')
     const [typeModal, setTypeModal] = useState(false)
     const [editingType, setEditingType] = useState<RCType | null>(null)
-    const [typeForm, setTypeForm] = useState({ name: '', customer_price: '', agent_price: '', dealer_price: '', cost_price: '', display_order: '0' })
+    const [typeForm, setTypeForm] = useState({ name: '', customer_price: '', agent_price: '', dealer_price: '', cost_price: '', display_order: '0', bulk_quantity_threshold: '', bulk_customer_price: '', bulk_agent_price: '', bulk_dealer_price: '' })
     const [typeSaving, setTypeSaving] = useState(false)
     const [uploadTypeId, setUploadTypeId] = useState('')
     const [uploadFile, setUploadFile] = useState<File | null>(null)
@@ -97,12 +97,12 @@ export default function VouchersAdminPage() {
 
     const openAddType = () => {
         setEditingType(null)
-        setTypeForm({ name: '', customer_price: '', agent_price: '', dealer_price: '', cost_price: '', display_order: '0' })
+        setTypeForm({ name: '', customer_price: '', agent_price: '', dealer_price: '', cost_price: '', display_order: '0', bulk_quantity_threshold: '', bulk_customer_price: '', bulk_agent_price: '', bulk_dealer_price: '' })
         setTypeModal(true)
     }
     const openEditType = (t: RCType) => {
         setEditingType(t)
-        setTypeForm({ name: t.name, customer_price: String(t.customer_price), agent_price: String(t.agent_price), dealer_price: String(t.dealer_price || 0), cost_price: String(t.cost_price), display_order: String(t.display_order) })
+        setTypeForm({ name: t.name, customer_price: String(t.customer_price), agent_price: String(t.agent_price), dealer_price: String(t.dealer_price || 0), cost_price: String(t.cost_price), display_order: String(t.display_order), bulk_quantity_threshold: t.bulk_quantity_threshold ? String(t.bulk_quantity_threshold) : '', bulk_customer_price: t.bulk_customer_price ? String(t.bulk_customer_price) : '', bulk_agent_price: t.bulk_agent_price ? String(t.bulk_agent_price) : '', bulk_dealer_price: t.bulk_dealer_price ? String(t.bulk_dealer_price) : '' })
         setTypeModal(true)
     }
 
@@ -341,6 +341,11 @@ export default function VouchersAdminPage() {
                                                         <span>Agent: <b className="text-foreground">{formatCurrency(t.agent_price)}</b></span>
                                                         <span>Dealer: <b className="text-foreground">{formatCurrency(t.dealer_price || 0)}</b></span>
                                                         <span>Cost: <b className="text-foreground">{formatCurrency(t.cost_price)}</b></span>
+                                                        {t.bulk_quantity_threshold && (
+                                                            <span className="text-purple-600 dark:text-purple-400 font-semibold">
+                                                                Bulk (≥{t.bulk_quantity_threshold}): C={formatCurrency(t.bulk_customer_price || t.customer_price)} / A={formatCurrency(t.bulk_agent_price || t.agent_price)}
+                                                            </span>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </div>
@@ -606,6 +611,31 @@ export default function VouchersAdminPage() {
                             </div>
                         </div>
                         <p className="text-xs text-muted-foreground">Selling prices must be ≥ cost price.</p>
+
+                        {/* Bulk Pricing Section */}
+                        <div className="pt-2 border-t border-border/50">
+                            <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-3">Bulk Pricing (Optional)</p>
+                            <p className="text-xs text-muted-foreground mb-3">Set a lower per-unit price when customers buy in bulk. Leave blank to disable.</p>
+                            <div className="space-y-1.5 mb-3">
+                                <Label>Min. Quantity Threshold</Label>
+                                <Input type="number" min="2" placeholder="e.g. 10" value={typeForm.bulk_quantity_threshold} onChange={e => setTypeForm(f => ({ ...f, bulk_quantity_threshold: e.target.value }))} />
+                            </div>
+                            <div className="grid grid-cols-3 gap-3">
+                                <div className="space-y-1.5">
+                                    <Label>Bulk Customer</Label>
+                                    <Input type="number" step="0.01" placeholder="0.00" value={typeForm.bulk_customer_price} onChange={e => setTypeForm(f => ({ ...f, bulk_customer_price: e.target.value }))} />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label>Bulk Agent</Label>
+                                    <Input type="number" step="0.01" placeholder="0.00" value={typeForm.bulk_agent_price} onChange={e => setTypeForm(f => ({ ...f, bulk_agent_price: e.target.value }))} />
+                                </div>
+                                <div className="space-y-1.5">
+                                    <Label>Bulk Dealer</Label>
+                                    <Input type="number" step="0.01" placeholder="0.00" value={typeForm.bulk_dealer_price} onChange={e => setTypeForm(f => ({ ...f, bulk_dealer_price: e.target.value }))} />
+                                </div>
+                            </div>
+                        </div>
+
                         <div className="space-y-1.5">
                             <Label>Display Order</Label>
                             <Input type="number" value={typeForm.display_order} onChange={e => setTypeForm(f => ({ ...f, display_order: e.target.value }))} />

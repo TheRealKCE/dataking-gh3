@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Results Checker Voucher – Server-Side Pricing
  *
  * IMPORTANT: Never trust prices from the client. All prices are calculated
@@ -10,14 +10,15 @@ export interface RCType {
     name: string
     customer_price: number
     agent_price: number
+    dealer_price?: number
     cost_price: number
     is_active: boolean
     display_order: number
-    bulk_pricing?: Array<{
-        min_qty: number
-        max_qty: number
-        unit_price: number
-    }>
+    // Bulk pricing — activated when quantity >= bulk_quantity_threshold
+    bulk_quantity_threshold?: number | null
+    bulk_customer_price?: number | null
+    bulk_agent_price?: number | null
+    bulk_dealer_price?: number | null
 }
 
 export interface RCPriceBreakdown {
@@ -46,15 +47,23 @@ export async function calculateRCPrice(params: {
     let unitPrice =
         userRole === 'agent' && type.agent_price > 0
             ? type.agent_price
-            : type.customer_price
+            : userRole === 'dealer' && (type as any).dealer_price > 0
+                ? (type as any).dealer_price
+                : type.customer_price
 
-    // 2. Apply bulk tiers (if applicable)
-    if (type.bulk_pricing && type.bulk_pricing.length > 0) {
-        const matchedTier = type.bulk_pricing.find(
-            (tier) => quantity >= tier.min_qty && quantity <= tier.max_qty
-        )
-        if (matchedTier) {
-            unitPrice = Math.max(matchedTier.unit_price, type.cost_price)
+    // 2. Apply bulk pricing if threshold is met
+    const threshold = type.bulk_quantity_threshold
+    if (threshold && quantity >= threshold) {
+        const bulkPrice =
+            userRole === 'agent' && type.bulk_agent_price && type.bulk_agent_price > 0
+                ? type.bulk_agent_price
+                : userRole === 'dealer' && type.bulk_dealer_price && type.bulk_dealer_price > 0
+                    ? type.bulk_dealer_price
+                    : type.bulk_customer_price && type.bulk_customer_price > 0
+                        ? type.bulk_customer_price
+                        : null
+        if (bulkPrice !== null) {
+            unitPrice = Math.max(bulkPrice, type.cost_price)
         }
     }
 
