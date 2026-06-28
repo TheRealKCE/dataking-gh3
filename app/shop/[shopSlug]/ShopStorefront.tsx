@@ -123,9 +123,9 @@ const QUICK_AMOUNTS = [1, 2, 5, 10, 20, 50, 100]
 
 function MTNLogo() {
     return (
-        <svg viewBox="0 0 60 60" className="w-8 h-8" fill="none">
-            <circle cx="30" cy="30" r="30" fill="#FFD200"/>
-            <text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" fontSize="20" fontWeight="bold" fill="#1a1a1a">MTN</text>
+        <svg viewBox="0 0 60 60" className="w-full h-full bg-[#FFCC00] rounded-full shadow-sm" fill="none">
+            <ellipse cx="30" cy="30" rx="24" ry="14" fill="white" stroke="#e60000" strokeWidth="2" />
+            <text x="30" y="35" textAnchor="middle" fontSize="14" fontWeight="900" fill="#004b87" fontFamily="Arial, sans-serif" letterSpacing="-0.5">MTN</text>
         </svg>
     )
 }
@@ -139,9 +139,10 @@ function TelecelLogo() {
 }
 function ATLogo() {
     return (
-        <svg viewBox="0 0 60 60" className="w-8 h-8" fill="none">
-            <circle cx="30" cy="30" r="30" fill="#F97316"/>
-            <text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" fontSize="16" fontWeight="bold" fill="white">AT</text>
+        <svg viewBox="0 0 60 60" className="w-full h-full bg-white rounded-full shadow-sm" fill="none">
+            <text x="29" y="38" textAnchor="end" fontSize="26" fontWeight="bold" fill="#e60000" fontFamily="Arial, sans-serif">a</text>
+            <text x="30" y="38" textAnchor="start" fontSize="26" fontWeight="bold" fill="#0056B3" fontFamily="Arial, sans-serif">t</text>
+            <text x="30" y="48" textAnchor="middle" fontSize="6.5" fontWeight="bold" fill="#444" fontFamily="Arial, sans-serif" letterSpacing="0.2">life is simple</text>
         </svg>
     )
 }

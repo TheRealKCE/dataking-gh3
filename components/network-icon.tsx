@@ -56,6 +56,34 @@ export function NetworkIcon({ network, size = 40, className = '', variant = 'def
     }
 
     // Fallback UI
+    if (network.includes('AT')) {
+        return (
+            <>
+                <style>{`.net-fallback-${size} { width: ${size}px; height: ${size}px; }`}</style>
+                <div className={`flex flex-col items-center justify-center rounded-full bg-white shadow-sm border border-gray-100 overflow-hidden net-fallback-${size} ${className}`}>
+                    <div className="flex items-baseline" style={{ marginBottom: `-${size * 0.08}px`, marginTop: `${size * 0.08}px` }}>
+                        <span className="text-[#e60000] font-bold" style={{ fontSize: size * 0.46, fontFamily: 'Arial, sans-serif' }}>a</span>
+                        <span className="text-[#0056B3] font-bold" style={{ fontSize: size * 0.46, fontFamily: 'Arial, sans-serif' }}>t</span>
+                    </div>
+                    <span className="text-[#444] font-bold tracking-tighter" style={{ fontSize: size * 0.11, letterSpacing: '0.2px', fontFamily: 'Arial, sans-serif' }}>life is simple</span>
+                </div>
+            </>
+        )
+    }
+
+    if (network === 'MTN' || network === 'Special MTN Mashup' || network === 'EXPRESS MTN') {
+        return (
+            <>
+                <style>{`.net-fallback-${size} { width: ${size}px; height: ${size}px; }`}</style>
+                <div className={`flex items-center justify-center rounded-full bg-[#FFCC00] shadow-sm overflow-hidden net-fallback-${size} ${className}`}>
+                    <div className="flex items-center justify-center bg-white rounded-[50%] w-[75%] h-[45%] border-[1.5px] border-[#e60000]">
+                        <span className="text-[#004b87] font-black tracking-tighter" style={{ fontSize: size * 0.22, fontFamily: 'Arial, sans-serif', marginTop: '1px' }}>MTN</span>
+                    </div>
+                </div>
+            </>
+        )
+    }
+
     return (
         <>
             <style>{`.net-fallback-${size} { width: ${size}px; height: ${size}px; font-size: ${size * 0.5}px; }`}</style>
