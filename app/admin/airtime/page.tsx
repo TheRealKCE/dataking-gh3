@@ -62,9 +62,10 @@ const NETWORK_COLORS: Record<Network, string> = {
 
 function MTNLogo() {
     return (
-        <svg viewBox="0 0 60 60" className="w-full h-full bg-[#FFCC00] rounded-full shadow-sm" fill="none">
-            <ellipse cx="30" cy="30" rx="24" ry="14" fill="white" stroke="#e60000" strokeWidth="2" />
-            <text x="30" y="35" textAnchor="middle" fontSize="14" fontWeight="900" fill="#004b87" fontFamily="Arial, sans-serif" letterSpacing="-0.5">MTN</text>
+        <svg viewBox="0 0 60 60" className="w-full h-full" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="30" cy="30" r="30" fill="#FFCC00" />
+            <ellipse cx="30" cy="30" rx="22" ry="13" fill="white" stroke="#cc0000" strokeWidth="2.5" />
+            <text x="30" y="34.5" textAnchor="middle" fontSize="13" fontWeight="900" fill="#003087" fontFamily="Arial Black, Arial, sans-serif">MTN</text>
         </svg>
     )
 }
