@@ -13,14 +13,12 @@ interface NetworkIconProps {
 export function NetworkIcon({ network, size = 40, className = '', variant = 'default' }: NetworkIconProps) {
     const [imageError, setImageError] = useState(false)
 
-    // Standardize network name for file path
     const getFileName = (name: string) => {
-        if (name === 'Special MTN Mashup' || name === 'EXPRESS MTN') return 'mtn.png' // Reuse MTN logo
-        if (name.includes('AT')) return 'at.png' // Both AT-iShare and AT-BigTime use AT logo
+        if (name === 'Special MTN Mashup' || name === 'EXPRESS MTN') return 'mtn.png'
+        if (name.includes('AT')) return 'at.png'
         return `${name.toLowerCase()}.png`
     }
 
-    // Fallback styling if image not found
     const getFallbackStyle = (name: string) => {
         if (name === 'MTN' || name === 'Special MTN Mashup' || name === 'EXPRESS MTN') return 'bg-yellow-400 text-black'
         if (name === 'Telecel') return 'bg-red-600 text-white'
@@ -36,26 +34,60 @@ export function NetworkIcon({ network, size = 40, className = '', variant = 'def
         return name[0]
     }
 
+    // ── MTN: render SVG directly (bypass image file) ───────────────────────────
+    if (network === 'MTN' || network === 'Special MTN Mashup' || network === 'EXPRESS MTN') {
+        return (
+            <>
+                <style>{`.net-mtn-${size} { width: ${size}px; height: ${size}px; }`}</style>
+                <div className={`net-mtn-${size} rounded-full overflow-hidden flex-shrink-0 ${className}`}>
+                    <svg viewBox="0 0 60 60" width={size} height={size} fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="30" cy="30" r="30" fill="#FFCC00" />
+                        <ellipse cx="30" cy="30" rx="23" ry="13" fill="#0056b3" stroke="white" strokeWidth="2" />
+                        <text x="30" y="35" textAnchor="middle" fontSize="14" fontWeight="900" fill="white" fontStyle="italic" fontFamily="Arial Black, Arial, sans-serif" letterSpacing="0.5">MTN</text>
+                    </svg>
+                </div>
+            </>
+        )
+    }
+
+    // ── AT networks: render SVG directly (bypass image file) ──────────────────
+    if (network.includes('AT')) {
+        return (
+            <>
+                <style>{`.net-at-${size} { width: ${size}px; height: ${size}px; }`}</style>
+                <div className={`net-at-${size} rounded-full overflow-hidden bg-white border border-gray-100 flex-shrink-0 ${className}`}>
+                    <svg viewBox="0 0 60 60" width={size} height={size} fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <circle cx="30" cy="30" r="30" fill="white" />
+                        <text x="29" y="38" textAnchor="end" fontSize="26" fontWeight="bold" fill="#e60000" fontFamily="Arial, sans-serif">a</text>
+                        <text x="30" y="38" textAnchor="start" fontSize="26" fontWeight="bold" fill="#0056B3" fontFamily="Arial, sans-serif">t</text>
+                        <text x="30" y="48" textAnchor="middle" fontSize="6.5" fontWeight="bold" fill="#444" fontFamily="Arial, sans-serif">life is simple</text>
+                    </svg>
+                </div>
+            </>
+        )
+    }
+
+    // ── All other networks (Telecel): use image file ───────────────────────────
     if (!imageError) {
         return (
             <>
                 <style>{`.net-icon-${size} { width: ${size}px; height: ${size}px; }`}</style>
                 <div className={`relative overflow-hidden rounded-full net-icon-${size} ${className}`}>
-                <Image
-                    src={`/images/networks/${getFileName(network)}`}
-                    alt={network}
-                    fill
-                    sizes={`${size}px`}
-                    priority
-                    className="object-cover"
-                    onError={() => setImageError(true)}
-                />
-            </div>
+                    <Image
+                        src={`/images/networks/${getFileName(network)}`}
+                        alt={network}
+                        fill
+                        sizes={`${size}px`}
+                        priority
+                        className="object-cover"
+                        onError={() => setImageError(true)}
+                    />
+                </div>
             </>
         )
     }
 
-    // Fallback UI
+    // Generic text fallback
     return (
         <>
             <style>{`.net-fallback-${size} { width: ${size}px; height: ${size}px; font-size: ${size * 0.5}px; }`}</style>

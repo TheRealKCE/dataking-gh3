@@ -14,7 +14,8 @@ import { Plus, Upload, RefreshCw, Loader2, Pencil, AlertTriangle, Eye, Wrench, P
 import { toast } from 'sonner'
 import { formatCurrency, formatDate } from '@/lib/utils'
 
-interface RCType { id: string; name: string; customer_price: number; agent_price: number; dealer_price: number; cost_price: number; is_active: boolean; display_order: number; created_at: string; stock?: { available: number; reserved: number; sold: number } }
+interface BulkTier { min_qty: number; max_qty: number; unit_price: number }
+interface RCType { id: string; name: string; customer_price: number; agent_price: number; dealer_price: number; cost_price: number; is_active: boolean; display_order: number; created_at: string; bulk_pricing?: BulkTier[]; stock?: { available: number; reserved: number; sold: number } }
 interface RCOrder { id: string; reference_code: string; customer_name: string; customer_email: string; customer_phone: string; type_name: string; quantity: number; unit_price: number; total_paid: number; status: string; payment_status: string; created_at: string; fulfilled_at: string | null }
 interface Stats { revenue: number; cost: number; profit: number; totalOrders: number; completedOrders: number; pendingOrders: number; stockSummary: Array<{ id: string; name: string; available: number; sold: number; lowStock: boolean; is_active: boolean }> }
 
@@ -41,6 +42,7 @@ export default function VouchersAdminPage() {
     const [typeModal, setTypeModal] = useState(false)
     const [editingType, setEditingType] = useState<RCType | null>(null)
     const [typeForm, setTypeForm] = useState({ name: '', customer_price: '', agent_price: '', dealer_price: '', cost_price: '', display_order: '0' })
+    const [bulkTiers, setBulkTiers] = useState<BulkTier[]>([])
     const [typeSaving, setTypeSaving] = useState(false)
     const [uploadTypeId, setUploadTypeId] = useState('')
     const [uploadFile, setUploadFile] = useState<File | null>(null)
@@ -98,11 +100,13 @@ export default function VouchersAdminPage() {
     const openAddType = () => {
         setEditingType(null)
         setTypeForm({ name: '', customer_price: '', agent_price: '', dealer_price: '', cost_price: '', display_order: '0' })
+        setBulkTiers([])
         setTypeModal(true)
     }
     const openEditType = (t: RCType) => {
         setEditingType(t)
         setTypeForm({ name: t.name, customer_price: String(t.customer_price), agent_price: String(t.agent_price), dealer_price: String(t.dealer_price || 0), cost_price: String(t.cost_price), display_order: String(t.display_order) })
+        setBulkTiers(Array.isArray(t.bulk_pricing) ? t.bulk_pricing : [])
         setTypeModal(true)
     }
 
@@ -114,7 +118,10 @@ export default function VouchersAdminPage() {
         try {
             const url = editingType ? `/api/admin/vouchers/types/${editingType.id}` : '/api/admin/vouchers/types'
             const method = editingType ? 'PUT' : 'POST'
-            const res = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(typeForm) })
+            const res = await fetch(url, {
+                method, headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ ...typeForm, bulk_pricing: bulkTiers })
+            })
             const json = await res.json()
             if (!res.ok) { toast.error(json.error || 'Failed to save'); return }
             toast.success(editingType ? 'Type updated' : 'Type created')
@@ -341,6 +348,11 @@ export default function VouchersAdminPage() {
                                                         <span>Agent: <b className="text-foreground">{formatCurrency(t.agent_price)}</b></span>
                                                         <span>Dealer: <b className="text-foreground">{formatCurrency(t.dealer_price || 0)}</b></span>
                                                         <span>Cost: <b className="text-foreground">{formatCurrency(t.cost_price)}</b></span>
+                                                        {Array.isArray(t.bulk_pricing) && t.bulk_pricing.length > 0 && (
+                                                            <span className="text-amber-600 dark:text-amber-400 font-semibold">
+                                                                Bulk tiers: {t.bulk_pricing.map((tier, i) => `${tier.min_qty}-${tier.max_qty}@${formatCurrency(tier.unit_price)}`).join(', ')}
+                                                            </span>
+                                                        )}
                                                     </div>
                                                 </div>
                                             </div>
@@ -578,7 +590,7 @@ export default function VouchersAdminPage() {
             </Tabs>
 
             <Dialog open={typeModal} onOpenChange={setTypeModal}>
-                <DialogContent className="sm:max-w-md">
+                <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>{editingType ? 'Edit Voucher Type' : 'Add Voucher Type'}</DialogTitle>
                     </DialogHeader>
@@ -606,6 +618,60 @@ export default function VouchersAdminPage() {
                             </div>
                         </div>
                         <p className="text-xs text-muted-foreground">Selling prices must be ≥ cost price.</p>
+
+                        {/* Bulk Pricing Tiers Editor */}
+                        <div className="pt-2 border-t border-border/50">
+                            <div className="flex items-center justify-between mb-3">
+                                <div>
+                                    <p className="text-xs font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">Bulk Pricing Tiers</p>
+                                    <p className="text-xs text-muted-foreground mt-0.5">Buying more → lower unit price. No proration: all units get the tier rate.</p>
+                                </div>
+                                <Button
+                                    type="button" variant="outline" size="sm"
+                                    className="border-amber-300 text-amber-700 hover:bg-amber-50 dark:border-amber-700 dark:text-amber-400"
+                                    onClick={() => setBulkTiers(prev => [...prev, { min_qty: 0, max_qty: 0, unit_price: 0 }])}
+                                >
+                                    <Plus className="w-3 h-3 mr-1" /> Add Tier
+                                </Button>
+                            </div>
+
+                            {bulkTiers.length === 0 ? (
+                                <p className="text-xs text-muted-foreground italic py-2">No tiers — all quantities use standard price above.</p>
+                            ) : (
+                                <div className="space-y-2">
+                                    <div className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 text-xs font-semibold text-muted-foreground px-1">
+                                        <span>Min Qty</span><span>Max Qty</span><span>Unit Price (GHS)</span><span></span>
+                                    </div>
+                                    {bulkTiers.map((tier, i) => (
+                                        <div key={i} className="grid grid-cols-[1fr_1fr_1fr_auto] gap-2 items-center bg-amber-50/50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/50 rounded-lg px-2 py-1.5">
+                                            <Input
+                                                type="number" min="1" placeholder="5" value={tier.min_qty || ''}
+                                                onChange={e => setBulkTiers(prev => prev.map((t, j) => j === i ? { ...t, min_qty: parseInt(e.target.value) || 0 } : t))}
+                                                className="h-8 text-sm"
+                                            />
+                                            <Input
+                                                type="number" min="1" placeholder="50" value={tier.max_qty || ''}
+                                                onChange={e => setBulkTiers(prev => prev.map((t, j) => j === i ? { ...t, max_qty: parseInt(e.target.value) || 0 } : t))}
+                                                className="h-8 text-sm"
+                                            />
+                                            <Input
+                                                type="number" step="0.01" placeholder="0.00" value={tier.unit_price || ''}
+                                                onChange={e => setBulkTiers(prev => prev.map((t, j) => j === i ? { ...t, unit_price: parseFloat(e.target.value) || 0 } : t))}
+                                                className="h-8 text-sm"
+                                            />
+                                            <button
+                                                type="button"
+                                                onClick={() => setBulkTiers(prev => prev.filter((_, j) => j !== i))}
+                                                className="w-7 h-7 flex items-center justify-center rounded-md text-red-400 hover:bg-red-100 dark:hover:bg-red-900/30 transition-colors"
+                                            >
+                                                ✕
+                                            </button>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+
                         <div className="space-y-1.5">
                             <Label>Display Order</Label>
                             <Input type="number" value={typeForm.display_order} onChange={e => setTypeForm(f => ({ ...f, display_order: e.target.value }))} />

@@ -11,11 +11,13 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
-import { Loader2, Package, CheckCircle2, ShoppingCart, CreditCard, Wallet, AlertCircle, Copy, Clock, FileText } from 'lucide-react'
+import { Loader2, Package, CheckCircle2, ShoppingCart, CreditCard, Wallet, AlertCircle, Copy, Clock, FileText, Zap } from 'lucide-react'
 import { toast } from 'sonner'
 
+interface BulkTier { min_qty: number; max_qty: number; unit_price: number }
 interface RCType {
-    id: string; name: string; customer_price: number; agent_price: number; is_active: boolean
+    id: string; name: string; customer_price: number; agent_price: number; dealer_price?: number; is_active: boolean
+    bulk_pricing?: BulkTier[]
     stock?: { available: number; reserved: number; sold: number }
 }
 
@@ -99,8 +101,24 @@ export default function ResultsCheckerPage() {
 
 
     const selectedType = types.find(t => t.id === selectedTypeId)
-    const unitPrice = selectedType ? (isAgent ? selectedType.agent_price : selectedType.customer_price) : 0
-    const subtotal = unitPrice * quantity
+    const role = dbUser?.role || 'customer'
+    const isDealer = role === 'dealer'
+
+    // 1. Base role price
+    const baseUnitPrice = selectedType
+        ? isAgent ? selectedType.agent_price
+        : isDealer && (selectedType as any).dealer_price > 0 ? (selectedType as any).dealer_price
+        : selectedType.customer_price
+        : 0
+
+    // 2. JSONB bulk tier match — identical to server's findMatchingTier()
+    const tiers: BulkTier[] = Array.isArray(selectedType?.bulk_pricing) ? selectedType!.bulk_pricing : []
+    const matchedTier = tiers.find(t => quantity >= t.min_qty && quantity <= t.max_qty) ?? null
+    const isBulk = matchedTier !== null
+
+    // 3. Effective unit price (bulk overrides base, no proration)
+    const unitPrice = isBulk ? matchedTier!.unit_price : baseUnitPrice
+    const subtotal = parseFloat((unitPrice * quantity).toFixed(2))
     const canAffordWallet = walletBalance >= subtotal
 
     const handlePurchase = async (e: React.FormEvent) => {
@@ -185,34 +203,90 @@ export default function ResultsCheckerPage() {
                     <CardContent>
                         <form onSubmit={handlePurchase} className="space-y-5">
                             
-                            <div className="space-y-1.5">
+                            <div className="space-y-3">
                                 <Label>Voucher Type</Label>
-                                <Select value={selectedTypeId} onValueChange={setSelectedTypeId}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select examination..." />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        {types.map(t => (
-                                            <SelectItem key={t.id} value={t.id}>
-                                                <div className="flex justify-between items-center w-full min-w-[200px]">
-                                                    <span>{t.name}</span>
-                                                    <span className="font-semibold text-emerald-600 ml-4">
-                                                        {formatCurrency(isAgent ? t.agent_price : t.customer_price)}
-                                                    </span>
+                                <div className="grid grid-cols-2 gap-3">
+                                    {types.map((t) => {
+                                        const isSelected = selectedTypeId === t.id
+                                        const outOfStock = !t.stock || t.stock.available === 0
+                                        const displayPrice = isAgent ? t.agent_price : (isDealer && (t as any).dealer_price > 0 ? (t as any).dealer_price : t.customer_price)
+                                        return (
+                                            <button
+                                                key={t.id}
+                                                type="button"
+                                                disabled={outOfStock}
+                                                onClick={() => !outOfStock && setSelectedTypeId(isSelected ? '' : t.id)}
+                                                className={`relative p-4 rounded-2xl border-2 text-left transition-all duration-200 flex flex-col gap-1.5 ${
+                                                    outOfStock ? 'bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 opacity-70 cursor-not-allowed' :
+                                                    isSelected ? 'bg-primary border-primary shadow-lg scale-[1.02] active:scale-95' : 'bg-card border-border/50 hover:border-primary/30 hover:bg-muted/30 hover:shadow-md active:scale-95'
+                                                }`}
+                                            >
+                                                {isSelected && <div className="absolute top-2 right-2"><CheckCircle2 className="w-4 h-4 text-primary-foreground" /></div>}
+                                                
+                                                <div className={`inline-block text-[10px] font-black px-2 py-0.5 rounded-full self-start ${outOfStock ? "bg-muted text-muted-foreground" : "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400"}`}>
+                                                    PIN + SERIAL
                                                 </div>
-                                            </SelectItem>
-                                        ))}
-                                    </SelectContent>
-                                </Select>
+                                                
+                                                <p className={`text-base font-black leading-tight ${isSelected ? 'text-primary-foreground' : 'text-foreground'}`}>
+                                                    {t.name}
+                                                </p>
+                                                <p className={`text-sm font-bold ${isSelected ? 'text-primary-foreground/90' : 'text-muted-foreground'}`}>
+                                                    {formatCurrency(displayPrice)}
+                                                </p>
+                                                
+                                                {outOfStock ? (
+                                                    <div className="inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full mt-0.5 self-start bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                                                        Out of Stock
+                                                    </div>
+                                                ) : (
+                                                    <div className={`inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full mt-0.5 self-start ${isSelected ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400'}`}>
+                                                        <Zap className="w-2.5 h-2.5" /> Instant Delivery
+                                                    </div>
+                                                )}
+                                            </button>
+                                        )
+                                    })}
+                                </div>
                             </div>
 
                             <div className="space-y-1.5">
-                                <Label>Quantity</Label>
-                                <div className="flex items-center gap-3">
-                                    <Button type="button" variant="outline" size="icon" onClick={() => setQuantity(Math.max(1, quantity - 1))} disabled={quantity <= 1}>-</Button>
-                                    <Input type="number" min="1" max="100" value={quantity} onChange={e => setQuantity(Math.max(1, parseInt(e.target.value) || 1))} className="text-center w-20 font-bold" />
-                                    <Button type="button" variant="outline" size="icon" onClick={() => setQuantity(quantity + 1)}>+</Button>
+                                <div className="flex items-center justify-between">
+                                    <Label>Quantity</Label>
+                                    {tiers.length > 0 && (
+                                        <span className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-widest">Bulk Pricing Available</span>
+                                    )}
                                 </div>
+                                <div className="flex items-center gap-3">
+                                    <Button type="button" variant="outline" size="icon" onClick={() => setQuantity(Math.max(1, quantity - 1))} disabled={quantity <= 1}>−</Button>
+                                    <Input
+                                        type="number" min="1" max="100" value={quantity}
+                                        onChange={e => setQuantity(Math.max(1, Math.min(100, parseInt(e.target.value) || 1)))}
+                                        className="text-center w-20 font-bold [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                    />
+                                    <Button type="button" variant="outline" size="icon" onClick={() => setQuantity(Math.min(100, quantity + 1))}>+</Button>
+                                </div>
+                                <p className="text-xs text-muted-foreground">Bulk discounts apply automatically · Max 100</p>
+
+                                {/* Amber Tier Strip */}
+                                {tiers.length > 0 && (
+                                    <div className="flex flex-wrap gap-2 mt-2">
+                                        {tiers.map((tier, i) => {
+                                            const isMatch = quantity >= tier.min_qty && quantity <= tier.max_qty
+                                            return (
+                                                <span
+                                                    key={i}
+                                                    className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold transition-all ${
+                                                        isMatch
+                                                            ? 'bg-amber-500 text-white shadow-sm scale-105'
+                                                            : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
+                                                    }`}
+                                                >
+                                                    {tier.min_qty}–{tier.max_qty} · {formatCurrency(tier.unit_price)}/ea
+                                                </span>
+                                            )
+                                        })}
+                                    </div>
+                                )}
                             </div>
 
                             <div className="space-y-3 pt-2">
@@ -263,7 +337,12 @@ export default function ResultsCheckerPage() {
                             </div>
                             <div className="flex justify-between items-center text-sm">
                                 <span className="text-muted-foreground">Unit Price:</span>
-                                <span>{formatCurrency(unitPrice)}</span>
+                                <div className="flex items-center gap-2">
+                                    <span>{formatCurrency(unitPrice)}</span>
+                                    {isBulk && (
+                                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400">bulk</span>
+                                    )}
+                                </div>
                             </div>
                             <div className="flex justify-between items-center text-sm">
                                 <span className="text-muted-foreground">Quantity:</span>

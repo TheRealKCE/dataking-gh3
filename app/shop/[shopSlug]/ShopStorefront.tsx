@@ -123,9 +123,10 @@ const QUICK_AMOUNTS = [1, 2, 5, 10, 20, 50, 100]
 
 function MTNLogo() {
     return (
-        <svg viewBox="0 0 60 60" className="w-8 h-8" fill="none">
-            <circle cx="30" cy="30" r="30" fill="#FFD200"/>
-            <text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" fontSize="20" fontWeight="bold" fill="#1a1a1a">MTN</text>
+        <svg viewBox="0 0 60 60" className="w-full h-full" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="30" cy="30" r="30" fill="#FFCC00" />
+            <ellipse cx="30" cy="30" rx="23" ry="13" fill="#0056b3" stroke="white" strokeWidth="2" />
+            <text x="30" y="35" textAnchor="middle" fontSize="14" fontWeight="900" fill="white" fontStyle="italic" fontFamily="Arial Black, Arial, sans-serif" letterSpacing="0.5">MTN</text>
         </svg>
     )
 }
@@ -139,9 +140,10 @@ function TelecelLogo() {
 }
 function ATLogo() {
     return (
-        <svg viewBox="0 0 60 60" className="w-8 h-8" fill="none">
-            <circle cx="30" cy="30" r="30" fill="#F97316"/>
-            <text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" fontSize="16" fontWeight="bold" fill="white">AT</text>
+        <svg viewBox="0 0 60 60" className="w-full h-full bg-white rounded-full shadow-sm" fill="none">
+            <text x="29" y="38" textAnchor="end" fontSize="26" fontWeight="bold" fill="#e60000" fontFamily="Arial, sans-serif">a</text>
+            <text x="30" y="38" textAnchor="start" fontSize="26" fontWeight="bold" fill="#0056B3" fontFamily="Arial, sans-serif">t</text>
+            <text x="30" y="48" textAnchor="middle" fontSize="6.5" fontWeight="bold" fill="#444" fontFamily="Arial, sans-serif" letterSpacing="0.2">life is simple</text>
         </svg>
     )
 }
@@ -802,135 +804,249 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
     }
 
     return (
-        <div className="min-h-screen bg-gray-950 theme-shop">
-            <style dangerouslySetInnerHTML={{ __html: `
-                .theme-shop { 
-                    --brand-color: ${safeBrandColor}; 
-                    --brand-contrast-text: ${brandContrastText};
-                }
-                @keyframes shake { 0%, 100% { transform: rotate(0deg); } 25% { transform: rotate(15deg); } 75% { transform: rotate(-15deg); } }
-                .animate-shake { animation: shake 0.5s ease-in-out 3; transform-origin: top center; }
-            ` }} />
-            {/* ── Permanent Top Bar ── */}
-            <div className="fixed top-0 left-0 w-full z-[45] shadow-lg border-b border-black/5 dark:border-white/5 bg-[var(--brand-color)] transition-all duration-300 ease-in-out">
-                <div className="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-3 min-w-0">
-                        <button onClick={() => setIsSidebarOpen(true)} className="p-1 bg-[#FFCE00] hover:bg-[#E6B800] rounded-lg transition-colors flex-shrink-0 text-black border border-black/10 shadow-sm" aria-label="Open menu">
-                            <Menu className="w-6 h-6 text-black" />
-                        </button>
-                        {shop.logo_url && (
-                            <div className="relative w-8 h-8 rounded-lg overflow-hidden flex-shrink-0 border border-black/5 shadow-sm bg-white/20">
-                                <Image src={shop.logo_url} alt="Logo" fill className="object-contain" />
-                            </div>
-                        )}
-                        <h1 className="font-black text-[15px] sm:text-lg truncate text-[var(--brand-contrast-text)] transition-colors">
-                            {shop.shop_name}
-                        </h1>
-                    </div>
+        <div className="min-h-screen bg-gray-50 dark:bg-[#0a0f1c] text-gray-900 dark:text-white theme-shop">
+            <style dangerouslySetInnerHTML={{ __html: `.theme-shop { --brand-color: ${safeBrandColor}; }` }} />
+            
+            {/* Header / Nav */}
+            <header className="sticky top-0 z-50 flex items-center justify-between p-3.5 bg-[#06080f] text-white shadow-md">
+                <div className="flex items-center gap-3">
+                    <button
+                        aria-label="Open Menu"
+                        onClick={() => setIsSidebarOpen(true)}
+                        className="bg-[#FFB800] text-black p-1.5 rounded-lg hover:bg-yellow-500 transition-colors"
+                    >
+                        <Menu className="w-5 h-5" />
+                    </button>
+                    <span className="font-extrabold text-[15px] tracking-wide uppercase">{shop.shop_name}</span>
+                </div>
+                <div className="flex items-center gap-3">
                     <ThemeToggle />
                 </div>
-            </div>
-            {/* Spacer to account for fixed top bar height */}
-            <div className="h-[60px] flex-shrink-0" />
+            </header>
 
-            {/* ── Floating Notification Bell ── */}
-            {announcement && (
-                <button 
-                    onClick={() => { setShowAnnouncementModal(true); setAnnouncementDismissed(true); }}
-                    className="fixed top-[76px] right-4 z-[40] p-3 rounded-full bg-white dark:bg-gray-800 shadow-xl border border-gray-100 dark:border-gray-700 hover:scale-110 transition-transform group"
-                    aria-label="Announcements"
-                >
-                    <Bell className={cn("w-6 h-6 text-amber-500", !announcementDismissed && "animate-shake")} />
-                    {!announcementDismissed && <span className="absolute top-0 right-0 w-3 h-3 rounded-full bg-red-500 border-2 border-white dark:border-gray-800 animate-pulse" />}
-                </button>
+            {/* Sidebar Overlay */}
+            {isSidebarOpen && (
+                <div
+                    className="fixed inset-0 z-[60] bg-black/60 backdrop-blur-sm"
+                    onClick={() => setIsSidebarOpen(false)}
+                />
             )}
 
-            {/* Header / Hero */}
-            <div ref={heroRef} className="relative transition-colors duration-300 pt-6 pb-16 bg-[var(--brand-color)]">
-                <div className="max-w-2xl mx-auto px-4 text-center">
-                    <div className="flex flex-col items-center gap-3">
-                        {/* 1. Logo */}
-                        {shop.logo_url ? (
-                            <div className="relative w-24 h-24 rounded-3xl overflow-hidden bg-white/20 flex-shrink-0 shadow-lg">
-                                <Image src={shop.logo_url} alt={shop.shop_name} fill className="object-contain" />
-                            </div>
-                        ) : (
-                            <div className="w-24 h-24 rounded-3xl bg-white/20 flex items-center justify-center flex-shrink-0">
-                                <ShoppingCart className="w-10 h-10 text-white" />
-                            </div>
-                        )}
-                        {/* 2. Shop Name */}
-                        <h1 className="text-3xl font-black text-white leading-tight">{shop.shop_name}</h1>
-                        {/* 3. Description */}
-                        {shop.description && (
-                            <p className="text-white/90 text-sm max-w-sm mx-auto leading-relaxed">{shop.description}</p>
-                        )}
-                        {/* 4. Banner Image (below description, only if set) */}
-                        {shop.banner_url && (
-                            <div className="relative w-full h-[180px] rounded-2xl overflow-hidden mt-4 shadow-lg bg-black/5 border border-white/10">
-                                <Image 
-                                    src={shop.banner_url} 
-                                    alt={`${shop.shop_name} banner`} 
-                                    fill 
-                                    className="object-cover transition-opacity duration-700"
-                                    style={{ 
-                                        objectPosition: `${shop.banner_pos_x ?? 50}% ${shop.banner_pos_y ?? 50}%`,
-                                        transform: `scale(${shop.banner_zoom ?? 1})`
-                                    }}
-                                />
-                            </div>
-                        )}
-                    </div>
+            {/* Sidebar Drawer */}
+            <div className={cn(
+                "fixed top-0 left-0 h-full w-72 z-[70] bg-[#06080f] text-white flex flex-col shadow-2xl transition-transform duration-300 ease-in-out",
+                isSidebarOpen ? "translate-x-0" : "-translate-x-full"
+            )}>
+                {/* Sidebar Header */}
+                <div className="flex items-center justify-between p-4 border-b border-white/10">
+                    <span className="font-extrabold text-sm tracking-widest uppercase text-white/80">{shop.shop_name}</span>
+                    <button
+                        aria-label="Close Menu"
+                        onClick={() => setIsSidebarOpen(false)}
+                        className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center hover:bg-white/20 transition-colors"
+                    >
+                        <X className="w-4 h-4" />
+                    </button>
                 </div>
-                {/* 5. Divider SVG — always at absolute bottom */}
-                <DividerSVG style={shop.divider_style} fillClass="fill-gray-950" />
+
+                {/* Shop Logo */}
+                <div className="flex flex-col items-center gap-2 py-6 border-b border-white/10">
+                    {shop.logo_url ? (
+                        <div className="w-20 h-20 rounded-2xl overflow-hidden border-2 border-white/20">
+                            <Image src={shop.logo_url} alt={shop.shop_name} width={80} height={80} className="object-cover w-full h-full" />
+                        </div>
+                    ) : (
+                        <div className="w-20 h-20 rounded-2xl bg-[var(--brand-color)] flex items-center justify-center text-2xl font-black">
+                            {shop.shop_name[0]}
+                        </div>
+                    )}
+                    <p className="text-sm font-bold text-white/90">{shop.shop_name}</p>
+                    {shop.description && <p className="text-xs text-white/50 text-center px-4 leading-relaxed">{shop.description}</p>}
+                </div>
+
+                {/* Nav Links */}
+                <nav className="flex-1 flex flex-col gap-1 p-4 overflow-y-auto">
+                    <a
+                        href={`/shop/${shop.shop_slug}/about`}
+                        className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+                    >
+                        <Info className="w-4 h-4" /> About Shop
+                    </a>
+                    {shop.whatsapp_number && (
+                        <a
+                            href={`https://wa.me/${shop.whatsapp_number}?text=Hello, I need help with ${shop.shop_name}`}
+                            target="_blank" rel="noopener noreferrer"
+                            className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+                        >
+                            <MessageCircle className="w-4 h-4 text-[#25D366]" /> WhatsApp Support
+                        </a>
+                    )}
+                    {shop.community_link && (
+                        <a
+                            href={shop.community_link}
+                            target="_blank" rel="noopener noreferrer"
+                            className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+                        >
+                            <Users className="w-4 h-4 text-emerald-400" /> Join Community
+                        </a>
+                    )}
+                    {(shop.owner_phone || shop.whatsapp_number) && (
+                        <a
+                            href={`tel:${shop.owner_phone || shop.whatsapp_number}`}
+                            className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+                        >
+                            <Phone className="w-4 h-4 text-blue-400" /> {shop.owner_phone || shop.whatsapp_number}
+                        </a>
+                    )}
+                </nav>
+
+                {/* Install Button */}
+                {(isInstallable || isIOS) && !isInstalled && (
+                    <div className="p-4 border-t border-white/10">
+                        <button
+                            onClick={handleInstallShop}
+                            className="w-full flex items-center justify-center gap-2 bg-[#FFB800] text-black font-black text-sm py-3 rounded-xl hover:bg-yellow-400 transition-colors"
+                        >
+                            Install App
+                        </button>
+                    </div>
+                )}
             </div>
 
-            <div className="max-w-2xl mx-auto px-4 pb-40 -mt-2">
-                
-                {/* ── Main Layout Tabs ── */}
-                <div className="flex flex-col gap-3 mb-6">
-                    <div className="flex items-center gap-2 bg-gray-200/50 dark:bg-gray-800/50 p-2 rounded-2xl overflow-x-auto scrollbar-hide">
-                        <button onClick={() => setActiveTab('data')} className={cn("flex-shrink-0 flex-1 min-w-[110px] py-4 rounded-xl font-black text-sm sm:text-base transition-all flex items-center justify-center gap-1.5", activeTab === 'data' ? "bg-white dark:bg-gray-900 shadow-md text-gray-900 dark:text-white" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300")}>
-                            <Zap className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" /> Data Packages
-                        </button>
-                        {isShopAirtimeEnabled && (
-                            <button onClick={() => setActiveTab('airtime')} className={cn("flex-shrink-0 flex-1 min-w-[100px] py-4 rounded-xl font-black text-sm sm:text-base transition-all flex items-center justify-center gap-1.5", activeTab === 'airtime' ? "bg-white dark:bg-gray-900 shadow-md text-gray-900 dark:text-white" : "text-gray-500 hover:text-gray-700 dark:hover:text-gray-300")}>
-                                <Smartphone className="w-4 h-4 sm:w-5 sm:h-5 flex-shrink-0" /> Airtime
-                            </button>
-                        )}
-
+            {/* Hero Section */}
+            <div ref={heroRef} className="relative pt-6 pb-20 overflow-hidden bg-[var(--brand-color)]">
+                {shop.banner_url && (
+                    <div className="absolute inset-0 opacity-20">
+                        <Image src={shop.banner_url} alt="Shop Banner" fill className="object-cover" />
+                        <div className="absolute inset-0 bg-gradient-to-b from-[#06080f]/50 via-transparent to-[#0a0f1c]/50" />
                     </div>
-                    
-                    {!isSpecialMtnMashupHidden && (
-                        <button onClick={() => setActiveTab('mashup')} className={cn("w-full py-4 px-4 rounded-2xl font-black text-base sm:text-lg transition-all flex items-center justify-center gap-2 border-2", activeTab === 'mashup' ? "bg-amber-500 text-white border-amber-600 shadow-lg scale-[1.01]" : "bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-800/50 hover:bg-amber-100 dark:hover:bg-amber-900/40")}>
-                            <Target className="w-6 h-6 animate-pulse" /> Special MTN Mashup
-                        </button>
+                )}
+                
+                {/* Top Navigation inside Hero (Notification Bell) */}
+                <div className="relative z-20 flex items-center justify-end px-6 max-w-2xl mx-auto mb-2">
+                    <button 
+                        aria-label="View announcements"
+                        onClick={() => { setShowAnnouncementModal(true); setAnnouncementDismissed(true); }}
+                        className="relative w-8 h-8 rounded-full bg-black/30 hover:bg-black/50 backdrop-blur-sm border border-white/10 flex items-center justify-center text-white shadow-lg transition-colors"
+                    >
+                        <Bell className="w-4 h-4" />
+                        {!announcementDismissed && announcement && (
+                            <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-red-500 border-[1.5px] border-[#0a0f1c]" />
+                        )}
+                    </button>
+                </div>
+
+                <div className="relative z-10 max-w-2xl mx-auto px-6 text-center mt-0">
+                    {shop.logo_url ? (
+                        <div className="relative w-20 h-20 mx-auto rounded-[1.2rem] overflow-hidden bg-black/20 shadow-2xl mb-3 border border-white/10 backdrop-blur-sm">
+                            <Image src={shop.logo_url} alt="Logo" fill className="object-contain" />
+                        </div>
+                    ) : (
+                        <div className="w-20 h-20 mx-auto rounded-[1.2rem] bg-black/20 flex items-center justify-center shadow-2xl mb-3 border border-white/10 backdrop-blur-sm">
+                            <ShoppingCart className="w-8 h-8 text-white" />
+                        </div>
                     )}
-                    {isShopRcEnabled && (
-                        <button onClick={() => setActiveTab('results_checker')} className={cn("w-full py-4 px-4 rounded-2xl font-black text-base sm:text-lg transition-all flex items-center justify-center gap-2 border-2", activeTab === 'results_checker' ? "bg-emerald-600 text-white border-emerald-700 shadow-lg scale-[1.01]" : "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/50 hover:bg-emerald-100 dark:hover:bg-emerald-900/40")}>
-                            <GraduationCap className="w-6 h-6 animate-pulse" /> Result Checker
-                        </button>
+                    <h1 className="text-2xl sm:text-3xl font-black text-white drop-shadow-md mb-1.5 tracking-tight uppercase">{shop.shop_name}</h1>
+                    <p className="text-white/90 text-[11px] sm:text-[13px] font-medium max-w-md mx-auto leading-tight">{shop.description}</p>
+                </div>
+                <DividerSVG style={shop.divider_style} fillClass="fill-gray-50 dark:fill-[#0a0f1c]" />
+            </div>
+
+            <div className="max-w-2xl mx-auto px-6 pb-40 -mt-6 relative z-20">
+                {/* Need Help Section */}
+                <div className={cn(
+                    "grid gap-3 mb-8 w-full",
+                    (shop.owner_phone || shop.whatsapp_number) && shop.community_link ? "grid-cols-2" : "grid-cols-1"
+                )}>
+                    {/* Need Help Card */}
+                    {(shop.owner_phone || shop.whatsapp_number) && (
+                        <div className="bg-white dark:bg-[#151c2c] rounded-2xl border border-gray-100 dark:border-gray-800 p-4 mb-0 text-center shadow-sm w-full flex flex-col justify-center items-center">
+                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">NEED HELP?</p>
+                            <div className="flex items-center justify-center gap-1.5 text-sm font-bold text-gray-600 dark:text-gray-300">
+                                <Phone className="w-4 h-4 text-gray-400" />
+                                <a href={`tel:${shop.owner_phone || shop.whatsapp_number}`} className="hover:text-[var(--brand-color)] transition-colors">
+                                    {shop.owner_phone || shop.whatsapp_number}
+                                </a>
+                            </div>
+                        </div>
+                    )}
+                    
+                    {/* Community Card */}
+                    {shop.community_link && (
+                        <a 
+                            href={shop.community_link} 
+                            target="_blank" 
+                            rel="noopener noreferrer"
+                            className="bg-white dark:bg-[#151c2c] rounded-2xl border border-gray-100 dark:border-gray-800 p-4 mb-0 text-center shadow-sm w-full flex flex-col justify-center items-center hover:border-emerald-500/50 dark:hover:border-emerald-500/50 transition-colors group"
+                        >
+                            <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1.5">COMMUNITY</p>
+                            <div className="flex items-center justify-center gap-1.5 text-sm font-bold text-gray-600 dark:text-gray-300 group-hover:text-emerald-500 dark:group-hover:text-emerald-400 transition-colors">
+                                <Users className="w-4 h-4 text-gray-400 group-hover:text-emerald-500 dark:group-hover:text-emerald-400 transition-colors" />
+                                <span>Join Community</span>
+                            </div>
+                        </a>
                     )}
                 </div>
 
-                {/* ── Need Help? Contact Card ── */}
-                <div className="mb-6 rounded-2xl bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 shadow-sm px-4 py-4 space-y-3">
-                    <p className="text-[11px] font-bold text-gray-400 dark:text-gray-500 uppercase tracking-wider mb-1.5 text-center">Need Help?</p>
-                    <div className="flex flex-wrap justify-center gap-x-4 gap-y-2">
-                        <a href={`tel:${shop.owner_phone}`} className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-700 dark:text-gray-200 hover:text-emerald-600 transition-colors">
-                            <Phone className="w-4 h-4" /> {shop.owner_phone}
-                        </a>
-                        {shop.owner_email && (
-                            <a href={`mailto:${shop.owner_email}`} className="inline-flex items-center gap-1.5 text-sm font-semibold text-gray-700 dark:text-gray-200 hover:text-emerald-600 transition-colors">
-                                <Mail className="w-4 h-4" /> Email Us
-                            </a>
+                <div className="flex items-center justify-center mb-6">
+                    <h2 className="text-xs font-black tracking-[0.2em] text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-[#0a0f1c] px-4 uppercase">CHOOSE A SERVICE</h2>
+                </div>
+                {/* Services Grid */}
+                <div className={cn(
+                    "grid gap-3 mb-8 w-full",
+                    [true, isShopAirtimeEnabled, isShopRcEnabled].filter(Boolean).length === 3 ? "grid-cols-3" : 
+                    [true, isShopAirtimeEnabled, isShopRcEnabled].filter(Boolean).length === 2 ? "grid-cols-2" : "grid-cols-1"
+                )}>
+                    {/* DATA Button */}
+                    <button 
+                        onClick={() => { setActiveTab('data'); setIsAirtimeOpen(false) }}
+                        className={cn(
+                            "relative flex flex-col items-center justify-center gap-3 py-6 px-2 rounded-xl border-2 transition-all",
+                            activeTab === 'data' 
+                                ? "bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-400 text-emerald-700 dark:text-emerald-400" 
+                                : "bg-white dark:bg-[#151c2c] border-gray-100 dark:border-gray-800 hover:border-gray-200 text-gray-500"
                         )}
-                    </div>
-                    {shop.community_link && (
-                        <a href={shop.community_link} target="_blank" rel="noopener noreferrer" className="mt-2 flex items-center justify-center gap-2 w-full py-2.5 px-4 rounded-xl font-bold text-sm text-white transition-all hover:opacity-90 active:scale-95 shadow-md bg-[var(--brand-color)]">
-                            <Users className="w-4 h-4" /> Join Our Community
-                        </a>
+                    >
+                        <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center transition-colors", activeTab === 'data' ? "bg-emerald-500 shadow-sm" : "bg-gray-100 dark:bg-gray-800")}>
+                            <Zap className={cn("w-6 h-6", activeTab === 'data' ? "text-white fill-white" : "text-gray-400")} />
+                        </div>
+                        <span className="text-[10px] sm:text-[11px] font-black tracking-widest uppercase">DATA</span>
+                    </button>
+
+                    {/* AIRTIME Button */}
+                    {isShopAirtimeEnabled && (
+                        <button 
+                            onClick={() => { setActiveTab('airtime'); setIsAirtimeOpen(true) }}
+                            className={cn(
+                                "relative flex flex-col items-center justify-center gap-3 py-6 px-2 rounded-xl border-2 transition-all",
+                                activeTab === 'airtime' 
+                                    ? "bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-400 text-emerald-700 dark:text-emerald-400" 
+                                    : "bg-white dark:bg-[#151c2c] border-gray-100 dark:border-gray-800 hover:border-gray-200 text-gray-500"
+                            )}
+                        >
+                            <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center transition-colors", activeTab === 'airtime' ? "bg-emerald-500 shadow-sm" : "bg-gray-100 dark:bg-gray-800")}>
+                                <Smartphone className={cn("w-6 h-6", activeTab === 'airtime' ? "text-white" : "text-gray-400")} />
+                            </div>
+                            <span className="text-[10px] sm:text-[11px] font-black tracking-widest uppercase">AIRTIME</span>
+                        </button>
+                    )}
+
+                    {/* RESULTS CHECKER Button */}
+                    {isShopRcEnabled && (
+                        <button 
+                            onClick={() => { setActiveTab('results_checker'); setIsAirtimeOpen(false) }}
+                            className={cn(
+                                "relative flex flex-col items-center justify-center gap-3 py-6 px-2 rounded-xl border-2 transition-all",
+                                activeTab === 'results_checker' 
+                                    ? "bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-400 text-emerald-700 dark:text-emerald-400" 
+                                    : "bg-white dark:bg-[#151c2c] border-gray-100 dark:border-gray-800 hover:border-gray-200 text-gray-500"
+                            )}
+                        >
+                            <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center transition-colors", activeTab === 'results_checker' ? "bg-emerald-500 shadow-sm" : "bg-gray-100 dark:bg-gray-800")}>
+                                <GraduationCap className={cn("w-6 h-6", activeTab === 'results_checker' ? "text-white" : "text-gray-400")} />
+                            </div>
+                            <span className="text-[10px] sm:text-[11px] font-black tracking-widest uppercase text-center">RESULTS CHECKER</span>
+                        </button>
                     )}
                 </div>
 
@@ -1244,34 +1360,67 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
 
                 {/* ── Network Filter Tabs ── */}
                 {activeTab === 'data' && networks.length > 1 && (
-                    <div className="flex gap-3 overflow-x-auto pb-2 mb-6 scrollbar-hide">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
                         {networks.map(net => {
                             const isActive = activeNetwork === net
-                            const netStyle = networkColors[net]
+                            
                             return (
                                 <button
                                     key={net} onClick={() => { setActiveNetwork(net); setSelectedPackage(null); setIsAirtimeOpen(false) }}
                                     className={cn(
-                                        'flex-shrink-0 px-6 py-2.5 rounded-full text-base sm:text-lg font-extrabold transition-all border-2',
-                                        isActive && !netStyle && 'bg-[var(--brand-color)] text-white border-[var(--brand-color)]',
-                                        isActive && netStyle && netStyle.bgClass,
-                                        isActive && netStyle && netStyle.textClass,
-                                        isActive && netStyle && netStyle.borderClass,
-                                        isActive ? 'shadow-md scale-[1.03]' : 'bg-white dark:bg-gray-800 text-gray-600 dark:text-gray-400 border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                                        "relative flex flex-col items-center justify-center gap-3 py-4 px-2 rounded-[14px] border transition-all bg-white dark:bg-zinc-900 shadow-sm",
+                                        isActive
+                                            ? "border-[#8a2be2] shadow-sm scale-[1.01]"
+                                            : "border-gray-100 dark:border-zinc-800 hover:border-gray-200 dark:hover:border-zinc-700",
+                                        isActive && "bg-white dark:bg-zinc-900 text-gray-900 dark:text-white"
                                     )}
                                 >
-                                    {net}
+                                    {isActive && (
+                                        <div className="absolute top-2 right-2 z-10 bg-white rounded-full">
+                                            <CheckCircle2 className="w-4 h-4 text-[#20d880]" strokeWidth={2.5} />
+                                        </div>
+                                    )}
+                                    <div className="w-10 h-10 rounded-full flex items-center justify-center mt-1">
+                                        {net === 'MTN' || net === 'EXPRESS MTN' || net === 'Special MTN Mashup' ? <MTNLogo /> :
+                                         net === 'Telecel' ? <TelecelLogo /> : <ATLogo />}
+                                    </div>
+                                    <span className="text-[13px] font-bold text-gray-700 dark:text-gray-200 text-center leading-tight">
+                                        {net === 'Special MTN Mashup' ? 'Special Mashup' : net === 'EXPRESS MTN' ? 'Express MTN' : net === 'AT-iShare' ? 'AT iShare' : net === 'AT-BigTime' ? 'AT BigTime' : net}
+                                    </span>
+                                    <div className="flex items-center justify-center gap-1.5 text-[11px] font-bold text-[#20d880] mb-1">
+                                        <div className="w-1.5 h-1.5 rounded-full bg-[#20d880]" /> Live
+                                    </div>
                                 </button>
                             )
                         })}
                     </div>
                 )}
 
+                {/* Search Bar matching screenshot */}
+                {activeTab === 'data' && (
+                    <div className="flex gap-3 mb-8">
+                        <div className="relative flex-1">
+                            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+                            <input 
+                                type="text" 
+                                placeholder="Search packages..." 
+                                className="w-full pl-11 pr-4 py-3.5 bg-white dark:bg-[#0e1423] border border-gray-200 dark:border-gray-800/60 rounded-xl text-sm font-medium text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:outline-none focus:border-gray-300 dark:focus:border-gray-600 shadow-sm dark:shadow-none transition-colors"
+                            />
+                        </div>
+                        <div className="flex rounded-xl overflow-hidden border border-gray-200 dark:border-gray-800/60 bg-white dark:bg-[#0e1423] shrink-0 shadow-sm dark:shadow-none">
+                            <button aria-label="Grid View" className="w-12 h-full flex items-center justify-center bg-gray-100 dark:bg-white text-gray-900"><Menu className="w-5 h-5" /></button>
+                            <button aria-label="List View" className="w-12 h-full flex items-center justify-center text-gray-400 dark:text-gray-500 hover:bg-gray-50 dark:hover:bg-transparent transition-colors"><Menu className="w-5 h-5 opacity-50" /></button>
+                        </div>
+                    </div>
+                )}
+
                 {/* Package grid */}
                 {filteredPackages.length === 0 ? (
-                    <div className="text-center py-16 text-gray-400">
-                        <ShoppingCart className="w-12 h-12 mx-auto mb-3 opacity-30" />
-                        <p className="text-sm">No packages available for this network.</p>
+                    <div className="text-center py-24 text-gray-400 flex flex-col items-center">
+                        <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-900 flex items-center justify-center mb-6">
+                            <AlertCircle className="w-8 h-8 opacity-40" />
+                        </div>
+                        <p className="text-[15px] font-bold text-gray-600 dark:text-gray-300">{activeNetwork} is Out of Stock at the Moment</p>
                     </div>
                 ) : (
                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-6">
@@ -1642,6 +1791,16 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                     </DialogFooter>
                 </DialogContent>
             </Dialog>
+            {/* Floating Bottom Action Bar */}
+            <div className="fixed bottom-0 left-0 w-full z-[45] pb-8 pt-4 pointer-events-none">
+                <div className="max-w-2xl mx-auto px-6 flex justify-between items-end">
+                    <button className="pointer-events-auto bg-white dark:bg-[#1c2333] border border-gray-200 dark:border-gray-800/60 text-gray-700 dark:text-gray-300 rounded-[1.5rem] px-5 py-3.5 flex items-center gap-3 shadow-xl transition-transform hover:scale-105">
+                        <Bell className="w-5 h-5 text-amber-500" />
+                        <span className="text-sm font-bold tracking-wide">Get Notified</span>
+                    </button>
+                </div>
+            </div>
+
         </div>
     )
 }
