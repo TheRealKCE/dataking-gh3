@@ -96,9 +96,15 @@ export async function POST(request: NextRequest) {
 
         // ── 5. Reserve vouchers ───────────────────────────────────────────────────
         // Use a temp order ID for reservation; will be replaced by real order below
-        const tempOrderId = existingRef
-            ? await redis.get<string>(`shop:rc:orderid:${existingRef}`) || crypto.randomUUID()
-            : crypto.randomUUID()
+        let tempOrderId = crypto.randomUUID()
+        if (existingRef) {
+            try {
+                const redisOrderId = await redis.get<string>(`shop:rc:orderid:${existingRef}`)
+                if (redisOrderId) tempOrderId = redisOrderId
+            } catch (redisErr) {
+                console.error('[shop/rc/initialize] Redis get error (non-fatal):', redisErr)
+            }
+        }
 
         if (!existingRef) {
             // Only reserve on the first call (not OTP retry)
@@ -155,21 +161,27 @@ export async function POST(request: NextRequest) {
             }
 
             // Store mapping: moolreRef → orderId for use in verify route
-            const moolreRef = `RC-SHOP-${shop.id.slice(0, 8)}-${Date.now()}`
-            await redis.set(`shop:rc:orderid:${moolreRef}`, order.id, { ex: 86400 })
-            await redis.set(`shop:rc:meta:${moolreRef}`, JSON.stringify({
-                shop_id: shop.id,
-                shop_name: shop.shop_name,
-                rc_type_id: rcTypeId,
-                rc_type_name: rcType.name,
-                order_id: order.id,
-                quantity: qty,
-                unit_price: sellingPrice,
-                cost_price: costPrice,
-                shop_markup: shopMarkup,
-                total_paid: totalAmount,
-                owner_id: shop.owner_id,
-            }), { ex: 86400 })
+            const moolreRef = referenceCode
+
+            try {
+                await redis.set(`shop:rc:orderid:${moolreRef}`, order.id, { ex: 86400 })
+                await redis.set(`shop:rc:meta:${moolreRef}`, JSON.stringify({
+                    shop_id: shop.id,
+                    shop_name: shop.shop_name,
+                    rc_type_id: rcTypeId,
+                    rc_type_name: rcType.name,
+                    order_id: order.id,
+                    quantity: qty,
+                    unit_price: sellingPrice,
+                    cost_price: costPrice,
+                    shop_markup: shopMarkup,
+                    total_paid: totalAmount,
+                    owner_id: shop.owner_id,
+                }), { ex: 86400 })
+            } catch (redisErr) {
+                console.error('[shop/rc/initialize] Redis cache error (non-fatal):', redisErr)
+                // Proceed anyway; the verify route can fall back to database using reference_code
+            }
 
             // ── 7. Auto-detect payment network ────────────────────────────────────
             const prefix = cleanPhone.substring(0, 3)

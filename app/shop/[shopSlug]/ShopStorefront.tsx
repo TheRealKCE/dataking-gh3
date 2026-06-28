@@ -331,7 +331,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
         if (pollingRef) {
             interval = setInterval(async () => {
                 try {
-                    const endpoint = pollingRef.startsWith('RC_') 
+                    const endpoint = pollingRef.startsWith('RC-SHOP-') 
                         ? `/api/shop/rc/verify?ref=${pollingRef}&slug=${shop.shop_slug}`
                         : `/api/shop/verify?ref=${pollingRef}&slug=${shop.shop_slug}`
                     const res = await fetch(endpoint, {
@@ -649,16 +649,23 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 })
             })
             const data = await res.json()
-            if (!res.ok || !data.reference) {
+            if (!res.ok || !data.success) {
                 setErrorMsg(data.error || 'Failed to initialize payment')
                 setLoading(false)
                 return
             }
             try { localStorage.setItem('shop_last_phone', cleanPhone) } catch (_) { }
-            setOtpReference(data.reference)
-            setOtpOrderType('results_checker')
-            setOtpRequired(true)
-            setLoading(false)
+            if (data.otpRequired) {
+                // AT network requires OTP — show OTP modal
+                setOtpReference(data.reference)
+                setOtpOrderType('results_checker')
+                setOtpRequired(true)
+                setLoading(false)
+            } else {
+                // MTN/Telecel: MoMo prompt sent — start polling
+                toast.success(data.message || 'Payment prompt sent! Please approve on your phone.')
+                setPollingRef(data.reference)
+            }
         } catch (err) {
             toast.error('Network error. Please try again.')
             setLoading(false)

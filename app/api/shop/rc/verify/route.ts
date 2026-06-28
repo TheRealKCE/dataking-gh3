@@ -40,20 +40,54 @@ export async function GET(request: NextRequest) {
         }
 
         // 2. Payment succeeded — fetch metadata from Redis
-        const metaStr = await redis.get<string>(`shop:rc:meta:${ref}`)
-        if (!metaStr) {
-            console.error('[shop/rc/verify] Metadata missing from Redis for ref:', ref)
-            return NextResponse.json({ success: false, status: 'error', error: 'Order metadata not found' }, { status: 500 })
-        }
-
-        let meta: any
+        let metaStr: string | null = null
         try {
-            meta = typeof metaStr === 'string' ? JSON.parse(metaStr) : metaStr
-        } catch {
-            meta = metaStr
+            metaStr = await redis.get<string>(`shop:rc:meta:${ref}`)
+        } catch (redisErr) {
+            console.error('[shop/rc/verify] Redis get error (falling back to DB):', redisErr)
         }
 
         const db = createServerClient() as any
+        let meta: any
+
+        if (metaStr) {
+            try {
+                meta = typeof metaStr === 'string' ? JSON.parse(metaStr) : metaStr
+            } catch {
+                meta = metaStr
+            }
+        } else {
+            // Fallback: Fetch metadata directly from the database if Redis is down or key expired
+            const { data: dbOrder } = await db
+                .from('results_checker_orders')
+                .select(`
+                    id, shop_id, shop_name, type_id, type_name, quantity, unit_price, cost_price_at_time, shop_markup, total_paid,
+                    shop_profiles!inner(owner_id)
+                `)
+                .eq('reference_code', ref)
+                .maybeSingle()
+
+            if (!dbOrder) {
+                console.error('[shop/rc/verify] Metadata missing from Redis AND database for ref:', ref)
+                return NextResponse.json({ success: false, status: 'error', error: 'Order metadata not found' }, { status: 500 })
+            }
+
+            meta = {
+                shop_id: dbOrder.shop_id,
+                shop_name: dbOrder.shop_name,
+                rc_type_id: dbOrder.type_id,
+                rc_type_name: dbOrder.type_name,
+                order_id: dbOrder.id,
+                quantity: dbOrder.quantity,
+                unit_price: dbOrder.unit_price,
+                cost_price: dbOrder.cost_price_at_time,
+                shop_markup: dbOrder.shop_markup,
+                total_paid: dbOrder.total_paid,
+                owner_id: dbOrder.shop_profiles?.owner_id,
+            }
+        }
+
+
 
         // 3. Idempotency — check if already fulfilled
         const { data: existingOrder } = await db
