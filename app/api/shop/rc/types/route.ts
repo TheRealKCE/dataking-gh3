@@ -70,10 +70,7 @@ export async function GET(request: NextRequest) {
             })
         )
 
-        // Only return types with stock available
-        const inStock = types.filter((t: any) => t.stock_count > 0)
-
-        return NextResponse.json({ types: inStock })
+        return NextResponse.json({ types: types })
 
     } catch (error: any) {
         console.error('[shop/rc/types]', error)

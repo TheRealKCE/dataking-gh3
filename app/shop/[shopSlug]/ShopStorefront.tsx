@@ -1135,15 +1135,18 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                                 const isSelected = selectedRc?.id === type.id
                                 return (
                                     <button
-                                        key={type.id} onClick={() => setSelectedRc(isSelected ? null : type)}
+                                        key={type.id} 
+                                        disabled={type.stock_count === 0}
+                                        onClick={() => type.stock_count > 0 && setSelectedRc(isSelected ? null : type)}
                                         className={cn(
-                                            'relative p-4 rounded-2xl border-2 text-left transition-all duration-200 active:scale-95 flex flex-col gap-1.5',
-                                            isSelected ? 'bg-[var(--brand-color)] border-[var(--brand-color)] shadow-lg scale-[1.02]' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-md'
+                                            'relative p-4 rounded-2xl border-2 text-left transition-all duration-200 flex flex-col gap-1.5',
+                                            type.stock_count === 0 ? 'bg-gray-50 dark:bg-gray-800/50 border-gray-200 dark:border-gray-700 opacity-70 cursor-not-allowed' :
+                                            isSelected ? 'bg-[var(--brand-color)] border-[var(--brand-color)] shadow-lg scale-[1.02] active:scale-95' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-md active:scale-95'
                                         )}
                                     >
                                         {isSelected && <div className="absolute top-2 right-2"><CheckCircle2 className="w-4 h-4 text-white" /></div>}
                                         
-                                        <div className={cn("inline-block text-[10px] font-black px-2 py-0.5 rounded-full self-start bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400")}>
+                                        <div className={cn("inline-block text-[10px] font-black px-2 py-0.5 rounded-full self-start", type.stock_count === 0 ? "bg-gray-200 text-gray-600 dark:bg-gray-700 dark:text-gray-300" : "bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400")}>
                                             PIN + SERIAL
                                         </div>
                                         
@@ -1153,9 +1156,16 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                                         <p className={cn('text-sm font-bold', isSelected ? 'text-white/90' : 'text-gray-600 dark:text-gray-300')}>
                                             {formatCurrency(type.selling_price)}
                                         </p>
-                                        <div className={cn('inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full mt-0.5 self-start', isSelected ? 'bg-white/20 text-white' : 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400')}>
-                                            <Zap className="w-2.5 h-2.5" /> Instant Delivery
-                                        </div>
+                                        
+                                        {type.stock_count === 0 ? (
+                                            <div className="inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full mt-0.5 self-start bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400">
+                                                Out of Stock
+                                            </div>
+                                        ) : (
+                                            <div className={cn('inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full mt-0.5 self-start', isSelected ? 'bg-white/20 text-white' : 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400')}>
+                                                <Zap className="w-2.5 h-2.5" /> Instant Delivery
+                                            </div>
+                                        )}
                                     </button>
                                 )
                             })}
