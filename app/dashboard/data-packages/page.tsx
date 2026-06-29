@@ -998,76 +998,64 @@ export default function DataPackagesPage() {
                     ) : viewMode === 'grid' ? (
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
                             {filteredPackages.map((pkg) => {
-                                const isMtn = pkg.network === 'MTN'
-                                const isMashup = pkg.network === 'Special MTN Mashup' || pkg.network === 'EXPRESS MTN'
-                                const isTelecel = pkg.network === 'Telecel'
+                                const getCardStyle = (net: string) => {
+                                    switch(net) {
+                                        case 'Telecel':
+                                            return { bg: 'bg-[#da291c]', bottom: 'bg-[#b01e14]', pill: 'bg-white/20 text-white', text: 'text-white', iconBg: 'bg-white/20' }
+                                        case 'AT-iShare':
+                                            return { bg: 'bg-[#2463eb]', bottom: 'bg-[#1d4ed8]', pill: 'bg-white/20 text-white', text: 'text-white', iconBg: 'bg-white/20' }
+                                        case 'AT-BigTime':
+                                            return { bg: 'bg-[#8b5cf6]', bottom: 'bg-[#6d28d9]', pill: 'bg-white/20 text-white', text: 'text-white', iconBg: 'bg-white/20' }
+                                        case 'MTN':
+                                        case 'Special MTN Mashup':
+                                        case 'EXPRESS MTN':
+                                            return { bg: 'bg-[#FFCC00]', bottom: 'bg-[#eab308]', pill: 'bg-black/10 text-black', text: 'text-black', iconBg: 'bg-white/30' }
+                                        default:
+                                            return { bg: 'bg-blue-600', bottom: 'bg-blue-700', pill: 'bg-white/20 text-white', text: 'text-white', iconBg: 'bg-white/20' }
+                                    }
+                                }
+                                const cardStyle = getCardStyle(pkg.network)
+                                const pillText = pkg.network === 'AT-iShare' ? 'AT-IS' : pkg.network === 'AT-BigTime' ? 'AT-BT' : pkg.network === 'Special MTN Mashup' ? 'MASHUP' : pkg.network === 'EXPRESS MTN' ? 'EXPRESS' : pkg.network
 
                                 return (
-                                    <Card
-                                        key={pkg.id}
-                                        className={`overflow-hidden relative isolate border border-border/50 shadow-md dark:shadow-[#E5E7EB]/20 ${isMtn || isMashup ? 'bg-[#FFCC00] text-black shadow-black/20' :
-                                            isTelecel ? 'bg-[#E60000] text-white shadow-black/20' :
-                                                'bg-[#0056B3] text-white shadow-black/20'
-                                        }`}
+                                    <button
+                                        key={pkg.id} onClick={() => handlePurchaseClick(pkg)}
+                                        className={cn(
+                                            'relative rounded-[24px] overflow-hidden transition-all duration-200 active:scale-95 text-left flex flex-col shadow-md hover:shadow-lg hover:-translate-y-1 opacity-95 hover:opacity-100',
+                                            cardStyle.bg
+                                        )}
                                     >
-                                        <CardContent className="p-0 flex flex-col h-full">
-                                            {/* Top Section: Logo - Size - Badge */}
-                                            <div className="flex items-center justify-between p-4 pb-2 relative z-10">
-                                                <div className="p-1.5 bg-white/20 rounded-full shadow-md">
-                                                    <NetworkIcon network={pkg.network} size={28} variant="card" />
+                                        {/* Top Section */}
+                                        <div className="p-4 relative flex-1 flex flex-col items-center justify-center min-h-[140px]">
+                                            {/* Top Left Logo Circle */}
+                                            <div className={cn("absolute top-3 left-3 w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-sm", cardStyle.iconBg)}>
+                                                <div className="w-6 h-6 rounded-full flex items-center justify-center bg-transparent">
+                                                    <NetworkIcon network={pkg.network} size={28} />
                                                 </div>
-
-                                                <div className="absolute inset-y-0 left-[52px] right-[80px] flex items-center justify-center pointer-events-none">
-                                                    <h3 className={`font-black tracking-tight text-center leading-tight ${isMtn || isMashup ? '!text-black' : '!text-white'} ${isMashup ? 'text-xl sm:text-2xl w-[120%]' : 'text-4xl'}`}>
-                                                        {pkg.size}
-                                                    </h3>
-                                                </div>
-
-                                                <Badge className={`text-[10px] font-bold px-2 py-0.5 border-none shadow-md uppercase tracking-wider z-10 ${isMtn ? 'bg-[#004F9F] text-white' :
-                                                    isMashup ? 'bg-white text-[#004F9F]' :
-                                                    'bg-white text-black'
-                                                    }`}>
-                                                    {isMashup ? 'MASHUP' : pkg.network}
-                                                </Badge>
+                                            </div>
+                                            
+                                            {/* Top Right Pill */}
+                                            <div className={cn("absolute top-3 right-3 px-3 py-1 rounded-full text-[11px] font-black tracking-tight", cardStyle.pill)}>
+                                                {pillText}
                                             </div>
 
-                                            {/* Middle Content: Price & Description */}
-                                            <div className="flex flex-col items-center justify-center flex-1 space-y-3 py-6 relative z-10">
-                                                <div className="text-3xl lg:text-4xl font-black tracking-tighter">
-                                                    {formatCurrency(getEffectivePrice(pkg))}
-                                                </div>
-
-                                                <div className={`flex items-center gap-2 text-xs font-bold uppercase tracking-wide px-4 py-1.5 rounded-full border border-white/10 ${isMtn || isMashup ? 'bg-black/10 text-black' : 'bg-white/10 text-white'
-                                                    }`}>
-                                                    <span className="text-base">⏳</span>
-                                                    <span className="flex items-center gap-1">
-                                                        Instant Delivery
-                                                        <span>⚡</span>
-                                                    </span>
-                                                </div>
-                                                {pkg.description && pkg.description !== 'Instant Delivery' && (
-                                                    <p className={`text-[10px] font-bold opacity-90 px-4 text-center line-clamp-1`}>
-                                                        {pkg.description}
-                                                    </p>
-                                                )}
+                                            {/* Center Content */}
+                                            <div className={cn("text-center mt-8 mb-2 space-y-1 w-full", cardStyle.text)}>
+                                                <h3 className="text-[32px] leading-none font-black tracking-tighter">{pkg.size}</h3>
+                                                <p className="text-lg font-bold">{formatCurrency(getEffectivePrice(pkg))}</p>
+                                                
+                                                <p className="text-[11px] font-semibold opacity-90 mt-1.5 flex items-center justify-center gap-1">
+                                                    <span className="w-1 h-1 rounded-full bg-current opacity-70"></span> {pkg.description && pkg.description !== 'Instant Delivery' ? pkg.description : 'Bundle Valid for 90 Days'}
+                                                </p>
                                             </div>
+                                        </div>
 
-                                            {/* Bottom: Full Width Button */}
-                                            <div className="mt-auto pt-2">
-                                                <Button
-                                                    variant="outline"
-                                                    className={`w-full rounded-t-none rounded-b-xl h-12 text-md font-bold uppercase tracking-widest border-0 transition-colors shadow-none ${isMtn || isMashup ? 'bg-black text-white hover:bg-black/90' :
-                                                        isTelecel ? 'bg-white text-[#E60000] hover:bg-gray-100' :
-                                                            'bg-white text-[#0056B3] hover:bg-gray-100'
-                                                        }`}
-                                                    onClick={() => handlePurchaseClick(pkg)}
-                                                >
-                                                    <ShoppingCart className="w-4 h-4 mr-2" />
-                                                    Buy Now
-                                                </Button>
-                                            </div>
-                                        </CardContent>
-                                    </Card>
+                                        {/* Bottom Buy Bar */}
+                                        <div className={cn("w-full py-3 flex items-center justify-center gap-2 transition-colors", cardStyle.bottom, cardStyle.text)}>
+                                            <ShoppingCart className="w-4 h-4" />
+                                            <span className="text-sm font-bold tracking-tight">Buy Now</span>
+                                        </div>
+                                    </button>
                                 )
                             })}
                         </div>
