@@ -17,6 +17,8 @@ import {
 import { Badge } from '@/components/ui/badge'
 import { Loader2, Send, MessageSquare, Users, Search, CheckSquare, XSquare } from 'lucide-react'
 import { toast } from 'sonner'
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs'
+import { ShopBuyersPanel } from '@/components/dashboard/ShopBuyersPanel'
 
 interface User {
     id: string
@@ -31,6 +33,7 @@ export default function AdminSMSBroadcastPage() {
     const [users, setUsers] = useState<User[]>([])
     const [filteredUsers, setFilteredUsers] = useState<User[]>([])
     const [selectedUsers, setSelectedUsers] = useState<Set<string>>(new Set())
+    const [selectedShopBuyerPhones, setSelectedShopBuyerPhones] = useState<Set<string>>(new Set())
     const [loading, setLoading] = useState(true)
     const [sending, setSending] = useState(false)
     const [message, setMessage] = useState('')
@@ -113,7 +116,7 @@ export default function AdminSMSBroadcastPage() {
             return
         }
 
-        if (selectedUsers.size === 0) {
+        if (selectedUsers.size === 0 && selectedShopBuyerPhones.size === 0) {
             toast.error('Please select at least one recipient')
             return
         }
@@ -125,6 +128,7 @@ export default function AdminSMSBroadcastPage() {
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     userIds: Array.from(selectedUsers),
+                    rawPhoneNumbers: Array.from(selectedShopBuyerPhones),
                     message: message.trim()
                 })
             })
@@ -203,7 +207,7 @@ export default function AdminSMSBroadcastPage() {
                         <div className="p-3 rounded-lg bg-muted/50 space-y-1">
                             <div className="flex justify-between text-sm">
                                 <span className="text-muted-foreground">Selected Recipients:</span>
-                                <span className="font-medium">{selectedUsers.size}</span>
+                                <span className="font-medium">{selectedUsers.size + selectedShopBuyerPhones.size}</span>
                             </div>
                             <div className="flex justify-between text-sm">
                                 <span className="text-muted-foreground">SMS per recipient:</span>
@@ -212,8 +216,8 @@ export default function AdminSMSBroadcastPage() {
                             <div className="flex justify-between text-sm font-semibold">
                                 <span className="text-muted-foreground">Est. Total Cost:</span>
                                 <span className="font-medium">
-                                    {selectedUsers.size > 0
-                                        ? `${selectedUsers.size * smsCount} SMS units`
+                                    {(selectedUsers.size + selectedShopBuyerPhones.size) > 0
+                                        ? `${(selectedUsers.size + selectedShopBuyerPhones.size) * smsCount} SMS units`
                                         : `— (select recipients)`}
                                 </span>
                             </div>
@@ -222,19 +226,26 @@ export default function AdminSMSBroadcastPage() {
                         <Button
                             onClick={handleSendSMS}
                             className="w-full"
-                            disabled={sending || selectedUsers.size === 0 || !message.trim()}
+                            disabled={sending || (selectedUsers.size === 0 && selectedShopBuyerPhones.size === 0) || !message.trim()}
                         >
                             {sending ? (
                                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                             ) : (
                                 <Send className="w-4 h-4 mr-2" />
                             )}
-                            Send SMS to {selectedUsers.size} Recipient{selectedUsers.size !== 1 ? 's' : ''}
+                            Send SMS to {selectedUsers.size + selectedShopBuyerPhones.size} Recipient{(selectedUsers.size + selectedShopBuyerPhones.size) !== 1 ? 's' : ''}
                         </Button>
                     </CardContent>
                 </Card>
 
                 {/* Recipients Selection Card */}
+                <Tabs defaultValue="platform" className="w-full">
+                    <TabsList className="mb-4">
+                        <TabsTrigger value="platform">Platform Users</TabsTrigger>
+                        <TabsTrigger value="shop-buyers">Shop Buyers</TabsTrigger>
+                    </TabsList>
+
+                    <TabsContent value="platform">
                 <Card>
                     <CardHeader>
                         <CardTitle className="flex items-center gap-2">
@@ -340,6 +351,27 @@ export default function AdminSMSBroadcastPage() {
                         </div>
                     </CardContent>
                 </Card>
+                    </TabsContent>
+                    <TabsContent value="shop-buyers">
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="flex items-center gap-2">
+                                    <Users className="w-5 h-5 text-primary" />
+                                    Shop Buyers
+                                </CardTitle>
+                                <CardDescription>
+                                    Select customers who purchased from storefronts
+                                </CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                                <ShopBuyersPanel
+                                    selectedPhones={selectedShopBuyerPhones}
+                                    onSelectionChange={setSelectedShopBuyerPhones}
+                                />
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+                </Tabs>
             </div>
         </div>
     )

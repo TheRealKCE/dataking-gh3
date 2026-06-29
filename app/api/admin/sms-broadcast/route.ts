@@ -58,6 +58,7 @@ export async function POST(request: NextRequest) {
             message: adminLongTextSchema,
             userIds: z.array(z.string()).max(20000).optional(),
             roleFilter: z.enum(['all', 'customer', 'sub-admin', 'admin', 'agent', 'dealer', 'shop_owner']).optional(),
+            rawPhoneNumbers: z.array(z.string()).max(20000).optional(),
         })
         
         const validation = broadcastSchema.safeParse(body)
@@ -65,10 +66,10 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Invalid input', details: validation.error.errors }, { status: 400 })
         }
         
-        const { userIds, roleFilter, message } = validation.data
+        const { userIds, roleFilter, message, rawPhoneNumbers } = validation.data
 
-        if (!userIds && !roleFilter) {
-            return NextResponse.json({ error: 'Either userIds or roleFilter is required' }, { status: 400 })
+        if (!userIds && !roleFilter && !rawPhoneNumbers) {
+            return NextResponse.json({ error: 'Either userIds, roleFilter, or rawPhoneNumbers is required' }, { status: 400 })
         }
 
         // Service role client to bypass RLS
@@ -165,6 +166,22 @@ export async function POST(request: NextRequest) {
                 
                 recipients = [...recipients, ...uniqueShops]
             }
+        }
+
+        // Append raw shop-buyer phone numbers (no user/shop record backing these)
+        if (rawPhoneNumbers && rawPhoneNumbers.length > 0) {
+            const existingPhones = new Set(recipients.map(r => r.phone_number.replace(/\s+/g, '')))
+            const uniqueRaw = rawPhoneNumbers
+                .map(p => p.replace(/\s+/g, ''))
+                .filter(p => p && !existingPhones.has(p))
+                .map(p => ({
+                    id: `buyer_${p}`,
+                    first_name: 'Shop Customer',
+                    phone_number: p,
+                    role: 'shop_customer',
+                }))
+
+            recipients = [...recipients, ...uniqueRaw]
         }
 
         if (!recipients || recipients.length === 0) {
