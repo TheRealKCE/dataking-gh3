@@ -353,15 +353,21 @@ export async function fulfillOrder(
         // 100 = low balance, 101 = out of stock, 500 = system error,
         // 102 = agent not found, 103 = price not found, 555 = network not found
         // ALL non-success → keep order pending
+        const isExcelProcessing = data.message && data.message.includes('Order recorded successfully for EXCEL processing')
+
         const isSuccess = response.ok &&
             (data.status === 200 || data.status === 'success' || data.status === '200') &&
-            data.reference_id
+            (data.reference_id || isExcelProcessing)
+
         if (isSuccess) {
             recordSuccess()
+
+            const finalReferenceId = data.reference_id || `excel-${orderId}`
+
             return {
                 success: true,
-                reference: data.reference_id,
-                transactionId: data.reference_id,
+                reference: finalReferenceId,
+                transactionId: finalReferenceId,
                 apiResponse: sanitizeForLog(data),
             }
         }
