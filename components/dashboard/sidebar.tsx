@@ -444,7 +444,7 @@ export function DashboardSidebar() {
                     )}
 
                     {userNavItems
-                    .filter(item => (!hideMashup || item.label !== 'Special MTN Mashup') && (!hideExpressMtn || item.label !== 'EXPRESS MTN'))
+                    .filter(item => (!hideMashup || item.label !== 'Special MTN Mashup') && (!hideExpressMtn || item.label !== 'EXPRESS MTN') && (item.label !== 'Developer API' || (dbUser?.role === 'agent' || dbUser?.role === 'dealer' || dbUser?.role === 'admin' || dbUser?.role === 'sub-admin')))
                         .map((item) => {
                         const isActive = isLinkActive(item.href)
                         return (

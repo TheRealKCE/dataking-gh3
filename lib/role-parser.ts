@@ -8,7 +8,7 @@ function normaliseLegacyRole(role: string): string {
     return role
 }
 
-export function parseAllowedRoles(raw: unknown, fallback: string[] = ['agent']): string[] {
+export function parseAllowedRoles(raw: unknown, fallback: string[] = ['agent', 'dealer']): string[] {
     if (raw === null || raw === undefined || raw === '') return fallback
 
     let parsed: unknown = raw
