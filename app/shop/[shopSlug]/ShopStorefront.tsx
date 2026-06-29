@@ -125,8 +125,9 @@ function MTNLogo() {
     return (
         <svg viewBox="0 0 60 60" className="w-full h-full" fill="none" xmlns="http://www.w3.org/2000/svg">
             <circle cx="30" cy="30" r="30" fill="#FFCC00" />
-            <ellipse cx="30" cy="30" rx="23" ry="13" fill="#0056b3" stroke="white" strokeWidth="2" />
-            <text x="30" y="35" textAnchor="middle" fontSize="14" fontWeight="900" fill="white" fontStyle="italic" fontFamily="Arial Black, Arial, sans-serif" letterSpacing="0.5">MTN</text>
+            <ellipse cx="30" cy="30" rx="26" ry="14" fill="#005b82" />
+            <text x="30.5" y="35.5" textAnchor="middle" fontSize="15" fontWeight="900" fill="#e20010" fontStyle="italic" fontFamily="Arial Black, Arial, sans-serif" letterSpacing="-0.5">MTN</text>
+            <text x="30" y="35" textAnchor="middle" fontSize="15" fontWeight="900" fill="white" fontStyle="italic" fontFamily="Arial Black, Arial, sans-serif" letterSpacing="-0.5">MTN</text>
         </svg>
     )
 }
@@ -195,6 +196,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
     const [rcPhone, setRcPhone] = useState('')
     const [rcEmail, setRcEmail] = useState('')
     const [selectedRc, setSelectedRc] = useState<any | null>(null)
+    const [rcQuantity, setRcQuantity] = useState(1)
 
     const { isInstallable, isInstalled, isIOS, installPwa } = usePwa()
 
@@ -654,7 +656,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 body: JSON.stringify({
                     shopSlug: shop.shop_slug,
                     rcTypeId: selectedRc.id,
-                    quantity: 1,
+                    quantity: rcQuantity,
                     customerPhone: cleanPhone,
                     customerEmail: rcEmail.trim() || undefined
                 })
@@ -712,7 +714,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
             } : otpOrderType === 'results_checker' ? {
                 shopSlug: shop.shop_slug,
                 rcTypeId: selectedRc?.id,
-                quantity: 1,
+                quantity: rcQuantity,
                 customerPhone: rcPhone.replace(/\s+/g, ''),
                 customerEmail: rcEmail.trim() || undefined,
                 otpCode: otpCode.trim(),
@@ -1320,8 +1322,17 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                                     <div className="text-right">
                                         <p className="text-xs text-muted-foreground">Total</p>
                                         <p className="font-black text-lg text-[var(--brand-color)]">
-                                            {formatCurrency(selectedRc.selling_price)}
+                                            {formatCurrency(selectedRc.selling_price * rcQuantity)}
                                         </p>
+                                    </div>
+                                </div>
+
+                                <div className="flex items-center justify-between bg-gray-50 dark:bg-gray-800 p-3 rounded-xl border border-gray-200 dark:border-gray-700">
+                                    <p className="text-sm font-bold text-gray-700 dark:text-gray-300">Quantity</p>
+                                    <div className="flex items-center gap-3">
+                                        <button onClick={() => setRcQuantity(Math.max(1, rcQuantity - 1))} className="w-8 h-8 rounded-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 flex items-center justify-center font-bold shadow-sm active:scale-95 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">-</button>
+                                        <span className="font-black text-lg w-4 text-center">{rcQuantity}</span>
+                                        <button onClick={() => setRcQuantity(Math.min(10, rcQuantity + 1))} className="w-8 h-8 rounded-full bg-white dark:bg-gray-700 border border-gray-200 dark:border-gray-600 flex items-center justify-center font-bold shadow-sm active:scale-95 text-gray-700 dark:text-gray-200 hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors">+</button>
                                     </div>
                                 </div>
 
@@ -1345,7 +1356,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                                     onClick={handleBuyRc} disabled={loading}
                                     className="w-full py-3.5 rounded-xl text-white font-bold text-base flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-70 bg-[var(--brand-color)]"
                                 >
-                                    {loading ? <><Loader2 className="w-5 h-5 animate-spin" /> {pollingRef ? 'Waiting for Approval...' : 'Processing...'}</> : <><ShoppingCart className="w-5 h-5" /> Pay {formatCurrency(selectedRc.selling_price)}</>}
+                                    {loading ? <><Loader2 className="w-5 h-5 animate-spin" /> {pollingRef ? 'Waiting for Approval...' : 'Processing...'}</> : <><ShoppingCart className="w-5 h-5" /> Pay {formatCurrency(selectedRc.selling_price * rcQuantity)}</>}
                                 </button>
                                 <p className="text-[10px] text-center text-muted-foreground">Direct MoMo Prompt</p>
                             </div>
@@ -1360,7 +1371,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
 
                 {/* ── Network Filter Tabs ── */}
                 {activeTab === 'data' && networks.length > 1 && (
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+                    <div className="grid grid-cols-4 gap-2 sm:gap-3 mb-6">
                         {networks.map(net => {
                             const isActive = activeNetwork === net
                             
@@ -1368,7 +1379,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                                 <button
                                     key={net} onClick={() => { setActiveNetwork(net); setSelectedPackage(null); setIsAirtimeOpen(false) }}
                                     className={cn(
-                                        "relative flex flex-col items-center justify-center gap-3 py-4 px-2 rounded-[14px] border transition-all bg-white dark:bg-zinc-900 shadow-sm",
+                                        "relative flex flex-col items-center justify-center gap-2 sm:gap-3 py-3 px-1 sm:py-4 sm:px-2 rounded-[14px] border transition-all bg-white dark:bg-zinc-900 shadow-sm",
                                         isActive
                                             ? "border-[#8a2be2] shadow-sm scale-[1.01]"
                                             : "border-gray-100 dark:border-zinc-800 hover:border-gray-200 dark:hover:border-zinc-700",
@@ -1376,18 +1387,18 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                                     )}
                                 >
                                     {isActive && (
-                                        <div className="absolute top-2 right-2 z-10 bg-white rounded-full">
-                                            <CheckCircle2 className="w-4 h-4 text-[#20d880]" strokeWidth={2.5} />
+                                        <div className="absolute top-1 right-1 sm:top-2 sm:right-2 z-10 bg-white rounded-full">
+                                            <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#20d880]" strokeWidth={2.5} />
                                         </div>
                                     )}
-                                    <div className="w-10 h-10 rounded-full flex items-center justify-center mt-1">
+                                    <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center mt-1">
                                         {net === 'MTN' || net === 'EXPRESS MTN' || net === 'Special MTN Mashup' ? <MTNLogo /> :
                                          net === 'Telecel' ? <TelecelLogo /> : <ATLogo />}
                                     </div>
-                                    <span className="text-[13px] font-bold text-gray-700 dark:text-gray-200 text-center leading-tight">
+                                    <span className="text-[10px] sm:text-[13px] font-bold text-gray-700 dark:text-gray-200 text-center leading-tight">
                                         {net === 'Special MTN Mashup' ? 'Special Mashup' : net === 'EXPRESS MTN' ? 'Express MTN' : net === 'AT-iShare' ? 'AT iShare' : net === 'AT-BigTime' ? 'AT BigTime' : net}
                                     </span>
-                                    <div className="flex items-center justify-center gap-1.5 text-[11px] font-bold text-[#20d880] mb-1">
+                                    <div className="flex items-center justify-center gap-1 sm:gap-1.5 text-[9px] sm:text-[11px] font-bold text-[#20d880] mb-0.5 sm:mb-1">
                                         <div className="w-1.5 h-1.5 rounded-full bg-[#20d880]" /> Live
                                     </div>
                                 </button>
@@ -1427,43 +1438,65 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                         {filteredPackages.map((pkg) => {
                             const netStyle = networkColors[pkg.network]
                             const isSelected = selectedPackage?.id === pkg.id
+                            const getCardStyle = (net: string) => {
+                                switch(net) {
+                                    case 'Telecel':
+                                        return { bg: 'bg-[#da291c]', bottom: 'bg-[#b01e14]', pill: 'bg-white/20 text-white', text: 'text-white', iconBg: 'bg-white/20' }
+                                    case 'AT-iShare':
+                                        return { bg: 'bg-[#2463eb]', bottom: 'bg-[#1d4ed8]', pill: 'bg-white/20 text-white', text: 'text-white', iconBg: 'bg-white/20' }
+                                    case 'AT-BigTime':
+                                        return { bg: 'bg-[#8b5cf6]', bottom: 'bg-[#6d28d9]', pill: 'bg-white/20 text-white', text: 'text-white', iconBg: 'bg-white/20' }
+                                    case 'MTN':
+                                    case 'Special MTN Mashup':
+                                    case 'EXPRESS MTN':
+                                        return { bg: 'bg-[#FFCC00]', bottom: 'bg-[#eab308]', pill: 'bg-black/10 text-black', text: 'text-black', iconBg: 'bg-white/30' }
+                                    default:
+                                        return { bg: 'bg-[var(--brand-color)]', bottom: 'bg-black/20', pill: 'bg-white/20 text-white', text: 'text-white', iconBg: 'bg-white/20' }
+                                }
+                            }
+                            const cardStyle = getCardStyle(pkg.network)
+                            const pillText = pkg.network === 'AT-iShare' ? 'AT-IS' : pkg.network === 'AT-BigTime' ? 'AT-BT' : pkg.network === 'Special MTN Mashup' ? 'MASHUP' : pkg.network === 'EXPRESS MTN' ? 'EXPRESS' : pkg.network
+                            
                             return (
                                 <button
                                     key={pkg.id} onClick={() => setSelectedPackage(isSelected ? null : pkg)}
                                     className={cn(
-                                        'relative p-4 rounded-2xl border-2 text-left transition-all duration-200 active:scale-95 flex flex-col gap-1.5',
-                                        isSelected ? 'bg-[var(--brand-color)] border-[var(--brand-color)] shadow-lg scale-[1.02]' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-md'
+                                        'relative rounded-[24px] overflow-hidden transition-all duration-200 active:scale-95 text-left flex flex-col',
+                                        cardStyle.bg,
+                                        isSelected ? 'ring-4 ring-offset-2 ring-[var(--brand-color)] scale-[1.02] shadow-xl' : 'shadow-md hover:shadow-lg hover:-translate-y-1 opacity-95 hover:opacity-100'
                                     )}
                                 >
-                                    {isSelected && <div className="absolute top-2 right-2"><CheckCircle2 className="w-4 h-4 text-white" /></div>}
+                                    {/* Top Section */}
+                                    <div className="p-4 relative flex-1 flex flex-col items-center justify-center min-h-[140px]">
+                                        {/* Top Left Logo Circle */}
+                                        <div className={cn("absolute top-3 left-3 w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-sm", cardStyle.iconBg)}>
+                                            <div className="w-6 h-6 rounded-full flex items-center justify-center bg-transparent">
+                                                {pkg.network === 'MTN' || pkg.network === 'EXPRESS MTN' || pkg.network === 'Special MTN Mashup' ? <MTNLogo /> :
+                                                 pkg.network === 'Telecel' ? <TelecelLogo /> : <ATLogo />}
+                                            </div>
+                                        </div>
+                                        
+                                        {/* Top Right Pill */}
+                                        <div className={cn("absolute top-3 right-3 px-3 py-1 rounded-full text-[11px] font-black tracking-tight", cardStyle.pill)}>
+                                            {pillText}
+                                        </div>
 
-                                    <div className={cn("inline-block text-[10px] font-black px-2 py-0.5 rounded-full self-start",
-                                        netStyle ? netStyle.bgClass : 'bg-[#e5e7eb]',
-                                        netStyle ? netStyle.textClass : 'text-[#374151]'
-                                    )}>
-                                        {pkg.network}
+                                        {/* Center Content */}
+                                        <div className={cn("text-center mt-8 mb-2 space-y-1 w-full", cardStyle.text)}>
+                                            <h3 className="text-[32px] leading-none font-black tracking-tighter">{pkg.size}</h3>
+                                            <p className="text-lg font-bold">{formatCurrency(pkg.selling_price)}</p>
+                                            
+                                            <p className="text-[11px] font-semibold opacity-90 mt-1.5 flex items-center justify-center gap-1">
+                                                <span className="w-1 h-1 rounded-full bg-current opacity-70"></span> {pkg.description && pkg.description !== 'Instant Delivery' ? pkg.description : 'Bundle Valid for 90 Days'}
+                                            </p>
+                                        </div>
                                     </div>
 
-                                    <p className={cn(
-                                        pkg.network === 'Special MTN Mashup' ? 'text-xl sm:text-2xl' : 'text-base',
-                                        'font-black leading-tight', 
-                                        isSelected ? 'text-white' : 'text-gray-900 dark:text-white'
-                                    )}>
-                                        {pkg.size}
-                                    </p>
-                                    <p className={cn('text-sm font-bold', isSelected ? 'text-white/90' : 'text-gray-600 dark:text-gray-300')}>
-                                        {formatCurrency(pkg.selling_price)}
-                                    </p>
-
-                                    <div className={cn('inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full mt-0.5 self-start', isSelected ? 'bg-white/20 text-white' : 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400')}>
-                                        <Zap className="w-2.5 h-2.5" /> Instant Delivery
+                                    {/* Bottom Buy Bar */}
+                                    <div className={cn("w-full py-3 flex items-center justify-center gap-2 transition-colors", cardStyle.bottom, cardStyle.text)}>
+                                        <ShoppingCart className="w-4 h-4" />
+                                        <span className="text-sm font-bold tracking-tight">Buy Now</span>
                                     </div>
-
-                                    {pkg.description && pkg.description !== 'Instant Delivery' && (
-                                        <p className={cn('text-[10px] leading-snug mt-0.5 line-clamp-2', isSelected ? 'text-white/80' : 'text-gray-400 dark:text-gray-500')}>
-                                            {pkg.description}
-                                        </p>
-                                    )}
                                 </button>
                             )
                         })}
