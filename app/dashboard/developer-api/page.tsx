@@ -375,7 +375,7 @@ export default function DeveloperApiPage() {
     }, [fetchKey, fetchLogs])
 
     useEffect(() => {
-        if (dbUser && dbUser.role !== 'agent' && dbUser.role !== 'admin' && dbUser.role !== 'sub-admin') {
+        if (dbUser && dbUser.role !== 'agent' && dbUser.role !== 'dealer' && dbUser.role !== 'admin' && dbUser.role !== 'sub-admin') {
             router.push('/dashboard/upgrade')
         }
     }, [dbUser, router])
