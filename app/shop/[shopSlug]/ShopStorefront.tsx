@@ -1438,43 +1438,65 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                         {filteredPackages.map((pkg) => {
                             const netStyle = networkColors[pkg.network]
                             const isSelected = selectedPackage?.id === pkg.id
+                            const getCardStyle = (net: string) => {
+                                switch(net) {
+                                    case 'Telecel':
+                                        return { bg: 'bg-[#da291c]', bottom: 'bg-[#b01e14]', pill: 'bg-white/20 text-white', text: 'text-white', iconBg: 'bg-white/20' }
+                                    case 'AT-iShare':
+                                        return { bg: 'bg-[#2463eb]', bottom: 'bg-[#1d4ed8]', pill: 'bg-white/20 text-white', text: 'text-white', iconBg: 'bg-white/20' }
+                                    case 'AT-BigTime':
+                                        return { bg: 'bg-[#8b5cf6]', bottom: 'bg-[#6d28d9]', pill: 'bg-white/20 text-white', text: 'text-white', iconBg: 'bg-white/20' }
+                                    case 'MTN':
+                                    case 'Special MTN Mashup':
+                                    case 'EXPRESS MTN':
+                                        return { bg: 'bg-[#FFCC00]', bottom: 'bg-[#eab308]', pill: 'bg-black/10 text-black', text: 'text-black', iconBg: 'bg-white/30' }
+                                    default:
+                                        return { bg: 'bg-[var(--brand-color)]', bottom: 'bg-black/20', pill: 'bg-white/20 text-white', text: 'text-white', iconBg: 'bg-white/20' }
+                                }
+                            }
+                            const cardStyle = getCardStyle(pkg.network)
+                            const pillText = pkg.network === 'AT-iShare' ? 'AT-IS' : pkg.network === 'AT-BigTime' ? 'AT-BT' : pkg.network === 'Special MTN Mashup' ? 'MASHUP' : pkg.network === 'EXPRESS MTN' ? 'EXPRESS' : pkg.network
+                            
                             return (
                                 <button
                                     key={pkg.id} onClick={() => setSelectedPackage(isSelected ? null : pkg)}
                                     className={cn(
-                                        'relative p-4 rounded-2xl border-2 text-left transition-all duration-200 active:scale-95 flex flex-col gap-1.5',
-                                        isSelected ? 'bg-[var(--brand-color)] border-[var(--brand-color)] shadow-lg scale-[1.02]' : 'bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 hover:shadow-md'
+                                        'relative rounded-[24px] overflow-hidden transition-all duration-200 active:scale-95 text-left flex flex-col',
+                                        cardStyle.bg,
+                                        isSelected ? 'ring-4 ring-offset-2 ring-[var(--brand-color)] scale-[1.02] shadow-xl' : 'shadow-md hover:shadow-lg hover:-translate-y-1 opacity-95 hover:opacity-100'
                                     )}
                                 >
-                                    {isSelected && <div className="absolute top-2 right-2"><CheckCircle2 className="w-4 h-4 text-white" /></div>}
+                                    {/* Top Section */}
+                                    <div className="p-4 relative flex-1 flex flex-col items-center justify-center min-h-[140px]">
+                                        {/* Top Left Logo Circle */}
+                                        <div className={cn("absolute top-3 left-3 w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-sm", cardStyle.iconBg)}>
+                                            <div className="w-6 h-6 rounded-full flex items-center justify-center bg-transparent">
+                                                {pkg.network === 'MTN' || pkg.network === 'EXPRESS MTN' || pkg.network === 'Special MTN Mashup' ? <MTNLogo /> :
+                                                 pkg.network === 'Telecel' ? <TelecelLogo /> : <ATLogo />}
+                                            </div>
+                                        </div>
+                                        
+                                        {/* Top Right Pill */}
+                                        <div className={cn("absolute top-3 right-3 px-3 py-1 rounded-full text-[11px] font-black tracking-tight", cardStyle.pill)}>
+                                            {pillText}
+                                        </div>
 
-                                    <div className={cn("inline-block text-[10px] font-black px-2 py-0.5 rounded-full self-start",
-                                        netStyle ? netStyle.bgClass : 'bg-[#e5e7eb]',
-                                        netStyle ? netStyle.textClass : 'text-[#374151]'
-                                    )}>
-                                        {pkg.network}
+                                        {/* Center Content */}
+                                        <div className={cn("text-center mt-8 mb-2 space-y-1 w-full", cardStyle.text)}>
+                                            <h3 className="text-[32px] leading-none font-black tracking-tighter">{pkg.size}</h3>
+                                            <p className="text-lg font-bold">{formatCurrency(pkg.selling_price)}</p>
+                                            
+                                            <p className="text-[11px] font-semibold opacity-90 mt-1.5 flex items-center justify-center gap-1">
+                                                <span className="w-1 h-1 rounded-full bg-current opacity-70"></span> {pkg.description && pkg.description !== 'Instant Delivery' ? pkg.description : 'Bundle Valid for 90 Days'}
+                                            </p>
+                                        </div>
                                     </div>
 
-                                    <p className={cn(
-                                        pkg.network === 'Special MTN Mashup' ? 'text-xl sm:text-2xl' : 'text-base',
-                                        'font-black leading-tight', 
-                                        isSelected ? 'text-white' : 'text-gray-900 dark:text-white'
-                                    )}>
-                                        {pkg.size}
-                                    </p>
-                                    <p className={cn('text-sm font-bold', isSelected ? 'text-white/90' : 'text-gray-600 dark:text-gray-300')}>
-                                        {formatCurrency(pkg.selling_price)}
-                                    </p>
-
-                                    <div className={cn('inline-flex items-center gap-1 text-[9px] font-bold px-2 py-0.5 rounded-full mt-0.5 self-start', isSelected ? 'bg-white/20 text-white' : 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-700 dark:text-emerald-400')}>
-                                        <Zap className="w-2.5 h-2.5" /> Instant Delivery
+                                    {/* Bottom Buy Bar */}
+                                    <div className={cn("w-full py-3 flex items-center justify-center gap-2 transition-colors", cardStyle.bottom, cardStyle.text)}>
+                                        <ShoppingCart className="w-4 h-4" />
+                                        <span className="text-sm font-bold tracking-tight">Buy Now</span>
                                     </div>
-
-                                    {pkg.description && pkg.description !== 'Instant Delivery' && (
-                                        <p className={cn('text-[10px] leading-snug mt-0.5 line-clamp-2', isSelected ? 'text-white/80' : 'text-gray-400 dark:text-gray-500')}>
-                                            {pkg.description}
-                                        </p>
-                                    )}
                                 </button>
                             )
                         })}
