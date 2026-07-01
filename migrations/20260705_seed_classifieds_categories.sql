@@ -94,3 +94,52 @@ INSERT INTO public.classified_categories (name, slug, description, icon_emoji, p
 ('Music & Video', 'music-video', 'Music and video equipment', '🎬', (SELECT id FROM public.classified_categories WHERE slug = 'leisure-activities' AND parent_id IS NULL LIMIT 1), 9),
 ('Fitness & Personal Training Services', 'fitness-personal-training', 'Fitness and training services', '💪', (SELECT id FROM public.classified_categories WHERE slug = 'leisure-activities' AND parent_id IS NULL LIMIT 1), 10)
 ON CONFLICT (slug) DO NOTHING;
+
+-- Add Vehicles as a new main category
+INSERT INTO public.classified_categories (name, slug, description, icon_emoji, display_order) VALUES
+('Vehicles', 'vehicles', 'Automobiles and vehicles', '🚗', 0)
+ON CONFLICT (slug) DO NOTHING;
+
+-- Insert subcategories for Vehicles
+INSERT INTO public.classified_categories (name, slug, description, icon_emoji, parent_id, display_order) VALUES
+('Vehicle Parts & Accessories', 'vehicle-parts-accessories', 'Car parts and accessories', '🔧', (SELECT id FROM public.classified_categories WHERE slug = 'vehicles' AND parent_id IS NULL LIMIT 1), 1),
+('Cars', 'cars', 'Automobiles and sedans', '🚙', (SELECT id FROM public.classified_categories WHERE slug = 'vehicles' AND parent_id IS NULL LIMIT 1), 2),
+('Motorcycles & Scooters', 'motorcycles-scooters', 'Motorcycles and scooters', '🏍️', (SELECT id FROM public.classified_categories WHERE slug = 'vehicles' AND parent_id IS NULL LIMIT 1), 3),
+('Buses & Microbuses', 'buses-microbuses', 'Buses and public transport vehicles', '🚌', (SELECT id FROM public.classified_categories WHERE slug = 'vehicles' AND parent_id IS NULL LIMIT 1), 4),
+('Trucks & Trailers', 'trucks-trailers', 'Trucks and heavy vehicles', '🚚', (SELECT id FROM public.classified_categories WHERE slug = 'vehicles' AND parent_id IS NULL LIMIT 1), 5),
+('Construction & Heavy Machinery', 'construction-heavy-machinery', 'Construction equipment and machinery', '🏗️', (SELECT id FROM public.classified_categories WHERE slug = 'vehicles' AND parent_id IS NULL LIMIT 1), 6),
+('Watercraft & Boats', 'watercraft-boats', 'Boats and marine vessels', '⛵', (SELECT id FROM public.classified_categories WHERE slug = 'vehicles' AND parent_id IS NULL LIMIT 1), 7),
+('Car Services', 'car-services', 'Car repair and maintenance services', '🔧', (SELECT id FROM public.classified_categories WHERE slug = 'vehicles' AND parent_id IS NULL LIMIT 1), 8)
+ON CONFLICT (slug) DO NOTHING;
+
+-- Insert subcategories for Services
+INSERT INTO public.classified_categories (name, slug, description, icon_emoji, parent_id, display_order) VALUES
+('Advertising & Marketing Jobs', 'advertising-marketing-jobs', 'Marketing and advertising services', '📢', (SELECT id FROM public.classified_categories WHERE slug = 'services' AND parent_id IS NULL LIMIT 1), 1),
+('Accounting & Finance Jobs', 'accounting-finance-jobs', 'Accounting and finance services', '💼', (SELECT id FROM public.classified_categories WHERE slug = 'services' AND parent_id IS NULL LIMIT 1), 2),
+('Arts & Entertainment Jobs', 'arts-entertainment-jobs', 'Arts and entertainment services', '🎭', (SELECT id FROM public.classified_categories WHERE slug = 'services' AND parent_id IS NULL LIMIT 1), 3),
+('Childcare & Babysitting Services', 'childcare-babysitting', 'Childcare and babysitting services', '👶', (SELECT id FROM public.classified_categories WHERE slug = 'services' AND parent_id IS NULL LIMIT 1), 4),
+('Cleaning Services', 'cleaning-services', 'Professional cleaning services', '🧹', (SELECT id FROM public.classified_categories WHERE slug = 'services' AND parent_id IS NULL LIMIT 1), 5),
+('Computing & IT Jobs', 'computing-it-jobs', 'IT and computer services', '💻', (SELECT id FROM public.classified_categories WHERE slug = 'services' AND parent_id IS NULL LIMIT 1), 6),
+('Construction & Skilled Trade Jobs', 'construction-skilled-trades', 'Construction and trade services', '🔨', (SELECT id FROM public.classified_categories WHERE slug = 'services' AND parent_id IS NULL LIMIT 1), 7),
+('Consulting & Strategy Jobs', 'consulting-strategy', 'Consulting services', '📊', (SELECT id FROM public.classified_categories WHERE slug = 'services' AND parent_id IS NULL LIMIT 1), 8),
+('Customer Services Jobs', 'customer-services', 'Customer service roles', '☎️', (SELECT id FROM public.classified_categories WHERE slug = 'services' AND parent_id IS NULL LIMIT 1), 9),
+('Driver Jobs', 'driver-jobs', 'Driver and transportation services', '🚗', (SELECT id FROM public.classified_categories WHERE slug = 'services' AND parent_id IS NULL LIMIT 1), 10),
+('Home Repair & Maintenance', 'home-repair-maintenance', 'Home repair services', '🔧', (SELECT id FROM public.classified_categories WHERE slug = 'services' AND parent_id IS NULL LIMIT 1), 11),
+('Tutoring & Education Services', 'tutoring-education', 'Tutoring and educational services', '📚', (SELECT id FROM public.classified_categories WHERE slug = 'services' AND parent_id IS NULL LIMIT 1), 12)
+ON CONFLICT (slug) DO NOTHING;
+
+-- Insert subcategories for Commercial Equipment & Tools
+INSERT INTO public.classified_categories (name, slug, description, icon_emoji, parent_id, display_order) VALUES
+('Heavy Machinery', 'heavy-machinery', 'Heavy industrial machinery', '🏗️', (SELECT id FROM public.classified_categories WHERE slug = 'commercial-equipment-tools' AND parent_id IS NULL LIMIT 1), 1),
+('Power Tools', 'power-tools', 'Electric and power tools', '⚡', (SELECT id FROM public.classified_categories WHERE slug = 'commercial-equipment-tools' AND parent_id IS NULL LIMIT 1), 2),
+('Hand Tools & Equipment', 'hand-tools-equipment', 'Hand tools and basic equipment', '🔨', (SELECT id FROM public.classified_categories WHERE slug = 'commercial-equipment-tools' AND parent_id IS NULL LIMIT 1), 3),
+('Office Equipment & Furniture', 'office-equipment-furniture', 'Office equipment and desks', '🖥️', (SELECT id FROM public.classified_categories WHERE slug = 'commercial-equipment-tools' AND parent_id IS NULL LIMIT 1), 4),
+('Industrial Generators', 'industrial-generators', 'Generators and power equipment', '⚙️', (SELECT id FROM public.classified_categories WHERE slug = 'commercial-equipment-tools' AND parent_id IS NULL LIMIT 1), 5),
+('Welding & Fabrication Equipment', 'welding-fabrication', 'Welding and metalwork tools', '🔥', (SELECT id FROM public.classified_categories WHERE slug = 'commercial-equipment-tools' AND parent_id IS NULL LIMIT 1), 6),
+('Pumps & Water Equipment', 'pumps-water-equipment', 'Industrial pumps and water systems', '💧', (SELECT id FROM public.classified_categories WHERE slug = 'commercial-equipment-tools' AND parent_id IS NULL LIMIT 1), 7),
+('Compressors & Air Tools', 'compressors-air-tools', 'Air compressors and pneumatic tools', '💨', (SELECT id FROM public.classified_categories WHERE slug = 'commercial-equipment-tools' AND parent_id IS NULL LIMIT 1), 8),
+('Safety Equipment', 'safety-equipment', 'Industrial safety gear and equipment', '🦺', (SELECT id FROM public.classified_categories WHERE slug = 'commercial-equipment-tools' AND parent_id IS NULL LIMIT 1), 9),
+('Hydraulic Equipment', 'hydraulic-equipment', 'Hydraulic systems and components', '⚙️', (SELECT id FROM public.classified_categories WHERE slug = 'commercial-equipment-tools' AND parent_id IS NULL LIMIT 1), 10),
+('Workshop Machinery', 'workshop-machinery', 'Workshop and manufacturing equipment', '🏭', (SELECT id FROM public.classified_categories WHERE slug = 'commercial-equipment-tools' AND parent_id IS NULL LIMIT 1), 11),
+('Material Handling Equipment', 'material-handling', 'Forklifts and material handling', '📦', (SELECT id FROM public.classified_categories WHERE slug = 'commercial-equipment-tools' AND parent_id IS NULL LIMIT 1), 12)
+ON CONFLICT (slug) DO NOTHING;
