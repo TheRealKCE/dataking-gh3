@@ -473,6 +473,43 @@ export async function middleware(request: NextRequest) {
         }
     }
 
+    // === CLASSIFIEDS ROUTE GUARDS ===
+    if (pathname.startsWith('/classifieds')) {
+        // Public routes: /classifieds and /classifieds/[id]
+        if (pathname === '/classifieds' || /^\/classifieds\/[^\/]+$/.test(pathname)) {
+            return addNoCacheHeaders(setCORSHeaders(res, request, origin))
+        }
+
+        // Seller-only routes: /classifieds/seller/*
+        if (pathname.startsWith('/classifieds/seller')) {
+            if (!authUser) {
+                return addNoCacheHeaders(NextResponse.redirect(new URL(`/auth/login?redirect=${encodeURIComponent(pathname)}`, request.url)))
+            }
+            // TODO: Check if user has is_seller flag in Phase 2
+            return addNoCacheHeaders(setCORSHeaders(res, request, origin))
+        }
+
+        // Buyer-only routes: /classifieds/buyer/*
+        if (pathname.startsWith('/classifieds/buyer')) {
+            if (!authUser) {
+                return addNoCacheHeaders(NextResponse.redirect(new URL(`/auth/login?redirect=${encodeURIComponent(pathname)}`, request.url)))
+            }
+            return addNoCacheHeaders(setCORSHeaders(res, request, origin))
+        }
+
+        // Admin-only routes: /classifieds/admin/*
+        if (pathname.startsWith('/classifieds/admin')) {
+            if (!authUser) {
+                return addNoCacheHeaders(NextResponse.redirect(new URL('/auth/login', request.url)))
+            }
+            // Check if user is admin
+            if (!['admin', 'sub-admin'].includes(authUser.role || '')) {
+                return addNoCacheHeaders(NextResponse.redirect(new URL('/classifieds', request.url)))
+            }
+            return addNoCacheHeaders(setCORSHeaders(res, request, origin))
+        }
+    }
+
     // === AUTH PAGE GUARDS ===
     if (pathname.startsWith('/auth')) {
         // These routes must always be allowed through regardless of session state:
