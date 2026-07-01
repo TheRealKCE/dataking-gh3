@@ -1,0 +1,315 @@
+'use client'
+
+import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { ClassifiedsSellerSidebar } from '@/components/classifieds/seller-sidebar'
+import { ArrowLeft, Loader2 } from 'lucide-react'
+import { toast } from 'sonner'
+import type { ClassifiedCategory } from '@/types/supabase'
+
+export default function NewListingPage() {
+    const router = useRouter()
+    const [categories, setCategories] = useState<ClassifiedCategory[]>([])
+    const [isLoading, setIsLoading] = useState(false)
+    const [isLoadingCategories, setIsLoadingCategories] = useState(true)
+
+    const [formData, setFormData] = useState({
+        title: '',
+        description: '',
+        category_id: '',
+        price: '',
+        condition: 'used',
+        location: '',
+        region: '',
+        contact_phone: '',
+        contact_email: '',
+    })
+
+    const regions = [
+        'Ahafo', 'Ashanti', 'Bono', 'Bono East', 'Central', 'Eastern',
+        'Greater Accra', 'North East', 'Northern', 'Oti', 'Savannah',
+        'Upper East', 'Upper West', 'Volta', 'Western', 'Western North'
+    ]
+
+    useEffect(() => {
+        const loadCategories = async () => {
+            try {
+                const res = await fetch('/api/classifieds/categories')
+                if (res.ok) {
+                    const data = await res.json()
+                    setCategories(data.categories || [])
+                }
+            } catch (error) {
+                console.error('Error loading categories:', error)
+                toast.error('Failed to load categories')
+            } finally {
+                setIsLoadingCategories(false)
+            }
+        }
+
+        loadCategories()
+    }, [])
+
+    const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) => {
+        const { name, value } = e.target
+        setFormData(prev => ({ ...prev, [name]: value }))
+    }
+
+    const handleSubmit = async (e: React.FormEvent) => {
+        e.preventDefault()
+
+        if (!formData.title.trim() || !formData.description.trim() || !formData.category_id || !formData.price) {
+            toast.error('Please fill in all required fields')
+            return
+        }
+
+        setIsLoading(true)
+        try {
+            const token = localStorage.getItem('sb-token')
+            if (!token) {
+                toast.error('Please log in to create a listing')
+                return
+            }
+
+            const response = await fetch('/api/classifieds/listings', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify({
+                    title: formData.title,
+                    description: formData.description,
+                    category_id: formData.category_id,
+                    price: parseFloat(formData.price),
+                    condition: formData.condition,
+                    location: formData.location,
+                    region: formData.region,
+                    contact_phone: formData.contact_phone,
+                    contact_email: formData.contact_email,
+                }),
+            })
+
+            if (response.ok) {
+                const data = await response.json()
+                toast.success('Listing created successfully!')
+                router.push(`/classifieds/seller/dashboard`)
+            } else {
+                toast.error('Failed to create listing')
+            }
+        } catch (error) {
+            console.error('Error creating listing:', error)
+            toast.error('An error occurred while creating your listing')
+        } finally {
+            setIsLoading(false)
+        }
+    }
+
+    return (
+        <div className="min-h-screen bg-gray-50 dark:bg-[#0a0f1c] flex">
+            <ClassifiedsSellerSidebar />
+
+            <div className="flex-1">
+                <div className="bg-white dark:bg-[#151c2c] border-b border-gray-100 dark:border-gray-800">
+                    <div className="max-w-4xl mx-auto px-6 py-8">
+                        <Link href="/classifieds/seller/dashboard" className="inline-flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white mb-4">
+                            <ArrowLeft className="w-4 h-4" />
+                            Back to My Listings
+                        </Link>
+                        <h1 className="text-3xl font-black text-gray-900 dark:text-white">
+                            Post New Listing
+                        </h1>
+                        <p className="text-gray-600 dark:text-gray-400 mt-2">
+                            Create a new listing to sell your item
+                        </p>
+                    </div>
+                </div>
+
+                <div className="max-w-4xl mx-auto px-6 py-12">
+                    <form onSubmit={handleSubmit} className="space-y-6">
+                        {/* Title */}
+                        <div>
+                            <label className="block text-sm font-bold text-gray-900 dark:text-white mb-2">
+                                Title <span className="text-red-600">*</span>
+                            </label>
+                            <Input
+                                type="text"
+                                name="title"
+                                placeholder="e.g., iPhone 13 Pro Max"
+                                value={formData.title}
+                                onChange={handleChange}
+                                required
+                                className="w-full"
+                            />
+                            <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Be specific and clear about your item</p>
+                        </div>
+
+                        {/* Description */}
+                        <div>
+                            <label className="block text-sm font-bold text-gray-900 dark:text-white mb-2">
+                                Description <span className="text-red-600">*</span>
+                            </label>
+                            <textarea
+                                name="description"
+                                placeholder="Describe your item in detail. Include condition, features, and any defects."
+                                value={formData.description}
+                                onChange={handleChange}
+                                required
+                                rows={6}
+                                className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
+                        </div>
+
+                        {/* Category & Price */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label className="block text-sm font-bold text-gray-900 dark:text-white mb-2">
+                                    Category <span className="text-red-600">*</span>
+                                </label>
+                                <select
+                                    name="category_id"
+                                    value={formData.category_id}
+                                    onChange={handleChange}
+                                    required
+                                    disabled={isLoadingCategories}
+                                    className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                    <option value="">Select a category</option>
+                                    {categories.map(cat => (
+                                        <option key={cat.id} value={cat.id}>{cat.name}</option>
+                                    ))}
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-bold text-gray-900 dark:text-white mb-2">
+                                    Price (GHS) <span className="text-red-600">*</span>
+                                </label>
+                                <Input
+                                    type="number"
+                                    name="price"
+                                    placeholder="0.00"
+                                    value={formData.price}
+                                    onChange={handleChange}
+                                    step="0.01"
+                                    min="0"
+                                    required
+                                    className="w-full"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Condition & Region */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label className="block text-sm font-bold text-gray-900 dark:text-white mb-2">
+                                    Condition
+                                </label>
+                                <select
+                                    name="condition"
+                                    value={formData.condition}
+                                    onChange={handleChange}
+                                    className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                    <option value="new">New</option>
+                                    <option value="like-new">Like New</option>
+                                    <option value="used">Used</option>
+                                    <option value="refurbished">Refurbished</option>
+                                </select>
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-bold text-gray-900 dark:text-white mb-2">
+                                    Region
+                                </label>
+                                <select
+                                    name="region"
+                                    value={formData.region}
+                                    onChange={handleChange}
+                                    className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                >
+                                    <option value="">Select a region</option>
+                                    {regions.map(region => (
+                                        <option key={region} value={region}>{region}</option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+
+                        {/* Location */}
+                        <div>
+                            <label className="block text-sm font-bold text-gray-900 dark:text-white mb-2">
+                                City / Town
+                            </label>
+                            <Input
+                                type="text"
+                                name="location"
+                                placeholder="e.g., Accra, Kumasi, Tema"
+                                value={formData.location}
+                                onChange={handleChange}
+                                className="w-full"
+                            />
+                        </div>
+
+                        {/* Contact Info */}
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label className="block text-sm font-bold text-gray-900 dark:text-white mb-2">
+                                    Phone Number
+                                </label>
+                                <Input
+                                    type="tel"
+                                    name="contact_phone"
+                                    placeholder="0241234567"
+                                    value={formData.contact_phone}
+                                    onChange={handleChange}
+                                    className="w-full"
+                                />
+                            </div>
+
+                            <div>
+                                <label className="block text-sm font-bold text-gray-900 dark:text-white mb-2">
+                                    Email
+                                </label>
+                                <Input
+                                    type="email"
+                                    name="contact_email"
+                                    placeholder="your@email.com"
+                                    value={formData.contact_email}
+                                    onChange={handleChange}
+                                    className="w-full"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Buttons */}
+                        <div className="flex gap-4 pt-6">
+                            <Link href="/classifieds/seller/dashboard" className="flex-1">
+                                <Button variant="outline" className="w-full">
+                                    Cancel
+                                </Button>
+                            </Link>
+                            <button
+                                type="submit"
+                                disabled={isLoading}
+                                className="flex-1 bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50"
+                            >
+                                {isLoading ? (
+                                    <>
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                        Creating...
+                                    </>
+                                ) : (
+                                    'Create Listing'
+                                )}
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    )
+}
