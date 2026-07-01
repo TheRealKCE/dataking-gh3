@@ -21,7 +21,7 @@ export default function SellerDashboardPage() {
             try {
                 const token = localStorage.getItem('sb-token')
                 if (!token) {
-                    toast.error('Please log in')
+                    setIsLoading(false)
                     return
                 }
 
@@ -32,10 +32,11 @@ export default function SellerDashboardPage() {
                 if (res.ok) {
                     const data = await res.json()
                     setListings(data.listings || [])
+                } else if (res.status === 401) {
+                    toast.error('Please log in')
                 }
             } catch (error) {
                 console.error('Error loading listings:', error)
-                toast.error('Failed to load listings')
             } finally {
                 setIsLoading(false)
             }
@@ -63,6 +64,7 @@ export default function SellerDashboardPage() {
                 if (res.ok) {
                     const data = await res.json()
                     setListings(data.listings || [])
+                    toast.success('Boost activated!')
                 }
             } catch (error) {
                 console.error('Error refreshing listings:', error)
