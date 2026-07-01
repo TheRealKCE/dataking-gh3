@@ -139,7 +139,7 @@ export default function ClassifiedsPage() {
             <div className="bg-gray-100 dark:bg-gray-900/30 py-8">
                 <div className="max-w-6xl mx-auto px-6">
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                        <Link href="/classifieds/seller/dashboard">
+                        <Link href="/classifieds/niche-intelligence">
                             <div className="bg-purple-100 dark:bg-purple-900/30 rounded-lg p-4 text-center hover:shadow-md transition-shadow cursor-pointer">
                                 <div className="text-3xl mb-2">🔍</div>
                                 <p className="font-bold text-sm text-gray-900 dark:text-white">Niche Intelligence</p>
