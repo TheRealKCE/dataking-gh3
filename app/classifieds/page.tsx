@@ -113,9 +113,22 @@ export default function ClassifiedsPage() {
                             className="px-4 py-2 rounded-lg bg-white text-gray-900 font-medium border-0 focus:ring-2 focus:ring-emerald-400"
                         >
                             <option>All Ghana</option>
-                            <option>Greater Accra</option>
+                            <option>Ahafo</option>
                             <option>Ashanti</option>
+                            <option>Bono</option>
+                            <option>Bono East</option>
+                            <option>Central</option>
+                            <option>Eastern</option>
+                            <option>Greater Accra</option>
+                            <option>North East</option>
+                            <option>Northern</option>
+                            <option>Oti</option>
+                            <option>Savannah</option>
+                            <option>Upper East</option>
+                            <option>Upper West</option>
                             <option>Volta</option>
+                            <option>Western</option>
+                            <option>Western North</option>
                         </select>
                         <div className="relative flex-1 max-w-md">
                             <input
