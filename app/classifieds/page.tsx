@@ -2,10 +2,12 @@
 
 import { useState, useEffect } from 'react'
 import { useSearchParams } from 'next/navigation'
-import { getListingsWithPagination, getCategories } from '@/lib/classifieds-queries'
+import { getCategories } from '@/lib/classifieds-queries'
 import { ListingGrid } from '@/components/classifieds/listing-grid'
 import { SearchFilters } from '@/components/classifieds/search-filters'
 import { Loader2 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import Link from 'next/link'
 import type { ClassifiedListing, ClassifiedCategory } from '@/types/supabase'
 
 export default function ClassifiedsPage() {
@@ -16,39 +18,39 @@ export default function ClassifiedsPage() {
     const [isLoading, setIsLoading] = useState(true)
     const [favorites, setFavorites] = useState<string[]>([])
 
-    const page = parseInt(searchParams.get('page') || '1')
     const category_id = searchParams.get('category_id') || undefined
     const location = searchParams.get('location') || undefined
-    const price_min = searchParams.get('price_min') ? parseFloat(searchParams.get('price_min')!) : undefined
-    const price_max = searchParams.get('price_max') ? parseFloat(searchParams.get('price_max')!) : undefined
 
     useEffect(() => {
         const loadData = async () => {
             setIsLoading(true)
             try {
-                const [listingsData, categoriesData] = await Promise.all([
-                    getListingsWithPagination({
-                        page,
-                        limit: 20,
-                        category_id,
-                        location,
-                        price_min,
-                        price_max,
-                    }),
-                    getCategories(),
-                ])
-
-                setListings(listingsData.listings as any)
+                // Load categories
+                const categoriesData = await getCategories()
                 setCategories(categoriesData)
+
+                // Load promoted listings only
+                const params = new URLSearchParams()
+                if (category_id) params.set('category_id', category_id)
+                if (location) params.set('location', location)
+
+                const listingsRes = await fetch(`/api/classifieds/promoted?${params.toString()}`)
+                if (listingsRes.ok) {
+                    const data = await listingsRes.json()
+                    setListings(data.promoted_listings || [])
+                } else {
+                    setListings([])
+                }
             } catch (error) {
                 console.error('Error loading classifieds:', error)
+                setListings([])
             } finally {
                 setIsLoading(false)
             }
         }
 
         loadData()
-    }, [page, category_id, location, price_min, price_max])
+    }, [category_id, location])
 
     const handleFavoriteToggle = async (listingId: string) => {
         try {
@@ -92,10 +94,10 @@ export default function ClassifiedsPage() {
             <div className="bg-white dark:bg-[#151c2c] border-b border-gray-100 dark:border-gray-800 sticky top-0 z-40">
                 <div className="max-w-7xl mx-auto px-6 py-4">
                     <h1 className="text-2xl font-black text-gray-900 dark:text-white">
-                        Classifieds
+                        Promoted Listings
                     </h1>
                     <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                        Browse and buy from local sellers
+                        Browse promoted listings or post your own
                     </p>
                 </div>
             </div>
@@ -113,6 +115,23 @@ export default function ClassifiedsPage() {
                         {isLoading && listings.length === 0 ? (
                             <div className="flex items-center justify-center py-12">
                                 <Loader2 className="w-8 h-8 text-emerald-600 dark:text-emerald-400 animate-spin" />
+                            </div>
+                        ) : listings.length === 0 ? (
+                            <div className="bg-white dark:bg-[#151c2c] rounded-xl border border-gray-100 dark:border-gray-800 p-12 text-center">
+                                <div className="w-16 h-16 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center mx-auto mb-4">
+                                    <span className="text-3xl">📢</span>
+                                </div>
+                                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
+                                    No promoted listings yet
+                                </h2>
+                                <p className="text-gray-600 dark:text-gray-400 mb-6">
+                                    Be the first to promote your listing and reach buyers instantly!
+                                </p>
+                                <Link href="/classifieds/seller/dashboard">
+                                    <Button className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                                        Post & Promote a Listing
+                                    </Button>
+                                </Link>
                             </div>
                         ) : (
                             <ListingGrid

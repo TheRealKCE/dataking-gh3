@@ -2,7 +2,7 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { Heart } from 'lucide-react'
+import { Heart, Zap } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ClassifiedListing } from '@/types/supabase'
 
@@ -30,8 +30,18 @@ export function ListingCard({ listing, isFavorited, onFavoriteToggle }: ListingC
                         </div>
                     )}
 
+                    {/* Boosted badge */}
+                    {listing.is_boosted && listing.boosted_until && new Date(listing.boosted_until) > new Date() && (
+                        <div className="absolute top-2 left-2 bottom-auto translate-y-0 ml-0 mt-8 bg-amber-400 dark:bg-amber-500 text-amber-900 dark:text-amber-950 text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
+                            <Zap className="w-3 h-3" />
+                            Promoted
+                        </div>
+                    )}
+
                     {/* Favorite button */}
                     <button
+                        title="Toggle favorite"
+                        aria-label="Toggle favorite"
                         onClick={(e) => {
                             e.preventDefault()
                             onFavoriteToggle?.(listing.id)

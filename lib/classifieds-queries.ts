@@ -316,3 +316,34 @@ export async function getListingImages(listingId: string) {
     if (error) throw error
     return data || []
 }
+
+export async function getBoostedListings(params: {
+    category_id?: string
+    location?: string
+    limit?: number
+}) {
+    const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey)
+    const now = new Date().toISOString()
+
+    let query = supabase
+        .from('classified_listings')
+        .select('*, classified_categories(name, slug), classified_listing_images(id, storage_path, display_order)')
+        .eq('status', 'active')
+        .eq('is_boosted', true)
+        .gt('boosted_until', now)
+
+    if (params.category_id) {
+        query = query.eq('category_id', params.category_id)
+    }
+
+    if (params.location) {
+        query = query.ilike('location', `%${params.location}%`)
+    }
+
+    const { data, error } = await query
+        .order('boosted_until', { ascending: false })
+        .limit(params.limit || 40)
+
+    if (error) throw error
+    return data || []
+}

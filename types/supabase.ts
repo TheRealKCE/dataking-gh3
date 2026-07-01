@@ -595,6 +595,9 @@ export interface Database {
                     contact_phone: string | null
                     contact_email: string | null
                     view_count: number
+                    is_boosted: boolean
+                    boosted_until: string | null
+                    boost_tier: string | null
                     created_at: string
                     updated_at: string
                     expires_at: string | null
@@ -612,6 +615,9 @@ export interface Database {
                     contact_phone?: string | null
                     contact_email?: string | null
                     view_count?: number
+                    is_boosted?: boolean
+                    boosted_until?: string | null
+                    boost_tier?: string | null
                     created_at?: string
                     updated_at?: string
                     expires_at?: string | null
@@ -627,8 +633,39 @@ export interface Database {
                     contact_phone?: string | null
                     contact_email?: string | null
                     view_count?: number
+                    is_boosted?: boolean
+                    boosted_until?: string | null
+                    boost_tier?: string | null
                     updated_at?: string
                     expires_at?: string | null
+                }
+            }
+            classified_boosts: {
+                Row: {
+                    id: string
+                    listing_id: string
+                    seller_id: string
+                    tier: string
+                    amount_paid: number
+                    starts_at: string
+                    ends_at: string
+                    created_at: string
+                }
+                Insert: {
+                    id?: string
+                    listing_id: string
+                    seller_id: string
+                    tier: string
+                    amount_paid: number
+                    starts_at?: string
+                    ends_at: string
+                    created_at?: string
+                }
+                Update: {
+                    tier?: string
+                    amount_paid?: number
+                    starts_at?: string
+                    ends_at?: string
                 }
             }
             classified_listing_images: {
@@ -715,3 +752,4 @@ export type ClassifiedListing = Database['public']['Tables']['classified_listing
 export type ClassifiedListingImage = Database['public']['Tables']['classified_listing_images']['Row']
 export type ClassifiedContactReveal = Database['public']['Tables']['classified_contact_reveals']['Row']
 export type ClassifiedFavorite = Database['public']['Tables']['classified_favorites']['Row']
+export type ClassifiedBoost = Database['public']['Tables']['classified_boosts']['Row']

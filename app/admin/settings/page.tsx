@@ -477,6 +477,81 @@ export default function AdminSettingsPage() {
                             </div>
                         </CardContent>
                     </Card>
+
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Classifieds Boost Fees</CardTitle>
+                            <CardDescription>Set promotional boost pricing for marketplace listings</CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="space-y-2">
+                                <Label>1 Week Boost (GHS)</Label>
+                                <Input
+                                    type="number"
+                                    value={settings['classifieds_boost_fee_7d'] || ''}
+                                    onChange={(e) => setSettings({ ...settings, 'classifieds_boost_fee_7d': e.target.value })}
+                                    step="0.01"
+                                    min="0"
+                                />
+                                <p className="text-xs text-muted-foreground">Fee for promoting a listing for 7 days</p>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>2 Weeks Boost (GHS)</Label>
+                                <Input
+                                    type="number"
+                                    value={settings['classifieds_boost_fee_14d'] || ''}
+                                    onChange={(e) => setSettings({ ...settings, 'classifieds_boost_fee_14d': e.target.value })}
+                                    step="0.01"
+                                    min="0"
+                                />
+                                <p className="text-xs text-muted-foreground">Fee for promoting a listing for 14 days</p>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>3 Weeks Boost (GHS)</Label>
+                                <Input
+                                    type="number"
+                                    value={settings['classifieds_boost_fee_21d'] || ''}
+                                    onChange={(e) => setSettings({ ...settings, 'classifieds_boost_fee_21d': e.target.value })}
+                                    step="0.01"
+                                    min="0"
+                                />
+                                <p className="text-xs text-muted-foreground">Fee for promoting a listing for 21 days</p>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>1 Month Boost (GHS)</Label>
+                                <Input
+                                    type="number"
+                                    value={settings['classifieds_boost_fee_30d'] || ''}
+                                    onChange={(e) => setSettings({ ...settings, 'classifieds_boost_fee_30d': e.target.value })}
+                                    step="0.01"
+                                    min="0"
+                                />
+                                <p className="text-xs text-muted-foreground">Fee for promoting a listing for 30 days</p>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>2 Months Boost (GHS)</Label>
+                                <Input
+                                    type="number"
+                                    value={settings['classifieds_boost_fee_60d'] || ''}
+                                    onChange={(e) => setSettings({ ...settings, 'classifieds_boost_fee_60d': e.target.value })}
+                                    step="0.01"
+                                    min="0"
+                                />
+                                <p className="text-xs text-muted-foreground">Fee for promoting a listing for 60 days</p>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>3 Months Boost (GHS)</Label>
+                                <Input
+                                    type="number"
+                                    value={settings['classifieds_boost_fee_90d'] || ''}
+                                    onChange={(e) => setSettings({ ...settings, 'classifieds_boost_fee_90d': e.target.value })}
+                                    step="0.01"
+                                    min="0"
+                                />
+                                <p className="text-xs text-muted-foreground">Fee for promoting a listing for 90 days</p>
+                            </div>
+                        </CardContent>
+                    </Card>
                 </TabsContent>
 
                 <TabsContent value="fulfillment" className="space-y-4 mt-4">
