@@ -112,7 +112,7 @@ export default function SellerDashboardPage() {
                             </p>
                         </div>
                         <Link href="/classifieds/seller/dashboard/new">
-                            <Button className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2">
+                            <Button className="bg-blue-600 hover:bg-blue-700 text-white gap-2 rounded-lg">
                                 <Plus className="w-4 h-4" />
                                 Post New Listing
                             </Button>
@@ -139,7 +139,7 @@ export default function SellerDashboardPage() {
                             Create your first listing and boost it to reach buyers instantly!
                         </p>
                         <Link href="/classifieds/seller/dashboard/new">
-                            <Button className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2">
+                            <Button className="bg-blue-600 hover:bg-blue-700 text-white gap-2 rounded-lg">
                                 <Plus className="w-4 h-4" />
                                 Create Your First Listing
                             </Button>

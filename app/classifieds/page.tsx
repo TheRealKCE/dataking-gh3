@@ -92,8 +92,8 @@ export default function ClassifiedsPage() {
         <div className="min-h-screen bg-gray-50 dark:bg-[#0a0f1c]">
             {/* Header */}
             <div className="bg-white dark:bg-[#151c2c] border-b border-gray-100 dark:border-gray-800 sticky top-0 z-40">
-                <div className="max-w-7xl mx-auto px-6 py-4">
-                    <h1 className="text-2xl font-black text-gray-900 dark:text-white">
+                <div className="max-w-7xl mx-auto px-6 py-6">
+                    <h1 className="text-3xl font-black text-gray-900 dark:text-white">
                         Promoted Listings
                     </h1>
                     <p className="text-sm text-gray-600 dark:text-gray-400 mt-1">
@@ -118,17 +118,17 @@ export default function ClassifiedsPage() {
                             </div>
                         ) : listings.length === 0 ? (
                             <div className="bg-white dark:bg-[#151c2c] rounded-xl border border-gray-100 dark:border-gray-800 p-12 text-center">
-                                <div className="w-16 h-16 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center mx-auto mb-4">
-                                    <span className="text-3xl">📢</span>
+                                <div className="w-20 h-20 rounded-full bg-yellow-100 dark:bg-yellow-900/30 flex items-center justify-center mx-auto mb-6">
+                                    <span className="text-4xl">📢</span>
                                 </div>
                                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
                                     No promoted listings yet
                                 </h2>
-                                <p className="text-gray-600 dark:text-gray-400 mb-6">
+                                <p className="text-gray-600 dark:text-gray-400 mb-8">
                                     Be the first to promote your listing and reach buyers instantly!
                                 </p>
                                 <Link href="/classifieds/seller/dashboard">
-                                    <Button className="bg-emerald-600 hover:bg-emerald-700 text-white">
+                                    <Button className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-8 py-2">
                                         Post & Promote a Listing
                                     </Button>
                                 </Link>
