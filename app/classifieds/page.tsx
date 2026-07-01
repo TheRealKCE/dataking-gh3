@@ -102,7 +102,12 @@ export default function ClassifiedsPage() {
     return (
         <div className="min-h-screen bg-gray-50 dark:bg-[#0a0f1c]">
             {/* Green Banner Search */}
-            <div className="bg-gradient-to-r from-emerald-500 to-emerald-600 dark:from-emerald-600 dark:to-emerald-700 py-8">
+            <div className="bg-gradient-to-r from-emerald-500 to-emerald-600 dark:from-emerald-600 dark:to-emerald-700 py-8 relative">
+                <Link href="/classifieds/seller/dashboard" className="absolute top-6 right-6">
+                    <Button className="bg-orange-500 hover:bg-orange-600 text-white font-black rounded-lg px-6 py-2">
+                        SELL
+                    </Button>
+                </Link>
                 <div className="max-w-6xl mx-auto px-6">
                     <h2 className="text-white text-center text-xl font-bold mb-6">
                         What are you looking for?
