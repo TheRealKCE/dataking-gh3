@@ -250,26 +250,27 @@ export default function ClassifiedsPage() {
                             </button>
                         </div>
 
-                        {/* Subcategories List (Jiji Style - Compact) */}
+                        {/* Subcategories Horizontal Strip */}
                         {selectedCategoryName && subCategories.length > 0 && (
-                            <div className="mb-8">
+                            <div className="mb-8 bg-gray-50 dark:bg-gray-900/30 rounded-lg p-4">
                                 <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">{selectedCategoryName}</h2>
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-                                    {subCategories.map((subCat) => (
-                                        <button
-                                            key={subCat.id}
-                                            onClick={() => setSelectedMainCategory(subCat.id)}
-                                            className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors text-left"
-                                        >
-                                            <span className="text-lg flex-shrink-0">{subCat.icon_emoji || '📦'}</span>
-                                            <div className="flex-1 min-w-0">
-                                                <div className="text-xs font-semibold text-gray-900 dark:text-white truncate">{subCat.name}</div>
-                                                <div className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">View listings</div>
-                                            </div>
-                                        </button>
-                                    ))}
+                                <div className="overflow-x-auto scrollbar-hide">
+                                    <div className="flex gap-3 pb-2">
+                                        {subCategories.map((subCat) => (
+                                            <button
+                                                key={subCat.id}
+                                                onClick={() => setSelectedMainCategory(subCat.id)}
+                                                className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#151c2c] border border-gray-200 dark:border-gray-700 hover:border-emerald-400 dark:hover:border-emerald-600 transition-colors text-left flex-shrink-0 whitespace-nowrap"
+                                            >
+                                                <span className="text-lg">{subCat.icon_emoji || '📦'}</span>
+                                                <div className="min-w-0">
+                                                    <div className="text-xs font-semibold text-gray-900 dark:text-white">{subCat.name}</div>
+                                                    <div className="text-xs text-emerald-600 dark:text-emerald-400">View listings</div>
+                                                </div>
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
-                                <hr className="my-6 border-gray-200 dark:border-gray-800" />
                             </div>
                         )}
 
