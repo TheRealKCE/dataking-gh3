@@ -276,11 +276,19 @@ export default function ClassifiedsPage() {
                             </button>
                         </div>
 
+                        {/* Category Header (when no subcategories) */}
+                        {selectedCategoryName && subCategories.length === 0 && (
+                            <div className="mb-6">
+                                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{selectedCategoryName}</h2>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Browsing all listings</p>
+                            </div>
+                        )}
+
                         {/* Listings Section */}
                         {listings.length > 0 && (
                             <div className="flex items-center justify-between mb-6">
                                 <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-                                    Trending in {selectedCategoryName}
+                                    {subCategories.length > 0 ? `Trending in ${selectedCategoryName}` : 'Listings'}
                                 </h3>
                                 <div className="flex gap-2">
                                     <button
@@ -309,7 +317,7 @@ export default function ClassifiedsPage() {
                             </div>
                         ) : listings.length === 0 ? (
                             <div className="text-center py-12">
-                                <p className="text-gray-600 dark:text-gray-400">No listings yet in {selectedCategoryName}. Check back soon!</p>
+                                <p className="text-gray-600 dark:text-gray-400">No listings yet in {selectedCategoryName}. Be the first to list!</p>
                             </div>
                         ) : (
                             <ListingGrid
