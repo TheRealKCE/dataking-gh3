@@ -240,21 +240,8 @@ export default function ClassifiedsPage() {
                                 <Loader2 className="w-8 h-8 text-emerald-600 dark:text-emerald-400 animate-spin" />
                             </div>
                         ) : listings.length === 0 ? (
-                            <div className="bg-white dark:bg-[#151c2c] rounded-xl border border-gray-100 dark:border-gray-800 p-12 text-center">
-                                <div className="w-20 h-20 rounded-full bg-yellow-100 dark:bg-yellow-900/30 flex items-center justify-center mx-auto mb-6">
-                                    <span className="text-4xl">📢</span>
-                                </div>
-                                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">
-                                    No promoted listings yet
-                                </h2>
-                                <p className="text-gray-600 dark:text-gray-400 mb-8">
-                                    Be the first to promote your listing and reach buyers instantly!
-                                </p>
-                                <Link href="/classifieds/seller/dashboard">
-                                    <Button className="bg-blue-600 hover:bg-blue-700 text-white rounded-lg px-8 py-2">
-                                        Post & Promote a Listing
-                                    </Button>
-                                </Link>
+                            <div className="text-center py-12">
+                                <p className="text-gray-600 dark:text-gray-400">No promoted listings yet. Check back soon!</p>
                             </div>
                         ) : (
                             <ListingGrid
