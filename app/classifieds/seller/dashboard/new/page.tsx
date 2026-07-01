@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ClassifiedsSellerSidebar } from '@/components/classifieds/seller-sidebar'
+import { CategorySelector } from '@/components/classifieds/category-selector'
 import { ArrowLeft, Loader2, X, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import type { ClassifiedCategory } from '@/types/supabase'
@@ -222,43 +223,40 @@ export default function NewListingPage() {
                             />
                         </div>
 
-                        {/* Category & Price */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                                <label className="block text-sm font-bold text-gray-900 dark:text-white mb-2">
-                                    Category <span className="text-red-600">*</span>
-                                </label>
-                                <select
-                                    name="category_id"
-                                    value={formData.category_id}
-                                    onChange={handleChange}
-                                    required
-                                    disabled={isLoadingCategories}
-                                    className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                >
-                                    <option value="">Select a category</option>
-                                    {categories.map(cat => (
-                                        <option key={cat.id} value={cat.id}>{cat.name}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-bold text-gray-900 dark:text-white mb-2">
-                                    Price (GHS) <span className="text-red-600">*</span>
-                                </label>
-                                <Input
-                                    type="number"
-                                    name="price"
-                                    placeholder="0.00"
-                                    value={formData.price}
-                                    onChange={handleChange}
-                                    step="0.01"
-                                    min="0"
-                                    required
-                                    className="w-full"
+                        {/* Category */}
+                        <div>
+                            <label className="block text-sm font-bold text-gray-900 dark:text-white mb-2">
+                                Category <span className="text-red-600">*</span>
+                            </label>
+                            {isLoadingCategories ? (
+                                <div className="p-4 text-center text-gray-500">Loading categories...</div>
+                            ) : (
+                                <CategorySelector
+                                    categories={categories}
+                                    selectedCategoryId={formData.category_id}
+                                    onSelectCategory={(categoryId) =>
+                                        setFormData(prev => ({ ...prev, category_id: categoryId }))
+                                    }
                                 />
-                            </div>
+                            )}
+                        </div>
+
+                        {/* Price */}
+                        <div>
+                            <label className="block text-sm font-bold text-gray-900 dark:text-white mb-2">
+                                Price (GHS) <span className="text-red-600">*</span>
+                            </label>
+                            <Input
+                                type="number"
+                                name="price"
+                                placeholder="0.00"
+                                value={formData.price}
+                                onChange={handleChange}
+                                step="0.01"
+                                min="0"
+                                required
+                                className="w-full"
+                            />
                         </div>
 
                         {/* Condition & Region */}
