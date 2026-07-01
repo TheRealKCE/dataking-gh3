@@ -6,7 +6,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { ClassifiedsSellerSidebar } from '@/components/classifieds/seller-sidebar'
-import { ArrowLeft, Loader2 } from 'lucide-react'
+import { ArrowLeft, Loader2, X, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import type { ClassifiedCategory } from '@/types/supabase'
 
@@ -15,6 +15,8 @@ export default function NewListingPage() {
     const [categories, setCategories] = useState<ClassifiedCategory[]>([])
     const [isLoading, setIsLoading] = useState(false)
     const [isLoadingCategories, setIsLoadingCategories] = useState(true)
+    const [images, setImages] = useState<File[]>([])
+    const [imagePreviews, setImagePreviews] = useState<string[]>([])
 
     const [formData, setFormData] = useState({
         title: '',
@@ -58,6 +60,36 @@ export default function NewListingPage() {
         setFormData(prev => ({ ...prev, [name]: value }))
     }
 
+    const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const files = Array.from(e.target.files || [])
+
+        if (images.length + files.length > 5) {
+            toast.error('Maximum 5 images allowed')
+            return
+        }
+
+        const newImages = [...images, ...files]
+        setImages(newImages)
+
+        // Create previews
+        const newPreviews = [...imagePreviews]
+        files.forEach(file => {
+            const reader = new FileReader()
+            reader.onload = (e) => {
+                if (e.target?.result) {
+                    newPreviews.push(e.target.result as string)
+                    setImagePreviews([...newPreviews])
+                }
+            }
+            reader.readAsDataURL(file)
+        })
+    }
+
+    const removeImage = (index: number) => {
+        setImages(images.filter((_, i) => i !== index))
+        setImagePreviews(imagePreviews.filter((_, i) => i !== index))
+    }
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
 
@@ -95,6 +127,33 @@ export default function NewListingPage() {
 
             if (response.ok) {
                 const data = await response.json()
+                const listingId = data.listing?.id
+
+                // Upload images if any
+                if (images.length > 0 && listingId) {
+                    const formDataImages = new FormData()
+                    images.forEach((image, index) => {
+                        formDataImages.append(`images`, image)
+                    })
+                    formDataImages.append('listing_id', listingId)
+
+                    try {
+                        const imageResponse = await fetch('/api/classifieds/listings/upload-images', {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Bearer ${token}`,
+                            },
+                            body: formDataImages,
+                        })
+
+                        if (!imageResponse.ok) {
+                            console.warn('Some images failed to upload, but listing was created')
+                        }
+                    } catch (imageError) {
+                        console.warn('Error uploading images:', imageError)
+                    }
+                }
+
                 toast.success('Listing created successfully!')
                 router.push(`/classifieds/seller/dashboard`)
             } else {
@@ -283,6 +342,62 @@ export default function NewListingPage() {
                                     className="w-full"
                                 />
                             </div>
+                        </div>
+
+                        {/* Images */}
+                        <div>
+                            <label className="block text-sm font-bold text-gray-900 dark:text-white mb-2">
+                                Images (up to 5)
+                            </label>
+                            <div className="border-2 border-dashed border-gray-300 dark:border-gray-700 rounded-lg p-6">
+                                <div className="flex items-center justify-center">
+                                    <label className="flex flex-col items-center cursor-pointer w-full">
+                                        <Upload className="w-8 h-8 text-gray-400 mb-2" />
+                                        <span className="text-sm font-bold text-gray-700 dark:text-gray-300">
+                                            Click to upload or drag and drop
+                                        </span>
+                                        <span className="text-xs text-gray-500 dark:text-gray-400 mt-1">
+                                            PNG, JPG, GIF up to 5MB
+                                        </span>
+                                        <input
+                                            type="file"
+                                            multiple
+                                            accept="image/*"
+                                            onChange={handleImageChange}
+                                            disabled={images.length >= 5}
+                                            className="hidden"
+                                        />
+                                    </label>
+                                </div>
+                            </div>
+
+                            {/* Image Previews */}
+                            {imagePreviews.length > 0 && (
+                                <div className="mt-6">
+                                    <p className="text-sm font-bold text-gray-900 dark:text-white mb-4">
+                                        Uploaded Images ({imagePreviews.length}/5)
+                                    </p>
+                                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
+                                        {imagePreviews.map((preview, index) => (
+                                            <div key={index} className="relative">
+                                                <img
+                                                    src={preview}
+                                                    alt={`Preview ${index + 1}`}
+                                                    className="w-full h-32 object-cover rounded-lg border border-gray-200 dark:border-gray-700"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => removeImage(index)}
+                                                    className="absolute top-1 right-1 bg-red-600 hover:bg-red-700 text-white rounded-full p-1"
+                                                    aria-label="Remove image"
+                                                >
+                                                    <X className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
 
                         {/* Buttons */}
