@@ -182,26 +182,26 @@ export default function ClassifiedsPage() {
 
                     {/* Subcategories + Listings */}
                     <div className="lg:col-span-4">
-                        {/* Subcategories Grid (Jiji Style) */}
+                        {/* Subcategories List (Jiji Style - Compact) */}
                         {selectedCategoryName && subCategories.length > 0 && (
                             <div className="mb-8">
                                 <h2 className="text-lg font-bold text-gray-900 dark:text-white mb-4">{selectedCategoryName}</h2>
-                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
                                     {subCategories.map((subCat) => (
                                         <button
                                             key={subCat.id}
                                             onClick={() => setSelectedMainCategory(subCat.id)}
-                                            className="flex items-center gap-3 p-3 rounded-lg bg-white dark:bg-[#151c2c] border border-gray-100 dark:border-gray-800 hover:border-emerald-400 dark:hover:border-emerald-600 hover:shadow-md transition-all text-left"
+                                            className="flex items-center gap-2 p-2 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors text-left"
                                         >
-                                            <span className="text-2xl flex-shrink-0">{subCat.icon_emoji || '📦'}</span>
+                                            <span className="text-lg flex-shrink-0">{subCat.icon_emoji || '📦'}</span>
                                             <div className="flex-1 min-w-0">
-                                                <div className="text-sm font-semibold text-gray-900 dark:text-white truncate">{subCat.name}</div>
-                                                <div className="text-xs text-gray-500 dark:text-gray-400">View listings</div>
+                                                <div className="text-xs font-semibold text-gray-900 dark:text-white truncate">{subCat.name}</div>
+                                                <div className="text-xs text-emerald-600 dark:text-emerald-400 font-medium">View listings</div>
                                             </div>
                                         </button>
                                     ))}
                                 </div>
-                                <hr className="my-8 border-gray-200 dark:border-gray-800" />
+                                <hr className="my-6 border-gray-200 dark:border-gray-800" />
                             </div>
                         )}
 
