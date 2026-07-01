@@ -19,6 +19,8 @@ export default function ClassifiedsPage() {
     const [favorites, setFavorites] = useState<string[]>([])
     const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '')
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
+    const [showSellGuide, setShowSellGuide] = useState(false)
+    const [showBuyGuide, setShowBuyGuide] = useState(false)
 
     const category_id = searchParams.get('category_id') || undefined
     const location = searchParams.get('location') || undefined
@@ -138,31 +140,29 @@ export default function ClassifiedsPage() {
             {/* Quick Actions */}
             <div className="bg-gray-100 dark:bg-gray-900/30 py-8">
                 <div className="max-w-6xl mx-auto px-6">
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                         <Link href="/classifieds/niche-intelligence">
                             <div className="bg-purple-100 dark:bg-purple-900/30 rounded-lg p-4 text-center hover:shadow-md transition-shadow cursor-pointer">
                                 <div className="text-3xl mb-2">🔍</div>
                                 <p className="font-bold text-sm text-gray-900 dark:text-white">Niche Intelligence</p>
                             </div>
                         </Link>
-                        <Link href="/classifieds/seller/dashboard">
-                            <div className="bg-green-100 dark:bg-green-900/30 rounded-lg p-4 text-center hover:shadow-md transition-shadow cursor-pointer">
-                                <div className="text-3xl mb-2">💼</div>
-                                <p className="font-bold text-sm text-gray-900 dark:text-white">Apply for job</p>
-                            </div>
-                        </Link>
-                        <Link href="/classifieds/seller/dashboard">
-                            <div className="bg-yellow-100 dark:bg-yellow-900/30 rounded-lg p-4 text-center hover:shadow-md transition-shadow cursor-pointer">
-                                <div className="text-3xl mb-2">📦</div>
-                                <p className="font-bold text-sm text-gray-900 dark:text-white">How to sell</p>
-                            </div>
-                        </Link>
-                        <Link href="/classifieds">
-                            <div className="bg-blue-100 dark:bg-blue-900/30 rounded-lg p-4 text-center hover:shadow-md transition-shadow cursor-pointer">
-                                <div className="text-3xl mb-2">🛍️</div>
-                                <p className="font-bold text-sm text-gray-900 dark:text-white">How to buy</p>
-                            </div>
-                        </Link>
+                        <button
+                            type="button"
+                            onClick={() => setShowSellGuide(true)}
+                            className="bg-yellow-100 dark:bg-yellow-900/30 rounded-lg p-4 text-center hover:shadow-md transition-shadow cursor-pointer"
+                        >
+                            <div className="text-3xl mb-2">📦</div>
+                            <p className="font-bold text-sm text-gray-900 dark:text-white">How to sell</p>
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => setShowBuyGuide(true)}
+                            className="bg-blue-100 dark:bg-blue-900/30 rounded-lg p-4 text-center hover:shadow-md transition-shadow cursor-pointer"
+                        >
+                            <div className="text-3xl mb-2">🛍️</div>
+                            <p className="font-bold text-sm text-gray-900 dark:text-white">How to buy</p>
+                        </button>
                     </div>
                 </div>
             </div>
@@ -249,6 +249,181 @@ export default function ClassifiedsPage() {
                     </div>
                 </div>
             </div>
+
+            {/* How to Sell Modal */}
+            {showSellGuide && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white dark:bg-[#151c2c] rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                        <div className="sticky top-0 bg-white dark:bg-[#151c2c] border-b border-gray-200 dark:border-gray-800 p-6 flex items-center justify-between">
+                            <h2 className="text-2xl font-black text-gray-900 dark:text-white">How to Sell</h2>
+                            <button
+                                type="button"
+                                onClick={() => setShowSellGuide(false)}
+                                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-2xl"
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        <div className="p-6 space-y-6">
+                            <div className="flex gap-4">
+                                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold">1</div>
+                                <div>
+                                    <h3 className="font-bold text-gray-900 dark:text-white mb-2">Create Your Account</h3>
+                                    <p className="text-gray-600 dark:text-gray-400">Sign up with your phone number and verify your account to become a seller.</p>
+                                </div>
+                            </div>
+
+                            <div className="flex gap-4">
+                                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold">2</div>
+                                <div>
+                                    <h3 className="font-bold text-gray-900 dark:text-white mb-2">Set Up Your Seller Profile</h3>
+                                    <p className="text-gray-600 dark:text-gray-400">Add your profile photo, business name, phone number, and location. This helps buyers trust you.</p>
+                                </div>
+                            </div>
+
+                            <div className="flex gap-4">
+                                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold">3</div>
+                                <div>
+                                    <h3 className="font-bold text-gray-900 dark:text-white mb-2">Post Your First Listing</h3>
+                                    <p className="text-gray-600 dark:text-gray-400">Click "Post New Listing" and add product title, description, photos, price, condition, and location.</p>
+                                </div>
+                            </div>
+
+                            <div className="flex gap-4">
+                                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold">4</div>
+                                <div>
+                                    <h3 className="font-bold text-gray-900 dark:text-white mb-2">Promote Your Listing (Optional)</h3>
+                                    <p className="text-gray-600 dark:text-gray-400">Pay a small fee to boost your listing to the top and reach more buyers. Choose from 6 duration options.</p>
+                                </div>
+                            </div>
+
+                            <div className="flex gap-4">
+                                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold">5</div>
+                                <div>
+                                    <h3 className="font-bold text-gray-900 dark:text-white mb-2">Connect with Buyers</h3>
+                                    <p className="text-gray-600 dark:text-gray-400">When a buyer is interested, they'll request your contact info. Respond quickly and negotiate the best deal.</p>
+                                </div>
+                            </div>
+
+                            <div className="flex gap-4">
+                                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-600 text-white flex items-center justify-center font-bold">6</div>
+                                <div>
+                                    <h3 className="font-bold text-gray-900 dark:text-white mb-2">Complete the Sale</h3>
+                                    <p className="text-gray-600 dark:text-gray-400">Meet the buyer, verify payment, and hand over the product. Mark your listing as sold when complete.</p>
+                                </div>
+                            </div>
+
+                            <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg p-4 mt-6">
+                                <p className="text-sm text-emerald-900 dark:text-emerald-100">
+                                    💡 <strong>Pro Tip:</strong> Use Niche Intelligence to find high-demand products with low competition and maximize your sales potential!
+                                </p>
+                            </div>
+
+                            <Link href="/classifieds/seller/dashboard">
+                                <Button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg py-3 font-bold">
+                                    Start Selling Now
+                                </Button>
+                            </Link>
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* How to Buy Modal */}
+            {showBuyGuide && (
+                <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                    <div className="bg-white dark:bg-[#151c2c] rounded-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                        <div className="sticky top-0 bg-white dark:bg-[#151c2c] border-b border-gray-200 dark:border-gray-800 p-6 flex items-center justify-between">
+                            <h2 className="text-2xl font-black text-gray-900 dark:text-white">How to Buy</h2>
+                            <button
+                                type="button"
+                                onClick={() => setShowBuyGuide(false)}
+                                className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 text-2xl"
+                            >
+                                ✕
+                            </button>
+                        </div>
+
+                        <div className="p-6 space-y-6">
+                            <div className="flex gap-4">
+                                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold">1</div>
+                                <div>
+                                    <h3 className="font-bold text-gray-900 dark:text-white mb-2">Browse the Marketplace</h3>
+                                    <p className="text-gray-600 dark:text-gray-400">Browse promoted listings on our homepage or use filters to find items by category, location, or price.</p>
+                                </div>
+                            </div>
+
+                            <div className="flex gap-4">
+                                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold">2</div>
+                                <div>
+                                    <h3 className="font-bold text-gray-900 dark:text-white mb-2">View Listing Details</h3>
+                                    <p className="text-gray-600 dark:text-gray-400">Click on any listing to see full details, photos, seller info, price, and buyer reviews.</p>
+                                </div>
+                            </div>
+
+                            <div className="flex gap-4">
+                                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold">3</div>
+                                <div>
+                                    <h3 className="font-bold text-gray-900 dark:text-white mb-2">Save to Favorites (Optional)</h3>
+                                    <p className="text-gray-600 dark:text-gray-400">Like an item? Click the heart icon to save it to your favorites for later.</p>
+                                </div>
+                            </div>
+
+                            <div className="flex gap-4">
+                                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold">4</div>
+                                <div>
+                                    <h3 className="font-bold text-gray-900 dark:text-white mb-2">Request Seller Contact</h3>
+                                    <p className="text-gray-600 dark:text-gray-400">Click "Reveal Contact" and read the safety tips to protect yourself during the transaction.</p>
+                                </div>
+                            </div>
+
+                            <div className="flex gap-4">
+                                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold">5</div>
+                                <div>
+                                    <h3 className="font-bold text-gray-900 dark:text-white mb-2">Negotiate & Arrange Meeting</h3>
+                                    <p className="text-gray-600 dark:text-gray-400">Contact the seller via phone or message. Agree on price, condition, and meet-up time and location.</p>
+                                </div>
+                            </div>
+
+                            <div className="flex gap-4">
+                                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold">6</div>
+                                <div>
+                                    <h3 className="font-bold text-gray-900 dark:text-white mb-2">Meet Safely & Inspect</h3>
+                                    <p className="text-gray-600 dark:text-gray-400">Meet in a public place during daytime. Inspect the item thoroughly before making payment.</p>
+                                </div>
+                            </div>
+
+                            <div className="flex gap-4">
+                                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-blue-600 text-white flex items-center justify-center font-bold">7</div>
+                                <div>
+                                    <h3 className="font-bold text-gray-900 dark:text-white mb-2">Complete the Purchase</h3>
+                                    <p className="text-gray-600 dark:text-gray-400">Pay the agreed amount and take the product. Keep your receipt or payment proof.</p>
+                                </div>
+                            </div>
+
+                            <div className="bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-lg p-4 mt-6 space-y-3">
+                                <p className="text-sm font-bold text-blue-900 dark:text-blue-100">🛡️ Safety Tips:</p>
+                                <ul className="text-sm text-blue-900 dark:text-blue-100 space-y-1 list-disc list-inside">
+                                    <li>Always meet in public places (mall, market, police station)</li>
+                                    <li>Bring a friend or family member to the meeting</li>
+                                    <li>Check the product thoroughly before paying</li>
+                                    <li>Avoid sending money before seeing the item</li>
+                                    <li>Report suspicious listings to our team</li>
+                                </ul>
+                            </div>
+
+                            <button
+                                type="button"
+                                onClick={() => setShowBuyGuide(false)}
+                                className="w-full bg-blue-600 hover:bg-blue-700 text-white rounded-lg py-3 font-bold"
+                            >
+                                Start Shopping
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     )
 }
