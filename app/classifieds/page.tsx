@@ -131,15 +131,57 @@ export default function ClassifiedsPage() {
 
     return (
         <div className="min-h-screen bg-white dark:bg-[#0a0f1c]">
-            {/* Green Banner with Sell Button */}
+            {/* Green Banner Search */}
             <div className="bg-gradient-to-r from-emerald-500 to-emerald-600 dark:from-emerald-600 dark:to-emerald-700 py-6">
-                <div className="max-w-7xl mx-auto px-4 flex items-center justify-between">
-                    <h1 className="text-white text-2xl font-bold">Browse Classifieds</h1>
-                    <Link href="/classifieds/seller/dashboard">
-                        <Button className="bg-orange-500 hover:bg-orange-600 text-white font-black rounded-lg px-6 py-2">
-                            SELL
-                        </Button>
-                    </Link>
+                <div className="max-w-7xl mx-auto px-4">
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-white text-xl font-bold">What are you looking for?</h2>
+                        <Link href="/classifieds/seller/dashboard">
+                            <Button className="bg-blue-600 hover:bg-blue-700 text-white font-black rounded-lg px-6 py-2">
+                                SELL
+                            </Button>
+                        </Link>
+                    </div>
+                    <form onSubmit={handleSearch} className="flex gap-3">
+                        <select
+                            aria-label="Location filter"
+                            className="px-4 py-2 rounded-lg bg-white text-gray-900 font-medium border-0 focus:ring-2 focus:ring-emerald-400"
+                        >
+                            <option>All Ghana</option>
+                            <option>Ahafo</option>
+                            <option>Ashanti</option>
+                            <option>Bono</option>
+                            <option>Bono East</option>
+                            <option>Central</option>
+                            <option>Eastern</option>
+                            <option>Greater Accra</option>
+                            <option>North East</option>
+                            <option>Northern</option>
+                            <option>Oti</option>
+                            <option>Savannah</option>
+                            <option>Upper East</option>
+                            <option>Upper West</option>
+                            <option>Volta</option>
+                            <option>Western</option>
+                            <option>Western North</option>
+                        </select>
+                        <div className="relative flex-1">
+                            <input
+                                type="text"
+                                placeholder="I am looking for..."
+                                value={searchQuery}
+                                onChange={(e) => setSearchQuery(e.target.value)}
+                                className="w-full px-4 py-2 rounded-lg border-0 focus:ring-2 focus:ring-emerald-400"
+                            />
+                            <button
+                                type="submit"
+                                aria-label="Search listings"
+                                className="absolute right-3 top-1/2 -translate-y-1/2"
+                            >
+                                <Search className="w-5 h-5 text-gray-400" />
+                            </button>
+                        </div>
+                    </form>
                 </div>
             </div>
 
@@ -180,8 +222,34 @@ export default function ClassifiedsPage() {
                         </div>
                     </div>
 
-                    {/* Subcategories + Listings */}
+                    {/* Subcategories + Quick Actions + Listings */}
                     <div className="lg:col-span-4">
+                        {/* Quick Action Cards */}
+                        <div className="grid grid-cols-3 gap-4 mb-8">
+                            <Link href="/classifieds/niche-intelligence">
+                                <div className="bg-purple-100 dark:bg-purple-900/30 rounded-lg p-4 text-center hover:shadow-md transition-shadow cursor-pointer">
+                                    <div className="text-3xl mb-2">🔍</div>
+                                    <p className="font-bold text-sm text-gray-900 dark:text-white">Niche Intelligence</p>
+                                </div>
+                            </Link>
+                            <button
+                                type="button"
+                                onClick={() => setShowSellGuide(true)}
+                                className="bg-yellow-100 dark:bg-yellow-900/30 rounded-lg p-4 text-center hover:shadow-md transition-shadow cursor-pointer"
+                            >
+                                <div className="text-3xl mb-2">📦</div>
+                                <p className="font-bold text-sm text-gray-900 dark:text-white">How to sell</p>
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => setShowBuyGuide(true)}
+                                className="bg-blue-100 dark:bg-blue-900/30 rounded-lg p-4 text-center hover:shadow-md transition-shadow cursor-pointer"
+                            >
+                                <div className="text-3xl mb-2">🛍️</div>
+                                <p className="font-bold text-sm text-gray-900 dark:text-white">How to buy</p>
+                            </button>
+                        </div>
+
                         {/* Subcategories List (Jiji Style - Compact) */}
                         {selectedCategoryName && subCategories.length > 0 && (
                             <div className="mb-8">
@@ -252,30 +320,6 @@ export default function ClassifiedsPage() {
                 </div>
             </div>
 
-            {/* Search Bar Section (Optional - Can be hidden or moved) */}
-            <div className="bg-gray-50 dark:bg-gray-900/30 py-6 mt-8 border-t border-gray-200 dark:border-gray-800">
-                <div className="max-w-7xl mx-auto px-4">
-                    <h3 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-4">Search Classifieds</h3>
-                    <form onSubmit={handleSearch} className="flex gap-3 flex-wrap">
-                        <div className="relative flex-1 max-w-md">
-                            <input
-                                type="text"
-                                placeholder="Search listings..."
-                                value={searchQuery}
-                                onChange={(e) => setSearchQuery(e.target.value)}
-                                className="w-full px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-[#151c2c] focus:ring-2 focus:ring-emerald-400 dark:text-white"
-                            />
-                            <button
-                                type="submit"
-                                aria-label="Search listings"
-                                className="absolute right-3 top-1/2 -translate-y-1/2"
-                            >
-                                <Search className="w-5 h-5 text-gray-400" />
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
 
             {/* How to Sell Modal */}
             {showSellGuide && (
