@@ -229,7 +229,14 @@ export default function NewListingPage() {
                                 Category <span className="text-red-600">*</span>
                             </label>
                             {isLoadingCategories ? (
-                                <div className="p-4 text-center text-gray-500">Loading categories...</div>
+                                <div className="w-full p-8 text-center bg-gray-50 dark:bg-gray-800 rounded-lg border-2 border-gray-200 dark:border-gray-700">
+                                    <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2 text-gray-400" />
+                                    <p className="text-gray-500 dark:text-gray-400">Loading categories...</p>
+                                </div>
+                            ) : categories.length === 0 ? (
+                                <div className="w-full p-8 text-center bg-gray-50 dark:bg-gray-800 rounded-lg border-2 border-gray-200 dark:border-gray-700">
+                                    <p className="text-gray-500 dark:text-gray-400">No categories available</p>
+                                </div>
                             ) : (
                                 <CategorySelector
                                     categories={categories}

@@ -1,14 +1,33 @@
-import { NextRequest, NextResponse } from 'next/server'
-import { getCategories } from '@/lib/classifieds-queries'
+import { createClient } from '@supabase/supabase-js'
+import { NextResponse } from 'next/server'
 
-export async function GET(request: NextRequest) {
+const supabase = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL || '',
+    process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+)
+
+export async function GET() {
     try {
-        const categories = await getCategories()
-        return NextResponse.json({ categories })
-    } catch (error: any) {
-        console.error('Categories GET error:', error)
+        const { data, error } = await supabase
+            .from('classified_categories')
+            .select('*')
+            .order('display_order', { ascending: true })
+
+        if (error) {
+            console.error('Database error:', error)
+            return NextResponse.json(
+                { error: 'Failed to fetch categories' },
+                { status: 500 }
+            )
+        }
+
+        return NextResponse.json({
+            categories: data || [],
+        })
+    } catch (error) {
+        console.error('Error fetching categories:', error)
         return NextResponse.json(
-            { error: error.message || 'Failed to fetch categories' },
+            { error: 'Failed to fetch categories' },
             { status: 500 }
         )
     }

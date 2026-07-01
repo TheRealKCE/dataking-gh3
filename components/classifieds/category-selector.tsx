@@ -36,8 +36,8 @@ export function CategorySelector({
     }, [selectedCategoryId, categories, selectedParentId])
 
     return (
-        <div className="bg-white dark:bg-[#151c2c] rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden">
-            <div className="grid grid-cols-2 gap-0 max-h-96">
+        <div className="bg-white dark:bg-[#151c2c] rounded-lg border-2 border-blue-500 overflow-hidden w-full">
+            <div className="grid grid-cols-2 gap-0 min-h-96 max-h-96">
                 {/* Main Categories */}
                 <div className="border-r border-gray-200 dark:border-gray-700 overflow-y-auto">
                     <div className="p-0">
