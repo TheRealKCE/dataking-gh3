@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Loader2, Zap, AlertCircle, Plus } from 'lucide-react'
 import { BoostModal } from '@/components/classifieds/boost-modal'
+import { ClassifiedsSellerSidebar } from '@/components/classifieds/seller-sidebar'
 import { toast } from 'sonner'
 import type { ClassifiedListing } from '@/types/supabase'
 
@@ -94,7 +95,10 @@ export default function SellerDashboardPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-[#0a0f1c]">
+        <div className="min-h-screen bg-gray-50 dark:bg-[#0a0f1c] flex">
+            <ClassifiedsSellerSidebar />
+
+            <div className="flex-1">
             {/* Header */}
             <div className="bg-white dark:bg-[#151c2c] border-b border-gray-100 dark:border-gray-800">
                 <div className="max-w-6xl mx-auto px-6 py-8">
@@ -246,6 +250,7 @@ export default function SellerDashboardPage() {
                     onSuccess={handleBoostSuccess}
                 />
             )}
+            </div>
         </div>
     )
 }

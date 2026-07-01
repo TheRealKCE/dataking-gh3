@@ -81,7 +81,7 @@ const adminNavItems = [
     { href: '/admin/memberships', label: 'Agent Members', icon: Crown },
     { href: '/admin/users', label: 'Users', icon: Users },
     { href: '/admin/packages', label: 'Packages', icon: Package },
-    { href: '/classifieds', label: 'Classifieds', icon: Store },
+    { href: '/classifieds/admin/dashboard', label: 'Classifieds', icon: Store },
     { href: '/admin/complaints', label: 'Complaints', icon: MessageSquare },
     { href: '/admin/announcements', label: 'Announce', icon: Bell },
     { href: '/admin/sms-broadcast', label: 'SMS', icon: MessageSquare },
