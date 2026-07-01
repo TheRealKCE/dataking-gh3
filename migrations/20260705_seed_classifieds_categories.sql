@@ -65,3 +65,32 @@ INSERT INTO public.classified_categories (name, slug, description, icon_emoji, p
 ('Hardware & Fasteners', 'hardware-fasteners', 'Hardware items', '🔩', (SELECT id FROM public.classified_categories WHERE slug = 'repair-construction' AND parent_id IS NULL LIMIT 1), 5),
 ('Doors & Security', 'doors-security', 'Doors and security systems', '🚪', (SELECT id FROM public.classified_categories WHERE slug = 'repair-construction' AND parent_id IS NULL LIMIT 1), 6)
 ON CONFLICT (slug) DO NOTHING;
+
+-- Insert subcategories for Babies & Kids
+INSERT INTO public.classified_categories (name, slug, description, icon_emoji, parent_id, display_order) VALUES
+('Toys & Games', 'toys-games', 'Toys and games for children', '🎮', (SELECT id FROM public.classified_categories WHERE slug = 'babies-kids' AND parent_id IS NULL LIMIT 1), 1),
+('Children''s Furniture', 'childrens-furniture', 'Furniture for children', '🛏️', (SELECT id FROM public.classified_categories WHERE slug = 'babies-kids' AND parent_id IS NULL LIMIT 1), 2),
+('Children''s Clothing', 'childrens-clothing', 'Clothing for children', '👕', (SELECT id FROM public.classified_categories WHERE slug = 'babies-kids' AND parent_id IS NULL LIMIT 1), 3),
+('Children''s Shoes', 'childrens-shoes', 'Shoes for children', '👟', (SELECT id FROM public.classified_categories WHERE slug = 'babies-kids' AND parent_id IS NULL LIMIT 1), 4),
+('Babies & Kids Accessories', 'babies-kids-accessories', 'Accessories for babies and kids', '🎒', (SELECT id FROM public.classified_categories WHERE slug = 'babies-kids' AND parent_id IS NULL LIMIT 1), 5),
+('Baby Gear & Equipment', 'baby-gear-equipment', 'Baby gear and equipment', '🚼', (SELECT id FROM public.classified_categories WHERE slug = 'babies-kids' AND parent_id IS NULL LIMIT 1), 6),
+('Care & Feeding', 'care-feeding', 'Baby care and feeding supplies', '🍼', (SELECT id FROM public.classified_categories WHERE slug = 'babies-kids' AND parent_id IS NULL LIMIT 1), 7),
+('Maternity & Pregnancy', 'maternity-pregnancy', 'Maternity and pregnancy products', '🤰', (SELECT id FROM public.classified_categories WHERE slug = 'babies-kids' AND parent_id IS NULL LIMIT 1), 8),
+('Transport & Safety', 'transport-safety', 'Baby transport and safety gear', '🚗', (SELECT id FROM public.classified_categories WHERE slug = 'babies-kids' AND parent_id IS NULL LIMIT 1), 9),
+('Playground Equipment', 'playground-equipment', 'Playground and outdoor equipment', '🎡', (SELECT id FROM public.classified_categories WHERE slug = 'babies-kids' AND parent_id IS NULL LIMIT 1), 10),
+('Child Care & Education', 'child-care-education', 'Child care and educational materials', '📚', (SELECT id FROM public.classified_categories WHERE slug = 'babies-kids' AND parent_id IS NULL LIMIT 1), 11)
+ON CONFLICT (slug) DO NOTHING;
+
+-- Insert subcategories for Leisure & Activities
+INSERT INTO public.classified_categories (name, slug, description, icon_emoji, parent_id, display_order) VALUES
+('Personal Mobility', 'personal-mobility', 'Personal mobility devices', '🛴', (SELECT id FROM public.classified_categories WHERE slug = 'leisure-activities' AND parent_id IS NULL LIMIT 1), 1),
+('Sports Equipment', 'sports-equipment', 'Sports equipment and gear', '⚽', (SELECT id FROM public.classified_categories WHERE slug = 'leisure-activities' AND parent_id IS NULL LIMIT 1), 2),
+('Massagers', 'massagers', 'Massage and relaxation devices', '💆', (SELECT id FROM public.classified_categories WHERE slug = 'leisure-activities' AND parent_id IS NULL LIMIT 1), 3),
+('Musical Instruments & Gear', 'musical-instruments-gear', 'Musical instruments and equipment', '🎸', (SELECT id FROM public.classified_categories WHERE slug = 'leisure-activities' AND parent_id IS NULL LIMIT 1), 4),
+('Books & Table Games', 'books-table-games', 'Books and board games', '📚', (SELECT id FROM public.classified_categories WHERE slug = 'leisure-activities' AND parent_id IS NULL LIMIT 1), 5),
+('Arts, Crafts & Awards', 'arts-crafts-awards', 'Art supplies and crafts', '🎨', (SELECT id FROM public.classified_categories WHERE slug = 'leisure-activities' AND parent_id IS NULL LIMIT 1), 6),
+('Outdoor Gear', 'outdoor-gear', 'Outdoor and camping equipment', '⛺', (SELECT id FROM public.classified_categories WHERE slug = 'leisure-activities' AND parent_id IS NULL LIMIT 1), 7),
+('Smoking Accessories', 'smoking-accessories', 'Smoking accessories', '🚬', (SELECT id FROM public.classified_categories WHERE slug = 'leisure-activities' AND parent_id IS NULL LIMIT 1), 8),
+('Music & Video', 'music-video', 'Music and video equipment', '🎬', (SELECT id FROM public.classified_categories WHERE slug = 'leisure-activities' AND parent_id IS NULL LIMIT 1), 9),
+('Fitness & Personal Training Services', 'fitness-personal-training', 'Fitness and training services', '💪', (SELECT id FROM public.classified_categories WHERE slug = 'leisure-activities' AND parent_id IS NULL LIMIT 1), 10)
+ON CONFLICT (slug) DO NOTHING;
