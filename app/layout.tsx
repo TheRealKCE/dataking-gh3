@@ -92,7 +92,7 @@ export default async function RootLayout({
                             {children}
                             <SystemAnnouncementModal initialAnnouncement={systemAnnouncement as any} />
                             <PwaInstallPrompt />
-                            <Toaster position="top-right" richColors />
+                            <Toaster position="top-center" richColors expand />
                         </UIProvider>
                     </AuthProvider>
                 </ThemeProvider>
