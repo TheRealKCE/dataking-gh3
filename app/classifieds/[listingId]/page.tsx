@@ -35,12 +35,22 @@ export default function ListingDetailPage({
                 setListing(data as any)
 
                 // Transform listing images to carousel format
+                console.log('Listing data:', data)
+                console.log('Images from listing:', data.classified_listing_images)
+
                 if (data.classified_listing_images && data.classified_listing_images.length > 0) {
-                    const carouselImages = (data.classified_listing_images as any[]).map((img: any) => ({
-                        url: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/classifieds-images/${img.storage_path}`,
-                        alt: data.title || 'Listing image'
-                    }))
+                    const carouselImages = (data.classified_listing_images as any[]).map((img: any) => {
+                        const imageUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/classifieds-listings/${img.storage_path}`
+                        console.log('Image URL:', imageUrl)
+                        return {
+                            url: imageUrl,
+                            alt: data.title || 'Listing image'
+                        }
+                    })
+                    console.log('Carousel images:', carouselImages)
                     setImages(carouselImages)
+                } else {
+                    console.log('No images found for listing')
                 }
 
                 setIsLoadingSimilar(true)
