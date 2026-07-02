@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { Loader2, Zap, AlertCircle, Plus } from 'lucide-react'
@@ -11,11 +12,19 @@ import { toast } from 'sonner'
 import type { ClassifiedListing } from '@/types/supabase'
 
 export default function SellerDashboardPage() {
-    const { session } = useAuth()
+    const router = useRouter()
+    const { user, session } = useAuth()
     const [listings, setListings] = useState<ClassifiedListing[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [selectedListingId, setSelectedListingId] = useState<string | null>(null)
     const [boostModalOpen, setBoostModalOpen] = useState(false)
+
+    useEffect(() => {
+        if (!user) {
+            toast.error('Please log in to access seller dashboard')
+            router.push('/auth/login')
+        }
+    }, [user, router])
 
     useEffect(() => {
         const loadListings = async () => {
