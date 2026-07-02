@@ -29,16 +29,10 @@ export default function NewListingPage() {
         price: '',
         condition: 'used',
         location: '',
-        region: '',
         contact_phone: '',
         contact_email: '',
     })
 
-    const regions = [
-        'Ahafo', 'Ashanti', 'Bono', 'Bono East', 'Central', 'Eastern',
-        'Greater Accra', 'North East', 'Northern', 'Oti', 'Savannah',
-        'Upper East', 'Upper West', 'Volta', 'Western', 'Western North'
-    ]
 
     useEffect(() => {
         if (!user) {
@@ -130,7 +124,6 @@ export default function NewListingPage() {
                     price: parseFloat(formData.price),
                     condition: formData.condition,
                     location: formData.location,
-                    region: formData.region,
                     contact_phone: formData.contact_phone,
                     contact_email: formData.contact_email,
                 }),
@@ -293,43 +286,23 @@ export default function NewListingPage() {
                             />
                         </div>
 
-                        {/* Condition & Region */}
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <div>
-                                <label className="block text-sm font-bold text-gray-900 dark:text-white mb-2">
-                                    Condition
-                                </label>
-                                <select
-                                    name="condition"
-                                    title="Condition"
-                                    value={formData.condition}
-                                    onChange={handleChange}
-                                    className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                >
-                                    <option value="new">New</option>
-                                    <option value="like-new">Like New</option>
-                                    <option value="used">Used</option>
-                                    <option value="refurbished">Refurbished</option>
-                                </select>
-                            </div>
-
-                            <div>
-                                <label className="block text-sm font-bold text-gray-900 dark:text-white mb-2">
-                                    Region
-                                </label>
-                                <select
-                                    name="region"
-                                    title="Region"
-                                    value={formData.region}
-                                    onChange={handleChange}
-                                    className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                >
-                                    <option value="">Select a region</option>
-                                    {regions.map(region => (
-                                        <option key={region} value={region}>{region}</option>
-                                    ))}
-                                </select>
-                            </div>
+                        {/* Condition */}
+                        <div>
+                            <label className="block text-sm font-bold text-gray-900 dark:text-white mb-2">
+                                Condition
+                            </label>
+                            <select
+                                name="condition"
+                                title="Condition"
+                                value={formData.condition}
+                                onChange={handleChange}
+                                className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            >
+                                <option value="new">New</option>
+                                <option value="like-new">Like New</option>
+                                <option value="used">Used</option>
+                                <option value="refurbished">Refurbished</option>
+                            </select>
                         </div>
 
                         {/* Location */}
