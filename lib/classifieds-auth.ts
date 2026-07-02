@@ -21,15 +21,29 @@ export async function verifyAuth(token?: string) {
 export async function verifySellerAuth(userId: string | null) {
     if (!userId) return false
 
-    const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey)
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+    const supabase = createClient<Database>(
+        supabaseUrl,
+        supabaseServiceKey || supabaseAnonKey
+    )
 
-    const { data: user } = await supabase
-        .from('users')
-        .select('is_seller, role')
-        .eq('id', userId)
-        .single()
+    try {
+        const { data: user, error } = await supabase
+            .from('users')
+            .select('is_seller, role')
+            .eq('id', userId)
+            .single()
 
-    return user?.is_seller === true || ['admin', 'sub-admin'].includes(user?.role || '')
+        if (error) {
+            console.error('[verifySellerAuth] Query error:', error)
+            return false
+        }
+
+        return user?.is_seller === true || ['admin', 'sub-admin'].includes(user?.role || '')
+    } catch (err) {
+        console.error('[verifySellerAuth] Exception:', err)
+        return false
+    }
 }
 
 export async function verifyBuyerAuth(userId: string | null) {
@@ -39,15 +53,29 @@ export async function verifyBuyerAuth(userId: string | null) {
 export async function verifyAdminAuth(userId: string | null) {
     if (!userId) return false
 
-    const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey)
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+    const supabase = createClient<Database>(
+        supabaseUrl,
+        supabaseServiceKey || supabaseAnonKey
+    )
 
-    const { data: user } = await supabase
-        .from('users')
-        .select('role')
-        .eq('id', userId)
-        .single()
+    try {
+        const { data: user, error } = await supabase
+            .from('users')
+            .select('role')
+            .eq('id', userId)
+            .single()
 
-    return ['admin', 'sub-admin'].includes(user?.role || '')
+        if (error) {
+            console.error('[verifyAdminAuth] Query error:', error)
+            return false
+        }
+
+        return ['admin', 'sub-admin'].includes(user?.role || '')
+    } catch (err) {
+        console.error('[verifyAdminAuth] Exception:', err)
+        return false
+    }
 }
 
 export async function getCurrentUser(userId: string | null) {
