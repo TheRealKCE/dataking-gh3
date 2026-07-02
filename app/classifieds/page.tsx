@@ -284,7 +284,7 @@ export default function ClassifiedsPage() {
                             </div>
                         ) : listings.length === 0 ? (
                             <div className="text-center py-12">
-                                <p className="text-gray-600 dark:text-gray-400">No listings yet in {selectedCategoryName}. Be the first to list!</p>
+                                <p className="text-gray-600 dark:text-gray-400">No trending listings available right now</p>
                             </div>
                         ) : (
                             <ListingGrid
