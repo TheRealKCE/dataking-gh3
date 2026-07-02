@@ -10,7 +10,7 @@ import Link from 'next/link'
 
 export default function BecomeSellerPage() {
     const router = useRouter()
-    const { user, session } = useAuth()
+    const { user, session, refreshUser } = useAuth()
     const [isLoading, setIsLoading] = useState(false)
 
     if (!user) {
@@ -46,6 +46,9 @@ export default function BecomeSellerPage() {
                 const data = await response.json()
                 throw new Error(data.error || 'Failed to enable seller status')
             }
+
+            // Refresh auth context to update seller status
+            await refreshUser()
 
             toast.success('Welcome! You are now a seller.')
             router.push('/classifieds/seller/dashboard')
