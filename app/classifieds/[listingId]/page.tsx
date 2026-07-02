@@ -6,7 +6,7 @@ import { getListingById, getListingsWithPagination } from '@/lib/classifieds-que
 import { ImageCarousel } from '@/components/classifieds/image-carousel'
 import { ContactRevealButton } from '@/components/classifieds/contact-reveal-button'
 import { ListingGrid } from '@/components/classifieds/listing-grid'
-import { Heart, MapPin, Calendar, AlertCircle, CheckCircle, Loader2 } from 'lucide-react'
+import { Heart, MapPin, Calendar, AlertCircle, CheckCircle, Loader2, Phone } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '@/contexts/auth-context'
 import type { ClassifiedListing } from '@/types/supabase'
@@ -223,111 +223,108 @@ export default function ListingDetailPage({
             </div>
 
             {/* Main Content */}
-            <div className="max-w-3xl mx-auto px-6 py-8 space-y-8">
+            <div className="max-w-2xl mx-auto px-4 py-6 space-y-4">
                 {/* Images */}
                 <ImageCarousel images={images} />
 
-                {/* Title & Price */}
-                <div className="space-y-3">
-                    <div className="flex items-start justify-between gap-4">
-                        <div className="flex-1">
-                            <h1 className="text-3xl font-black text-gray-900 dark:text-white">
-                                {listing.title}
-                            </h1>
-                            {listing.classified_categories && (
-                                <p className="text-sm text-gray-600 dark:text-gray-400 mt-2">
-                                    in <span className="font-bold">{(listing.classified_categories as any).name}</span>
-                                </p>
-                            )}
-                        </div>
-                        <button
-                            type="button"
-                            onClick={handleFavoriteToggle}
-                            aria-label={isFavorited ? 'Remove from favorites' : 'Add to favorites'}
-                            className={`p-3 rounded-full transition-all ${
-                                isFavorited
-                                    ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
-                                    : 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 hover:text-red-500'
-                            }`}
-                        >
-                            <Heart className={`w-6 h-6 ${isFavorited && 'fill-current'}`} />
-                        </button>
-                    </div>
-
-                    <div className="text-4xl font-black text-emerald-600 dark:text-emerald-400">
-                        GHS {listing.price.toFixed(2)}
-                    </div>
-                </div>
-
-                {/* Info Grid */}
-                <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                    {listing.condition && (
-                        <div className="bg-white dark:bg-[#151c2c] rounded-lg p-3 border border-gray-100 dark:border-gray-800">
-                            <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">Condition</p>
-                            <p className="text-sm font-bold text-gray-900 dark:text-white capitalize mt-1">{listing.condition}</p>
-                        </div>
-                    )}
-
-                    {listing.location && (
-                        <div className="bg-white dark:bg-[#151c2c] rounded-lg p-3 border border-gray-100 dark:border-gray-800">
-                            <div className="flex items-center gap-2 mb-1">
-                                <MapPin className="w-4 h-4 text-gray-500" />
-                                <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">Location</p>
-                            </div>
-                            <p className="text-sm font-bold text-gray-900 dark:text-white">{listing.location}</p>
-                        </div>
-                    )}
-
-                    <div className="bg-white dark:bg-[#151c2c] rounded-lg p-3 border border-gray-100 dark:border-gray-800">
-                        <div className="flex items-center gap-2 mb-1">
-                            <Calendar className="w-4 h-4 text-gray-500" />
-                            <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">Posted</p>
-                        </div>
-                        <p className="text-sm font-bold text-gray-900 dark:text-white">
-                            {new Date(listing.created_at).toLocaleDateString()}
+                {/* Title */}
+                <div className="bg-white dark:bg-[#151c2c] rounded-xl p-4 border border-gray-100 dark:border-gray-800">
+                    <h1 className="text-xl font-black text-gray-900 dark:text-white mb-1">
+                        {listing.title}
+                    </h1>
+                    {listing.classified_categories && (
+                        <p className="text-xs text-gray-600 dark:text-gray-400">
+                            in <span className="font-semibold">{(listing.classified_categories as any).name}</span>
                         </p>
-                    </div>
+                    )}
                 </div>
 
-                {/* Description */}
-                <div className="bg-white dark:bg-[#151c2c] rounded-xl border border-gray-100 dark:border-gray-800 p-6">
-                    <h2 className="text-lg font-black text-gray-900 dark:text-white mb-4">Description</h2>
-                    <p className="text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">
-                        {listing.description}
+                {/* Price & Negotiable */}
+                <div className="bg-white dark:bg-[#151c2c] rounded-xl p-4 border border-gray-100 dark:border-gray-800">
+                    <p className="text-2xl font-black text-emerald-600 dark:text-emerald-400 mb-2">
+                        GHS {listing.price.toFixed(2)}
                     </p>
+                    <p className="text-xs text-gray-600 dark:text-gray-400 mb-4">Negotiable</p>
+                    <button type="button" className="w-full border border-emerald-600 text-emerald-600 dark:text-emerald-400 dark:border-emerald-400 font-semibold py-2.5 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors">
+                        Request call back
+                    </button>
                 </div>
 
                 {/* Seller Card */}
-                <div className="bg-white dark:bg-[#151c2c] rounded-xl border border-gray-100 dark:border-gray-800 p-6">
-                    <div className="flex items-start gap-4 mb-6">
-                        <div className="w-14 h-14 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white text-lg font-bold flex-shrink-0">
+                <div className="bg-white dark:bg-[#151c2c] rounded-xl p-4 border border-gray-100 dark:border-gray-800">
+                    <div className="flex items-start gap-3 mb-4">
+                        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
                             {getSellerName().charAt(0).toUpperCase()}
                         </div>
-                        <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                                <h3 className="font-bold text-gray-900 dark:text-white">{getSellerName()}</h3>
+                        <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-1 mb-0.5">
+                                <h3 className="font-bold text-gray-900 dark:text-white text-sm">{getSellerName()}</h3>
                                 {(listing.users as any)?.seller_verified_at && (
-                                    <div className="flex items-center gap-1 px-2 py-0.5 bg-emerald-50 dark:bg-emerald-900/30 rounded-full">
-                                        <CheckCircle className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-                                        <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">Verified</span>
-                                    </div>
+                                    <CheckCircle className="w-3 h-3 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
                                 )}
                             </div>
-                            <p className="text-xs text-gray-600 dark:text-gray-400">{getYearsActive()}</p>
-                            <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Typically replies within minutes</p>
+                            <p className="text-xs text-gray-600 dark:text-gray-400">1+ years on site</p>
+                            <p className="text-xs text-gray-600 dark:text-gray-400">Typically replies within an hour</p>
                         </div>
                     </div>
 
                     {/* Seller Action Buttons */}
                     <div className="space-y-2">
-                        <button type="button" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-lg transition-colors">
+                        <button type="button" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-lg transition-colors text-sm flex items-center justify-center gap-2">
+                            <Phone className="w-4 h-4" />
                             Show contact
                         </button>
-                        <button type="button" className="w-full border border-emerald-600 text-emerald-600 dark:text-emerald-400 dark:border-emerald-400 font-semibold py-2.5 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors">
+                        <button type="button" className="w-full border border-emerald-600 text-emerald-600 dark:text-emerald-400 dark:border-emerald-400 font-semibold py-2.5 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors text-sm">
                             Start chat
                         </button>
                     </div>
                 </div>
+
+                {/* Action Buttons Row */}
+                <div className="grid grid-cols-2 gap-3">
+                    <button type="button" className="border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold py-2.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors text-sm">
+                        Marked
+                    </button>
+                    <button type="button" className="border border-red-300 dark:border-red-800 text-red-600 dark:text-red-400 font-semibold py-2.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-sm">
+                        Report Abuse
+                    </button>
+                </div>
+
+                {/* Info Grid */}
+                {(listing.condition || listing.location) && (
+                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                        {listing.condition && (
+                            <div className="bg-gray-50 dark:bg-gray-900/30 rounded-lg p-3">
+                                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Condition</p>
+                                <p className="text-sm font-bold text-gray-900 dark:text-white capitalize">{listing.condition}</p>
+                            </div>
+                        )}
+
+                        {listing.location && (
+                            <div className="bg-gray-50 dark:bg-gray-900/30 rounded-lg p-3">
+                                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Location</p>
+                                <p className="text-sm font-bold text-gray-900 dark:text-white">{listing.location}</p>
+                            </div>
+                        )}
+
+                        <div className="bg-gray-50 dark:bg-gray-900/30 rounded-lg p-3">
+                            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Posted</p>
+                            <p className="text-sm font-bold text-gray-900 dark:text-white">
+                                {new Date(listing.created_at).toLocaleDateString()}
+                            </p>
+                        </div>
+                    </div>
+                )}
+
+                {/* Description */}
+                {listing.description && (
+                    <div className="bg-white dark:bg-[#151c2c] rounded-xl p-4 border border-gray-100 dark:border-gray-800">
+                        <h2 className="text-sm font-bold text-gray-900 dark:text-white mb-3 uppercase">Description</h2>
+                        <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">
+                            {listing.description}
+                        </p>
+                    </div>
+                )}
 
                 {/* Unavailable Banner */}
                 {listing.status === 'archived' && (
@@ -336,28 +333,21 @@ export default function ListingDetailPage({
                     </div>
                 )}
 
-                {/* Seller Action Buttons (for non-owners) */}
-                {userId && userId !== listing.seller_id && listing.status !== 'archived' && (
-                    <div className="space-y-3">
-                        <button type="button" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-lg transition-colors">
-                            Mark unavailable
-                        </button>
-                        <button type="button" className="w-full bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 font-semibold py-3 rounded-lg border border-red-200 dark:border-red-800 transition-colors">
-                            Report Abuse
-                        </button>
-                    </div>
-                )}
-
                 {/* Owner Mark Unavailable */}
                 {userId && userId === listing.seller_id && listing.status !== 'archived' && (
                     <button
                         type="button"
                         onClick={handleMarkUnavailable}
-                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-lg transition-colors"
+                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-lg transition-colors text-sm"
                     >
                         Mark unavailable
                     </button>
                 )}
+
+                {/* Post Ad Like This Button */}
+                <button type="button" className="w-full border border-emerald-600 text-emerald-600 dark:text-emerald-400 dark:border-emerald-400 font-semibold py-2.5 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors text-sm">
+                    Post Ad Like This
+                </button>
 
                 {/* Safety Notice */}
                 <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-6">
