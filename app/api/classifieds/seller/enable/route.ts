@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { verifyAuth } from '@/lib/classifieds-auth'
+import { sendSMS } from '@/lib/sms-service'
 import type { Database } from '@/types/supabase'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
@@ -16,16 +17,41 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
+        const body = await request.json()
+        const { phone_number } = body
+
         const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey)
 
+        // Get user first name for welcome message
+        const { data: userData } = await supabase
+            .from('users')
+            .select('first_name')
+            .eq('id', userId)
+            .single()
+
+        // Update user with seller status and phone number
         const { error } = await supabase
             .from('users')
-            .update({ is_seller: true })
+            .update({
+                is_seller: true,
+                ...(phone_number && { phone_number })
+            })
             .eq('id', userId)
 
         if (error) {
             console.error('Error enabling seller status:', error)
             throw error
+        }
+
+        // Send welcome SMS
+        if (phone_number) {
+            const firstName = userData?.first_name || 'Seller'
+            const welcomeMessage = `Welcome ${firstName}! 🎉 You are now a seller on ARHMS MARKETPLACE. Start posting items to reach buyers. Visit: arhmsgh.com`
+
+            await sendSMS({
+                recipient: phone_number,
+                message: welcomeMessage,
+            })
         }
 
         return NextResponse.json({ message: 'Seller status enabled successfully' }, { status: 200 })
