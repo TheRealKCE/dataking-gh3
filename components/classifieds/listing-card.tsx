@@ -2,12 +2,15 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { Heart, Zap } from 'lucide-react'
+import { Heart, Zap, CheckCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ClassifiedListing } from '@/types/supabase'
 
 interface ListingCardProps {
-    listing: ClassifiedListing & { classified_categories?: { name: string; slug: string } }
+    listing: ClassifiedListing & {
+        classified_categories?: { name: string; slug: string }
+        users?: { seller_verified_at?: string | null }
+    }
     isFavorited?: boolean
     onFavoriteToggle?: (listingId: string) => void
 }
@@ -59,9 +62,17 @@ export function ListingCard({ listing, isFavorited, onFavoriteToggle }: ListingC
 
                 {/* Content */}
                 <div className="flex-1 flex flex-col p-4">
-                    <h3 className="font-bold text-gray-900 dark:text-white text-sm line-clamp-2 mb-1">
-                        {listing.title}
-                    </h3>
+                    <div className="flex items-start justify-between gap-2 mb-1">
+                        <h3 className="font-bold text-gray-900 dark:text-white text-sm line-clamp-2 flex-1">
+                            {listing.title}
+                        </h3>
+                        {listing.users?.seller_verified_at && (
+                            <div className="flex-shrink-0 flex items-center gap-1 bg-blue-50 dark:bg-blue-900/20 px-2 py-1 rounded">
+                                <CheckCircle className="w-3 h-3 text-blue-600 dark:text-blue-400 fill-current" />
+                                <span className="text-xs font-semibold text-blue-700 dark:text-blue-300">Verified</span>
+                            </div>
+                        )}
+                    </div>
 
                     <p className="text-xs text-gray-500 dark:text-gray-400 mb-3">
                         {listing.location || 'Location not specified'}

@@ -11,6 +11,7 @@ export async function GET() {
         const { data, error } = await supabase
             .from('classified_categories')
             .select('*')
+            .neq('slug', 'services')
             .order('display_order', { ascending: true })
 
         if (error) {

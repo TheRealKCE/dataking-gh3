@@ -22,7 +22,7 @@ export async function getListingsWithPagination(params: {
 
     let query = supabase
         .from('classified_listings')
-        .select('*, classified_categories(name, slug)', { count: 'exact' })
+        .select('*, classified_categories(name, slug), users(seller_verified_at)', { count: 'exact' })
         .eq('status', params.status || 'active')
 
     if (params.category_id) {
@@ -69,7 +69,7 @@ export async function getListingById(id: string) {
             *,
             classified_categories(name, slug),
             classified_listing_images(id, storage_path, display_order),
-            users(first_name, last_name, phone_number, email)
+            users(first_name, last_name, phone_number, email, seller_verified_at)
         `)
         .eq('id', id)
         .single()
@@ -101,7 +101,7 @@ export async function searchListings(searchQuery: string, filters?: { category_i
 
     let query = supabase
         .from('classified_listings')
-        .select('*, classified_categories(name)')
+        .select('*, classified_categories(name), users(seller_verified_at)')
         .eq('status', 'active')
 
     if (searchQuery) {
@@ -327,7 +327,7 @@ export async function getBoostedListings(params: {
 
     let query = supabase
         .from('classified_listings')
-        .select('*, classified_categories(name, slug), classified_listing_images(id, storage_path, display_order)')
+        .select('*, classified_categories(name, slug), classified_listing_images(id, storage_path, display_order), users(seller_verified_at)')
         .eq('status', 'active')
         .eq('is_boosted', true)
         .gt('boosted_until', now)
@@ -346,4 +346,124 @@ export async function getBoostedListings(params: {
 
     if (error) throw error
     return data || []
+}
+
+export async function getSellerVerificationStatus(sellerId: string) {
+    const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey)
+
+    const { data: verification, error: verificationError } = await supabase
+        .from('classified_seller_verifications')
+        .select('*')
+        .eq('seller_id', sellerId)
+        .order('requested_at', { ascending: false })
+        .limit(1)
+        .single()
+
+    const { data: user, error: userError } = await supabase
+        .from('users')
+        .select('seller_verified_at')
+        .eq('id', sellerId)
+        .single()
+
+    if (verificationError && verificationError.code !== 'PGRST116') throw verificationError
+    if (userError) throw userError
+
+    return {
+        verification: verification || null,
+        verified_at: user?.seller_verified_at || null,
+    }
+}
+
+export async function createVerificationRequest(sellerId: string, note?: string) {
+    const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey)
+
+    const { data: existing, error: checkError } = await supabase
+        .from('classified_seller_verifications')
+        .select('id, status')
+        .eq('seller_id', sellerId)
+        .eq('status', 'pending')
+        .single()
+
+    if (checkError && checkError.code !== 'PGRST116') throw checkError
+    if (existing) {
+        throw new Error('You already have a pending verification request. Please wait for it to be reviewed.')
+    }
+
+    const { data, error } = await supabase
+        .from('classified_seller_verifications')
+        .insert({
+            seller_id: sellerId,
+            status: 'pending',
+            note: note || null,
+        })
+        .select()
+        .single()
+
+    if (error) throw error
+    return data
+}
+
+export async function getVerificationRequests(status?: string) {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+    const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey)
+
+    let query = supabase
+        .from('classified_seller_verifications')
+        .select(`
+            *,
+            users:seller_id(id, first_name, last_name, email, phone_number, is_seller, seller_verified_at)
+        `)
+
+    if (status) {
+        query = query.eq('status', status)
+    }
+
+    const { data, error } = await query
+        .order('requested_at', { ascending: false })
+
+    if (error) throw error
+    return data || []
+}
+
+export async function reviewVerificationRequest(
+    requestId: string,
+    adminId: string,
+    decision: 'approved' | 'rejected',
+    rejectionReason?: string
+) {
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+    const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey)
+
+    const updates: any = {
+        status: decision,
+        reviewed_by: adminId,
+        reviewed_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+    }
+
+    if (decision === 'rejected' && rejectionReason) {
+        updates.rejection_reason = rejectionReason
+    }
+
+    const { data: requestData, error: updateError } = await supabase
+        .from('classified_seller_verifications')
+        .update(updates)
+        .eq('id', requestId)
+        .select()
+        .single()
+
+    if (updateError) throw updateError
+
+    if (decision === 'approved') {
+        const { error: userError } = await supabase
+            .from('users')
+            .update({ seller_verified_at: new Date().toISOString() })
+            .eq('id', requestData.seller_id)
+
+        if (userError) throw userError
+    }
+
+    return requestData
 }

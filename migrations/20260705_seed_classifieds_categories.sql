@@ -4,11 +4,10 @@ INSERT INTO public.classified_categories (name, slug, description, icon_emoji, d
 ('Home, Furniture & Appliances', 'home-furniture-appliances', 'Household items and furniture', '🏠', 2),
 ('Fashion', 'fashion', 'Clothing and fashion items', '👗', 3),
 ('Beauty & Personal Care', 'beauty-personal-care', 'Beauty and wellness products', '💄', 4),
-('Services', 'services', 'Professional services', '🔧', 5),
-('Repair & Construction', 'repair-construction', 'Repair and construction services', '🛠️', 6),
-('Commercial Equipment & Tools', 'commercial-equipment-tools', 'Business and commercial items', '⚙️', 7),
-('Leisure & Activities', 'leisure-activities', 'Sports and leisure items', '⚽', 8),
-('Babies & Kids', 'babies-kids', 'Items for children', '👶', 9)
+('Repair & Construction', 'repair-construction', 'Repair and construction services', '🛠️', 5),
+('Commercial Equipment & Tools', 'commercial-equipment-tools', 'Business and commercial items', '⚙️', 6),
+('Leisure & Activities', 'leisure-activities', 'Sports and leisure items', '⚽', 7),
+('Babies & Kids', 'babies-kids', 'Items for children', '👶', 8)
 ON CONFLICT (slug) DO NOTHING;
 
 -- Insert subcategories for Electronics
@@ -22,7 +21,8 @@ INSERT INTO public.classified_categories (name, slug, description, icon_emoji, p
 ('Security & Surveillance', 'security-surveillance', 'Security cameras and systems', '📹', (SELECT id FROM public.classified_categories WHERE slug = 'electronics' AND parent_id IS NULL LIMIT 1), 7),
 ('Networking Products', 'networking-products', 'Routers and network equipment', '🌐', (SELECT id FROM public.classified_categories WHERE slug = 'electronics' AND parent_id IS NULL LIMIT 1), 8),
 ('Printers & Scanners', 'printers-scanners', 'Printers and scanning devices', '🖨️', (SELECT id FROM public.classified_categories WHERE slug = 'electronics' AND parent_id IS NULL LIMIT 1), 9),
-('Computer Monitors', 'computer-monitors', 'Monitors and displays', '🖥️', (SELECT id FROM public.classified_categories WHERE slug = 'electronics' AND parent_id IS NULL LIMIT 1), 10)
+('Computer Monitors', 'computer-monitors', 'Monitors and displays', '🖥️', (SELECT id FROM public.classified_categories WHERE slug = 'electronics' AND parent_id IS NULL LIMIT 1), 10),
+('Mobile Phones & Accessories', 'mobile-phones-accessories', 'Smartphones, phones, and mobile accessories', '📱', (SELECT id FROM public.classified_categories WHERE slug = 'electronics' AND parent_id IS NULL LIMIT 1), 11)
 ON CONFLICT (slug) DO NOTHING;
 
 -- Insert subcategories for Home, Furniture & Appliances
@@ -110,22 +110,6 @@ INSERT INTO public.classified_categories (name, slug, description, icon_emoji, p
 ('Construction & Heavy Machinery', 'construction-heavy-machinery', 'Construction equipment and machinery', '🏗️', (SELECT id FROM public.classified_categories WHERE slug = 'vehicles' AND parent_id IS NULL LIMIT 1), 6),
 ('Watercraft & Boats', 'watercraft-boats', 'Boats and marine vessels', '⛵', (SELECT id FROM public.classified_categories WHERE slug = 'vehicles' AND parent_id IS NULL LIMIT 1), 7),
 ('Car Services', 'car-services', 'Car repair and maintenance services', '🔧', (SELECT id FROM public.classified_categories WHERE slug = 'vehicles' AND parent_id IS NULL LIMIT 1), 8)
-ON CONFLICT (slug) DO NOTHING;
-
--- Insert subcategories for Services
-INSERT INTO public.classified_categories (name, slug, description, icon_emoji, parent_id, display_order) VALUES
-('Advertising & Marketing Jobs', 'advertising-marketing-jobs', 'Marketing and advertising services', '📢', (SELECT id FROM public.classified_categories WHERE slug = 'services' AND parent_id IS NULL LIMIT 1), 1),
-('Accounting & Finance Jobs', 'accounting-finance-jobs', 'Accounting and finance services', '💼', (SELECT id FROM public.classified_categories WHERE slug = 'services' AND parent_id IS NULL LIMIT 1), 2),
-('Arts & Entertainment Jobs', 'arts-entertainment-jobs', 'Arts and entertainment services', '🎭', (SELECT id FROM public.classified_categories WHERE slug = 'services' AND parent_id IS NULL LIMIT 1), 3),
-('Childcare & Babysitting Services', 'childcare-babysitting', 'Childcare and babysitting services', '👶', (SELECT id FROM public.classified_categories WHERE slug = 'services' AND parent_id IS NULL LIMIT 1), 4),
-('Cleaning Services', 'cleaning-services', 'Professional cleaning services', '🧹', (SELECT id FROM public.classified_categories WHERE slug = 'services' AND parent_id IS NULL LIMIT 1), 5),
-('Computing & IT Jobs', 'computing-it-jobs', 'IT and computer services', '💻', (SELECT id FROM public.classified_categories WHERE slug = 'services' AND parent_id IS NULL LIMIT 1), 6),
-('Construction & Skilled Trade Jobs', 'construction-skilled-trades', 'Construction and trade services', '🔨', (SELECT id FROM public.classified_categories WHERE slug = 'services' AND parent_id IS NULL LIMIT 1), 7),
-('Consulting & Strategy Jobs', 'consulting-strategy', 'Consulting services', '📊', (SELECT id FROM public.classified_categories WHERE slug = 'services' AND parent_id IS NULL LIMIT 1), 8),
-('Customer Services Jobs', 'customer-services', 'Customer service roles', '☎️', (SELECT id FROM public.classified_categories WHERE slug = 'services' AND parent_id IS NULL LIMIT 1), 9),
-('Driver Jobs', 'driver-jobs', 'Driver and transportation services', '🚗', (SELECT id FROM public.classified_categories WHERE slug = 'services' AND parent_id IS NULL LIMIT 1), 10),
-('Home Repair & Maintenance', 'home-repair-maintenance', 'Home repair services', '🔧', (SELECT id FROM public.classified_categories WHERE slug = 'services' AND parent_id IS NULL LIMIT 1), 11),
-('Tutoring & Education Services', 'tutoring-education', 'Tutoring and educational services', '📚', (SELECT id FROM public.classified_categories WHERE slug = 'services' AND parent_id IS NULL LIMIT 1), 12)
 ON CONFLICT (slug) DO NOTHING;
 
 -- Insert subcategories for Commercial Equipment & Tools

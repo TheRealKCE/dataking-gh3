@@ -3,11 +3,12 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { LayoutDashboard, Plus, ShoppingCart, ArrowLeft } from 'lucide-react'
+import { LayoutDashboard, Plus, ShoppingCart, ArrowLeft, BadgeCheck } from 'lucide-react'
 
 const sellerNavItems = [
     { href: '/classifieds/seller/dashboard', label: 'My Listings', icon: LayoutDashboard },
     { href: '/classifieds/seller/dashboard/new', label: 'Post New Listing', icon: Plus },
+    { href: '/classifieds/seller/dashboard/verification', label: 'Get Verified', icon: BadgeCheck },
 ]
 
 export function ClassifiedsSellerSidebar() {
