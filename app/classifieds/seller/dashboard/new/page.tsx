@@ -138,7 +138,7 @@ export default function NewListingPage() {
 
             if (response.ok) {
                 const data = await response.json()
-                const listingId = data.listing?.id
+                const listingId = data?.id
 
                 // Upload images if any
                 if (images.length > 0 && listingId) {
@@ -171,7 +171,9 @@ export default function NewListingPage() {
                     router.push(`/classifieds/seller/dashboard`)
                 }, 500)
             } else {
-                toast.error('Failed to create listing')
+                const errorData = await response.json()
+                const errorMessage = errorData?.error || 'Failed to create listing'
+                toast.error(errorMessage)
             }
         } catch (error) {
             console.error('Error creating listing:', error)
