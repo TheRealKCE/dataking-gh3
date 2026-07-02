@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { verifyAuth } from '@/lib/classifieds-auth'
 import { sendSMS } from '@/lib/sms-service'
+import { validateGhanaianPhone } from '@/lib/phone-validation'
 import type { Database } from '@/types/supabase'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
@@ -19,6 +20,17 @@ export async function POST(request: NextRequest) {
 
         const body = await request.json()
         const { phone_number } = body
+
+        // Validate phone number if provided
+        if (phone_number) {
+            const validation = validateGhanaianPhone(phone_number)
+            if (!validation.isValid) {
+                return NextResponse.json(
+                    { error: validation.error || 'Invalid phone number format' },
+                    { status: 400 }
+                )
+            }
+        }
 
         const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey)
 
