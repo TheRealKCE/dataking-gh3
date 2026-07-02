@@ -64,6 +64,44 @@ export default function ListingDetailPage({
 
     const userId = user?.id
 
+    const getSafetyTips = () => {
+        const categorySlug = (listing?.classified_categories as any)?.slug || ''
+
+        // Property/Real Estate tips
+        if (['land', 'commercial-property', 'residential-property', 'apartments'].includes(categorySlug)) {
+            return [
+                'Request proper documentation including deed and land certificate',
+                'Visit the property in person with a trusted friend or family member',
+                'Verify property ownership with the Land Registry or relevant authority',
+                'Hire a surveyor to inspect the property and verify its condition',
+                'Be cautious of deals that seem too good to be true',
+                'Avoid paying deposits through informal channels',
+            ]
+        }
+
+        // Vehicle tips
+        if (['cars', 'motorcycles-scooters', 'trucks-trailers', 'buses-microbuses', 'construction-heavy-machinery'].includes(categorySlug)) {
+            return [
+                'Request a test drive and inspect the vehicle thoroughly',
+                'Verify the vehicle registration and ownership documents',
+                'Get a pre-purchase inspection from a certified mechanic',
+                'Check the vehicle\'s history and mileage',
+                'Inspect for signs of accident damage or rust',
+                'Only pay after you\'ve completed your inspection',
+            ]
+        }
+
+        // Default tips for goods
+        return [
+            'It\'s safer not to pay ahead for inspections',
+            'Ask friends or somebody you trust to accompany you for viewing',
+            'Look around and ensure the item meets your expectations',
+            'Don\'t pay beforehand if they won\'t let you inspect immediately',
+            'Verify that the item is exactly what you\'re looking for',
+            'Only pay if you\'re satisfied with the condition',
+        ]
+    }
+
     const handleFavoriteToggle = async () => {
         try {
             if (!user) {
@@ -318,11 +356,9 @@ export default function ListingDetailPage({
                         <p className="text-sm font-bold text-amber-900 dark:text-amber-300">Safety tips</p>
                     </div>
                     <ul className="space-y-2 ml-8">
-                        <li className="text-xs text-amber-800 dark:text-amber-400">It's safer not to pay ahead for inspections</li>
-                        <li className="text-xs text-amber-800 dark:text-amber-400">Ask friends or somebody you trust to accompany you for viewing</li>
-                        <li className="text-xs text-amber-800 dark:text-amber-400">Look around the apartment to ensure it meets your expectations</li>
-                        <li className="text-xs text-amber-800 dark:text-amber-400">Don't pay beforehand if they won't let you move in immediately</li>
-                        <li className="text-xs text-amber-800 dark:text-amber-400">Verify that the account details belong to the right property owner before initiating payment</li>
+                        {getSafetyTips().map((tip, index) => (
+                            <li key={index} className="text-xs text-amber-800 dark:text-amber-400">{tip}</li>
+                        ))}
                     </ul>
                 </div>
 
