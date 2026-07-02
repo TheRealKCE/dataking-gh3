@@ -15,7 +15,7 @@ import type { ClassifiedCategory } from '@/types/supabase'
 
 export default function NewListingPage() {
     const router = useRouter()
-    const { user, session } = useAuth()
+    const { user, dbUser, session } = useAuth()
     const [categories, setCategories] = useState<ClassifiedCategory[]>([])
     const [isLoading, setIsLoading] = useState(false)
     const [isLoadingCategories, setIsLoadingCategories] = useState(true)
@@ -38,8 +38,10 @@ export default function NewListingPage() {
         if (!user) {
             toast.error('Please log in to create a listing')
             router.push('/auth/login')
+        } else if (dbUser && !(dbUser as any).is_seller && dbUser.role === 'customer') {
+            router.push('/classifieds/become-seller')
         }
-    }, [user, router])
+    }, [user, dbUser, router])
 
     useEffect(() => {
         const loadCategories = async () => {
