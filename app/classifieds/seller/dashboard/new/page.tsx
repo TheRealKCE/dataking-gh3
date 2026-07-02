@@ -38,6 +38,16 @@ export default function NewListingPage() {
     ]
 
     useEffect(() => {
+        // Check if user is authenticated
+        const token = localStorage.getItem('sb-token')
+        if (!token) {
+            toast.error('Please log in to create a listing')
+            router.push('/auth/login')
+            return
+        }
+    }, [router])
+
+    useEffect(() => {
         const loadCategories = async () => {
             try {
                 const res = await fetch('/api/classifieds/categories')
@@ -103,7 +113,7 @@ export default function NewListingPage() {
         try {
             const token = localStorage.getItem('sb-token')
             if (!token) {
-                toast.error('Please log in to create a listing')
+                router.push('/auth/login')
                 return
             }
 
@@ -274,6 +284,7 @@ export default function NewListingPage() {
                                 </label>
                                 <select
                                     name="condition"
+                                    title="Condition"
                                     value={formData.condition}
                                     onChange={handleChange}
                                     className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
@@ -291,6 +302,7 @@ export default function NewListingPage() {
                                 </label>
                                 <select
                                     name="region"
+                                    title="Region"
                                     value={formData.region}
                                     onChange={handleChange}
                                     className="w-full px-3 py-2 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
