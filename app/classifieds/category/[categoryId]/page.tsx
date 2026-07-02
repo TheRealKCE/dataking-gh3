@@ -6,6 +6,7 @@ import { getCategories, getListingsWithPagination } from '@/lib/classifieds-quer
 import { ListingGrid } from '@/components/classifieds/listing-grid'
 import { ArrowLeft, Loader2, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
+import { useAuth } from '@/contexts/auth-context'
 import type { ClassifiedListing, ClassifiedCategory } from '@/types/supabase'
 
 interface CategoryPageParams {
@@ -14,6 +15,7 @@ interface CategoryPageParams {
 
 export default function CategoryPage({ params }: CategoryPageParams) {
     const router = useRouter()
+    const { user, session } = useAuth()
     const [allCategories, setAllCategories] = useState<ClassifiedCategory[]>([])
     const [currentCategory, setCurrentCategory] = useState<ClassifiedCategory | null>(null)
     const [subCategories, setSubCategories] = useState<ClassifiedCategory[]>([])
@@ -85,9 +87,13 @@ export default function CategoryPage({ params }: CategoryPageParams) {
 
     const handleFavoriteToggle = async (listingId: string) => {
         try {
-            const token = localStorage.getItem('sb-token')
-            if (!token) {
-                toast.error('Please log in to save favorites')
+            if (!user || !session) {
+                toast.error('Please log in to save favorites', {
+                    action: {
+                        label: 'Log in',
+                        onClick: () => router.push('/auth/login')
+                    }
+                })
                 return
             }
 
@@ -100,7 +106,6 @@ export default function CategoryPage({ params }: CategoryPageParams) {
                 method: isFavorited ? 'DELETE' : 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
                 },
                 ...((!isFavorited) && {
                     body: JSON.stringify({ listing_id: listingId }),

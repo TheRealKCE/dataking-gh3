@@ -1,13 +1,14 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { notFound } from 'next/navigation'
+import { notFound, useRouter } from 'next/navigation'
 import { getListingById, getListingsWithPagination } from '@/lib/classifieds-queries'
 import { ImageCarousel } from '@/components/classifieds/image-carousel'
 import { ContactRevealButton } from '@/components/classifieds/contact-reveal-button'
 import { ListingGrid } from '@/components/classifieds/listing-grid'
 import { Heart, MapPin, Calendar, AlertCircle, CheckCircle, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { useAuth } from '@/contexts/auth-context'
 import type { ClassifiedListing } from '@/types/supabase'
 
 export default function ListingDetailPage({
@@ -15,9 +16,10 @@ export default function ListingDetailPage({
 }: {
     params: { listingId: string }
 }) {
+    const router = useRouter()
+    const { user } = useAuth()
     const [listing, setListing] = useState<ClassifiedListing | null>(null)
     const [isLoading, setIsLoading] = useState(true)
-    const [userId, setUserId] = useState<string | undefined>()
     const [isFavorited, setIsFavorited] = useState(false)
     const [similarListings, setSimilarListings] = useState<ClassifiedListing[]>([])
     const [isLoadingSimilar, setIsLoadingSimilar] = useState(false)
@@ -47,24 +49,20 @@ export default function ListingDetailPage({
             }
         }
 
-        const token = localStorage.getItem('sb-token')
-        if (token) {
-            try {
-                const payload = JSON.parse(atob(token.split('.')[1]))
-                setUserId(payload.sub)
-            } catch (e) {
-                console.error('Error parsing token:', e)
-            }
-        }
-
         loadListing()
     }, [params.listingId])
 
+    const userId = user?.id
+
     const handleFavoriteToggle = async () => {
         try {
-            const token = localStorage.getItem('sb-token')
-            if (!token) {
-                toast.error('Please log in to save favorites')
+            if (!user) {
+                toast.error('Please log in to save favorites', {
+                    action: {
+                        label: 'Log in',
+                        onClick: () => router.push('/auth/login')
+                    }
+                })
                 return
             }
 
@@ -76,7 +74,6 @@ export default function ListingDetailPage({
                 method: isFavorited ? 'DELETE' : 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
                 },
                 ...((!isFavorited) && {
                     body: JSON.stringify({ listing_id: params.listingId }),
@@ -94,9 +91,13 @@ export default function ListingDetailPage({
 
     const handleMarkUnavailable = async () => {
         try {
-            const token = localStorage.getItem('sb-token')
-            if (!token) {
-                toast.error('Please log in')
+            if (!user) {
+                toast.error('Please log in', {
+                    action: {
+                        label: 'Log in',
+                        onClick: () => router.push('/auth/login')
+                    }
+                })
                 return
             }
 
@@ -104,7 +105,6 @@ export default function ListingDetailPage({
                 method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
                 },
                 body: JSON.stringify({ status: 'archived' }),
             })
