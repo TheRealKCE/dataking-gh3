@@ -13,7 +13,7 @@ import type { ClassifiedListing, ClassifiedCategory } from '@/types/supabase'
 export default function ClassifiedsPage() {
     const router = useRouter()
     const searchParams = useSearchParams()
-    const { user, dbUser } = useAuth()
+    const { user, dbUser, isLoading: authLoading } = useAuth()
 
     const [listings, setListings] = useState<ClassifiedListing[]>([])
     const [allCategories, setAllCategories] = useState<ClassifiedCategory[]>([])
@@ -138,34 +138,36 @@ export default function ClassifiedsPage() {
                 <div className="max-w-7xl mx-auto px-4">
                     <div className="flex items-center justify-between mb-4">
                         <h2 className="text-white text-xl font-bold">What are you looking for?</h2>
-                        <div className="flex items-center gap-3">
-                            {!user && (
-                                <Link href="/auth/login">
-                                    <Button variant="ghost" className="text-white hover:bg-white/10 font-medium">
-                                        Log In
-                                    </Button>
-                                </Link>
-                            )}
-                            {!user ? (
-                                <Link href="/auth/login">
-                                    <Button className="bg-blue-600 hover:bg-blue-700 text-white font-black rounded-lg px-6 py-2">
-                                        SELL
-                                    </Button>
-                                </Link>
-                            ) : !dbUser?.is_seller ? (
-                                <Link href="/classifieds/become-seller">
-                                    <Button className="bg-blue-600 hover:bg-blue-700 text-white font-black rounded-lg px-6 py-2">
-                                        SELL
-                                    </Button>
-                                </Link>
-                            ) : (
-                                <Link href="/classifieds/seller/dashboard">
-                                    <Button className="bg-blue-600 hover:bg-blue-700 text-white font-black rounded-lg px-6 py-2">
-                                        SELL
-                                    </Button>
-                                </Link>
-                            )}
-                        </div>
+                        {!authLoading && (
+                            <div className="flex items-center gap-3">
+                                {!user && (
+                                    <Link href="/auth/login">
+                                        <Button variant="ghost" className="text-white hover:bg-white/10 font-medium">
+                                            Log In
+                                        </Button>
+                                    </Link>
+                                )}
+                                {!user ? (
+                                    <Link href="/auth/login">
+                                        <Button className="bg-blue-600 hover:bg-blue-700 text-white font-black rounded-lg px-6 py-2">
+                                            SELL
+                                        </Button>
+                                    </Link>
+                                ) : !dbUser?.is_seller ? (
+                                    <Link href="/classifieds/become-seller">
+                                        <Button className="bg-blue-600 hover:bg-blue-700 text-white font-black rounded-lg px-6 py-2">
+                                            SELL
+                                        </Button>
+                                    </Link>
+                                ) : (
+                                    <Link href="/classifieds/seller/dashboard">
+                                        <Button className="bg-blue-600 hover:bg-blue-700 text-white font-black rounded-lg px-6 py-2">
+                                            SELL
+                                        </Button>
+                                    </Link>
+                                )}
+                            </div>
+                        )}
                     </div>
                     <form onSubmit={handleSearch} className="flex gap-3">
                         <select
