@@ -140,8 +140,14 @@ export default function NewListingPage() {
                 const data = await response.json()
                 const listingId = data?.id
 
+                if (!listingId) {
+                    console.error('No listing ID in response:', data)
+                    toast.error('Failed to create listing: No ID returned')
+                    return
+                }
+
                 // Upload images if any
-                if (images.length > 0 && listingId) {
+                if (images.length > 0) {
                     const formDataImages = new FormData()
                     images.forEach(image => {
                         formDataImages.append(`images`, image)
@@ -171,13 +177,19 @@ export default function NewListingPage() {
                     router.push(`/classifieds/seller/dashboard`)
                 }, 500)
             } else {
-                const errorData = await response.json()
-                const errorMessage = errorData?.error || 'Failed to create listing'
+                let errorMessage = 'Failed to create listing'
+                try {
+                    const errorData = await response.json()
+                    errorMessage = errorData?.error || errorMessage
+                } catch {
+                    errorMessage = `Error ${response.status}: ${response.statusText}`
+                }
+                console.error('API error:', errorMessage, 'Status:', response.status)
                 toast.error(errorMessage)
             }
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error creating listing:', error)
-            toast.error('An error occurred while creating your listing')
+            toast.error(error?.message || 'An error occurred while creating your listing')
         } finally {
             setIsLoading(false)
         }
