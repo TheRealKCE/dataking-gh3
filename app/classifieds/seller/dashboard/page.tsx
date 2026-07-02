@@ -6,10 +6,12 @@ import { Button } from '@/components/ui/button'
 import { Loader2, Zap, AlertCircle, Plus } from 'lucide-react'
 import { BoostModal } from '@/components/classifieds/boost-modal'
 import { ClassifiedsSellerSidebar } from '@/components/classifieds/seller-sidebar'
+import { useAuth } from '@/contexts/auth-context'
 import { toast } from 'sonner'
 import type { ClassifiedListing } from '@/types/supabase'
 
 export default function SellerDashboardPage() {
+    const { session } = useAuth()
     const [listings, setListings] = useState<ClassifiedListing[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [selectedListingId, setSelectedListingId] = useState<string | null>(null)
@@ -17,16 +19,15 @@ export default function SellerDashboardPage() {
 
     useEffect(() => {
         const loadListings = async () => {
+            if (!session?.access_token) {
+                setIsLoading(false)
+                return
+            }
+
             setIsLoading(true)
             try {
-                const token = localStorage.getItem('sb-token')
-                if (!token) {
-                    setIsLoading(false)
-                    return
-                }
-
                 const res = await fetch('/api/classifieds/listings?seller_id=me', {
-                    headers: { 'Authorization': `Bearer ${token}` },
+                    headers: { 'Authorization': `Bearer ${session.access_token}` },
                 })
 
                 if (res.ok) {
@@ -43,7 +44,7 @@ export default function SellerDashboardPage() {
         }
 
         loadListings()
-    }, [])
+    }, [session?.access_token])
 
     const handleBoostClick = (listingId: string) => {
         setSelectedListingId(listingId)
@@ -53,12 +54,11 @@ export default function SellerDashboardPage() {
     const handleBoostSuccess = () => {
         // Refresh listings
         const loadListings = async () => {
-            try {
-                const token = localStorage.getItem('sb-token')
-                if (!token) return
+            if (!session?.access_token) return
 
+            try {
                 const res = await fetch('/api/classifieds/listings?seller_id=me', {
-                    headers: { 'Authorization': `Bearer ${token}` },
+                    headers: { 'Authorization': `Bearer ${session.access_token}` },
                 })
 
                 if (res.ok) {

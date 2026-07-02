@@ -9,10 +9,13 @@ import { ClassifiedsSellerSidebar } from '@/components/classifieds/seller-sideba
 import { CategorySelector } from '@/components/classifieds/category-selector'
 import { ArrowLeft, Loader2, X, Upload } from 'lucide-react'
 import { toast } from 'sonner'
+import { useAuth } from '@/contexts/auth-context'
+import { supabase } from '@/lib/supabase'
 import type { ClassifiedCategory } from '@/types/supabase'
 
 export default function NewListingPage() {
     const router = useRouter()
+    const { user, session } = useAuth()
     const [categories, setCategories] = useState<ClassifiedCategory[]>([])
     const [isLoading, setIsLoading] = useState(false)
     const [isLoadingCategories, setIsLoadingCategories] = useState(true)
@@ -38,14 +41,11 @@ export default function NewListingPage() {
     ]
 
     useEffect(() => {
-        // Check if user is authenticated
-        const token = localStorage.getItem('sb-token')
-        if (!token) {
+        if (!user) {
             toast.error('Please log in to create a listing')
             router.push('/auth/login')
-            return
         }
-    }, [router])
+    }, [user, router])
 
     useEffect(() => {
         const loadCategories = async () => {
@@ -109,19 +109,19 @@ export default function NewListingPage() {
             return
         }
 
+        if (!session?.access_token) {
+            toast.error('Please log in to create a listing')
+            router.push('/auth/login')
+            return
+        }
+
         setIsLoading(true)
         try {
-            const token = localStorage.getItem('sb-token')
-            if (!token) {
-                router.push('/auth/login')
-                return
-            }
-
             const response = await fetch('/api/classifieds/listings', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
+                    'Authorization': `Bearer ${session.access_token}`,
                 },
                 body: JSON.stringify({
                     title: formData.title,
@@ -143,7 +143,7 @@ export default function NewListingPage() {
                 // Upload images if any
                 if (images.length > 0 && listingId) {
                     const formDataImages = new FormData()
-                    images.forEach((image, index) => {
+                    images.forEach(image => {
                         formDataImages.append(`images`, image)
                     })
                     formDataImages.append('listing_id', listingId)
@@ -152,7 +152,7 @@ export default function NewListingPage() {
                         const imageResponse = await fetch('/api/classifieds/listings/upload-images', {
                             method: 'POST',
                             headers: {
-                                'Authorization': `Bearer ${token}`,
+                                'Authorization': `Bearer ${session.access_token}`,
                             },
                             body: formDataImages,
                         })
