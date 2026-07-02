@@ -1,11 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
-import { getListingsWithPagination, createListing } from '@/lib/classifieds-queries'
+import { getListingsWithPagination } from '@/lib/classifieds-queries'
 import { verifyAuth, verifySellerAuth } from '@/lib/classifieds-auth'
 import type { Database } from '@/types/supabase'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
 
 export async function GET(request: NextRequest) {
     try {
@@ -91,17 +92,30 @@ export async function POST(request: NextRequest) {
             )
         }
 
-        const listing = await createListing(userId, {
-            title,
-            description,
-            category_id,
-            price,
-            location: location || null,
-            condition: condition || 'used',
-            contact_phone: contact_phone || null,
-            contact_email: contact_email || null,
-            expires_at: expires_at || null,
-        })
+        // Use service role key to bypass RLS (we've already validated auth server-side)
+        const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey || supabaseAnonKey)
+
+        const { data: listing, error: createError } = await supabase
+            .from('classified_listings')
+            .insert({
+                seller_id: userId,
+                title,
+                description,
+                category_id,
+                price,
+                location: location || null,
+                condition: condition || 'used',
+                contact_phone: contact_phone || null,
+                contact_email: contact_email || null,
+                expires_at: expires_at || null,
+            })
+            .select()
+            .single()
+
+        if (createError) {
+            console.error('Error creating listing:', createError)
+            throw createError
+        }
 
         return NextResponse.json(listing, { status: 201 })
     } catch (error: any) {
