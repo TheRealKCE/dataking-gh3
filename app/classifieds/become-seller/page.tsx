@@ -50,6 +50,9 @@ export default function BecomeSellerPage() {
             // Refresh auth context to update seller status
             await refreshUser()
 
+            // Small delay to ensure database update is visible
+            await new Promise(resolve => setTimeout(resolve, 500))
+
             toast.success('Welcome! You are now a seller.')
             router.push('/classifieds/seller/dashboard')
         } catch (error: any) {

@@ -15,7 +15,7 @@ import type { ClassifiedCategory } from '@/types/supabase'
 
 export default function NewListingPage() {
     const router = useRouter()
-    const { user, dbUser, session } = useAuth()
+    const { user, session } = useAuth()
     const [categories, setCategories] = useState<ClassifiedCategory[]>([])
     const [isLoading, setIsLoading] = useState(false)
     const [isLoadingCategories, setIsLoadingCategories] = useState(true)
@@ -38,10 +38,8 @@ export default function NewListingPage() {
         if (!user) {
             toast.error('Please log in to create a listing')
             router.push('/auth/login')
-        } else if (dbUser && !(dbUser as any).is_seller && dbUser.role === 'customer') {
-            router.push('/classifieds/become-seller')
         }
-    }, [user, dbUser, router])
+    }, [user, router])
 
     useEffect(() => {
         const loadCategories = async () => {
@@ -180,7 +178,13 @@ export default function NewListingPage() {
                     errorMessage = `Error ${response.status}: ${response.statusText}`
                 }
                 console.error('API error:', errorMessage, 'Status:', response.status)
-                toast.error(errorMessage)
+
+                if (errorMessage.includes('Only sellers can create listings')) {
+                    toast.error('You need to become a seller first')
+                    router.push('/classifieds/become-seller')
+                } else {
+                    toast.error(errorMessage)
+                }
             }
         } catch (error: any) {
             console.error('Error creating listing:', error)
