@@ -145,15 +145,17 @@ export default function BecomeSellerPage() {
                     </div>
                 </div>
 
+                <div className="text-center mb-8">
+                    <p className="text-gray-600 dark:text-gray-400 mb-2">Already a seller?</p>
+                    <Link href="/auth/login" className="text-blue-600 hover:text-blue-700 font-semibold text-lg">
+                        Log In →
+                    </Link>
+                </div>
+
                 <div className="bg-white dark:bg-[#151c2c] rounded-xl p-8 border border-gray-100 dark:border-gray-800">
-                    <div className="flex items-center justify-between mb-6">
-                        <h2 className="text-2xl font-bold text-gray-900 dark:text-white">
-                            Ready to get started?
-                        </h2>
-                        <Link href="/auth/login" className="text-blue-600 hover:text-blue-700 font-semibold text-sm">
-                            Already a seller? Log In →
-                        </Link>
-                    </div>
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-6">
+                        Ready to get started?
+                    </h2>
                     <p className="text-gray-600 dark:text-gray-400 mb-6">
                         {user.email}
                     </p>
