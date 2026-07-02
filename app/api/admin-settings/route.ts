@@ -55,6 +55,7 @@ export async function GET(request: Request) {
             'dealer_promo_enabled',
             'skip_google_oauth_otp',
             'special_mtn_mashup_hidden',
+            'express_mtn_hidden',
             'standard_mtn_hidden'
         ]
 
