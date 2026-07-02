@@ -23,6 +23,7 @@ export default function ListingDetailPage({
     const [isFavorited, setIsFavorited] = useState(false)
     const [similarListings, setSimilarListings] = useState<ClassifiedListing[]>([])
     const [isLoadingSimilar, setIsLoadingSimilar] = useState(false)
+    const [images, setImages] = useState<Array<{ url: string; alt: string }> | null>(null)
 
     useEffect(() => {
         const loadListing = async () => {
@@ -32,6 +33,15 @@ export default function ListingDetailPage({
                     notFound()
                 }
                 setListing(data as any)
+
+                // Transform listing images to carousel format
+                if (data.classified_listing_images && data.classified_listing_images.length > 0) {
+                    const carouselImages = (data.classified_listing_images as any[]).map((img: any) => ({
+                        url: `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/classifieds-images/${img.storage_path}`,
+                        alt: data.title || 'Listing image'
+                    }))
+                    setImages(carouselImages)
+                }
 
                 setIsLoadingSimilar(true)
                 const similar = await getListingsWithPagination({
@@ -167,7 +177,7 @@ export default function ListingDetailPage({
             {/* Main Content */}
             <div className="max-w-3xl mx-auto px-6 py-8 space-y-8">
                 {/* Images */}
-                <ImageCarousel images={null} />
+                <ImageCarousel images={images} />
 
                 {/* Title & Price */}
                 <div className="space-y-3">
@@ -183,6 +193,7 @@ export default function ListingDetailPage({
                             )}
                         </div>
                         <button
+                            type="button"
                             onClick={handleFavoriteToggle}
                             aria-label={isFavorited ? 'Remove from favorites' : 'Add to favorites'}
                             className={`p-3 rounded-full transition-all ${
