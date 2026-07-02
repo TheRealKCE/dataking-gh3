@@ -147,7 +147,7 @@ export default function BecomeSellerPage() {
 
                 <div className="text-center mb-8">
                     <p className="text-gray-600 dark:text-gray-400 mb-2">Already a seller?</p>
-                    <Link href="/auth/login" className="text-blue-600 hover:text-blue-700 font-semibold text-lg">
+                    <Link href="/classifieds/seller/login" className="text-blue-600 hover:text-blue-700 font-semibold text-lg">
                         Log In →
                     </Link>
                 </div>

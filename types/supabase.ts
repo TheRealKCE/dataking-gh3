@@ -22,6 +22,7 @@ export interface Database {
                     agent_expires_at: string | null
                     dealer_claimed_at: string | null
                     dealer_expires_at: string | null
+                    is_seller: boolean
                     created_at: string
                     updated_at: string
                 }
@@ -37,6 +38,7 @@ export interface Database {
                     agent_expires_at?: string | null
                     dealer_claimed_at?: string | null
                     dealer_expires_at?: string | null
+                    is_seller?: boolean
                     created_at?: string
                     updated_at?: string
                 }
@@ -52,6 +54,7 @@ export interface Database {
                     agent_expires_at?: string | null
                     dealer_claimed_at?: string | null
                     dealer_expires_at?: string | null
+                    is_seller?: boolean
                     updated_at?: string
                 }
             }
