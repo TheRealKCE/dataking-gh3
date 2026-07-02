@@ -240,59 +240,79 @@ export default function ListingDetailPage({
 
                 {/* Seller Card */}
                 <div className="bg-white dark:bg-[#151c2c] rounded-xl border border-gray-100 dark:border-gray-800 p-6">
-                    <div className="flex items-start justify-between gap-4 mb-4">
-                        <div className="flex items-center gap-3 flex-1">
-                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white text-lg font-bold">
-                                {getSellerName().charAt(0).toUpperCase()}
-                            </div>
-                            <div className="flex-1">
-                                <div className="flex items-center gap-2">
-                                    <h3 className="font-bold text-gray-900 dark:text-white">{getSellerName()}</h3>
-                                    {(listing.users as any)?.seller_verified_at && (
-                                        <div className="flex items-center gap-1 px-2 py-0.5 bg-emerald-50 dark:bg-emerald-900/30 rounded-full">
-                                            <CheckCircle className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
-                                            <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">Verified</span>
-                                        </div>
-                                    )}
-                                </div>
-                                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{getYearsActive()}</p>
-                            </div>
+                    <div className="flex items-start gap-4 mb-6">
+                        <div className="w-14 h-14 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white text-lg font-bold flex-shrink-0">
+                            {getSellerName().charAt(0).toUpperCase()}
                         </div>
+                        <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                                <h3 className="font-bold text-gray-900 dark:text-white">{getSellerName()}</h3>
+                                {(listing.users as any)?.seller_verified_at && (
+                                    <div className="flex items-center gap-1 px-2 py-0.5 bg-emerald-50 dark:bg-emerald-900/30 rounded-full">
+                                        <CheckCircle className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                                        <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">Verified</span>
+                                    </div>
+                                )}
+                            </div>
+                            <p className="text-xs text-gray-600 dark:text-gray-400">{getYearsActive()}</p>
+                            <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">Typically replies within minutes</p>
+                        </div>
+                    </div>
+
+                    {/* Seller Action Buttons */}
+                    <div className="space-y-2">
+                        <button type="button" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-lg transition-colors">
+                            Show contact
+                        </button>
+                        <button type="button" className="w-full border border-emerald-600 text-emerald-600 dark:text-emerald-400 dark:border-emerald-400 font-semibold py-2.5 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors">
+                            Start chat
+                        </button>
                     </div>
                 </div>
 
-                {/* Contact Section */}
-                <div className="space-y-4">
-                    {listing.status === 'archived' ? (
-                        <div className="bg-gray-100 dark:bg-gray-800 rounded-xl p-4 text-center">
-                            <p className="text-sm font-bold text-gray-600 dark:text-gray-400">This listing is no longer available</p>
-                        </div>
-                    ) : (
-                        <>
-                            <h2 className="text-lg font-black text-gray-900 dark:text-white">Get in Touch</h2>
-                            <ContactRevealButton listing={listing} userId={userId} />
-                        </>
-                    )}
+                {/* Unavailable Banner */}
+                {listing.status === 'archived' && (
+                    <div className="bg-gray-100 dark:bg-gray-800 rounded-xl p-4 text-center">
+                        <p className="text-sm font-bold text-gray-600 dark:text-gray-400">This listing is no longer available</p>
+                    </div>
+                )}
 
-                    {userId && userId === listing.seller_id && listing.status !== 'archived' && (
-                        <button
-                            onClick={handleMarkUnavailable}
-                            className="w-full bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 font-bold py-3 rounded-lg border border-red-200 dark:border-red-800 transition-colors"
-                        >
-                            Mark Unavailable
+                {/* Seller Action Buttons (for non-owners) */}
+                {userId && userId !== listing.seller_id && listing.status !== 'archived' && (
+                    <div className="space-y-3">
+                        <button type="button" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-lg transition-colors">
+                            Mark unavailable
                         </button>
-                    )}
-                </div>
+                        <button type="button" className="w-full bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 font-semibold py-3 rounded-lg border border-red-200 dark:border-red-800 transition-colors">
+                            Report Abuse
+                        </button>
+                    </div>
+                )}
+
+                {/* Owner Mark Unavailable */}
+                {userId && userId === listing.seller_id && listing.status !== 'archived' && (
+                    <button
+                        type="button"
+                        onClick={handleMarkUnavailable}
+                        className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-lg transition-colors"
+                    >
+                        Mark unavailable
+                    </button>
+                )}
 
                 {/* Safety Notice */}
-                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4 flex gap-3">
-                    <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
-                    <div>
-                        <p className="text-sm font-bold text-amber-900 dark:text-amber-300">Always buy safely</p>
-                        <p className="text-xs text-amber-800 dark:text-amber-400 mt-1">
-                            Meet the seller in person, inspect items before paying, and only pay after you're satisfied.
-                        </p>
+                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-6">
+                    <div className="flex gap-3 mb-4">
+                        <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
+                        <p className="text-sm font-bold text-amber-900 dark:text-amber-300">Safety tips</p>
                     </div>
+                    <ul className="space-y-2 ml-8">
+                        <li className="text-xs text-amber-800 dark:text-amber-400">It's safer not to pay ahead for inspections</li>
+                        <li className="text-xs text-amber-800 dark:text-amber-400">Ask friends or somebody you trust to accompany you for viewing</li>
+                        <li className="text-xs text-amber-800 dark:text-amber-400">Look around the apartment to ensure it meets your expectations</li>
+                        <li className="text-xs text-amber-800 dark:text-amber-400">Don't pay beforehand if they won't let you move in immediately</li>
+                        <li className="text-xs text-amber-800 dark:text-amber-400">Verify that the account details belong to the right property owner before initiating payment</li>
+                    </ul>
                 </div>
 
                 {/* View Count */}
