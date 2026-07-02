@@ -71,7 +71,7 @@ export async function PUT(
         }
 
         const body = await request.json()
-        const { title, description, price, location, condition, status, expires_at } = body
+        const { title, description, price, location, condition, status, whatsapp_number, facebook_url, twitter_url, instagram_url, expires_at } = body
 
         const updatedListing = await updateListing(params.id, {
             ...(title && { title }),
@@ -80,6 +80,10 @@ export async function PUT(
             ...(location !== undefined && { location }),
             ...(condition && { condition }),
             ...(status && { status }),
+            ...(whatsapp_number !== undefined && { whatsapp_number }),
+            ...(facebook_url !== undefined && { facebook_url }),
+            ...(twitter_url !== undefined && { twitter_url }),
+            ...(instagram_url !== undefined && { instagram_url }),
             ...(expires_at !== undefined && { expires_at }),
         })
 

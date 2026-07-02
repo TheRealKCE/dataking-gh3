@@ -11,6 +11,7 @@ import { ArrowLeft, Loader2, X, Upload } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '@/contexts/auth-context'
 import { supabase } from '@/lib/supabase'
+import { normalizeWhatsAppNumber } from '@/lib/utils'
 import type { ClassifiedCategory } from '@/types/supabase'
 
 export default function NewListingPage() {
@@ -31,6 +32,10 @@ export default function NewListingPage() {
         location: '',
         contact_phone: '',
         contact_email: '',
+        whatsapp_number: '',
+        facebook_url: '',
+        twitter_url: '',
+        instagram_url: '',
     })
 
 
@@ -111,6 +116,8 @@ export default function NewListingPage() {
 
         setIsLoading(true)
         try {
+            const normalizedWhatsApp = formData.whatsapp_number ? normalizeWhatsAppNumber(formData.whatsapp_number) : ''
+
             const response = await fetch('/api/classifieds/listings', {
                 method: 'POST',
                 headers: {
@@ -126,6 +133,10 @@ export default function NewListingPage() {
                     location: formData.location,
                     contact_phone: formData.contact_phone,
                     contact_email: formData.contact_email,
+                    whatsapp_number: normalizedWhatsApp || undefined,
+                    facebook_url: formData.facebook_url || undefined,
+                    twitter_url: formData.twitter_url || undefined,
+                    instagram_url: formData.instagram_url || undefined,
                 }),
             })
 
@@ -358,6 +369,70 @@ export default function NewListingPage() {
                                     onChange={handleChange}
                                     className="w-full"
                                 />
+                            </div>
+                        </div>
+
+                        {/* Social Contact (Optional) */}
+                        <div>
+                            <label className="block text-sm font-bold text-gray-900 dark:text-white mb-4">
+                                Social Contact <span className="text-gray-500 font-normal">(optional)</span>
+                            </label>
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2">
+                                        WhatsApp Number
+                                    </label>
+                                    <Input
+                                        type="tel"
+                                        name="whatsapp_number"
+                                        placeholder="0241234567"
+                                        value={formData.whatsapp_number}
+                                        onChange={handleChange}
+                                        className="w-full"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2">
+                                        Facebook URL
+                                    </label>
+                                    <Input
+                                        type="url"
+                                        name="facebook_url"
+                                        placeholder="https://facebook.com/yourprofile"
+                                        value={formData.facebook_url}
+                                        onChange={handleChange}
+                                        className="w-full"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2">
+                                        Twitter / X URL
+                                    </label>
+                                    <Input
+                                        type="url"
+                                        name="twitter_url"
+                                        placeholder="https://twitter.com/yourprofile"
+                                        value={formData.twitter_url}
+                                        onChange={handleChange}
+                                        className="w-full"
+                                    />
+                                </div>
+
+                                <div>
+                                    <label className="block text-xs font-semibold text-gray-600 dark:text-gray-400 mb-2">
+                                        Instagram URL
+                                    </label>
+                                    <Input
+                                        type="url"
+                                        name="instagram_url"
+                                        placeholder="https://instagram.com/yourprofile"
+                                        value={formData.instagram_url}
+                                        onChange={handleChange}
+                                        className="w-full"
+                                    />
+                                </div>
                             </div>
                         </div>
 

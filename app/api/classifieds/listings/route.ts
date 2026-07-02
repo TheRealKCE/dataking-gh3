@@ -76,7 +76,7 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json()
-        const { title, description, category_id, price, location, condition, contact_phone, contact_email, expires_at } = body
+        const { title, description, category_id, price, location, condition, contact_phone, contact_email, whatsapp_number, facebook_url, twitter_url, instagram_url, expires_at } = body
 
         if (!title || !description || !category_id || price === undefined) {
             return NextResponse.json(
@@ -107,6 +107,10 @@ export async function POST(request: NextRequest) {
                 condition: condition || 'used',
                 contact_phone: contact_phone || null,
                 contact_email: contact_email || null,
+                whatsapp_number: whatsapp_number || null,
+                facebook_url: facebook_url || null,
+                twitter_url: twitter_url || null,
+                instagram_url: instagram_url || null,
                 expires_at: expires_at || null,
             })
             .select()

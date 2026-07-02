@@ -597,6 +597,10 @@ export interface Database {
                     condition: 'new' | 'like-new' | 'used' | 'refurbished'
                     contact_phone: string | null
                     contact_email: string | null
+                    whatsapp_number: string | null
+                    facebook_url: string | null
+                    twitter_url: string | null
+                    instagram_url: string | null
                     view_count: number
                     is_boosted: boolean
                     boosted_until: string | null
@@ -617,6 +621,10 @@ export interface Database {
                     condition?: 'new' | 'like-new' | 'used' | 'refurbished'
                     contact_phone?: string | null
                     contact_email?: string | null
+                    whatsapp_number?: string | null
+                    facebook_url?: string | null
+                    twitter_url?: string | null
+                    instagram_url?: string | null
                     view_count?: number
                     is_boosted?: boolean
                     boosted_until?: string | null
@@ -635,6 +643,10 @@ export interface Database {
                     condition?: 'new' | 'like-new' | 'used' | 'refurbished'
                     contact_phone?: string | null
                     contact_email?: string | null
+                    whatsapp_number?: string | null
+                    facebook_url?: string | null
+                    twitter_url?: string | null
+                    instagram_url?: string | null
                     view_count?: number
                     is_boosted?: boolean
                     boosted_until?: string | null

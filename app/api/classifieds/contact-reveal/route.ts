@@ -41,6 +41,10 @@ export async function POST(request: NextRequest) {
             phone: listing.contact_phone,
             email: listing.contact_email,
             location: listing.location,
+            whatsapp_number: listing.whatsapp_number,
+            facebook_url: listing.facebook_url,
+            twitter_url: listing.twitter_url,
+            instagram_url: listing.instagram_url,
         })
     } catch (error: any) {
         console.error('Contact reveal error:', error)
