@@ -1,6 +1,8 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
+import { useAuth } from '@/contexts/auth-context'
 import { ClassifiedsSellerSidebar } from '@/components/classifieds/seller-sidebar'
 import { Button } from '@/components/ui/button'
 import { Loader2, CheckCircle, AlertCircle, Clock } from 'lucide-react'
@@ -13,23 +15,30 @@ interface VerificationStatus {
 }
 
 export default function SellerVerificationPage() {
+    const router = useRouter()
+    const { user, session } = useAuth()
     const [status, setStatus] = useState<VerificationStatus | null>(null)
     const [isLoading, setIsLoading] = useState(true)
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [note, setNote] = useState('')
 
     useEffect(() => {
+        if (!user) {
+            toast.error('Please log in to access seller verification')
+            router.push('/auth/login')
+        }
+    }, [user, router])
+
+    useEffect(() => {
         const loadStatus = async () => {
             try {
                 setIsLoading(true)
-                const token = localStorage.getItem('sb-token')
-                if (!token) {
-                    toast.error('Please log in')
+                if (!session?.access_token) {
                     return
                 }
 
                 const res = await fetch('/api/classifieds/seller-verification', {
-                    headers: { 'Authorization': `Bearer ${token}` },
+                    headers: { 'Authorization': `Bearer ${session.access_token}` },
                 })
 
                 if (!res.ok) {
@@ -47,15 +56,14 @@ export default function SellerVerificationPage() {
         }
 
         loadStatus()
-    }, [])
+    }, [session?.access_token])
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setIsSubmitting(true)
 
         try {
-            const token = localStorage.getItem('sb-token')
-            if (!token) {
+            if (!session?.access_token) {
                 toast.error('Please log in')
                 return
             }
@@ -64,7 +72,7 @@ export default function SellerVerificationPage() {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
+                    'Authorization': `Bearer ${session.access_token}`,
                 },
                 body: JSON.stringify({ note: note || undefined }),
             })
