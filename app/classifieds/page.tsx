@@ -139,13 +139,11 @@ export default function ClassifiedsPage() {
                     <div className="flex items-center justify-between mb-4">
                         <h2 className="text-white text-xl font-bold">What are you looking for?</h2>
                         <div className="flex items-center gap-3">
-                            {!authLoading && !user && (
-                                <Link href="/auth/login">
-                                    <Button className="bg-white/20 hover:bg-white/30 text-white font-semibold rounded-lg px-4 py-2 transition-colors">
-                                        Log In
-                                    </Button>
-                                </Link>
-                            )}
+                            <Link href="/auth/login">
+                                <Button className="bg-white/20 hover:bg-white/30 text-white font-semibold rounded-lg px-4 py-2 transition-colors">
+                                    Log In
+                                </Button>
+                            </Link>
                             {!authLoading && (
                                 <>
                                     {!user ? (
