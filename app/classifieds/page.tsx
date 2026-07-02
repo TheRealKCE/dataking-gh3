@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { useAuth } from '@/contexts/auth-context'
 import { getCategories } from '@/lib/classifieds-queries'
 import { ListingGrid } from '@/components/classifieds/listing-grid'
 import { Loader2, Search, Grid3x3, List, ChevronRight } from 'lucide-react'
@@ -12,6 +13,7 @@ import type { ClassifiedListing, ClassifiedCategory } from '@/types/supabase'
 export default function ClassifiedsPage() {
     const router = useRouter()
     const searchParams = useSearchParams()
+    const { user, dbUser } = useAuth()
 
     const [listings, setListings] = useState<ClassifiedListing[]>([])
     const [allCategories, setAllCategories] = useState<ClassifiedCategory[]>([])
@@ -136,11 +138,25 @@ export default function ClassifiedsPage() {
                 <div className="max-w-7xl mx-auto px-4">
                     <div className="flex items-center justify-between mb-4">
                         <h2 className="text-white text-xl font-bold">What are you looking for?</h2>
-                        <Link href="/classifieds/seller/dashboard">
-                            <Button className="bg-blue-600 hover:bg-blue-700 text-white font-black rounded-lg px-6 py-2">
-                                SELL
-                            </Button>
-                        </Link>
+                        {!user ? (
+                            <Link href="/auth/login">
+                                <Button className="bg-blue-600 hover:bg-blue-700 text-white font-black rounded-lg px-6 py-2">
+                                    SELL
+                                </Button>
+                            </Link>
+                        ) : !dbUser?.is_seller ? (
+                            <Link href="/classifieds/become-seller">
+                                <Button className="bg-blue-600 hover:bg-blue-700 text-white font-black rounded-lg px-6 py-2">
+                                    SELL
+                                </Button>
+                            </Link>
+                        ) : (
+                            <Link href="/classifieds/seller/dashboard">
+                                <Button className="bg-blue-600 hover:bg-blue-700 text-white font-black rounded-lg px-6 py-2">
+                                    SELL
+                                </Button>
+                            </Link>
+                        )}
                     </div>
                     <form onSubmit={handleSearch} className="flex gap-3">
                         <select
