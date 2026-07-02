@@ -10,38 +10,56 @@ const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
 
 export async function POST(request: NextRequest) {
     try {
+        console.log('[SellerEnable] Request started')
+        console.log('[SellerEnable] Service key available:', !!supabaseServiceKey)
+
         const authHeader = request.headers.get('authorization')
         const token = authHeader?.replace('Bearer ', '')
 
         const userId = await verifyAuth(token)
         if (!userId) {
+            console.log('[SellerEnable] Auth failed - no user ID')
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
+        console.log('[SellerEnable] User authenticated:', userId)
+
         const body = await request.json()
         const { phone_number } = body
+
+        console.log('[SellerEnable] Request body:', { phone_number: phone_number ? '***' : 'none' })
 
         // Validate phone number if provided
         if (phone_number) {
             const validation = validateGhanaianPhone(phone_number)
             if (!validation.isValid) {
+                console.log('[SellerEnable] Phone validation failed:', validation.error)
                 return NextResponse.json(
                     { error: validation.error || 'Invalid phone number format' },
                     { status: 400 }
                 )
             }
+            console.log('[SellerEnable] Phone number valid')
         }
 
         const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey)
 
         // Get user first name for welcome message
-        const { data: userData } = await supabase
+        console.log('[SellerEnable] Fetching user data...')
+        const { data: userData, error: userError } = await supabase
             .from('users')
             .select('first_name')
             .eq('id', userId)
             .single()
 
+        if (userError) {
+            console.error('[SellerEnable] Error fetching user:', userError)
+        } else {
+            console.log('[SellerEnable] User data retrieved:', userData?.first_name)
+        }
+
         // Update user with seller status and phone number
+        console.log('[SellerEnable] Updating user record...')
         const { data: updateData, error } = await supabase
             .from('users')
             .update({
@@ -52,7 +70,7 @@ export async function POST(request: NextRequest) {
             .select()
 
         if (error) {
-            console.error('Error enabling seller status:', error)
+            console.error('[SellerEnable] Update error:', error.message, error.code, error.details)
             throw error
         }
 
@@ -75,9 +93,11 @@ export async function POST(request: NextRequest) {
             }
         }
 
+        console.log('[SellerEnable] Success - returning 200')
         return NextResponse.json({ message: 'Seller status enabled successfully' }, { status: 200 })
     } catch (error: any) {
-        console.error('Enable seller error:', error)
+        console.error('[SellerEnable] Exception caught:', error.message)
+        console.error('[SellerEnable] Full error:', JSON.stringify(error, null, 2))
         return NextResponse.json(
             { error: error.message || 'Failed to enable seller status' },
             { status: 500 }
