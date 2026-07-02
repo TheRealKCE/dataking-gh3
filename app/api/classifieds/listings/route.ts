@@ -66,9 +66,10 @@ export async function POST(request: NextRequest) {
 
         const isSeller = await verifySellerAuth(userId)
         if (!isSeller) {
-            console.error('User', userId, 'is not a seller')
+            console.error('Seller verification failed for user:', userId)
+            console.error('This usually means is_seller is false in the database')
             return NextResponse.json(
-                { error: 'Only sellers can create listings' },
+                { error: 'Only sellers can create listings. Please refresh the page and try again.' },
                 { status: 403 }
             )
         }

@@ -171,17 +171,21 @@ export default function NewListingPage() {
                 }, 500)
             } else {
                 let errorMessage = 'Failed to create listing'
+                let statusCode = response.status
                 try {
                     const errorData = await response.json()
                     errorMessage = errorData?.error || errorMessage
                 } catch {
                     errorMessage = `Error ${response.status}: ${response.statusText}`
                 }
-                console.error('API error:', errorMessage, 'Status:', response.status)
+                console.error('API error:', errorMessage, 'Status:', statusCode)
 
-                if (errorMessage.includes('Only sellers can create listings')) {
-                    toast.error('You need to become a seller first')
-                    router.push('/classifieds/become-seller')
+                if (statusCode === 403 && errorMessage.includes('Only sellers can create listings')) {
+                    toast.error('Refreshing your account... Please try again')
+                    // Refresh user and retry
+                    setTimeout(() => {
+                        window.location.reload()
+                    }, 1000)
                 } else {
                     toast.error(errorMessage)
                 }
