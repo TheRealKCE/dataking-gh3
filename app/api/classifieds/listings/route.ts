@@ -18,6 +18,20 @@ export async function GET(request: NextRequest) {
         const price_min = searchParams.get('price_min') ? parseFloat(searchParams.get('price_min')!) : undefined
         const price_max = searchParams.get('price_max') ? parseFloat(searchParams.get('price_max')!) : undefined
         const status = searchParams.get('status') || 'active'
+        let seller_id = searchParams.get('seller_id') || undefined
+
+        // Handle seller_id=me by getting the current user's ID
+        if (seller_id === 'me') {
+            const authHeader = request.headers.get('authorization')
+            const token = authHeader?.replace('Bearer ', '')
+            const userId = await verifyAuth(token)
+
+            if (!userId) {
+                return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+            }
+
+            seller_id = userId
+        }
 
         const result = await getListingsWithPagination({
             page,
@@ -27,6 +41,7 @@ export async function GET(request: NextRequest) {
             price_min,
             price_max,
             status,
+            seller_id,
         })
 
         return NextResponse.json(result)

@@ -166,7 +166,10 @@ export default function NewListingPage() {
                 }
 
                 toast.success('Listing created successfully!')
-                router.push(`/classifieds/seller/dashboard`)
+                router.refresh()
+                setTimeout(() => {
+                    router.push(`/classifieds/seller/dashboard`)
+                }, 500)
             } else {
                 toast.error('Failed to create listing')
             }
