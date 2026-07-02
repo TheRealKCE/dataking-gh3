@@ -26,7 +26,12 @@ export async function getListingsWithPagination(params: {
         .eq('status', params.status || 'active')
 
     if (params.category_id) {
-        query = query.eq('category_id', params.category_id)
+        const ids = params.category_id.split(',')
+        if (ids.length === 1) {
+            query = query.eq('category_id', ids[0])
+        } else {
+            query = query.in('category_id', ids)
+        }
     }
 
     if (params.location) {

@@ -2,10 +2,11 @@
 
 import { useState, useEffect } from 'react'
 import { notFound } from 'next/navigation'
-import { getListingById } from '@/lib/classifieds-queries'
+import { getListingById, getListingsWithPagination } from '@/lib/classifieds-queries'
 import { ImageCarousel } from '@/components/classifieds/image-carousel'
 import { ContactRevealButton } from '@/components/classifieds/contact-reveal-button'
-import { Heart, MapPin, Calendar, AlertCircle } from 'lucide-react'
+import { ListingGrid } from '@/components/classifieds/listing-grid'
+import { Heart, MapPin, Calendar, AlertCircle, CheckCircle, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import type { ClassifiedListing } from '@/types/supabase'
 
@@ -18,6 +19,8 @@ export default function ListingDetailPage({
     const [isLoading, setIsLoading] = useState(true)
     const [userId, setUserId] = useState<string | undefined>()
     const [isFavorited, setIsFavorited] = useState(false)
+    const [similarListings, setSimilarListings] = useState<ClassifiedListing[]>([])
+    const [isLoadingSimilar, setIsLoadingSimilar] = useState(false)
 
     useEffect(() => {
         const loadListing = async () => {
@@ -27,17 +30,25 @@ export default function ListingDetailPage({
                     notFound()
                 }
                 setListing(data as any)
+
+                setIsLoadingSimilar(true)
+                const similar = await getListingsWithPagination({
+                    category_id: data.category_id,
+                    status: 'active',
+                    limit: 8,
+                })
+                setSimilarListings(similar.listings.filter(l => l.id !== params.listingId))
             } catch (error) {
                 console.error('Error loading listing:', error)
                 notFound()
             } finally {
                 setIsLoading(false)
+                setIsLoadingSimilar(false)
             }
         }
 
         const token = localStorage.getItem('sb-token')
         if (token) {
-            // Decode JWT to get user ID (simplified)
             try {
                 const payload = JSON.parse(atob(token.split('.')[1]))
                 setUserId(payload.sub)
@@ -79,6 +90,55 @@ export default function ListingDetailPage({
         } catch (error) {
             toast.error('Error updating favorites')
         }
+    }
+
+    const handleMarkUnavailable = async () => {
+        try {
+            const token = localStorage.getItem('sb-token')
+            if (!token) {
+                toast.error('Please log in')
+                return
+            }
+
+            const response = await fetch(`/api/classifieds/listings/${params.listingId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`,
+                },
+                body: JSON.stringify({ status: 'archived' }),
+            })
+
+            if (response.ok) {
+                const updated = await response.json()
+                setListing(updated)
+                toast.success('Listing marked as unavailable')
+            } else {
+                toast.error('Failed to update listing')
+            }
+        } catch (error) {
+            console.error('Error marking unavailable:', error)
+            toast.error('Error updating listing')
+        }
+    }
+
+    const getSellerName = () => {
+        if (!listing) return ''
+        const users = listing.users as any
+        if (!users) return 'Seller'
+        return [users.first_name, users.last_name].filter(Boolean).join(' ') || 'Seller'
+    }
+
+    const getYearsActive = () => {
+        if (!listing) return ''
+        const users = listing.users as any
+        if (!users) return ''
+        if (users.seller_verified_at) {
+            const year = new Date(users.seller_verified_at).getFullYear()
+            return `on the marketplace since ${year}`
+        }
+        const year = new Date(listing.created_at).getFullYear()
+        return `on the marketplace since ${year}`
     }
 
     if (isLoading) {
@@ -124,6 +184,7 @@ export default function ListingDetailPage({
                         </div>
                         <button
                             onClick={handleFavoriteToggle}
+                            aria-label={isFavorited ? 'Remove from favorites' : 'Add to favorites'}
                             className={`p-3 rounded-full transition-all ${
                                 isFavorited
                                     ? 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400'
@@ -177,10 +238,50 @@ export default function ListingDetailPage({
                     </p>
                 </div>
 
+                {/* Seller Card */}
+                <div className="bg-white dark:bg-[#151c2c] rounded-xl border border-gray-100 dark:border-gray-800 p-6">
+                    <div className="flex items-start justify-between gap-4 mb-4">
+                        <div className="flex items-center gap-3 flex-1">
+                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center text-white text-lg font-bold">
+                                {getSellerName().charAt(0).toUpperCase()}
+                            </div>
+                            <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                    <h3 className="font-bold text-gray-900 dark:text-white">{getSellerName()}</h3>
+                                    {(listing.users as any)?.seller_verified_at && (
+                                        <div className="flex items-center gap-1 px-2 py-0.5 bg-emerald-50 dark:bg-emerald-900/30 rounded-full">
+                                            <CheckCircle className="w-3 h-3 text-emerald-600 dark:text-emerald-400" />
+                                            <span className="text-xs font-semibold text-emerald-600 dark:text-emerald-400">Verified</span>
+                                        </div>
+                                    )}
+                                </div>
+                                <p className="text-xs text-gray-600 dark:text-gray-400 mt-1">{getYearsActive()}</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
                 {/* Contact Section */}
                 <div className="space-y-4">
-                    <h2 className="text-lg font-black text-gray-900 dark:text-white">Get in Touch</h2>
-                    <ContactRevealButton listing={listing} userId={userId} />
+                    {listing.status === 'archived' ? (
+                        <div className="bg-gray-100 dark:bg-gray-800 rounded-xl p-4 text-center">
+                            <p className="text-sm font-bold text-gray-600 dark:text-gray-400">This listing is no longer available</p>
+                        </div>
+                    ) : (
+                        <>
+                            <h2 className="text-lg font-black text-gray-900 dark:text-white">Get in Touch</h2>
+                            <ContactRevealButton listing={listing} userId={userId} />
+                        </>
+                    )}
+
+                    {userId && userId === listing.seller_id && listing.status !== 'archived' && (
+                        <button
+                            onClick={handleMarkUnavailable}
+                            className="w-full bg-red-50 dark:bg-red-900/20 hover:bg-red-100 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 font-bold py-3 rounded-lg border border-red-200 dark:border-red-800 transition-colors"
+                        >
+                            Mark Unavailable
+                        </button>
+                    )}
                 </div>
 
                 {/* Safety Notice */}
@@ -198,6 +299,25 @@ export default function ListingDetailPage({
                 <div className="text-center text-xs text-gray-500 dark:text-gray-500">
                     {listing.view_count} people viewed this listing
                 </div>
+
+                {/* Similar Adverts */}
+                {similarListings.length > 0 && (
+                    <div className="mt-12 border-t border-gray-200 dark:border-gray-800 pt-8">
+                        <h2 className="text-2xl font-black text-gray-900 dark:text-white mb-6">Similar Adverts</h2>
+                        {isLoadingSimilar ? (
+                            <div className="flex items-center justify-center py-8">
+                                <Loader2 className="w-6 h-6 text-emerald-600 dark:text-emerald-400 animate-spin" />
+                            </div>
+                        ) : (
+                            <ListingGrid
+                                listings={similarListings}
+                                isLoading={false}
+                                favorites={[]}
+                                onFavoriteToggle={() => {}}
+                            />
+                        )}
+                    </div>
+                )}
             </div>
         </div>
     )

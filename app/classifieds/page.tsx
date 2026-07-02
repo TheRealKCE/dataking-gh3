@@ -23,35 +23,17 @@ export default function ClassifiedsPage() {
     const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid')
     const [showSellGuide, setShowSellGuide] = useState(false)
     const [showBuyGuide, setShowBuyGuide] = useState(false)
-    const [selectedMainCategory, setSelectedMainCategory] = useState<string | null>(
-        searchParams.get('main_category_id') || null
-    )
 
-    const category_id = searchParams.get('category_id') || undefined
     const location = searchParams.get('location') || undefined
 
     const mainCategories = allCategories.filter(cat => !cat.parent_id).sort((a, b) => a.display_order - b.display_order)
-    const subCategories = selectedMainCategory
-        ? allCategories.filter(cat => cat.parent_id === selectedMainCategory).sort((a, b) => a.display_order - b.display_order)
-        : []
-
-    const selectedCategoryName = allCategories.find(cat => cat.id === selectedMainCategory)?.name || null
 
     useEffect(() => {
         const loadData = async () => {
             setIsLoading(true)
             try {
-                // Load all categories
                 const categoriesData = await getCategories()
                 setAllCategories(categoriesData)
-
-                // Set first main category as selected if none chosen
-                if (!selectedMainCategory && categoriesData.length > 0) {
-                    const firstMainCat = categoriesData.find(cat => !cat.parent_id)
-                    if (firstMainCat) {
-                        setSelectedMainCategory(firstMainCat.id)
-                    }
-                }
             } catch (error) {
                 console.error('Error loading categories:', error)
                 setAllCategories([])
@@ -67,7 +49,6 @@ export default function ClassifiedsPage() {
         const loadListings = async () => {
             try {
                 const params = new URLSearchParams()
-                if (selectedMainCategory) params.set('category_id', selectedMainCategory)
                 if (location) params.set('location', location)
 
                 const listingsRes = await fetch(`/api/classifieds/promoted?${params.toString()}`)
@@ -83,10 +64,8 @@ export default function ClassifiedsPage() {
             }
         }
 
-        if (selectedMainCategory) {
-            loadListings()
-        }
-    }, [selectedMainCategory, location])
+        loadListings()
+    }, [location])
 
     const handleSearch = (e: React.FormEvent) => {
         e.preventDefault()
@@ -210,31 +189,6 @@ export default function ClassifiedsPage() {
                 </div>
             </div>
 
-            {/* Subcategories Horizontal Menustrip */}
-            {selectedCategoryName && subCategories.length > 0 && (
-                <div className="bg-gray-50 dark:bg-gray-900/30 border-b border-gray-200 dark:border-gray-800 py-4 sticky top-0 z-10">
-                    <div className="max-w-7xl mx-auto px-4">
-                        <h3 className="text-base font-bold text-gray-900 dark:text-white mb-3">{selectedCategoryName}</h3>
-                        <div className="overflow-x-auto scrollbar-hide">
-                            <div className="flex gap-3 pb-1">
-                                {subCategories.map((subCat) => (
-                                    <button
-                                        key={subCat.id}
-                                        onClick={() => setSelectedMainCategory(subCat.id)}
-                                        className="flex items-center gap-2 px-4 py-2 rounded-lg bg-white dark:bg-[#151c2c] border border-gray-200 dark:border-gray-700 hover:border-emerald-400 dark:hover:border-emerald-600 transition-colors text-left flex-shrink-0 whitespace-nowrap"
-                                    >
-                                        <span className="text-lg">{subCat.icon_emoji || '📦'}</span>
-                                        <div className="min-w-0">
-                                            <div className="text-xs font-semibold text-gray-900 dark:text-white">{subCat.name}</div>
-                                            <div className="text-xs text-emerald-600 dark:text-emerald-400">View listings</div>
-                                        </div>
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            )}
 
             {/* Main Categories + Listings Layout */}
             <div className="max-w-7xl mx-auto px-4 py-8">
@@ -251,12 +205,8 @@ export default function ClassifiedsPage() {
                                     return (
                                         <button
                                             key={cat.id}
-                                            onClick={() => setSelectedMainCategory(cat.id)}
-                                            className={`w-full flex items-center justify-between px-3 py-3 rounded-lg transition-colors ${
-                                                selectedMainCategory === cat.id
-                                                    ? 'bg-emerald-50 dark:bg-emerald-900/20 border-l-4 border-emerald-600'
-                                                    : 'hover:bg-gray-50 dark:hover:bg-gray-800/50'
-                                            }`}
+                                            onClick={() => router.push(`/classifieds/category/${cat.id}`)}
+                                            className="w-full flex items-center justify-between px-3 py-3 rounded-lg transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50"
                                         >
                                             <div className="flex items-center gap-3 flex-1 text-left">
                                                 <span className="text-2xl">{cat.icon_emoji || '📦'}</span>
@@ -265,7 +215,7 @@ export default function ClassifiedsPage() {
                                                     <div className="text-xs text-gray-500 dark:text-gray-400">{catListingCount} subcats</div>
                                                 </div>
                                             </div>
-                                            <ChevronRight className={`w-4 h-4 transition-transform ${selectedMainCategory === cat.id ? 'text-emerald-600' : 'text-gray-400'}`} />
+                                            <ChevronRight className="w-4 h-4 text-gray-400" />
                                         </button>
                                     )
                                 })}
@@ -301,19 +251,11 @@ export default function ClassifiedsPage() {
                             </button>
                         </div>
 
-                        {/* Category Header (when no subcategories) */}
-                        {selectedCategoryName && subCategories.length === 0 && (
-                            <div className="mb-6">
-                                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{selectedCategoryName}</h2>
-                                <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Browsing all listings</p>
-                            </div>
-                        )}
-
                         {/* Listings Section */}
                         {listings.length > 0 && (
                             <div className="flex items-center justify-between mb-6">
                                 <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-                                    {subCategories.length > 0 ? `Trending in ${selectedCategoryName}` : 'Listings'}
+                                    Trending Now
                                 </h3>
                                 <div className="flex gap-2">
                                     <button
