@@ -503,7 +503,27 @@ export async function middleware(request: NextRequest) {
                 return addNoCacheHeaders(NextResponse.redirect(new URL('/auth/login', request.url)))
             }
             // Check if user is admin
-            if (!['admin', 'sub-admin'].includes(authUser.role || '')) {
+            try {
+                const timeout = new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('Role check timeout')), 8000)
+                )
+
+                const roleQuery = supabase
+                    .from('users')
+                    .select('role')
+                    .eq('id', authUser.id)
+                    .single()
+
+                const { data: user } = await Promise.race([
+                    roleQuery,
+                    timeout
+                ]) as any
+
+                if (!user || !['admin', 'sub-admin'].includes(user.role)) {
+                    return addNoCacheHeaders(NextResponse.redirect(new URL('/classifieds', request.url)))
+                }
+            } catch (error) {
+                console.error('Classifieds admin role check error:', error)
                 return addNoCacheHeaders(NextResponse.redirect(new URL('/classifieds', request.url)))
             }
             return addNoCacheHeaders(setCORSHeaders(res, request, origin))
