@@ -159,6 +159,13 @@ export default function AdminSettingsPage() {
                 { key: 'special_mtn_mashup_hidden', value: String(hideMashup) },
                 { key: 'express_mtn_hidden', value: String(hideExpressMtn) },
                 { key: 'standard_mtn_hidden', value: String(hideStandardMtn) },
+                // Classifieds boost fees
+                { key: 'classifieds_boost_fee_7d', value: settings['classifieds_boost_fee_7d'] || '' },
+                { key: 'classifieds_boost_fee_14d', value: settings['classifieds_boost_fee_14d'] || '' },
+                { key: 'classifieds_boost_fee_21d', value: settings['classifieds_boost_fee_21d'] || '' },
+                { key: 'classifieds_boost_fee_30d', value: settings['classifieds_boost_fee_30d'] || '' },
+                { key: 'classifieds_boost_fee_60d', value: settings['classifieds_boost_fee_60d'] || '' },
+                { key: 'classifieds_boost_fee_90d', value: settings['classifieds_boost_fee_90d'] || '' },
             ]
 
             const response = await fetch('/api/admin-settings', {
@@ -201,7 +208,8 @@ export default function AdminSettingsPage() {
             <Tabs defaultValue="general">
                 <TabsList>
                     <TabsTrigger value="general">General</TabsTrigger>
-                    <TabsTrigger value="fees">Fees & Pricing</TabsTrigger>
+                    <TabsTrigger value="fees">Fees &amp; Pricing</TabsTrigger>
+                    <TabsTrigger value="classifieds">Classifieds</TabsTrigger>
                     <TabsTrigger value="fulfillment">Fulfillment</TabsTrigger>
                     <TabsTrigger value="access">Page Access</TabsTrigger>
                 </TabsList>
@@ -478,78 +486,67 @@ export default function AdminSettingsPage() {
                         </CardContent>
                     </Card>
 
+                </TabsContent>
+
+                {/* ── Classifieds Tab ── */}
+                <TabsContent value="classifieds" className="space-y-4 mt-4">
+                    {/* Boost Fees */}
                     <Card>
                         <CardHeader>
-                            <CardTitle>Classifieds Boost Fees</CardTitle>
-                            <CardDescription>Set promotional boost pricing for marketplace listings</CardDescription>
+                            <CardTitle>Promotion Boost Fees</CardTitle>
+                            <CardDescription>Set the GHS price sellers pay to boost a listing to the top of the marketplace. Changes take effect immediately after saving.</CardDescription>
                         </CardHeader>
-                        <CardContent className="space-y-4">
-                            <div className="space-y-2">
-                                <Label>1 Week Boost (GHS)</Label>
-                                <Input
-                                    type="number"
-                                    value={settings['classifieds_boost_fee_7d'] || ''}
-                                    onChange={(e) => setSettings({ ...settings, 'classifieds_boost_fee_7d': e.target.value })}
-                                    step="0.01"
-                                    min="0"
-                                />
-                                <p className="text-xs text-muted-foreground">Fee for promoting a listing for 7 days</p>
+                        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {[
+                                { key: 'classifieds_boost_fee_7d',  label: '1 Week (7 days)' },
+                                { key: 'classifieds_boost_fee_14d', label: '2 Weeks (14 days)' },
+                                { key: 'classifieds_boost_fee_21d', label: '3 Weeks (21 days)' },
+                                { key: 'classifieds_boost_fee_30d', label: '1 Month (30 days)' },
+                                { key: 'classifieds_boost_fee_60d', label: '2 Months (60 days)' },
+                                { key: 'classifieds_boost_fee_90d', label: '3 Months (90 days)' },
+                            ].map(({ key, label }) => (
+                                <div key={key} className="space-y-1.5 p-4 border rounded-lg">
+                                    <Label className="font-semibold">{label}</Label>
+                                    <div className="relative">
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-medium">GHS</span>
+                                        <Input
+                                            type="number"
+                                            value={settings[key] || ''}
+                                            onChange={(e) => setSettings({ ...settings, [key]: e.target.value })}
+                                            step="0.01"
+                                            min="0"
+                                            placeholder="0.00"
+                                            className="pl-12"
+                                        />
+                                    </div>
+                                </div>
+                            ))}
+                        </CardContent>
+                    </Card>
+
+                    {/* Seller Verification */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Seller Verification</CardTitle>
+                            <CardDescription>Review and approve seller identity verification requests submitted through the marketplace.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/30">
+                                <div className="space-y-1">
+                                    <p className="font-semibold text-sm">Manage Verification Queue</p>
+                                    <p className="text-xs text-muted-foreground">Approve or reject seller verification requests, view applicant details, and add rejection notes.</p>
+                                </div>
+                                <a
+                                    href="/classifieds/admin/sellers"
+                                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors whitespace-nowrap ml-4 flex-shrink-0"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg>
+                                    Open Verification Queue
+                                </a>
                             </div>
-                            <div className="space-y-2">
-                                <Label>2 Weeks Boost (GHS)</Label>
-                                <Input
-                                    type="number"
-                                    value={settings['classifieds_boost_fee_14d'] || ''}
-                                    onChange={(e) => setSettings({ ...settings, 'classifieds_boost_fee_14d': e.target.value })}
-                                    step="0.01"
-                                    min="0"
-                                />
-                                <p className="text-xs text-muted-foreground">Fee for promoting a listing for 14 days</p>
-                            </div>
-                            <div className="space-y-2">
-                                <Label>3 Weeks Boost (GHS)</Label>
-                                <Input
-                                    type="number"
-                                    value={settings['classifieds_boost_fee_21d'] || ''}
-                                    onChange={(e) => setSettings({ ...settings, 'classifieds_boost_fee_21d': e.target.value })}
-                                    step="0.01"
-                                    min="0"
-                                />
-                                <p className="text-xs text-muted-foreground">Fee for promoting a listing for 21 days</p>
-                            </div>
-                            <div className="space-y-2">
-                                <Label>1 Month Boost (GHS)</Label>
-                                <Input
-                                    type="number"
-                                    value={settings['classifieds_boost_fee_30d'] || ''}
-                                    onChange={(e) => setSettings({ ...settings, 'classifieds_boost_fee_30d': e.target.value })}
-                                    step="0.01"
-                                    min="0"
-                                />
-                                <p className="text-xs text-muted-foreground">Fee for promoting a listing for 30 days</p>
-                            </div>
-                            <div className="space-y-2">
-                                <Label>2 Months Boost (GHS)</Label>
-                                <Input
-                                    type="number"
-                                    value={settings['classifieds_boost_fee_60d'] || ''}
-                                    onChange={(e) => setSettings({ ...settings, 'classifieds_boost_fee_60d': e.target.value })}
-                                    step="0.01"
-                                    min="0"
-                                />
-                                <p className="text-xs text-muted-foreground">Fee for promoting a listing for 60 days</p>
-                            </div>
-                            <div className="space-y-2">
-                                <Label>3 Months Boost (GHS)</Label>
-                                <Input
-                                    type="number"
-                                    value={settings['classifieds_boost_fee_90d'] || ''}
-                                    onChange={(e) => setSettings({ ...settings, 'classifieds_boost_fee_90d': e.target.value })}
-                                    step="0.01"
-                                    min="0"
-                                />
-                                <p className="text-xs text-muted-foreground">Fee for promoting a listing for 90 days</p>
-                            </div>
+                            <p className="text-xs text-muted-foreground mt-3">
+                                You can also access this from the sidebar: <strong>Classifieds → Seller Verification</strong>.
+                            </p>
                         </CardContent>
                     </Card>
                 </TabsContent>

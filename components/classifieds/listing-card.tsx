@@ -2,13 +2,21 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
-import { Heart, Zap, CheckCircle } from 'lucide-react'
+import { Heart, Zap, CheckCircle, ImageIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { ClassifiedListing } from '@/types/supabase'
+import type { ClassifiedListing, ClassifiedListingImage } from '@/types/supabase'
+
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+const STORAGE_BUCKET = 'classified-listing-images'
+
+function getImagePublicUrl(storagePath: string): string {
+    return `${SUPABASE_URL}/storage/v1/object/public/${STORAGE_BUCKET}/${storagePath}`
+}
 
 interface ListingCardProps {
     listing: ClassifiedListing & {
         classified_categories?: { name: string; slug: string }
+        classified_listing_images?: Pick<ClassifiedListingImage, 'id' | 'storage_path' | 'display_order'>[]
         users?: { seller_verified_at?: string | null }
     }
     isFavorited?: boolean
@@ -16,15 +24,52 @@ interface ListingCardProps {
 }
 
 export function ListingCard({ listing, isFavorited, onFavoriteToggle }: ListingCardProps) {
+    // Sort images by display_order and pick the first one
+    const images = [...(listing.classified_listing_images || [])].sort(
+        (a, b) => (a.display_order ?? 0) - (b.display_order ?? 0)
+    )
+    const coverImage = images[0]
+    const coverUrl = coverImage ? getImagePublicUrl(coverImage.storage_path) : null
+
     return (
         <Link href={`/classifieds/${listing.id}`}>
             <div className="bg-white dark:bg-[#151c2c] rounded-xl border border-gray-100 dark:border-gray-800 overflow-hidden hover:shadow-lg hover:border-gray-200 dark:hover:border-gray-700 transition-all duration-300 cursor-pointer h-full flex flex-col">
                 {/* Image */}
                 <div className="relative w-full h-48 bg-gray-100 dark:bg-gray-800 overflow-hidden">
-                    {/* Placeholder image */}
-                    <div className="w-full h-full bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-800 flex items-center justify-center text-gray-400">
-                        <span className="text-sm">No image</span>
+                    {coverUrl ? (
+                        <Image
+                            src={coverUrl}
+                            alt={listing.title}
+                            fill
+                            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                            className="object-cover"
+                            onError={(e) => {
+                                // On error fall back to placeholder
+                                const target = e.target as HTMLImageElement
+                                target.style.display = 'none'
+                                target.parentElement?.querySelector('.img-fallback')?.removeAttribute('style')
+                            }}
+                        />
+                    ) : null}
+
+                    {/* Placeholder — shown when no image or image fails to load */}
+                    <div
+                        className={cn(
+                            'img-fallback w-full h-full bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-800 flex flex-col items-center justify-center text-gray-400 gap-2',
+                            coverUrl && 'hidden'
+                        )}
+                    >
+                        <ImageIcon className="w-8 h-8 opacity-50" />
+                        <span className="text-xs font-medium">No image</span>
                     </div>
+
+                    {/* Multi-image count badge */}
+                    {images.length > 1 && (
+                        <div className="absolute bottom-2 right-2 bg-black/60 text-white text-xs font-bold px-2 py-0.5 rounded-full flex items-center gap-1">
+                            <ImageIcon className="w-3 h-3" />
+                            {images.length}
+                        </div>
+                    )}
 
                     {/* Category badge */}
                     {listing.classified_categories && (
@@ -100,3 +145,4 @@ export function ListingCard({ listing, isFavorited, onFavoriteToggle }: ListingC
         </Link>
     )
 }
+

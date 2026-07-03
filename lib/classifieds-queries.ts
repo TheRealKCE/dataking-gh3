@@ -22,7 +22,7 @@ export async function getListingsWithPagination(params: {
 
     let query = supabase
         .from('classified_listings')
-        .select('*, classified_categories(name, slug), users(seller_verified_at)', { count: 'exact' })
+        .select('*, classified_categories(name, slug), classified_listing_images(id, storage_path, display_order), users(seller_verified_at)', { count: 'exact' })
         .eq('status', params.status || 'active')
 
     if (params.category_id) {
@@ -106,7 +106,7 @@ export async function searchListings(searchQuery: string, filters?: { category_i
 
     let query = supabase
         .from('classified_listings')
-        .select('*, classified_categories(name), users(seller_verified_at)')
+        .select('*, classified_categories(name), classified_listing_images(id, storage_path, display_order), users(seller_verified_at)')
         .eq('status', 'active')
 
     if (searchQuery) {
@@ -354,7 +354,9 @@ export async function getBoostedListings(params: {
 }
 
 export async function getSellerVerificationStatus(sellerId: string) {
-    const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey)
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+    const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey)
 
     const { data: verification, error: verificationError } = await supabase
         .from('classified_seller_verifications')
@@ -380,7 +382,9 @@ export async function getSellerVerificationStatus(sellerId: string) {
 }
 
 export async function createVerificationRequest(sellerId: string, note?: string) {
-    const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey)
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+    const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey)
 
     const { data: existing, error: checkError } = await supabase
         .from('classified_seller_verifications')
