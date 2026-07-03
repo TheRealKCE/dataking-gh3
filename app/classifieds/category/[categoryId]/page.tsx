@@ -222,9 +222,10 @@ export default function CategoryPage({ params }: CategoryPageParams) {
 
             {/* Main Content */}
             <div className="max-w-7xl mx-auto px-4 py-8">
-                {subCategories.length > 0 && (
-                    <CategorySubcategoryCarousel mainCategory={currentCategory} subCategories={subCategories} />
-                )}
+                <CategorySubcategoryCarousel 
+                    mainCategory={parentCategory || currentCategory} 
+                    subCategories={subCategories.length > 0 ? subCategories : [currentCategory]} 
+                />
 
                 {isLoadingListings && listings.length === 0 ? (
                     <div className="flex items-center justify-center py-12">
