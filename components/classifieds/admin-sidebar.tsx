@@ -8,8 +8,8 @@ import { LayoutDashboard, Package, Users, Settings, BarChart3, AlertCircle, Arro
 const adminNavItems = [
     { href: '/classifieds/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/classifieds/admin/listings', label: 'Listings', icon: Package },
-    { href: '/classifieds/admin/sellers', label: 'Sellers', icon: Users },
-    { href: '/classifieds/admin/boosts', label: 'Boosts', icon: Package },
+    { href: '/classifieds/admin/sellers', label: 'Seller Verification', icon: Users },
+    { href: '/classifieds/admin/boosts', label: 'Promotion Fees', icon: Package },
     { href: '/classifieds/admin/reports', label: 'Reports', icon: BarChart3 },
     { href: '/classifieds/admin/flagged', label: 'Flagged Listings', icon: AlertCircle },
     { href: '/classifieds/admin/settings', label: 'Settings', icon: Settings },

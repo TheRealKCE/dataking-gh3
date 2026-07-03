@@ -6,6 +6,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Loader2, CheckCircle, Clock, AlertCircle } from 'lucide-react'
 import { toast } from 'sonner'
+import { useAuth } from '@/contexts/auth-context'
 
 interface VerificationRequest {
     id: string
@@ -31,6 +32,7 @@ const STATUS_COLORS: Record<string, { bg: string; text: string; icon: React.Reac
 }
 
 export default function AdminSellersPage() {
+    const { session } = useAuth()
     const [requests, setRequests] = useState<VerificationRequest[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [activeTab, setActiveTab] = useState<'pending' | 'all'>('pending')
@@ -44,8 +46,7 @@ export default function AdminSellersPage() {
     const loadRequests = async () => {
         try {
             setIsLoading(true)
-            const token = localStorage.getItem('sb-token')
-            if (!token) {
+            if (!session?.access_token) {
                 toast.error('Not authenticated')
                 return
             }
@@ -56,7 +57,7 @@ export default function AdminSellersPage() {
             }
 
             const res = await fetch(url, {
-                headers: { 'Authorization': `Bearer ${token}` },
+                headers: { 'Authorization': `Bearer ${session.access_token}` },
             })
 
             if (!res.ok) {
@@ -75,8 +76,7 @@ export default function AdminSellersPage() {
 
     const handleReview = async (requestId: string, decision: 'approved' | 'rejected') => {
         try {
-            const token = localStorage.getItem('sb-token')
-            if (!token) {
+            if (!session?.access_token) {
                 toast.error('Not authenticated')
                 return
             }
@@ -95,7 +95,7 @@ export default function AdminSellersPage() {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${token}`,
+                    'Authorization': `Bearer ${session.access_token}`,
                 },
                 body: JSON.stringify(body),
             })
