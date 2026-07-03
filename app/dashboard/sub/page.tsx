@@ -1,8 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { createRouteHandlerClient } from '@/lib/supabase-server'
-import { resolveBrandContext, type BrandConfig } from '@/lib/brand-context'
+import type { BrandConfig } from '@/lib/brand-context'
 
 interface SubDashboardData {
   status: 'pending' | 'active' | 'suspended'
@@ -13,6 +12,7 @@ interface SubDashboardData {
     shopName: string
     contactPhone?: string
   }
+  brandConfig?: BrandConfig
 }
 
 export default function SubDashboard() {
@@ -27,24 +27,15 @@ export default function SubDashboard() {
 
   const fetchDashboardData = async () => {
     try {
-      const supabaseAuth = await createRouteHandlerClient()
-      const { data: { user } } = await supabaseAuth.auth.getUser()
-
-      if (!user) {
-        setError('Not authenticated')
-        return
-      }
-
-      // Get brand context
-      const brandConfig = await resolveBrandContext(user.id, supabaseAuth)
-      setBrand(brandConfig)
-
-      // Fetch sub-specific data
+      // Fetch sub-specific data (includes brand context)
       const response = await fetch('/api/dashboard/sub/data')
       const dashData = await response.json()
 
       if (response.ok) {
         setData(dashData)
+        if (dashData.brandConfig) {
+          setBrand(dashData.brandConfig)
+        }
       } else {
         setError(dashData.error || 'Failed to load dashboard')
       }

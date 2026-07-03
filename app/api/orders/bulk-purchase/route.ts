@@ -111,8 +111,6 @@ export async function POST(request: NextRequest) {
             }
         }
 
-        const supabase = createServerClient()
-
         // === 1. Get user role ===
         const { data: userRoleData } = await supabase
             .from('users')

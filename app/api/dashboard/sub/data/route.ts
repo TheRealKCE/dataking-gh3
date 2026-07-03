@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { createRouteHandlerClient } from '@/lib/supabase-server'
+import { resolveBrandContext } from '@/lib/brand-context'
 
 /**
  * GET /api/dashboard/sub/data
- * Fetch sub-agent dashboard data (wallet, earnings, status)
+ * Fetch sub-agent dashboard data (wallet, earnings, status, brand)
  *
  * Authorization: User must be a sub-agent
- * Response: { status, walletBalance, totalEarned, totalWithdrawn, uplineShop }
+ * Response: { status, walletBalance, totalEarned, totalWithdrawn, uplineShop, brandConfig }
  */
 export async function GET(request: NextRequest) {
   try {
@@ -48,6 +49,9 @@ export async function GET(request: NextRequest) {
       .eq('owner_id', user.id)
       .single()
 
+    // Get brand context
+    const brandConfig = await resolveBrandContext(user.id, supabase)
+
     return NextResponse.json({
       status: subAgent.status,
       walletBalance: wallet?.balance || 0,
@@ -57,6 +61,7 @@ export async function GET(request: NextRequest) {
         shopName: (subAgent.shop_profiles as any)?.shop_name || 'Your Lead',
         contactPhone: (subAgent.shop_profiles as any)?.owner_phone,
       },
+      brandConfig,
     })
   } catch (err: any) {
     console.error('[Sub Dashboard] Error:', err)
