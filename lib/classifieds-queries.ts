@@ -418,22 +418,28 @@ export async function getVerificationRequests(status?: string) {
     const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
     const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey || supabaseAnonKey)
 
-    let query = supabase
-        .from('classified_seller_verifications')
-        .select(`
-            *,
-            users:seller_id(id, first_name, last_name, email, phone_number, is_seller, seller_verified_at)
-        `)
+    try {
+        let query = supabase
+            .from('classified_seller_verifications')
+            .select('*')
 
-    if (status) {
-        query = query.eq('status', status)
+        if (status) {
+            query = query.eq('status', status)
+        }
+
+        const { data, error } = await query
+            .order('requested_at', { ascending: false })
+
+        if (error) {
+            console.error('Supabase query error:', error)
+            throw error
+        }
+
+        return data || []
+    } catch (err: any) {
+        console.error('Error in getVerificationRequests:', err)
+        throw err
     }
-
-    const { data, error } = await query
-        .order('requested_at', { ascending: false })
-
-    if (error) throw error
-    return data || []
 }
 
 export async function reviewVerificationRequest(
