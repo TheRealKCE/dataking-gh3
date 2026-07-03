@@ -6,8 +6,7 @@ INSERT INTO storage.buckets (id, name, public)
 VALUES ('classified-listing-images', 'classified-listing-images', true)
 ON CONFLICT (id) DO NOTHING;
 
--- 2. Enable RLS on storage.objects if not already enabled
-ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
+-- 2. (RLS is already enabled by default on storage.objects in Supabase)
 
 -- 3. Storage Policies
 
