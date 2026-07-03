@@ -7,6 +7,7 @@ import { ListingGrid } from '@/components/classifieds/listing-grid'
 import { ArrowLeft, Loader2, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '@/contexts/auth-context'
+import { CategorySubcategoryCarousel } from '@/components/classifieds/category-subcategory-carousel'
 import type { ClassifiedListing, ClassifiedCategory } from '@/types/supabase'
 
 interface CategoryPageParams {
@@ -221,6 +222,10 @@ export default function CategoryPage({ params }: CategoryPageParams) {
 
             {/* Main Content */}
             <div className="max-w-7xl mx-auto px-4 py-8">
+                {subCategories.length > 0 && (
+                    <CategorySubcategoryCarousel mainCategory={currentCategory} subCategories={subCategories} />
+                )}
+
                 {isLoadingListings && listings.length === 0 ? (
                     <div className="flex items-center justify-center py-12">
                         <Loader2 className="w-8 h-8 text-emerald-600 dark:text-emerald-400 animate-spin" />
