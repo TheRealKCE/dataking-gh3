@@ -145,9 +145,9 @@ export default async function JoinPage({ params }: Props) {
             brandColor={brandConfig.brandColor}
           />
 
-          {/* Footer with platform attribution */}
+          {/* Footer with shop attribution */}
           <div className="text-center mt-6 text-xs text-gray-500">
-            <p>Powered by KiNG FLEXY</p>
+            <p>Powered by {brandConfig.shopName}</p>
           </div>
         </div>
       </div>

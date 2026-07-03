@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import { createRouteHandlerClient } from '@/lib/supabase-server'
 
 interface SignupFormProps {
   inviteId: string
