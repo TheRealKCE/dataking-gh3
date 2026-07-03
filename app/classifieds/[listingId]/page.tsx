@@ -40,7 +40,7 @@ export default function ListingDetailPage({
 
                 if (data.classified_listing_images && data.classified_listing_images.length > 0) {
                     const carouselImages = (data.classified_listing_images as any[]).map((img: any) => {
-                        const imageUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/classifieds-listings/${img.storage_path}`
+                        const imageUrl = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/classified-listing-images/${img.storage_path}`
                         console.log('Image URL:', imageUrl)
                         return {
                             url: imageUrl,
@@ -77,38 +77,25 @@ export default function ListingDetailPage({
     const getSafetyTips = () => {
         const categorySlug = (listing?.classified_categories as any)?.slug || ''
 
-        // Property/Real Estate tips
-        if (['land', 'commercial-property', 'residential-property', 'apartments'].includes(categorySlug)) {
+        // Property/Real Estate tips (screenshot 2)
+        if (['land', 'commercial-property', 'residential-property', 'apartments', 'houses', 'property'].includes(categorySlug)) {
             return [
-                'Request proper documentation including deed and land certificate',
-                'Visit the property in person with a trusted friend or family member',
-                'Verify property ownership with the Land Registry or relevant authority',
-                'Hire a surveyor to inspect the property and verify its condition',
-                'Be cautious of deals that seem too good to be true',
-                'Avoid paying deposits through informal channels',
+                "It's safer not to pay ahead for inspections",
+                'Ask friends or somebody you trust to accompany you for viewing',
+                'Look around and ensure the item meets your expectations',
+                "Don't pay beforehand if they won't let you inspect immediately",
+                "Verify that the item is exactly what you're looking for",
+                "Only pay if you're satisfied with the condition",
             ]
         }
 
-        // Vehicle tips
-        if (['cars', 'motorcycles-scooters', 'trucks-trailers', 'buses-microbuses', 'construction-heavy-machinery'].includes(categorySlug)) {
-            return [
-                'Request a test drive and inspect the vehicle thoroughly',
-                'Verify the vehicle registration and ownership documents',
-                'Get a pre-purchase inspection from a certified mechanic',
-                'Check the vehicle\'s history and mileage',
-                'Inspect for signs of accident damage or rust',
-                'Only pay after you\'ve completed your inspection',
-            ]
-        }
-
-        // Default tips for goods
+        // Default tips for goods and items, including vehicles (screenshot 1)
         return [
-            'It\'s safer not to pay ahead for inspections',
-            'Ask friends or somebody you trust to accompany you for viewing',
-            'Look around and ensure the item meets your expectations',
-            'Don\'t pay beforehand if they won\'t let you inspect immediately',
-            'Verify that the item is exactly what you\'re looking for',
-            'Only pay if you\'re satisfied with the condition',
+            'Avoid paying in advance, even for delivery',
+            'Meet with the seller at a safe public place',
+            "Inspect the item and ensure it's exactly what you want",
+            'Make sure that the packed item is the one you\'ve inspected',
+            "Only pay if you're satisfied",
         ]
     }
 
@@ -232,11 +219,6 @@ export default function ListingDetailPage({
                     <h1 className="text-xl font-black text-gray-900 dark:text-white mb-1">
                         {listing.title}
                     </h1>
-                    {listing.classified_categories && (
-                        <p className="text-xs text-gray-600 dark:text-gray-400">
-                            in <span className="font-semibold">{(listing.classified_categories as any).name}</span>
-                        </p>
-                    )}
                 </div>
 
                 {/* Price & Negotiable */}
@@ -270,12 +252,9 @@ export default function ListingDetailPage({
 
                     {/* Seller Action Buttons */}
                     <div className="space-y-2">
-                        <button type="button" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-2.5 rounded-lg transition-colors text-sm flex items-center justify-center gap-2">
-                            <Phone className="w-4 h-4" />
-                            Show contact
-                        </button>
+                        <ContactRevealButton listing={listing} userId={userId} />
                         <button type="button" className="w-full border border-emerald-600 text-emerald-600 dark:text-emerald-400 dark:border-emerald-400 font-semibold py-2.5 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors text-sm">
-                            Start chat
+                            Start chat (Coming Soon)
                         </button>
                     </div>
                 </div>
@@ -290,41 +269,36 @@ export default function ListingDetailPage({
                     </button>
                 </div>
 
-                {/* Info Grid */}
-                {(listing.condition || listing.location) && (
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                {/* Details & Description */}
+                <div className="bg-white dark:bg-[#151c2c] rounded-xl px-4 py-2 border border-gray-100 dark:border-gray-800">
+                    <div className="flex flex-col border-b border-gray-100 dark:border-gray-800 pb-2 mb-2">
                         {listing.condition && (
-                            <div className="bg-gray-50 dark:bg-gray-900/30 rounded-lg p-3">
-                                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Condition</p>
-                                <p className="text-sm font-bold text-gray-900 dark:text-white capitalize">{listing.condition}</p>
+                            <div className="flex py-2 border-b border-gray-50 dark:border-gray-800/50 last:border-0">
+                                <span className="w-1/3 sm:w-1/4 text-sm font-bold text-gray-900 dark:text-white">Condition</span>
+                                <span className="w-2/3 sm:w-3/4 text-sm text-gray-700 dark:text-gray-300 capitalize">{listing.condition.replace('-', ' ')}</span>
                             </div>
                         )}
-
                         {listing.location && (
-                            <div className="bg-gray-50 dark:bg-gray-900/30 rounded-lg p-3">
-                                <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Location</p>
-                                <p className="text-sm font-bold text-gray-900 dark:text-white">{listing.location}</p>
+                            <div className="flex py-2 border-b border-gray-50 dark:border-gray-800/50 last:border-0">
+                                <span className="w-1/3 sm:w-1/4 text-sm font-bold text-gray-900 dark:text-white">Location</span>
+                                <span className="w-2/3 sm:w-3/4 text-sm text-gray-700 dark:text-gray-300">{listing.location}</span>
                             </div>
                         )}
-
-                        <div className="bg-gray-50 dark:bg-gray-900/30 rounded-lg p-3">
-                            <p className="text-xs font-semibold text-gray-500 dark:text-gray-400 uppercase mb-1">Posted</p>
-                            <p className="text-sm font-bold text-gray-900 dark:text-white">
+                        <div className="flex py-2 border-b border-gray-50 dark:border-gray-800/50 last:border-0">
+                            <span className="w-1/3 sm:w-1/4 text-sm font-bold text-gray-900 dark:text-white">Posted</span>
+                            <span className="w-2/3 sm:w-3/4 text-sm text-gray-700 dark:text-gray-300">
                                 {new Date(listing.created_at).toLocaleDateString()}
-                            </p>
+                            </span>
                         </div>
                     </div>
-                )}
-
-                {/* Description */}
-                {listing.description && (
-                    <div className="bg-white dark:bg-[#151c2c] rounded-xl p-4 border border-gray-100 dark:border-gray-800">
-                        <h2 className="text-sm font-bold text-gray-900 dark:text-white mb-3 uppercase">Description</h2>
-                        <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">
-                            {listing.description}
-                        </p>
-                    </div>
-                )}
+                    {listing.description && (
+                        <div className="mt-2 pb-2">
+                            <p className="text-sm text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-wrap">
+                                {listing.description}
+                            </p>
+                        </div>
+                    )}
+                </div>
 
                 {/* Unavailable Banner */}
                 {listing.status === 'archived' && (

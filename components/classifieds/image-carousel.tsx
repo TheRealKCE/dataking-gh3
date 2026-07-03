@@ -45,10 +45,15 @@ export function ImageCarousel({ images }: ImageCarouselProps) {
         <div className="space-y-3">
             {/* Main image */}
             <div className="relative w-full h-96 bg-gray-100 dark:bg-gray-800 rounded-xl overflow-hidden">
-                <div className="w-full h-full">
-                    <div className="relative w-full h-full bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-800 flex items-center justify-center">
-                        <span className="text-gray-400">Image not loaded</span>
-                    </div>
+                <div className="w-full h-full relative">
+                    <Image
+                        src={images[currentIndex].url}
+                        alt={images[currentIndex].alt || 'Listing image'}
+                        fill
+                        className="object-cover"
+                        sizes="(max-width: 768px) 100vw, 800px"
+                        priority={currentIndex === 0}
+                    />
                 </div>
 
                 {/* Navigation arrows */}
