@@ -8,6 +8,7 @@ import { ListingGrid } from '@/components/classifieds/listing-grid'
 import { Loader2, Search, Grid3x3, List, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
+import { HeroCarousel } from '@/components/classifieds/hero-carousel'
 import type { ClassifiedListing, ClassifiedCategory } from '@/types/supabase'
 
 export default function ClassifiedsPage() {
@@ -189,6 +190,11 @@ export default function ClassifiedsPage() {
                 </div>
             </div>
 
+
+            {/* Hero Carousel */}
+            <div className="max-w-7xl mx-auto px-4 pt-6">
+                <HeroCarousel />
+            </div>
 
             {/* Main Categories + Listings Layout */}
             <div className="max-w-7xl mx-auto px-4 py-8">
