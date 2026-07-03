@@ -98,7 +98,6 @@ export default function AdminDashboardPage() {
                             })}
                         </div>
                     )}
-                    </div>
 
                     <div className="bg-white dark:bg-[#151c2c] rounded-xl border border-gray-100 dark:border-gray-800 p-8 text-center">
                         <div className="w-16 h-16 rounded-full bg-blue-100 dark:bg-blue-900/30 flex items-center justify-center mx-auto mb-4">
