@@ -78,9 +78,12 @@ export default function AdminBoostsPage() {
     }
 
     const defaultTiers: BoostTier[] = [
-        { id: '1', name: 'Standard Boost', price: 50, duration_days: 7, description: 'Boost your listing for 7 days' },
-        { id: '2', name: 'Premium Boost', price: 100, duration_days: 14, description: 'Boost your listing for 14 days' },
-        { id: '3', name: 'Elite Boost', price: 150, duration_days: 30, description: 'Boost your listing for 30 days' },
+        { id: '7d', name: '1 Week', price: 0, duration_days: 7, description: 'Boost your listing for 7 days' },
+        { id: '14d', name: '2 Weeks', price: 0, duration_days: 14, description: 'Boost your listing for 14 days' },
+        { id: '21d', name: '3 Weeks', price: 0, duration_days: 21, description: 'Boost your listing for 21 days' },
+        { id: '30d', name: '1 Month', price: 0, duration_days: 30, description: 'Boost your listing for 30 days' },
+        { id: '60d', name: '2 Months', price: 0, duration_days: 60, description: 'Boost your listing for 60 days' },
+        { id: '90d', name: '3 Months', price: 0, duration_days: 90, description: 'Boost your listing for 90 days' },
     ]
 
     return (
