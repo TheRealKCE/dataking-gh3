@@ -343,7 +343,7 @@ npm run test:profit-split
 - Subs sign up via invite link (de-branded portal)
 - Subs reach out to their Lead for support (not platform support)
 - Withdrawals escalate to admin after 48h + Lead approval
-- Storefront URL: store.kingflexygh.com/{slug} (v1 domain leak accepted)
+- Storefront URL: store.arhmsgh.com/{slug} (v1 domain)
 
 ---
 

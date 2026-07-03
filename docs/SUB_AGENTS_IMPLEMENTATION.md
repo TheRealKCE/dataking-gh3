@@ -309,7 +309,7 @@ Sub sees "Powered by {Lead shop name}" footer (honest limits: SMS sender ID + em
 
 ## Out of Scope (Phase 2)
 
-- Neutral white-label domain (v1 uses store.kingflexygh.com)
+- Neutral white-label domain (v1 uses store.arhmsgh.com)
 - Per-shop SMS sender ID / email domain
 - Google sign-up for subs
 - Subs on airtime/RC/mashup/AFA
