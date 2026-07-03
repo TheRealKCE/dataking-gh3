@@ -5,6 +5,7 @@ import type { Database } from '@/types/supabase'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
 
 export async function GET(request: NextRequest) {
     try {
@@ -21,7 +22,7 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Only admins can view stats' }, { status: 403 })
         }
 
-        const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey)
+        const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey || supabaseAnonKey)
 
         // Get total listings count
         const { count: totalListings } = await supabase

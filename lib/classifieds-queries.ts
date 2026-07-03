@@ -415,7 +415,8 @@ export async function createVerificationRequest(sellerId: string, note?: string)
 export async function getVerificationRequests(status?: string) {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-    const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey)
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+    const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey || supabaseAnonKey)
 
     let query = supabase
         .from('classified_seller_verifications')
@@ -443,7 +444,8 @@ export async function reviewVerificationRequest(
 ) {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
     const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
-    const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey)
+    const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+    const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey || supabaseAnonKey)
 
     const updates: any = {
         status: decision,
