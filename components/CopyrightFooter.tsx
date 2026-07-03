@@ -55,7 +55,7 @@ export function CopyrightFooter({
                 </p>
                 {variant === 'shop' && (
                     <p className="text-[10px] font-bold text-muted-foreground/60 uppercase tracking-[0.2em]">
-                        Powered by {brandingText}
+                        Powered by {shopName || brandingText}
                     </p>
                 )}
             </div>
