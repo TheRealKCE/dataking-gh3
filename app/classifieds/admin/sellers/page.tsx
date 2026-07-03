@@ -40,14 +40,16 @@ export default function AdminSellersPage() {
     const [expandedRequest, setExpandedRequest] = useState<string | null>(null)
 
     useEffect(() => {
-        loadRequests()
-    }, [activeTab])
+        if (session?.access_token) {
+            loadRequests()
+        }
+    }, [activeTab, session?.access_token])
 
     const loadRequests = async () => {
         try {
             setIsLoading(true)
             if (!session?.access_token) {
-                toast.error('Not authenticated')
+                setIsLoading(false)
                 return
             }
 
