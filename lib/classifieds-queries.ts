@@ -209,7 +209,9 @@ export async function getContactReveal(listingId: string, buyerId: string) {
 }
 
 export async function recordContactReveal(listingId: string, buyerId: string, acknowledgedSafety: boolean) {
-    const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey)
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+    const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey)
 
     const { data, error } = await supabase
         .from('classified_contact_reveals')
