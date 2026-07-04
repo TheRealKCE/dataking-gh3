@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { processCompletedWalletPayment } from '@/lib/payments'
 import crypto from 'crypto'
@@ -44,6 +44,14 @@ export async function POST(request: NextRequest) {
                 const { finalizeRCGatewayOrder } = await import('@/lib/vouchers/checkout')
                 console.log('[PaystackWebhook] Routing RC Voucher order payment')
                 await finalizeRCGatewayOrder({ reference, paidAmountKobo, metadata })
+                return NextResponse.json({ received: true })
+            }
+
+            // o. BOOST PAYMENTS: References starting with BOOST- are classified listing boosts
+            if (reference && reference.startsWith('BOOST-')) {
+                const { processBoostPayment } = await import('@/lib/classifieds-payments')
+                console.log('[PaystackWebhook] Routing listing boost payment:', reference)
+                await processBoostPayment(reference, event.data)
                 return NextResponse.json({ received: true })
             }
 

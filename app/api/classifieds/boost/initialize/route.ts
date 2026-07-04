@@ -1,0 +1,260 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
+import { verifyAuth } from '@/lib/classifieds-auth'
+import { getListingById } from '@/lib/classifieds-queries'
+import { generateReferenceCode } from '@/lib/utils'
+import { initiatePayment, MOOLRE_PAYMENT_CHANNEL_MAP } from '@/lib/moolre-payment-service'
+import type { Database } from '@/types/supabase'
+
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || ''
+
+const TIER_DAYS: Record<string, number> = {
+    '7d': 7,
+    '14d': 14,
+    '21d': 21,
+    '30d': 30,
+    '60d': 60,
+    '90d': 90,
+}
+
+export async function POST(request: NextRequest) {
+    try {
+        const authHeader = request.headers.get('authorization')
+        const token = authHeader?.replace('Bearer ', '')
+        const userId = await verifyAuth(token)
+
+        if (!userId) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+
+        const body = await request.json()
+        const { listing_id, tier, phone, network, otpCode, reference: existingRef } = body
+
+        if (!listing_id || !tier) {
+            return NextResponse.json({ error: 'Missing listing_id or tier' }, { status: 400 })
+        }
+
+        if (!TIER_DAYS[tier]) {
+            return NextResponse.json(
+                { error: 'Invalid tier. Valid values: 7d, 14d, 21d, 30d, 60d, 90d' },
+                { status: 400 }
+            )
+        }
+
+        // Verify listing exists and belongs to this seller
+        const listing = await getListingById(listing_id)
+        if (!listing) {
+            return NextResponse.json({ error: 'Listing not found' }, { status: 404 })
+        }
+        if (listing.seller_id !== userId) {
+            return NextResponse.json({ error: 'You can only boost your own listings' }, { status: 403 })
+        }
+
+        const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey)
+
+        // Fetch boost fee and active payment provider from admin settings
+        const { data: settingsRows } = await supabase
+            .from('admin_settings')
+            .select('key, value')
+            .in('key', [`classifieds_boost_fee_${tier}`, 'active_payment_provider_classifieds'])
+
+        const settingsMap: Record<string, string> = {}
+        for (const row of (settingsRows || [])) {
+            settingsMap[(row as any).key] = String((row as any).value || '')
+        }
+
+        const boostFee = parseFloat(settingsMap[`classifieds_boost_fee_${tier}`] || '0')
+        if (boostFee <= 0) {
+            return NextResponse.json(
+                { error: 'Boost pricing not configured by admin' },
+                { status: 400 }
+            )
+        }
+
+        const provider = settingsMap['active_payment_provider_classifieds'] === 'paystack' ? 'paystack' : 'moolre'
+
+        // Validate provider-specific inputs
+        if (provider === 'moolre' && !existingRef) {
+            if (!phone || !network || !MOOLRE_PAYMENT_CHANNEL_MAP[network]) {
+                return NextResponse.json(
+                    { error: 'Valid phone number and network are required for Moolre payments' },
+                    { status: 400 }
+                )
+            }
+        }
+
+        if (provider === 'paystack') {
+            if (!process.env.PAYSTACK_SECRET_KEY) {
+                return NextResponse.json(
+                    { error: 'Payment gateway is not configured. Please contact support.' },
+                    { status: 503 }
+                )
+            }
+        }
+
+        // Get seller email (needed for Paystack)
+        let sellerEmail: string | null = null
+        if (provider === 'paystack') {
+            const { data: userRow } = await supabase
+                .from('users' as any)
+                .select('email')
+                .eq('id', userId)
+                .single()
+            sellerEmail = (userRow as any)?.email || null
+            if (!sellerEmail) {
+                return NextResponse.json(
+                    { error: 'Account email is required for Paystack. Please update your profile.' },
+                    { status: 400 }
+                )
+            }
+        }
+
+        // Get or reuse reference
+        const reference = existingRef || `BOOST-${generateReferenceCode()}`
+        let paymentId: string | null = null
+
+        if (existingRef) {
+            const { data: existing } = await supabase
+                .from('wallet_payments' as any)
+                .select('id')
+                .eq('reference', existingRef)
+                .single()
+            if (existing) paymentId = (existing as any).id
+        }
+
+        // Create wallet_payments record if not exists (reuse reference for Moolre OTP retry)
+        if (!paymentId) {
+            const { data: walletRow } = await supabase
+                .from('wallets' as any)
+                .select('id')
+                .eq('user_id', userId)
+                .single()
+            const walletId = (walletRow as any)?.id || null
+
+            const { data: paymentRow, error: paymentInsertError } = await supabase
+                .from('wallet_payments' as any)
+                .insert({
+                    user_id: userId,
+                    wallet_id: walletId,
+                    amount: boostFee,
+                    fee: 0,
+                    total_amount: boostFee,
+                    reference,
+                    provider,
+                    status: 'pending',
+                    metadata: {
+                        type: 'listing_boost',
+                        listing_id,
+                        tier,
+                    },
+                })
+                .select()
+                .single()
+
+            if (paymentInsertError || !paymentRow) {
+                console.error('[BoostInit] Failed to create payment record:', paymentInsertError?.message)
+                return NextResponse.json(
+                    { error: 'Failed to create payment record. Please try again.' },
+                    { status: 500 }
+                )
+            }
+            paymentId = (paymentRow as any).id
+        }
+
+        // ── PAYSTACK ──────────────────────────────────────────────────────────
+        if (provider === 'paystack') {
+            let paystackData: any
+            try {
+                const paystackRes = await fetch('https://api.paystack.co/transaction/initialize', {
+                    method: 'POST',
+                    headers: {
+                        Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        email: sellerEmail,
+                        amount: Math.round(boostFee * 100), // pesewas
+                        reference,
+                        callback_url: `${process.env.NEXT_PUBLIC_APP_URL}/classifieds/my-listings?boost_ref=${reference}`,
+                        metadata: {
+                            user_id: userId,
+                            type: 'listing_boost',
+                            listing_id,
+                            tier,
+                        },
+                    }),
+                })
+                paystackData = await paystackRes.json()
+            } catch (fetchErr: any) {
+                console.error('[BoostInit] Paystack fetch error:', fetchErr.message)
+                await supabase.from('wallet_payments' as any).update({ status: 'failed' }).eq('id', paymentId)
+                return NextResponse.json({ error: 'Could not reach Paystack. Please try again.' }, { status: 502 })
+            }
+
+            if (!paystackData.status || !paystackData.data?.authorization_url) {
+                await supabase.from('wallet_payments' as any).update({ status: 'failed' }).eq('id', paymentId)
+                return NextResponse.json(
+                    { error: paystackData.message || 'Paystack rejected the request. Please try again.' },
+                    { status: 500 }
+                )
+            }
+
+            return NextResponse.json({
+                success: true,
+                gateway: 'paystack',
+                authorization_url: paystackData.data.authorization_url,
+                reference,
+            })
+        }
+
+        // ── MOOLRE ────────────────────────────────────────────────────────────
+        const channelId = MOOLRE_PAYMENT_CHANNEL_MAP[network]
+        let moolreResponse = await initiatePayment({
+            amount: boostFee,
+            payerPhone: phone,
+            channel: channelId,
+            externalRef: reference,
+            otpCode,
+        })
+
+        // If OTP was submitted but returned status=1, retry without otpCode
+        if (moolreResponse.success && String(moolreResponse.status) === '1' && otpCode) {
+            moolreResponse = await initiatePayment({
+                amount: boostFee,
+                payerPhone: phone,
+                channel: channelId,
+                externalRef: reference,
+            })
+        }
+
+        if (!moolreResponse.success) {
+            console.error('[BoostInit] Moolre error:', moolreResponse.error)
+            if (!existingRef) {
+                await supabase.from('wallet_payments' as any).update({ status: 'failed' }).eq('id', paymentId)
+            }
+            return NextResponse.json({ error: moolreResponse.error || 'Failed to initialize payment' }, { status: 500 })
+        }
+
+        if (moolreResponse.status === '200_OTP_REQ') {
+            return NextResponse.json({
+                success: true,
+                gateway: 'moolre',
+                otpRequired: true,
+                reference,
+                message: 'OTP is required. Please enter the code sent to your phone.',
+            })
+        }
+
+        return NextResponse.json({
+            success: true,
+            gateway: 'moolre',
+            reference,
+            message: 'Payment prompt sent to your phone. Please approve to complete the boost.',
+        })
+
+    } catch (error: any) {
+        console.error('[BoostInit] Unhandled error:', error?.message)
+        return NextResponse.json({ error: `Server error: ${error?.message || 'unknown'}` }, { status: 500 })
+    }
+}

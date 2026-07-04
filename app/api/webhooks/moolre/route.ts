@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { processCompletedWalletPayment, processCompletedUpgradePayment } from '@/lib/payments'
 import { Redis } from '@upstash/redis'
@@ -60,6 +60,14 @@ export async function POST(request: NextRequest) {
                 const { finalizeRCGatewayOrder } = await import('@/lib/vouchers/checkout')
                 console.log('[MoolreWebhook] Routing RC Voucher order payment:', externalref)
                 await finalizeRCGatewayOrder({ reference: externalref, paidAmountKobo })
+                return NextResponse.json({ received: true })
+            }
+
+            // o. BOOST PAYMENTS: References starting with BOOST- are classified listing boosts
+            if (externalref.startsWith('BOOST-')) {
+                const { processBoostPayment } = await import('@/lib/classifieds-payments')
+                console.log('[MoolreWebhook] Routing listing boost payment:', externalref)
+                await processBoostPayment(externalref, { reference: externalref, amount: paidAmountKobo })
                 return NextResponse.json({ received: true })
             }
 

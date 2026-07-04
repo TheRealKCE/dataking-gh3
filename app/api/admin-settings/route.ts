@@ -56,13 +56,7 @@ export async function GET(request: Request) {
             'skip_google_oauth_otp',
             'special_mtn_mashup_hidden',
             'express_mtn_hidden',
-            'standard_mtn_hidden',
-            'classifieds_boost_fee_7d',
-            'classifieds_boost_fee_14d',
-            'classifieds_boost_fee_21d',
-            'classifieds_boost_fee_30d',
-            'classifieds_boost_fee_60d',
-            'classifieds_boost_fee_90d'
+            'standard_mtn_hidden'
         ]
 
         const isAdmin = role === 'admin' || role === 'sub-admin'

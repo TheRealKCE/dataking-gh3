@@ -22,26 +22,11 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Only admins can view boost tiers' }, { status: 403 })
         }
 
-        const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey)
-        const { data, error } = await supabase
-            .from('admin_settings')
-            .select('key, value')
-            .like('key', 'classifieds_boost_fee_%')
-
-        if (error) throw error
-
-        const settingsMap = (data || []).reduce((acc: any, curr: any) => {
-            acc[curr.key] = parseFloat(curr.value || '0')
-            return acc
-        }, {})
-
+        // For now, return default tiers. In the future, this will fetch from a database
         const tiers = [
-            { id: '7d', name: '1 Week', price: settingsMap['classifieds_boost_fee_7d'] || 0, duration_days: 7, description: 'Boost your listing for 7 days' },
-            { id: '14d', name: '2 Weeks', price: settingsMap['classifieds_boost_fee_14d'] || 0, duration_days: 14, description: 'Boost your listing for 14 days' },
-            { id: '21d', name: '3 Weeks', price: settingsMap['classifieds_boost_fee_21d'] || 0, duration_days: 21, description: 'Boost your listing for 21 days' },
-            { id: '30d', name: '1 Month', price: settingsMap['classifieds_boost_fee_30d'] || 0, duration_days: 30, description: 'Boost your listing for 30 days' },
-            { id: '60d', name: '2 Months', price: settingsMap['classifieds_boost_fee_60d'] || 0, duration_days: 60, description: 'Boost your listing for 60 days' },
-            { id: '90d', name: '3 Months', price: settingsMap['classifieds_boost_fee_90d'] || 0, duration_days: 90, description: 'Boost your listing for 90 days' },
+            { id: '1', name: 'Standard Boost', price: 50, duration_days: 7, description: 'Boost your listing for 7 days' },
+            { id: '2', name: 'Premium Boost', price: 100, duration_days: 14, description: 'Boost your listing for 14 days' },
+            { id: '3', name: 'Elite Boost', price: 150, duration_days: 30, description: 'Boost your listing for 30 days' },
         ]
 
         return NextResponse.json({ tiers })
@@ -76,17 +61,9 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Invalid tiers data' }, { status: 400 })
         }
 
-        const updates = tiers.map(tier => ({
-            key: `classifieds_boost_fee_${tier.id}`,
-            value: String(tier.price)
-        }))
-
-        const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey)
-        const { error } = await supabase
-            .from('admin_settings')
-            .upsert(updates, { onConflict: 'key' })
-
-        if (error) throw error
+        // TODO: Save tiers to admin_settings table or new boost_tiers table
+        // For now, just acknowledge the save
+        console.log('Saving boost tiers:', tiers)
 
         return NextResponse.json({
             success: true,

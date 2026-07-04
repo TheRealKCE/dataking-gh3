@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { processCompletedWalletPayment } from '@/lib/payments'
 import { createRouteHandlerClient } from '@/lib/supabase-server'
 import { cookies } from 'next/headers'
@@ -90,6 +90,18 @@ export async function GET(request: NextRequest) {
         }
 
         // Processing successful payment (txstatus === 1)
+        // For BOOST- references, delegate to the boost processor
+        if (reference.startsWith('BOOST-')) {
+            const { processBoostPayment } = await import('@/lib/classifieds-payments')
+            const result = await processBoostPayment(reference)
+            if (!result.success && !result.alreadyProcessed) {
+                if (isInline) return NextResponse.json({ success: false, status: 'failed', error: result.error || 'Boost processing failed' }, { status: 500 })
+                return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/classifieds/my-listings?boost_error=true`)
+            }
+            if (isInline) return NextResponse.json({ success: true, status: 'completed', message: 'Boost activated!' })
+            return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/classifieds/my-listings?boost_success=true`)
+        }
+
         // Note: processCompletedWalletPayment expects Paystack-like payload format `amount` in kobo/pesewas
         const expectedAmountPesewas = Math.round(Number(paymentRecord.total_amount || paymentRecord.amount) * 100)
         

@@ -38,6 +38,7 @@ export default function AdminSettingsPage() {
     const [autoFulfillment, setAutoFulfillment] = useState(true)
     const [webPaymentProvider, setWebPaymentProvider] = useState<'moolre' | 'paystack'>('moolre')
     const [shopPaymentProvider, setShopPaymentProvider] = useState<'moolre' | 'paystack'>('moolre')
+    const [classifiedsPaymentProvider, setClassifiedsPaymentProvider] = useState<'moolre' | 'paystack'>('moolre')
     const [skipGoogleOauthOtp, setSkipGoogleOauthOtp] = useState(false)
 
     // Page access states
@@ -94,8 +95,10 @@ export default function AdminSettingsPage() {
             setAutoFulfillment(String(settingsMap.auto_fulfillment_enabled) !== 'false')
             const webProvider = String(settingsMap.active_payment_provider_web || 'moolre')
             const shopProvider = String(settingsMap.active_payment_provider_shop || 'moolre')
+            const classifiedsProvider = String(settingsMap.active_payment_provider_classifieds || 'moolre')
             setWebPaymentProvider(webProvider === 'paystack' ? 'paystack' : 'moolre')
             setShopPaymentProvider(shopProvider === 'paystack' ? 'paystack' : 'moolre')
+            setClassifiedsPaymentProvider(classifiedsProvider === 'paystack' ? 'paystack' : 'moolre')
             setSkipGoogleOauthOtp(settingsMap.skip_google_oauth_otp === 'true')
 
             // Initialize page access values
@@ -144,6 +147,7 @@ export default function AdminSettingsPage() {
                 { key: 'auto_fulfillment_enabled', value: String(autoFulfillment) },
                 { key: 'active_payment_provider_web', value: webPaymentProvider },
                 { key: 'active_payment_provider_shop', value: shopPaymentProvider },
+                { key: 'active_payment_provider_classifieds', value: classifiedsPaymentProvider },
                 { key: 'skip_google_oauth_otp', value: String(skipGoogleOauthOtp) },
                 // Page access settings
                 { key: 'page_access_dashboard', value: String(pageAccessDashboard) },
@@ -490,6 +494,49 @@ export default function AdminSettingsPage() {
 
                 {/* ── Classifieds Tab ── */}
                 <TabsContent value="classifieds" className="space-y-4 mt-4">
+
+                    {/* Boost Payment Gateway */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Boost Payment Gateway</CardTitle>
+                            <CardDescription>Select the payment provider sellers use when paying to boost a listing. Changes take effect immediately — sellers will be charged directly (no wallet needed).</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="flex items-center justify-between p-4 border rounded-lg">
+                                <div className="space-y-0.5">
+                                    <Label className="text-base">Classifieds Boost Payments</Label>
+                                    <p className="text-sm text-muted-foreground">Gateway used when sellers pay to boost their listings</p>
+                                </div>
+                                <div className="flex rounded-lg border overflow-hidden">
+                                    <button
+                                        type="button"
+                                        onClick={() => setClassifiedsPaymentProvider('moolre')}
+                                        className={cn(
+                                            'px-4 py-2 text-sm font-medium transition-colors',
+                                            classifiedsPaymentProvider === 'moolre'
+                                                ? 'bg-primary text-primary-foreground'
+                                                : 'bg-background hover:bg-muted text-foreground'
+                                        )}
+                                    >
+                                        Moolre
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setClassifiedsPaymentProvider('paystack')}
+                                        className={cn(
+                                            'px-4 py-2 text-sm font-medium transition-colors border-l',
+                                            classifiedsPaymentProvider === 'paystack'
+                                                ? 'bg-primary text-primary-foreground'
+                                                : 'bg-background hover:bg-muted text-foreground'
+                                        )}
+                                    >
+                                        Paystack
+                                    </button>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+
                     {/* Boost Fees */}
                     <Card>
                         <CardHeader>
