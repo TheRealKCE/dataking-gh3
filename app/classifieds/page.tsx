@@ -9,6 +9,7 @@ import { Loader2, Search, Grid3x3, List, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { HeroCarousel } from '@/components/classifieds/hero-carousel'
+import { supabase } from '@/lib/supabase'
 import type { ClassifiedListing, ClassifiedCategory } from '@/types/supabase'
 
 export default function ClassifiedsPage() {
@@ -77,7 +78,9 @@ export default function ClassifiedsPage() {
 
     const handleFavoriteToggle = async (listingId: string) => {
         try {
-            const token = localStorage.getItem('sb-token')
+            const { data: { session } } = await supabase.auth.getSession()
+            const token = session?.access_token
+
             if (!token) {
                 alert('Please log in to save favorites')
                 return

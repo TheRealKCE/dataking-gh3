@@ -16,6 +16,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Loader2, Zap, CreditCard, Smartphone } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { supabase } from '@/lib/supabase'
 
 interface BoostModalProps {
     open: boolean
@@ -88,11 +89,13 @@ export function BoostModal({ open, onOpenChange, listingId, onSuccess }: BoostMo
     useEffect(() => {
         if (!isPolling || !paymentReference) return
 
-        const token = localStorage.getItem('sb-token')
         const interval = setInterval(async () => {
             try {
+                const { data: { session } } = await supabase.auth.getSession()
+                const token = session?.access_token
+                
                 const res = await fetch(`/api/payments/verify?reference=${paymentReference}`, {
-                    headers: { 'Accept': 'application/json', 'Authorization': `Bearer ${token}` },
+                    headers: { 'Accept': 'application/json', 'Authorization': `Bearer ${token || ''}` },
                 })
                 const data = await res.json()
                 if (data.status === 'completed') {
@@ -120,7 +123,9 @@ export function BoostModal({ open, onOpenChange, listingId, onSuccess }: BoostMo
     const selectedTierLabel = TIERS.find(t => t.id === selectedTier)?.label || ''
 
     const callInitialize = async (otpCodeParam?: string) => {
-        const token = localStorage.getItem('sb-token')
+        const { data: { session } } = await supabase.auth.getSession()
+        const token = session?.access_token
+
         if (!token) {
             toast.error('Please log in')
             return null
