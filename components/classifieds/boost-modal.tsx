@@ -152,9 +152,13 @@ export function BoostModal({ open, onOpenChange, listingId, onSuccess }: BoostMo
         setIsLoading(true)
         try {
             const response = await callInitialize()
-            if (!response) return
+            if (!response) {
+                setIsLoading(false)
+                return
+            }
 
             const data = await response.json()
+            console.log('[BoostModal] Init response:', data)
 
             if (!response.ok) {
                 toast.error(data.error || 'Failed to initiate payment')
@@ -163,8 +167,13 @@ export function BoostModal({ open, onOpenChange, listingId, onSuccess }: BoostMo
             }
 
             if (data.gateway === 'paystack') {
-                // Redirect to Paystack checkout
-                window.location.href = data.authorization_url
+                console.log('[BoostModal] Redirecting to Paystack:', data.authorization_url)
+                if (data.authorization_url) {
+                    window.location.assign(data.authorization_url)
+                } else {
+                    toast.error('Payment URL not received from Paystack')
+                    setIsLoading(false)
+                }
                 return
             }
 
