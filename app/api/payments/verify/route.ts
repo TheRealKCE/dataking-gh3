@@ -9,7 +9,20 @@ export async function GET(request: NextRequest) {
         // Auth check — only the wallet owner (an authenticated user) may trigger verification
         const cookieStore = await cookies()
         const supabase = await createRouteHandlerClient()
-        const { data: { user }, error: authError } = await supabase.auth.getUser()
+        let { data: { user }, error: authError } = await supabase.auth.getUser()
+
+        // Fallback for classifieds that sends token in Authorization header
+        if (!user) {
+            const authHeader = request.headers.get('authorization')
+            if (authHeader && authHeader.startsWith('Bearer ')) {
+                const token = authHeader.substring(7)
+                const { data: jwtUser } = await supabase.auth.getUser(token)
+                if (jwtUser?.user) {
+                    user = jwtUser.user
+                    authError = null
+                }
+            }
+        }
 
         if (authError || !user) {
             return NextResponse.json(
