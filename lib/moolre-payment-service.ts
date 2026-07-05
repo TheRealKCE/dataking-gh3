@@ -66,6 +66,14 @@ function getAccountNumber(): string {
  */
 export async function initiatePayment(params: InitiatePaymentParams): Promise<InitiatePaymentResult> {
     try {
+        // Validate OTP format if provided
+        if (params.otpCode && !/^\d{4,6}$/.test(params.otpCode)) {
+            return {
+                success: false,
+                error: 'OTP must be 4-6 digits',
+            }
+        }
+
         const accountNumber = getAccountNumber()
         const headers = getAuthHeaders()
 

@@ -61,7 +61,7 @@ export async function processBoostPayment(reference: string, providerMetadata?: 
 
     // 3. Extract boost metadata
     const meta = typeof payment.metadata === 'string'
-        ? JSON.parse(payment.metadata)
+        ? (() => { try { return JSON.parse(payment.metadata) } catch { return {} } })()
         : (payment.metadata || {})
 
     const listingId: string = meta.listing_id
@@ -71,6 +71,18 @@ export async function processBoostPayment(reference: string, providerMetadata?: 
     if (!listingId || !tier || !TIER_DAYS[tier]) {
         console.error('[BoostProcess] Missing listing_id or tier in payment metadata:', meta)
         return { success: false, error: 'Invalid boost metadata' }
+    }
+
+    // Fetch listing title for personalised notifications
+    let listingTitle = 'your item'
+    try {
+        const { data: listing } = await (supabase.from('classified_listings') as any)
+            .select('title')
+            .eq('id', listingId)
+            .single()
+        if (listing?.title) listingTitle = listing.title
+    } catch (e) {
+        // Non-fatal — default title is fine
     }
 
     const now = new Date()
@@ -90,6 +102,15 @@ export async function processBoostPayment(reference: string, providerMetadata?: 
 
     if (boostInsertError) {
         console.error('[BoostProcess] Insert boost error:', boostInsertError)
+        // Record the error in payment metadata for debugging
+        await (supabase.from('wallet_payments') as any)
+            .update({
+                metadata: {
+                    ...meta,
+                    boost_apply_error: boostInsertError.message || 'Failed to insert boost record',
+                },
+            })
+            .eq('id', payment.id)
         return { success: false, error: 'Failed to record boost' }
     }
 
@@ -105,21 +126,30 @@ export async function processBoostPayment(reference: string, providerMetadata?: 
 
     if (listingUpdateError) {
         console.error('[BoostProcess] Listing update error:', listingUpdateError)
-        // Not fatal — boost record was created
+        // Record the error in payment metadata for debugging
+        await (supabase.from('wallet_payments') as any)
+            .update({
+                metadata: {
+                    ...meta,
+                    boost_apply_error: listingUpdateError.message || 'Failed to update listing boost status',
+                },
+            })
+            .eq('id', payment.id)
+        return { success: false, error: 'Failed to update listing boost status' }
     }
 
     // 6. Send push notification to seller
     await sendPushToUser(sellerId, {
         title: '🚀 Listing Boosted!',
-        body: `Your listing is now boosted for ${TIER_DAYS[tier]} days!`,
+        body: `Your listing "${listingTitle}" is now boosted for ${TIER_DAYS[tier]} days!`,
         url: '/classifieds/my-listings',
     }).catch((e: any) => console.error('[BoostProcess] Push error:', e))
 
     // 7. Create in-app notification
     await (supabase.from('notifications') as any).insert({
         user_id: sellerId,
-        title: '🚀 Listing Boosted!',
-        message: `Your listing has been boosted for ${TIER_DAYS[tier]} days. It is now featured at the top of the marketplace.`,
+        title: '🚀 Listing Promoted!',
+        message: `"${listingTitle}" has been boosted for ${TIER_DAYS[tier]} days. It is now featured at the top of the marketplace.`,
         type: 'system',
         action_url: '/classifieds/my-listings',
     }).catch((e: any) => console.error('[BoostProcess] Notification error:', e))

@@ -19,6 +19,9 @@ export async function GET(request: NextRequest) {
         walletChecked: 0,
         walletCredited: 0,
         walletFailed: 0,
+        boostChecked: 0,
+        boostCredited: 0,
+        boostFailed: 0,
         shopChecked: 0,
         shopProcessed: 0,
         shopFailed: 0,
@@ -58,27 +61,49 @@ export async function GET(request: NextRequest) {
                             Number(payment.total_amount || payment.amount) * 100
                         )
                         const metadata = payment.metadata || {}
-                        const mappedEventData = {
-                            reference: payment.reference,
-                            amount: paidAmountPesewas,
-                            metadata,
-                        }
 
-                        if (
+                        if (payment.reference.startsWith('BOOST-')) {
+                            // Process boost payments
+                            results.boostChecked++
+                            const { processBoostPayment } = await import('@/lib/classifieds-payments')
+                            const boostResult = await processBoostPayment(payment.reference)
+                            if (boostResult.success || boostResult.alreadyProcessed) {
+                                results.boostCredited++
+                                console.log(`[CronMoolre] ✅ Boost payment ${payment.reference} credited`)
+                            } else {
+                                results.boostFailed++
+                                console.error(`[CronMoolre] ❌ Boost payment ${payment.reference} failed:`, boostResult.error)
+                            }
+                        } else if (
                             payment.reference.startsWith('agent_upgrade_') ||
                             metadata.upgrade_type === 'agent'
                         ) {
+                            // Process agent upgrade payments
+                            results.walletChecked++
+                            const mappedEventData = {
+                                reference: payment.reference,
+                                amount: paidAmountPesewas,
+                                metadata,
+                            }
                             await processCompletedUpgradePayment(payment.reference, mappedEventData)
+                            results.walletCredited++
+                            console.log(`[CronMoolre] ✅ Agent upgrade payment ${payment.reference} credited`)
                         } else {
+                            // Process wallet top-up payments
+                            results.walletChecked++
+                            const mappedEventData = {
+                                reference: payment.reference,
+                                amount: paidAmountPesewas,
+                                metadata,
+                            }
                             await processCompletedWalletPayment(
                                 payment.reference,
                                 mappedEventData,
                                 payment.user_id
                             )
+                            results.walletCredited++
+                            console.log(`[CronMoolre] ✅ Wallet payment ${payment.reference} credited`)
                         }
-
-                        results.walletCredited++
-                        console.log(`[CronMoolre] ✅ Wallet payment ${payment.reference} credited`)
                     } else if (statusResult.txstatus === 2) {
                         // ❌ Payment explicitly failed
                         await (supabase.from('wallet_payments') as any)

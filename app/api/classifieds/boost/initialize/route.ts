@@ -91,6 +91,12 @@ export async function POST(request: NextRequest) {
                     { status: 503 }
                 )
             }
+            if (!process.env.NEXT_PUBLIC_APP_URL) {
+                return NextResponse.json(
+                    { error: 'App URL is not configured for payment callbacks. Please contact support.' },
+                    { status: 503 }
+                )
+            }
         }
 
         // Get seller email (needed for Paystack)
@@ -125,18 +131,10 @@ export async function POST(request: NextRequest) {
 
         // Create wallet_payments record if not exists (reuse reference for Moolre OTP retry)
         if (!paymentId) {
-            const { data: walletRow } = await supabase
-                .from('wallets' as any)
-                .select('id')
-                .eq('user_id', userId)
-                .single()
-            const walletId = (walletRow as any)?.id || null
-
             const { data: paymentRow, error: paymentInsertError } = await supabase
                 .from('wallet_payments' as any)
                 .insert({
                     user_id: userId,
-                    wallet_id: walletId,
                     amount: boostFee,
                     fee: 0,
                     total_amount: boostFee,
@@ -152,14 +150,39 @@ export async function POST(request: NextRequest) {
                 .select()
                 .single()
 
-            if (paymentInsertError || !paymentRow) {
-                console.error('[BoostInit] Failed to create payment record:', paymentInsertError?.message)
+            if (paymentInsertError) {
+                // Handle unique constraint violation (race condition: reference already exists)
+                if ((paymentInsertError as any).code === '23505') {
+                    const { data: existingPayment } = await supabase
+                        .from('wallet_payments' as any)
+                        .select('id')
+                        .eq('reference', reference)
+                        .single()
+                    if (existingPayment) {
+                        paymentId = (existingPayment as any).id
+                    } else {
+                        console.error('[BoostInit] Race condition: payment not found after unique constraint:', reference)
+                        return NextResponse.json(
+                            { error: 'Reference conflict. Please try again.' },
+                            { status: 500 }
+                        )
+                    }
+                } else {
+                    console.error('[BoostInit] Failed to create payment record:', paymentInsertError?.message)
+                    return NextResponse.json(
+                        { error: 'Failed to create payment record. Please try again.' },
+                        { status: 500 }
+                    )
+                }
+            } else if (!paymentRow) {
+                console.error('[BoostInit] Insert succeeded but no row returned')
                 return NextResponse.json(
                     { error: 'Failed to create payment record. Please try again.' },
                     { status: 500 }
                 )
+            } else {
+                paymentId = (paymentRow as any).id
             }
-            paymentId = (paymentRow as any).id
         }
 
         // ── PAYSTACK ──────────────────────────────────────────────────────────
@@ -210,23 +233,13 @@ export async function POST(request: NextRequest) {
 
         // ── MOOLRE ────────────────────────────────────────────────────────────
         const channelId = MOOLRE_PAYMENT_CHANNEL_MAP[network]
-        let moolreResponse = await initiatePayment({
+        const moolreResponse = await initiatePayment({
             amount: boostFee,
             payerPhone: phone,
             channel: channelId,
             externalRef: reference,
             otpCode,
         })
-
-        // If OTP was submitted but returned status=1, retry without otpCode
-        if (moolreResponse.success && String(moolreResponse.status) === '1' && otpCode) {
-            moolreResponse = await initiatePayment({
-                amount: boostFee,
-                payerPhone: phone,
-                channel: channelId,
-                externalRef: reference,
-            })
-        }
 
         if (!moolreResponse.success) {
             console.error('[BoostInit] Moolre error:', moolreResponse.error)
