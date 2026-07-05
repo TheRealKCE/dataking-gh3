@@ -63,7 +63,7 @@ export default async function SellPage() {
                             </div>
                         </Card>
                     ) : (
-                        <ListingWizard />
+                        <ListingWizard userId={user.id} />
                     )}
                 </div>
             </div>

@@ -41,10 +41,13 @@ export async function POST(
         }
 
         const now = new Date().toISOString()
+        // Escrow: buyer confirmation moves to delivered_confirmed, then funds are
+        // released below (→ 'released'). Non-escrow (direct/split): funds already
+        // reached the seller at charge time, so confirming delivery settles the order.
         const newStatus =
             order.payment_mode === 'escrow'
                 ? 'delivered_confirmed'
-                : 'delivered_confirmed'
+                : 'settled'
 
         // Update order status
         const { error: updateError } = await supabaseUserClient

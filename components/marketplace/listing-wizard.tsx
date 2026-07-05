@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Progress } from '@/components/ui/progress'
@@ -53,6 +54,7 @@ interface ListingWizardProps {
 }
 
 export function ListingWizard({ userId, onComplete }: ListingWizardProps) {
+    const router = useRouter()
     const [currentStep, setCurrentStep] = useState(0)
     const [loading, setLoading] = useState(false)
     const [formData, setFormData] = useState<ListingFormData>({
@@ -97,12 +99,17 @@ export function ListingWizard({ userId, onComplete }: ListingWizardProps) {
             if (!response.ok) throw new Error('Failed to create listing')
 
             const result = await response.json()
-            toast.success('Listing created!')
+            toast.success('Listing submitted for review!')
 
             // Clear draft
             localStorage.removeItem(`listing-draft-${userId}`)
 
-            onComplete?.(result.listing.id)
+            if (onComplete) {
+                onComplete(result.listing.id)
+            } else {
+                // Default: send the seller to their listings after creation
+                router.push('/marketplace-domain/my-listings')
+            }
         } catch (error) {
             console.error('[ListingWizard] Submit error:', error)
             toast.error('Failed to create listing')

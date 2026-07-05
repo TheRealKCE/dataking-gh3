@@ -1,10 +1,13 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
+import { toast } from 'sonner'
 import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
 import { Heart } from 'lucide-react'
+import { cn } from '@/lib/utils'
 import { PromotionBadge } from './promotion-badge'
 
 interface ListingCardProps {
@@ -22,11 +25,45 @@ interface ListingCardProps {
             sort_order: number
         }>
     }
+    initialFavorited?: boolean
 }
 
-export function ListingCard({ listing }: ListingCardProps) {
+export function ListingCard({ listing, initialFavorited = false }: ListingCardProps) {
     const priceGhs = (listing.price_pesewas / 100).toFixed(2)
     const image = listing.classified_listing_images?.[0]
+    const [favorited, setFavorited] = useState(initialFavorited)
+    const [busy, setBusy] = useState(false)
+
+    const toggleFavorite = async (e: React.MouseEvent) => {
+        e.preventDefault()
+        if (busy) return
+        setBusy(true)
+        const next = !favorited
+        setFavorited(next) // optimistic
+        try {
+            const res = next
+                ? await fetch('/api/marketplace/favorites', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ listing_id: listing.id }),
+                  })
+                : await fetch(`/api/marketplace/favorites?listing_id=${listing.id}`, {
+                      method: 'DELETE',
+                  })
+
+            if (res.status === 401) {
+                setFavorited(!next) // revert
+                toast.error('Please log in to save favorites')
+                return
+            }
+            if (!res.ok) throw new Error('request failed')
+        } catch {
+            setFavorited(!next) // revert on failure
+            toast.error('Could not update favorites')
+        } finally {
+            setBusy(false)
+        }
+    }
 
     return (
         <Link href={`/marketplace-domain/listings/${listing.id}`}>
@@ -64,13 +101,18 @@ export function ListingCard({ listing }: ListingCardProps) {
                     {/* Favorite Button */}
                     <button
                         type="button"
-                        title="Add to favorites"
-                        className="absolute top-2 left-2 rounded-full bg-white/80 p-2 hover:bg-white transition-colors"
-                        onClick={(e) => {
-                            e.preventDefault()
-                        }}
+                        title={favorited ? 'Remove from favorites' : 'Add to favorites'}
+                        disabled={busy}
+                        className="absolute top-2 left-2 rounded-full bg-white/80 p-2 hover:bg-white transition-colors disabled:opacity-60"
+                        onClick={toggleFavorite}
                     >
-                        <Heart className="w-4 h-4" aria-label="Add to favorites" />
+                        <Heart
+                            className={cn(
+                                'w-4 h-4 transition-colors',
+                                favorited ? 'fill-red-500 text-red-500' : 'text-gray-700'
+                            )}
+                            aria-label={favorited ? 'Remove from favorites' : 'Add to favorites'}
+                        />
                     </button>
                 </div>
 
