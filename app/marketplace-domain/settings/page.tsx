@@ -2,6 +2,7 @@ import { createRouteHandlerClient } from '@/lib/supabase-server'
 import { redirect } from 'next/navigation'
 import { Card } from '@/components/ui/card'
 import { SellerOnboardingSheet } from '@/components/marketplace/seller-onboarding-sheet'
+import { GetVerifiedDialog } from '@/components/marketplace/get-verified-dialog'
 
 async function getSellerProfile(userId: string) {
     try {
@@ -67,6 +68,14 @@ export default async function SettingsPage() {
                         <div>
                             <label className="text-sm font-medium">Verification Tier</label>
                             <p className="text-lg mt-1 capitalize">{sellerProfile.verification_tier || 'unverified'}</p>
+                            {(!sellerProfile.verification_tier || sellerProfile.verification_tier === 'none') && (
+                                <div className="mt-3">
+                                    <GetVerifiedDialog
+                                        sellerName={sellerProfile.display_name}
+                                        sellerEmail={user.email}
+                                    />
+                                </div>
+                            )}
                         </div>
 
                         <div className="pt-4">
