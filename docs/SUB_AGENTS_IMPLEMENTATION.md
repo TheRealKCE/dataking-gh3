@@ -2,7 +2,7 @@
 
 ## Overview
 
-This document details the complete sub-agents (network/affiliate) system for KiNG FLEXY. A sub-agent is a user recruited by a Lead (eligible shop owner) who operates in two modes:
+This document details the complete sub-agents (network/affiliate) system for ARHMS. A sub-agent is a user recruited by a Lead (eligible shop owner) who operates in two modes:
 
 1. **Wallet Mode** — Deposits into personal wallet, buys data at Lead's wholesale sub_price
 2. **Storefront Mode** — Runs own-branded storefront, customers pay retail, sub earns markup above sub_price

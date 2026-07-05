@@ -23,7 +23,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const supabase = createServerClient()
+    const supabase: any = createServerClient()
 
     // 1. Find the user by email
     const { data: user, error: userError } = await supabase

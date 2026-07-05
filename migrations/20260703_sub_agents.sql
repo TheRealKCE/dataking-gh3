@@ -106,6 +106,7 @@ ALTER TABLE public.shop_invites ENABLE ROW LEVEL SECURITY;
 -- 7a. sub_agents RLS Policies
 -- ============================================================
 -- A Lead (upline shop owner) can read all their sub_agents
+DROP POLICY IF EXISTS "sub_agents_lead_read" ON public.sub_agents;
 CREATE POLICY "sub_agents_lead_read"
 ON public.sub_agents
 FOR SELECT
@@ -116,12 +117,14 @@ USING (
 );
 
 -- A Sub can read their own sub_agents row
+DROP POLICY IF EXISTS "sub_agents_sub_read_own" ON public.sub_agents;
 CREATE POLICY "sub_agents_sub_read_own"
 ON public.sub_agents
 FOR SELECT
 USING (user_id = auth.uid());
 
 -- A Lead can update (approve/suspend) their subs
+DROP POLICY IF EXISTS "sub_agents_lead_update" ON public.sub_agents;
 CREATE POLICY "sub_agents_lead_update"
 ON public.sub_agents
 FOR UPDATE
@@ -132,6 +135,7 @@ USING (
 );
 
 -- Admins can read/update all subs
+DROP POLICY IF EXISTS "sub_agents_admin_all" ON public.sub_agents;
 CREATE POLICY "sub_agents_admin_all"
 ON public.sub_agents
 FOR ALL
@@ -141,6 +145,7 @@ USING (public.is_admin());
 -- 7b. shop_invites RLS Policies
 -- ============================================================
 -- A Lead can manage invites for their shop
+DROP POLICY IF EXISTS "shop_invites_lead_all" ON public.shop_invites;
 CREATE POLICY "shop_invites_lead_all"
 ON public.shop_invites
 FOR ALL
@@ -152,6 +157,7 @@ USING (
 
 -- Public read for valid invite codes (for signup portal)
 -- Note: intentionally permissive; rate-limiting and max_uses enforced in application logic
+DROP POLICY IF EXISTS "shop_invites_public_read_valid" ON public.shop_invites;
 CREATE POLICY "shop_invites_public_read_valid"
 ON public.shop_invites
 FOR SELECT
@@ -162,6 +168,7 @@ USING (
 );
 
 -- Admins can read all invites
+DROP POLICY IF EXISTS "shop_invites_admin_all" ON public.shop_invites;
 CREATE POLICY "shop_invites_admin_all"
 ON public.shop_invites
 FOR ALL

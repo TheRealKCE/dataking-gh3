@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const supabase = createServerClient()
+    const supabase: any = createServerClient()
 
     // Fetch withdrawal details to verify authorization
     const { data: withdrawal, error: fetchError } = await supabase

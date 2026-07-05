@@ -24,7 +24,7 @@ interface Props {
 
 export default async function JoinPage({ params }: Props) {
   const { code } = await params
-  const supabase = createServerClient()
+  const supabase: any = createServerClient()
 
   // 1. Validate invite code
   const { data: invite, error: inviteError } = await supabase

@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
       console.warn('[SubAgentSignup] Rate limit check failed:', rlErr)
     }
 
-    const supabase = createServerClient()
+    const supabase: any = createServerClient()
 
     // 1. Validate invite code
     const { data: invite, error: inviteError } = await supabase

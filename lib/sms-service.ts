@@ -234,6 +234,16 @@ export async function sendShopPricingRejectedSMS(phoneNumber: string, firstName:
     })
 }
 
+export async function sendSubAgentOtpSms(
+    phoneNumber: string,
+    opts: { otpCode: string; leadName: string }
+) {
+    return sendSMS({
+        recipient: phoneNumber,
+        message: `${opts.otpCode} is your ${opts.leadName} verification code. It expires in 10 minutes. Do not share this code with anyone.\n\nARHMSGh`,
+    })
+}
+
 export async function sendShopProfileApprovedSMS(phoneNumber: string, shopName: string) {
     return sendSMS({
         recipient: phoneNumber,

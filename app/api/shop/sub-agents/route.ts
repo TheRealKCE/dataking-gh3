@@ -19,7 +19,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const supabase = createServerClient()
+    const supabase: any = createServerClient()
 
     // Get user's shop
     const { data: shop, error: shopError } = await supabase

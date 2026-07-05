@@ -23,7 +23,7 @@ export async function DELETE(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const supabase = createServerClient()
+    const supabase: any = createServerClient()
 
     // Get the invite to verify ownership
     const { data: invite, error: fetchError } = await supabase

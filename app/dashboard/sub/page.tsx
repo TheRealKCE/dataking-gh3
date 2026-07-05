@@ -165,7 +165,7 @@ export default function SubDashboard() {
 
       {/* Platform Attribution */}
       <div className="text-center text-xs text-gray-500 pt-4 border-t">
-        Powered by {brand?.isPlatform ? 'KiNG FLEXY' : brand?.shopName || 'KiNG FLEXY'}
+        Powered by {brand?.isPlatform ? 'ARHMS' : brand?.shopName || 'ARHMS'}
       </div>
     </div>
   )

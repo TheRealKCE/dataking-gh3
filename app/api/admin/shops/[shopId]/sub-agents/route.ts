@@ -23,7 +23,7 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const supabase = createServerClient()
+    const supabase: any = createServerClient()
 
     // Verify user is admin
     const { data: userData } = await supabase

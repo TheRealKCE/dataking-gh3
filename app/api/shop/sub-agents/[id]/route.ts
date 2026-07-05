@@ -32,7 +32,7 @@ export async function PATCH(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const supabase = createServerClient()
+    const supabase: any = createServerClient()
 
     // Get the sub-agent and verify authorization
     const { data: subAgent, error: fetchError } = await supabase
@@ -177,7 +177,7 @@ export async function GET(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
-    const supabase = createServerClient()
+    const supabase: any = createServerClient()
 
     // Get sub details with full context
     const { data: subAgent, error: fetchError } = await supabase

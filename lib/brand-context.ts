@@ -17,7 +17,7 @@ export interface BrandConfig {
 
   // De-brand flags
   isBranded: boolean // true = show platform branding, false = show custom/Lead branding
-  isPlatform: boolean // true = KiNG FLEXY branding, false = custom/sub branding
+  isPlatform: boolean // true = ARHMS branding, false = custom/sub branding
 
   // Shop identity (for subs to know their upline)
   shopId: string | null
@@ -40,7 +40,7 @@ export async function resolveBrandContext(
 ): Promise<BrandConfig> {
   // Default platform branding
   const platformBrand: BrandConfig = {
-    appName: 'KiNG FLEXY',
+    appName: 'ARHMS',
     logo: null,
     brandColor: '#2563eb',
     brandAccent: '#1e40af',
@@ -81,7 +81,7 @@ export async function resolveBrandContext(
       if (shopOwner) {
         // They own a shop — use their branding
         return {
-          appName: shopOwner.shop_name || 'KiNG FLEXY',
+          appName: shopOwner.shop_name || 'ARHMS',
           logo: shopOwner.logo_url,
           brandColor: shopOwner.brand_color || '#2563eb',
           brandAccent: shopOwner.brand_accent || '#1e40af',
@@ -101,7 +101,7 @@ export async function resolveBrandContext(
     const uplineShop = (subAgent.shop_profiles as any)
     if (uplineShop) {
       return {
-        appName: uplineShop.shop_name || 'KiNG FLEXY',
+        appName: uplineShop.shop_name || 'ARHMS',
         logo: uplineShop.logo_url,
         brandColor: uplineShop.brand_color || '#2563eb',
         brandAccent: uplineShop.brand_accent || '#1e40af',
