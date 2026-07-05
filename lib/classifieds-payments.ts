@@ -142,7 +142,7 @@ export async function processBoostPayment(reference: string, providerMetadata?: 
     await sendPushToUser(sellerId, {
         title: '🚀 Listing Boosted!',
         body: `Your listing "${listingTitle}" is now boosted for ${TIER_DAYS[tier]} days!`,
-        url: '/classifieds/my-listings',
+        url: '/classifieds/seller/dashboard',
     }).catch((e: any) => console.error('[BoostProcess] Push error:', e))
 
     // 7. Create in-app notification
@@ -151,7 +151,7 @@ export async function processBoostPayment(reference: string, providerMetadata?: 
         title: '🚀 Listing Promoted!',
         message: `"${listingTitle}" has been boosted for ${TIER_DAYS[tier]} days. It is now featured at the top of the marketplace.`,
         type: 'system',
-        action_url: '/classifieds/my-listings',
+        action_url: '/classifieds/seller/dashboard',
     }).catch((e: any) => console.error('[BoostProcess] Notification error:', e))
 
     console.log(`[BoostProcess] Boost processed: listing=${listingId}, tier=${tier}, ends=${endsAt.toISOString()}`)

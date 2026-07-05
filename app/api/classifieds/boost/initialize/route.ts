@@ -216,7 +216,7 @@ export async function POST(request: NextRequest) {
                         email: sellerEmail,
                         amount: Math.round(boostFee * 100), // pesewas
                         reference,
-                        callback_url: `${process.env.NEXT_PUBLIC_APP_URL}/classifieds/my-listings?boost_ref=${reference}`,
+                        callback_url: `${process.env.NEXT_PUBLIC_APP_URL}/classifieds/seller/dashboard?boost_ref=${reference}`,
                         metadata: {
                             user_id: userId,
                             type: 'listing_boost',

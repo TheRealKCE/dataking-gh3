@@ -109,10 +109,10 @@ export async function GET(request: NextRequest) {
             const result = await processBoostPayment(reference)
             if (!result.success && !result.alreadyProcessed) {
                 if (isInline) return NextResponse.json({ success: false, status: 'failed', error: result.error || 'Boost processing failed' }, { status: 500 })
-                return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/classifieds/my-listings?boost_error=true`)
+                return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/classifieds/seller/dashboard?boost_error=true`)
             }
             if (isInline) return NextResponse.json({ success: true, status: 'completed', message: 'Boost activated!' })
-            return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/classifieds/my-listings?boost_success=true`)
+            return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/classifieds/seller/dashboard?boost_success=true`)
         }
 
         // Note: processCompletedWalletPayment expects Paystack-like payload format `amount` in kobo/pesewas
