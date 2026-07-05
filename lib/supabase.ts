@@ -1,4 +1,4 @@
-import { createBrowserClient } from '@supabase/ssr'
+import { createBrowserClient as createSSRBrowserClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
 import { Database } from '@/types/supabase'
 
@@ -15,7 +15,7 @@ const getCookieDomain = () => {
 }
 
 // Browser client — uses @supabase/ssr so cookie format matches the middleware and route handlers
-export const supabase = createBrowserClient<Database>(
+export const supabase = createSSRBrowserClient<Database>(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
     {
@@ -53,6 +53,11 @@ export const supabase = createBrowserClient<Database>(
         },
     }
 )
+
+// Factory used by marketplace client components (they call createBrowserClient()).
+// Returns the shared singleton browser client above so we don't spin up multiple
+// GoTrueClient instances in the same tab.
+export const createBrowserClient = () => supabase
 
 function requireServerEnv(name: string) {
     const value = process.env[name]

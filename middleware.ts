@@ -207,8 +207,19 @@ export async function middleware(request: NextRequest) {
 
     // === MARKETPLACE SUBDOMAIN ROUTING ===
     // If accessing marketplace subdomain and not already in marketplace-domain path,
-    // rewrite to marketplace-domain while keeping URL as marketplace.arhmsgh.com
-    if (isMarketplace && !pathname.startsWith('/marketplace-domain')) {
+    // rewrite to marketplace-domain while keeping URL as marketplace.arhmsgh.com.
+    // API routes (/api/*) and root static assets (manifest, service worker, etc.)
+    // must pass through untouched — they are shared across all hosts and rewriting
+    // them to /marketplace-domain/* produces 404s.
+    const isPassthrough =
+        pathname.startsWith('/api') ||
+        pathname.startsWith('/_next') ||
+        pathname === '/manifest.json' ||
+        pathname === '/sw.js' ||
+        pathname === '/favicon.ico' ||
+        pathname.startsWith('/workbox-') ||
+        pathname.startsWith('/icons/')
+    if (isMarketplace && !pathname.startsWith('/marketplace-domain') && !isPassthrough) {
         const marketplacePath = pathname === '/' ? '/marketplace-domain' : `/marketplace-domain${pathname}`
         const rewriteUrl = new URL(marketplacePath, request.url)
         return NextResponse.rewrite(rewriteUrl, {
