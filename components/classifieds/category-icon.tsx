@@ -16,31 +16,30 @@ import {
     Music,
     Headphones,
     Camera,
-    VideoIcon,
+    Video,
     Wifi,
     Printer,
     Monitor,
-    Chair,
+    Armchair,
     Lightbulb,
-    BoxIcon,
+    Box,
     Microwave,
     UtensilsCrossed,
     Droplet,
-    Leaf,
-    Dress,
-    Scissors,
     Droplets,
+    Leaf,
+    Scissors,
+    Smile,
     Flower,
     Palette,
     Pill,
     Zap,
-    Brick,
+    Blocks,
     Bolt,
     DoorOpen,
     Bed,
     Footprints,
     Backpack,
-    Stroller,
     Heart,
     BookOpen,
     Hand,
@@ -53,18 +52,17 @@ import {
     Bus,
     Truck,
     Anchor,
-    Monitor as MonitorIcon,
     Flame,
     Wind,
     Shield,
     Factory,
     ShoppingBag,
-    Smile,
 } from 'lucide-react'
 
-type IconName = string
-
-const iconMap: Record<IconName, React.ComponentType<{ className?: string; style?: React.CSSProperties }>> = {
+// Maps the icon-name strings stored in classified_categories.icon (see the
+// migration RUN_ON_PRODUCTION_marketplace_bundle.sql, section 15) to lucide
+// components. Every name here MUST be a real lucide-react export.
+const iconMap: Record<string, React.ComponentType<{ className?: string; style?: React.CSSProperties }>> = {
     Smartphone,
     Home,
     Shirt,
@@ -80,31 +78,30 @@ const iconMap: Record<IconName, React.ComponentType<{ className?: string; style?
     Music,
     Headphones,
     Camera,
-    VideoIcon,
+    Video,
     Wifi,
     Printer,
     Monitor,
-    Chair,
+    Armchair,
     Lightbulb,
-    BoxIcon,
+    Box,
     Microwave,
     UtensilsCrossed,
     Droplet,
-    Leaf,
-    Dress,
-    Scissors,
     Droplets,
+    Leaf,
+    Scissors,
+    Smile,
     Flower,
     Palette,
     Pill,
     Zap,
-    Brick,
+    Blocks,
     Bolt,
     DoorOpen,
     Bed,
     Footprints,
     Backpack,
-    Stroller,
     Heart,
     BookOpen,
     Hand,
@@ -121,7 +118,6 @@ const iconMap: Record<IconName, React.ComponentType<{ className?: string; style?
     Wind,
     Shield,
     Factory,
-    Smile,
 }
 
 interface CategoryIconProps {
@@ -132,6 +128,5 @@ interface CategoryIconProps {
 
 export function CategoryIcon({ name, className = 'w-6 h-6', style }: CategoryIconProps) {
     const Icon = name && iconMap[name] ? iconMap[name] : ShoppingBag
-
     return <Icon className={className} style={style} />
 }

@@ -19,16 +19,16 @@ UPDATE public.classified_categories SET icon = 'Gamepad2' WHERE slug = 'video-ga
 UPDATE public.classified_categories SET icon = 'Music' WHERE slug = 'audio-music-equipment';
 UPDATE public.classified_categories SET icon = 'Headphones' WHERE slug = 'headphones';
 UPDATE public.classified_categories SET icon = 'Camera' WHERE slug = 'photo-video-cameras';
-UPDATE public.classified_categories SET icon = 'VideoIcon' WHERE slug = 'security-surveillance';
+UPDATE public.classified_categories SET icon = 'Video' WHERE slug = 'security-surveillance';
 UPDATE public.classified_categories SET icon = 'Wifi' WHERE slug = 'networking-products';
 UPDATE public.classified_categories SET icon = 'Printer' WHERE slug = 'printers-scanners';
 UPDATE public.classified_categories SET icon = 'Monitor' WHERE slug = 'computer-monitors';
 UPDATE public.classified_categories SET icon = 'Smartphone' WHERE slug = 'mobile-phones-accessories';
 
 -- Home, Furniture & Appliances subcategories
-UPDATE public.classified_categories SET icon = 'Chair' WHERE slug = 'furniture';
+UPDATE public.classified_categories SET icon = 'Armchair' WHERE slug = 'furniture';
 UPDATE public.classified_categories SET icon = 'Lightbulb' WHERE slug = 'lighting';
-UPDATE public.classified_categories SET icon = 'BoxIcon' WHERE slug = 'storage-organization';
+UPDATE public.classified_categories SET icon = 'Box' WHERE slug = 'storage-organization';
 UPDATE public.classified_categories SET icon = 'Home' WHERE slug = 'home-accessories';
 UPDATE public.classified_categories SET icon = 'Microwave' WHERE slug = 'home-appliances';
 UPDATE public.classified_categories SET icon = 'UtensilsCrossed' WHERE slug = 'kitchen-appliances';
@@ -37,7 +37,7 @@ UPDATE public.classified_categories SET icon = 'Droplet' WHERE slug = 'household
 UPDATE public.classified_categories SET icon = 'Leaf' WHERE slug = 'garden-supplies';
 
 -- Fashion subcategories
-UPDATE public.classified_categories SET icon = 'Dress' WHERE slug = 'womens-fashion';
+UPDATE public.classified_categories SET icon = 'Shirt' WHERE slug = 'womens-fashion';
 UPDATE public.classified_categories SET icon = 'Shirt' WHERE slug = 'mens-fashion';
 UPDATE public.classified_categories SET icon = 'Baby' WHERE slug = 'baby-kids-fashion';
 
@@ -52,7 +52,7 @@ UPDATE public.classified_categories SET icon = 'Pill' WHERE slug = 'vitamins-sup
 
 -- Repair & Construction subcategories
 UPDATE public.classified_categories SET icon = 'Zap' WHERE slug = 'electrical-equipment';
-UPDATE public.classified_categories SET icon = 'Brick' WHERE slug = 'building-materials-supplies';
+UPDATE public.classified_categories SET icon = 'Blocks' WHERE slug = 'building-materials-supplies';
 UPDATE public.classified_categories SET icon = 'Droplet' WHERE slug = 'plumbing-water-systems';
 UPDATE public.classified_categories SET icon = 'Hammer' WHERE slug = 'hand-tools';
 UPDATE public.classified_categories SET icon = 'Bolt' WHERE slug = 'hardware-fasteners';
@@ -64,7 +64,7 @@ UPDATE public.classified_categories SET icon = 'Bed' WHERE slug = 'childrens-fur
 UPDATE public.classified_categories SET icon = 'Shirt' WHERE slug = 'childrens-clothing';
 UPDATE public.classified_categories SET icon = 'Footprints' WHERE slug = 'childrens-shoes';
 UPDATE public.classified_categories SET icon = 'Backpack' WHERE slug = 'babies-kids-accessories';
-UPDATE public.classified_categories SET icon = 'Stroller' WHERE slug = 'baby-gear-equipment';
+UPDATE public.classified_categories SET icon = 'Baby' WHERE slug = 'baby-gear-equipment';
 UPDATE public.classified_categories SET icon = 'Baby' WHERE slug = 'care-feeding';
 UPDATE public.classified_categories SET icon = 'Heart' WHERE slug = 'maternity-pregnancy';
 UPDATE public.classified_categories SET icon = 'Car' WHERE slug = 'transport-safety';
@@ -105,4 +105,4 @@ UPDATE public.classified_categories SET icon = 'Wind' WHERE slug = 'compressors-
 UPDATE public.classified_categories SET icon = 'Shield' WHERE slug = 'safety-equipment';
 UPDATE public.classified_categories SET icon = 'Settings' WHERE slug = 'hydraulic-equipment';
 UPDATE public.classified_categories SET icon = 'Factory' WHERE slug = 'workshop-machinery';
-UPDATE public.classified_categories SET icon = 'BoxIcon' WHERE slug = 'material-handling';
+UPDATE public.classified_categories SET icon = 'Box' WHERE slug = 'material-handling';
