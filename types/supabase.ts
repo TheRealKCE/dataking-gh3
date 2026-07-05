@@ -558,6 +558,7 @@ export interface Database {
                     slug: string
                     description: string | null
                     icon_emoji: string | null
+                    icon: string | null
                     parent_id: string | null
                     display_order: number
                     created_at: string
@@ -569,6 +570,7 @@ export interface Database {
                     slug: string
                     description?: string | null
                     icon_emoji?: string | null
+                    icon?: string | null
                     parent_id?: string | null
                     display_order?: number
                     created_at?: string
@@ -579,6 +581,7 @@ export interface Database {
                     slug?: string
                     description?: string | null
                     icon_emoji?: string | null
+                    icon?: string | null
                     parent_id?: string | null
                     display_order?: number
                     updated_at?: string

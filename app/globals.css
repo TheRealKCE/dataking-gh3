@@ -622,3 +622,31 @@
     animation: none !important;
   }
 }
+
+/* ============================================================
+   MARKETPLACE THEME (KFG Market on marketplace.arhmsgh.com)
+   ============================================================ */
+.theme-marketplace {
+  /* Light mode: Emerald/Market Green primary */
+  --primary: 160 84% 39%; /* Market Emerald */
+  --primary-foreground: 0 0% 100%;
+  --accent: 160 84% 39%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 15 86% 67%; /* Amber for "Sponsored" labels */
+  --destructive-foreground: 0 0% 100%;
+}
+
+.theme-marketplace.dark {
+  /* Dark mode: Keep emerald but adjust for dark background */
+  --primary: 160 84% 39%;
+  --primary-foreground: 0 0% 100%;
+  --accent: 160 84% 39%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 15 86% 67%;
+  --destructive-foreground: 0 0% 100%;
+}
+
+/* Sponsored/Featured label styling for marketplace */
+.theme-marketplace .badge-sponsored {
+  @apply bg-amber-400 text-amber-950 font-semibold;
+}

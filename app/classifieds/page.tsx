@@ -9,6 +9,7 @@ import { Loader2, Search, Grid3x3, List, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { HeroCarousel } from '@/components/classifieds/hero-carousel'
+import { CategoryIcon } from '@/components/classifieds/category-icon'
 import { supabase } from '@/lib/supabase'
 import type { ClassifiedListing, ClassifiedCategory } from '@/types/supabase'
 
@@ -218,7 +219,7 @@ export default function ClassifiedsPage() {
                                             className="w-full flex items-center justify-between px-3 py-3 rounded-lg transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50"
                                         >
                                             <div className="flex items-center gap-3 flex-1 text-left">
-                                                <span className="text-2xl">{cat.icon_emoji || '📦'}</span>
+                                                <CategoryIcon name={cat.icon} className="w-6 h-6 text-gray-700 dark:text-gray-300" />
                                                 <div>
                                                     <div className="text-sm font-semibold text-gray-900 dark:text-white">{cat.name}</div>
                                                     <div className="text-xs text-gray-500 dark:text-gray-400">{catListingCount} subcats</div>

@@ -13,8 +13,10 @@ const STATIC_ALLOWED_ORIGINS = [
     'https://project-d3owc.vercel.app',
     'https://arhmsgh.com',
     'https://www.arhmsgh.com',
+    'https://marketplace.arhmsgh.com',
     'http://localhost:3000',
     'http://localhost:8081',
+    'http://marketplace.localhost:3000',
 ] as const
 
 function normalizeOrigin(value?: string | null): string | null {
@@ -101,9 +103,42 @@ const rateLimiters = redis ? {
     // ── Support & Cron ────────────────────────────────────────
     supportChat: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(10, '1 m') }),
     cron: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(10, '1 m') }),
+    // ── Marketplace (classifieds → marketplace subdomain) ─────
+    marketplaceSearch: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(30, '1 m') }),
+    marketplaceFeed: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(60, '1 m') }),
+    marketplaceListingWrite: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(10, '1 h') }),
+    marketplaceContactReveal: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(20, '1 m') }),
+    marketplaceBoostInit: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(10, '1 m') }),
+    marketplaceReport: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, '1 h') }),
+    marketplaceMessages: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(30, '1 m') }),
+    marketplaceUpload: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(20, '1 h') }),
     // ── General catch-all ─────────────────────────────────────
     general: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(100, '1 m') }),
 } : null
+
+// Extract subdomain from request (e.g., 'marketplace' from 'marketplace.arhmsgh.com')
+function getSubdomain(request: NextRequest): string | null {
+    const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || ''
+    const parts = host.split('.')
+
+    // localhost or IP-based access
+    if (parts.length === 1 || host.includes('localhost') || host.includes('vercel.app') || host.includes('127.0.0.1')) {
+        const localMatch = host.match(/^(\w+)\.localhost/) || host.match(/^(\w+)-\w+\.vercel\.app/)
+        return localMatch ? localMatch[1] : null
+    }
+
+    // Standard domain (arhmsgh.com, www.arhmsgh.com, marketplace.arhmsgh.com)
+    if (host.endsWith('arhmsgh.com')) {
+        // marketplace.arhmsgh.com -> 'marketplace'
+        // www.arhmsgh.com, arhmsgh.com -> null
+        if (parts.length > 2 && parts[0] !== 'www') {
+            return parts[0]
+        }
+        return null
+    }
+
+    return null
+}
 
 // Helper to add cache-prevention headers
 function addNoCacheHeaders(response: NextResponse) {
@@ -167,6 +202,24 @@ function setCORSHeaders(response: NextResponse, request: NextRequest, origin: st
 export async function middleware(request: NextRequest) {
     const origin = request.headers.get('origin')
     const pathname = request.nextUrl.pathname
+    const subdomain = getSubdomain(request)
+    const isMarketplace = subdomain === 'marketplace'
+
+    // === MARKETPLACE SUBDOMAIN ROUTING ===
+    // If accessing marketplace subdomain and not already in marketplace-domain path,
+    // rewrite to marketplace-domain while keeping URL as marketplace.arhmsgh.com
+    if (isMarketplace && !pathname.startsWith('/marketplace-domain')) {
+        const marketplacePath = pathname === '/' ? '/marketplace-domain' : `/marketplace-domain${pathname}`
+        const rewriteUrl = new URL(marketplacePath, request.url)
+        return NextResponse.rewrite(rewriteUrl, {
+            request: {
+                headers: new Headers({
+                    ...Object.fromEntries(request.headers),
+                    'x-subdomain': 'marketplace',
+                }),
+            },
+        })
+    }
 
     // === CORS PREFLIGHT HANDLER ===
     // /api/v1/* is excluded from the middleware matcher — CORS handled via next.config.ts headers.

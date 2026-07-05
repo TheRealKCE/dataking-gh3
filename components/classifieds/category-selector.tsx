@@ -1,5 +1,6 @@
 'use client'
 
+import { CategoryIcon } from '@/components/classifieds/category-icon'
 import type { ClassifiedCategory } from '@/types/supabase'
 
 interface CategorySelectorProps {
@@ -58,9 +59,7 @@ export function CategorySelector({
                                             : 'hover:bg-gray-50 dark:hover:bg-gray-800/50 text-gray-900 dark:text-white'
                                     }`}
                                 >
-                                    {mainCategory.icon_emoji && (
-                                        <span className="text-lg">{mainCategory.icon_emoji}</span>
-                                    )}
+                                    <CategoryIcon name={mainCategory.icon} className="w-5 h-5" />
                                     <div>
                                         <div>{mainCategory.name}</div>
                                         <div className="text-xs font-normal text-gray-500 dark:text-gray-400">
@@ -84,9 +83,7 @@ export function CategorySelector({
                                                     : 'hover:bg-gray-50 dark:hover:bg-gray-800/50'
                                             }`}
                                         >
-                                            {subCategory.icon_emoji && (
-                                                <span className="text-base">{subCategory.icon_emoji}</span>
-                                            )}
+                                            <CategoryIcon name={subCategory.icon} className="w-4 h-4" />
                                             <div>
                                                 <div
                                                     className={`font-semibold ${

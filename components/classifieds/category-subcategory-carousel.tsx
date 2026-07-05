@@ -6,18 +6,10 @@ import {
     ChevronLeft,
     ChevronRight,
     ArrowRight,
-    Shirt,
-    Smartphone,
-    Car,
-    Home,
-    Briefcase,
-    Sofa,
     ShoppingBag,
-    Dumbbell,
-    HeartPulse,
-    Baby,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { CategoryIcon } from '@/components/classifieds/category-icon'
 import type { ClassifiedCategory } from '@/types/supabase'
 
 /* ------------------------------------------------------------------ */
@@ -31,7 +23,6 @@ function getCategoryTheme(categoryName: string) {
             gradient: 'from-pink-600 via-rose-500 to-red-400',
             glow: 'rgba(225,29,72,0.45)',
             accent: '#ffe4e6',
-            Icon: Shirt,
             floaters: ['✨', '👗', '👔'],
         }
     }
@@ -40,7 +31,6 @@ function getCategoryTheme(categoryName: string) {
             gradient: 'from-blue-600 via-indigo-600 to-cyan-500',
             glow: 'rgba(99,102,241,0.45)',
             accent: '#bfdbfe',
-            Icon: Smartphone,
             floaters: ['⚡', '💻', '🔋'],
         }
     }
@@ -49,7 +39,6 @@ function getCategoryTheme(categoryName: string) {
             gradient: 'from-orange-500 via-amber-500 to-yellow-400',
             glow: 'rgba(245,158,11,0.45)',
             accent: '#fde68a',
-            Icon: Car,
             floaters: ['🚗', '🔑', '🛣️'],
         }
     }
@@ -58,7 +47,6 @@ function getCategoryTheme(categoryName: string) {
             gradient: 'from-emerald-600 via-teal-500 to-green-400',
             glow: 'rgba(16,185,129,0.45)',
             accent: '#a7f3d0',
-            Icon: Home,
             floaters: ['🏠', '🔑', '🌳'],
         }
     }
@@ -67,7 +55,6 @@ function getCategoryTheme(categoryName: string) {
             gradient: 'from-violet-700 via-purple-600 to-fuchsia-600',
             glow: 'rgba(139,92,246,0.45)',
             accent: '#e9d5ff',
-            Icon: Briefcase,
             floaters: ['💼', '🤝', '⭐'],
         }
     }
@@ -76,7 +63,6 @@ function getCategoryTheme(categoryName: string) {
             gradient: 'from-lime-600 via-green-500 to-emerald-400',
             glow: 'rgba(34,197,94,0.45)',
             accent: '#bbf7d0',
-            Icon: Sofa,
             floaters: ['🛋️', '🪴', '✨'],
         }
     }
@@ -85,7 +71,6 @@ function getCategoryTheme(categoryName: string) {
             gradient: 'from-red-600 via-orange-500 to-amber-400',
             glow: 'rgba(239,68,68,0.45)',
             accent: '#fecaca',
-            Icon: Dumbbell,
             floaters: ['💪', '⚽', '🏆'],
         }
     }
@@ -94,7 +79,6 @@ function getCategoryTheme(categoryName: string) {
             gradient: 'from-fuchsia-600 via-pink-500 to-rose-400',
             glow: 'rgba(236,72,153,0.45)',
             accent: '#fbcfe8',
-            Icon: HeartPulse,
             floaters: ['💄', '✨', '💆'],
         }
     }
@@ -103,7 +87,6 @@ function getCategoryTheme(categoryName: string) {
             gradient: 'from-cyan-500 via-sky-400 to-blue-400',
             glow: 'rgba(14,165,233,0.45)',
             accent: '#bae6fd',
-            Icon: Baby,
             floaters: ['🍼', '🧸', '👶'],
         }
     }
@@ -113,7 +96,6 @@ function getCategoryTheme(categoryName: string) {
         gradient: 'from-indigo-600 via-violet-600 to-purple-500',
         glow: 'rgba(99,102,241,0.45)',
         accent: '#e0e7ff',
-        Icon: ShoppingBag,
         floaters: ['🏷️', '💎', '🛍️'],
     }
 }
@@ -155,7 +137,7 @@ export function CategorySubcategoryCarousel({ mainCategory, subCategories }: Cat
             gradient: theme.gradient,
             glow: theme.glow,
             accent: theme.accent,
-            Icon: theme.Icon,
+            iconName: sub.icon,
             floaters: theme.floaters,
             mirror: idx % 2 !== 0, // Alternate mirror layout
         }
@@ -215,7 +197,6 @@ export function CategorySubcategoryCarousel({ mainCategory, subCategories }: Cat
     if (slides.length === 0) return null
 
     const slide = slides[current]
-    const { Icon } = slide
 
     return (
         <div
@@ -308,10 +289,10 @@ export function CategorySubcategoryCarousel({ mainCategory, subCategories }: Cat
                         <div className="absolute inset-5 rounded-full bg-white/10" />
 
                         {/* Icon */}
-                        <Icon
+                        <CategoryIcon
+                            name={slide.iconName}
                             className="relative z-10 drop-shadow-2xl"
                             style={{ color: slide.accent, width: '48%', height: '48%' }}
-                            strokeWidth={1.5}
                         />
 
                         {/* Floating decorations — flip sides when mirrored */}
