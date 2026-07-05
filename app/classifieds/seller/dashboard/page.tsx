@@ -1,10 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { Loader2, Zap, AlertCircle, Plus } from 'lucide-react'
+import { Loader2, Zap, AlertCircle, Plus, CheckCircle } from 'lucide-react'
 import { BoostModal } from '@/components/classifieds/boost-modal'
 import { ClassifiedsSellerSidebar } from '@/components/classifieds/seller-sidebar'
 import { useAuth } from '@/contexts/auth-context'
@@ -13,11 +13,13 @@ import type { ClassifiedListing } from '@/types/supabase'
 
 export default function SellerDashboardPage() {
     const router = useRouter()
+    const searchParams = useSearchParams()
     const { user, session } = useAuth()
     const [listings, setListings] = useState<ClassifiedListing[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [selectedListingId, setSelectedListingId] = useState<string | null>(null)
     const [boostModalOpen, setBoostModalOpen] = useState(false)
+    const [showSuccessMessage, setShowSuccessMessage] = useState(false)
 
     useEffect(() => {
         if (!user) {
@@ -25,6 +27,26 @@ export default function SellerDashboardPage() {
             router.push('/auth/login')
         }
     }, [user, router])
+
+    // Handle boost success/error messages
+    useEffect(() => {
+        const boostSuccess = searchParams.get('boost_success')
+        const boostError = searchParams.get('boost_error')
+        const boostRef = searchParams.get('boost_ref')
+
+        if (boostSuccess === 'true' || boostRef) {
+            setShowSuccessMessage(true)
+            toast.success('🚀 Promotion activated successfully!')
+            // Clean up URL
+            router.replace('/classifieds/seller/dashboard', undefined)
+        }
+
+        if (boostError === 'true') {
+            toast.error('Failed to activate promotion. Please try again.')
+            // Clean up URL
+            router.replace('/classifieds/seller/dashboard', undefined)
+        }
+    }, [searchParams, router])
 
     useEffect(() => {
         const loadListings = async () => {
@@ -131,6 +153,25 @@ export default function SellerDashboardPage() {
                     </div>
                 </div>
             </div>
+
+            {/* Success Message */}
+            {showSuccessMessage && (
+                <div className="max-w-6xl mx-auto px-6 pt-6 pb-0">
+                    <div className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-lg p-4 flex items-center gap-3">
+                        <CheckCircle className="w-5 h-5 text-emerald-600 dark:text-emerald-400 flex-shrink-0" />
+                        <div>
+                            <p className="font-semibold text-emerald-900 dark:text-emerald-100">Promotion Activated!</p>
+                            <p className="text-sm text-emerald-800 dark:text-emerald-200">Your listing is now featured and will reach more buyers</p>
+                        </div>
+                        <button
+                            onClick={() => setShowSuccessMessage(false)}
+                            className="ml-auto text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300"
+                        >
+                            ✕
+                        </button>
+                    </div>
+                </div>
+            )}
 
             {/* Main Content */}
             <div className="max-w-6xl mx-auto px-6 py-8">

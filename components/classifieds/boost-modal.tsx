@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import {
     Dialog,
     DialogContent,
@@ -35,6 +36,7 @@ const TIERS = [
 ]
 
 export function BoostModal({ open, onOpenChange, listingId, onSuccess }: BoostModalProps) {
+    const router = useRouter()
     const [selectedTier, setSelectedTier] = useState<string>('7d')
     const [fees, setFees] = useState<Record<string, number>>({})
     const [provider, setProvider] = useState<'moolre' | 'paystack'>('moolre')
@@ -93,7 +95,7 @@ export function BoostModal({ open, onOpenChange, listingId, onSuccess }: BoostMo
             try {
                 const { data: { session } } = await supabase.auth.getSession()
                 const token = session?.access_token
-                
+
                 const res = await fetch(`/api/payments/verify?reference=${paymentReference}`, {
                     headers: { 'Accept': 'application/json', 'Authorization': `Bearer ${token || ''}` },
                 })
@@ -102,9 +104,13 @@ export function BoostModal({ open, onOpenChange, listingId, onSuccess }: BoostMo
                     clearInterval(interval)
                     setIsPolling(false)
                     setIsLoading(false)
-                    toast.success('🚀 Listing boosted successfully!')
+                    toast.success('🚀 Listing boosted successfully! Redirecting to dashboard...')
                     onOpenChange(false)
                     onSuccess?.()
+                    // Redirect to seller dashboard after a short delay
+                    setTimeout(() => {
+                        router.push('/classifieds/seller/dashboard')
+                    }, 1500)
                 } else if (data.status === 'failed') {
                     clearInterval(interval)
                     setIsPolling(false)
@@ -117,7 +123,7 @@ export function BoostModal({ open, onOpenChange, listingId, onSuccess }: BoostMo
         }, 3000)
 
         return () => clearInterval(interval)
-    }, [isPolling, paymentReference])
+    }, [isPolling, paymentReference, onOpenChange, onSuccess, router])
 
     const selectedFee = fees[selectedTier] || 0
     const selectedTierLabel = TIERS.find(t => t.id === selectedTier)?.label || ''
@@ -249,9 +255,9 @@ export function BoostModal({ open, onOpenChange, listingId, onSuccess }: BoostMo
                                 <Zap className="w-6 h-6 text-amber-600 dark:text-amber-400" />
                             </div>
                             <div>
-                                <DialogTitle>Boost Your Listing</DialogTitle>
+                                <DialogTitle>Promote Your Listing</DialogTitle>
                                 <DialogDescription>
-                                    Choose a duration and pay directly — no wallet top-up needed
+                                    Choose a duration and pay directly with Mobile Money or Card
                                 </DialogDescription>
                             </div>
                         </div>
