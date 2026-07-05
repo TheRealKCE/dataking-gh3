@@ -88,7 +88,7 @@ export async function getSellerListings(sellerId: string, status?: string) {
 
     let query = supabase
         .from('classified_listings')
-        .select('*')
+        .select('*, classified_categories(name, slug), classified_listing_images(id, storage_path, display_order), users(seller_verified_at)')
         .eq('seller_id', sellerId)
 
     if (status) {

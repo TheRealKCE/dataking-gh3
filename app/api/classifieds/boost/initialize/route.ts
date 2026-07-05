@@ -120,6 +120,22 @@ export async function POST(request: NextRequest) {
         const reference = existingRef || `BOOST-${generateReferenceCode()}`
         let paymentId: string | null = null
 
+        // Get user's wallet_id (required for wallet_payments table)
+        const { data: walletRow } = await supabase
+            .from('wallets' as any)
+            .select('id')
+            .eq('user_id', userId)
+            .single()
+
+        if (!walletRow) {
+            return NextResponse.json(
+                { error: 'Wallet not found. Please contact support.' },
+                { status: 500 }
+            )
+        }
+
+        const walletId = (walletRow as any).id
+
         if (existingRef) {
             const { data: existing } = await supabase
                 .from('wallet_payments' as any)
@@ -135,6 +151,7 @@ export async function POST(request: NextRequest) {
                 .from('wallet_payments' as any)
                 .insert({
                     user_id: userId,
+                    wallet_id: walletId,
                     amount: boostFee,
                     fee: 0,
                     total_amount: boostFee,
