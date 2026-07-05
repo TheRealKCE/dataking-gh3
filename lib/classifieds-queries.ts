@@ -22,7 +22,7 @@ export async function getListingsWithPagination(params: {
 
     let query = supabase
         .from('classified_listings')
-        .select('*, classified_categories(name, slug), classified_listing_images(id, storage_path, display_order), users(seller_verified_at)', { count: 'exact' })
+        .select('*, classified_categories(name, slug), classified_listing_images(id, storage_path, display_order), users:classified_sellers_public!seller_id(seller_verified_at)', { count: 'exact' })
         .eq('status', params.status || 'active')
 
     if (params.category_id) {
@@ -74,7 +74,7 @@ export async function getListingById(id: string) {
             *,
             classified_categories(name, slug),
             classified_listing_images(id, storage_path, display_order),
-            users(first_name, last_name, phone_number, email, seller_verified_at)
+            users:classified_sellers_public!seller_id(first_name, last_name, seller_verified_at)
         `)
         .eq('id', id)
         .single()
@@ -88,7 +88,7 @@ export async function getSellerListings(sellerId: string, status?: string) {
 
     let query = supabase
         .from('classified_listings')
-        .select('*, classified_categories(name, slug), classified_listing_images(id, storage_path, display_order), users(seller_verified_at)')
+        .select('*, classified_categories(name, slug), classified_listing_images(id, storage_path, display_order), users:classified_sellers_public!seller_id(seller_verified_at)')
         .eq('seller_id', sellerId)
 
     if (status) {
@@ -106,7 +106,7 @@ export async function searchListings(searchQuery: string, filters?: { category_i
 
     let query = supabase
         .from('classified_listings')
-        .select('*, classified_categories(name), classified_listing_images(id, storage_path, display_order), users(seller_verified_at)')
+        .select('*, classified_categories(name), classified_listing_images(id, storage_path, display_order), users:classified_sellers_public!seller_id(seller_verified_at)')
         .eq('status', 'active')
 
     if (searchQuery) {
@@ -334,7 +334,7 @@ export async function getBoostedListings(params: {
 
     let query = supabase
         .from('classified_listings')
-        .select('*, classified_categories(name, slug), classified_listing_images(id, storage_path, display_order), users(seller_verified_at)')
+        .select('*, classified_categories(name, slug), classified_listing_images(id, storage_path, display_order), users:classified_sellers_public!seller_id(seller_verified_at)')
         .eq('status', 'active')
         .eq('is_boosted', true)
         .gt('boosted_until', now)
