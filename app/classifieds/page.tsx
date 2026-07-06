@@ -5,13 +5,12 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/contexts/auth-context'
 import { getCategories } from '@/lib/classifieds-queries'
 import { ListingGrid } from '@/components/classifieds/listing-grid'
-import { Loader2, Search, Grid3x3, List, Plus, ArrowRight, TrendingUp } from 'lucide-react'
+import { Loader2, Search, Grid3x3, List, Plus, TrendingUp } from 'lucide-react'
 import Link from 'next/link'
 import { HeroCarousel } from '@/components/classifieds/hero-carousel'
 import { CategoryPicture } from '@/components/classifieds/category-picture'
 import { SellButton } from '@/components/classifieds/sell-button'
 import { supabase } from '@/lib/supabase'
-import { cn } from '@/lib/utils'
 import type { ClassifiedListing, ClassifiedCategory } from '@/types/supabase'
 
 export default function ClassifiedsPage() {
@@ -186,48 +185,36 @@ export default function ClassifiedsPage() {
                     {/* Niche Intelligence */}
                     <Link
                         href="/classifieds/niche-intelligence"
-                        className="group flex-shrink-0 w-44 sm:w-auto snap-start rounded-2xl p-4 bg-gradient-to-br from-purple-500 to-purple-700 shadow-sm transition-transform active:scale-95 hover:shadow-md"
+                        className="flex-shrink-0 w-40 sm:w-auto snap-start rounded-2xl border-2 border-purple-200 bg-purple-100/70 dark:border-purple-800 dark:bg-purple-900/25 p-4 flex flex-col min-h-[150px] transition-transform active:scale-95 hover:shadow-md"
                     >
-                        <div className="flex items-start justify-between">
-                            <div className="w-10 h-10 rounded-xl bg-white/25 flex items-center justify-center backdrop-blur-sm">
-                                <Search className="w-5 h-5 text-white" />
-                            </div>
-                            <ArrowRight className="w-4 h-4 text-white/70 group-hover:translate-x-0.5 transition-transform" />
+                        <div className="flex-1 flex items-center justify-center">
+                            <span className="text-5xl leading-none" role="img" aria-label="Niche Intelligence">🔍</span>
                         </div>
-                        <p className="mt-3 text-sm font-black text-white leading-tight">Niche Intelligence</p>
-                        <p className="text-[11px] font-medium text-white/80 mt-0.5">Find hot products</p>
+                        <p className="text-base font-extrabold text-gray-900 dark:text-white leading-tight">Niche Intelligence</p>
                     </Link>
 
                     {/* How to Sell */}
                     <button
                         type="button"
                         onClick={() => setShowSellGuide(true)}
-                        className="group flex-shrink-0 w-44 sm:w-auto snap-start text-left rounded-2xl p-4 bg-gradient-to-br from-amber-400 to-yellow-500 shadow-sm transition-transform active:scale-95 hover:shadow-md"
+                        className="flex-shrink-0 w-40 sm:w-auto snap-start text-left rounded-2xl border-2 border-green-200 bg-green-100/70 dark:border-green-800 dark:bg-green-900/25 p-4 flex flex-col min-h-[150px] transition-transform active:scale-95 hover:shadow-md"
                     >
-                        <div className="flex items-start justify-between">
-                            <div className="w-10 h-10 rounded-xl bg-white/25 flex items-center justify-center backdrop-blur-sm">
-                                <Plus className="w-5 h-5 text-white" />
-                            </div>
-                            <ArrowRight className="w-4 h-4 text-white/70 group-hover:translate-x-0.5 transition-transform" />
+                        <div className="flex-1 flex items-center justify-center">
+                            <span className="text-5xl leading-none" role="img" aria-label="How to Sell">💰</span>
                         </div>
-                        <p className="mt-3 text-sm font-black text-white leading-tight">How to Sell</p>
-                        <p className="text-[11px] font-medium text-white/80 mt-0.5">Start earning today</p>
+                        <p className="text-base font-extrabold text-gray-900 dark:text-white leading-tight">How to Sell</p>
                     </button>
 
                     {/* How to Buy */}
                     <button
                         type="button"
                         onClick={() => setShowBuyGuide(true)}
-                        className="group flex-shrink-0 w-44 sm:w-auto snap-start text-left rounded-2xl p-4 bg-gradient-to-br from-blue-500 to-blue-700 shadow-sm transition-transform active:scale-95 hover:shadow-md"
+                        className="flex-shrink-0 w-40 sm:w-auto snap-start text-left rounded-2xl border-2 border-orange-200 bg-orange-100/70 dark:border-orange-800 dark:bg-orange-900/25 p-4 flex flex-col min-h-[150px] transition-transform active:scale-95 hover:shadow-md"
                     >
-                        <div className="flex items-start justify-between">
-                            <div className="w-10 h-10 rounded-xl bg-white/25 flex items-center justify-center backdrop-blur-sm">
-                                <Search className="w-5 h-5 text-white" />
-                            </div>
-                            <ArrowRight className="w-4 h-4 text-white/70 group-hover:translate-x-0.5 transition-transform" />
+                        <div className="flex-1 flex items-center justify-center">
+                            <span className="text-5xl leading-none" role="img" aria-label="How to Buy">🛍️</span>
                         </div>
-                        <p className="mt-3 text-sm font-black text-white leading-tight">How to Buy</p>
-                        <p className="text-[11px] font-medium text-white/80 mt-0.5">Shop safely & smart</p>
+                        <p className="text-base font-extrabold text-gray-900 dark:text-white leading-tight">How to Buy</p>
                     </button>
                 </div>
 
