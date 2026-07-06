@@ -130,7 +130,14 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const joinUrl = `${process.env.NEXT_PUBLIC_SITE_URL}/join/${code}`
+    // Build an absolute join URL. NEXT_PUBLIC_APP_URL is the canonical site URL
+    // used across the app; fall back to NEXT_PUBLIC_SITE_URL, then the request
+    // origin, so the link is never rendered as "undefined/join/...".
+    const baseUrl =
+      process.env.NEXT_PUBLIC_APP_URL ||
+      process.env.NEXT_PUBLIC_SITE_URL ||
+      request.nextUrl.origin
+    const joinUrl = `${baseUrl.replace(/\/$/, '')}/join/${code}`
 
     return NextResponse.json({
       success: true,
