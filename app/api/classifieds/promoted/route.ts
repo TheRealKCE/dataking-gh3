@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
 
         let query = supabase
             .from('classified_listings')
-            .select('*, classified_categories(name, slug), classified_listing_images(id, storage_path, display_order)')
+            .select('*, classified_categories(name, slug), classified_listing_images(id, storage_path, display_order), users:classified_sellers_public!seller_id(seller_verified_at)')
             .eq('status', 'active')
             .eq('is_boosted', true)
             .gt('boosted_until', now)
