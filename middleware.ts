@@ -11,9 +11,9 @@ import { Ratelimit } from '@upstash/ratelimit'
 const STATIC_ALLOWED_ORIGINS = [
     'https://arhms-data-ltd.vercel.app',
     'https://project-d3owc.vercel.app',
-    'https://arhmsgh.com',
-    'https://www.arhmsgh.com',
-    'https://marketplace.arhmsgh.com',
+    'https://dataking.qzz.io',
+    'https://www.dataking.qzz.io',
+    'https://marketplace.dataking.qzz.io',
     'http://localhost:3000',
     'http://localhost:8081',
     'http://marketplace.localhost:3000',
