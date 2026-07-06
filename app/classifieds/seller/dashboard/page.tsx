@@ -14,7 +14,7 @@ import type { ClassifiedListing } from '@/types/supabase'
 export default function SellerDashboardPage() {
     const router = useRouter()
     const searchParams = useSearchParams()
-    const { user, session } = useAuth()
+    const { user, session, isLoading: authLoading } = useAuth()
     const [listings, setListings] = useState<ClassifiedListing[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [selectedListingId, setSelectedListingId] = useState<string | null>(null)
@@ -22,11 +22,13 @@ export default function SellerDashboardPage() {
     const [showSuccessMessage, setShowSuccessMessage] = useState(false)
 
     useEffect(() => {
-        if (!user) {
+        // Wait for the auth context to finish hydrating before deciding — otherwise
+        // `user` is momentarily null on first render and we'd bounce a logged-in user.
+        if (!authLoading && !user) {
             toast.error('Please log in to access seller dashboard')
-            router.push('/auth/login')
+            router.push('/auth/login?redirect=/classifieds/seller/dashboard')
         }
-    }, [user, router])
+    }, [authLoading, user, router])
 
     // Handle boost success/error messages
     useEffect(() => {
