@@ -126,29 +126,14 @@ export default function ClassifiedsPage() {
                             <Link href="/auth/login" className="text-white font-semibold hover:underline">
                                 Log In
                             </Link>
-                            {!authLoading && (
-                                <>
-                                    {!user ? (
-                                        <Link href="/auth/login">
-                                            <Button className="bg-blue-600 hover:bg-blue-700 text-white font-black rounded-lg px-6 py-2">
-                                                SELL
-                                            </Button>
-                                        </Link>
-                                    ) : !dbUser?.is_seller ? (
-                                        <Link href="/classifieds/become-seller">
-                                            <Button className="bg-blue-600 hover:bg-blue-700 text-white font-black rounded-lg px-6 py-2">
-                                                SELL
-                                            </Button>
-                                        </Link>
-                                    ) : (
-                                        <Link href="/classifieds/seller/dashboard">
-                                            <Button className="bg-blue-600 hover:bg-blue-700 text-white font-black rounded-lg px-6 py-2">
-                                                SELL
-                                            </Button>
-                                        </Link>
-                                    )}
-                                </>
-                            )}
+                            {/* SELL always goes to the seller dashboard. If the user
+                                isn't logged in, the /classifieds/seller guard redirects
+                                to login and returns them here afterward. */}
+                            <Link href="/classifieds/seller/dashboard">
+                                <Button className="bg-blue-600 hover:bg-blue-700 text-white font-black rounded-lg px-6 py-2">
+                                    SELL
+                                </Button>
+                            </Link>
                         </div>
                     </div>
                     <form onSubmit={handleSearch} className="flex gap-3">
