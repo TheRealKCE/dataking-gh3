@@ -126,14 +126,15 @@ export default function ClassifiedsPage() {
                             <Link href="/auth/login" className="text-white font-semibold hover:underline">
                                 Log In
                             </Link>
-                            {/* SELL always goes to the seller dashboard. If the user
-                                isn't logged in, the /classifieds/seller guard redirects
-                                to login and returns them here afterward. */}
-                            <Link href="/classifieds/seller/dashboard">
+                            {/* SELL opens the seller dashboard on the marketplace
+                                subdomain (absolute URL so it lands there from any host).
+                                If not logged in, the /classifieds/seller guard sends the
+                                user to login and returns them here afterward. */}
+                            <a href={`${process.env.NEXT_PUBLIC_MARKETPLACE_URL || 'https://marketplace.arhmsgh.com'}/classifieds/seller/dashboard`}>
                                 <Button className="bg-blue-600 hover:bg-blue-700 text-white font-black rounded-lg px-6 py-2">
                                     SELL
                                 </Button>
-                            </Link>
+                            </a>
                         </div>
                     </div>
                     <form onSubmit={handleSearch} className="flex gap-3">
