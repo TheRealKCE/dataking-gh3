@@ -9,7 +9,7 @@ interface SignupFormProps {
   brandColor: string
 }
 
-type FormStep = 'email-password' | 'otp' | 'success'
+type FormStep = 'email-password' | 'success'
 
 export function SubAgentSignupForm({
   inviteId,
@@ -21,10 +21,8 @@ export function SubAgentSignupForm({
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [phone, setPhone] = useState('')
-  const [otp, setOtp] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [successMessage, setSuccessMessage] = useState<string | null>(null)
 
   const handleEmailPasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -36,7 +34,6 @@ export function SubAgentSignupForm({
       // 1. Create Supabase auth user
       // 2. Create users table row
       // 3. Create sub_agents row (status='pending')
-      // 4. Send OTP SMS to phone
       const response = await fetch('/api/shop/sub-agents/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -53,41 +50,6 @@ export function SubAgentSignupForm({
 
       if (!response.ok) {
         setError(data.error || 'Signup failed')
-        setLoading(false)
-        return
-      }
-
-      setSuccessMessage('OTP sent to your phone. Check SMS to verify.')
-      setStep('otp')
-      setLoading(false)
-    } catch (err: any) {
-      setError(err?.message || 'An error occurred')
-      setLoading(false)
-    }
-  }
-
-  const handleOtpSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setLoading(true)
-    setError(null)
-
-    try {
-      // Verify OTP and confirm account creation
-      const response = await fetch('/api/shop/sub-agents/verify-otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email,
-          phone,
-          otp,
-          inviteId,
-        }),
-      })
-
-      const data = await response.json()
-
-      if (!response.ok) {
-        setError(data.error || 'OTP verification failed')
         setLoading(false)
         return
       }
@@ -128,62 +90,6 @@ export function SubAgentSignupForm({
           Go to Login
         </button>
       </div>
-    )
-  }
-
-  if (step === 'otp') {
-    return (
-      <form onSubmit={handleOtpSubmit} className="space-y-4">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">
-          Verify Your Phone
-        </h2>
-
-        {successMessage && (
-          <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-green-800 text-sm">
-            {successMessage}
-          </div>
-        )}
-
-        {error && (
-          <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-800 text-sm">
-            {error}
-          </div>
-        )}
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            One-Time Password
-          </label>
-          <input
-            type="text"
-            value={otp}
-            onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
-            placeholder="000000"
-            maxLength={6}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:outline-none text-center text-2xl tracking-widest"
-          />
-          <p className="text-xs text-gray-500 mt-1">
-            Enter the 6-digit code sent to {phone}
-          </p>
-        </div>
-
-        <button
-          type="submit"
-          disabled={!otp || otp.length !== 6 || loading}
-          className="w-full px-4 py-2 rounded-lg text-white font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
-          style={{ backgroundColor: brandColor }}
-        >
-          {loading ? 'Verifying...' : 'Verify OTP'}
-        </button>
-
-        <button
-          type="button"
-          onClick={() => setStep('email-password')}
-          className="w-full text-sm text-gray-600 hover:text-gray-900 py-2"
-        >
-          Back
-        </button>
-      </form>
     )
   }
 

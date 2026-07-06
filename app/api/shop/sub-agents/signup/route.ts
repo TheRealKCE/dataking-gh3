@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
-import { sendSubAgentOtpSms } from '@/lib/sms-service'
 import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
 
@@ -18,13 +17,12 @@ try {
 /**
  * POST /api/shop/sub-agents/signup
  *
- * Step 1 of sub-agent signup:
+ * Sub-agent signup:
  *   1. Validate invite code
  *   2. Create Supabase Auth user (email + password)
- *   3. Create users table row with sub_agents reference
+ *   3. Create users table row
  *   4. Create sub_agents row (status='pending', awaiting Lead approval)
- *   5. Send OTP SMS to phone for verification
- *   6. Return session + next step (OTP verification)
+ *   5. Increment invite usage
  *
  * Rate-limited to 3 signups per hour per IP (prevent abuse)
  */
@@ -135,7 +133,6 @@ export async function POST(request: NextRequest) {
         id: userId,
         email,
         phone_number: cleanPhone,
-        phone_verified: false,
         first_name: '',
         last_name: '',
         role: 'customer', // Subs start as customers, auto-upgraded on approval
@@ -179,23 +176,9 @@ export async function POST(request: NextRequest) {
       .update({ used_count: (invite.used_count || 0) + 1 })
       .eq('id', inviteId)
 
-    // 6. Generate and send OTP SMS
-    const otpCode = Math.floor(100000 + Math.random() * 900000).toString()
-    try {
-      await sendSubAgentOtpSms(cleanPhone, {
-        otpCode,
-        leadName: 'Your Lead', // TODO: fetch actual Lead name from shop profile
-      })
-    } catch (smsErr) {
-      console.error('[SubAgentSignup] OTP SMS failed:', smsErr)
-      // Non-fatal — account is created, SMS can be resent
-    }
-
-    // TODO: Store OTP in cache (Redis/Memcache) with 10-minute TTL for verification
-
     return NextResponse.json({
       success: true,
-      message: 'OTP sent to phone. Please verify to complete signup.',
+      message: 'Account created. Pending approval from your Lead.',
       userId,
       phone: cleanPhone,
     })
