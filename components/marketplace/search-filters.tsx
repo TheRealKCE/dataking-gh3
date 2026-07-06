@@ -21,7 +21,7 @@ import {
 } from '@/components/ui/select'
 import { Slider } from '@/components/ui/slider'
 import { Filter } from 'lucide-react'
-import { getGhanaRegions } from '@/lib/marketplace-queries'
+import { getGhanaRegions } from '@/lib/marketplace-reference'
 import type { GhanaRegion } from '@/lib/marketplace-types'
 
 interface SearchFiltersProps {

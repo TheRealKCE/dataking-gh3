@@ -13,7 +13,7 @@ import {
     SelectValue,
 } from '@/components/ui/select'
 import { toast } from 'sonner'
-import { getGhanaRegions, getGhanaCities } from '@/lib/marketplace-queries'
+import { getGhanaRegions, getGhanaCities } from '@/lib/marketplace-reference'
 import type { GhanaRegion, GhanaCity } from '@/lib/marketplace-types'
 
 interface SellerOnboardingSheetProps {

@@ -13,6 +13,11 @@ import type {
     GhanaCity,
 } from '@/lib/marketplace-types'
 
+// ⚠️ SERVER-ONLY: this uses the service-role client. Never import this module
+// from a client component ('use client') — it would bundle the service client
+// into the browser and crash (createServerClient reads env via dynamic
+// process.env[...] which Next.js does not inline client-side). Client components
+// needing reference data must use lib/marketplace-reference.ts instead.
 const supabase = createServerClient()
 
 // ============================================================

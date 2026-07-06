@@ -9,7 +9,7 @@ import {
     SelectValue,
 } from '@/components/ui/select'
 import { Label } from '@/components/ui/label'
-import { getGhanaRegions, getGhanaCities } from '@/lib/marketplace-queries'
+import { getGhanaRegions, getGhanaCities } from '@/lib/marketplace-reference'
 import type { GhanaRegion, GhanaCity } from '@/lib/marketplace-types'
 
 interface StepLocationProps {
