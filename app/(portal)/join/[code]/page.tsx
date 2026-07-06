@@ -16,6 +16,7 @@
 
 import { notFound } from 'next/navigation'
 import { createServerClient } from '@/lib/supabase'
+import { normalizeWhatsAppNumber } from '@/lib/utils'
 import { SubAgentSignupForm } from './signup-form'
 
 interface Props {
@@ -43,7 +44,9 @@ export default async function JoinPage({ params }: Props) {
         logo_url,
         brand_color,
         brand_accent,
-        owner_id
+        owner_id,
+        owner_phone,
+        whatsapp_number
       )
     `)
     .eq('code', code)
@@ -105,6 +108,12 @@ export default async function JoinPage({ params }: Props) {
     brandAccent: shop?.brand_accent || '#1e40af',
   }
 
+  // Owner's WhatsApp number so a pending sub can message them for approval.
+  // Prefer the dedicated (already 233-normalized) whatsapp_number, else fall
+  // back to the required owner_phone (raw) run through the shared normalizer.
+  const ownerWhatsApp =
+    shop?.whatsapp_number || (shop?.owner_phone ? normalizeWhatsAppNumber(shop.owner_phone) : '')
+
   // 4. Render signup form with branding
   return (
     <div
@@ -143,6 +152,7 @@ export default async function JoinPage({ params }: Props) {
             shopId={invite.shop_id}
             shopName={brandConfig.shopName}
             brandColor={brandConfig.brandColor}
+            ownerWhatsApp={ownerWhatsApp}
           />
 
           {/* Footer with shop attribution */}
