@@ -206,30 +206,20 @@ export async function middleware(request: NextRequest) {
     const isMarketplace = subdomain === 'marketplace'
 
     // === MARKETPLACE SUBDOMAIN ROUTING ===
-    // If accessing marketplace subdomain and not already in marketplace-domain path,
-    // rewrite to marketplace-domain while keeping URL as marketplace.arhmsgh.com.
-    // Auth routes (/auth/*) must redirect to main domain (auth is not marketplace-specific).
-    // API routes (/api/*) and root static assets (manifest, service worker, etc.)
-    // must pass through untouched — they are shared across all hosts and rewriting
-    // them to /marketplace-domain/* produces 404s.
-    const isPassthrough =
-        pathname.startsWith('/api') ||
-        pathname.startsWith('/_next') ||
-        pathname === '/manifest.json' ||
-        pathname === '/sw.js' ||
-        pathname === '/favicon.ico' ||
-        pathname.startsWith('/workbox-') ||
-        pathname.startsWith('/icons/')
-
-    // Auth routes redirect to main domain (centralized auth)
+    // marketplace.arhmsgh.com serves the classifieds app (app/classifieds/*).
+    // Auth routes (/auth/*) redirect to the main domain (centralized auth).
+    // Only the bare root is rewritten to /classifieds so the landing URL stays
+    // clean; every in-app link is an absolute /classifieds/... path that falls
+    // through untouched — those pages are served directly AND the classifieds
+    // route guards further below still run. API routes and static assets also
+    // fall through to their real locations.
     if (isMarketplace && pathname.startsWith('/auth')) {
         const mainDomainUrl = new URL(pathname + request.nextUrl.search, process.env.NEXT_PUBLIC_APP_URL || 'https://arhmsgh.com')
         return NextResponse.redirect(mainDomainUrl)
     }
 
-    if (isMarketplace && !pathname.startsWith('/marketplace-domain') && !isPassthrough) {
-        const marketplacePath = pathname === '/' ? '/marketplace-domain' : `/marketplace-domain${pathname}`
-        const rewriteUrl = new URL(marketplacePath, request.url)
+    if (isMarketplace && pathname === '/') {
+        const rewriteUrl = new URL('/classifieds', request.url)
         return NextResponse.rewrite(rewriteUrl, {
             request: {
                 headers: new Headers({
