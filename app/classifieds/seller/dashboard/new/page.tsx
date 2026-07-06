@@ -213,7 +213,7 @@ export default function NewListingPage() {
         <div className="min-h-screen bg-gray-50 dark:bg-[#0a0f1c] flex">
             <ClassifiedsSellerSidebar />
 
-            <div className="flex-1">
+            <div className="flex-1 min-w-0 pb-20 lg:pb-0">
                 <div className="bg-white dark:bg-[#151c2c] border-b border-gray-100 dark:border-gray-800">
                     <div className="max-w-4xl mx-auto px-6 py-8">
                         <Link href="/classifieds/seller/dashboard" className="inline-flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white mb-4">

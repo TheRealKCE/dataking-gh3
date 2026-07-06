@@ -98,7 +98,7 @@ export default function SellerVerificationPage() {
         return (
             <div className="min-h-screen bg-gray-50 dark:bg-[#0a0f1c] flex">
                 <ClassifiedsSellerSidebar />
-                <div className="flex-1 flex items-center justify-center">
+                <div className="flex-1 min-w-0 pb-20 lg:pb-0 flex items-center justify-center">
                     <Loader2 className="w-8 h-8 text-emerald-600 dark:text-emerald-400 animate-spin" />
                 </div>
             </div>
@@ -109,7 +109,7 @@ export default function SellerVerificationPage() {
         <div className="min-h-screen bg-gray-50 dark:bg-[#0a0f1c] flex">
             <ClassifiedsSellerSidebar />
 
-            <div className="flex-1">
+            <div className="flex-1 min-w-0 pb-20 lg:pb-0">
                 <div className="bg-white dark:bg-[#151c2c] border-b border-gray-100 dark:border-gray-800">
                     <div className="max-w-4xl mx-auto px-6 py-8">
                         <h1 className="text-3xl font-black text-gray-900 dark:text-white">Get Verified</h1>

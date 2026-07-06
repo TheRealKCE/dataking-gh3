@@ -202,7 +202,7 @@ export default function ListingDetailPage({
         <div className="min-h-screen bg-gray-50 dark:bg-[#0a0f1c]">
             {/* Header */}
             <div className="bg-white dark:bg-[#151c2c] border-b border-gray-100 dark:border-gray-800">
-                <div className="max-w-3xl mx-auto px-6 py-4">
+                <div className="max-w-2xl mx-auto px-4 py-4">
                     <a href="/classifieds" className="text-sm font-bold text-emerald-600 dark:text-emerald-400 hover:underline">
                         ← Back to listings
                     </a>
@@ -216,7 +216,7 @@ export default function ListingDetailPage({
 
                 {/* Title */}
                 <div className="bg-white dark:bg-[#151c2c] rounded-xl p-4 border border-gray-100 dark:border-gray-800">
-                    <h1 className="text-xl font-black text-gray-900 dark:text-white mb-1">
+                    <h1 className="text-lg sm:text-xl font-black text-gray-900 dark:text-white mb-1">
                         {listing.title}
                     </h1>
                 </div>
@@ -324,12 +324,12 @@ export default function ListingDetailPage({
                 </button>
 
                 {/* Safety Notice */}
-                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-6">
+                <div className="bg-amber-50 dark:bg-amber-900/20 border border-amber-200 dark:border-amber-800 rounded-xl p-4 sm:p-6">
                     <div className="flex gap-3 mb-4">
                         <AlertCircle className="w-5 h-5 text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" />
                         <p className="text-sm font-bold text-amber-900 dark:text-amber-300">Safety tips</p>
                     </div>
-                    <ul className="space-y-2 ml-8">
+                    <ul className="space-y-2 ml-5 sm:ml-8">
                         {getSafetyTips().map((tip, index) => (
                             <li key={index} className="text-xs text-amber-800 dark:text-amber-400">{tip}</li>
                         ))}

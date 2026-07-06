@@ -35,7 +35,7 @@ export function ImageCarousel({ images }: ImageCarouselProps) {
 
     if (!hasImages) {
         return (
-            <div className="w-full h-96 bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-800 rounded-xl flex items-center justify-center text-gray-500">
+            <div className="w-full h-64 sm:h-80 md:h-96 bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-800 rounded-xl flex items-center justify-center text-gray-500">
                 <span>No images available</span>
             </div>
         )
@@ -44,7 +44,7 @@ export function ImageCarousel({ images }: ImageCarouselProps) {
     return (
         <div className="space-y-3">
             {/* Main image */}
-            <div className="relative w-full h-96 bg-gray-100 dark:bg-gray-800 rounded-xl overflow-hidden">
+            <div className="relative w-full h-64 sm:h-80 md:h-96 bg-gray-100 dark:bg-gray-800 rounded-xl overflow-hidden">
                 <div className="w-full h-full relative">
                     <Image
                         src={images[currentIndex].url}
