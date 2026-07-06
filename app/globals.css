@@ -622,3 +622,71 @@
     animation: none !important;
   }
 }
+
+/* ============================================================
+   MARKETPLACE THEME (KFG Market on marketplace.arhmsgh.com)
+   ============================================================ */
+.theme-marketplace {
+  /* Light mode: Emerald/Market Green primary */
+  --primary: 160 84% 39%; /* Market Emerald */
+  --primary-foreground: 0 0% 100%;
+  --accent: 152 76% 94%; /* Soft emerald tint for hover/accent surfaces */
+  --accent-foreground: 160 84% 25%;
+  --destructive: 15 86% 67%; /* Amber for "Sponsored" labels */
+  --destructive-foreground: 0 0% 100%;
+  /* Emerald-tinted neutrals so the whole surface reads as one system */
+  --secondary: 160 30% 94%;
+  --secondary-foreground: 160 40% 20%;
+  --muted: 152 30% 96%;
+  --muted-foreground: 160 12% 40%;
+  --ring: 160 84% 39%; /* Emerald focus rings (was inheriting blue) */
+}
+
+.theme-marketplace.dark {
+  /* Dark mode: Keep emerald but adjust for dark background */
+  --primary: 160 84% 42%;
+  --primary-foreground: 0 0% 100%;
+  --accent: 160 30% 12%;
+  --accent-foreground: 152 76% 80%;
+  --destructive: 15 86% 67%;
+  --destructive-foreground: 0 0% 100%;
+  --secondary: 160 20% 12%;
+  --secondary-foreground: 152 40% 88%;
+  --muted: 160 18% 11%;
+  --muted-foreground: 152 12% 60%;
+  --ring: 160 84% 42%;
+}
+
+/* Sponsored/Featured label styling for marketplace */
+.theme-marketplace .badge-sponsored {
+  @apply bg-amber-400 text-amber-950 font-semibold;
+}
+
+/* ── Reusable marketplace UI helpers (emerald system) ───────────────── */
+/* Listing card hover lift — used across feed, hero, favorites */
+.theme-marketplace .mkt-listing-card {
+  @apply transition-all duration-300 hover:-translate-y-1 hover:shadow-lg;
+}
+
+/* Condition / trust badges — consistent color coding everywhere */
+.theme-marketplace .badge-condition-new {
+  @apply bg-primary/10 text-primary border border-primary/20 font-medium;
+}
+.theme-marketplace .badge-condition-used {
+  @apply bg-muted text-muted-foreground border border-border font-medium;
+}
+.theme-marketplace .badge-verified {
+  @apply bg-primary/10 text-primary border border-primary/20 font-medium;
+}
+
+/* Emerald hero wash for landing / page banners */
+.theme-marketplace .mkt-hero {
+  background:
+    radial-gradient(1200px 400px at 50% -10%, hsl(160 84% 39% / 0.14), transparent 70%),
+    linear-gradient(to bottom, hsl(152 76% 96%), hsl(var(--background)));
+}
+.theme-marketplace.dark .mkt-hero {
+  background:
+    radial-gradient(1200px 400px at 50% -10%, hsl(160 84% 42% / 0.20), transparent 70%),
+    linear-gradient(to bottom, hsl(160 30% 7%), hsl(var(--background)));
+}

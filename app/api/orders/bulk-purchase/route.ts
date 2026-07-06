@@ -46,6 +46,21 @@ export async function POST(request: NextRequest) {
 
         const userId = authUser.id
 
+        // === SUB-AGENT GATE: Block subs on bulk purchases (v1 scope) ===
+        const supabase = createServerClient()
+        const { data: subAgentData } = await supabase
+            .from('sub_agents')
+            .select('id')
+            .eq('user_id', userId)
+            .single()
+
+        if (subAgentData) {
+            return NextResponse.json(
+                { error: 'Bulk purchase is not yet available for sub-agents. Use single purchase instead.' },
+                { status: 403 }
+            )
+        }
+
         // Fail-open: if Redis is exhausted, allow the request rather than blocking
         try {
             if (bulkRateLimit) {
@@ -95,8 +110,6 @@ export async function POST(request: NextRequest) {
                 orders.push(order)
             }
         }
-
-        const supabase = createServerClient()
 
         // === 1. Get user role ===
         const { data: userRoleData } = await supabase

@@ -213,6 +213,19 @@ export async function processShopOrder(
             return { success: false, error: 'Payment amount mismatch' }
         }
 
+        // 3. SECURITY: Validate profit floors (§7.5 — prevents underwater orders)
+        // Ensure profit > 0 to prevent negative margins persisting through downgrade races
+        if (verifiedProfit <= 0) {
+            console.error(`[Shop Order Processor] 🚨 PROFIT FLOOR VIOLATION: Ref: ${reference}, Profit: ${verifiedProfit}`)
+            return { success: false, error: 'Order profit would be non-positive; order rejected' }
+        }
+
+        // For sub orders (when parent_shop_id is set), also validate sub_profit > 0
+        // This is computed as: selling_price - sub_price
+        // Currently: verifiedProfit is already (selling_price - cost_price), which includes sub margin
+        // When storefront mode: sub_profit = (selling_price - sub_price), parent_profit = (sub_price - owner_cost)
+        // TODO: wire parent_profit calculation once parent_shop_id is set by checkout
+
         // 3. Create Order Records (only runs after amount validation passes)
         let orderId = existingOrder?.id
         const fulfillmentMode = shopProfile?.fulfillment_mode || metadata.fulfillment_mode || 'auto'

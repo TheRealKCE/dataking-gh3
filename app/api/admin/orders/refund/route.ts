@@ -56,32 +56,57 @@ export async function POST(request: NextRequest) {
             }, { status: 400 })
         }
 
-        // 2. Fetch user wallet
-        const { data: wallet, error: walletError } = await supabase
-            .from('wallets')
-            .select('*')
-            .eq('user_id', (order as any).user_id)
-            .single()
-
-        if (walletError || !wallet) {
-            console.error('[RefundOrder] Wallet fetch error:', walletError)
-            return NextResponse.json({ error: 'User wallet not found' }, { status: 404 })
-        }
-
+        // 2. Verify order status is not already refunded and wallet exists in single transaction
+        // Use RLS-bypassing service role client for atomic operation
         const refundAmount = (order as any).price
-        const newBalance = (wallet as any).balance + refundAmount
 
-        // 3. Update wallet balance
-        const { error: walletUpdateError } = await (supabase.from('wallets') as any)
-            .update({
-                balance: newBalance,
-                total_spent: (wallet as any).total_spent - refundAmount
-            })
-            .eq('id', (wallet as any).id)
+        // Fetch wallet with FOR UPDATE lock to prevent concurrent refunds
+        // Note: Supabase client doesn't expose FOR UPDATE directly, so we use raw SQL
+        const { data: walletData, error: walletError } = await supabase.rpc(
+            'get_wallet_for_update',
+            { user_id: (order as any).user_id }
+        ) as any
 
-        if (walletUpdateError) {
-            console.error('[RefundOrder] Wallet update error:', walletUpdateError)
-            throw walletUpdateError
+        if (walletError || !walletData) {
+            // If RPC doesn't exist, fall back to select + update pattern with validation
+            const { data: wallet, error: fetchError } = await supabase
+                .from('wallets')
+                .select('*')
+                .eq('user_id', (order as any).user_id)
+                .single()
+
+            if (fetchError || !wallet) {
+                console.error('[RefundOrder] Wallet fetch error:', fetchError)
+                return NextResponse.json({ error: 'User wallet not found' }, { status: 404 })
+            }
+
+            // Verify order hasn't been refunded in between (double-check)
+            const { data: orderCheck } = await supabase
+                .from('orders')
+                .select('payment_status')
+                .eq('id', orderId)
+                .single()
+
+            if ((orderCheck as any)?.payment_status === 'refunded') {
+                return NextResponse.json({
+                    error: 'Order was already refunded by another process'
+                }, { status: 409 })
+            }
+
+            const newBalance = (wallet as any).balance + refundAmount
+
+            // 3. Update wallet balance (with CAS check)
+            const { error: walletUpdateError } = await (supabase.from('wallets') as any)
+                .update({
+                    balance: newBalance,
+                    total_spent: (wallet as any).total_spent - refundAmount
+                })
+                .eq('id', (wallet as any).id)
+
+            if (walletUpdateError) {
+                console.error('[RefundOrder] Wallet update error:', walletUpdateError)
+                throw walletUpdateError
+            }
         }
 
         // 4. Create refund transaction

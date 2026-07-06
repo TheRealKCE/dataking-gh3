@@ -13,8 +13,10 @@ const STATIC_ALLOWED_ORIGINS = [
     'https://project-d3owc.vercel.app',
     'https://arhmsgh.com',
     'https://www.arhmsgh.com',
+    'https://marketplace.arhmsgh.com',
     'http://localhost:3000',
     'http://localhost:8081',
+    'http://marketplace.localhost:3000',
 ] as const
 
 function normalizeOrigin(value?: string | null): string | null {
@@ -101,9 +103,42 @@ const rateLimiters = redis ? {
     // ── Support & Cron ────────────────────────────────────────
     supportChat: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(10, '1 m') }),
     cron: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(10, '1 m') }),
+    // ── Marketplace (classifieds → marketplace subdomain) ─────
+    marketplaceSearch: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(30, '1 m') }),
+    marketplaceFeed: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(60, '1 m') }),
+    marketplaceListingWrite: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(10, '1 h') }),
+    marketplaceContactReveal: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(20, '1 m') }),
+    marketplaceBoostInit: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(10, '1 m') }),
+    marketplaceReport: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, '1 h') }),
+    marketplaceMessages: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(30, '1 m') }),
+    marketplaceUpload: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(20, '1 h') }),
     // ── General catch-all ─────────────────────────────────────
     general: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(100, '1 m') }),
 } : null
+
+// Extract subdomain from request (e.g., 'marketplace' from 'marketplace.arhmsgh.com')
+function getSubdomain(request: NextRequest): string | null {
+    const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || ''
+    const parts = host.split('.')
+
+    // localhost or IP-based access
+    if (parts.length === 1 || host.includes('localhost') || host.includes('vercel.app') || host.includes('127.0.0.1')) {
+        const localMatch = host.match(/^(\w+)\.localhost/) || host.match(/^(\w+)-\w+\.vercel\.app/)
+        return localMatch ? localMatch[1] : null
+    }
+
+    // Standard domain (arhmsgh.com, www.arhmsgh.com, marketplace.arhmsgh.com)
+    if (host.endsWith('arhmsgh.com')) {
+        // marketplace.arhmsgh.com -> 'marketplace'
+        // www.arhmsgh.com, arhmsgh.com -> null
+        if (parts.length > 2 && parts[0] !== 'www') {
+            return parts[0]
+        }
+        return null
+    }
+
+    return null
+}
 
 // Helper to add cache-prevention headers
 function addNoCacheHeaders(response: NextResponse) {
@@ -167,6 +202,33 @@ function setCORSHeaders(response: NextResponse, request: NextRequest, origin: st
 export async function middleware(request: NextRequest) {
     const origin = request.headers.get('origin')
     const pathname = request.nextUrl.pathname
+    const subdomain = getSubdomain(request)
+    const isMarketplace = subdomain === 'marketplace'
+
+    // === MARKETPLACE SUBDOMAIN ROUTING ===
+    // marketplace.arhmsgh.com serves the classifieds app (app/classifieds/*).
+    // Auth routes (/auth/*) redirect to the main domain (centralized auth).
+    // Only the bare root is rewritten to /classifieds so the landing URL stays
+    // clean; every in-app link is an absolute /classifieds/... path that falls
+    // through untouched — those pages are served directly AND the classifieds
+    // route guards further below still run. API routes and static assets also
+    // fall through to their real locations.
+    if (isMarketplace && pathname.startsWith('/auth')) {
+        const mainDomainUrl = new URL(pathname + request.nextUrl.search, process.env.NEXT_PUBLIC_APP_URL || 'https://arhmsgh.com')
+        return NextResponse.redirect(mainDomainUrl)
+    }
+
+    if (isMarketplace && pathname === '/') {
+        const rewriteUrl = new URL('/classifieds', request.url)
+        return NextResponse.rewrite(rewriteUrl, {
+            request: {
+                headers: new Headers({
+                    ...Object.fromEntries(request.headers),
+                    'x-subdomain': 'marketplace',
+                }),
+            },
+        })
+    }
 
     // === CORS PREFLIGHT HANDLER ===
     // /api/v1/* is excluded from the middleware matcher — CORS handled via next.config.ts headers.
@@ -470,6 +532,63 @@ export async function middleware(request: NextRequest) {
             console.error('Middleware role check error:', error)
             if (isAdminAPI) return addNoCacheHeaders(NextResponse.json({ error: 'Internal server error' }, { status: 500 }))
             return addNoCacheHeaders(NextResponse.redirect(new URL('/dashboard', request.url)))
+        }
+    }
+
+    // === CLASSIFIEDS ROUTE GUARDS ===
+    if (pathname.startsWith('/classifieds')) {
+        // Public routes: /classifieds and /classifieds/[id]
+        if (pathname === '/classifieds' || /^\/classifieds\/[^\/]+$/.test(pathname)) {
+            return addNoCacheHeaders(setCORSHeaders(res, request, origin))
+        }
+
+        // Seller-only routes: /classifieds/seller/*
+        if (pathname.startsWith('/classifieds/seller')) {
+            if (!authUser) {
+                return addNoCacheHeaders(NextResponse.redirect(new URL(`/auth/login?redirect=${encodeURIComponent(pathname)}`, request.url)))
+            }
+            // TODO: Check if user has is_seller flag in Phase 2
+            return addNoCacheHeaders(setCORSHeaders(res, request, origin))
+        }
+
+        // Buyer-only routes: /classifieds/buyer/*
+        if (pathname.startsWith('/classifieds/buyer')) {
+            if (!authUser) {
+                return addNoCacheHeaders(NextResponse.redirect(new URL(`/auth/login?redirect=${encodeURIComponent(pathname)}`, request.url)))
+            }
+            return addNoCacheHeaders(setCORSHeaders(res, request, origin))
+        }
+
+        // Admin-only routes: /classifieds/admin/*
+        if (pathname.startsWith('/classifieds/admin')) {
+            if (!authUser) {
+                return addNoCacheHeaders(NextResponse.redirect(new URL('/auth/login', request.url)))
+            }
+            // Check if user is admin
+            try {
+                const timeout = new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('Role check timeout')), 8000)
+                )
+
+                const roleQuery = supabase
+                    .from('users')
+                    .select('role')
+                    .eq('id', authUser.id)
+                    .single()
+
+                const { data: user } = await Promise.race([
+                    roleQuery,
+                    timeout
+                ]) as any
+
+                if (!user || !['admin', 'sub-admin'].includes(user.role)) {
+                    return addNoCacheHeaders(NextResponse.redirect(new URL('/classifieds', request.url)))
+                }
+            } catch (error) {
+                console.error('Classifieds admin role check error:', error)
+                return addNoCacheHeaders(NextResponse.redirect(new URL('/classifieds', request.url)))
+            }
+            return addNoCacheHeaders(setCORSHeaders(res, request, origin))
         }
     }
 

@@ -38,6 +38,7 @@ export default function AdminSettingsPage() {
     const [autoFulfillment, setAutoFulfillment] = useState(true)
     const [webPaymentProvider, setWebPaymentProvider] = useState<'moolre' | 'paystack'>('moolre')
     const [shopPaymentProvider, setShopPaymentProvider] = useState<'moolre' | 'paystack'>('moolre')
+    const [classifiedsPaymentProvider, setClassifiedsPaymentProvider] = useState<'moolre' | 'paystack'>('moolre')
     const [skipGoogleOauthOtp, setSkipGoogleOauthOtp] = useState(false)
 
     // Page access states
@@ -94,8 +95,10 @@ export default function AdminSettingsPage() {
             setAutoFulfillment(String(settingsMap.auto_fulfillment_enabled) !== 'false')
             const webProvider = String(settingsMap.active_payment_provider_web || 'moolre')
             const shopProvider = String(settingsMap.active_payment_provider_shop || 'moolre')
+            const classifiedsProvider = String(settingsMap.active_payment_provider_classifieds || 'moolre')
             setWebPaymentProvider(webProvider === 'paystack' ? 'paystack' : 'moolre')
             setShopPaymentProvider(shopProvider === 'paystack' ? 'paystack' : 'moolre')
+            setClassifiedsPaymentProvider(classifiedsProvider === 'paystack' ? 'paystack' : 'moolre')
             setSkipGoogleOauthOtp(settingsMap.skip_google_oauth_otp === 'true')
 
             // Initialize page access values
@@ -144,6 +147,7 @@ export default function AdminSettingsPage() {
                 { key: 'auto_fulfillment_enabled', value: String(autoFulfillment) },
                 { key: 'active_payment_provider_web', value: webPaymentProvider },
                 { key: 'active_payment_provider_shop', value: shopPaymentProvider },
+                { key: 'active_payment_provider_classifieds', value: classifiedsPaymentProvider },
                 { key: 'skip_google_oauth_otp', value: String(skipGoogleOauthOtp) },
                 // Page access settings
                 { key: 'page_access_dashboard', value: String(pageAccessDashboard) },
@@ -159,6 +163,13 @@ export default function AdminSettingsPage() {
                 { key: 'special_mtn_mashup_hidden', value: String(hideMashup) },
                 { key: 'express_mtn_hidden', value: String(hideExpressMtn) },
                 { key: 'standard_mtn_hidden', value: String(hideStandardMtn) },
+                // Classifieds boost fees
+                { key: 'classifieds_boost_fee_7d', value: settings['classifieds_boost_fee_7d'] || '' },
+                { key: 'classifieds_boost_fee_14d', value: settings['classifieds_boost_fee_14d'] || '' },
+                { key: 'classifieds_boost_fee_21d', value: settings['classifieds_boost_fee_21d'] || '' },
+                { key: 'classifieds_boost_fee_30d', value: settings['classifieds_boost_fee_30d'] || '' },
+                { key: 'classifieds_boost_fee_60d', value: settings['classifieds_boost_fee_60d'] || '' },
+                { key: 'classifieds_boost_fee_90d', value: settings['classifieds_boost_fee_90d'] || '' },
             ]
 
             const response = await fetch('/api/admin-settings', {
@@ -201,7 +212,8 @@ export default function AdminSettingsPage() {
             <Tabs defaultValue="general">
                 <TabsList>
                     <TabsTrigger value="general">General</TabsTrigger>
-                    <TabsTrigger value="fees">Fees & Pricing</TabsTrigger>
+                    <TabsTrigger value="fees">Fees &amp; Pricing</TabsTrigger>
+                    <TabsTrigger value="classifieds">Classifieds</TabsTrigger>
                     <TabsTrigger value="fulfillment">Fulfillment</TabsTrigger>
                     <TabsTrigger value="access">Page Access</TabsTrigger>
                 </TabsList>
@@ -475,6 +487,113 @@ export default function AdminSettingsPage() {
                                 </div>
                                 <Switch checked={dealerPromoEnabled} onCheckedChange={setDealerPromoEnabled} />
                             </div>
+                        </CardContent>
+                    </Card>
+
+                </TabsContent>
+
+                {/* ── Classifieds Tab ── */}
+                <TabsContent value="classifieds" className="space-y-4 mt-4">
+
+                    {/* Boost Payment Gateway */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Boost Payment Gateway</CardTitle>
+                            <CardDescription>Select the payment provider sellers use when paying to boost a listing. Changes take effect immediately — sellers will be charged directly (no wallet needed).</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="flex items-center justify-between p-4 border rounded-lg">
+                                <div className="space-y-0.5">
+                                    <Label className="text-base">Classifieds Boost Payments</Label>
+                                    <p className="text-sm text-muted-foreground">Gateway used when sellers pay to boost their listings</p>
+                                </div>
+                                <div className="flex rounded-lg border overflow-hidden">
+                                    <button
+                                        type="button"
+                                        onClick={() => setClassifiedsPaymentProvider('moolre')}
+                                        className={cn(
+                                            'px-4 py-2 text-sm font-medium transition-colors',
+                                            classifiedsPaymentProvider === 'moolre'
+                                                ? 'bg-primary text-primary-foreground'
+                                                : 'bg-background hover:bg-muted text-foreground'
+                                        )}
+                                    >
+                                        Moolre
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setClassifiedsPaymentProvider('paystack')}
+                                        className={cn(
+                                            'px-4 py-2 text-sm font-medium transition-colors border-l',
+                                            classifiedsPaymentProvider === 'paystack'
+                                                ? 'bg-primary text-primary-foreground'
+                                                : 'bg-background hover:bg-muted text-foreground'
+                                        )}
+                                    >
+                                        Paystack
+                                    </button>
+                                </div>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    {/* Boost Fees */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Promotion Boost Fees</CardTitle>
+                            <CardDescription>Set the GHS price sellers pay to boost a listing to the top of the marketplace. Changes take effect immediately after saving.</CardDescription>
+                        </CardHeader>
+                        <CardContent className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {[
+                                { key: 'classifieds_boost_fee_7d',  label: '1 Week (7 days)' },
+                                { key: 'classifieds_boost_fee_14d', label: '2 Weeks (14 days)' },
+                                { key: 'classifieds_boost_fee_21d', label: '3 Weeks (21 days)' },
+                                { key: 'classifieds_boost_fee_30d', label: '1 Month (30 days)' },
+                                { key: 'classifieds_boost_fee_60d', label: '2 Months (60 days)' },
+                                { key: 'classifieds_boost_fee_90d', label: '3 Months (90 days)' },
+                            ].map(({ key, label }) => (
+                                <div key={key} className="space-y-1.5 p-4 border rounded-lg">
+                                    <Label className="font-semibold">{label}</Label>
+                                    <div className="relative">
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground text-sm font-medium">GHS</span>
+                                        <Input
+                                            type="number"
+                                            value={settings[key] || ''}
+                                            onChange={(e) => setSettings({ ...settings, [key]: e.target.value })}
+                                            step="0.01"
+                                            min="0"
+                                            placeholder="0.00"
+                                            className="pl-12"
+                                        />
+                                    </div>
+                                </div>
+                            ))}
+                        </CardContent>
+                    </Card>
+
+                    {/* Seller Verification */}
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>Seller Verification</CardTitle>
+                            <CardDescription>Review and approve seller identity verification requests submitted through the marketplace.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="flex items-center justify-between p-4 border rounded-lg bg-muted/30">
+                                <div className="space-y-1">
+                                    <p className="font-semibold text-sm">Manage Verification Queue</p>
+                                    <p className="text-xs text-muted-foreground">Approve or reject seller verification requests, view applicant details, and add rejection notes.</p>
+                                </div>
+                                <a
+                                    href="/classifieds/admin/sellers"
+                                    className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors whitespace-nowrap ml-4 flex-shrink-0"
+                                >
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><polyline points="16 11 18 13 22 9"/></svg>
+                                    Open Verification Queue
+                                </a>
+                            </div>
+                            <p className="text-xs text-muted-foreground mt-3">
+                                You can also access this from the sidebar: <strong>Classifieds → Seller Verification</strong>.
+                            </p>
                         </CardContent>
                     </Card>
                 </TabsContent>

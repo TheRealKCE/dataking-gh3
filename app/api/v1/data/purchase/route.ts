@@ -20,6 +20,18 @@ export async function POST(request: NextRequest) {
 
     const { userId, apiKeyId, userRole, supabase } = auth
 
+    // === SUB-AGENT GATE: Block subs on v1 API (v1 scope) ===
+    const { data: subAgentData } = await supabase
+        .from('sub_agents')
+        .select('id')
+        .eq('user_id', userId)
+        .single()
+
+    if (subAgentData) {
+        logApiRequest({ apiKeyId, userId, endpoint: ENDPOINT, method: 'POST', statusCode: 403, responseTimeMs: Date.now() - startTime, ip, errorMessage: 'Sub-agents not supported on v1 API' })
+        return apiError(403, 'Sub-agents are not yet available on the v1 API. Please use the dashboard instead.')
+    }
+
     let body: any
     try { body = await request.json() } catch {
         return apiError(400, 'Invalid JSON body')

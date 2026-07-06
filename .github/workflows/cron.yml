@@ -16,7 +16,7 @@ jobs:
     steps:
       - name: Ping verify-pending-payments
         run: |
-          curl -sf -X GET "https://www.kingflexygh.com/api/cron/verify-pending-payments" \
+          curl -sf -X GET "https://www.arhmsgh.com/api/cron/verify-pending-payments" \
           -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
           -H "User-Agent: GitHub-Actions-Cron"
 
@@ -26,7 +26,7 @@ jobs:
     steps:
       - name: Ping sync-codecraft-status
         run: |
-          curl -sf -X GET "https://www.kingflexygh.com/api/cron/sync-codecraft-status" \
+          curl -sf -X GET "https://www.arhmsgh.com/api/cron/sync-codecraft-status" \
           -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
           -H "User-Agent: GitHub-Actions-Cron"
 
@@ -36,7 +36,7 @@ jobs:
     steps:
       - name: Ping sync-moolre-withdrawals
         run: |
-          curl -sf -X GET "https://www.kingflexygh.com/api/cron/sync-moolre-withdrawals" \
+          curl -sf -X GET "https://www.arhmsgh.com/api/cron/sync-moolre-withdrawals" \
           -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
           -H "User-Agent: GitHub-Actions-Cron"
 
@@ -46,7 +46,7 @@ jobs:
     steps:
       - name: Ping agent-renewal-reminder
         run: |
-          curl -sf -X GET "https://www.kingflexygh.com/api/cron/agent-renewal-reminder" \
+          curl -sf -X GET "https://www.arhmsgh.com/api/cron/agent-renewal-reminder" \
           -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
           -H "User-Agent: GitHub-Actions-Cron"
 
@@ -56,7 +56,7 @@ jobs:
     steps:
       - name: Ping delete-old-notifications
         run: |
-          curl -sf -X GET "https://www.kingflexygh.com/api/cron/delete-old-notifications" \
+          curl -sf -X GET "https://www.arhmsgh.com/api/cron/delete-old-notifications" \
           -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
           -H "User-Agent: GitHub-Actions-Cron"
 
@@ -66,11 +66,11 @@ jobs:
     steps:
       - name: Delete old orders
         run: |
-          curl -sf -X GET "https://www.kingflexygh.com/api/cron/delete-old-orders" \
+          curl -sf -X GET "https://www.arhmsgh.com/api/cron/delete-old-orders" \
           -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
           -H "User-Agent: GitHub-Actions-Cron"
       - name: Delete old complaints
         run: |
-          curl -sf -X GET "https://www.kingflexygh.com/api/cron/delete-old-complaints" \
+          curl -sf -X GET "https://www.arhmsgh.com/api/cron/delete-old-complaints" \
           -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
           -H "User-Agent: GitHub-Actions-Cron"

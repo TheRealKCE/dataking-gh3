@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { processCompletedWalletPayment, processCompletedUpgradePayment } from '@/lib/payments'
 import { Redis } from '@upstash/redis'
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({ received: true })
             }
 
-            // Get payment record from DB for Wallet Topups and Agent Upgrades
+            // Get payment record from DB for Wallet Topups, Agent Upgrades, and Boost
             const { data: payment } = await supabase
                 .from('wallet_payments')
                 .select('total_amount, status, metadata')
@@ -78,6 +78,26 @@ export async function POST(request: NextRequest) {
             // Idempotency Check
             if ((payment as any).status === 'completed') {
                 console.log('[MoolreWebhook] Payment already processed, ignoring duplicate')
+                return NextResponse.json({ received: true })
+            }
+
+            // Amount verification for all wallet_payments-backed transactions
+            const expectedAmountPesewas = Math.round((payment as any).total_amount * 100)
+            if (paidAmountKobo !== expectedAmountPesewas) {
+                console.error(`[MoolreWebhook] AMOUNT MISMATCH for ${externalref}: Expected ${expectedAmountPesewas}, got ${paidAmountKobo}`)
+                return NextResponse.json({ received: true })
+            }
+
+            // o. BOOST PAYMENTS: References starting with BOOST- are classified listing boosts
+            if (externalref.startsWith('BOOST-')) {
+                const { processBoostPayment } = await import('@/lib/classifieds-payments')
+                console.log('[MoolreWebhook] Routing listing boost payment:', externalref)
+                const boostResult = await processBoostPayment(externalref, { reference: externalref, amount: paidAmountKobo })
+
+                if (!boostResult.success && !boostResult.alreadyProcessed) {
+                    console.error('[MoolreWebhook] Boost processing failed:', boostResult.error)
+                    return NextResponse.json({ error: boostResult.error }, { status: 500 })
+                }
                 return NextResponse.json({ received: true })
             }
 

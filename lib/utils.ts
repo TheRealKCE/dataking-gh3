@@ -1,5 +1,6 @@
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { randomBytes } from 'crypto'
 
 export function cn(...inputs: ClassValue[]) {
     return twMerge(clsx(inputs))
@@ -22,7 +23,7 @@ export function formatDate(date: string | Date): string {
 
 export function generateReferenceCode(): string {
     const timestamp = Date.now().toString(36).toUpperCase()
-    const random = Math.random().toString(36).substring(2, 8).toUpperCase()
+    const random = randomBytes(6).toString('hex').toUpperCase()
     return `GHD-${timestamp}-${random}`
 }
 

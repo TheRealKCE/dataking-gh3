@@ -22,6 +22,7 @@ export interface Database {
                     agent_expires_at: string | null
                     dealer_claimed_at: string | null
                     dealer_expires_at: string | null
+                    is_seller: boolean
                     created_at: string
                     updated_at: string
                 }
@@ -37,6 +38,7 @@ export interface Database {
                     agent_expires_at?: string | null
                     dealer_claimed_at?: string | null
                     dealer_expires_at?: string | null
+                    is_seller?: boolean
                     created_at?: string
                     updated_at?: string
                 }
@@ -52,6 +54,7 @@ export interface Database {
                     agent_expires_at?: string | null
                     dealer_claimed_at?: string | null
                     dealer_expires_at?: string | null
+                    is_seller?: boolean
                     updated_at?: string
                 }
             }
@@ -548,6 +551,203 @@ export interface Database {
                     settled_at?: string | null
                 }
             }
+            classified_categories: {
+                Row: {
+                    id: string
+                    name: string
+                    slug: string
+                    description: string | null
+                    icon_emoji: string | null
+                    icon: string | null
+                    image_url: string | null
+                    parent_id: string | null
+                    display_order: number
+                    created_at: string
+                    updated_at: string
+                }
+                Insert: {
+                    id?: string
+                    name: string
+                    slug: string
+                    description?: string | null
+                    icon_emoji?: string | null
+                    icon?: string | null
+                    image_url?: string | null
+                    parent_id?: string | null
+                    display_order?: number
+                    created_at?: string
+                    updated_at?: string
+                }
+                Update: {
+                    name?: string
+                    slug?: string
+                    description?: string | null
+                    icon_emoji?: string | null
+                    icon?: string | null
+                    image_url?: string | null
+                    parent_id?: string | null
+                    display_order?: number
+                    updated_at?: string
+                }
+            }
+            classified_listings: {
+                Row: {
+                    id: string
+                    seller_id: string
+                    title: string
+                    description: string
+                    category_id: string
+                    price: number
+                    status: 'active' | 'sold' | 'expired' | 'archived'
+                    location: string | null
+                    condition: 'new' | 'like-new' | 'used' | 'refurbished'
+                    contact_phone: string | null
+                    contact_email: string | null
+                    whatsapp_number: string | null
+                    facebook_url: string | null
+                    twitter_url: string | null
+                    instagram_url: string | null
+                    view_count: number
+                    is_boosted: boolean
+                    boosted_until: string | null
+                    boost_tier: string | null
+                    created_at: string
+                    updated_at: string
+                    expires_at: string | null
+                }
+                Insert: {
+                    id?: string
+                    seller_id: string
+                    title: string
+                    description: string
+                    category_id: string
+                    price: number
+                    status?: 'active' | 'sold' | 'expired' | 'archived'
+                    location?: string | null
+                    condition?: 'new' | 'like-new' | 'used' | 'refurbished'
+                    contact_phone?: string | null
+                    contact_email?: string | null
+                    whatsapp_number?: string | null
+                    facebook_url?: string | null
+                    twitter_url?: string | null
+                    instagram_url?: string | null
+                    view_count?: number
+                    is_boosted?: boolean
+                    boosted_until?: string | null
+                    boost_tier?: string | null
+                    created_at?: string
+                    updated_at?: string
+                    expires_at?: string | null
+                }
+                Update: {
+                    title?: string
+                    description?: string
+                    category_id?: string
+                    price?: number
+                    status?: 'active' | 'sold' | 'expired' | 'archived'
+                    location?: string | null
+                    condition?: 'new' | 'like-new' | 'used' | 'refurbished'
+                    contact_phone?: string | null
+                    contact_email?: string | null
+                    whatsapp_number?: string | null
+                    facebook_url?: string | null
+                    twitter_url?: string | null
+                    instagram_url?: string | null
+                    view_count?: number
+                    is_boosted?: boolean
+                    boosted_until?: string | null
+                    boost_tier?: string | null
+                    updated_at?: string
+                    expires_at?: string | null
+                }
+            }
+            classified_boosts: {
+                Row: {
+                    id: string
+                    listing_id: string
+                    seller_id: string
+                    tier: string
+                    amount_paid: number
+                    starts_at: string
+                    ends_at: string
+                    created_at: string
+                }
+                Insert: {
+                    id?: string
+                    listing_id: string
+                    seller_id: string
+                    tier: string
+                    amount_paid: number
+                    starts_at?: string
+                    ends_at: string
+                    created_at?: string
+                }
+                Update: {
+                    tier?: string
+                    amount_paid?: number
+                    starts_at?: string
+                    ends_at?: string
+                }
+            }
+            classified_listing_images: {
+                Row: {
+                    id: string
+                    listing_id: string
+                    storage_path: string
+                    display_order: number
+                    created_at: string
+                }
+                Insert: {
+                    id?: string
+                    listing_id: string
+                    storage_path: string
+                    display_order?: number
+                    created_at?: string
+                }
+                Update: {
+                    storage_path?: string
+                    display_order?: number
+                }
+            }
+            classified_contact_reveals: {
+                Row: {
+                    id: string
+                    listing_id: string
+                    buyer_id: string
+                    revealed_at: string
+                    acknowledged_safety_tips_at: string | null
+                    created_at: string
+                }
+                Insert: {
+                    id?: string
+                    listing_id: string
+                    buyer_id: string
+                    revealed_at?: string
+                    acknowledged_safety_tips_at?: string | null
+                    created_at?: string
+                }
+                Update: {
+                    revealed_at?: string
+                    acknowledged_safety_tips_at?: string | null
+                }
+            }
+            classified_favorites: {
+                Row: {
+                    id: string
+                    user_id: string
+                    listing_id: string
+                    created_at: string
+                }
+                Insert: {
+                    id?: string
+                    user_id: string
+                    listing_id: string
+                    created_at?: string
+                }
+                Update: {
+                    created_at?: string
+                }
+            }
         }
     }
 }
@@ -567,3 +767,10 @@ export type DownloadBatch = Database['public']['Tables']['download_batches']['Ro
 export type SystemAnnouncement = Database['public']['Tables']['system_announcements']['Row']
 export type ShopAnnouncement = Database['public']['Tables']['shop_announcements']['Row']
 export type PendingSettlement = Database['public']['Tables']['pending_settlements']['Row']
+
+export type ClassifiedCategory = Database['public']['Tables']['classified_categories']['Row']
+export type ClassifiedListing = Database['public']['Tables']['classified_listings']['Row']
+export type ClassifiedListingImage = Database['public']['Tables']['classified_listing_images']['Row']
+export type ClassifiedContactReveal = Database['public']['Tables']['classified_contact_reveals']['Row']
+export type ClassifiedFavorite = Database['public']['Tables']['classified_favorites']['Row']
+export type ClassifiedBoost = Database['public']['Tables']['classified_boosts']['Row']

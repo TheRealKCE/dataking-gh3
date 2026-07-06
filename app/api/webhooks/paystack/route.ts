@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { processCompletedWalletPayment } from '@/lib/payments'
 import crypto from 'crypto'
@@ -71,6 +71,19 @@ export async function POST(request: NextRequest) {
             const expectedAmountKobo = Math.round((payment as any).total_amount * 100)
             if (paidAmountKobo !== expectedAmountKobo) {
                 console.error(`[PaystackWebhook] AMOUNT MISMATCH: Expected ${expectedAmountKobo}, got ${paidAmountKobo}`)
+                return NextResponse.json({ received: true })
+            }
+
+            // o. BOOST PAYMENTS: References starting with BOOST- are classified listing boosts
+            if (reference && reference.startsWith('BOOST-')) {
+                const { processBoostPayment } = await import('@/lib/classifieds-payments')
+                console.log('[PaystackWebhook] Routing listing boost payment:', reference)
+                const boostResult = await processBoostPayment(reference, event.data)
+
+                if (!boostResult.success && !boostResult.alreadyProcessed) {
+                    console.error('[PaystackWebhook] Boost processing failed:', boostResult.error)
+                    return NextResponse.json({ error: boostResult.error }, { status: 500 })
+                }
                 return NextResponse.json({ received: true })
             }
 

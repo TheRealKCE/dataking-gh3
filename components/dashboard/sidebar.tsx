@@ -57,6 +57,7 @@ const userNavItems = [
     { href: '/dashboard/data-packages?network=Special%20MTN%20Mashup', label: 'Special MTN Mashup', icon: Zap },
     { href: '/dashboard/data-packages?network=EXPRESS%20MTN', label: 'EXPRESS MTN', icon: Zap },
     { href: '/dashboard/my-orders', label: 'Orders', icon: ShoppingCart },
+    { href: process.env.NEXT_PUBLIC_MARKETPLACE_URL || 'https://marketplace.arhmsgh.com', label: 'Marketplace', icon: Store, external: true },
     { href: '/dashboard/wallet', label: 'Wallet', icon: Wallet },
     { href: '/dashboard/transactions', label: 'Transactions', icon: Activity },
     { href: '/dashboard/complaints', label: 'Complaints', icon: MessageSquare },
@@ -80,6 +81,7 @@ const adminNavItems = [
     { href: '/admin/memberships', label: 'Agent Members', icon: Crown },
     { href: '/admin/users', label: 'Users', icon: Users },
     { href: '/admin/packages', label: 'Packages', icon: Package },
+    { href: '/classifieds/admin/dashboard', label: 'Classifieds', icon: Store },
     { href: '/admin/complaints', label: 'Complaints', icon: MessageSquare },
     { href: '/admin/announcements', label: 'Announce', icon: Bell },
     { href: '/admin/sms-broadcast', label: 'SMS', icon: MessageSquare },
@@ -446,19 +448,28 @@ export function DashboardSidebar() {
                     {userNavItems
                     .filter(item => (!hideMashup || item.label !== 'Special MTN Mashup') && (!hideExpressMtn || item.label !== 'EXPRESS MTN') && (item.label !== 'Developer API' || (dbUser?.role === 'agent' || dbUser?.role === 'dealer' || dbUser?.role === 'admin' || dbUser?.role === 'sub-admin')))
                         .map((item) => {
-                        const isActive = isLinkActive(item.href)
-                        return (
-                            <Link key={item.href} href={item.href} onClick={() => {
-                                if (window.innerWidth < 1024) closeSidebar()
-                            }}>
-                                <div className={cn(
-                                    "nav-link",
-                                    isActive ? currentRole.sidebarNavActive : currentRole.sidebarNavHover,
-                                    isCollapsed && "justify-center px-0"
-                                )}>
-                                    <item.icon className="w-5 h-5 flex-shrink-0" />
-                                    {!isCollapsed && <span className="text-sm font-semibold tracking-tight">{item.label}</span>}
-                                </div>
+                        const isExternal = 'external' in item && item.external
+                        const isActive = isExternal ? false : isLinkActive(item.href)
+                        const inner = (
+                            <div className={cn(
+                                "nav-link",
+                                isActive ? currentRole.sidebarNavActive : currentRole.sidebarNavHover,
+                                isCollapsed && "justify-center px-0"
+                            )}>
+                                <item.icon className="w-5 h-5 flex-shrink-0" />
+                                {!isCollapsed && <span className="text-sm font-semibold tracking-tight">{item.label}</span>}
+                            </div>
+                        )
+                        const handleClick = () => {
+                            if (window.innerWidth < 1024) closeSidebar()
+                        }
+                        return isExternal ? (
+                            <a key={item.href} href={item.href} onClick={handleClick}>
+                                {inner}
+                            </a>
+                        ) : (
+                            <Link key={item.href} href={item.href} onClick={handleClick}>
+                                {inner}
                             </Link>
                         )
                     })}

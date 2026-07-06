@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { processCompletedWalletPayment } from '@/lib/payments'
 import { createRouteHandlerClient } from '@/lib/supabase-server'
 import { cookies } from 'next/headers'
@@ -9,7 +9,20 @@ export async function GET(request: NextRequest) {
         // Auth check — only the wallet owner (an authenticated user) may trigger verification
         const cookieStore = await cookies()
         const supabase = await createRouteHandlerClient()
-        const { data: { user }, error: authError } = await supabase.auth.getUser()
+        let { data: { user }, error: authError } = await supabase.auth.getUser()
+
+        // Fallback for classifieds that sends token in Authorization header
+        if (!user) {
+            const authHeader = request.headers.get('authorization')
+            if (authHeader && authHeader.startsWith('Bearer ')) {
+                const token = authHeader.substring(7)
+                const { data: jwtUser } = await supabase.auth.getUser(token)
+                if (jwtUser?.user) {
+                    user = jwtUser.user
+                    authError = null
+                }
+            }
+        }
 
         if (authError || !user) {
             return NextResponse.json(
@@ -90,6 +103,18 @@ export async function GET(request: NextRequest) {
         }
 
         // Processing successful payment (txstatus === 1)
+        // For BOOST- references, delegate to the boost processor
+        if (reference.startsWith('BOOST-')) {
+            const { processBoostPayment } = await import('@/lib/classifieds-payments')
+            const result = await processBoostPayment(reference)
+            if (!result.success && !result.alreadyProcessed) {
+                if (isInline) return NextResponse.json({ success: false, status: 'failed', error: result.error || 'Boost processing failed' }, { status: 500 })
+                return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/classifieds/seller/dashboard?boost_error=true`)
+            }
+            if (isInline) return NextResponse.json({ success: true, status: 'completed', message: 'Boost activated!' })
+            return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/classifieds/seller/dashboard?boost_success=true`)
+        }
+
         // Note: processCompletedWalletPayment expects Paystack-like payload format `amount` in kobo/pesewas
         const expectedAmountPesewas = Math.round(Number(paymentRecord.total_amount || paymentRecord.amount) * 100)
         

@@ -113,22 +113,99 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'This phone number is not allowed' }, { status: 400 })
         }
 
-        // Get user role for price calculation
+        // Get user role + sub-agent status for price calculation
         const { data: userRoleData } = await supabase
             .from('users')
-            .select('role')
+            .select('role, agent_expires_at, dealer_expires_at')
             .eq('id', userId)
             .single()
 
         const userRole = (userRoleData as any)?.role
+        const agentExpiresAt = (userRoleData as any)?.agent_expires_at
+        const dealerExpiresAt = (userRoleData as any)?.dealer_expires_at
         const isAgent = userRole === 'agent'
         const isDealer = userRole === 'dealer'
 
-        const priceToCharge = (isDealer && (pkg as any).dealer_price > 0)
-            ? (pkg as any).dealer_price
-            : (isAgent && (pkg as any).agent_price > 0)
-                ? (pkg as any).agent_price
-                : (pkg as any).price
+        // Check if user is a sub-agent
+        const { data: subAgentData } = await supabase
+            .from('sub_agents')
+            .select('id, status, upline_shop_id')
+            .eq('user_id', userId)
+            .single()
+
+        // If user is a sub-agent, apply sub-pricing logic
+        let priceToCharge = (pkg as any).price
+        let isSub = false
+        let uplineShopId: string | null = null
+
+        if (subAgentData) {
+            isSub = true
+            uplineShopId = subAgentData.upline_shop_id
+
+            // Eligibility gate: sub must be active + upline must be eligible
+            if (subAgentData.status !== 'active') {
+                return NextResponse.json(
+                    { error: 'Your sub-agent account is not active' },
+                    { status: 403 }
+                )
+            }
+
+            // Check upline eligibility (live evaluation, never cached)
+            const { data: uplineOwner } = await supabase
+                .from('shop_profiles')
+                .select('owner_id')
+                .eq('id', uplineShopId)
+                .single()
+
+            if (uplineOwner) {
+                const { data: uplineUserData } = await supabase
+                    .from('users')
+                    .select('role, agent_expires_at, dealer_expires_at')
+                    .eq('id', uplineOwner.owner_id)
+                    .single()
+
+                const uplineRole = (uplineUserData as any)?.role
+                const uplineAgentExpiresAt = (uplineUserData as any)?.agent_expires_at
+                const uplineDealerExpiresAt = (uplineUserData as any)?.dealer_expires_at
+                const now = new Date()
+
+                // Eligibility: (role='agent' AND agent_expires_at IS NULL) OR (role='dealer' AND dealer_expires_at > now())
+                const isUplineEligible =
+                    (uplineRole === 'agent' && !uplineAgentExpiresAt) ||
+                    (uplineRole === 'dealer' && uplineDealerExpiresAt && new Date(uplineDealerExpiresAt) > now)
+
+                if (!isUplineEligible) {
+                    return NextResponse.json(
+                        { error: 'Your upline Lead is no longer eligible to operate. Please contact support.' },
+                        { status: 403 }
+                    )
+                }
+            }
+
+            // Get sub_price from upline's pricing for this package
+            const { data: subPricingData } = await supabase
+                .from('shop_pricing')
+                .select('sub_price')
+                .eq('shop_id', uplineShopId)
+                .eq('package_id', packageId)
+                .single()
+
+            if (!subPricingData || !subPricingData.sub_price) {
+                return NextResponse.json(
+                    { error: 'This package is not yet available for sub-agents' },
+                    { status: 400 }
+                )
+            }
+
+            priceToCharge = subPricingData.sub_price
+        } else {
+            // Regular user: apply role-based pricing (existing logic)
+            priceToCharge = (isDealer && (pkg as any).dealer_price > 0)
+                ? (pkg as any).dealer_price
+                : (isAgent && (pkg as any).agent_price > 0)
+                    ? (pkg as any).agent_price
+                    : (pkg as any).price
+        }
 
         // === SECURITY: Atomic wallet deduction (prevents double-spend) ===
         const { data: deductResult, error: deductError } = await (supabase as any)
