@@ -5,12 +5,13 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useAuth } from '@/contexts/auth-context'
 import { getCategories } from '@/lib/classifieds-queries'
 import { ListingGrid } from '@/components/classifieds/listing-grid'
-import { Loader2, Search, Grid3x3, List, ChevronRight } from 'lucide-react'
+import { Loader2, Search, Grid3x3, List, Plus, ArrowRight, TrendingUp } from 'lucide-react'
 import Link from 'next/link'
 import { HeroCarousel } from '@/components/classifieds/hero-carousel'
 import { CategoryPicture } from '@/components/classifieds/category-picture'
 import { SellButton } from '@/components/classifieds/sell-button'
 import { supabase } from '@/lib/supabase'
+import { cn } from '@/lib/utils'
 import type { ClassifiedListing, ClassifiedCategory } from '@/types/supabase'
 
 export default function ClassifiedsPage() {
@@ -178,111 +179,145 @@ export default function ClassifiedsPage() {
                 <HeroCarousel />
             </div>
 
-            {/* Main Categories + Listings Layout */}
-            <div className="max-w-7xl mx-auto px-4 py-8">
-                <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
-                    {/* Main Categories Sidebar (Jiji Style) */}
-                    <div className="lg:col-span-1">
-                        <div className="bg-white dark:bg-[#151c2c] rounded-lg border border-gray-100 dark:border-gray-800 p-4 max-h-[600px] overflow-y-auto sticky top-4">
-                            <nav className="space-y-1">
-                                {mainCategories.map((cat) => {
-                                    const catListingCount = allCategories
-                                        .filter(c => c.parent_id === cat.id)
-                                        .length
-
-                                    return (
-                                        <button
-                                            key={cat.id}
-                                            onClick={() => router.push(`/classifieds/category/${cat.id}`)}
-                                            className="w-full flex items-center justify-between px-3 py-3 rounded-lg transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50"
-                                        >
-                                            <div className="flex items-center gap-3 flex-1 text-left">
-                                                <CategoryPicture imageUrl={cat.image_url} iconName={cat.icon} name={cat.name} className="w-11 h-11 rounded-lg" iconClassName="w-6 h-6 text-gray-700 dark:text-gray-300" />
-                                                <div>
-                                                    <div className="text-sm font-semibold text-gray-900 dark:text-white">{cat.name}</div>
-                                                    <div className="text-xs text-gray-500 dark:text-gray-400">{catListingCount} subcats</div>
-                                                </div>
-                                            </div>
-                                            <ChevronRight className="w-4 h-4 text-gray-400" />
-                                        </button>
-                                    )
-                                })}
-                            </nav>
+            {/* Jiji-style promo row + category grid */}
+            <div className="max-w-7xl mx-auto px-4 py-6">
+                {/* Promo row (horizontal snap-scroll on mobile, 3-up on sm+) */}
+                <div className="flex gap-3 overflow-x-auto snap-x pb-2 -mx-4 px-4 mb-6 sm:mx-0 sm:px-0 sm:grid sm:grid-cols-3 sm:overflow-visible">
+                    {/* Niche Intelligence */}
+                    <Link
+                        href="/classifieds/niche-intelligence"
+                        className="group flex-shrink-0 w-44 sm:w-auto snap-start rounded-2xl p-4 bg-gradient-to-br from-purple-500 to-purple-700 shadow-sm transition-transform active:scale-95 hover:shadow-md"
+                    >
+                        <div className="flex items-start justify-between">
+                            <div className="w-10 h-10 rounded-xl bg-white/25 flex items-center justify-center backdrop-blur-sm">
+                                <Search className="w-5 h-5 text-white" />
+                            </div>
+                            <ArrowRight className="w-4 h-4 text-white/70 group-hover:translate-x-0.5 transition-transform" />
                         </div>
-                    </div>
+                        <p className="mt-3 text-sm font-black text-white leading-tight">Niche Intelligence</p>
+                        <p className="text-[11px] font-medium text-white/80 mt-0.5">Find hot products</p>
+                    </Link>
 
-                    {/* Quick Actions + Listings */}
-                    <div className="lg:col-span-4">
-                        {/* Quick Action Cards */}
-                        <div className="grid grid-cols-3 gap-4 mb-8">
-                            <Link href="/classifieds/niche-intelligence">
-                                <div className="bg-purple-100 dark:bg-purple-900/30 rounded-lg p-4 text-center hover:shadow-md transition-shadow cursor-pointer">
-                                    <div className="text-3xl mb-2">🔍</div>
-                                    <p className="font-bold text-sm text-gray-900 dark:text-white">Niche Intelligence</p>
-                                </div>
-                            </Link>
-                            <button
-                                type="button"
-                                onClick={() => setShowSellGuide(true)}
-                                className="bg-yellow-100 dark:bg-yellow-900/30 rounded-lg p-4 text-center hover:shadow-md transition-shadow cursor-pointer"
-                            >
-                                <div className="text-3xl mb-2">📦</div>
-                                <p className="font-bold text-sm text-gray-900 dark:text-white">How to sell</p>
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => setShowBuyGuide(true)}
-                                className="bg-blue-100 dark:bg-blue-900/30 rounded-lg p-4 text-center hover:shadow-md transition-shadow cursor-pointer"
-                            >
-                                <div className="text-3xl mb-2">🛍️</div>
-                                <p className="font-bold text-sm text-gray-900 dark:text-white">How to buy</p>
-                            </button>
+                    {/* How to Sell */}
+                    <button
+                        type="button"
+                        onClick={() => setShowSellGuide(true)}
+                        className="group flex-shrink-0 w-44 sm:w-auto snap-start text-left rounded-2xl p-4 bg-gradient-to-br from-amber-400 to-yellow-500 shadow-sm transition-transform active:scale-95 hover:shadow-md"
+                    >
+                        <div className="flex items-start justify-between">
+                            <div className="w-10 h-10 rounded-xl bg-white/25 flex items-center justify-center backdrop-blur-sm">
+                                <Plus className="w-5 h-5 text-white" />
+                            </div>
+                            <ArrowRight className="w-4 h-4 text-white/70 group-hover:translate-x-0.5 transition-transform" />
                         </div>
+                        <p className="mt-3 text-sm font-black text-white leading-tight">How to Sell</p>
+                        <p className="text-[11px] font-medium text-white/80 mt-0.5">Start earning today</p>
+                    </button>
 
-                        {/* Listings Section */}
-                        {listings.length > 0 && (
-                            <div className="flex items-center justify-between mb-6">
-                                <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-                                    Trending Now
-                                </h3>
-                                <div className="flex gap-2">
-                                    <button
-                                        type="button"
-                                        onClick={() => setViewMode('grid')}
-                                        aria-label="Grid view"
-                                        className={`p-2 rounded ${viewMode === 'grid' ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600' : 'text-gray-400'}`}
-                                    >
-                                        <Grid3x3 className="w-5 h-5" />
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setViewMode('list')}
-                                        aria-label="List view"
-                                        className={`p-2 rounded ${viewMode === 'list' ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600' : 'text-gray-400'}`}
-                                    >
-                                        <List className="w-5 h-5" />
-                                    </button>
-                                </div>
+                    {/* How to Buy */}
+                    <button
+                        type="button"
+                        onClick={() => setShowBuyGuide(true)}
+                        className="group flex-shrink-0 w-44 sm:w-auto snap-start text-left rounded-2xl p-4 bg-gradient-to-br from-blue-500 to-blue-700 shadow-sm transition-transform active:scale-95 hover:shadow-md"
+                    >
+                        <div className="flex items-start justify-between">
+                            <div className="w-10 h-10 rounded-xl bg-white/25 flex items-center justify-center backdrop-blur-sm">
+                                <Search className="w-5 h-5 text-white" />
                             </div>
-                        )}
+                            <ArrowRight className="w-4 h-4 text-white/70 group-hover:translate-x-0.5 transition-transform" />
+                        </div>
+                        <p className="mt-3 text-sm font-black text-white leading-tight">How to Buy</p>
+                        <p className="text-[11px] font-medium text-white/80 mt-0.5">Shop safely & smart</p>
+                    </button>
+                </div>
 
-                        {isLoading && listings.length === 0 ? (
-                            <div className="flex items-center justify-center py-12">
-                                <Loader2 className="w-8 h-8 text-emerald-600 dark:text-emerald-400 animate-spin" />
-                            </div>
-                        ) : listings.length === 0 ? (
-                            <div className="text-center py-12">
-                                <p className="text-gray-600 dark:text-gray-400">No trending listings available right now</p>
-                            </div>
-                        ) : (
-                            <ListingGrid
-                                listings={listings}
-                                isLoading={isLoading}
-                                favorites={favorites}
-                                onFavoriteToggle={handleFavoriteToggle}
+                {/* Category grid (Post ad + Trending, then real categories) */}
+                <div className="grid grid-cols-4 sm:grid-cols-6 lg:grid-cols-8 gap-y-4 gap-x-2 mb-8">
+                    {/* Post ad — reuses SellButton's become-a-seller / seller-dashboard flow */}
+                    <SellButton className="flex flex-col items-center justify-start gap-1.5 h-auto p-0 bg-transparent hover:bg-transparent shadow-none font-normal group">
+                        <span className="w-14 h-14 rounded-2xl bg-amber-400 text-black flex items-center justify-center shadow-sm transition-all active:scale-95 group-hover:bg-amber-500">
+                            <Plus className="w-6 h-6" />
+                        </span>
+                        <span className="text-[11px] font-bold text-center text-gray-700 dark:text-gray-300 leading-tight">Post ad</span>
+                    </SellButton>
+
+                    {/* Trending — anchors to the Trending Now feed below */}
+                    <a href="#trending" className="flex flex-col items-center gap-1.5 group">
+                        <span className="w-14 h-14 rounded-2xl bg-secondary text-foreground/80 flex items-center justify-center shadow-sm transition-all active:scale-95 group-hover:bg-primary/10 group-hover:text-primary">
+                            <TrendingUp className="w-6 h-6" />
+                        </span>
+                        <span className="text-[11px] font-bold text-center text-gray-700 dark:text-gray-300 leading-tight">Trending</span>
+                    </a>
+
+                    {/* Real categories from the DB */}
+                    {mainCategories.map((cat) => (
+                        <Link
+                            key={cat.id}
+                            href={`/classifieds/category/${cat.id}`}
+                            className="flex flex-col items-center gap-1.5 group"
+                        >
+                            <CategoryPicture
+                                imageUrl={cat.image_url}
+                                iconName={cat.icon}
+                                name={cat.name}
+                                className="w-14 h-14 rounded-2xl transition-all active:scale-95 group-hover:opacity-90"
+                                iconClassName="w-6 h-6 text-gray-700 dark:text-gray-300"
                             />
-                        )}
-                    </div>
+                            <span className="text-[11px] font-bold text-center text-gray-700 dark:text-gray-300 leading-tight line-clamp-2">{cat.name}</span>
+                        </Link>
+                    ))}
+
+                    {mainCategories.length === 0 && isLoading && (
+                        <div className="col-span-full flex items-center justify-center py-8">
+                            <Loader2 className="w-6 h-6 text-emerald-600 dark:text-emerald-400 animate-spin" />
+                        </div>
+                    )}
+                </div>
+
+                {/* Trending Now feed */}
+                <div id="trending" className="scroll-mt-4">
+                    {listings.length > 0 && (
+                        <div className="flex items-center justify-between mb-6">
+                            <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                                Trending Now
+                            </h3>
+                            <div className="flex gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setViewMode('grid')}
+                                    aria-label="Grid view"
+                                    className={`p-2 rounded ${viewMode === 'grid' ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600' : 'text-gray-400'}`}
+                                >
+                                    <Grid3x3 className="w-5 h-5" />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setViewMode('list')}
+                                    aria-label="List view"
+                                    className={`p-2 rounded ${viewMode === 'list' ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600' : 'text-gray-400'}`}
+                                >
+                                    <List className="w-5 h-5" />
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {isLoading && listings.length === 0 ? (
+                        <div className="flex items-center justify-center py-12">
+                            <Loader2 className="w-8 h-8 text-emerald-600 dark:text-emerald-400 animate-spin" />
+                        </div>
+                    ) : listings.length === 0 ? (
+                        <div className="text-center py-12">
+                            <p className="text-gray-600 dark:text-gray-400">No trending listings available right now</p>
+                        </div>
+                    ) : (
+                        <ListingGrid
+                            listings={listings}
+                            isLoading={isLoading}
+                            favorites={favorites}
+                            onFavoriteToggle={handleFavoriteToggle}
+                        />
+                    )}
                 </div>
             </div>
 
