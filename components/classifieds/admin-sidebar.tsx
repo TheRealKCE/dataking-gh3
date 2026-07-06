@@ -3,11 +3,12 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { LayoutDashboard, Package, Users, Settings, BarChart3, AlertCircle, ArrowLeft } from 'lucide-react'
+import { LayoutDashboard, Package, Users, Settings, BarChart3, AlertCircle, ArrowLeft, Image as ImageIcon } from 'lucide-react'
 
 const adminNavItems = [
     { href: '/classifieds/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
     { href: '/classifieds/admin/listings', label: 'Listings', icon: Package },
+    { href: '/classifieds/admin/categories', label: 'Category Pictures', icon: ImageIcon },
     { href: '/classifieds/admin/sellers', label: 'Seller Verification', icon: Users },
     { href: '/classifieds/admin/boosts', label: 'Promotion Fees', icon: Package },
     { href: '/classifieds/admin/reports', label: 'Reports', icon: BarChart3 },

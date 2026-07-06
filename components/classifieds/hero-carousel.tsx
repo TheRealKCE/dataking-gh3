@@ -145,7 +145,7 @@ export function HeroCarousel() {
     return (
         <div
             className="relative w-full overflow-hidden rounded-2xl shadow-2xl select-none"
-            style={{ minHeight: '200px' }}
+            style={{ minHeight: '110px' }}
         >
             {/* ── Animated gradient background ── */}
             <div
@@ -174,7 +174,7 @@ export function HeroCarousel() {
             {/* ── Main content (fade transition) ── */}
             <div
                 className={cn(
-                    'relative z-10 flex items-center justify-between gap-4 px-6 md:px-12 py-8 md:py-10 transition-all duration-300',
+                    'relative z-10 flex items-center justify-between gap-4 px-4 md:px-8 py-4 md:py-5 transition-all duration-300',
                     slide.mirror ? 'flex-row-reverse' : 'flex-row',
                     visible
                         ? 'opacity-100 translate-y-0'
@@ -187,7 +187,7 @@ export function HeroCarousel() {
                 <div className={cn('flex-1 min-w-0', slide.mirror ? 'text-right' : 'text-left')}>
                     {/* Badge */}
                     <span
-                        className="inline-block text-[10px] font-black tracking-[0.2em] px-3 py-1 rounded-full mb-3 uppercase"
+                        className="inline-block text-[9px] font-black tracking-[0.2em] px-2.5 py-0.5 rounded-full mb-1.5 uppercase"
                         style={{
                             backgroundColor: 'rgba(255,255,255,0.18)',
                             color: slide.accent,
@@ -197,13 +197,13 @@ export function HeroCarousel() {
                     </span>
 
                     {/* Title */}
-                    <h2 className="text-3xl md:text-5xl font-black text-white leading-tight mb-3 whitespace-pre-line drop-shadow-md">
+                    <h2 className="text-lg md:text-2xl font-black text-white leading-tight mb-1 whitespace-pre-line drop-shadow-md">
                         {slide.title}
                     </h2>
 
                     {/* Subtitle */}
                     <p className={cn(
-                        'text-sm md:text-base text-white/85 font-medium mb-6 leading-relaxed max-w-sm',
+                        'hidden sm:block text-xs md:text-sm text-white/85 font-medium mb-2.5 leading-snug max-w-sm',
                         slide.mirror ? 'ml-auto' : ''
                     )}>
                         {slide.subtitle}
@@ -213,7 +213,7 @@ export function HeroCarousel() {
                     <div className={cn('flex', slide.mirror ? 'justify-end' : 'justify-start')}>
                         <Link
                             href={slide.href}
-                            className="inline-flex items-center gap-2 font-black text-sm px-6 py-3 rounded-full transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl"
+                            className="inline-flex items-center gap-1.5 font-black text-xs px-4 py-2 rounded-full transition-all duration-200 hover:scale-105 active:scale-95 shadow-lg hover:shadow-xl"
                             style={{
                                 backgroundColor: 'rgba(255,255,255,0.95)',
                                 color: '#111',
@@ -227,7 +227,7 @@ export function HeroCarousel() {
 
                 {/* ── Icon with halo (position controlled by parent flex-row / flex-row-reverse) ── */}
                 <div className="hidden sm:flex flex-col items-center justify-center flex-shrink-0">
-                    <div className="relative w-32 h-32 md:w-44 md:h-44 flex items-center justify-center">
+                    <div className="relative w-16 h-16 md:w-24 md:h-24 flex items-center justify-center">
                         {/* Pulsing halo rings */}
                         <div className="absolute inset-0 rounded-full bg-white/10 animate-pulse" />
                         <div className="absolute inset-5 rounded-full bg-white/10" />
@@ -291,7 +291,7 @@ export function HeroCarousel() {
             </button>
 
             {/* ── Dot indicators ── */}
-            <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2">
+            <div className="absolute bottom-2 left-1/2 -translate-x-1/2 z-20 flex items-center gap-2">
                 {slides.map((_, i) => (
                     <button
                         key={i}

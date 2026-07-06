@@ -6,10 +6,10 @@ import { useAuth } from '@/contexts/auth-context'
 import { getCategories } from '@/lib/classifieds-queries'
 import { ListingGrid } from '@/components/classifieds/listing-grid'
 import { Loader2, Search, Grid3x3, List, ChevronRight } from 'lucide-react'
-import { Button } from '@/components/ui/button'
 import Link from 'next/link'
 import { HeroCarousel } from '@/components/classifieds/hero-carousel'
-import { CategoryIcon } from '@/components/classifieds/category-icon'
+import { CategoryPicture } from '@/components/classifieds/category-picture'
+import { SellButton } from '@/components/classifieds/sell-button'
 import { supabase } from '@/lib/supabase'
 import type { ClassifiedListing, ClassifiedCategory } from '@/types/supabase'
 
@@ -123,18 +123,10 @@ export default function ClassifiedsPage() {
                     <div className="flex items-center justify-between mb-4">
                         <h2 className="text-white text-xl font-bold">What are you looking for?</h2>
                         <div className="flex items-center gap-3">
-                            <Link href="/auth/login" className="text-white font-semibold hover:underline">
-                                Log In
-                            </Link>
-                            {/* SELL opens the seller dashboard on the marketplace
-                                subdomain (absolute URL so it lands there from any host).
-                                If not logged in, the /classifieds/seller guard sends the
-                                user to login and returns them here afterward. */}
-                            <a href={`${process.env.NEXT_PUBLIC_MARKETPLACE_URL || 'https://marketplace.arhmsgh.com'}/classifieds/seller/dashboard`}>
-                                <Button className="bg-blue-600 hover:bg-blue-700 text-white font-black rounded-lg px-6 py-2">
-                                    SELL
-                                </Button>
-                            </a>
+                            {/* SELL opens a login-less "Become a Seller" popup: enter a phone
+                                number → invisible account is provisioned → seller dashboard.
+                                Existing sellers skip straight to the dashboard. */}
+                            <SellButton />
                         </div>
                     </div>
                     <form onSubmit={handleSearch} className="flex gap-3">
@@ -205,7 +197,7 @@ export default function ClassifiedsPage() {
                                             className="w-full flex items-center justify-between px-3 py-3 rounded-lg transition-colors hover:bg-gray-50 dark:hover:bg-gray-800/50"
                                         >
                                             <div className="flex items-center gap-3 flex-1 text-left">
-                                                <CategoryIcon name={cat.icon} className="w-6 h-6 text-gray-700 dark:text-gray-300" />
+                                                <CategoryPicture imageUrl={cat.image_url} iconName={cat.icon} name={cat.name} className="w-11 h-11 rounded-lg" iconClassName="w-6 h-6 text-gray-700 dark:text-gray-300" />
                                                 <div>
                                                     <div className="text-sm font-semibold text-gray-900 dark:text-white">{cat.name}</div>
                                                     <div className="text-xs text-gray-500 dark:text-gray-400">{catListingCount} subcats</div>
@@ -365,11 +357,9 @@ export default function ClassifiedsPage() {
                                 </p>
                             </div>
 
-                            <Link href="/classifieds/seller/dashboard">
-                                <Button className="w-full bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg py-3 font-bold">
-                                    Start Selling Now
-                                </Button>
-                            </Link>
+                            <SellButton className="w-full bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg py-3 font-bold">
+                                Start Selling Now
+                            </SellButton>
                         </div>
                     </div>
                 </div>
