@@ -6,11 +6,13 @@ import { Database } from '@/types/supabase'
 const getCookieDomain = () => {
     if (typeof window === 'undefined') return undefined
     const host = window.location.hostname
-    // Production: .arhmsgh.com (covers arhmsgh.com, www.arhmsgh.com, marketplace.arhmsgh.com)
+    
     if (host.endsWith('arhmsgh.com')) {
         return '.arhmsgh.com'
     }
-    // Local/preview: use default (host-scoped)
+    if (host.endsWith('dataking.qzz.io')) {
+        return '.dataking.qzz.io'  // ← ADD THIS
+    }
     return undefined
 }
 
