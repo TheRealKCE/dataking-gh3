@@ -4,9 +4,8 @@ import { useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { toast } from 'sonner'
-import { Badge } from '@/components/ui/badge'
 import { Card } from '@/components/ui/card'
-import { Heart } from 'lucide-react'
+import { Heart, ImageOff, MapPin } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { PromotionBadge } from './promotion-badge'
 
@@ -65,9 +64,11 @@ export function ListingCard({ listing, initialFavorited = false }: ListingCardPr
         }
     }
 
+    const isNew = listing.condition?.toLowerCase() === 'new'
+
     return (
-        <Link href={`/marketplace-domain/listings/${listing.id}`}>
-            <Card className="overflow-hidden hover:shadow-lg transition-shadow cursor-pointer h-full flex flex-col">
+        <Link href={`/marketplace-domain/listings/${listing.id}`} className="group block h-full">
+            <Card className="mkt-listing-card overflow-hidden cursor-pointer h-full flex flex-col">
                 {/* Image */}
                 <div className="relative aspect-square bg-muted overflow-hidden">
                     {image ? (
@@ -75,11 +76,12 @@ export function ListingCard({ listing, initialFavorited = false }: ListingCardPr
                             src={image.image_url}
                             alt={listing.title}
                             fill
-                            className="object-cover"
+                            className="object-cover transition-transform duration-300 group-hover:scale-105"
                         />
                     ) : (
-                        <div className="flex items-center justify-center h-full text-muted-foreground">
-                            No image
+                        <div className="flex flex-col items-center justify-center h-full gap-1.5 text-muted-foreground bg-gradient-to-br from-muted to-muted/40">
+                            <ImageOff className="w-8 h-8 opacity-40" />
+                            <span className="text-xs">No photo</span>
                         </div>
                     )}
 
@@ -91,25 +93,27 @@ export function ListingCard({ listing, initialFavorited = false }: ListingCardPr
                     )}
 
                     {/* Condition Badge */}
-                    <Badge
-                        className="absolute top-2 right-2 capitalize"
-                        variant="secondary"
+                    <span
+                        className={cn(
+                            'absolute top-2 right-2 rounded-full px-2 py-0.5 text-xs capitalize',
+                            isNew ? 'badge-condition-new' : 'badge-condition-used'
+                        )}
                     >
                         {listing.condition}
-                    </Badge>
+                    </span>
 
                     {/* Favorite Button */}
                     <button
                         type="button"
                         title={favorited ? 'Remove from favorites' : 'Add to favorites'}
                         disabled={busy}
-                        className="absolute top-2 left-2 rounded-full bg-white/80 p-2 hover:bg-white transition-colors disabled:opacity-60"
+                        className="absolute top-2 left-2 rounded-full bg-background/80 backdrop-blur p-2 shadow-sm hover:bg-background transition-colors disabled:opacity-60"
                         onClick={toggleFavorite}
                     >
                         <Heart
                             className={cn(
                                 'w-4 h-4 transition-colors',
-                                favorited ? 'fill-red-500 text-red-500' : 'text-gray-700'
+                                favorited ? 'fill-red-500 text-red-500' : 'text-muted-foreground'
                             )}
                             aria-label={favorited ? 'Remove from favorites' : 'Add to favorites'}
                         />
@@ -117,8 +121,8 @@ export function ListingCard({ listing, initialFavorited = false }: ListingCardPr
                 </div>
 
                 {/* Content */}
-                <div className="flex flex-col flex-1 p-3">
-                    <h3 className="font-semibold line-clamp-2 text-sm">
+                <div className="flex flex-col flex-1 p-3.5">
+                    <h3 className="font-semibold line-clamp-2 text-sm leading-snug group-hover:text-primary transition-colors">
                         {listing.title}
                     </h3>
 
@@ -126,12 +130,13 @@ export function ListingCard({ listing, initialFavorited = false }: ListingCardPr
                         {listing.description}
                     </p>
 
-                    <div className="mt-auto pt-2 flex items-center justify-between">
-                        <div className="font-bold text-primary">
+                    <div className="mt-auto pt-3 flex items-end justify-between gap-2">
+                        <div className="font-bold text-primary text-base leading-none">
                             GHS {priceGhs}
                         </div>
                         {listing.region && (
-                            <span className="text-xs text-muted-foreground">
+                            <span className="inline-flex items-center gap-0.5 text-xs text-muted-foreground truncate">
+                                <MapPin className="w-3 h-3 shrink-0" />
                                 {listing.region}
                             </span>
                         )}

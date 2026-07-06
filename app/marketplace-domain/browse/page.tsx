@@ -26,20 +26,31 @@ export const metadata = {
     description: 'Browse all listings on Arhms Marketplace',
 }
 
-export default async function BrowsePage() {
-    const categories = await getCategories()
+export default async function BrowsePage({
+    searchParams,
+}: {
+    searchParams: Promise<{ q?: string; category?: string }>
+}) {
+    const [categories, params] = await Promise.all([getCategories(), searchParams])
 
     return (
         <div className="min-h-screen bg-background">
-            <div className="container py-8">
-                <div className="mb-8">
-                    <h1 className="text-3xl font-bold mb-2">Browse Listings</h1>
-                    <p className="text-muted-foreground">
+            {/* Header banner */}
+            <div className="mkt-hero border-b">
+                <div className="container py-10">
+                    <h1 className="text-3xl font-bold">Browse Listings</h1>
+                    <p className="text-muted-foreground mt-1">
                         Discover items from sellers across Ghana
                     </p>
                 </div>
+            </div>
 
-                <MarketplaceFeed categories={categories} />
+            <div className="container py-8">
+                <MarketplaceFeed
+                    categories={categories}
+                    categoryId={params.category}
+                    initialQuery={params.q ?? ''}
+                />
             </div>
         </div>
     )
