@@ -208,6 +208,7 @@ export async function middleware(request: NextRequest) {
     // === MARKETPLACE SUBDOMAIN ROUTING ===
     // If accessing marketplace subdomain and not already in marketplace-domain path,
     // rewrite to marketplace-domain while keeping URL as marketplace.arhmsgh.com.
+    // Auth routes (/auth/*) must redirect to main domain (auth is not marketplace-specific).
     // API routes (/api/*) and root static assets (manifest, service worker, etc.)
     // must pass through untouched — they are shared across all hosts and rewriting
     // them to /marketplace-domain/* produces 404s.
@@ -219,6 +220,13 @@ export async function middleware(request: NextRequest) {
         pathname === '/favicon.ico' ||
         pathname.startsWith('/workbox-') ||
         pathname.startsWith('/icons/')
+
+    // Auth routes redirect to main domain (centralized auth)
+    if (isMarketplace && pathname.startsWith('/auth')) {
+        const mainDomainUrl = new URL(pathname + request.nextUrl.search, process.env.NEXT_PUBLIC_APP_URL || 'https://arhmsgh.com')
+        return NextResponse.redirect(mainDomainUrl)
+    }
+
     if (isMarketplace && !pathname.startsWith('/marketplace-domain') && !isPassthrough) {
         const marketplacePath = pathname === '/' ? '/marketplace-domain' : `/marketplace-domain${pathname}`
         const rewriteUrl = new URL(marketplacePath, request.url)
