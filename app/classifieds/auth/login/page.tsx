@@ -4,6 +4,7 @@ import { Suspense } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { GoogleSignInButton } from '@/components/google-sign-in-button'
+import { SellButton } from '@/components/classifieds/sell-button'
 import { ShoppingBag, Phone, AlertCircle } from 'lucide-react'
 
 /**
@@ -52,13 +53,12 @@ function MarketplaceLoginInner() {
                     />
 
                     <div className="mt-8 space-y-3 border-t border-gray-100 pt-6 dark:border-gray-800">
-                        <Link
-                            href="/classifieds/seller/login"
-                            className="flex h-12 items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-gray-50 text-sm font-bold text-gray-700 transition-colors hover:bg-gray-100 dark:border-gray-700 dark:bg-white/5 dark:text-gray-300 dark:hover:bg-white/10"
-                        >
+                        {/* Phone-only seller sign-in / onboarding (no password) via the
+                            quick-start flow — enter number → instant seller session. */}
+                        <SellButton className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-gray-50 text-sm font-bold text-gray-700 shadow-none hover:bg-gray-100 dark:border-gray-700 dark:bg-white/5 dark:text-gray-300 dark:hover:bg-white/10">
                             <Phone className="h-4 w-4" />
-                            Are you a seller? Sign in with phone
-                        </Link>
+                            Are you a seller? Continue with phone
+                        </SellButton>
 
                         <Link
                             href="/classifieds"
