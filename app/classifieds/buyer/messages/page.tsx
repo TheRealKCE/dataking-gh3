@@ -1,31 +1,66 @@
 'use client'
 
-import { MessageSquare } from 'lucide-react'
-import { ConversationList } from '@/components/marketplace/conversation-list'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { useRouter } from 'next/navigation'
+import { MessagesList, type ListConversation } from '@/components/marketplace/messages-list'
 
 /**
  * Messages tab (bottom-nav "Messages").
  *
- * Renders the shared ConversationList, which fetches the signed-in user's
- * marketplace conversations and polls for new messages on its own. Mobile-first
- * standalone page so the marketplace bottom nav stays in charge of navigation.
+ * Container: fetches the signed-in user's conversations from
+ * /api/marketplace/conversations/list, maps them to the MessagesList shape, and
+ * polls every 4s. Tapping a row opens the thread at ./messages/[id].
  */
 export default function MessagesPage() {
-    return (
-        <div className="mx-auto min-h-screen max-w-3xl px-4 py-6">
-            <div className="mb-6 flex items-center gap-3">
-                <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-emerald-50 dark:bg-emerald-900/20">
-                    <MessageSquare className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
-                </span>
-                <div>
-                    <h1 className="text-2xl font-black text-gray-900 dark:text-white">Messages</h1>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">
-                        Your conversations with buyers and sellers
-                    </p>
-                </div>
-            </div>
+    const router = useRouter()
+    const [conversations, setConversations] = useState<ListConversation[]>([])
+    const [loading, setLoading] = useState(true)
+    const loadedOnce = useRef(false)
 
-            <ConversationList />
-        </div>
+    const load = useCallback(async () => {
+        try {
+            const res = await fetch('/api/marketplace/conversations/list?limit=50')
+            if (!res.ok) {
+                if (!loadedOnce.current) setConversations([])
+                return
+            }
+            const data = await res.json()
+            const mapped: ListConversation[] = (data.conversations || []).map((c: any) => ({
+                id: c.id,
+                listing: {
+                    id: c.listing_id,
+                    title: c.listing?.title ?? '',
+                    price_pesewas: c.listing?.price_pesewas ?? 0,
+                    image_url: c.listing?.image_url ?? undefined,
+                },
+                other_user: {
+                    id: c.other_user?.id ?? c.other_user_id,
+                    name: c.other_user?.name ?? 'Marketplace user',
+                },
+                last_message: c.last_message ?? '',
+                last_message_at: c.last_message_at,
+                unread_count: c.unread_count ?? 0,
+            }))
+            setConversations(mapped)
+            loadedOnce.current = true
+        } catch (err) {
+            console.error('[Messages] load error:', err)
+        } finally {
+            setLoading(false)
+        }
+    }, [])
+
+    useEffect(() => {
+        load()
+        const interval = setInterval(load, 4000)
+        return () => clearInterval(interval)
+    }, [load])
+
+    return (
+        <MessagesList
+            conversations={conversations}
+            loading={loading}
+            onOpen={(id) => router.push(`/classifieds/buyer/messages/${id}`)}
+        />
     )
 }

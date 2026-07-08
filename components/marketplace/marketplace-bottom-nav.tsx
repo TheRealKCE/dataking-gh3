@@ -1,5 +1,6 @@
 'use client'
 
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Home, Bookmark, PlusSquare, MessageSquare, User } from 'lucide-react'
@@ -36,6 +37,7 @@ const HIDDEN_PREFIXES = [
 
 export function MarketplaceBottomNav() {
     const pathname = usePathname() ?? ''
+    const unread = useUnreadMessageCount()
 
     if (HIDDEN_PREFIXES.some((p) => pathname.startsWith(p))) return null
 
@@ -59,11 +61,22 @@ export function MarketplaceBottomNav() {
                                 aria-current={active ? 'page' : undefined}
                                 className="flex flex-col items-center gap-1 py-1"
                             >
-                                <Icon
-                                    className="h-6 w-6"
-                                    strokeWidth={active ? 2.4 : 2}
-                                    style={{ color: active ? BRAND_GREEN : '#1A1A1A' }}
-                                />
+                                <span className="relative">
+                                    <Icon
+                                        className="h-6 w-6"
+                                        strokeWidth={active ? 2.4 : 2}
+                                        style={{ color: active ? BRAND_GREEN : '#1A1A1A' }}
+                                    />
+                                    {item.id === 'messages' && unread > 0 && (
+                                        <span
+                                            className="absolute -right-2 -top-1.5 flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 text-[10px] font-bold text-white ring-2 ring-white dark:ring-[#0f1628]"
+                                            style={{ backgroundColor: BRAND_GREEN }}
+                                            aria-label={`${unread} unread messages`}
+                                        >
+                                            {unread > 9 ? '9+' : unread}
+                                        </span>
+                                    )}
+                                </span>
                                 <span
                                     className={cn(
                                         'text-xs leading-none',
@@ -80,6 +93,44 @@ export function MarketplaceBottomNav() {
             </ul>
         </nav>
     )
+}
+
+/**
+ * Polls the conversations list for the total unread count (every 20s). Silent on
+ * 401/errors so it's a no-op for logged-out visitors. Reuses the list endpoint to
+ * avoid a dedicated count route.
+ */
+function useUnreadMessageCount(): number {
+    const [count, setCount] = useState(0)
+
+    useEffect(() => {
+        let active = true
+        const load = async () => {
+            try {
+                const res = await fetch('/api/marketplace/conversations/list?limit=50')
+                if (!res.ok) {
+                    if (active) setCount(0)
+                    return
+                }
+                const data = await res.json()
+                const total = (data.conversations || []).reduce(
+                    (sum: number, c: any) => sum + (c.unread_count || 0),
+                    0
+                )
+                if (active) setCount(total)
+            } catch {
+                /* ignore transient errors */
+            }
+        }
+        load()
+        const interval = setInterval(load, 20000)
+        return () => {
+            active = false
+            clearInterval(interval)
+        }
+    }, [])
+
+    return count
 }
 
 export default MarketplaceBottomNav
