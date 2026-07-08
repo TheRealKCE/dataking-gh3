@@ -63,7 +63,7 @@ export default function ProfilePage() {
                         Log in to manage your saved items, messages and listings.
                     </p>
                     <div className="flex items-center justify-center gap-3">
-                        <Link href="/auth/login">
+                        <Link href="/classifieds/auth/login?redirect=/classifieds/buyer/profile">
                             <Button className="bg-emerald-600 hover:bg-emerald-700">Log in</Button>
                         </Link>
                         <ThemeToggle />

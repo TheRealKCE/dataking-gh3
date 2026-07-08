@@ -93,7 +93,7 @@ export function SellButton({ className, children }: SellButtonProps) {
                 if (data.mode === 'login_required') {
                     // A normal (non-seller) account owns this number — log in there.
                     setOpen(false)
-                    router.push('/auth/login?redirect=/classifieds/seller/dashboard')
+                    router.push('/classifieds/auth/login?redirect=/classifieds/seller/dashboard')
                     return
                 } else if (data.mode === 'signin') {
                     // Returning seller — consume the magic-link token (keeps their password).

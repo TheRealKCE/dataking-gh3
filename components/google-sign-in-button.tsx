@@ -8,18 +8,27 @@ import { toast } from 'sonner'
 
 interface Props {
     label?: string
+    /** Path the OAuth flow returns to. Defaults to the main-domain callback. */
+    callbackPath?: string
+    /** Optional post-login destination, forwarded to the callback as `?next=`. */
+    next?: string
 }
 
-export function GoogleSignInButton({ label = 'Continue with Google' }: Props) {
+export function GoogleSignInButton({
+    label = 'Continue with Google',
+    callbackPath = '/auth/callback',
+    next,
+}: Props) {
     const [isLoading, setIsLoading] = useState(false)
 
     const handleGoogleSignIn = async () => {
         setIsLoading(true)
         try {
+            const redirectTo = `${window.location.origin}${callbackPath}${next ? `?next=${encodeURIComponent(next)}` : ''}`
             const { error } = await supabase.auth.signInWithOAuth({
                 provider: 'google',
                 options: {
-                    redirectTo: `${window.location.origin}/auth/callback`,
+                    redirectTo,
                     queryParams: {
                         access_type: 'offline',
                         prompt: 'consent',

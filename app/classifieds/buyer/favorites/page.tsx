@@ -106,7 +106,7 @@ export default function FavoritesPage() {
                 <EmptyState
                     title="Log in to see your saved items"
                     body="Sign in and tap the bookmark on any listing to save it here."
-                    cta={{ href: '/auth/login', label: 'Log in' }}
+                    cta={{ href: '/classifieds/auth/login?redirect=/classifieds/buyer/favorites', label: 'Log in' }}
                 />
             ) : listings.length === 0 ? (
                 <EmptyState
