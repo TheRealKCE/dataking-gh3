@@ -197,30 +197,54 @@ export async function fulfillOrder(
             return { success: false, error: `Unsupported network: ${network}` }
         }
 
-        const networkMappings = mappings[networkId]
-        if (!networkMappings) {
-            console.log(`[DataKazina] Skip: No mappings found for network ${network} (ID: ${networkId})`)
-            return { success: false, error: `No packages found for network: ${network}` }
-        }
-
-        // --- SIZE NORMALIZATION ---
-        // Try exact match first, then normalized numeric match
-        let bundleId = networkMappings[dataSize]
-
-        if (!bundleId) {
-            const numericSize = dataSize.replace(/[^0-9]/g, '')
-            bundleId = networkMappings[numericSize] || networkMappings[numericSize + 'GB'] || networkMappings[numericSize + ' GB']
-
-            if (bundleId) {
-                console.log(`[DataKazina] Normalized size "${dataSize}" to "${numericSize}" (Found ID: ${bundleId})`)
+        // Resolve the package_id:6 override up front. When active (or for EXPRESS MTN) the
+        // purchase request sends a fixed package_id + numeric volume and does NOT depend on the
+        // dynamic bundle map, so a missing/stale MTN entry in the supplier's package feed must
+        // not block orders the override is specifically designed to fulfill.
+        let mtnPackageId6Enabled = false
+        if (network === 'MTN') {
+            try {
+                const supabase = createServerClient()
+                const { data: setting } = await (supabase.from('admin_settings') as any)
+                    .select('value')
+                    .eq('key', 'dk_mtn_plan_id_6_enabled')
+                    .maybeSingle()
+                mtnPackageId6Enabled = setting?.value === 'true'
+            } catch {
+                // Silently ignore — fall back to standard payload
             }
         }
+        const usePackageId6Override = network === 'EXPRESS MTN' || mtnPackageId6Enabled
 
-        if (!bundleId) {
-            console.log(`[DataKazina] Skip: Unsupported size "${dataSize}" for ${network}. Available: ${Object.keys(networkMappings).join(', ')}`)
-            return {
-                success: false,
-                error: `Unsupported data size: ${dataSize} for ${network}.`
+        // --- SIZE RESOLUTION / VALIDATION GATE ---
+        // The mapped bundleId is used purely as an availability check; the actual purchase
+        // request sends network_id + numeric shared_bundle (+ optional package_id), never the
+        // mapped id. Skip this gate entirely when the package_id:6 override is active.
+        if (!usePackageId6Override) {
+            const networkMappings = mappings[networkId]
+            if (!networkMappings) {
+                console.log(`[DataKazina] Skip: No mappings found for network ${network} (ID: ${networkId})`)
+                return { success: false, error: `No packages found for network: ${network}` }
+            }
+
+            // Try exact match first, then normalized numeric match
+            let bundleId = networkMappings[dataSize]
+
+            if (!bundleId) {
+                const numericSize = dataSize.replace(/[^0-9]/g, '')
+                bundleId = networkMappings[numericSize] || networkMappings[numericSize + 'GB'] || networkMappings[numericSize + ' GB']
+
+                if (bundleId) {
+                    console.log(`[DataKazina] Normalized size "${dataSize}" to "${numericSize}" (Found ID: ${bundleId})`)
+                }
+            }
+
+            if (!bundleId) {
+                console.log(`[DataKazina] Skip: Unsupported size "${dataSize}" for ${network}. Available: ${Object.keys(networkMappings).join(', ')}`)
+                return {
+                    success: false,
+                    error: `Unsupported data size: ${dataSize} for ${network}.`
+                }
             }
         }
 
@@ -235,28 +259,13 @@ export async function fulfillOrder(
 
         const volumeNumber = Number(volumeValue)
 
-        console.log(`[DataKazina] Fulfillment Start: Order ${orderId} | Network: ${network} (${networkId}) | Package: ${dataSize} (ID: ${bundleId}, Vol: ${volumeNumber})`)
+        console.log(`[DataKazina] Fulfillment Start: Order ${orderId} | Network: ${network} (${networkId}) | Size: ${dataSize} (Vol: ${volumeNumber})${usePackageId6Override ? ' | package_id override: 6' : ''}`)
         // ---------------------------
 
         // Normalize phone number
         let normalizedPhone = phoneNumber
         if (normalizedPhone.startsWith('233')) normalizedPhone = '0' + normalizedPhone.slice(3)
         else if (!normalizedPhone.startsWith('0')) normalizedPhone = '0' + normalizedPhone
-
-        // Check if the admin has enabled the hardcoded package_id: 6 override for standard MTN
-        let mtnPackageId6Enabled = false
-        if (network === 'MTN') {
-            try {
-                const supabase = createServerClient()
-                const { data: setting } = await (supabase.from('admin_settings') as any)
-                    .select('value')
-                    .eq('key', 'dk_mtn_plan_id_6_enabled')
-                    .maybeSingle()
-                mtnPackageId6Enabled = setting?.value === 'true'
-            } catch {
-                // Silently ignore — fall back to standard payload
-            }
-        }
 
         const requestBody: Record<string, any> = {
             recipient_msisdn: normalizedPhone,
@@ -265,7 +274,7 @@ export async function fulfillOrder(
             incoming_api_ref: orderId,
         }
 
-        if (network === 'EXPRESS MTN' || mtnPackageId6Enabled) {
+        if (usePackageId6Override) {
             requestBody.package_id = 6
             console.log(`[DataKazina] MTN/EXPRESS MTN override: using package_id=6`)
         }
