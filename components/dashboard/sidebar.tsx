@@ -455,7 +455,7 @@ export function DashboardSidebar() {
                     )}
 
                     {userNavItems
-                    .filter(item => !rcOnly || item.href === '/dashboard/results-checker')
+                    .filter(item => !rcOnly || item.href === '/dashboard/results-checker' || item.href === '/dashboard/wallet')
                     .filter(item => (!hideMashup || item.label !== 'Special MTN Mashup') && (!hideExpressMtn || item.label !== 'EXPRESS MTN'))
                     .filter(item => isPageAccessible('/dashboard/data-packages') || !item.href.startsWith('/dashboard/data-packages'))
                         .map((item) => {

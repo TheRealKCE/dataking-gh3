@@ -1,7 +1,7 @@
 'use client'
 
-import { useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
+import { useRouter, usePathname } from 'next/navigation'
 import { AgentExpiryModal } from '@/components/agent-expiry-modal'
 import { useAuth } from '@/contexts/auth-context'
 import { UIProvider } from '@/contexts/ui-context'
@@ -24,15 +24,45 @@ export default function DashboardLayout({
 }: {
     children: React.ReactNode
 }) {
-    const { user, dbUser, isLoading } = useAuth()
+    const { user, dbUser, isLoading, isAdmin, isSubAdmin } = useAuth()
     const { isCollapsed } = useUI()
     const router = useRouter()
+    const pathname = usePathname()
 
     useEffect(() => {
         if (!isLoading && !user) {
             router.push('/auth/login')
         }
     }, [user, isLoading, router])
+
+    // Results Checker Only mode: regular users are restricted to the Results Checker
+    // and Wallet pages (wallet is kept so they can top up to buy vouchers). Admins and
+    // sub-admins are exempt. Any other dashboard route redirects to the Results Checker.
+    const [resultsCheckerOnly, setResultsCheckerOnly] = useState(false)
+    const [rcSettingLoaded, setRcSettingLoaded] = useState(false)
+
+    useEffect(() => {
+        fetch('/api/admin-settings?keys=results_checker_only_mode')
+            .then(r => r.ok ? r.json() : null)
+            .then(data => {
+                if (data && String(data.results_checker_only_mode) === 'true') {
+                    setResultsCheckerOnly(true)
+                }
+            })
+            .catch(() => {})
+            .finally(() => setRcSettingLoaded(true))
+    }, [])
+
+    const rcRestricted = resultsCheckerOnly && !isAdmin && !isSubAdmin
+    const rcPathAllowed =
+        (pathname?.startsWith('/dashboard/results-checker') ||
+            pathname?.startsWith('/dashboard/wallet')) ?? false
+
+    useEffect(() => {
+        if (rcRestricted && rcSettingLoaded && pathname && !rcPathAllowed) {
+            router.replace('/dashboard/results-checker')
+        }
+    }, [rcRestricted, rcSettingLoaded, pathname, rcPathAllowed, router])
 
     if (isLoading) {
         return (
@@ -94,6 +124,16 @@ export default function DashboardLayout({
         )
     }
 
+    // In Results Checker Only mode, hold the render on a blocked route until the
+    // redirect above lands, so no restricted page content flashes.
+    if (rcRestricted && !rcPathAllowed) {
+        return (
+            <div className="min-h-screen bg-background flex items-center justify-center">
+                <Skeleton className="h-10 w-40" />
+            </div>
+        )
+    }
+
     return (
         <div className="min-h-screen bg-background relative">
             <PushNotificationManager />
@@ -113,7 +153,7 @@ export default function DashboardLayout({
                 </main>
                 <CopyrightFooter className="bg-background/60" />
             </div>
-            <MobileBottomNav />
+            {!rcRestricted && <MobileBottomNav />}
             {/* <SupportChatWidget /> */}
         </div>
     )
