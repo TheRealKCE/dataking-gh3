@@ -262,6 +262,11 @@ export function DashboardSidebar() {
     const currentRole = roleConfig[userRole] || roleConfig['customer']
     const RoleIcon = currentRole.icon
 
+    // Results Checker Only mode collapses the sidebar for regular users, but admins
+    // and sub-admins keep their full sidebar (they need it to reach Admin → Settings
+    // to toggle the mode off).
+    const rcOnly = resultsCheckerOnly && !isAdmin && !isSubAdmin
+
     return (
         <>
             {/* Mobile Overlay */}
@@ -303,7 +308,7 @@ export function DashboardSidebar() {
                 </div>
 
                 {/* Profile Widget - Refined & Professional */}
-                {!isCollapsed && dbUser && !resultsCheckerOnly && (
+                {!isCollapsed && dbUser && !rcOnly && (
                     dbUser.role === 'dealer' ? (
                         /* Specialized Dealer Profile Widget matching the uploaded image */
                         <div className="mx-4 mt-6 p-4 rounded-2xl bg-black/15 border border-white/10 shadow-lg text-white">
@@ -450,7 +455,7 @@ export function DashboardSidebar() {
                     )}
 
                     {userNavItems
-                    .filter(item => !resultsCheckerOnly || item.href === '/dashboard/results-checker')
+                    .filter(item => !rcOnly || item.href === '/dashboard/results-checker')
                     .filter(item => (!hideMashup || item.label !== 'Special MTN Mashup') && (!hideExpressMtn || item.label !== 'EXPRESS MTN'))
                     .filter(item => isPageAccessible('/dashboard/data-packages') || !item.href.startsWith('/dashboard/data-packages'))
                         .map((item) => {
@@ -481,7 +486,7 @@ export function DashboardSidebar() {
                     })}
 
                     {/* My Shop Group — only shown when shop access is enabled */}
-                    {isPageAccessible('/dashboard/shop') && !resultsCheckerOnly && (
+                    {isPageAccessible('/dashboard/shop') && !rcOnly && (
                         <>
                             {!isCollapsed && (
                                 <p className={cn(
@@ -549,7 +554,7 @@ export function DashboardSidebar() {
                     )}
 
                     {/* Join Community — appears below My Shop */}
-                    {!isCollapsed && communityLink && !resultsCheckerOnly && (
+                    {!isCollapsed && communityLink && !rcOnly && (
                         <a
                             href={communityLink}
                             target="_blank"
@@ -566,7 +571,7 @@ export function DashboardSidebar() {
                             <span className="text-sm font-semibold tracking-tight">Join Community</span>
                         </a>
                     )}
-                    {isCollapsed && communityLink && !resultsCheckerOnly && (
+                    {isCollapsed && communityLink && !rcOnly && (
                         <a
                             href={communityLink}
                             target="_blank"
@@ -585,7 +590,7 @@ export function DashboardSidebar() {
                         </a>
                     )}
 
-                    {(isAdmin || isSubAdmin) && !resultsCheckerOnly && (
+                    {(isAdmin || isSubAdmin) && !rcOnly && (
                         <>
                             {!isCollapsed && (
                                 <p className={cn(
@@ -636,7 +641,7 @@ export function DashboardSidebar() {
                     )}
 
                     {/* Payment Gateway Widget — admin only */}
-                    {isAdmin && !resultsCheckerOnly && (
+                    {isAdmin && !rcOnly && (
                         <div className={cn("mt-6", isCollapsed ? "px-0" : "px-1")}>
                             {isCollapsed ? (
                                 <div className="flex justify-center py-2" title="Payment Gateway">
