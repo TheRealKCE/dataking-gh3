@@ -29,13 +29,18 @@ export async function GET(request: NextRequest) {
     const requestUrl = new URL(request.url)
     const code = requestUrl.searchParams.get('code')
     const origin = requestUrl.origin
-    const next = safeNext(requestUrl.searchParams.get('next'))
 
     if (!code) {
         return NextResponse.redirect(new URL(`${LOGIN}?error=oauth_failed`, origin))
     }
 
     const cookieStore = await cookies()
+    // Return path comes from the cookie set before OAuth (see GoogleSignInButton),
+    // falling back to a legacy ?next= query for safety. Default: marketplace home.
+    const nextCookie = cookieStore.get('mkt_oauth_next')?.value
+    const next = safeNext(
+        nextCookie ? decodeURIComponent(nextCookie) : requestUrl.searchParams.get('next')
+    )
     const supabase = createServerClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
@@ -107,8 +112,11 @@ export async function GET(request: NextRequest) {
         console.error('[MarketplaceOAuthCallback] Profile upsert error:', e)
     }
 
-    return new NextResponse(
+    const response = new NextResponse(
         `<!DOCTYPE html><html><head><meta http-equiv="refresh" content="0;url=${next}"><script>window.location.href = ${JSON.stringify(next)};</script></head><body>Redirecting...</body></html>`,
         { status: 200, headers: { 'Content-Type': 'text/html' } }
     )
+    // Consume the one-time return-path cookie.
+    response.cookies.set('mkt_oauth_next', '', { maxAge: 0, path: '/' })
+    return response
 }

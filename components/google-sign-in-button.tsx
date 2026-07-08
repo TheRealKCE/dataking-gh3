@@ -24,7 +24,14 @@ export function GoogleSignInButton({
     const handleGoogleSignIn = async () => {
         setIsLoading(true)
         try {
-            const redirectTo = `${window.location.origin}${callbackPath}${next ? `?next=${encodeURIComponent(next)}` : ''}`
+            // Persist the post-login path in a short-lived cookie rather than a
+            // ?next= query param: Supabase matches redirectTo against its allow-list
+            // and a query string can break an exact match, silently falling back to
+            // the Site URL (localhost). Keep redirectTo an EXACT allow-listed URL.
+            if (next) {
+                document.cookie = `mkt_oauth_next=${encodeURIComponent(next)}; path=/; max-age=600; samesite=lax`
+            }
+            const redirectTo = `${window.location.origin}${callbackPath}`
             const { error } = await supabase.auth.signInWithOAuth({
                 provider: 'google',
                 options: {

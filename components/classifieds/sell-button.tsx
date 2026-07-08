@@ -115,7 +115,10 @@ export function SellButton({ className, children }: SellButtonProps) {
             await refreshUser()
             toast.success('Welcome to your seller dashboard! 🎉')
             setOpen(false)
-            router.push(DASHBOARD)
+            // Hard navigation (not router.push): guarantees the freshly-written
+            // session cookie is sent to the server so the seller-dashboard guard
+            // sees an authenticated user instead of bouncing back to login.
+            window.location.href = DASHBOARD
         } catch (err: any) {
             toast.error(err?.message || 'Something went wrong. Please try again.')
         } finally {
