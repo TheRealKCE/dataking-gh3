@@ -6,10 +6,20 @@ import { getListingById, getListingsWithPagination } from '@/lib/classifieds-que
 import { ImageCarousel } from '@/components/classifieds/image-carousel'
 import { ContactRevealButton } from '@/components/classifieds/contact-reveal-button'
 import { ListingGrid } from '@/components/classifieds/listing-grid'
-import { Heart, MapPin, Calendar, AlertCircle, CheckCircle, Loader2, Phone } from 'lucide-react'
+import { Heart, MapPin, Calendar, AlertCircle, CheckCircle, Loader2, Phone, Flag } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAuth } from '@/contexts/auth-context'
 import type { ClassifiedListing } from '@/types/supabase'
+
+const REPORT_REASONS: { value: string; label: string }[] = [
+    { value: 'scam', label: 'Scam or fraud' },
+    { value: 'prohibited', label: 'Prohibited item' },
+    { value: 'duplicate', label: 'Duplicate listing' },
+    { value: 'wrong_category', label: 'Wrong category' },
+    { value: 'offensive', label: 'Offensive content' },
+    { value: 'already_sold', label: 'Item already sold' },
+    { value: 'other', label: 'Other' },
+]
 
 export default function ListingDetailPage({
     params,
@@ -17,13 +27,34 @@ export default function ListingDetailPage({
     params: { listingId: string }
 }) {
     const router = useRouter()
-    const { user } = useAuth()
+    const { user, session } = useAuth()
     const [listing, setListing] = useState<ClassifiedListing | null>(null)
     const [isLoading, setIsLoading] = useState(true)
     const [isFavorited, setIsFavorited] = useState(false)
+    const [isSavingFavorite, setIsSavingFavorite] = useState(false)
+    const [isRequestingCallback, setIsRequestingCallback] = useState(false)
+    const [showReportModal, setShowReportModal] = useState(false)
+    const [reportReason, setReportReason] = useState('')
+    const [reportDetails, setReportDetails] = useState('')
+    const [isReporting, setIsReporting] = useState(false)
+    const [hasReported, setHasReported] = useState(false)
     const [similarListings, setSimilarListings] = useState<ClassifiedListing[]>([])
     const [isLoadingSimilar, setIsLoadingSimilar] = useState(false)
     const [images, setImages] = useState<Array<{ url: string; alt: string }> | null>(null)
+
+    // Bearer token for the classifieds API routes (they verify via token, not cookies).
+    const authHeaders = (): Record<string, string> => ({
+        'Content-Type': 'application/json',
+        ...(session?.access_token ? { Authorization: `Bearer ${session.access_token}` } : {}),
+    })
+
+    const requireLogin = (): boolean => {
+        if (user) return true
+        toast.error('Please log in to continue', {
+            action: { label: 'Log in', onClick: () => router.push('/auth/login') },
+        })
+        return false
+    }
 
     useEffect(() => {
         const loadListing = async () => {
@@ -72,6 +103,28 @@ export default function ListingDetailPage({
         loadListing()
     }, [params.listingId])
 
+    // Load whether the current user has already saved this listing.
+    useEffect(() => {
+        if (!session?.access_token) {
+            setIsFavorited(false)
+            return
+        }
+        let alive = true
+        fetch('/api/classifieds/favorites', {
+            headers: { Authorization: `Bearer ${session.access_token}` },
+        })
+            .then((r) => (r.ok ? r.json() : { favorites: [] }))
+            .then((data) => {
+                if (!alive) return
+                const ids: string[] = data?.favorites ?? []
+                setIsFavorited(ids.includes(params.listingId))
+            })
+            .catch(() => {})
+        return () => {
+            alive = false
+        }
+    }, [session?.access_token, params.listingId])
+
     const userId = user?.id
 
     const getSafetyTips = () => {
@@ -100,57 +153,90 @@ export default function ListingDetailPage({
     }
 
     const handleFavoriteToggle = async () => {
+        if (!requireLogin()) return
+        const next = !isFavorited
+        setIsSavingFavorite(true)
+        // Optimistic update.
+        setIsFavorited(next)
         try {
-            if (!user) {
-                toast.error('Please log in to save favorites', {
-                    action: {
-                        label: 'Log in',
-                        onClick: () => router.push('/auth/login')
-                    }
-                })
-                return
-            }
-
-            const endpoint = isFavorited
-                ? `/api/classifieds/favorites?listing_id=${params.listingId}`
-                : '/api/classifieds/favorites'
+            const endpoint = next
+                ? '/api/classifieds/favorites'
+                : `/api/classifieds/favorites?listing_id=${params.listingId}`
 
             const response = await fetch(endpoint, {
-                method: isFavorited ? 'DELETE' : 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                ...((!isFavorited) && {
-                    body: JSON.stringify({ listing_id: params.listingId }),
-                }),
+                method: next ? 'POST' : 'DELETE',
+                headers: authHeaders(),
+                ...(next && { body: JSON.stringify({ listing_id: params.listingId }) }),
             })
 
-            if (response.ok) {
-                setIsFavorited(!isFavorited)
-                toast.success(isFavorited ? 'Removed from favorites' : 'Added to favorites')
-            }
+            if (!response.ok) throw new Error('request failed')
+            toast.success(next ? 'Saved to your list' : 'Removed from saved')
         } catch (error) {
-            toast.error('Error updating favorites')
+            setIsFavorited(!next) // rollback
+            toast.error('Error updating saved list')
+        } finally {
+            setIsSavingFavorite(false)
+        }
+    }
+
+    const handleRequestCallback = async () => {
+        if (!requireLogin()) return
+        setIsRequestingCallback(true)
+        try {
+            const response = await fetch('/api/classifieds/call-back', {
+                method: 'POST',
+                headers: authHeaders(),
+                body: JSON.stringify({ listing_id: params.listingId }),
+            })
+            const data = await response.json().catch(() => ({}))
+            if (!response.ok) throw new Error(data?.error || 'request failed')
+            toast.success('Request sent', {
+                description: `${getSellerName()} will call you back soon.`,
+            })
+        } catch (error: any) {
+            toast.error(error?.message || 'Could not send request')
+        } finally {
+            setIsRequestingCallback(false)
+        }
+    }
+
+    const handleSubmitReport = async () => {
+        if (!requireLogin()) return
+        if (!reportReason) {
+            toast.error('Please choose a reason')
+            return
+        }
+        setIsReporting(true)
+        try {
+            const response = await fetch('/api/classifieds/report', {
+                method: 'POST',
+                headers: authHeaders(),
+                body: JSON.stringify({
+                    listing_id: params.listingId,
+                    reason: reportReason,
+                    details: reportDetails,
+                }),
+            })
+            const data = await response.json().catch(() => ({}))
+            if (!response.ok) throw new Error(data?.error || 'request failed')
+            setHasReported(true)
+            setShowReportModal(false)
+            toast.success('Thanks for reporting', {
+                description: 'Our team will review this ad.',
+            })
+        } catch (error: any) {
+            toast.error(error?.message || 'Could not submit report')
+        } finally {
+            setIsReporting(false)
         }
     }
 
     const handleMarkUnavailable = async () => {
+        if (!requireLogin()) return
         try {
-            if (!user) {
-                toast.error('Please log in', {
-                    action: {
-                        label: 'Log in',
-                        onClick: () => router.push('/auth/login')
-                    }
-                })
-                return
-            }
-
             const response = await fetch(`/api/classifieds/listings/${params.listingId}`, {
                 method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
+                headers: authHeaders(),
                 body: JSON.stringify({ status: 'archived' }),
             })
 
@@ -227,8 +313,13 @@ export default function ListingDetailPage({
                         GHS {listing.price.toFixed(2)}
                     </p>
                     <p className="text-xs text-gray-600 dark:text-gray-400 mb-4">Negotiable</p>
-                    <button type="button" className="w-full border border-emerald-600 text-emerald-600 dark:text-emerald-400 dark:border-emerald-400 font-semibold py-2.5 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors">
-                        Request call back
+                    <button
+                        type="button"
+                        onClick={handleRequestCallback}
+                        disabled={isRequestingCallback}
+                        className="w-full border border-emerald-600 text-emerald-600 dark:text-emerald-400 dark:border-emerald-400 font-semibold py-2.5 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors disabled:opacity-60"
+                    >
+                        {isRequestingCallback ? 'Sending…' : 'Request call back'}
                     </button>
                 </div>
 
@@ -253,7 +344,11 @@ export default function ListingDetailPage({
                     {/* Seller Action Buttons */}
                     <div className="space-y-2">
                         <ContactRevealButton listing={listing} userId={userId} />
-                        <button type="button" className="w-full border border-emerald-600 text-emerald-600 dark:text-emerald-400 dark:border-emerald-400 font-semibold py-2.5 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors text-sm">
+                        <button
+                            type="button"
+                            onClick={() => toast('In-app chat is coming soon', { description: 'For now, use Contact Seller or Request call back.' })}
+                            className="w-full border border-emerald-600 text-emerald-600 dark:text-emerald-400 dark:border-emerald-400 font-semibold py-2.5 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors text-sm"
+                        >
                             Start chat (Coming Soon)
                         </button>
                     </div>
@@ -261,11 +356,24 @@ export default function ListingDetailPage({
 
                 {/* Action Buttons Row */}
                 <div className="grid grid-cols-2 gap-3">
-                    <button type="button" className="border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold py-2.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors text-sm">
-                        Marked
+                    <button
+                        type="button"
+                        onClick={handleFavoriteToggle}
+                        disabled={isSavingFavorite}
+                        aria-pressed={isFavorited}
+                        className="flex items-center justify-center gap-1.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold py-2.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors text-sm disabled:opacity-60"
+                    >
+                        <Heart className={`w-4 h-4 ${isFavorited ? 'fill-emerald-600 text-emerald-600 dark:fill-emerald-400 dark:text-emerald-400' : ''}`} />
+                        {isFavorited ? 'Saved' : 'Save'}
                     </button>
-                    <button type="button" className="border border-red-300 dark:border-red-800 text-red-600 dark:text-red-400 font-semibold py-2.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-sm">
-                        Report Abuse
+                    <button
+                        type="button"
+                        onClick={() => (requireLogin() ? setShowReportModal(true) : null)}
+                        disabled={hasReported}
+                        className="flex items-center justify-center gap-1.5 border border-red-300 dark:border-red-800 text-red-600 dark:text-red-400 font-semibold py-2.5 rounded-lg hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors text-sm disabled:opacity-60"
+                    >
+                        <Flag className="w-4 h-4" />
+                        {hasReported ? 'Reported' : 'Report Abuse'}
                     </button>
                 </div>
 
@@ -319,7 +427,11 @@ export default function ListingDetailPage({
                 )}
 
                 {/* Post Ad Like This Button */}
-                <button type="button" className="w-full border border-emerald-600 text-emerald-600 dark:text-emerald-400 dark:border-emerald-400 font-semibold py-2.5 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors text-sm">
+                <button
+                    type="button"
+                    onClick={() => router.push('/classifieds/seller/dashboard/new')}
+                    className="w-full border border-emerald-600 text-emerald-600 dark:text-emerald-400 dark:border-emerald-400 font-semibold py-2.5 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors text-sm"
+                >
                     Post Ad Like This
                 </button>
 
@@ -340,6 +452,72 @@ export default function ListingDetailPage({
                 <div className="text-center text-xs text-gray-500 dark:text-gray-500">
                     {listing.view_count} people viewed this listing
                 </div>
+
+                {/* Report modal */}
+                {showReportModal && (
+                    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:p-4" onClick={() => !isReporting && setShowReportModal(false)}>
+                        <div className="w-full sm:max-w-sm bg-white dark:bg-[#151c2c] rounded-t-2xl sm:rounded-2xl p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+                            <div className="flex flex-col items-center text-center mb-3">
+                                <div className="w-11 h-11 rounded-full bg-red-50 dark:bg-red-900/20 flex items-center justify-center text-red-600 dark:text-red-400 mb-2">
+                                    <Flag className="w-5 h-5" />
+                                </div>
+                                <h3 className="font-bold text-gray-900 dark:text-white">Report this ad</h3>
+                                <p className="text-xs text-gray-500 dark:text-gray-400">Reports are private and reviewed by our team.</p>
+                            </div>
+
+                            <div className="space-y-1 mb-3">
+                                {REPORT_REASONS.map((r) => (
+                                    <label
+                                        key={r.value}
+                                        className={`flex items-center gap-2.5 rounded-lg border px-3 py-2 text-sm cursor-pointer transition-colors ${
+                                            reportReason === r.value
+                                                ? 'border-red-400 bg-red-50 dark:bg-red-900/20 text-gray-900 dark:text-white'
+                                                : 'border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50'
+                                        }`}
+                                    >
+                                        <input
+                                            type="radio"
+                                            name="report-reason"
+                                            value={r.value}
+                                            checked={reportReason === r.value}
+                                            onChange={() => setReportReason(r.value)}
+                                            className="accent-red-600"
+                                        />
+                                        {r.label}
+                                    </label>
+                                ))}
+                            </div>
+
+                            <textarea
+                                value={reportDetails}
+                                onChange={(e) => setReportDetails(e.target.value)}
+                                rows={3}
+                                maxLength={500}
+                                placeholder="Additional details (optional)"
+                                className="w-full resize-none rounded-lg border border-gray-200 dark:border-gray-700 bg-transparent px-3 py-2 text-sm text-gray-900 dark:text-white outline-none focus:border-red-400 mb-3"
+                            />
+
+                            <div className="flex gap-2">
+                                <button
+                                    type="button"
+                                    onClick={() => setShowReportModal(false)}
+                                    disabled={isReporting}
+                                    className="flex-1 rounded-lg border border-gray-200 dark:border-gray-700 py-2.5 text-sm font-medium text-gray-600 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800/50 disabled:opacity-60"
+                                >
+                                    Cancel
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={handleSubmitReport}
+                                    disabled={isReporting || !reportReason}
+                                    className="flex-1 rounded-lg bg-red-600 hover:bg-red-700 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+                                >
+                                    {isReporting ? 'Submitting…' : 'Submit Report'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
                 {/* Similar Adverts */}
                 {similarListings.length > 0 && (
