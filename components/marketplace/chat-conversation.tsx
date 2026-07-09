@@ -40,6 +40,8 @@ interface ChatConversationProps {
     currentUserId?: string
     header?: ChatHeader
     initialMessages?: ChatMessage[]
+    /** Pre-fills the message input (e.g. a starter template from the listing). */
+    initialInput?: string
     /** Controlled messages (from a polling/realtime parent). Enables wired mode. */
     messages?: ChatMessage[]
     /** Wired-mode send handler (POST + optimistic update live in the parent). */
@@ -96,6 +98,7 @@ export function ChatConversation({
     currentUserId = ME,
     header = DUMMY_HEADER,
     initialMessages,
+    initialInput = '',
     messages: controlledMessages,
     onSend,
     otherTyping: controlledTyping,
@@ -109,7 +112,7 @@ export function ChatConversation({
         initialMessages ?? DUMMY_MESSAGES
     )
     const [internalTyping, setInternalTyping] = useState(false)
-    const [input, setInput] = useState('')
+    const [input, setInput] = useState(initialInput)
     const endRef = useRef<HTMLDivElement>(null)
     const idRef = useRef(0)
 
