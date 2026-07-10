@@ -216,6 +216,19 @@ export async function sendOrderRefundSMS(
     })
 }
 
+export async function sendOrderFailedSMS(
+    phoneNumber: string,
+    recipientNumber: string,
+    details: { network: string; size: string }
+) {
+    const displayNumber = recipientNumber.replace(/^233/, '0')
+
+    return sendSMS({
+        recipient: phoneNumber,
+        message: `Your ${details.network} ${details.size} order for ${displayNumber} could not be completed and has been marked failed. Please contact support for assistance.\n\nARHMSGh`,
+    })
+}
+
 // ============================================================
 // SHOP ALERT SMS
 // ============================================================
