@@ -41,6 +41,8 @@ export default function AdminListingsPage() {
     }
 
     const handleArchive = async (listingId: string) => {
+        if (!confirm('Remove this listing? It will be archived and hidden from the marketplace.')) return
+
         try {
             const res = await fetch(`/api/classifieds/listings/${listingId}`, {
                 method: 'PUT',
@@ -54,6 +56,9 @@ export default function AdminListingsPage() {
             if (res.ok) {
                 toast.success('Listing archived')
                 await loadListings()
+            } else {
+                const data = await res.json().catch(() => ({}))
+                toast.error(data.error || 'Failed to archive listing')
             }
         } catch (error) {
             toast.error('Failed to archive listing')
