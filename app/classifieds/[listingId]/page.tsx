@@ -33,6 +33,7 @@ export default function ListingDetailPage({
     const [isFavorited, setIsFavorited] = useState(false)
     const [isSavingFavorite, setIsSavingFavorite] = useState(false)
     const [isRequestingCallback, setIsRequestingCallback] = useState(false)
+    const [isStartingChat, setIsStartingChat] = useState(false)
     const [showReportModal, setShowReportModal] = useState(false)
     const [reportReason, setReportReason] = useState('')
     const [reportDetails, setReportDetails] = useState('')
@@ -200,6 +201,33 @@ export default function ListingDetailPage({
         }
     }
 
+    const handleStartChat = async () => {
+        if (!requireLogin()) return
+        const sellerId = (listing as any)?.seller_id as string | undefined
+        if (!sellerId) return
+        if (userId && userId === sellerId) {
+            toast('This is your own listing')
+            return
+        }
+        setIsStartingChat(true)
+        try {
+            // find-or-create the conversation (idempotent per listing+buyer+seller)
+            const res = await fetch('/api/marketplace/conversations/create', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ listing_id: params.listingId, other_user_id: sellerId }),
+            })
+            const data = await res.json().catch(() => ({}))
+            if (!res.ok || !data?.conversation_id) {
+                throw new Error(data?.error || 'Failed to start chat')
+            }
+            router.push(`/classifieds/buyer/messages/${data.conversation_id}`)
+        } catch (error: any) {
+            toast.error(error?.message || 'Could not start chat')
+            setIsStartingChat(false)
+        }
+    }
+
     const handleSubmitReport = async () => {
         if (!requireLogin()) return
         if (!reportReason) {
@@ -346,10 +374,11 @@ export default function ListingDetailPage({
                         <ContactRevealButton listing={listing} userId={userId} />
                         <button
                             type="button"
-                            onClick={() => toast('In-app chat is coming soon', { description: 'For now, use Contact Seller or Request call back.' })}
-                            className="w-full border border-emerald-600 text-emerald-600 dark:text-emerald-400 dark:border-emerald-400 font-semibold py-2.5 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors text-sm"
+                            onClick={handleStartChat}
+                            disabled={isStartingChat}
+                            className="w-full border border-emerald-600 text-emerald-600 dark:text-emerald-400 dark:border-emerald-400 font-semibold py-2.5 rounded-lg hover:bg-emerald-50 dark:hover:bg-emerald-900/20 transition-colors text-sm disabled:opacity-60"
                         >
-                            Start chat (Coming Soon)
+                            {isStartingChat ? 'Starting chat…' : 'Start chat'}
                         </button>
                     </div>
                 </div>
@@ -360,7 +389,7 @@ export default function ListingDetailPage({
                         type="button"
                         onClick={handleFavoriteToggle}
                         disabled={isSavingFavorite}
-                        aria-pressed={isFavorited}
+                        aria-pressed={isFavorited ? 'true' : 'false'}
                         className="flex items-center justify-center gap-1.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold py-2.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors text-sm disabled:opacity-60"
                     >
                         <Heart className={`w-4 h-4 ${isFavorited ? 'fill-emerald-600 text-emerald-600 dark:fill-emerald-400 dark:text-emerald-400' : ''}`} />

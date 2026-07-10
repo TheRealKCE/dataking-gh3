@@ -27,7 +27,7 @@ export async function GET(
         const { data: conversationData, error: convError } = await supabaseUserClient
             .from('marketplace_conversations')
             .select(
-                '*, classified_listings(title, price_pesewas, classified_listing_images(storage_path, display_order))'
+                '*, classified_listings(title, price, classified_listing_images(storage_path, display_order))'
             )
             .eq('id', id)
             .single()
@@ -45,10 +45,10 @@ export async function GET(
             return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
         }
 
-        // Get messages
-        const { data: messages, count, error: messagesError } = await supabaseUserClient
-            .from('marketplace_conversation_messages')
-            .select('id, user_id, message, created_at, read_at', { count: 'exact' })
+        // Get messages (DB columns: sender_id, body — mapped to user_id/message below)
+        const { data: messagesRaw, count, error: messagesError } = await supabaseUserClient
+            .from('marketplace_messages')
+            .select('id, sender_id, body, created_at, read_at', { count: 'exact' })
             .eq('conversation_id', id)
             .order('created_at', { ascending: false })
             .range(offset, offset + limit - 1)
@@ -62,15 +62,24 @@ export async function GET(
         }
 
         // Mark messages as read
-        const unreadMessageIds = (messages || [])
-            .filter((m: any) => !m.read_at && m.user_id !== user.id)
+        const unreadMessageIds = (messagesRaw || [])
+            .filter((m: any) => !m.read_at && m.sender_id !== user.id)
             .map((m: any) => m.id)
 
         if (unreadMessageIds.length > 0) {
-            await (supabaseUserClient.from('marketplace_conversation_messages') as any)
+            await (supabaseUserClient.from('marketplace_messages') as any)
                 .update({ read_at: new Date().toISOString() })
                 .in('id', unreadMessageIds)
         }
+
+        // Map to the shape the chat UI expects ({ user_id, message }).
+        const messages = (messagesRaw || []).map((m: any) => ({
+            id: m.id,
+            user_id: m.sender_id,
+            message: m.body,
+            created_at: m.created_at,
+            read_at: m.read_at,
+        }))
 
         const otherUserId =
             conversation.buyer_id === user.id
@@ -89,13 +98,15 @@ export async function GET(
                 other_user: { id: otherUserId, name: names[otherUserId] || 'Marketplace user' },
                 listing: {
                     id: conversation.listing_id,
+                    // classified_listings.price is in major units (GHS); the chat
+                    // header renders price_pesewas / 100.
                     title: listing?.title ?? '',
-                    price_pesewas: listing?.price_pesewas ?? 0,
+                    price_pesewas: listing?.price != null ? Math.round(listing.price * 100) : 0,
                     image_url: primaryImageUrl(listing?.classified_listing_images),
                 },
                 created_at: conversation.created_at,
             },
-            messages: (messages || []).reverse(),
+            messages: messages.reverse(),
             pagination: {
                 page,
                 limit,
