@@ -19,6 +19,29 @@ const ResultCheckerLanding = dynamic(
 // ISR: revalidate every 10 minutes so a new approved shop is picked up quickly
 export const revalidate = 600
 
+// Fetch a handful of featured marketplace listings for the landing page.
+// Mirrors getFeatured() in app/marketplace-domain/page.tsx — only publicly
+// visible (active + approved) rows. Returns [] on any failure so the landing
+// page never breaks if the marketplace tables are absent.
+async function getFeaturedListings() {
+    try {
+        const supabaseAdmin = createServerClient()
+        const { data } = await (supabaseAdmin
+            .from('classified_listings')
+            .select(
+                `id, title, description, price_pesewas, category_id, region, condition, status, promotion_tier, created_at, classified_listing_images(image_url, sort_order)`
+            )
+            .eq('status', 'active')
+            .eq('moderation_status', 'approved')
+            .order('promotion_tier', { ascending: false, nullsFirst: false })
+            .order('created_at', { ascending: false })
+            .limit(8) as any)
+        return data || []
+    } catch {
+        return []
+    }
+}
+
 export default async function HomePage() {
     // Fetch public config server-side — serializable data only passed to client
     const config = await getPublicConfig()
@@ -35,6 +58,10 @@ export default async function HomePage() {
             />
         )
     }
+
+    // Fetch featured marketplace listings concurrently with the guest-store
+    // resolution below — surfaced in the landing page's Marketplace section.
+    const featuredPromise = getFeaturedListings()
 
     // Resolve the guest store URL:
     // 1. Use the admin-configured URL if it's set and not the placeholder
@@ -67,6 +94,8 @@ export default async function HomePage() {
         }
     }
 
+    const featuredListings = await featuredPromise
+
     return (
         <LandingClientShell
             initialGuestUrl={guestUrl}
@@ -74,6 +103,7 @@ export default async function HomePage() {
             initialPlanPrices={config.upgradePrices}
             initialWhatsappGroupLink={config.whatsappGroupLink}
             initialWhatsappChannelLink={config.whatsappChannelLink}
+            initialFeaturedListings={featuredListings}
         />
     )
 }
