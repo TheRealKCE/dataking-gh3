@@ -39,6 +39,7 @@ interface Order {
     size: string
     price: number
     status: string
+    payment_status?: string
     user_id: string
     shop_name?: string
     users: {
@@ -73,6 +74,7 @@ export default function FulfillmentPage() {
     const [isLoadingOrders, setIsLoadingOrders] = useState(true)
     const [isUpdating, setIsUpdating] = useState(false)
     const [isRefulfilling, setIsRefulfilling] = useState(false)
+    const [refundingId, setRefundingId] = useState<string | null>(null)
 
     // Filter State
     const [networkFilter, setNetworkFilter] = useState('All')
@@ -492,6 +494,31 @@ export default function FulfillmentPage() {
             toast.error('Update failed: ' + error.message)
         } finally {
             setIsUpdating(false)
+        }
+    }
+
+    const handleRefund = async (order: Order) => {
+        if (order.payment_status === 'refunded') return
+        if (!confirm(`Refund GHS ${Number(order.price).toFixed(2)} to ${order.users?.first_name || 'this user'} for ${order.network} ${order.size} (${order.phone_number})? This credits their wallet.`)) return
+
+        setRefundingId(order.id)
+        try {
+            const response = await fetch('/api/admin/orders/refund', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ orderId: order.id }),
+            })
+
+            const data = await response.json()
+            if (!response.ok) throw new Error(data.error || 'Refund failed')
+
+            toast.success('Order refunded successfully')
+            // Reflect the new state locally (refund sets status='failed' + payment_status='refunded')
+            setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: 'failed', payment_status: 'refunded' } : o))
+        } catch (error: any) {
+            toast.error('Refund failed: ' + error.message)
+        } finally {
+            setRefundingId(null)
         }
     }
 
@@ -1307,6 +1334,28 @@ export default function FulfillmentPage() {
                                                     <p className="text-[11px] uppercase font-extrabold text-muted-foreground">Cost</p>
                                                     <p className="text-sm font-black text-primary">{formatCurrency(order.price)}</p>
                                                 </div>
+                                            </div>
+
+                                            {/* Per-order refund action (separate from status changes) */}
+                                            <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                                                {order.payment_status === 'refunded' ? (
+                                                    <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 bg-gray-100 text-gray-500 dark:bg-gray-800">
+                                                        Refunded
+                                                    </Badge>
+                                                ) : (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="h-8 gap-1.5 text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                                                        disabled={refundingId === order.id}
+                                                        onClick={() => handleRefund(order)}
+                                                    >
+                                                        {refundingId === order.id
+                                                            ? <Loader2 className="w-4 h-4 animate-spin" />
+                                                            : <RefreshCw className="w-4 h-4" />}
+                                                        <span className="hidden md:inline text-xs font-bold">Refund</span>
+                                                    </Button>
+                                                )}
                                             </div>
                                         </div>
                                     ))}
