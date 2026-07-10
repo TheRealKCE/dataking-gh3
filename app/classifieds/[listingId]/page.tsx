@@ -389,7 +389,7 @@ export default function ListingDetailPage({
                         type="button"
                         onClick={handleFavoriteToggle}
                         disabled={isSavingFavorite}
-                        aria-pressed={isFavorited ? 'true' : 'false'}
+                        {...{ 'aria-pressed': isFavorited }}
                         className="flex items-center justify-center gap-1.5 border border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 font-semibold py-2.5 rounded-lg hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors text-sm disabled:opacity-60"
                     >
                         <Heart className={`w-4 h-4 ${isFavorited ? 'fill-emerald-600 text-emerald-600 dark:fill-emerald-400 dark:text-emerald-400' : ''}`} />
