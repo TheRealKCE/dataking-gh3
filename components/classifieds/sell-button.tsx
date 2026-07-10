@@ -63,6 +63,9 @@ export function SellButton({ className, children }: SellButtonProps) {
         }
 
         setSubmitting(true)
+        // True when we signed in an account that already existed for this phone,
+        // so we can tell the user they're already registered rather than "new".
+        let returning = false
         try {
             if (session) {
                 // Logged in but not yet a seller — enable on the existing account
@@ -93,6 +96,7 @@ export function SellButton({ className, children }: SellButtonProps) {
                 if (data.mode === 'login_required') {
                     // A normal (non-seller) account owns this number — log in there.
                     setOpen(false)
+                    toast.info('This number already has an account. Please log in to continue.')
                     router.push('/classifieds/auth/login?redirect=/classifieds/seller/dashboard')
                     return
                 } else if (data.mode === 'signin') {
@@ -102,6 +106,7 @@ export function SellButton({ className, children }: SellButtonProps) {
                         type: 'magiclink',
                     })
                     if (otpError) throw new Error(otpError.message)
+                    returning = true
                 } else {
                     // New phone — sign in with the one-time credentials.
                     const { error: signInError } = await supabase.auth.signInWithPassword({
@@ -113,7 +118,11 @@ export function SellButton({ className, children }: SellButtonProps) {
             }
 
             await refreshUser()
-            toast.success('Welcome to your seller dashboard! 🎉')
+            toast.success(
+                returning
+                    ? "You're already registered — welcome back! Logging you in… 🎉"
+                    : 'Welcome to your seller dashboard! 🎉'
+            )
             setOpen(false)
             // Hard navigation (not router.push): guarantees the freshly-written
             // session cookie is sent to the server so the seller-dashboard guard
