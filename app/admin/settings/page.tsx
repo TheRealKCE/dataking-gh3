@@ -57,6 +57,7 @@ export default function AdminSettingsPage() {
     const [hideExpressMtn, setHideExpressMtn] = useState(false)
     const [hideStandardMtn, setHideStandardMtn] = useState(false)
     const [resultsCheckerOnly, setResultsCheckerOnly] = useState(false)
+    const [storefrontMarketplaceAd, setStorefrontMarketplaceAd] = useState(true)
 
     useEffect(() => {
         fetchSettings()
@@ -119,6 +120,7 @@ export default function AdminSettingsPage() {
             setHideExpressMtn(settingsMap.express_mtn_hidden === 'true')
             setHideStandardMtn(settingsMap.standard_mtn_hidden === 'true')
             setResultsCheckerOnly(settingsMap.results_checker_only_mode === 'true')
+            setStorefrontMarketplaceAd(settingsMap.storefront_marketplace_ad_enabled !== 'false')
 
         } catch (error) {
             console.error('Error fetching settings:', error)
@@ -169,6 +171,7 @@ export default function AdminSettingsPage() {
                 { key: 'express_mtn_hidden', value: String(hideExpressMtn) },
                 { key: 'standard_mtn_hidden', value: String(hideStandardMtn) },
                 { key: 'results_checker_only_mode', value: String(resultsCheckerOnly) },
+                { key: 'storefront_marketplace_ad_enabled', value: String(storefrontMarketplaceAd) },
                 // Classifieds boost fees
                 { key: 'classifieds_boost_fee_7d', value: settings['classifieds_boost_fee_7d'] || '' },
                 { key: 'classifieds_boost_fee_14d', value: settings['classifieds_boost_fee_14d'] || '' },
@@ -879,6 +882,23 @@ export default function AdminSettingsPage() {
                                     checked={pageAccessStorefront}
                                     onCheckedChange={setPageAccessStorefront}
                                     className="data-[state=checked]:bg-emerald-500"
+                                />
+                            </div>
+
+                            <div className="flex items-center justify-between p-4 border rounded-lg border-amber-100 dark:border-amber-900 bg-amber-50/50 dark:bg-amber-900/10">
+                                <div className="space-y-0.5">
+                                    <Label className="text-base text-amber-600 dark:text-amber-500 font-bold flex items-center gap-2">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-store"><path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7" /><path d="M4 12v8a2 2 0 0 0 2 2h2" /><path d="M20 12v8a2 2 0 0 1-2 2h-2" /><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4" /><path d="M2 7h20" /><path d="M22 7v3a2 2 0 0 1-2 2v0a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 16 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 12 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 8 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 4 12v0a2 2 0 0 1-2-2V7" /></svg>
+                                        Marketplace Ad on Storefronts
+                                    </Label>
+                                    <p className="text-sm text-amber-700/70 dark:text-amber-300/70 font-medium">
+                                        Shows a &quot;Visit our Marketplace to Buy &amp; Sell&quot; promo banner and menu link on every seller storefront
+                                    </p>
+                                </div>
+                                <Switch
+                                    checked={storefrontMarketplaceAd}
+                                    onCheckedChange={setStorefrontMarketplaceAd}
+                                    className="data-[state=checked]:bg-amber-500"
                                 />
                             </div>
                         </CardContent>

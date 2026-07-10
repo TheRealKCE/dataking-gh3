@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
 import {
     Phone, Mail, MessageCircle, ShoppingCart, Loader2,
     CheckCircle2, AlertCircle, X, Search, Zap, Smartphone, ChevronDown, Check, Menu, Bell,
-    History, TrendingUp, Coins, Calendar, CalendarRange, RefreshCw, Info, Clock, Copy, ArrowRight, AlertTriangle, Users, Target, Sparkles, Download, Share2, GraduationCap
+    History, TrendingUp, Coins, Calendar, CalendarRange, RefreshCw, Info, Clock, Copy, ArrowRight, AlertTriangle, Users, Target, Sparkles, Download, Share2, GraduationCap, Store
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
@@ -230,6 +230,10 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
     const isGlobalAirtimeEnabled = adminSettings['storefront_airtime_enabled'] === 'true'
     const isGlobalMashupEnabled = adminSettings['storefront_mashup_enabled'] === 'true'
     const isGlobalRcEnabled = adminSettings['storefront_rc_enabled'] === 'true'
+
+    // Marketplace ad — defaults ON unless an admin explicitly disables it
+    const isMarketplaceAdEnabled = adminSettings['storefront_marketplace_ad_enabled'] !== 'false'
+    const marketplaceUrl = process.env.NEXT_PUBLIC_MARKETPLACE_URL || 'https://marketplace.arhmsgh.com'
     
     const airtimeNetworks = [
         { id: 'MTN', fee: shop.airtime_fee_mtn || 0, enabled: adminSettings['airtime_enabled_mtn'] !== 'false' },
@@ -874,6 +878,15 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                     >
                         <Info className="w-4 h-4" /> About Shop
                     </a>
+                    {isMarketplaceAdEnabled && (
+                        <a
+                            href={marketplaceUrl}
+                            target="_blank" rel="noopener noreferrer"
+                            className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+                        >
+                            <Store className="w-4 h-4 text-[#FFB800]" /> Buy &amp; Sell Marketplace
+                        </a>
+                    )}
                     {shop.whatsapp_number && (
                         <a
                             href={`https://wa.me/${shop.whatsapp_number}?text=Hello, I need help with ${shop.shop_name}`}
@@ -955,6 +968,28 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
             </div>
 
             <div className="max-w-2xl mx-auto px-6 pb-40 -mt-6 relative z-20">
+                {/* Marketplace Ad */}
+                {isMarketplaceAdEnabled && (
+                    <a
+                        href={marketplaceUrl}
+                        target="_blank" rel="noopener noreferrer"
+                        className="group relative flex items-center gap-4 mb-6 w-full rounded-2xl border border-amber-300/40 dark:border-amber-500/20 bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 p-4 shadow-sm overflow-hidden transition-transform hover:scale-[1.01] active:scale-[0.99]"
+                    >
+                        <div className="absolute -right-6 -top-6 w-24 h-24 rounded-full bg-white/10 blur-xl" aria-hidden="true" />
+                        <div className="shrink-0 w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center border border-white/20">
+                            <Store className="w-6 h-6 text-white" />
+                        </div>
+                        <div className="flex-1 min-w-0 text-left">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-white/80">Marketplace</p>
+                            <p className="text-sm sm:text-base font-black text-white leading-tight">Visit our Marketplace to Buy &amp; Sell</p>
+                            <p className="text-[11px] text-white/85 leading-tight mt-0.5">Phones, fashion, electronics &amp; more</p>
+                        </div>
+                        <div className="shrink-0 flex items-center gap-1 rounded-full bg-white/95 text-gray-900 text-xs font-black px-3 py-2 shadow-sm">
+                            Explore <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
+                        </div>
+                    </a>
+                )}
+
                 {/* Need Help Section */}
                 <div className={cn(
                     "grid gap-3 mb-8 w-full",
