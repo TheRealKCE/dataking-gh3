@@ -41,12 +41,12 @@ export async function POST(
         }
 
         // Insert message
-        const { data: newMessage, error: insertError } = await supabaseUserClient
-            .from('marketplace_conversation_messages')
+        const { data: newMessage, error: insertError } = await (supabaseUserClient
+            .from('marketplace_messages') as any)
             .insert({
                 conversation_id: id,
-                user_id: user.id,
-                message: message.trim(),
+                sender_id: user.id,
+                body: message.trim(),
             })
             .select()
             .single()

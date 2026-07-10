@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
-import { Eye, EyeOff, Loader2, LogIn, Mail, Lock, Store, ExternalLink, AlertCircle } from 'lucide-react'
+import { Eye, EyeOff, Loader2, LogIn, Mail, Lock, Store, ExternalLink, AlertCircle, ShoppingBag } from 'lucide-react'
 import { toast } from 'sonner'
 import { BackgroundBubbles } from '@/components/background-bubbles'
 import { FloatingWhatsApp } from '@/components/floating-whatsapp'
@@ -184,6 +184,16 @@ export default function LoginPage() {
                             >
                                 <Link href="/auth/signup">
                                     Create New Account
+                                </Link>
+                            </Button>
+
+                            <Button
+                                asChild
+                                className="h-14 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black uppercase tracking-widest text-xs transition-all group"
+                            >
+                                <Link href="/classifieds/become-seller">
+                                    <ShoppingBag className="w-4 h-4 mr-2" />
+                                    Become a Seller
                                 </Link>
                             </Button>
 

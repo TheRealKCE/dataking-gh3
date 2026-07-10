@@ -33,7 +33,7 @@ export async function POST(request: NextRequest) {
         // Verify listing exists
         const { data: listing, error: listingError } = await supabaseUserClient
             .from('classified_listings')
-            .select('id, user_id')
+            .select('id, seller_id')
             .eq('id', listing_id)
             .single()
 
@@ -45,7 +45,7 @@ export async function POST(request: NextRequest) {
         let buyerId: string
         let sellerId: string
 
-        if (listing.user_id === user.id) {
+        if ((listing as any).seller_id === user.id) {
             // Current user is seller, other user is buyer
             sellerId = user.id
             buyerId = other_user_id
