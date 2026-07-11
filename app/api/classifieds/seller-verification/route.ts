@@ -12,11 +12,9 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        const isSeller = await verifySellerAuth(userId)
-        if (!isSeller) {
-            return NextResponse.json({ error: 'Only sellers can view verification status' }, { status: 403 })
-        }
-
+        // Any authenticated user may view their own verification status — this
+        // page is the entry point to *becoming* a verified seller, so we must
+        // not gate it behind already being a flagged seller.
         const status = await getSellerVerificationStatus(userId)
 
         return NextResponse.json({

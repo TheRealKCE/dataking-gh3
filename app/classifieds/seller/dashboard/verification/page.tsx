@@ -41,11 +41,12 @@ export default function SellerVerificationPage() {
                     headers: { 'Authorization': `Bearer ${session.access_token}` },
                 })
 
+                const data = await res.json().catch(() => null)
+
                 if (!res.ok) {
-                    throw new Error('Failed to load verification status')
+                    throw new Error(data?.error || 'Failed to load verification status')
                 }
 
-                const data = await res.json()
                 setStatus(data)
             } catch (error: any) {
                 console.error('Error loading verification status:', error)
