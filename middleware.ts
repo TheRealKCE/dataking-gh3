@@ -444,7 +444,9 @@ export async function middleware(request: NextRequest) {
     // Protected dashboard routes
     if (pathname.startsWith('/dashboard')) {
         if (!authUser) {
-            return addNoCacheHeaders(NextResponse.redirect(new URL('/auth/login', request.url)))
+            // Sub-agents use the de-branded portal login, not the main ARHMS login.
+            const loginPath = pathname.startsWith('/dashboard/sub') ? '/portal/login' : '/auth/login'
+            return addNoCacheHeaders(NextResponse.redirect(new URL(loginPath, request.url)))
         }
 
         // Phone verification guard — redirect if phone not set or not verified.
