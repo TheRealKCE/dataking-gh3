@@ -17,6 +17,7 @@ import { useUI } from '@/contexts/ui-context'
 import { SuspendedAccount } from '@/components/dashboard/SuspendedAccount'
 import { CopyrightFooter } from '@/components/CopyrightFooter'
 import { SystemAnnouncementModal } from '@/components/system-announcement-modal'
+import { SubSidebar } from '@/components/sub-portal/sub-sidebar'
 
 
 export default function DashboardLayout({
@@ -107,11 +108,17 @@ export default function DashboardLayout({
         )
     }
 
-    // De-branded sub-agent portal: render the page on its own, with none of the
-    // main app's sidebar/header/navigation. The sub dashboard supplies its own
-    // (shop-branded) header. Auth + profile guards above still apply.
+    // De-branded sub-agent portal: its own shop-branded sidebar, none of the
+    // main ARHMS chrome. Auth + profile guards above still apply.
     if (isSubPortal) {
-        return <main className="min-h-screen bg-gray-50">{children}</main>
+        return (
+            <div className="min-h-screen bg-gray-50">
+                <SubSidebar />
+                <div className="lg:pl-64">
+                    <main className="min-h-screen pt-14 lg:pt-0">{children}</main>
+                </div>
+            </div>
+        )
     }
 
     const isSuspended = dbUser?.status === 'suspended' && (dbUser?.role === 'agent' || dbUser?.role === 'customer')
