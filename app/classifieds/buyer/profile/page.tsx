@@ -34,6 +34,12 @@ export default function ProfilePage() {
         [dbUser?.first_name, dbUser?.last_name].filter(Boolean).join(' ').trim() || 'Guest'
     const initials =
         (dbUser?.first_name?.[0] ?? '') + (dbUser?.last_name?.[0] ?? '') || 'G'
+    // OAuth users get a synthetic 'oauth_<id>' placeholder phone until they add a
+    // real number (become-seller / phone-setup) — never show it as their phone.
+    const realPhone =
+        dbUser?.phone_number && !dbUser.phone_number.startsWith('oauth_')
+            ? dbUser.phone_number
+            : ''
 
     const handleSignOut = async () => {
         await signOut()
@@ -84,10 +90,10 @@ export default function ProfilePage() {
                     <h1 className="truncate text-xl font-black text-gray-900 dark:text-white">
                         {fullName}
                     </h1>
-                    {dbUser.phone_number && (
+                    {realPhone && (
                         <p className="mt-0.5 flex items-center gap-1.5 truncate text-sm text-gray-500 dark:text-gray-400">
                             <Phone className="h-3.5 w-3.5 flex-shrink-0" />
-                            {dbUser.phone_number}
+                            {realPhone}
                         </p>
                     )}
                     {dbUser.email && (

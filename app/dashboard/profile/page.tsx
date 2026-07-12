@@ -77,10 +77,13 @@ export default function ProfilePage() {
 
     useEffect(() => {
         if (dbUser) {
+            // OAuth users carry an 'oauth_<id>' placeholder phone until they set a
+            // real one — show an empty field, not the placeholder.
+            const phone = dbUser.phone_number || ''
             setFormData({
                 first_name: dbUser.first_name || '',
                 last_name: dbUser.last_name || '',
-                phone_number: dbUser.phone_number || '',
+                phone_number: phone.startsWith('oauth_') ? '' : phone,
             })
         }
     }, [dbUser])
