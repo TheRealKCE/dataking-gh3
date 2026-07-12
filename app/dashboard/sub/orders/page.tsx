@@ -55,14 +55,14 @@ export default function SubOrdersPage() {
 
   return (
     <div className="max-w-3xl mx-auto p-4 space-y-4">
-      <h1 className="text-2xl font-bold text-gray-900">My Orders</h1>
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">My Orders</h1>
 
       {loading ? (
-        <div className="text-center py-16 text-gray-500">Loading orders…</div>
+        <div className="text-center py-16 text-gray-500 dark:text-gray-400">Loading orders…</div>
       ) : orders.length === 0 ? (
-        <div className="bg-white rounded-lg shadow p-10 text-center text-gray-500">
+        <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-10 text-center text-gray-500 dark:text-gray-400">
           <p className="text-4xl mb-3">📭</p>
-          <p className="font-semibold text-gray-900">No orders yet</p>
+          <p className="font-semibold text-gray-900 dark:text-gray-100">No orders yet</p>
           <p className="text-sm">Your purchases will show up here.</p>
         </div>
       ) : (
@@ -70,23 +70,23 @@ export default function SubOrdersPage() {
           {orders.map((o) => (
             <div
               key={o.id}
-              className="bg-white rounded-lg shadow p-4 flex items-center justify-between gap-4"
+              className="bg-white dark:bg-gray-900 rounded-lg shadow p-4 flex items-center justify-between gap-4"
             >
               <div className="min-w-0">
-                <p className="font-semibold text-gray-900 truncate">
+                <p className="font-semibold text-gray-900 dark:text-gray-100 truncate">
                   {o.network ? `${o.network} · ` : ''}
                   {bundleOf(o)}
                 </p>
-                <p className="text-sm text-gray-500 truncate">
+                <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
                   {recipientOf(o) && `${recipientOf(o)} · `}
                   {o.created_at ? new Date(o.created_at).toLocaleDateString() : ''}
                 </p>
               </div>
               <div className="text-right shrink-0">
-                <p className="font-bold text-gray-900">₵{amountOf(o).toFixed(2)}</p>
+                <p className="font-bold text-gray-900 dark:text-gray-100">₵{amountOf(o).toFixed(2)}</p>
                 <span
                   className={`inline-block mt-1 text-xs font-semibold px-2 py-0.5 rounded-full ${
-                    statusStyles[o.status || ''] || 'bg-gray-100 text-gray-600'
+                    statusStyles[o.status || ''] || 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'
                   }`}
                 >
                   {o.status || 'unknown'}

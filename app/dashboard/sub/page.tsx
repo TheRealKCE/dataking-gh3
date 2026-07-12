@@ -115,7 +115,7 @@ export default function SubDashboard() {
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="text-gray-600 mt-2">Loading dashboard...</p>
+          <p className="text-gray-600 dark:text-gray-400 mt-2">Loading dashboard...</p>
         </div>
       </div>
     )
@@ -142,11 +142,11 @@ export default function SubDashboard() {
             className="h-12 mb-4"
           />
         )}
-        <h1 className="text-3xl font-bold text-gray-900">
+        <h1 className="text-3xl font-bold text-gray-900 dark:text-gray-100 dark:text-gray-100">
           {data?.status === 'pending' ? '⏳ Pending Approval' : 'Welcome Back'}
         </h1>
         {data?.status === 'pending' && (
-          <p className="text-gray-600 mt-2">
+          <p className="text-gray-600 dark:text-gray-400 mt-2">
             Your account is waiting for approval from <strong>{data.uplineShop.shopName}</strong>.
             You can start using your wallet once approved.
           </p>
@@ -179,13 +179,13 @@ export default function SubDashboard() {
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4">
-        <div className="bg-white rounded-lg shadow p-4">
-          <p className="text-gray-600 text-sm">Total Earned</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">₵{(data?.totalEarned || 0).toFixed(2)}</p>
+        <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-4">
+          <p className="text-gray-600 dark:text-gray-400 text-sm">Total Earned</p>
+          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 dark:text-gray-100 mt-1">₵{(data?.totalEarned || 0).toFixed(2)}</p>
         </div>
-        <div className="bg-white rounded-lg shadow p-4">
-          <p className="text-gray-600 text-sm">Total Withdrawn</p>
-          <p className="text-2xl font-bold text-gray-900 mt-1">₵{(data?.totalWithdrawn || 0).toFixed(2)}</p>
+        <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-4">
+          <p className="text-gray-600 dark:text-gray-400 text-sm">Total Withdrawn</p>
+          <p className="text-2xl font-bold text-gray-900 dark:text-gray-100 dark:text-gray-100 mt-1">₵{(data?.totalWithdrawn || 0).toFixed(2)}</p>
         </div>
       </div>
 
@@ -193,44 +193,44 @@ export default function SubDashboard() {
       <div className="grid grid-cols-3 gap-3">
         <a
           href="/dashboard/my-orders"
-          className="bg-white rounded-lg shadow p-4 text-center hover:shadow-md transition"
+          className="bg-white dark:bg-gray-900 rounded-lg shadow p-4 text-center hover:shadow-md transition"
         >
           <p className="text-2xl mb-2">📋</p>
-          <p className="font-semibold text-gray-900">My Orders</p>
-          <p className="text-sm text-gray-600">View order history</p>
+          <p className="font-semibold text-gray-900 dark:text-gray-100">My Orders</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400">View order history</p>
         </a>
 
         <a
           href="/dashboard/profile"
-          className="bg-white rounded-lg shadow p-4 text-center hover:shadow-md transition"
+          className="bg-white dark:bg-gray-900 rounded-lg shadow p-4 text-center hover:shadow-md transition"
         >
           <p className="text-2xl mb-2">⚙️</p>
-          <p className="font-semibold text-gray-900">Settings</p>
-          <p className="text-sm text-gray-600">Update profile</p>
+          <p className="font-semibold text-gray-900 dark:text-gray-100">Settings</p>
+          <p className="text-sm text-gray-600 dark:text-gray-400">Update profile</p>
         </a>
 
         {brand?.uplineShopSlug && (
           <a
             href={`/shop/${brand.uplineShopSlug}`}
-            className="bg-white rounded-lg shadow p-4 text-center hover:shadow-md transition"
+            className="bg-white dark:bg-gray-900 rounded-lg shadow p-4 text-center hover:shadow-md transition"
           >
             <p className="text-2xl mb-2">🏪</p>
-            <p className="font-semibold text-gray-900">Shop</p>
-            <p className="text-sm text-gray-600">Visit storefront</p>
+            <p className="font-semibold text-gray-900 dark:text-gray-100">Shop</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">Visit storefront</p>
           </a>
         )}
       </div>
 
       {/* Support Info */}
       {data?.uplineShop.contactPhone && (
-        <div className="bg-gray-50 rounded-lg p-4 text-center text-sm text-gray-600">
+        <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 text-center text-sm text-gray-600 dark:text-gray-400">
           <p>Need help? Contact your Lead</p>
-          <p className="font-semibold text-gray-900">{data.uplineShop.contactPhone}</p>
+          <p className="font-semibold text-gray-900 dark:text-gray-100">{data.uplineShop.contactPhone}</p>
         </div>
       )}
 
       {/* Platform Attribution */}
-      <div className="text-center text-xs text-gray-500 pt-4 border-t">
+      <div className="text-center text-xs text-gray-500 dark:text-gray-400 pt-4 border-t">
         Powered by {brand?.isPlatform ? 'ARHMS' : brand?.shopName || 'ARHMS'}
       </div>
 
@@ -239,7 +239,7 @@ export default function SubDashboard() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
             <div className="flex items-start justify-between">
-              <h2 className="text-xl font-bold text-gray-900">Withdraw Funds</h2>
+              <h2 className="text-xl font-bold text-gray-900 dark:text-gray-100 dark:text-gray-100">Withdraw Funds</h2>
               <button
                 onClick={() => setShowWithdraw(false)}
                 className="text-gray-400 hover:text-gray-600"
@@ -248,9 +248,9 @@ export default function SubDashboard() {
                 ✕
               </button>
             </div>
-            <p className="mt-1 text-sm text-gray-600">
+            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
               Available balance:{' '}
-              <span className="font-semibold text-gray-900">
+              <span className="font-semibold text-gray-900 dark:text-gray-100">
                 ₵{(data?.walletBalance || 0).toFixed(2)}
               </span>
             </p>

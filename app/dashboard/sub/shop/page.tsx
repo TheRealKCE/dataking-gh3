@@ -90,11 +90,13 @@ export default function SubShopPage() {
   }
 
   const inputCls =
-    'w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none'
-  const labelCls = 'block text-sm font-medium text-gray-700 mb-2'
+    'w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100'
+  const labelCls = 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2'
+  const btnOutline =
+    'px-5 py-2 rounded-lg border border-gray-300 dark:border-gray-700 font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800'
 
   if (loading) {
-    return <div className="max-w-2xl mx-auto p-4 text-center text-gray-500 py-16">Loading…</div>
+    return <div className="max-w-2xl mx-auto p-4 text-center text-gray-500 dark:text-gray-400 py-16">Loading…</div>
   }
 
   // ── Manage existing shop ──────────────────────────────────────────────
@@ -103,12 +105,12 @@ export default function SubShopPage() {
     const live = shop.approval_status === 'approved' && shop.is_active
     return (
       <div className="max-w-2xl mx-auto p-4 space-y-6">
-        <h1 className="text-2xl font-bold text-gray-900">My Shop</h1>
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">My Shop</h1>
 
-        <div className="bg-white rounded-lg shadow p-6 space-y-4">
+        <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-6 space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-lg font-semibold text-gray-900">{shop.shop_name}</p>
+              <p className="text-lg font-semibold text-gray-900 dark:text-gray-100">{shop.shop_name}</p>
               <span
                 className={`inline-block mt-1 text-xs font-semibold px-2 py-0.5 rounded-full ${
                   live ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
@@ -123,10 +125,10 @@ export default function SubShopPage() {
           <div>
             <p className={labelCls}>Your storefront link</p>
             <div className="flex gap-2">
-              <input readOnly value={url} className={`${inputCls} bg-gray-50`} />
+              <input readOnly value={url} className={`${inputCls} bg-gray-50 dark:bg-gray-800`} />
               <button
                 onClick={() => navigator.clipboard?.writeText(url)}
-                className="px-4 py-2 rounded-lg border border-gray-300 text-sm font-semibold hover:bg-gray-50"
+                className="px-4 py-2 rounded-lg border border-gray-300 dark:border-gray-700 text-sm font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800"
               >
                 Copy
               </button>
@@ -142,16 +144,10 @@ export default function SubShopPage() {
             >
               Visit storefront
             </a>
-            <a
-              href="/dashboard/shop/pricing"
-              className="px-5 py-2 rounded-lg border border-gray-300 font-semibold text-gray-700 hover:bg-gray-50"
-            >
+            <a href="/dashboard/shop/pricing" className={btnOutline}>
               Set your prices
             </a>
-            <a
-              href="/dashboard/shop/setup"
-              className="px-5 py-2 rounded-lg border border-gray-300 font-semibold text-gray-700 hover:bg-gray-50"
-            >
+            <a href="/dashboard/shop/setup" className={btnOutline}>
               Edit shop
             </a>
           </div>
@@ -164,13 +160,13 @@ export default function SubShopPage() {
   return (
     <div className="max-w-2xl mx-auto p-4 space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Create your shop</h1>
-        <p className="text-gray-600 mt-1">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Create your shop</h1>
+        <p className="text-gray-600 dark:text-gray-400 mt-1">
           Set up your own storefront to sell data & airtime to your customers.
         </p>
       </div>
 
-      <form onSubmit={create} className="bg-white rounded-lg shadow p-6 space-y-4">
+      <form onSubmit={create} className="bg-white dark:bg-gray-900 rounded-lg shadow p-6 space-y-4">
         {error && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-red-800 text-sm">{error}</div>
         )}
@@ -183,7 +179,7 @@ export default function SubShopPage() {
         <div>
           <label className={labelCls}>Storefront link</label>
           <div className="flex items-center gap-1">
-            <span className="text-sm text-gray-500 whitespace-nowrap">{origin}/shop/</span>
+            <span className="text-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">{origin}/shop/</span>
             <input
               value={slug}
               onChange={(e) => {
@@ -194,7 +190,7 @@ export default function SubShopPage() {
               className={inputCls}
             />
           </div>
-          <p className="text-xs text-gray-500 mt-1">Lowercase letters, numbers and hyphens only.</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">Lowercase letters, numbers and hyphens only.</p>
         </div>
 
         <div>
