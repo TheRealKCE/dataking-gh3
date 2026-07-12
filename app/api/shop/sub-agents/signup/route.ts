@@ -14,21 +14,49 @@ try {
   console.error('[SubAgentSignup] Redis init failed:', e)
 }
 
+/** A Postgres/GoTrue error caused by the users.phone_number unique index. */
+function isDuplicatePhoneError(message?: string | null): boolean {
+  if (!message) return false
+  const m = message.toLowerCase()
+  return m.includes('users_phone_number_unique') || m.includes('duplicate key')
+}
+
+/** A GoTrue error raised when the email is already registered. */
+function isEmailExistsError(message?: string | null): boolean {
+  if (!message) return false
+  const m = message.toLowerCase()
+  return (
+    m.includes('already been registered') ||
+    m.includes('already registered') ||
+    m.includes('email_exists') ||
+    m.includes('user already exists')
+  )
+}
+
 /**
  * POST /api/shop/sub-agents/signup
  *
  * Sub-agent signup:
  *   1. Validate invite code
- *   2. Create Supabase Auth user (email + password)
- *   3. Create users table row
- *   4. Create sub_agents row (status='pending', awaiting Lead approval)
- *   5. Increment invite usage
+ *   2. Create the Supabase Auth user via the admin API (email auto-confirmed).
+ *      The `on_auth_user_created` trigger creates the public.users row from the
+ *      metadata we pass (including phone_number), so we do NOT insert users here.
+ *   3. Create the sub_agents row (status='pending', awaiting Lead approval).
+ *      Idempotent: a returning user who already has a row gets their real status
+ *      back instead of a hard error.
+ *   4. Increment invite usage
+ *
+ * We use `auth.admin.createUser` (not `auth.signUp`): signUp on a service-role
+ * client silently returns an existing/obfuscated user for a returning email —
+ * no error — so the flow used to march on and die at the sub_agents insert.
  *
  * Rate-limited to 3 signups per hour per IP (prevent abuse)
  */
 export async function POST(request: NextRequest) {
   try {
-    const { email, password, phone, inviteId, shopId } = await request.json()
+    const body = await request.json()
+    const email = String(body.email || '').trim().toLowerCase()
+    const { password, phone, inviteId, shopId } = body
 
     // Validation
     if (!email || !password || !phone || !inviteId || !shopId) {
@@ -107,54 +135,91 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // 2. Create Supabase Auth user
-    const { data: authData, error: authError } = await supabase.auth.signUp({
+    // 2. Create (or resolve) the auth user. The `on_auth_user_created` trigger
+    //    (supabase/triggers.sql -> handle_new_user) reads `phone_number` from the
+    //    metadata below and inserts the public.users row for us — so there is no
+    //    separate users insert here. email_confirm skips the confirmation email
+    //    (approval is gated by the Lead, not email verification).
+    let userId: string | null = null
+    let createdNewAuthUser = false
+
+    const { data: created, error: createErr } = await supabase.auth.admin.createUser({
       email,
       password,
-      options: {
-        emailRedirectTo: `${process.env.NEXT_PUBLIC_SITE_URL}/auth/callback`,
-      },
+      email_confirm: true,
+      user_metadata: { first_name: '', last_name: '', phone_number: cleanPhone },
     })
 
-    if (authError || !authData?.user) {
-      console.error('[SubAgentSignup] Auth error:', authError)
-      return NextResponse.json(
-        { error: authError?.message || 'Failed to create account' },
-        { status: 500 }
-      )
+    if (createErr || !created?.user) {
+      const message = createErr?.message || ''
+
+      // The phone belongs to a DIFFERENT account (trigger's NOT NULL UNIQUE fired).
+      if (isDuplicatePhoneError(message)) {
+        const { data: phoneOwner } = await supabase
+          .from('users')
+          .select('email')
+          .eq('phone_number', cleanPhone)
+          .maybeSingle()
+        if (phoneOwner && phoneOwner.email !== email) {
+          return NextResponse.json(
+            { error: 'This phone number is already registered. Please log in instead.' },
+            { status: 409 }
+          )
+        }
+      }
+
+      // Email already registered → resolve the existing account and continue
+      // enrolling it as a sub-agent (idempotent retry of a half-finished signup).
+      // They re-submitted the form with a password, so re-affirm it.
+      if (isEmailExistsError(message)) {
+        const { data: existing } = await supabase
+          .from('users')
+          .select('id')
+          .eq('email', email)
+          .maybeSingle()
+        if (existing?.id) {
+          userId = existing.id
+          await supabase.auth.admin.updateUserById(userId, {
+            password,
+            email_confirm: true,
+          })
+        }
+      }
+
+      if (!userId) {
+        console.error('[SubAgentSignup] createUser error:', message)
+        return NextResponse.json(
+          { error: 'Failed to create account' },
+          { status: 500 }
+        )
+      }
+    } else {
+      userId = created.user.id
+      createdNewAuthUser = true
     }
 
-    const userId = authData.user.id
+    // 3. Create the sub_agents row (status='pending', awaiting Lead approval).
+    //    Idempotent: if one already exists (a prior attempt got this far), surface
+    //    the real status instead of the confusing "Failed to create" error.
+    const { data: existingSub } = await supabase
+      .from('sub_agents')
+      .select('id, status')
+      .eq('user_id', userId)
+      .maybeSingle()
 
-    // 3. Ensure the users table row. The `on_auth_user_created` trigger
-    //    (supabase/triggers.sql -> handle_new_user) ALREADY inserts a
-    //    public.users row when the auth user is created above, so a plain
-    //    INSERT here collides on the primary key and fails ("Failed to create
-    //    user record"). Upsert on `id` updates that trigger-created row (and
-    //    still inserts if the trigger is somehow absent), setting the phone.
-    const { error: userCreateError } = await supabase
-      .from('users')
-      .upsert({
-        id: userId,
-        email,
-        phone_number: cleanPhone,
-        first_name: '',
-        last_name: '',
-        role: 'customer', // Subs start as customers, auto-upgraded on approval
-        status: 'active',
-      }, { onConflict: 'id' })
-
-    if (userCreateError) {
-      console.error('[SubAgentSignup] User create error:', userCreateError)
-      // Clean up auth user if users insert fails
-      await supabase.auth.admin.deleteUser(userId)
-      return NextResponse.json(
-        { error: 'Failed to create user record' },
-        { status: 500 }
-      )
+    if (existingSub) {
+      return NextResponse.json({
+        success: true,
+        alreadyRegistered: true,
+        message:
+          existingSub.status === 'active'
+            ? 'Your account is already active. Please log in.'
+            : 'You have already signed up. Your account is pending approval from your Lead.',
+        userId,
+        phone: cleanPhone,
+      })
     }
 
-    // 4. Create sub_agents row (status='pending', awaiting Lead approval)
     const { error: subCreateError } = await supabase
       .from('sub_agents')
       .insert({
@@ -166,16 +231,18 @@ export async function POST(request: NextRequest) {
 
     if (subCreateError) {
       console.error('[SubAgentSignup] Sub create error:', subCreateError)
-      // Clean up auth + users if sub insert fails
-      await supabase.auth.admin.deleteUser(userId)
-      await supabase.from('users').delete().eq('id', userId)
+      // Only roll back the account if THIS request created it — never delete a
+      // pre-existing user. Deleting the auth user cascades to public.users.
+      if (createdNewAuthUser) {
+        await supabase.auth.admin.deleteUser(userId)
+      }
       return NextResponse.json(
         { error: 'Failed to create sub-agent record' },
         { status: 500 }
       )
     }
 
-    // 5. Increment invite usage
+    // 4. Increment invite usage
     await supabase
       .from('shop_invites')
       .update({ used_count: (invite.used_count || 0) + 1 })
