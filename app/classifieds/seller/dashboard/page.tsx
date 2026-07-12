@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Button } from '@/components/ui/button'
-import { Loader2, Zap, AlertCircle, Plus, CheckCircle } from 'lucide-react'
+import { Loader2, Zap, AlertCircle, Plus, CheckCircle, ArrowLeft } from 'lucide-react'
 import { BoostModal } from '@/components/classifieds/boost-modal'
 import { ClassifiedsSellerSidebar } from '@/components/classifieds/seller-sidebar'
 import { useAuth } from '@/contexts/auth-context'
@@ -14,12 +14,15 @@ import type { ClassifiedListing } from '@/types/supabase'
 export default function SellerDashboardPage() {
     const router = useRouter()
     const searchParams = useSearchParams()
-    const { user, session, isLoading: authLoading } = useAuth()
+    const { user, session, isSeller, isLoading: authLoading, refreshUser } = useAuth()
     const [listings, setListings] = useState<ClassifiedListing[]>([])
     const [isLoading, setIsLoading] = useState(true)
     const [selectedListingId, setSelectedListingId] = useState<string | null>(null)
     const [boostModalOpen, setBoostModalOpen] = useState(false)
     const [showSuccessMessage, setShowSuccessMessage] = useState(false)
+    // One-shot guard: only ever attempt seller-enable once per mount, so a failed
+    // request (network, etc.) can't spin the effect into an infinite retry loop.
+    const sellerEnableAttempted = useRef(false)
 
     useEffect(() => {
         // Wait for the auth context to finish hydrating before deciding — otherwise
@@ -29,6 +32,35 @@ export default function SellerDashboardPage() {
             router.push('/classifieds/auth/login?redirect=/classifieds/seller/dashboard')
         }
     }, [authLoading, user, router])
+
+    // Google sign-in returns buyers here as authenticated-but-not-yet-a-seller.
+    // Flip on their seller status once, then refresh so the rest of the app
+    // (SELL button, listings) treats them as a seller. Enable takes no phone number.
+    useEffect(() => {
+        if (authLoading || !user || isSeller || !session?.access_token) return
+        if (sellerEnableAttempted.current) return
+        sellerEnableAttempted.current = true
+
+        fetch('/api/classifieds/seller/enable', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: `Bearer ${session.access_token}`,
+            },
+            body: JSON.stringify({}),
+        })
+            .then(async (res) => {
+                if (!res.ok) {
+                    const data = await res.json().catch(() => ({}))
+                    throw new Error(data.error || 'Could not enable selling')
+                }
+                await refreshUser()
+            })
+            .catch((err) => {
+                console.error('[SellerDashboard] enable failed:', err)
+                toast.error('Could not set up your seller account. Please try again.')
+            })
+    }, [authLoading, user, isSeller, session?.access_token, refreshUser])
 
     // Handle boost success/error messages
     useEffect(() => {
@@ -137,6 +169,15 @@ export default function SellerDashboardPage() {
             {/* Header */}
             <div className="bg-white dark:bg-[#151c2c] border-b border-gray-100 dark:border-gray-800">
                 <div className="max-w-6xl mx-auto px-6 py-8">
+                    {/* Back to marketplace — the desktop sidebar has its own link, so
+                        only show this on mobile where the sidebar is hidden. */}
+                    <Link
+                        href="/classifieds"
+                        className="lg:hidden inline-flex items-center gap-2 text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white mb-4"
+                    >
+                        <ArrowLeft className="w-4 h-4" />
+                        <span className="text-sm font-medium">Browse Marketplace</span>
+                    </Link>
                     <div className="flex items-center justify-between gap-4">
                         <div>
                             <h1 className="text-3xl font-black text-gray-900 dark:text-white">
