@@ -59,7 +59,11 @@ export async function GET(request: NextRequest) {
       totalWithdrawn: wallet?.total_withdrawn || 0,
       uplineShop: {
         shopName: (subAgent.shop_profiles as any)?.shop_name || 'Your Lead',
-        contactPhone: (subAgent.shop_profiles as any)?.owner_phone,
+        // `owner_phone:owner_id(phone_number)` is a to-one embed, so it comes
+        // back as an object { phone_number }. Extract the string — the dashboard
+        // renders contactPhone directly, and rendering the object crashes React
+        // (error #31: "Objects are not valid as a React child").
+        contactPhone: (subAgent.shop_profiles as any)?.owner_phone?.phone_number || null,
       },
       brandConfig,
     })
