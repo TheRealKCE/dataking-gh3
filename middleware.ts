@@ -476,6 +476,31 @@ export async function middleware(request: NextRequest) {
                 console.error('[Middleware] Phone verification check failed, failing open:', error)
             }
         }
+
+        // Sub-agents land on their own de-branded dashboard, not the main buyer
+        // dashboard. Only the exact /dashboard landing is redirected (their home);
+        // other /dashboard/* pages stay reachable, and /dashboard/sub is exempt so
+        // there is no redirect loop. Fails open on any error/timeout.
+        if (pathname === '/dashboard') {
+            try {
+                const subTimeout = new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('Sub check timeout')), 5000)
+                )
+                const subQuery = supabase
+                    .from('sub_agents')
+                    .select('id')
+                    .eq('user_id', authUser.id)
+                    .maybeSingle()
+
+                const { data: sub } = await Promise.race([subQuery, subTimeout]) as any
+
+                if (sub) {
+                    return addNoCacheHeaders(NextResponse.redirect(new URL('/dashboard/sub', request.url)))
+                }
+            } catch (error) {
+                console.error('[Middleware] Sub-agent check failed, failing open:', error)
+            }
+        }
     }
 
     // Protected admin routes (UI and API)
