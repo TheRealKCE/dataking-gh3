@@ -16,6 +16,7 @@ import {
   LayoutDashboard,
   ShoppingCart,
   Store,
+  Tag,
   User,
   ExternalLink,
   LogOut,
@@ -31,6 +32,7 @@ const NAV = [
   { href: '/dashboard/sub', label: 'Dashboard', icon: LayoutDashboard, exact: true },
   { href: '/dashboard/sub/orders', label: 'My Orders', icon: ShoppingCart },
   { href: '/dashboard/sub/shop', label: 'My Shop', icon: Store },
+  { href: '/dashboard/sub/pricing', label: 'Pricing', icon: Tag },
   { href: '/dashboard/sub/profile', label: 'Profile', icon: User },
 ]
 
