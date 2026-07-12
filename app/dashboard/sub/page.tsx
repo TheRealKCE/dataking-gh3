@@ -128,7 +128,7 @@ export default function SubDashboard() {
       {/* Quick Actions */}
       <div className="grid grid-cols-3 gap-3">
         <a
-          href="/dashboard/sub/orders"
+          href="/dashboard/my-orders"
           className="bg-white rounded-lg shadow p-4 text-center hover:shadow-md transition"
         >
           <p className="text-2xl mb-2">📋</p>
@@ -137,7 +137,7 @@ export default function SubDashboard() {
         </a>
 
         <a
-          href="/dashboard/sub/settings"
+          href="/dashboard/profile"
           className="bg-white rounded-lg shadow p-4 text-center hover:shadow-md transition"
         >
           <p className="text-2xl mb-2">⚙️</p>
