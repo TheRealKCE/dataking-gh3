@@ -109,7 +109,7 @@ export function SubAgentSignupForm({
         )}
 
         <button
-          onClick={() => (window.location.href = '/auth/login')}
+          onClick={() => (window.location.href = '/portal/login')}
           className="mt-4 w-full px-4 py-2 rounded-lg text-white font-semibold"
           style={{ backgroundColor: brandColor }}
         >

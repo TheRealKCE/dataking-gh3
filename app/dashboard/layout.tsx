@@ -56,7 +56,12 @@ export default function DashboardLayout({
     const rcRestricted = resultsCheckerOnly && !isAdmin && !isSubAdmin
     const rcPathAllowed =
         (pathname?.startsWith('/dashboard/results-checker') ||
-            pathname?.startsWith('/dashboard/wallet')) ?? false
+            pathname?.startsWith('/dashboard/wallet') ||
+            pathname?.startsWith('/dashboard/sub')) ?? false
+
+    // Sub-agents use a de-branded portal, so the main ARHMS chrome (sidebar,
+    // header, mobile nav, modals) must not apply to /dashboard/sub.
+    const isSubPortal = pathname?.startsWith('/dashboard/sub') ?? false
 
     useEffect(() => {
         if (rcRestricted && rcSettingLoaded && pathname && !rcPathAllowed) {
@@ -100,6 +105,13 @@ export default function DashboardLayout({
                 </div>
             </div>
         )
+    }
+
+    // De-branded sub-agent portal: render the page on its own, with none of the
+    // main app's sidebar/header/navigation. The sub dashboard supplies its own
+    // (shop-branded) header. Auth + profile guards above still apply.
+    if (isSubPortal) {
+        return <main className="min-h-screen bg-gray-50">{children}</main>
     }
 
     const isSuspended = dbUser?.status === 'suspended' && (dbUser?.role === 'agent' || dbUser?.role === 'customer')
