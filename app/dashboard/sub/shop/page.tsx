@@ -81,7 +81,10 @@ export default function SubShopPage() {
         setSaving(false)
         return
       }
-      if (dbUser?.id) await loadShop(dbUser.id)
+      // Shop created — take them to the full setup page to add description,
+      // branding (logo/banner/colour), contacts and community link.
+      window.location.href = '/dashboard/shop/setup'
+      return
     } catch {
       setError('Something went wrong')
     } finally {
@@ -148,7 +151,7 @@ export default function SubShopPage() {
               Set your prices
             </a>
             <a href="/dashboard/shop/setup" className={btnOutline}>
-              Edit shop
+              Shop details & branding
             </a>
           </div>
         </div>
@@ -162,7 +165,8 @@ export default function SubShopPage() {
       <div>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Create your shop</h1>
         <p className="text-gray-600 dark:text-gray-400 mt-1">
-          Set up your own storefront to sell data & airtime to your customers.
+          Start with the basics — next you'll add your logo, colours, description
+          and contacts. You can sell data & airtime to your own customers.
         </p>
       </div>
 
