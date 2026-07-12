@@ -84,8 +84,8 @@ export default function SubProfilePage() {
   }
 
   const inputCls =
-    'w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none'
-  const labelCls = 'block text-sm font-medium text-gray-700 mb-2'
+    'w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:outline-none dark:bg-gray-800 dark:border-gray-700 dark:text-gray-100'
+  const labelCls = 'block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2'
 
   const Banner = ({ msg }: { msg: { type: 'ok' | 'err'; text: string } | null }) =>
     msg ? (
@@ -102,16 +102,16 @@ export default function SubProfilePage() {
 
   return (
     <div className="max-w-2xl mx-auto p-4 space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">Profile</h1>
+      <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Profile</h1>
 
       {/* Personal details */}
-      <form onSubmit={saveProfile} className="bg-white rounded-lg shadow p-6 space-y-4">
-        <h2 className="font-semibold text-gray-900">Personal details</h2>
+      <form onSubmit={saveProfile} className="bg-white dark:bg-gray-900 rounded-lg shadow p-6 space-y-4">
+        <h2 className="font-semibold text-gray-900 dark:text-gray-100">Personal details</h2>
         <Banner msg={profileMsg} />
 
         <div>
           <label className={labelCls}>Email</label>
-          <input value={dbUser?.email || ''} disabled className={`${inputCls} bg-gray-50 text-gray-500`} />
+          <input value={dbUser?.email || ''} disabled className={`${inputCls} bg-gray-50 dark:bg-gray-800 text-gray-500`} />
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
@@ -142,8 +142,8 @@ export default function SubProfilePage() {
       </form>
 
       {/* Password */}
-      <form onSubmit={savePassword} className="bg-white rounded-lg shadow p-6 space-y-4">
-        <h2 className="font-semibold text-gray-900">Change password</h2>
+      <form onSubmit={savePassword} className="bg-white dark:bg-gray-900 rounded-lg shadow p-6 space-y-4">
+        <h2 className="font-semibold text-gray-900 dark:text-gray-100">Change password</h2>
         <Banner msg={pwMsg} />
         <div>
           <label className={labelCls}>New Password</label>
