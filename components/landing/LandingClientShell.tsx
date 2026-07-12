@@ -29,6 +29,21 @@ import {
     Zap,
 } from 'lucide-react'
 import { BrandLogo } from '@/components/BrandLogo'
+import { ListingCard } from '@/components/marketplace/listing-card'
+
+// Shape of a featured marketplace listing — matches ListingCard's `listing` prop
+// and the columns selected by getFeaturedListings() in app/page.tsx.
+type FeaturedListing = {
+    id: string
+    title: string
+    description: string
+    price_pesewas: number
+    condition: string
+    region?: string
+    created_at: string
+    promotion_tier?: number
+    classified_listing_images?: Array<{ image_url: string; sort_order: number }>
+}
 
 interface LandingClientShellProps {
     initialGuestUrl: string
@@ -36,6 +51,7 @@ interface LandingClientShellProps {
     initialPlanPrices?: Record<TierId, number>
     initialWhatsappGroupLink?: string
     initialWhatsappChannelLink?: string
+    initialFeaturedListings?: FeaturedListing[]
 }
 
 type TierId = '3d' | '14d' | '30d' | 'permanent'
@@ -154,6 +170,7 @@ export function LandingClientShell({
     initialGuestUrl,
     initialAdminPhone,
     initialPlanPrices,
+    initialFeaturedListings = [],
 }: LandingClientShellProps) {
     const router = useRouter()
     const { resolvedTheme } = useTheme()
@@ -225,7 +242,7 @@ export function LandingClientShell({
                     </a>
 
                     <div className="hidden md:flex items-center gap-7">
-                        {[['Products','#features'],['Wallet','#plans'],['Resell','#plans'],['AFA','#support'],['Community','#support']].map(([l,h]) => (
+                        {[['Products','#features'],['Marketplace','#marketplace'],['Wallet','#plans'],['Resell','#plans'],['AFA','#support']].map(([l,h]) => (
                             <a key={l} href={h} className="text-xs font-semibold transition-colors" style={{ color: isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.5)' }}>{l}</a>
                         ))}
                     </div>
@@ -439,6 +456,41 @@ export function LandingClientShell({
                     </div>
                 </div>
             </section>
+
+            {/* ══ MARKETPLACE ═══════════════════════════════════════════════════════ */}
+            {initialFeaturedListings.length > 0 && (
+                <section id="marketplace" className="landing-section py-32 px-6 lg:px-10">
+                    <div className="max-w-7xl mx-auto">
+                        <div className="text-center mb-14 space-y-4">
+                            <h2 className="text-xs font-black uppercase tracking-[0.5em] text-[#059669]">ARHMS Marketplace</h2>
+                            <h3 className="text-4xl md:text-6xl font-black tracking-tighter text-foreground">
+                                Buy &amp; Sell <span className="text-[#059669]">Locally</span> in Ghana
+                            </h3>
+                            <p className="max-w-3xl mx-auto text-muted-foreground font-medium">
+                                Discover great deals from verified sellers near you — or list your own items for free in minutes.
+                            </p>
+                        </div>
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                            {initialFeaturedListings.map((listing) => (
+                                <ListingCard key={listing.id} listing={listing} />
+                            ))}
+                        </div>
+                        <div className="flex flex-col sm:flex-row gap-4 justify-center mt-12">
+                            <Link href="/marketplace-domain">
+                                <Button className="h-12 px-8 rounded-2xl font-black uppercase tracking-widest" style={{ background: '#059669' }}>
+                                    <Store className="w-4 h-4 mr-2" /> Explore Marketplace
+                                </Button>
+                            </Link>
+                            <Link href="/marketplace-domain/browse">
+                                <Button variant="outline" className="h-12 px-8 rounded-2xl font-black uppercase tracking-widest">Browse All Listings</Button>
+                            </Link>
+                            <Link href="/marketplace-domain/sell">
+                                <Button variant="outline" className="h-12 px-8 rounded-2xl font-black uppercase tracking-widest">Start Selling</Button>
+                            </Link>
+                        </div>
+                    </div>
+                </section>
+            )}
 
             {/* ══ HOW IT WORKS ══════════════════════════════════════════════════════ */}
             <section className="dark-mirror-section py-28 px-6 lg:px-10">
