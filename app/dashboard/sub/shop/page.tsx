@@ -147,7 +147,7 @@ export default function SubShopPage() {
             >
               Visit storefront
             </a>
-            <a href="/dashboard/shop/pricing" className={btnOutline}>
+            <a href="/dashboard/sub/pricing" className={btnOutline}>
               Set your prices
             </a>
             <a href="/dashboard/shop/setup" className={btnOutline}>
