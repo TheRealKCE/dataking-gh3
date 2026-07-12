@@ -23,6 +23,9 @@ export interface BrandConfig {
   shopId: string | null
   shopName: string | null
   uplineShopId: string | null
+  // Storefront slugs — the public /shop/[shopSlug] route resolves by slug, NOT id.
+  shopSlug: string | null
+  uplineShopSlug: string | null
 }
 
 /**
@@ -49,6 +52,8 @@ export async function resolveBrandContext(
     shopId: null,
     shopName: null,
     uplineShopId: null,
+    shopSlug: null,
+    uplineShopSlug: null,
   }
 
   try {
@@ -61,6 +66,7 @@ export async function resolveBrandContext(
         upline_shop_id,
         shop_profiles!upline_shop_id(
           id,
+          shop_slug,
           shop_name,
           logo_url,
           brand_color,
@@ -74,7 +80,7 @@ export async function resolveBrandContext(
       // Not a sub — check if they're a shop owner
       const { data: shopOwner } = await supabase
         .from('shop_profiles')
-        .select('id, shop_name, logo_url, brand_color, brand_accent')
+        .select('id, shop_slug, shop_name, logo_url, brand_color, brand_accent')
         .eq('owner_id', userId)
         .single()
 
@@ -90,6 +96,8 @@ export async function resolveBrandContext(
           shopId: shopOwner.id,
           shopName: shopOwner.shop_name,
           uplineShopId: null,
+          shopSlug: shopOwner.shop_slug || null,
+          uplineShopSlug: null,
         }
       }
 
@@ -110,6 +118,8 @@ export async function resolveBrandContext(
         shopId: null, // Sub doesn't own their upline's shop
         shopName: uplineShop.shop_name,
         uplineShopId: uplineShop.id,
+        shopSlug: null,
+        uplineShopSlug: uplineShop.shop_slug || null,
       }
     }
 

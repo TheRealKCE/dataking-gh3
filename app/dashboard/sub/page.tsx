@@ -145,14 +145,16 @@ export default function SubDashboard() {
           <p className="text-sm text-gray-600">Update profile</p>
         </a>
 
-        <a
-          href={`/shop/${brand?.uplineShopId}`}
-          className="bg-white rounded-lg shadow p-4 text-center hover:shadow-md transition"
-        >
-          <p className="text-2xl mb-2">🏪</p>
-          <p className="font-semibold text-gray-900">Shop</p>
-          <p className="text-sm text-gray-600">Visit storefront</p>
-        </a>
+        {brand?.uplineShopSlug && (
+          <a
+            href={`/shop/${brand.uplineShopSlug}`}
+            className="bg-white rounded-lg shadow p-4 text-center hover:shadow-md transition"
+          >
+            <p className="text-2xl mb-2">🏪</p>
+            <p className="font-semibold text-gray-900">Shop</p>
+            <p className="text-sm text-gray-600">Visit storefront</p>
+          </a>
+        )}
       </div>
 
       {/* Support Info */}
