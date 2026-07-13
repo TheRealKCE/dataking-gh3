@@ -61,8 +61,21 @@ export default function DashboardLayout({
             pathname?.startsWith('/dashboard/sub')) ?? false
 
     // Sub-agents use a de-branded portal, so the main ARHMS chrome (sidebar,
-    // header, mobile nav, modals) must not apply to /dashboard/sub.
-    const isSubPortal = pathname?.startsWith('/dashboard/sub') ?? false
+    // header, mobile nav, modals) must not apply. This holds for EVERY dashboard
+    // route a sub-agent visits — not just /dashboard/sub — so tapping any link
+    // (e.g. Shop Setup) never bounces them into the main-branded site.
+    const [isSubAgent, setIsSubAgent] = useState(false)
+    useEffect(() => {
+        let active = true
+        // 200 → the caller is a sub-agent; 403 → not one. Fail-open (stay false)
+        // so a hiccup never wrongly de-brands a regular user's dashboard.
+        fetch('/api/dashboard/sub/data')
+            .then((r) => { if (active && r.ok) setIsSubAgent(true) })
+            .catch(() => {})
+        return () => { active = false }
+    }, [])
+
+    const isSubPortal = (pathname?.startsWith('/dashboard/sub') ?? false) || isSubAgent
 
     useEffect(() => {
         if (rcRestricted && rcSettingLoaded && pathname && !rcPathAllowed) {
