@@ -109,7 +109,7 @@ export async function sendOrderSuccessSMS(
 ) {
     return sendSMS({
         recipient: details.recipientNumber,
-        message: `Your order for ${details.size} has been received and is being processed. You will receive your data in less than 48 hours thank you.\n\nARHMSGh`,
+        message: `Your order for ${details.size} has been received and is being processed. You will receive your data within 2 hours thank you.\n\nARHMSGh`,
     })
 }
 

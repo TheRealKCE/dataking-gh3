@@ -4,7 +4,6 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { syncShopOrderStatus } from '@/lib/shop-service'
 import { sendPushToUser } from '@/lib/web-push'
-import { sendOrderFailedSMS } from '@/lib/sms-service'
 
 // Create a service role client to bypass RLS for admin updates functions
 const supabaseAdmin = createClient(
@@ -126,20 +125,6 @@ export async function POST(request: Request) {
                             })
                         )
                     )
-
-                    // SMS the user when their order is marked failed
-                    if (status === 'failed') {
-                        await Promise.allSettled(
-                            orderData.map((o: any) => {
-                                const userPhone = o.users?.phone_number
-                                if (!userPhone) return Promise.resolve()
-                                return sendOrderFailedSMS(userPhone, o.phone_number, {
-                                    network: o.network,
-                                    size: o.size,
-                                })
-                            })
-                        )
-                    }
                 }
             } catch {}
         }
