@@ -185,6 +185,11 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    // Keep the sub's storefront live: their prices are already bounded by the
+    // parent, so there's no separate admin pricing review — approve it so the
+    // storefront never shows "Under Review".
+    await db.from('shop_profiles').update({ pricing_status: 'approved' }).eq('id', ctx.shopId)
+
     return NextResponse.json({ success: true, saved: rows.length })
   } catch (err) {
     console.error('[SubPricing] POST error:', err)

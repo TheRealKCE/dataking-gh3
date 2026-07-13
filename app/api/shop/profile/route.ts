@@ -138,9 +138,11 @@ async function handleShopProfileWrite(request: NextRequest, mode: 'create' | 'up
                 )
             }
 
-            const { error: insertError } = await (supabaseAdmin as any)
+            const { data: created, error: insertError } = await (supabaseAdmin as any)
                 .from('shop_profiles')
                 .insert({ ...dbPayload, owner_id: userId, approval_status: 'approved', is_active: data.is_active ?? true })
+                .select('id')
+                .single()
 
             if (insertError) {
                 console.error('[ShopProfile] Insert error:', insertError)
@@ -153,6 +155,12 @@ async function handleShopProfileWrite(request: NextRequest, mode: 'create' | 'up
                 }
                 return NextResponse.json({ error: 'Failed to create shop' }, { status: 500 })
             }
+
+            // Sub-agent shops mirror their upline's storefront from day one: their
+            // prices are already bounded by the parent (no admin pricing review),
+            // so auto-approve pricing and seed the catalog + airtime fees from the
+            // parent. The sub can then adjust prices upward within their ceiling.
+            await seedSubShopFromParent(supabaseAdmin, userId, created.id)
         } else {
             // Verify shop belongs to this authenticated user before updating
             const { data: existing } = await (supabaseAdmin as any)
@@ -191,5 +199,60 @@ async function handleShopProfileWrite(request: NextRequest, mode: 'create' | 'up
     } catch (e: any) {
         console.error('[ShopProfile] API error:', e)
         return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+    }
+}
+
+// ─── Sub-agent storefront seeding ─────────────────────────────────────────────
+// If the shop's owner is a sub-agent, make their brand-new storefront mirror the
+// upline (parent) shop: copy the parent's data-package catalog + airtime fees and
+// mark pricing approved so it goes live at once. No-op for regular shop owners.
+async function seedSubShopFromParent(supabaseAdmin: any, userId: string, newShopId: string) {
+    try {
+        const { data: sub } = await supabaseAdmin
+            .from('sub_agents')
+            .select('upline_shop_id')
+            .eq('user_id', userId)
+            .maybeSingle()
+
+        const uplineShopId = sub?.upline_shop_id
+        if (!uplineShopId) return // not a sub-agent — nothing to inherit
+
+        // Copy the parent's data-package catalog at the parent's prices (0 margin
+        // to start — the sub marks up within their ceiling in the pricing engine).
+        const { data: parentPricing } = await supabaseAdmin
+            .from('shop_pricing')
+            .select('package_id, selling_price')
+            .eq('shop_id', uplineShopId)
+
+        if (parentPricing?.length) {
+            const rows = parentPricing.map((r: any) => ({
+                shop_id: newShopId,
+                package_id: r.package_id,
+                selling_price: r.selling_price,
+                profit_margin: 0,
+            }))
+            await supabaseAdmin.from('shop_pricing').insert(rows)
+        }
+
+        // Mirror the parent's airtime fees and approve pricing so the storefront
+        // goes live immediately instead of showing "Under Review".
+        const { data: parentShop } = await supabaseAdmin
+            .from('shop_profiles')
+            .select('airtime_fee_mtn, airtime_fee_telecel, airtime_fee_at')
+            .eq('id', uplineShopId)
+            .maybeSingle()
+
+        await supabaseAdmin
+            .from('shop_profiles')
+            .update({
+                pricing_status: 'approved',
+                airtime_fee_mtn: parentShop?.airtime_fee_mtn ?? 0,
+                airtime_fee_telecel: parentShop?.airtime_fee_telecel ?? 0,
+                airtime_fee_at: parentShop?.airtime_fee_at ?? 0,
+            })
+            .eq('id', newShopId)
+    } catch (e) {
+        // Non-fatal — the shop exists; re-seeding happens when the sub saves pricing.
+        console.error('[ShopProfile] Sub seed error:', e)
     }
 }
