@@ -141,7 +141,7 @@ export async function GET(request: NextRequest) {
                 .eq('id', order.shop_order_id)
         }
 
-        const result = isCodeCraftEnabled
+        const result: { success: boolean; reference?: string; transactionId?: string; error?: string; apiResponse?: any; alreadySubmitted?: boolean } = isCodeCraftEnabled
             ? await ccFulfillOrder(order.network, order.phone_number, order.size, order.id)
             : isKingFlexyEnabled
                 ? await kfFulfillOrder(order.network, order.phone_number, order.size, order.id)
@@ -149,13 +149,22 @@ export async function GET(request: NextRequest) {
                     ? await edFulfillOrder(order.network, order.phone_number, order.size, order.id)
                     : await fulfillOrder(order.network, order.phone_number, order.size, order.id)
 
-        if (result.success) {
-            console.log(`[CronRefulfill] ✅ ${order.id} fulfilled via ${supplierLabel}`)
+        // An idempotency collision (alreadySubmitted) is not a fresh success, but
+        // the order already exists at the supplier — keep it in 'processing' (locked
+        // above) rather than reverting to pending and looping forever.
+        const alreadySubmitted = !result.success && result.alreadySubmitted === true
+        if (result.success || alreadySubmitted) {
+            console.log(`[CronRefulfill] ${alreadySubmitted ? '↺ already submitted — kept processing' : '✅ fulfilled'} ${order.id} via ${supplierLabel}`)
 
             await supabaseAdmin.from('mtn_fulfillment_tracking').insert({
                 order_id: order.id,
-                status: 'success',
-                api_response: { ...result.apiResponse, note: `Cron Auto-Refulfill Success via ${supplierLabel}` },
+                status: alreadySubmitted ? 'processing' : 'success',
+                api_response: {
+                    ...result.apiResponse,
+                    note: alreadySubmitted
+                        ? `Cron Auto-Refulfill: order already submitted at ${supplierLabel} (idempotency) — kept processing`
+                        : `Cron Auto-Refulfill Success via ${supplierLabel}`,
+                },
             })
 
             // Stamp fulfillment_method + supplier reference on the orders row so the

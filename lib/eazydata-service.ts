@@ -21,6 +21,10 @@ interface FulfillmentResponse {
     error?: string
     apiResponse?: any
     isRateLimited?: boolean
+    // True when the supplier rejected the request because THIS order was already
+    // submitted (idempotency-key collision). Not a fresh failure — the order
+    // already lives at the supplier, so callers should stop retrying it as pending.
+    alreadySubmitted?: boolean
 }
 
 interface StatusResponse {
@@ -191,6 +195,24 @@ export async function fulfillOrder(
         // ── Error codes from API ───────────────────────────────────────────
         const errMsg = data?.error || 'Unknown error'
         const errCode = data?.code || ''
+
+        // The supplier stores an idempotency row keyed by our order id. A
+        // duplicate-key error on that constraint means THIS order was already
+        // submitted to EazyData on a prior attempt (we most likely mis-recorded
+        // the first response as a failure). Re-sending with the same key can never
+        // succeed, and re-sending with a new key would risk double-charging — the
+        // order already exists at the supplier. Signal the caller to stop retrying
+        // it as pending and move it to processing instead. Don't trip the circuit
+        // breaker: the supplier is up, this is an expected replay collision.
+        if (/idempotenc/i.test(errMsg)) {
+            console.warn(`[EazyData] Order ${orderId} already submitted (idempotency collision) — signalling processing, not a retry.`)
+            return {
+                success: false,
+                alreadySubmitted: true,
+                error: 'Order already submitted to EazyData (idempotency collision)',
+                apiResponse: sanitizeForLog(data),
+            }
+        }
 
         if (errCode === 'package_out_of_stock') {
             console.warn(`[EazyData] Order ${orderId}: package out of stock — kept pending.`)

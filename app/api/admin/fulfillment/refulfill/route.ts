@@ -156,7 +156,7 @@ export async function POST(request: Request) {
                     .eq('id', order.shop_order_id)
             }
 
-            let result: { success: boolean; reference?: string; transactionId?: string; error?: string; apiResponse?: any }
+            let result: { success: boolean; reference?: string; transactionId?: string; error?: string; apiResponse?: any; alreadySubmitted?: boolean }
             if (isCodeCraftEnabled) {
                 result = await ccFulfillOrder(order.network, order.phone_number, order.size, order.id)
             } else if (isKingFlexyEnabled) {
@@ -167,14 +167,24 @@ export async function POST(request: Request) {
                 result = await fulfillOrder(order.network, order.phone_number, order.size, order.id)
             }
 
-            if (result.success) {
-                console.log(`[ManualRefulfill] SUCCESS for order ${order.id} via ${supplierLabel}`)
+            // An idempotency collision (alreadySubmitted) is not a fresh success, but
+            // the order already exists at the supplier — keep it in 'processing'
+            // (it was locked there above) rather than reverting to pending and
+            // looping forever. We just can't stamp a supplier reference for it.
+            const alreadySubmitted = !result.success && result.alreadySubmitted === true
+            if (result.success || alreadySubmitted) {
+                console.log(`[ManualRefulfill] ${alreadySubmitted ? 'ALREADY SUBMITTED — kept processing' : 'SUCCESS'} for order ${order.id} via ${supplierLabel}`)
 
-                // Track success
+                // Track outcome
                 await supabaseAdmin.from('mtn_fulfillment_tracking').insert({
                     order_id: order.id,
-                    status: 'success',
-                    api_response: { ...result.apiResponse, note: `Manual Admin Refill Success via ${supplierLabel}` }
+                    status: alreadySubmitted ? 'processing' : 'success',
+                    api_response: {
+                        ...result.apiResponse,
+                        note: alreadySubmitted
+                            ? `Manual Admin Refill: order already submitted at ${supplierLabel} (idempotency) — kept processing`
+                            : `Manual Admin Refill Success via ${supplierLabel}`
+                    }
                 })
 
                 // Stamp fulfillment_method + supplier reference on the orders row so the
