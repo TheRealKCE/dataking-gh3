@@ -49,6 +49,14 @@ export async function GET(request: NextRequest) {
       .eq('owner_id', user.id)
       .single()
 
+    // The sub's OWN storefront slug (null until they create their shop) — used so
+    // the dashboard "Shop" tile opens the sub's own store, not the upline's.
+    const { data: ownShop } = await supabase
+      .from('shop_profiles')
+      .select('shop_slug')
+      .eq('owner_id', user.id)
+      .maybeSingle()
+
     // Get brand context
     const brandConfig = await resolveBrandContext(user.id, supabase)
 
@@ -57,6 +65,7 @@ export async function GET(request: NextRequest) {
       walletBalance: wallet?.balance || 0,
       totalEarned: wallet?.total_earned || 0,
       totalWithdrawn: wallet?.total_withdrawn || 0,
+      ownShopSlug: ownShop?.shop_slug || null,
       uplineShop: {
         shopName: (subAgent.shop_profiles as any)?.shop_name || 'Your Lead',
         // `owner_phone:owner_id(phone_number)` is a to-one embed, so it comes

@@ -12,6 +12,7 @@ interface SubDashboardData {
     shopName: string
     contactPhone?: string
   }
+  ownShopSlug?: string | null
   brandConfig?: BrandConfig
 }
 
@@ -209,14 +210,25 @@ export default function SubDashboard() {
           <p className="text-sm text-gray-600 dark:text-gray-400">Update profile</p>
         </a>
 
-        {brand?.uplineShopSlug && (
+        {data?.ownShopSlug ? (
           <a
-            href={`/shop/${brand.uplineShopSlug}`}
+            href={`/shop/${data.ownShopSlug}`}
+            target="_blank"
+            rel="noopener noreferrer"
             className="bg-white dark:bg-gray-900 rounded-lg shadow p-4 text-center hover:shadow-md transition"
           >
             <p className="text-2xl mb-2">🏪</p>
-            <p className="font-semibold text-gray-900 dark:text-gray-100">Shop</p>
-            <p className="text-sm text-gray-600 dark:text-gray-400">Visit storefront</p>
+            <p className="font-semibold text-gray-900 dark:text-gray-100">My Shop</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">Visit my storefront</p>
+          </a>
+        ) : (
+          <a
+            href="/dashboard/sub/shop"
+            className="bg-white dark:bg-gray-900 rounded-lg shadow p-4 text-center hover:shadow-md transition"
+          >
+            <p className="text-2xl mb-2">🏪</p>
+            <p className="font-semibold text-gray-900 dark:text-gray-100">My Shop</p>
+            <p className="text-sm text-gray-600 dark:text-gray-400">Create your store</p>
           </a>
         )}
       </div>

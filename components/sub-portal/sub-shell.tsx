@@ -44,6 +44,7 @@ export function SubPortalShell({ children }: { children: React.ReactNode }) {
   const { setTheme } = useTheme()
   const [open, setOpen] = useState(false)
   const [brand, setBrand] = useState<BrandConfig | null>(null)
+  const [ownShopSlug, setOwnShopSlug] = useState<string | null>(null)
 
   // Follow the phone's light/dark setting inside the portal.
   useEffect(() => {
@@ -53,7 +54,10 @@ export function SubPortalShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     fetch('/api/dashboard/sub/data')
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => d?.brandConfig && setBrand(d.brandConfig))
+      .then((d) => {
+        if (d?.brandConfig) setBrand(d.brandConfig)
+        if (d?.ownShopSlug) setOwnShopSlug(d.ownShopSlug)
+      })
       .catch(() => {})
   }, [])
 
@@ -118,13 +122,15 @@ export function SubPortalShell({ children }: { children: React.ReactNode }) {
               </Link>
             )
           })}
-          {brand?.uplineShopSlug && (
+          {ownShopSlug && (
             <a
-              href={`/shop/${brand.uplineShopSlug}`}
+              href={`/shop/${ownShopSlug}`}
+              target="_blank"
+              rel="noopener noreferrer"
               className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold text-white/80 hover:bg-white/10 hover:text-white transition-colors"
             >
               <ExternalLink className="w-5 h-5 flex-shrink-0" />
-              Visit Store
+              Visit My Store
             </a>
           )}
         </nav>
