@@ -51,6 +51,8 @@ export async function GET(request: NextRequest) {
         : s.fulfillment_settings || {}
     const networkSettings: Record<string, boolean> = dbFulfillmentSettings.networks || {}
     const codecraftNetworkSettings: Record<string, boolean> = dbFulfillmentSettings.codecraft_networks || {}
+    const kingflexyNetworkSettings: Record<string, boolean> = dbFulfillmentSettings.kingflexy_networks || {}
+    const eazydataNetworkSettings: Record<string, boolean> = dbFulfillmentSettings.eazydata_networks || {}
 
     // ── Fetch pending orders older than the configured delay (max 50) ─────────
     const { data: pendingOrders, error: fetchError } = await supabaseAdmin
@@ -77,22 +79,27 @@ export async function GET(request: NextRequest) {
     const { sendAdminNewOrderAlert } = await import('@/lib/email-service')
     const { fulfillOrder } = await import('@/lib/fulfillment-service')
     const { fulfillOrder: ccFulfillOrder } = await import('@/lib/codecraft-service')
+    const { fulfillOrder: kfFulfillOrder } = await import('@/lib/kingflexy-service')
+    const { fulfillOrder: edFulfillOrder } = await import('@/lib/eazydata-service')
     const { syncShopOrderStatus } = await import('@/lib/shop-service')
 
     for (const order of pendingOrders) {
         const isDataKazinaEnabled = networkSettings[order.network] === true
         const isCodeCraftEnabled = codecraftNetworkSettings[order.network] === true
+        const isKingFlexyEnabled = kingflexyNetworkSettings[order.network] === true
+        const isEazyDataEnabled = eazydataNetworkSettings[order.network] === true
 
         // No supplier active → skip
-        if (!isDataKazinaEnabled && !isCodeCraftEnabled) {
+        if (!isDataKazinaEnabled && !isCodeCraftEnabled && !isKingFlexyEnabled && !isEazyDataEnabled) {
             console.log(`[CronRefulfill] No active supplier for ${order.network} — skipping ${order.id}`)
             skipped++
             continue
         }
 
-        // Both active → conflict — skip and alert
-        if (isDataKazinaEnabled && isCodeCraftEnabled) {
-            console.error(`[CronRefulfill] CONFLICT: Both suppliers active for ${order.network} on ${order.id}`)
+        // More than one active → conflict — skip and alert
+        const activeCount = [isDataKazinaEnabled, isCodeCraftEnabled, isKingFlexyEnabled, isEazyDataEnabled].filter(Boolean).length
+        if (activeCount > 1) {
+            console.error(`[CronRefulfill] CONFLICT: Multiple suppliers active for ${order.network} on ${order.id}`)
             await sendAdminNewOrderAlert({
                 referenceCode: order.reference_code || order.id,
                 phoneNumber: order.phone_number,
@@ -103,13 +110,13 @@ export async function GET(request: NextRequest) {
                 customerEmail: 'N/A',
                 source: 'shop_storefront',
                 shopName: 'Cron Auto-Refulfill',
-                reason: `⚠️ CONFLICT: Both DataKazina and CodeCraft active for ${order.network}. Order ${order.id} skipped.`,
+                reason: `⚠️ CONFLICT: Multiple suppliers active for ${order.network}. Order ${order.id} skipped.`,
             }).catch(e => console.error('[CronRefulfill] Alert error:', e))
             skipped++
             continue
         }
 
-        const supplierLabel = isCodeCraftEnabled ? 'codecraft' : 'datakazina'
+        const supplierLabel = isCodeCraftEnabled ? 'codecraft' : isKingFlexyEnabled ? 'kingflexy' : isEazyDataEnabled ? 'eazydata' : 'datakazina'
 
         // ── ATOMIC LOCK: claim the order ─────────────────────────────────────
         const { data: lockedOrder, error: lockError } = await supabaseAdmin
@@ -136,7 +143,11 @@ export async function GET(request: NextRequest) {
 
         const result = isCodeCraftEnabled
             ? await ccFulfillOrder(order.network, order.phone_number, order.size, order.id)
-            : await fulfillOrder(order.network, order.phone_number, order.size, order.id)
+            : isKingFlexyEnabled
+                ? await kfFulfillOrder(order.network, order.phone_number, order.size, order.id)
+                : isEazyDataEnabled
+                    ? await edFulfillOrder(order.network, order.phone_number, order.size, order.id)
+                    : await fulfillOrder(order.network, order.phone_number, order.size, order.id)
 
         if (result.success) {
             console.log(`[CronRefulfill] ✅ ${order.id} fulfilled via ${supplierLabel}`)
@@ -147,6 +158,27 @@ export async function GET(request: NextRequest) {
                 api_response: { ...result.apiResponse, note: `Cron Auto-Refulfill Success via ${supplierLabel}` },
             })
 
+            // Stamp fulfillment_method + supplier reference on the orders row so the
+            // per-supplier status-sync crons (which filter on these) can later move
+            // this order from processing → completed/failed. Without this, a direct
+            // (non-shop) order fulfilled here stays stuck in 'processing' forever.
+            // Reference columns are unconstrained → stamp them first so they always
+            // apply, even on a DB where the eazydata fulfillment_method migration
+            // hasn't run yet.
+            const refUpdate: Record<string, any> = {}
+            if (result.transactionId) {
+                if (isCodeCraftEnabled) refUpdate.codecraft_reference = result.transactionId
+                else if (isKingFlexyEnabled) refUpdate.kingflexy_reference = result.transactionId
+                else if (isEazyDataEnabled) refUpdate.eazydata_reference = result.transactionId
+                else refUpdate.dakazina_reference = result.transactionId
+            }
+            if (Object.keys(refUpdate).length > 0) {
+                await supabaseAdmin.from('orders').update(refUpdate).eq('id', order.id)
+            }
+            // fulfillment_method is guarded by orders_fulfillment_method_check
+            // (requires migration 20260713_add_eazydata_fulfillment_method.sql).
+            await supabaseAdmin.from('orders').update({ fulfillment_method: supplierLabel }).eq('id', order.id)
+
             if (order.shop_order_id) {
                 const shopOrderUpdate: Record<string, any> = {
                     status: 'processing',
@@ -154,6 +186,12 @@ export async function GET(request: NextRequest) {
                 }
                 if (isCodeCraftEnabled && result.transactionId) {
                     shopOrderUpdate.codecraft_reference_id = result.transactionId
+                }
+                if (isKingFlexyEnabled && result.transactionId) {
+                    shopOrderUpdate.kingflexy_reference = result.transactionId
+                }
+                if (isEazyDataEnabled && result.transactionId) {
+                    shopOrderUpdate.eazydata_reference = result.transactionId
                 }
                 await supabaseAdmin.from('shop_orders').update(shopOrderUpdate).eq('id', order.shop_order_id)
             }

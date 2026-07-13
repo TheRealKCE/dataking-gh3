@@ -177,6 +177,27 @@ export async function POST(request: Request) {
                     api_response: { ...result.apiResponse, note: `Manual Admin Refill Success via ${supplierLabel}` }
                 })
 
+                // Stamp fulfillment_method + supplier reference on the orders row so the
+                // per-supplier status-sync crons (which filter on these) can later move
+                // this order from processing → completed/failed. Without this, a direct
+                // (non-shop) order refulfilled here stays stuck in 'processing' forever.
+                // Reference columns are unconstrained → stamp them first so they always
+                // apply, even on a DB where the eazydata fulfillment_method migration
+                // hasn't run yet.
+                const refUpdate: Record<string, any> = {}
+                if (result.transactionId) {
+                    if (isCodeCraftEnabled) refUpdate.codecraft_reference = result.transactionId
+                    else if (isKingFlexyEnabled) refUpdate.kingflexy_reference = result.transactionId
+                    else if (isEazyDataEnabled) refUpdate.eazydata_reference = result.transactionId
+                    else refUpdate.dakazina_reference = result.transactionId
+                }
+                if (Object.keys(refUpdate).length > 0) {
+                    await supabaseAdmin.from('orders').update(refUpdate).eq('id', order.id)
+                }
+                // fulfillment_method is guarded by orders_fulfillment_method_check
+                // (requires migration 20260713_add_eazydata_fulfillment_method.sql).
+                await supabaseAdmin.from('orders').update({ fulfillment_method: supplierLabel }).eq('id', order.id)
+
                 // Update shop_orders to processing + stamp supplier reference
                 if (order.shop_order_id) {
                     const shopOrderUpdate: Record<string, any> = {
