@@ -16,6 +16,7 @@ import {
   LayoutDashboard,
   ShoppingCart,
   Store,
+  ClipboardList,
   Tag,
   User,
   ExternalLink,
@@ -30,6 +31,7 @@ const TEAL_DARK = '#155963'
 
 const NAV = [
   { href: '/dashboard/sub', label: 'Dashboard', icon: LayoutDashboard, exact: true },
+  { href: '/dashboard/sub/storefront-orders', label: 'Store Orders', icon: ClipboardList },
   { href: '/dashboard/sub/orders', label: 'My Orders', icon: ShoppingCart },
   { href: '/dashboard/sub/shop', label: 'My Shop', icon: Store },
   { href: '/dashboard/sub/pricing', label: 'Pricing', icon: Tag },
