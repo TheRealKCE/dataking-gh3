@@ -125,6 +125,16 @@ export async function fulfillOrder(
         console.log(`[EazyData] Order ${orderId} | ${eazydataNetwork} | ${gigVolume}GB | recipient: ${normalizedPhone}`)
         console.log(`[EazyData] Request payload:`, sanitizeForLog(requestBody))
 
+        // Per-attempt idempotency key. It stays constant across THIS call's internal
+        // network retries (so a dropped-connection retry can't double-place the order)
+        // but differs on every separate (re)fulfill invocation. Using the bare orderId
+        // instead permanently poisoned the key: if a prior attempt registered the
+        // idempotency row at the supplier without a deliverable order, every later
+        // refulfill got "duplicate key ... idx_orders_idempotency_user_unique" and
+        // could never actually place the order. A fresh key lets a refulfill create a
+        // real, trackable order at EazyData.
+        const idempotencyKey = `${orderId}-${Date.now()}`
+
         // ── HTTP Fetch with 3-retry logic ───────────────────────────────────
         let response: Response | null = null
         let attempt = 0
@@ -140,7 +150,7 @@ export async function fulfillOrder(
                         'Content-Type': 'application/json',
                         'Accept': 'application/json',
                         'X-API-Key': EAZYDATA_API_KEY,
-                        'Idempotency-Key': orderId, // prevent duplicate orders on retry
+                        'Idempotency-Key': idempotencyKey, // constant across this call's retries; fresh per (re)fulfill
                     },
                     body: JSON.stringify(requestBody),
                 })
