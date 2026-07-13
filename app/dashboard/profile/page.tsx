@@ -416,7 +416,7 @@ export default function ProfilePage() {
                                         <p className={cn(
                                             "font-medium",
                                             dbUser?.role === 'agent' && "text-black font-bold"
-                                        )}>{dbUser?.phone_number}</p>
+                                        )}>{dbUser?.phone_number && !dbUser.phone_number.startsWith('oauth_') ? dbUser.phone_number : 'Not set'}</p>
                                     </div>
                                 </div>
                                 <div className={cn(

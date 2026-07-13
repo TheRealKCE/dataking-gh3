@@ -28,7 +28,10 @@ export default function SubProfilePage() {
     if (dbUser) {
       setFirstName(dbUser.first_name || '')
       setLastName(dbUser.last_name || '')
-      setPhone((dbUser as any).phone_number || '')
+      // Hide the OAuth placeholder ("oauth_<id>") the signup trigger stores when
+      // no real phone was captured — show an empty field so they can add one.
+      const ph = (dbUser as any).phone_number || ''
+      setPhone(ph.startsWith('oauth_') ? '' : ph)
     }
   }, [dbUser])
 
