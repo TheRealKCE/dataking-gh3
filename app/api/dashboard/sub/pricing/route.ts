@@ -151,9 +151,12 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Invalid price' }, { status: 400 })
       }
       const cap = Math.round((floor + ctx.ceiling) * 100) / 100
-      if (price < floor) {
+      const margin = Math.round((price - floor) * 100) / 100
+      // shop_pricing requires profit_margin > 0, so the price must sit strictly
+      // above the parent's — matching it exactly isn't allowed.
+      if (margin <= 0) {
         return NextResponse.json(
-          { error: `Price cannot be below the parent price of ₵${floor.toFixed(2)}` },
+          { error: `Price must be above the parent price of ₵${floor.toFixed(2)}` },
           { status: 400 }
         )
       }
@@ -167,7 +170,7 @@ export async function POST(request: NextRequest) {
         shop_id: ctx.shopId,
         package_id: it.packageId,
         selling_price: price,
-        profit_margin: Math.round((price - floor) * 100) / 100,
+        profit_margin: margin,
       })
     }
 

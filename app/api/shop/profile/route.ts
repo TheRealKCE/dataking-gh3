@@ -217,8 +217,12 @@ async function seedSubShopFromParent(supabaseAdmin: any, userId: string, newShop
         const uplineShopId = sub?.upline_shop_id
         if (!uplineShopId) return // not a sub-agent — nothing to inherit
 
-        // Copy the parent's data-package catalog at the parent's prices (0 margin
-        // to start — the sub marks up within their ceiling in the pricing engine).
+        // shop_pricing enforces profit_margin > 0, so a sub can't sell at exactly
+        // the parent's price — seed at parent price + the minimum sub margin. The
+        // catalog mirrors the parent; the sub adjusts prices in the pricing engine.
+        const SUB_START_MARGIN = 0.5
+
+        // Copy the parent's data-package catalog.
         const { data: parentPricing } = await supabaseAdmin
             .from('shop_pricing')
             .select('package_id, selling_price')
@@ -228,8 +232,8 @@ async function seedSubShopFromParent(supabaseAdmin: any, userId: string, newShop
             const rows = parentPricing.map((r: any) => ({
                 shop_id: newShopId,
                 package_id: r.package_id,
-                selling_price: r.selling_price,
-                profit_margin: 0,
+                selling_price: Math.round((Number(r.selling_price) + SUB_START_MARGIN) * 100) / 100,
+                profit_margin: SUB_START_MARGIN,
             }))
             await supabaseAdmin.from('shop_pricing').insert(rows)
         }

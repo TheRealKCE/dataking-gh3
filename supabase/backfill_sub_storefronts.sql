@@ -8,10 +8,12 @@
 -- Run this ONCE in the Supabase SQL Editor. Idempotent — safe to re-run.
 -- ============================================================================
 
--- 1. Seed each sub shop's catalog from its parent's prices (0 starting margin),
---    but only for sub shops that don't have any pricing yet.
+-- 1. Seed each sub shop's catalog from its parent's prices, but only for sub
+--    shops that don't have any pricing yet. shop_pricing enforces
+--    profit_margin > 0, so seed at the parent price + a ₵0.50 minimum margin
+--    (the sub adjusts prices later in the pricing engine).
 INSERT INTO public.shop_pricing (shop_id, package_id, selling_price, profit_margin)
-SELECT s.id, pp.package_id, pp.selling_price, 0
+SELECT s.id, pp.package_id, ROUND(pp.selling_price + 0.50, 2), 0.50
 FROM public.shop_profiles s
 JOIN public.sub_agents  sa ON sa.user_id  = s.owner_id
 JOIN public.shop_pricing pp ON pp.shop_id = sa.upline_shop_id
