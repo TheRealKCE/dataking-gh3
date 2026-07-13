@@ -81,10 +81,8 @@ export default function SubShopPage() {
         setSaving(false)
         return
       }
-      // Shop created — take them to the full setup page to add description,
-      // branding (logo/banner/colour), contacts and community link.
-      window.location.href = '/dashboard/shop/setup'
-      return
+      // Shop created — stay in the de-branded portal and show the manage view.
+      if (dbUser?.id) await loadShop(dbUser.id)
     } catch {
       setError('Something went wrong')
     } finally {
