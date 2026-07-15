@@ -442,7 +442,10 @@ export async function middleware(request: NextRequest) {
     }
 
     // Protected dashboard routes
-    if (pathname.startsWith('/dashboard')) {
+    // The portal PWA manifest must stay publicly fetchable — browsers request it
+    // to evaluate installability and may do so without credentials. The route
+    // itself returns a neutral manifest when there's no session.
+    if (pathname.startsWith('/dashboard') && pathname !== '/dashboard/sub/manifest.webmanifest') {
         if (!authUser) {
             // Sub-agents use the de-branded portal login, not the main ARHMS login.
             const loginPath = pathname.startsWith('/dashboard/sub') ? '/portal/login' : '/auth/login'

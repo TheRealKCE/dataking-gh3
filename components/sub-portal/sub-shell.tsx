@@ -19,6 +19,7 @@ import {
   ClipboardList,
   Tag,
   User,
+  Download,
   ExternalLink,
   LogOut,
   Menu,
@@ -36,6 +37,7 @@ const NAV = [
   { href: '/dashboard/sub/shop', label: 'My Shop', icon: Store },
   { href: '/dashboard/sub/pricing', label: 'Pricing', icon: Tag },
   { href: '/dashboard/sub/profile', label: 'Profile', icon: User },
+  { href: '/dashboard/sub/install', label: 'Install App', icon: Download },
 ]
 
 export function SubPortalShell({ children }: { children: React.ReactNode }) {
@@ -50,6 +52,28 @@ export function SubPortalShell({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     setTheme('system')
   }, [setTheme])
+
+  // Point the PWA manifest at the portal's own (shop-branded) manifest while in
+  // the portal, so "install" produces a de-branded app scoped to /dashboard/sub.
+  // Restore the app's default manifest on unmount.
+  useEffect(() => {
+    let link = document.querySelector<HTMLLinkElement>('link[rel="manifest"]')
+    const previous = link?.getAttribute('href') ?? null
+    let created = false
+    if (!link) {
+      link = document.createElement('link')
+      link.rel = 'manifest'
+      document.head.appendChild(link)
+      created = true
+    }
+    link.setAttribute('href', '/dashboard/sub/manifest.webmanifest')
+    return () => {
+      const el = document.querySelector<HTMLLinkElement>('link[rel="manifest"]')
+      if (!el) return
+      if (created) el.remove()
+      else if (previous) el.setAttribute('href', previous)
+    }
+  }, [])
 
   useEffect(() => {
     fetch('/api/dashboard/sub/data')

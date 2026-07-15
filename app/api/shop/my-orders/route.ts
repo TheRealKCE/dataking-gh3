@@ -1,15 +1,12 @@
-﻿import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import { NextRequest, NextResponse } from 'next/server'
+import { createServerClient } from '@/lib/supabase'
 import { createRouteHandlerClient } from '@/lib/supabase-server'
-
-// Service-role client to bypass RLS
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
 
 export async function GET(req: NextRequest) {
     try {
+        // Service-role client to bypass RLS.
+        const supabaseAdmin = createServerClient()
+
         // Verify the caller is authenticated
         const supabase = await createRouteHandlerClient()
         const { data: { user } } = await supabase.auth.getUser()
