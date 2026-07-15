@@ -408,9 +408,11 @@ export async function fetchSupplierBalance(): Promise<{ success: boolean; balanc
         // Safety check: if the response is HTML (e.g. redirect/error page), handle gracefully
         const contentType = response.headers.get('content-type') || ''
         if (!contentType.includes('application/json')) {
-            const rawText = await response.text()
-            const snippet = rawText.trim().startsWith('<') ? '[HTML Response Omitted]' : rawText.slice(0, 300)
-            console.error('[DataKazina Balance] Non-JSON response (HTTP', response.status, '):', snippet)
+            if (response.status !== 404) {
+                const rawText = await response.text()
+                const snippet = rawText.trim().startsWith('<') ? '[HTML Response Omitted]' : rawText.slice(0, 300)
+                console.error('[DataKazina Balance] Non-JSON response (HTTP', response.status, '):', snippet)
+            }
             return { success: false, error: `Supplier returned unexpected response (HTTP ${response.status})` }
         }
 
