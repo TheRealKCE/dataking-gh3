@@ -332,7 +332,9 @@ export async function fulfillOrder(
             }
         }
 
-        recordFailure()
+        if (response.status >= 500) {
+            recordFailure()
+        }
         return {
             success: false,
             error: data.message || data.error || 'Fulfillment failed',
@@ -378,7 +380,9 @@ export async function checkOrderStatus(transactionId: string): Promise<StatusRes
             }
         }
 
-        recordFailure()
+        if (response.status >= 500) {
+            recordFailure()
+        }
         return { success: false, status: 'pending', message: data.message || 'Failed to check status' }
     } catch (error) {
         recordFailure()
@@ -405,7 +409,8 @@ export async function fetchSupplierBalance(): Promise<{ success: boolean; balanc
         const contentType = response.headers.get('content-type') || ''
         if (!contentType.includes('application/json')) {
             const rawText = await response.text()
-            console.error('[DataKazina Balance] Non-JSON response (HTTP', response.status, '):', rawText.slice(0, 300))
+            const snippet = rawText.trim().startsWith('<') ? '[HTML Response Omitted]' : rawText.slice(0, 300)
+            console.error('[DataKazina Balance] Non-JSON response (HTTP', response.status, '):', snippet)
             return { success: false, error: `Supplier returned unexpected response (HTTP ${response.status})` }
         }
 

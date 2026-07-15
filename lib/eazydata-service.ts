@@ -233,7 +233,9 @@ export async function fulfillOrder(
         }
 
         console.warn(`[EazyData] Order ${orderId} not fulfilled: ${errMsg} (${errCode}). Kept pending.`)
-        recordFailure()
+        if (response.status >= 500) {
+            recordFailure()
+        }
         return {
             success: false,
             error: `${errMsg} (${errCode})`,
@@ -284,7 +286,9 @@ export async function checkOrderStatus(orderId: string): Promise<StatusResponse>
             return { success: true, status: mapped, message: order.status, data: order }
         }
 
-        recordFailure()
+        if (response.status >= 500) {
+            recordFailure()
+        }
         return { success: false, status: 'pending', message: data?.error || 'Failed to check status' }
 
     } catch (error) {

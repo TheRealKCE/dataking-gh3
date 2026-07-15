@@ -370,7 +370,12 @@ export async function fulfillOrder(
         const reasonCode = data.status
         const reasonMsg = data.message || 'Unknown error'
         console.warn(`[CodeCraft] Order ${orderId} not fulfilled. Code: ${reasonCode} — ${reasonMsg}. Order kept pending.`)
-        recordFailure()
+        
+        // ONLY open circuit breaker for actual supplier infrastructure/system failures, 
+        // NOT for user/validation errors (like 422 unverified number)
+        if (response.status >= 500 || reasonCode === 500 || reasonCode === 555) {
+            recordFailure()
+        }
         return {
             success: false,
             error: `[${reasonCode}] ${reasonMsg}`,
@@ -432,7 +437,9 @@ export async function checkOrderStatus(
             }
         }
 
-        recordFailure()
+        if (response.status >= 500) {
+            recordFailure()
+        }
         return { success: false, status: 'pending', message: data.message || 'Failed to check status' }
 
     } catch (error) {

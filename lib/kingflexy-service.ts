@@ -186,7 +186,10 @@ export async function fulfillOrder(
 
         const errMsg = data?.error?.message || data?.message || 'Unknown error'
         console.warn(`[KingFlexy] Order ${orderId} not fulfilled: ${errMsg}. Kept pending.`)
-        recordFailure()
+        
+        if (response.status >= 500) {
+            recordFailure()
+        }
         return {
             success: false,
             error: errMsg,
@@ -234,7 +237,9 @@ export async function checkOrderStatus(reference: string): Promise<StatusRespons
             return { success: true, status: mapped, message: data.data.status, data: data.data }
         }
 
-        recordFailure()
+        if (response.status >= 500) {
+            recordFailure()
+        }
         return { success: false, status: 'pending', message: data?.error?.message || 'Failed to check status' }
 
     } catch (error) {
