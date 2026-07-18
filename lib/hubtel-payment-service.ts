@@ -124,7 +124,19 @@ export async function initiatePayment(params: HubtelInitiateParams): Promise<Hub
             }
         )
 
-        const data = await response.json()
+        const responseText = await response.text()
+        let data: any
+        try {
+            data = JSON.parse(responseText)
+        } catch (parseError) {
+            console.error('[HubtelPayment] Failed to parse Hubtel response. Status:', response.status)
+            console.error('[HubtelPayment] Raw response:', responseText.substring(0, 500))
+            return {
+                success: false,
+                error: `Hubtel API Error (HTTP ${response.status}). The server returned an invalid response. This often happens if your IP is not whitelisted in the Hubtel dashboard.`,
+            }
+        }
+
         console.log('[HubtelPayment] Raw API response:', JSON.stringify(data))
 
         // 0001 = accepted, callback will confirm final state
@@ -175,7 +187,20 @@ export async function checkPaymentStatus(clientReference: string): Promise<Hubte
             },
         })
 
-        const data = await response.json()
+        const responseText = await response.text()
+        let data: any
+        try {
+            data = JSON.parse(responseText)
+        } catch (parseError) {
+            console.error('[HubtelPayment] checkPaymentStatus failed to parse Hubtel response. Status:', response.status)
+            console.error('[HubtelPayment] Raw response:', responseText.substring(0, 500))
+            return {
+                success: false,
+                status: null,
+                error: `Hubtel API Error (HTTP ${response.status}). The server returned an invalid response.`,
+            }
+        }
+
         console.log('[HubtelPayment] Status check response:', JSON.stringify(data))
 
         if (!response.ok || data.responseCode !== '0000') {
