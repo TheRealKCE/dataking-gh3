@@ -9,12 +9,30 @@
  *   HUBTEL_CLIENT_SECRET      — API Key (password) from Hubtel dashboard
  *   HUBTEL_COLLECTION_ACCOUNT_NUMBER — Your Hubtel merchant collection account number
  *   HUBTEL_FEE_PERCENT        — Transaction fee percentage (default: 1.8)
+ *   QUOTAGUARDSTATIC_URL      — Optional. A static proxy URL (e.g. from quotaguard.com) to
+ *                               route outbound Hubtel calls through a fixed IP that can be
+ *                               whitelisted in the Hubtel Merchant Portal.
+ *                               Format: http://user:pass@proxy.quotaguard.com:9293
  *
  * Auth: Basic Auth (base64(CLIENT_ID:CLIENT_SECRET))
  */
+import { ProxyAgent, Agent } from 'undici'
 
 const HUBTEL_RECEIVE_BASE_URL = 'https://rmp.hubtel.com/merchantaccount/merchants'
 const HUBTEL_STATUS_BASE_URL = 'https://api-txnstatus.hubtel.com/transactions'
+
+/**
+ * Returns an undici dispatcher that routes traffic through a static proxy
+ * (when QUOTAGUARDSTATIC_URL is set) or uses the default agent.
+ * This is critical for Hubtel which requires IP whitelisting.
+ */
+function getDispatcher(): ProxyAgent | Agent {
+    const proxyUrl = process.env.QUOTAGUARDSTATIC_URL
+    if (proxyUrl) {
+        return new ProxyAgent(proxyUrl)
+    }
+    return new Agent()
+}
 
 /** Maps the internal network label to Hubtel's channel name */
 export const HUBTEL_CHANNEL_MAP: Record<string, string> = {
@@ -121,6 +139,8 @@ export async function initiatePayment(params: HubtelInitiateParams): Promise<Hub
                     'Cache-Control': 'no-cache',
                 },
                 body: JSON.stringify(payload),
+                // @ts-ignore — undici dispatcher for static IP routing
+                dispatcher: getDispatcher(),
             }
         )
 
@@ -185,6 +205,8 @@ export async function checkPaymentStatus(clientReference: string): Promise<Hubte
                 Authorization: authHeader,
                 Accept: 'application/json',
             },
+            // @ts-ignore — undici dispatcher for static IP routing
+            dispatcher: getDispatcher(),
         })
 
         const responseText = await response.text()
