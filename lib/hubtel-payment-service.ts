@@ -9,10 +9,10 @@
  *   HUBTEL_CLIENT_SECRET      — API Key (password) from Hubtel dashboard
  *   HUBTEL_COLLECTION_ACCOUNT_NUMBER — Your Hubtel merchant collection account number
  *   HUBTEL_FEE_PERCENT        — Transaction fee percentage (default: 1.8)
- *   QUOTAGUARDSTATIC_URL      — Optional. A static proxy URL (e.g. from quotaguard.com) to
- *                               route outbound Hubtel calls through a fixed IP that can be
- *                               whitelisted in the Hubtel Merchant Portal.
- *                               Format: http://user:pass@proxy.quotaguard.com:9293
+ *   FIXIE_URL                 — Static proxy URL from usefixie.com (recommended).
+ *                               Format: http://user:pass@criterium.usefixie.com:80
+ *                               Get your URL + static IP at: https://usefixie.com
+ *                               Whitelist the static IP in Hubtel Merchant Portal.
  *
  * Auth: Basic Auth (base64(CLIENT_ID:CLIENT_SECRET))
  */
@@ -22,15 +22,19 @@ const HUBTEL_RECEIVE_BASE_URL = 'https://rmp.hubtel.com/merchantaccount/merchant
 const HUBTEL_STATUS_BASE_URL = 'https://api-txnstatus.hubtel.com/transactions'
 
 /**
- * Returns an undici dispatcher that routes traffic through a static proxy
- * (when QUOTAGUARDSTATIC_URL is set) or uses the default agent.
- * This is critical for Hubtel which requires IP whitelisting.
+ * Returns an undici dispatcher that routes all Hubtel API traffic through
+ * a static proxy IP (required because Hubtel mandates IP whitelisting and
+ * Vercel uses dynamic/rotating IPs).
+ *
+ * Priority: FIXIE_URL → QUOTAGUARDSTATIC_URL → no proxy (will fail on Vercel)
  */
 function getDispatcher(): ProxyAgent | Agent {
-    const proxyUrl = process.env.QUOTAGUARDSTATIC_URL
+    const proxyUrl = process.env.FIXIE_URL || process.env.QUOTAGUARDSTATIC_URL
     if (proxyUrl) {
+        console.log('[HubtelPayment] Routing through static proxy:', proxyUrl.split('@')[1] ?? 'proxy')
         return new ProxyAgent(proxyUrl)
     }
+    console.warn('[HubtelPayment] No static proxy configured (FIXIE_URL). Hubtel will likely return 403 on Vercel.')
     return new Agent()
 }
 
