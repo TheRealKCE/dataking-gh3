@@ -248,9 +248,11 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
     const [isExpressMtnHidden, setIsExpressMtnHidden] = useState(adminSettings['express_mtn_hidden'] === 'true')
     const [isStandardMtnHidden, setIsStandardMtnHidden] = useState(adminSettings['standard_mtn_hidden'] === 'true')
 
+    const [webPaymentProvider, setWebPaymentProvider] = useState<'moolre' | 'hubtel' | 'paystack'>('moolre')
+
     useEffect(() => {
         // Bypass ISR cache to get the very latest toggle status
-        fetch('/api/admin-settings?keys=special_mtn_mashup_hidden,express_mtn_hidden,standard_mtn_hidden', { cache: 'no-store' })
+        fetch('/api/admin-settings?keys=special_mtn_mashup_hidden,express_mtn_hidden,standard_mtn_hidden,active_payment_provider_web', { cache: 'no-store' })
             .then(res => res.json())
             .then(data => {
                 if (data && typeof data.special_mtn_mashup_hidden !== 'undefined') {
@@ -261,6 +263,10 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 }
                 if (data && typeof data.standard_mtn_hidden !== 'undefined') {
                     setIsStandardMtnHidden(String(data.standard_mtn_hidden) === 'true')
+                }
+                if (data && data.active_payment_provider_web) {
+                    const val = String(data.active_payment_provider_web)
+                    setWebPaymentProvider(val === 'paystack' ? 'paystack' : val === 'hubtel' ? 'hubtel' : 'moolre')
                 }
             })
             .catch(() => {})
@@ -480,6 +486,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                     packageId: selectedPackage.id,
                     guestPhone: cleanPhone,
                     guestEmail: email.trim() || undefined,
+                    provider: webPaymentProvider,
                 }),
             })
             const data = await res.json()
@@ -493,6 +500,13 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
 
             if (data.gateway === 'paystack') {
                 window.location.href = data.authorization_url
+                return
+            }
+
+            if (data.gateway === 'hubtel') {
+                toast.success(data.message || 'Payment prompt sent! Please approve on your phone.')
+                setPollingRef(data.reference)
+                setLoading(false)
                 return
             }
 
@@ -534,6 +548,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                     useExactAmount: useExact,
                     guestPhone: cleanPhone,
                     guestEmail: airtimeEmail.trim() || undefined,
+                    provider: webPaymentProvider,
                 }),
             })
             const data = await res.json()
@@ -547,6 +562,13 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
 
             if (data.gateway === 'paystack') {
                 window.location.href = data.authorization_url
+                return
+            }
+
+            if (data.gateway === 'hubtel') {
+                toast.success(data.message || 'Payment prompt sent! Please approve on your phone.')
+                setPollingRef(data.reference)
+                setLoading(false)
                 return
             }
 
@@ -627,6 +649,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                     bundlePreference,
                     guestPhone: cleanPhone,
                     guestEmail: mashupEmail.trim() || undefined,
+                    provider: webPaymentProvider,
                 }),
             })
             const data = await res.json()
@@ -636,6 +659,13 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 setLoading(false)
                 return
             }
+            if (data.gateway === 'hubtel') {
+                toast.success(data.message || 'Payment prompt sent! Please approve on your phone.')
+                setPollingRef(data.reference)
+                setLoading(false)
+                return
+            }
+
             try { localStorage.setItem('shop_last_phone', cleanPhone) } catch (_) { }
             setOtpReference(data.reference)
             setOtpOrderType('mashup')
@@ -662,7 +692,8 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                     rcTypeId: selectedRc.id,
                     quantity: rcQuantity,
                     customerPhone: cleanPhone,
-                    customerEmail: rcEmail.trim() || undefined
+                    customerEmail: rcEmail.trim() || undefined,
+                    provider: webPaymentProvider,
                 })
             })
             const data = await res.json()
@@ -674,6 +705,13 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
 
             if (data.gateway === 'paystack') {
                 window.location.href = data.authorization_url
+                return
+            }
+
+            if (data.gateway === 'hubtel') {
+                toast.success(data.message || 'Payment prompt sent! Please approve on your phone.')
+                setPollingRef(data.reference)
+                setLoading(false)
                 return
             }
 
@@ -714,7 +752,8 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 guestPhone: (otpOrderType === 'mashup' ? mashupPhone : airtimePhone).replace(/\s+/g, ''),
                 guestEmail: (otpOrderType === 'mashup' ? mashupEmail : airtimeEmail).trim() || undefined,
                 otpCode: otpCode.trim(),
-                reference: otpReference
+                reference: otpReference,
+                provider: webPaymentProvider
             } : otpOrderType === 'results_checker' ? {
                 shopSlug: shop.shop_slug,
                 rcTypeId: selectedRc?.id,
@@ -722,14 +761,16 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 customerPhone: rcPhone.replace(/\s+/g, ''),
                 customerEmail: rcEmail.trim() || undefined,
                 otpCode: otpCode.trim(),
-                reference: otpReference
+                reference: otpReference,
+                provider: webPaymentProvider
             } : {
                 shopSlug: shop.shop_slug,
                 packageId: selectedPackage?.id,
                 guestPhone: phone.replace(/\s+/g, ''),
                 guestEmail: email.trim() || undefined,
                 otpCode: otpCode.trim(),
-                reference: otpReference
+                reference: otpReference,
+                provider: webPaymentProvider
             }
 
             const endpoint = otpOrderType === 'results_checker' ? '/api/shop/rc/initialize' : '/api/shop/initialize'
@@ -1289,6 +1330,31 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                                         </div>
                                     )}
 
+                                    <div className="space-y-2 pb-2">
+                                        <Label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 block">Pay via</Label>
+                                        <div className="flex gap-1 p-1 rounded-xl bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 w-full">
+                                            {([
+                                                { id: 'moolre', label: 'Moolre' },
+                                                { id: 'hubtel', label: 'Hubtel' },
+                                                { id: 'paystack', label: 'Paystack' },
+                                            ] as const).map(({ id, label }) => (
+                                                <button
+                                                    key={id}
+                                                    type="button"
+                                                    onClick={() => setWebPaymentProvider(id)}
+                                                    className={cn(
+                                                        'flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all',
+                                                        webPaymentProvider === id
+                                                            ? 'bg-white shadow text-gray-900'
+                                                            : 'text-gray-500 hover:text-gray-700'
+                                                    )}
+                                                >
+                                                    {label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
                                     <button
                                         onClick={handleBuyAirtime} disabled={loading || !detectedNetwork || parseFloat(airtimeAmount || '0') <= 0}
                                         className="w-full py-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-base uppercase tracking-widest shadow-lg flex justify-center items-center gap-3 transition-transform active:scale-95 disabled:opacity-50 disabled:active:scale-100"
@@ -1385,6 +1451,31 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                                         type="email" value={rcEmail} onChange={(e) => setRcEmail(e.target.value)} placeholder="Email to receive PIN (Optional)"
                                         className="w-full pl-9 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 transition-all ring-[var(--brand-color)]"
                                     />
+                                </div>
+
+                                <div className="space-y-2 pb-2">
+                                    <Label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 block">Pay via</Label>
+                                    <div className="flex gap-1 p-1 rounded-xl bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 w-full">
+                                        {([
+                                            { id: 'moolre', label: 'Moolre' },
+                                            { id: 'hubtel', label: 'Hubtel' },
+                                            { id: 'paystack', label: 'Paystack' },
+                                        ] as const).map(({ id, label }) => (
+                                            <button
+                                                key={id}
+                                                type="button"
+                                                onClick={() => setWebPaymentProvider(id)}
+                                                className={cn(
+                                                    'flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all',
+                                                    webPaymentProvider === id
+                                                        ? 'bg-white shadow text-gray-900'
+                                                        : 'text-gray-500 hover:text-gray-700'
+                                                )}
+                                            >
+                                                {label}
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
 
                                 <button
@@ -1570,6 +1661,31 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                                 type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Your email to receive transaction receipt (Optional)"
                                 className="w-full pl-9 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 transition-all ring-[var(--brand-color)]"
                             />
+                        </div>
+
+                        <div className="space-y-2 pb-2">
+                            <Label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 block">Pay via</Label>
+                            <div className="flex gap-1 p-1 rounded-xl bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 w-full">
+                                {([
+                                    { id: 'moolre', label: 'Moolre' },
+                                    { id: 'hubtel', label: 'Hubtel' },
+                                    { id: 'paystack', label: 'Paystack' },
+                                ] as const).map(({ id, label }) => (
+                                    <button
+                                        key={id}
+                                        type="button"
+                                        onClick={() => setWebPaymentProvider(id)}
+                                        className={cn(
+                                            'flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all',
+                                            webPaymentProvider === id
+                                                ? 'bg-white shadow text-gray-900'
+                                                : 'text-gray-500 hover:text-gray-700'
+                                        )}
+                                    >
+                                        {label}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
 
                         <button

@@ -3,6 +3,7 @@ import { createRouteClient } from '@/lib/supabase-server'
 import { createClient } from '@supabase/supabase-js'
 import { calculatePaystackFee, generateReferenceCode } from '@/lib/utils'
 import { initiatePayment, MOOLRE_PAYMENT_CHANNEL_MAP } from '@/lib/moolre-payment-service'
+import { initiatePayment as hubtelInitiatePayment, HUBTEL_CHANNEL_MAP, calculateHubtelFee } from '@/lib/hubtel-payment-service'
 
 // Build admin client safely — returns null with an error string if env vars are missing
 function buildAdminClient(): { client: ReturnType<typeof createClient> | null; error: string | null } {
@@ -44,7 +45,8 @@ export async function POST(request: NextRequest) {
         } catch {
             return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
         }
-        const { amount, phone, network, otpCode, reference: existingRef } = body
+        // provider can be 'moolre' | 'hubtel' | 'paystack'; frontend toggle sends it in body
+        const { amount, phone, network, otpCode, reference: existingRef, provider: bodyProvider } = body
 
         // ── Step 3: Validate amount ───────────────────────────────────────────
         const MAX_TOPUP_AMOUNT = Number(process.env.MAX_WALLET_TOPUP_AMOUNT) || 10000
@@ -78,12 +80,23 @@ export async function POST(request: NextRequest) {
         const settingsMap: Record<string, any> = {}
         for (const row of ((feeData as any[]) || [])) settingsMap[row.key] = row.value
 
-        const provider = String(settingsMap.active_payment_provider_web || 'moolre') === 'paystack' ? 'paystack' : 'moolre'
+        // Provider resolution: body takes priority (frontend toggle), fall back to admin setting
+        const adminDefault = String(settingsMap.active_payment_provider_web || 'moolre')
+        const provider: 'moolre' | 'hubtel' | 'paystack' =
+            bodyProvider === 'hubtel' ? 'hubtel'
+            : bodyProvider === 'paystack' ? 'paystack'
+            : adminDefault === 'paystack' ? 'paystack'
+            : adminDefault === 'hubtel' ? 'hubtel'
+            : 'moolre'
         console.log('[WalletInit] provider:', provider, '| userId:', userId)
 
         // ── Step 6: Validate provider-specific inputs ─────────────────────────
         if (provider === 'moolre' && (!phone || !network || !MOOLRE_PAYMENT_CHANNEL_MAP[network])) {
             return NextResponse.json({ error: 'Valid phone number and network are required' }, { status: 400 })
+        }
+
+        if (provider === 'hubtel' && (!phone || !network || !HUBTEL_CHANNEL_MAP[network])) {
+            return NextResponse.json({ error: 'Valid phone number and network are required for Hubtel payment' }, { status: 400 })
         }
 
         if (provider === 'paystack') {
@@ -122,16 +135,27 @@ export async function POST(request: NextRequest) {
         }
 
         // ── Step 8: Calculate fees ────────────────────────────────────────────
-        const feeKey = (userRoleData as any)?.role === 'agent' ? 'agent_paystack_fee_percent' : 'paystack_fee_percent'
-        const feeSetting = settingsMap[feeKey] ?? settingsMap['paystack_fee_percent']
-        let feePercent = 1.95
-        if (feeSetting !== undefined && feeSetting !== null) {
-            const parsed = typeof feeSetting === 'string' ? parseFloat(feeSetting) : Number(feeSetting)
-            if (!isNaN(parsed)) feePercent = parsed
+        let fee: number
+        let totalAmount: number
+
+        if (provider === 'hubtel') {
+            // Hubtel: fixed 1.8% fee (or from HUBTEL_FEE_PERCENT env var)
+            const hubtelFees = calculateHubtelFee(amount)
+            fee = hubtelFees.fee
+            totalAmount = hubtelFees.total
+        } else {
+            // Paystack / Moolre: use admin-configured fee percent
+            const feeKey = (userRoleData as any)?.role === 'agent' ? 'agent_paystack_fee_percent' : 'paystack_fee_percent'
+            const feeSetting = settingsMap[feeKey] ?? settingsMap['paystack_fee_percent']
+            let feePercent = 1.95
+            if (feeSetting !== undefined && feeSetting !== null) {
+                const parsed = typeof feeSetting === 'string' ? parseFloat(feeSetting) : Number(feeSetting)
+                if (!isNaN(parsed)) feePercent = parsed
+            }
+            fee = calculatePaystackFee(amount, feePercent)
+            totalAmount = amount + fee
         }
 
-        const fee = calculatePaystackFee(amount, feePercent)
-        const totalAmount = amount + fee
         const reference = existingRef || `WAL-${generateReferenceCode()}`
         let paymentId: string | null = null
 
@@ -221,7 +245,34 @@ export async function POST(request: NextRequest) {
             })
         }
 
-        // ── Step 10b: MOOLRE ──────────────────────────────────────────────────
+        // ── Step 10b: HUBTEL ──────────────────────────────────────────────────
+        if (provider === 'hubtel') {
+            const hubtelChannel = HUBTEL_CHANNEL_MAP[network]
+            const hubtelResponse = await hubtelInitiatePayment({
+                amount: totalAmount,
+                payerPhone: phone,
+                channel: hubtelChannel,
+                clientReference: reference,
+                description: 'ARHMS Wallet Top-up',
+            })
+
+            if (!hubtelResponse.success) {
+                console.error('[WalletInit] Hubtel error:', hubtelResponse.error)
+                if (!existingRef) {
+                    await (supabaseAdmin.from('wallet_payments' as any)).update({ status: 'failed' }).eq('id', paymentId)
+                }
+                return NextResponse.json({ error: hubtelResponse.error || 'Failed to initialize Hubtel payment' }, { status: 500 })
+            }
+
+            return NextResponse.json({
+                success: true,
+                gateway: 'hubtel',
+                reference,
+                message: 'Payment prompt sent to your phone. Please approve to complete top-up.',
+            })
+        }
+
+        // ── Step 10c: MOOLRE ──────────────────────────────────────────────────
         const channelId = MOOLRE_PAYMENT_CHANNEL_MAP[network]
         let moolreResponse = await initiatePayment({
             amount: totalAmount,

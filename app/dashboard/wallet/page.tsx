@@ -60,7 +60,7 @@ function WalletContent() {
     const [otpRequired, setOtpRequired] = useState(false)
     const [otpCode, setOtpCode] = useState('')
     const [paymentReference, setPaymentReference] = useState<string | null>(null)
-    const [webPaymentProvider, setWebPaymentProvider] = useState<'moolre' | 'paystack'>('moolre')
+    const [webPaymentProvider, setWebPaymentProvider] = useState<'moolre' | 'hubtel' | 'paystack'>('moolre')
     const searchParams = useSearchParams()
 
     useEffect(() => {
@@ -169,7 +169,12 @@ function WalletContent() {
 
                 const providerRow = settings.find(s => s.key === 'active_payment_provider_web')
                 if (providerRow) {
-                    setWebPaymentProvider(String(providerRow.value || 'moolre') === 'paystack' ? 'paystack' : 'moolre')
+                    const val = String(providerRow.value || 'moolre')
+                    setWebPaymentProvider(
+                        val === 'paystack' ? 'paystack'
+                        : val === 'hubtel' ? 'hubtel'
+                        : 'moolre'
+                    )
                 }
 
                 let targetKey = 'paystack_fee_percent'
@@ -207,7 +212,7 @@ function WalletContent() {
             return
         }
 
-        if (webPaymentProvider === 'moolre' && (!paymentPhone || !paymentNetwork)) {
+        if ((webPaymentProvider === 'moolre' || webPaymentProvider === 'hubtel') && (!paymentPhone || !paymentNetwork)) {
             toast.error('Please provide a valid Mobile Money number and select a network')
             return
         }
@@ -219,7 +224,7 @@ function WalletContent() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
-                body: JSON.stringify({ amount, phone: paymentPhone, network: paymentNetwork }),
+                body: JSON.stringify({ amount, phone: paymentPhone, network: paymentNetwork, provider: webPaymentProvider }),
             })
 
             const data = await response.json()
@@ -230,6 +235,14 @@ function WalletContent() {
 
             if (data.gateway === 'paystack') {
                 window.location.href = data.authorization_url
+                return
+            }
+
+            // Hubtel / Moolre: prompt sent — start polling for webhook completion
+            if (data.gateway === 'hubtel') {
+                toast.success(data.message || 'Payment prompt sent! Please approve on your phone.')
+                setPollingRef(data.reference)
+                setIsProcessing(false)
                 return
             }
 
@@ -260,7 +273,8 @@ function WalletContent() {
                     phone: paymentPhone, 
                     network: paymentNetwork,
                     otpCode: otpCode.trim(),
-                    reference: paymentReference
+                    reference: paymentReference,
+                    provider: webPaymentProvider
                 }),
             })
 
@@ -285,7 +299,12 @@ function WalletContent() {
         }
     }
 
-    const fee = topUpAmount ? calculatePaystackFee(parseFloat(topUpAmount) || 0, paystackFeePercent) : 0
+    const HUBTEL_FEE_PERCENT = 1.8
+    const fee = topUpAmount
+        ? webPaymentProvider === 'hubtel'
+            ? parseFloat(((parseFloat(topUpAmount) || 0) * (HUBTEL_FEE_PERCENT / 100)).toFixed(2))
+            : calculatePaystackFee(parseFloat(topUpAmount) || 0, paystackFeePercent)
+        : 0
     const totalAmount = topUpAmount ? (parseFloat(topUpAmount) || 0) + fee : 0
 
     if (isLoading) {
@@ -401,9 +420,34 @@ function WalletContent() {
                                 )}
                             </div>
                             <CardDescription className="mt-2">
-                                Add funds to your wallet using mobile money, card, or bank transfer
+                                Add funds to your wallet using Mobile Money
                             </CardDescription>
                         </CardHeader>
+                        {/* ── Payment Provider Toggle ── */}
+                        <div className="px-6 pb-2">
+                            <Label className="text-xs text-muted-foreground mb-2 block">Pay via</Label>
+                            <div className="flex gap-1 p-1 rounded-xl bg-muted w-full">
+                                {([
+                                    { id: 'moolre', label: 'Moolre' },
+                                    { id: 'hubtel', label: 'Hubtel' },
+                                    { id: 'paystack', label: 'Paystack' },
+                                ] as const).map(({ id, label }) => (
+                                    <button
+                                        key={id}
+                                        type="button"
+                                        onClick={() => setWebPaymentProvider(id)}
+                                        className={cn(
+                                            'flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all',
+                                            webPaymentProvider === id
+                                                ? 'bg-white dark:bg-zinc-900 shadow text-foreground'
+                                                : 'text-muted-foreground hover:text-foreground'
+                                        )}
+                                    >
+                                        {label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
                         <form onSubmit={(e) => { e.preventDefault(); handleTopUp(); }}>
                             <CardContent className="space-y-6">
                                 {/* Quick Amounts */}
@@ -450,7 +494,9 @@ function WalletContent() {
                                             <span>{formatCurrency(parseFloat(topUpAmount))}</span>
                                         </div>
                                         <div className="flex justify-between text-sm">
-                                            <span className="text-muted-foreground">Transaction fee ({paystackFeePercent}%)</span>
+                                            <span className="text-muted-foreground">
+                                                Transaction fee ({webPaymentProvider === 'hubtel' ? '1.8' : webPaymentProvider === 'moolre' ? '0' : paystackFeePercent}%)
+                                            </span>
                                             <span>{formatCurrency(fee)}</span>
                                         </div>
                                         <Separator />
@@ -461,8 +507,8 @@ function WalletContent() {
                                     </div>
                                 )}
 
-                                {/* Payment Details — MoMo fields only for Moolre */}
-                                {webPaymentProvider === 'moolre' && (
+                                {/* Payment Details — MoMo fields for Moolre and Hubtel */}
+                                {(webPaymentProvider === 'moolre' || webPaymentProvider === 'hubtel') && (
                                     <div>
                                         <Label className="text-sm text-muted-foreground mb-3 block">Payment Details</Label>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -521,7 +567,7 @@ function WalletContent() {
                                         isProcessing ||
                                         !topUpAmount ||
                                         parseFloat(topUpAmount) < MIN_AMOUNT ||
-                                        (webPaymentProvider === 'moolre' && (!paymentPhone || !paymentNetwork))
+                                        ((webPaymentProvider === 'moolre' || webPaymentProvider === 'hubtel') && (!paymentPhone || !paymentNetwork))
                                     }
                                 >
                                     {isProcessing ? (
@@ -533,6 +579,11 @@ function WalletContent() {
                                         <>
                                             <CreditCard className="w-5 h-5 mr-2" />
                                             Pay with Paystack
+                                        </>
+                                    ) : webPaymentProvider === 'hubtel' ? (
+                                        <>
+                                            <Smartphone className="w-5 h-5 mr-2" />
+                                            Pay with Hubtel
                                         </>
                                     ) : (
                                         <>

@@ -1,8 +1,9 @@
-﻿import { createRouteHandlerClient } from '@/lib/supabase-server'
+import { createRouteHandlerClient } from '@/lib/supabase-server'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import { generateReferenceCode } from '@/lib/utils'
 import { initiatePayment, MOOLRE_PAYMENT_CHANNEL_MAP } from '@/lib/moolre-payment-service'
+import { initiatePayment as hubtelInitiatePayment, HUBTEL_CHANNEL_MAP } from '@/lib/hubtel-payment-service'
 
 export async function POST(request: Request) {
     try {
@@ -14,7 +15,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        const { plan = '30d', phone, network, otpCode, reference: existingRef } = await request.json().catch(() => ({}));
+        const { plan = '30d', phone, network, otpCode, reference: existingRef, provider: bodyProvider } = await request.json().catch(() => ({}));
 
         const { data: dbUser } = await supabase
             .from('users')
@@ -22,7 +23,7 @@ export async function POST(request: Request) {
             .eq('id', authUser.id)
             .single()
 
-        if (dbUser?.role !== 'customer' && dbUser?.role !== 'agent') {
+        if (!dbUser || (dbUser.role !== 'customer' && dbUser.role !== 'agent')) {
             return NextResponse.json(
                 { error: 'Membership upgrades are only available for customers and existing agents' },
                 { status: 400 }
@@ -50,13 +51,27 @@ export async function POST(request: Request) {
         const settingsMap: Record<string, any> = {}
         for (const row of (settings || [])) settingsMap[row.key] = row.value
 
-        const provider = String(settingsMap.active_payment_provider_web || 'moolre') === 'paystack' ? 'paystack' : 'moolre'
+        // Provider resolution: body takes priority (frontend toggle), fall back to admin setting
+        const adminDefault = String(settingsMap.active_payment_provider_web || 'moolre')
+        const provider: 'moolre' | 'hubtel' | 'paystack' =
+            bodyProvider === 'hubtel' ? 'hubtel'
+            : bodyProvider === 'paystack' ? 'paystack'
+            : adminDefault === 'paystack' ? 'paystack'
+            : adminDefault === 'hubtel' ? 'hubtel'
+            : 'moolre'
 
         // For Moolre: phone + network are required
         if (provider === 'moolre') {
             const channelId = phone && MOOLRE_PAYMENT_CHANNEL_MAP[network]
             if (!phone || !network || !channelId) {
                 return NextResponse.json({ error: 'Phone number and network are required' }, { status: 400 })
+            }
+        }
+
+        // For Hubtel: phone + network are required
+        if (provider === 'hubtel') {
+            if (!phone || !network || !HUBTEL_CHANNEL_MAP[network]) {
+                return NextResponse.json({ error: 'Phone number and network are required for Hubtel payment' }, { status: 400 })
             }
         }
 
@@ -164,7 +179,30 @@ export async function POST(request: Request) {
             })
         }
 
-        // ── MOOLRE BRANCH ────────────────────────────────────────────────────────
+        // ── HUBTEL BRANCH ───────────────────────────────────────────────────────
+        if (provider === 'hubtel') {
+            const hubtelChannel = HUBTEL_CHANNEL_MAP[network]
+            const hubtelResponse = await hubtelInitiatePayment({
+                amount: totalAmount,
+                payerPhone: phone,
+                channel: hubtelChannel,
+                clientReference: reference,
+                description: `ARHMS Agent Upgrade - ${planLabel}`,
+            })
+
+            if (!hubtelResponse.success) {
+                throw new Error(hubtelResponse.error || 'Failed to initialize Hubtel payment')
+            }
+
+            return NextResponse.json({
+                success: true,
+                gateway: 'hubtel',
+                reference,
+                message: 'Payment prompt sent to your phone. Please approve to continue.',
+            })
+        }
+
+        // ── MOOLRE BRANCH ──────────────────────────────────────────────────
         const channelId = MOOLRE_PAYMENT_CHANNEL_MAP[network]
 
         let moolreResponse = await initiatePayment({

@@ -32,6 +32,7 @@ export default function UpgradePage() {
     const [otpRequired, setOtpRequired] = useState(false)
     const [otpCode, setOtpCode] = useState('')
     const [paymentReference, setPaymentReference] = useState<string | null>(null)
+    const [webPaymentProvider, setWebPaymentProvider] = useState<'moolre' | 'hubtel' | 'paystack'>('moolre')
 
     // Prices for tiers
     const [prices, setPrices] = useState({
@@ -89,6 +90,20 @@ export default function UpgradePage() {
         fetch('/api/admin-settings?key=dealer_promo_enabled')
             .then(r => r.ok ? r.json() : null)
             .then(d => { if (d) setDealerPromoEnabled(d.value === 'true') })
+            .catch(() => {})
+
+        fetch('/api/admin-settings?key=active_payment_provider_web')
+            .then(r => r.ok ? r.json() : null)
+            .then(d => {
+                if (d) {
+                    const val = String(d.value || 'moolre')
+                    setWebPaymentProvider(
+                        val === 'paystack' ? 'paystack'
+                        : val === 'hubtel' ? 'hubtel'
+                        : 'moolre'
+                    )
+                }
+            })
             .catch(() => {})
     }, [])
 
@@ -181,6 +196,7 @@ export default function UpgradePage() {
                         phone: paymentPhone.replace(/\s/g, ''),
                         network: paymentNetwork,
                         planType: selectedPlan,
+                        provider: webPaymentProvider,
                     })
                 })
                 const data = await response.json()
@@ -189,6 +205,14 @@ export default function UpgradePage() {
                     window.location.href = data.authorization_url
                     return
                 }
+                if (data.gateway === 'hubtel') {
+                    toast.success(data.message || 'Payment prompt sent! Please approve on your phone.')
+                    setPollingRef(data.reference)
+                    setIsProcessing(null)
+                    setShowPaymentModal(false)
+                    return
+                }
+
                 setPaymentReference(data.reference)
                 if (data.otpRequired) {
                     setOtpRequired(true)
@@ -214,6 +238,7 @@ export default function UpgradePage() {
                     plan: selectedPlan,
                     phone: paymentPhone.replace(/\s/g, ''),
                     network: paymentNetwork,
+                    provider: webPaymentProvider,
                 })
             })
 
@@ -225,6 +250,14 @@ export default function UpgradePage() {
 
             if (data.gateway === 'paystack') {
                 window.location.href = data.authorization_url
+                return
+            }
+
+            if (data.gateway === 'hubtel') {
+                toast.success(data.message || 'Payment prompt sent! Please approve on your phone.')
+                setPollingRef(data.reference)
+                setIsProcessing(null)
+                setShowPaymentModal(false)
                 return
             }
 
@@ -249,8 +282,8 @@ export default function UpgradePage() {
         try {
             const endpoint = isDealerPaymentFlow ? '/api/user/dealer-subscribe' : '/api/user/upgrade/initialize'
             const body = isDealerPaymentFlow
-                ? { phone: paymentPhone.replace(/\s/g, ''), network: paymentNetwork, otpCode: otpCode.trim(), reference: paymentReference, planType: selectedPlan }
-                : { plan: selectedPlan, phone: paymentPhone.replace(/\s/g, ''), network: paymentNetwork, otpCode: otpCode.trim(), reference: paymentReference }
+                ? { phone: paymentPhone.replace(/\s/g, ''), network: paymentNetwork, otpCode: otpCode.trim(), reference: paymentReference, planType: selectedPlan, provider: webPaymentProvider }
+                : { plan: selectedPlan, phone: paymentPhone.replace(/\s/g, ''), network: paymentNetwork, otpCode: otpCode.trim(), reference: paymentReference, provider: webPaymentProvider }
 
             const response = await fetch(endpoint, {
                 method: 'POST',
@@ -479,37 +512,70 @@ export default function UpgradePage() {
                         </DialogHeader>
                         <div className="space-y-4 py-4">
                             <div className="space-y-2">
-                                <Label htmlFor="network-d">Network</Label>
-                                <Select value={paymentNetwork} onValueChange={setPaymentNetwork}>
-                                    <SelectTrigger id="network-d">
-                                        <SelectValue placeholder="Select network" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="MTN">MTN</SelectItem>
-                                        <SelectItem value="Telecel">Telecel</SelectItem>
-                                        <SelectItem value="AT">AT</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-                            <div className="space-y-2">
-                                <Label htmlFor="phone-d">Mobile Money Number</Label>
-                                <div className="relative">
-                                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                                    <Input
-                                        id="phone-d"
-                                        type="tel"
-                                        placeholder="024XXXXXXX"
-                                        className="pl-9"
-                                        value={paymentPhone}
-                                        onChange={(e) => setPaymentPhone(e.target.value)}
-                                    />
+                                <Label className="text-sm text-muted-foreground block">Pay via</Label>
+                                <div className="flex gap-1 p-1 rounded-xl bg-muted w-full">
+                                    {([
+                                        { id: 'moolre', label: 'Moolre' },
+                                        { id: 'hubtel', label: 'Hubtel' },
+                                        { id: 'paystack', label: 'Paystack' },
+                                    ] as const).map(({ id, label }) => (
+                                        <button
+                                            key={id}
+                                            type="button"
+                                            onClick={() => setWebPaymentProvider(id)}
+                                            className={cn(
+                                                'flex-1 py-1.5 px-2 rounded-lg text-sm font-medium transition-all',
+                                                webPaymentProvider === id
+                                                    ? 'bg-white shadow text-foreground'
+                                                    : 'text-muted-foreground hover:text-foreground'
+                                            )}
+                                        >
+                                            {label}
+                                        </button>
+                                    ))}
                                 </div>
                             </div>
+                            
+                            {(webPaymentProvider === 'moolre' || webPaymentProvider === 'hubtel') && (
+                                <>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="network-d">Network</Label>
+                                        <Select value={paymentNetwork} onValueChange={setPaymentNetwork}>
+                                            <SelectTrigger id="network-d">
+                                                <SelectValue placeholder="Select network" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="MTN">MTN</SelectItem>
+                                                <SelectItem value="Telecel">Telecel</SelectItem>
+                                                <SelectItem value="AT">AT</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="phone-d">Mobile Money Number</Label>
+                                        <div className="relative">
+                                            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                            <Input
+                                                id="phone-d"
+                                                type="tel"
+                                                placeholder="024XXXXXXX"
+                                                className="pl-9"
+                                                value={paymentPhone}
+                                                onChange={(e) => setPaymentPhone(e.target.value)}
+                                            />
+                                        </div>
+                                    </div>
+                                </>
+                            )}
                         </div>
                         <div className="flex gap-3 justify-end">
                             <Button variant="outline" onClick={() => setShowPaymentModal(false)}>Cancel</Button>
-                            <Button onClick={handleUpgradeSubmit} disabled={isProcessing !== null} className="bg-violet-700 text-white hover:bg-violet-800">
-                                {isProcessing !== null ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing</> : 'Send Prompt'}
+                            <Button 
+                                onClick={handleUpgradeSubmit} 
+                                disabled={isProcessing !== null || ((webPaymentProvider === 'moolre' || webPaymentProvider === 'hubtel') && !paymentPhone)} 
+                                className="bg-violet-700 text-white hover:bg-violet-800"
+                            >
+                                {isProcessing !== null ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing</> : webPaymentProvider === 'paystack' ? 'Pay with Paystack' : 'Send Prompt'}
                             </Button>
                         </div>
                     </DialogContent>
@@ -982,42 +1048,76 @@ export default function UpgradePage() {
 
                         <div className="space-y-4 py-4">
                             <div className="space-y-2">
-                                <Label htmlFor="network">Network</Label>
-                                <Select value={paymentNetwork} onValueChange={setPaymentNetwork}>
-                                    <SelectTrigger>
-                                        <SelectValue placeholder="Select network" />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="MTN">MTN</SelectItem>
-                                        <SelectItem value="Telecel">Telecel</SelectItem>
-                                        <SelectItem value="AT">AT</SelectItem>
-                                    </SelectContent>
-                                </Select>
-                            </div>
-
-                            <div className="space-y-2">
-                                <Label htmlFor="phone">Mobile Money Number</Label>
-                                <div className="relative">
-                                    <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                                    <Input
-                                        id="phone"
-                                        type="tel"
-                                        placeholder="024XXXXXXX"
-                                        className="pl-9"
-                                        value={paymentPhone}
-                                        onChange={(e) => setPaymentPhone(e.target.value)}
-                                    />
+                                <Label className="text-sm text-muted-foreground block">Pay via</Label>
+                                <div className="flex gap-1 p-1 rounded-xl bg-muted w-full">
+                                    {([
+                                        { id: 'moolre', label: 'Moolre' },
+                                        { id: 'hubtel', label: 'Hubtel' },
+                                        { id: 'paystack', label: 'Paystack' },
+                                    ] as const).map(({ id, label }) => (
+                                        <button
+                                            key={id}
+                                            type="button"
+                                            onClick={() => setWebPaymentProvider(id)}
+                                            className={cn(
+                                                'flex-1 py-1.5 px-2 rounded-lg text-sm font-medium transition-all',
+                                                webPaymentProvider === id
+                                                    ? 'bg-white shadow text-foreground'
+                                                    : 'text-muted-foreground hover:text-foreground'
+                                            )}
+                                        >
+                                            {label}
+                                        </button>
+                                    ))}
                                 </div>
                             </div>
+
+                            {(webPaymentProvider === 'moolre' || webPaymentProvider === 'hubtel') && (
+                                <>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="network">Network</Label>
+                                        <Select value={paymentNetwork} onValueChange={setPaymentNetwork}>
+                                            <SelectTrigger>
+                                                <SelectValue placeholder="Select network" />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                <SelectItem value="MTN">MTN</SelectItem>
+                                                <SelectItem value="Telecel">Telecel</SelectItem>
+                                                <SelectItem value="AT">AT</SelectItem>
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                    <div className="space-y-2">
+                                        <Label htmlFor="phone">Mobile Money Number</Label>
+                                        <div className="relative">
+                                            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+                                            <Input
+                                                id="phone"
+                                                type="tel"
+                                                placeholder="024XXXXXXX"
+                                                className="pl-9"
+                                                value={paymentPhone}
+                                                onChange={(e) => setPaymentPhone(e.target.value)}
+                                            />
+                                        </div>
+                                    </div>
+                                </>
+                            )}
                         </div>
 
-                        <div className="flex gap-3 justify-end">
+                        <div className="flex gap-3 justify-end mt-4">
                             <Button variant="outline" onClick={() => setShowPaymentModal(false)}>
                                 Cancel
                             </Button>
-                            <Button onClick={handleUpgradeSubmit} disabled={isProcessing !== null} className="bg-black text-[#FFCE00] hover:bg-black/90">
+                            <Button 
+                                onClick={handleUpgradeSubmit} 
+                                disabled={isProcessing !== null || ((webPaymentProvider === 'moolre' || webPaymentProvider === 'hubtel') && !paymentPhone)} 
+                                className="bg-black text-[#FFCE00] hover:bg-black/90"
+                            >
                                 {isProcessing !== null ? (
                                     <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing</>
+                                ) : webPaymentProvider === 'paystack' ? (
+                                    'Pay with Paystack'
                                 ) : (
                                     'Send Prompt'
                                 )}
