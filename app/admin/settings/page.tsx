@@ -37,9 +37,9 @@ export default function AdminSettingsPage() {
     const [footerCopyrightText, setFooterCopyrightText] = useState('')
     const [footerBrandingText, setFooterBrandingText] = useState('')
     const [autoFulfillment, setAutoFulfillment] = useState(true)
-    const [webPaymentProvider, setWebPaymentProvider] = useState<'moolre' | 'paystack'>('moolre')
-    const [shopPaymentProvider, setShopPaymentProvider] = useState<'moolre' | 'paystack'>('moolre')
-    const [classifiedsPaymentProvider, setClassifiedsPaymentProvider] = useState<'moolre' | 'paystack'>('moolre')
+    const [webPaymentProvider, setWebPaymentProvider] = useState<'moolre' | 'hubtel' | 'paystack'>('moolre')
+    const [shopPaymentProvider, setShopPaymentProvider] = useState<'moolre' | 'hubtel' | 'paystack'>('moolre')
+    const [classifiedsPaymentProvider, setClassifiedsPaymentProvider] = useState<'moolre' | 'hubtel' | 'paystack'>('moolre')
     const [skipGoogleOauthOtp, setSkipGoogleOauthOtp] = useState(false)
 
     // Page access states
@@ -100,9 +100,9 @@ export default function AdminSettingsPage() {
             const webProvider = String(settingsMap.active_payment_provider_web || 'moolre')
             const shopProvider = String(settingsMap.active_payment_provider_shop || 'moolre')
             const classifiedsProvider = String(settingsMap.active_payment_provider_classifieds || 'moolre')
-            setWebPaymentProvider(webProvider === 'paystack' ? 'paystack' : 'moolre')
-            setShopPaymentProvider(shopProvider === 'paystack' ? 'paystack' : 'moolre')
-            setClassifiedsPaymentProvider(classifiedsProvider === 'paystack' ? 'paystack' : 'moolre')
+            setWebPaymentProvider(webProvider === 'paystack' ? 'paystack' : webProvider === 'hubtel' ? 'hubtel' : 'moolre')
+            setShopPaymentProvider(shopProvider === 'paystack' ? 'paystack' : shopProvider === 'hubtel' ? 'hubtel' : 'moolre')
+            setClassifiedsPaymentProvider(classifiedsProvider === 'paystack' ? 'paystack' : classifiedsProvider === 'hubtel' ? 'hubtel' : 'moolre')
             setSkipGoogleOauthOtp(settingsMap.skip_google_oauth_otp === 'true')
 
             // Initialize page access values
@@ -418,6 +418,18 @@ export default function AdminSettingsPage() {
                                     </button>
                                     <button
                                         type="button"
+                                        onClick={() => setWebPaymentProvider('hubtel')}
+                                        className={cn(
+                                            'px-4 py-2 text-sm font-medium transition-colors border-l',
+                                            webPaymentProvider === 'hubtel'
+                                                ? 'bg-primary text-primary-foreground'
+                                                : 'bg-background hover:bg-muted text-foreground'
+                                        )}
+                                    >
+                                        Hubtel
+                                    </button>
+                                    <button
+                                        type="button"
                                         onClick={() => setWebPaymentProvider('paystack')}
                                         className={cn(
                                             'px-4 py-2 text-sm font-medium transition-colors border-l',
@@ -448,6 +460,18 @@ export default function AdminSettingsPage() {
                                         )}
                                     >
                                         Moolre
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShopPaymentProvider('hubtel')}
+                                        className={cn(
+                                            'px-4 py-2 text-sm font-medium transition-colors border-l',
+                                            shopPaymentProvider === 'hubtel'
+                                                ? 'bg-primary text-primary-foreground'
+                                                : 'bg-background hover:bg-muted text-foreground'
+                                        )}
+                                    >
+                                        Hubtel
                                     </button>
                                     <button
                                         type="button"
@@ -544,6 +568,18 @@ export default function AdminSettingsPage() {
                                         )}
                                     >
                                         Moolre
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setClassifiedsPaymentProvider('hubtel')}
+                                        className={cn(
+                                            'px-4 py-2 text-sm font-medium transition-colors border-l',
+                                            classifiedsPaymentProvider === 'hubtel'
+                                                ? 'bg-primary text-primary-foreground'
+                                                : 'bg-background hover:bg-muted text-foreground'
+                                        )}
+                                    >
+                                        Hubtel
                                     </button>
                                     <button
                                         type="button"
