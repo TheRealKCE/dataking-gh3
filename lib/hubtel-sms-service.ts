@@ -69,7 +69,7 @@ export async function sendHubtelSMS(options: {
         return { success: false, error: 'Invalid phone number format. Use 0XXXXXXXXX or 233XXXXXXXXX' }
     }
 
-    console.log('[HubtelSMS] Sending to:', recipient, 'via Hubtel')
+    console.log(`[HubtelSMS] Sending to: ${recipient} via Hubtel (using ClientID: ${clientId.substring(0,4)}...)`)
 
     try {
         const url = new URL('https://sms.hubtel.com/v1/messages/send')
