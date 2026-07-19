@@ -1,4 +1,5 @@
 import { createServerClient } from '@/lib/supabase'
+import { sendHubtelSMS } from '@/lib/hubtel-sms-service'
 
 // ============================================================
 // Moolre SMS Service — https://api.moolre.com
@@ -36,6 +37,44 @@ export async function sendSMS(options: SMSOptions): Promise<SMSResult> {
         return { success: true, messageId: 'sms_disabled' }
     }
 
+    // Determine active provider from admin_settings (falls back to 'moolre')
+    const provider = await getActiveSmsProvider()
+
+    if (provider === 'hubtel') {
+        return sendHubtelSMS(options)
+    }
+
+    return sendMoolreSMS(options)
+}
+
+// ============================================================
+// PROVIDER ROUTING HELPER
+// ============================================================
+
+/**
+ * Reads the active SMS provider from the admin_settings table.
+ * Returns 'hubtel' | 'moolre'. Defaults to 'moolre' on any error.
+ */
+async function getActiveSmsProvider(): Promise<'hubtel' | 'moolre'> {
+    try {
+        const supabase = createServerClient()
+        const { data } = await supabase
+            .from('admin_settings')
+            .select('value')
+            .eq('key', 'active_sms_provider')
+            .single()
+        if (data && (data as any).value === 'hubtel') return 'hubtel'
+    } catch {
+        // Silently fall back to moolre on DB error
+    }
+    return 'moolre'
+}
+
+// ============================================================
+// MOOLRE SEND (internal)
+// ============================================================
+
+async function sendMoolreSMS(options: SMSOptions): Promise<SMSResult> {
     const apiKey = process.env.MOOLRE_API_KEY
     const senderId = (process.env.MOOLRE_SENDER_ID || 'ArhmsTech').trim()
 
@@ -323,5 +362,24 @@ export async function sendAirtimeCompletedSMS(beneficiaryPhone: string, amount: 
     await sendSMS({
         recipient: beneficiaryPhone,
         message: `Dear customer, your airtime order of GH${amount.toFixed(2)} has been credited successfully. Kindly dial *124# to check your balance thank you.\n\nARHMSGh`,
+    })
+}
+
+// ============================================================
+// USSD RESULT CHECKER SMS
+// ============================================================
+
+export async function sendResultCheckerUSSDSMS(
+    recipientPhone: string,
+    details: { checkerName: string; pin: string; serialNumber: string }
+): Promise<SMSResult> {
+    return sendSMS({
+        recipient: recipientPhone,
+        message:
+            `ARHMS DATA LTD\n` +
+            `Your ${details.checkerName} Result Checker is ready!\n\n` +
+            `PIN: ${details.pin}\n` +
+            `Serial: ${details.serialNumber}\n\n` +
+            `Visit waecdirect.org to check your results.\n\nARHMSGh`,
     })
 }

@@ -63,6 +63,7 @@ export async function GET(request: Request) {
             'standard_mtn_hidden',
             'results_checker_only_mode',
             'active_payment_provider_classifieds',
+            'active_sms_provider',
             'classifieds_boost_fee_7d',
             'classifieds_boost_fee_14d',
             'classifieds_boost_fee_21d',
