@@ -24,18 +24,8 @@ export interface HubtelSMSResult {
     error?: string
 }
 
-const HUBTEL_SMS_URL = 'https://sms.hubtel.com/v1/messages/send'
-
-function getHubtelSMSAuthHeader(): string {
-    const clientId = process.env.HUBTEL_SMS_CLIENT_ID || process.env.HUBTEL_CLIENT_ID
-    const clientSecret = process.env.HUBTEL_SMS_CLIENT_SECRET || process.env.HUBTEL_CLIENT_SECRET
-
-    if (!clientId || !clientSecret) {
-        throw new Error('[HubtelSMS] HUBTEL_SMS_CLIENT_ID or HUBTEL_SMS_CLIENT_SECRET is not configured.')
-    }
-
-    return `Basic ${Buffer.from(`${clientId}:${clientSecret}`).toString('base64')}`
-}
+// Auth is passed via query params per the user's Hubtel dashboard
+// const HUBTEL_SMS_URL = 'https://sms.hubtel.com/v1/messages/send'
 
 /**
  * Normalizes a Ghana phone number to the format expected by the Hubtel SMS API.
@@ -64,12 +54,13 @@ export async function sendHubtelSMS(options: {
 }): Promise<HubtelSMSResult> {
     const senderId = (process.env.HUBTEL_SMS_SENDER_ID || 'ARHMS').trim()
 
-    let authHeader: string
-    try {
-        authHeader = getHubtelSMSAuthHeader()
-    } catch (err: any) {
-        console.error('[HubtelSMS]', err.message)
-        return { success: false, error: err.message }
+    const clientId = process.env.HUBTEL_SMS_CLIENT_ID || process.env.HUBTEL_CLIENT_ID
+    const clientSecret = process.env.HUBTEL_SMS_CLIENT_SECRET || process.env.HUBTEL_CLIENT_SECRET
+
+    if (!clientId || !clientSecret) {
+        const msg = '[HubtelSMS] HUBTEL_SMS_CLIENT_ID or HUBTEL_SMS_CLIENT_SECRET is not configured.'
+        console.error(msg)
+        return { success: false, error: msg }
     }
 
     const recipient = normalizeGhanaPhoneForHubtel(options.recipient)
@@ -78,23 +69,21 @@ export async function sendHubtelSMS(options: {
         return { success: false, error: 'Invalid phone number format. Use 0XXXXXXXXX or 233XXXXXXXXX' }
     }
 
-    const payload = {
-        From: senderId,
-        To: recipient,
-        Content: options.message,
-    }
-
     console.log('[HubtelSMS] Sending to:', recipient, 'via Hubtel')
 
     try {
-        const response = await fetch(HUBTEL_SMS_URL, {
-            method: 'POST',
+        const url = new URL('https://sms.hubtel.com/v1/messages/send')
+        url.searchParams.append('clientid', clientId)
+        url.searchParams.append('clientsecret', clientSecret)
+        url.searchParams.append('from', senderId)
+        url.searchParams.append('to', recipient)
+        url.searchParams.append('content', options.message)
+
+        const response = await fetch(url.toString(), {
+            method: 'GET',
             headers: {
-                Authorization: authHeader,
-                'Content-Type': 'application/json',
                 Accept: 'application/json',
             },
-            body: JSON.stringify(payload),
         })
 
         const text = await response.text()
