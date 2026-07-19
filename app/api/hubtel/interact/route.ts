@@ -75,7 +75,7 @@ export async function POST(req: Request) {
 
         switch (currentStep) {
             case 'initiation':
-                responseMessage = "Welcome to ARHMS\n1. Buy Result Checker\n0. Exit";
+                responseMessage = "Welcome to ARHMS TECHNOLOGIES\n1. Buy Result Checker\n0. Exit";
                 nextStep = 'choose_action';
                 break;
 
