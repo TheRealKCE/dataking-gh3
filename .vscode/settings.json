@@ -9,5 +9,6 @@
   "tailwindCSS.includeLanguages": {
     "typescript": "javascript",
     "typescriptreact": "javascript"
-  }
+  },
+  "sql.dialect": "postgres"
 }

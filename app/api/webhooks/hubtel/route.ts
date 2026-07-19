@@ -74,6 +74,15 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ received: true })
         }
 
+        // ── USSD RESULTS CHECKER (USSD-RC-{sessionId}) ───────────────────────────
+        if (ClientReference.startsWith('USSD-RC-')) {
+            const { fulfillUSSDRCOrder } = await import('@/lib/ussd-rc-fulfillment')
+            const amountGHS = parseFloat(String(AmountCharged || 0))
+            console.log('[HubtelWebhook] Routing USSD RC order payment:', ClientReference)
+            await fulfillUSSDRCOrder(ClientReference, amountGHS)
+            return NextResponse.json({ received: true })
+        }
+
         // For Wallet Top-ups, Agent Upgrades, and Classifieds Boosts — look up via wallet_payments
         const { data: payment } = await supabase
             .from('wallet_payments')
