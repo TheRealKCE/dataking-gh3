@@ -1,9 +1,10 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, Suspense } from 'react'
 import { useAuth } from '@/contexts/auth-context'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { formatCurrency, generateReferenceCode } from '@/lib/utils'
+import { formatCurrency, generateReferenceCode, cn, calculatePaystackFee } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -11,7 +12,8 @@ import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
-import { Loader2, Package, CheckCircle2, ShoppingCart, CreditCard, Wallet, AlertCircle, Copy, Clock, FileText, Zap } from 'lucide-react'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Loader2, Package, CheckCircle2, ShoppingCart, CreditCard, Wallet, AlertCircle, Copy, Clock, FileText, Zap, Smartphone } from 'lucide-react'
 import { toast } from 'sonner'
 
 interface BulkTier { min_qty: number; max_qty: number; unit_price: number }
@@ -27,21 +29,36 @@ interface PurchaseSuccess {
     vouchers: Array<{ id: string; pin: string; serial_number: string }>
 }
 
-export default function ResultsCheckerPage() {
+function ResultsCheckerContent() {
     const { dbUser, refreshUser } = useAuth()
+    const router = useRouter()
+    const searchParams = useSearchParams()
+
     const [types, setTypes] = useState<RCType[]>([])
     const [loading, setLoading] = useState(true)
     
     // Purchase form state
     const [selectedTypeId, setSelectedTypeId] = useState<string>('')
     const [quantity, setQuantity] = useState<number>(1)
-    const paymentMethod = 'wallet'
+    
+    // Settings state
+    const [rcWalletPaymentEnabled, setRcWalletPaymentEnabled] = useState(true)
+    const [webPaymentProvider, setWebPaymentProvider] = useState<'moolre' | 'hubtel' | 'paystack'>('moolre')
+    const [paystackFeePercent, setPaystackFeePercent] = useState(1.95)
+    const [paymentMethod, setPaymentMethod] = useState<'wallet' | 'direct'>('wallet')
+    const [paymentNetwork, setPaymentNetwork] = useState('')
     
     // Customer info form (pre-filled if possible)
     const [customerName, setCustomerName] = useState(dbUser ? `${dbUser.first_name || ''} ${dbUser.last_name || ''}`.trim() : '')
     const [customerEmail, setCustomerEmail] = useState(dbUser?.email || '')
     const [customerPhone, setCustomerPhone] = useState(dbUser?.phone_number || '')
     
+    // Direct Payment Flow State
+    const [pollingRef, setPollingRef] = useState<string | null>(null)
+    const [otpRequired, setOtpRequired] = useState(false)
+    const [otpCode, setOtpCode] = useState('')
+    const [paymentReference, setPaymentReference] = useState<string | null>(null)
+
     const [isPurchasing, setIsPurchasing] = useState(false)
     const [successData, setSuccessData] = useState<PurchaseSuccess | null>(null)
     const [orders, setOrders] = useState<any[]>([])
@@ -51,12 +68,44 @@ export default function ResultsCheckerPage() {
     const isAgent = dbUser?.role === 'agent'
     const [walletBalance, setWalletBalance] = useState(0)
 
+    const fetchSettings = useCallback(async () => {
+        try {
+            const { data } = await supabase
+                .from('admin_settings')
+                .select('key, value')
+                .in('key', ['rc_wallet_payment_enabled', 'active_payment_provider_web', 'paystack_fee_percent', 'agent_paystack_fee_percent'])
+            
+            if (data) {
+                const settings = data as any[]
+                
+                const rcEnabledRow = settings.find(s => s.key === 'rc_wallet_payment_enabled')
+                const isWalletEnabled = rcEnabledRow ? rcEnabledRow.value !== 'false' : true
+                setRcWalletPaymentEnabled(isWalletEnabled)
+                if (!isWalletEnabled) {
+                    setPaymentMethod('direct')
+                }
+
+                const providerRow = settings.find(s => s.key === 'active_payment_provider_web')
+                if (providerRow) {
+                    const val = String(providerRow.value || 'moolre')
+                    setWebPaymentProvider(val === 'paystack' ? 'paystack' : val === 'hubtel' ? 'hubtel' : 'moolre')
+                }
+
+                let targetKey = dbUser?.role === 'agent' ? 'agent_paystack_fee_percent' : 'paystack_fee_percent'
+                const feeSetting = settings.find(s => s.key === targetKey) || settings.find(s => s.key === 'paystack_fee_percent')
+                if (feeSetting && feeSetting.value) {
+                    const parsed = parseFloat(feeSetting.value)
+                    if (!isNaN(parsed)) setPaystackFeePercent(parsed)
+                }
+            }
+        } catch (error) {
+            console.error('Error fetching settings:', error)
+        }
+    }, [dbUser])
+
     const fetchTypes = useCallback(async () => {
         setLoading(true)
         try {
-            // Re-use the admin endpoint but only for fetching active types
-            // In a real app we'd have a specific public/user endpoint, 
-            // but we can just use supabase directly here for read access since RLS allows select_all
             const res = await fetch('/api/admin/vouchers/types')
             const json = await res.json()
             if (res.ok) {
@@ -67,7 +116,11 @@ export default function ResultsCheckerPage() {
         } finally { setLoading(false) }
     }, [selectedTypeId])
 
-    useEffect(() => { fetchTypes() }, [fetchTypes])
+    useEffect(() => { 
+        fetchTypes()
+        fetchSettings()
+    }, [fetchTypes, fetchSettings])
+
     const fetchWalletBalance = useCallback(async () => {
         if (!dbUser?.id) return
         const { data } = await (supabase.from('wallets').select('balance').eq('user_id', dbUser.id).single() as any)
@@ -84,11 +137,9 @@ export default function ResultsCheckerPage() {
                 setOrders(json.data || [])
             } else {
                 const msg = json.error || `Error ${res.status}`
-                console.error('[fetchOrders] API error:', msg, json.detail)
                 setOrdersError(msg)
             }
         } catch (error: any) {
-            console.error('[fetchOrders] Network error:', error)
             setOrdersError('Network error — could not load history.')
         } finally {
             setLoadingOrders(false)
@@ -98,7 +149,61 @@ export default function ResultsCheckerPage() {
     useEffect(() => { fetchWalletBalance() }, [fetchWalletBalance])
     useEffect(() => { fetchOrders() }, [fetchOrders])
 
+    // Handle Paystack callback
+    useEffect(() => {
+        const paystackRef = searchParams.get('reference')
+        const trxref = searchParams.get('trxref')
+        if (paystackRef && trxref) {
+            setPollingRef(paystackRef)
+            setIsPurchasing(true)
+            router.replace('/dashboard/results-checker')
+        }
+    }, [searchParams, router])
 
+    // Poll for order completion
+    useEffect(() => {
+        let interval: NodeJS.Timeout
+        if (pollingRef) {
+            interval = setInterval(async () => {
+                try {
+                    const { data: order } = await supabase
+                        .from('results_checker_orders')
+                        .select('id, status, payment_status, inventory_ids, type_name')
+                        .eq('reference_code', pollingRef)
+                        .single()
+                    
+                    if (order && order.status === 'completed') {
+                        clearInterval(interval)
+                        setPollingRef(null)
+                        setIsPurchasing(false)
+                        toast.success('Payment completed successfully!')
+                        
+                        // Fetch vouchers
+                        const { data: inventory } = await supabase
+                            .from('results_checker_inventory')
+                            .select('id, pin, serial_number')
+                            .in('id', order.inventory_ids || [])
+                            
+                        setSuccessData({
+                            reference: pollingRef,
+                            type_name: order.type_name,
+                            vouchers: inventory || []
+                        })
+                        
+                        fetchOrders()
+                    } else if (order && order.status === 'failed') {
+                        clearInterval(interval)
+                        setPollingRef(null)
+                        setIsPurchasing(false)
+                        toast.error('Payment failed or cancelled.')
+                    }
+                } catch (e) {
+                    console.error('Polling error', e)
+                }
+            }, 3000)
+        }
+        return () => clearInterval(interval)
+    }, [pollingRef, fetchOrders])
 
     const selectedType = types.find(t => t.id === selectedTypeId)
     const role = dbUser?.role || 'customer'
@@ -111,27 +216,39 @@ export default function ResultsCheckerPage() {
         : selectedType.customer_price
         : 0
 
-    // 2. JSONB bulk tier match — identical to server's findMatchingTier()
+    // 2. JSONB bulk tier match
     const tiers: BulkTier[] = Array.isArray(selectedType?.bulk_pricing) ? selectedType!.bulk_pricing : []
     const matchedTier = tiers.find(t => quantity >= t.min_qty && quantity <= t.max_qty) ?? null
     const isBulk = matchedTier !== null
 
-    // 3. Effective unit price (bulk overrides base, no proration)
+    // 3. Effective unit price
     const unitPrice = isBulk ? matchedTier!.unit_price : baseUnitPrice
     const subtotal = parseFloat((unitPrice * quantity).toFixed(2))
+    
+    // Gateway fee for Direct Payment
+    const HUBTEL_FEE_PERCENT = 1.8
+    const gatewayFee = paymentMethod === 'direct' 
+        ? webPaymentProvider === 'hubtel' 
+            ? parseFloat((subtotal * (HUBTEL_FEE_PERCENT / 100)).toFixed(2))
+            : webPaymentProvider === 'paystack'
+                ? calculatePaystackFee(subtotal, paystackFeePercent)
+                : 0
+        : 0
+
+    const totalToPay = subtotal + gatewayFee
     const canAffordWallet = walletBalance >= subtotal
 
     const handlePurchase = async (e: React.FormEvent) => {
         e.preventDefault()
         if (!selectedType) { toast.error('Please select a voucher type'); return }
         if (!customerName || !customerPhone) { toast.error('Name and phone are required'); return }
-        if (!canAffordWallet) { toast.error('Insufficient wallet balance'); return }
+        
+        if (paymentMethod === 'wallet') {
+            if (!canAffordWallet) { toast.error('Insufficient wallet balance'); return }
 
-        setIsPurchasing(true)
-        try {
-            const refCode = generateReferenceCode()
-            
-            if (true) {
+            setIsPurchasing(true)
+            try {
+                const refCode = generateReferenceCode()
                 const res = await fetch('/api/vouchers/wallet-purchase', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -150,14 +267,100 @@ export default function ResultsCheckerPage() {
                 toast.success('Purchase successful!')
                 await refreshUser()
                 await fetchWalletBalance()
-                                setSuccessData({ reference: refCode, type_name: selectedType.name, vouchers: data.vouchers || [] })
+                setSuccessData({ reference: refCode, type_name: selectedType.name, vouchers: data.vouchers || [] })
                 fetchTypes()
                 fetchOrders()
-                
+            } catch (err: any) {
+                console.error('[Purchase Error]', err)
+                toast.error(err.message || 'An error occurred during purchase')
+            } finally {
+                setIsPurchasing(false)
             }
-        } catch (err: any) {
-            console.error('[Purchase Error]', err)
-            toast.error(err.message || 'An error occurred during purchase')
+        } else {
+            // DIRECT PAYMENT
+            if ((webPaymentProvider === 'moolre' || webPaymentProvider === 'hubtel') && !paymentNetwork) {
+                toast.error('Please select a Mobile Money network')
+                return
+            }
+
+            setIsPurchasing(true)
+            try {
+                const res = await fetch('/api/vouchers/gateway-init', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        typeId: selectedType.id,
+                        quantity,
+                        customerName,
+                        customerEmail,
+                        customerPhone,
+                        momoPhone: customerPhone,
+                        momoNetwork: paymentNetwork
+                    })
+                })
+                const data = await res.json()
+                if (!res.ok) { throw new Error(data.error || 'Purchase failed') }
+
+                if (data.gateway === 'paystack') {
+                    window.location.href = data.authorization_url
+                    return
+                }
+
+                if (data.gateway === 'hubtel') {
+                    toast.success(data.message || 'Payment prompt sent! Please approve on your phone.')
+                    setPollingRef(data.reference)
+                    setIsPurchasing(false)
+                    return
+                }
+
+                // Moolre
+                setPaymentReference(data.reference)
+                if (data.otpRequired) {
+                    setOtpRequired(true)
+                } else {
+                    toast.success(data.message || 'Payment prompt sent! Please approve on your phone.')
+                    setPollingRef(data.reference)
+                }
+                setIsPurchasing(false)
+            } catch (err: any) {
+                console.error('[Purchase Error]', err)
+                toast.error(err.message || 'An error occurred during purchase')
+                setIsPurchasing(false)
+            }
+        }
+    }
+
+    const handleVerifyOtp = async () => {
+        if (!otpCode || otpCode.trim().length < 1) {
+            toast.error('Please enter the OTP sent to your phone')
+            return
+        }
+
+        setIsPurchasing(true)
+        try {
+            const res = await fetch('/api/vouchers/gateway-init', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    typeId: selectedType?.id,
+                    quantity,
+                    customerName,
+                    customerEmail,
+                    customerPhone,
+                    momoPhone: customerPhone,
+                    momoNetwork: paymentNetwork,
+                    otpCode: otpCode.trim()
+                })
+            })
+            const data = await res.json()
+            if (!res.ok) { throw new Error(data.error || 'Invalid OTP. Please try again.') }
+
+            setOtpRequired(false)
+            setOtpCode('')
+            toast.success(data.message || 'OTP verified! Please approve the prompt on your phone.')
+            setPollingRef(data.reference)
+        } catch (error: any) {
+            toast.error(error.message || 'Failed to verify OTP')
         } finally {
             setIsPurchasing(false)
         }
@@ -266,39 +469,71 @@ export default function ResultsCheckerPage() {
                                     <Button type="button" variant="outline" size="icon" onClick={() => setQuantity(Math.min(100, quantity + 1))}>+</Button>
                                 </div>
                                 <p className="text-xs text-muted-foreground">Bulk discounts apply automatically · Max 100</p>
-
-                                {/* Amber Tier Strip */}
-                                {tiers.length > 0 && (
-                                    <div className="flex flex-wrap gap-2 mt-2">
-                                        {tiers.map((tier, i) => {
-                                            const isMatch = quantity >= tier.min_qty && quantity <= tier.max_qty
-                                            return (
-                                                <span
-                                                    key={i}
-                                                    className={`inline-flex items-center px-2.5 py-1 rounded-full text-xs font-bold transition-all ${
-                                                        isMatch
-                                                            ? 'bg-amber-500 text-white shadow-sm scale-105'
-                                                            : 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400'
-                                                    }`}
-                                                >
-                                                    {tier.min_qty}–{tier.max_qty} · {formatCurrency(tier.unit_price)}/ea
-                                                </span>
-                                            )
-                                        })}
-                                    </div>
-                                )}
                             </div>
 
                             <div className="space-y-3 pt-2">
                                 <Label>Customer Details (For Delivery)</Label>
                                 <Input placeholder="Full Name" value={customerName} onChange={e => setCustomerName(e.target.value)} required />
-                                <Input placeholder="Phone Number (WhatsApp preferred)" value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} required />
+                                <Input placeholder="Phone Number (WhatsApp / MoMo)" value={customerPhone} onChange={e => setCustomerPhone(e.target.value)} required />
                                 <Input type="email" placeholder="Email Address (Optional)" value={customerEmail} onChange={e => setCustomerEmail(e.target.value)} />
                             </div>
 
-                            
+                            {/* Payment Method Selector */}
+                            {rcWalletPaymentEnabled && (
+                                <div className="space-y-3 pt-2 border-t mt-4">
+                                    <Label>Payment Method</Label>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <button
+                                            type="button"
+                                            onClick={() => setPaymentMethod('wallet')}
+                                            className={cn(
+                                                "p-3 rounded-xl border flex items-center gap-3 transition-colors text-left",
+                                                paymentMethod === 'wallet' ? "border-primary bg-primary/5 ring-1 ring-primary" : "hover:bg-muted/50"
+                                            )}
+                                        >
+                                            <Wallet className="w-5 h-5 text-primary" />
+                                            <div>
+                                                <div className="font-semibold text-sm">Wallet</div>
+                                                <div className="text-xs text-muted-foreground">{formatCurrency(walletBalance)} available</div>
+                                            </div>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setPaymentMethod('direct')}
+                                            className={cn(
+                                                "p-3 rounded-xl border flex items-center gap-3 transition-colors text-left",
+                                                paymentMethod === 'direct' ? "border-primary bg-primary/5 ring-1 ring-primary" : "hover:bg-muted/50"
+                                            )}
+                                        >
+                                            <CreditCard className="w-5 h-5 text-blue-500" />
+                                            <div>
+                                                <div className="font-semibold text-sm">Direct Pay</div>
+                                                <div className="text-xs text-muted-foreground">MoMo or Card</div>
+                                            </div>
+                                        </button>
+                                    </div>
+                                </div>
+                            )}
 
-                            {!canAffordWallet && (
+                            {/* MoMo Network Selector (if Direct and Moolre/Hubtel) */}
+                            {paymentMethod === 'direct' && (webPaymentProvider === 'moolre' || webPaymentProvider === 'hubtel') && (
+                                <div className="space-y-2 pt-2 animate-in fade-in slide-in-from-top-2">
+                                    <Label>Mobile Money Network</Label>
+                                    <Select value={paymentNetwork} onValueChange={setPaymentNetwork} required>
+                                        <SelectTrigger className="h-12">
+                                            <SelectValue placeholder="Select Network" />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="MTN">MTN MoMo</SelectItem>
+                                            <SelectItem value="Telecel">Telecel Cash</SelectItem>
+                                            <SelectItem value="AT">AT Money</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                    <p className="text-xs text-muted-foreground">A payment prompt will be sent to {customerPhone || 'your phone'}.</p>
+                                </div>
+                            )}
+
+                            {paymentMethod === 'wallet' && !canAffordWallet && (
                                 <div className="bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/30 rounded-md p-3 flex gap-2">
                                     <AlertCircle className="w-5 h-5 text-red-600 mt-0.5" />
                                     <div>
@@ -311,13 +546,13 @@ export default function ResultsCheckerPage() {
                             <Button 
                                 type="submit" 
                                 size="lg" 
-                                className="w-full h-12 text-base font-bold shadow-lg"
-                                disabled={isPurchasing || !canAffordWallet}
+                                className="w-full h-12 text-base font-bold shadow-lg mt-4"
+                                disabled={isPurchasing || !!pollingRef || (paymentMethod === 'wallet' && !canAffordWallet)}
                             >
-                                {isPurchasing ? (
-                                    <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Processing...</>
+                                {isPurchasing || pollingRef ? (
+                                    <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> {pollingRef ? 'Waiting for Approval...' : 'Processing...'}</>
                                 ) : (
-                                    <><ShoppingCart className="w-5 h-5 mr-2" /> Pay {formatCurrency(subtotal)}</>
+                                    <><ShoppingCart className="w-5 h-5 mr-2" /> Pay {formatCurrency(totalToPay)}</>
                                 )}
                             </Button>
                         </form>
@@ -348,9 +583,17 @@ export default function ResultsCheckerPage() {
                                 <span className="text-muted-foreground">Quantity:</span>
                                 <span>{quantity}x</span>
                             </div>
+
+                            {gatewayFee > 0 && (
+                                <div className="flex justify-between items-center text-sm">
+                                    <span className="text-muted-foreground">Processing Fee:</span>
+                                    <span>{formatCurrency(gatewayFee)}</span>
+                                </div>
+                            )}
+
                             <div className="pt-3 border-t border-primary/20 flex justify-between items-center">
                                 <span className="font-semibold">Total to Pay:</span>
-                                <span className="text-2xl font-bold text-primary">{formatCurrency(subtotal)}</span>
+                                <span className="text-2xl font-bold text-primary">{formatCurrency(totalToPay)}</span>
                             </div>
                             {isAgent && (
                                 <Badge variant="secondary" className="w-full justify-center mt-2 bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400">
@@ -434,6 +677,37 @@ export default function ResultsCheckerPage() {
                 )}
             </div>
 
+            {/* OTP Modal */}
+            <Dialog open={otpRequired} onOpenChange={(open) => !open && setOtpRequired(false)}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>OTP Verification</DialogTitle>
+                        <DialogDescription>
+                            Please enter the OTP sent to your phone to complete the payment.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="flex flex-col space-y-4 py-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="otp">Enter OTP</Label>
+                            <Input
+                                id="otp"
+                                type="text"
+                                placeholder="Enter code"
+                                value={otpCode}
+                                onChange={(e) => setOtpCode(e.target.value)}
+                                className="h-12 text-center text-2xl tracking-widest font-bold"
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter className="sm:justify-end">
+                        <Button type="button" variant="secondary" onClick={() => setOtpRequired(false)}>Cancel</Button>
+                        <Button type="button" onClick={handleVerifyOtp} disabled={isPurchasing || !otpCode} className="bg-blue-600 hover:bg-blue-700">
+                            {isPurchasing ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Verify & Continue'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
+
             {/* Success Modal */}
             <Dialog open={!!successData} onOpenChange={v => !v && setSuccessData(null)}>
                 <DialogContent className="sm:max-w-md">
@@ -497,8 +771,14 @@ export default function ResultsCheckerPage() {
     )
 }
 
-
-
-
-
-
+export default function ResultsCheckerPage() {
+    return (
+        <Suspense fallback={
+            <div className="flex-1 space-y-6 p-4 md:p-8 pt-6 max-w-5xl mx-auto w-full">
+                <Skeleton className="h-[400px] w-full" />
+            </div>
+        }>
+            <ResultsCheckerContent />
+        </Suspense>
+    )
+}

@@ -104,7 +104,7 @@ export async function POST(request: NextRequest) {
                 email: customerEmail,
                 amount: Math.round(breakdown.total * 100), // Kobo
                 reference: referenceCode,
-                callback_url: `${process.env.NEXT_PUBLIC_APP_URL || ''}/dashboard/transactions`,
+                callback_url: `${process.env.NEXT_PUBLIC_APP_URL || ''}/dashboard/results-checker`,
                 metadata: {
                     order_type: 'results_checker',
                     type_id: typeId,

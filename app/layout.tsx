@@ -18,6 +18,7 @@ import PwaInstallPrompt from '@/components/pwa-install-prompt'
 import { UIProvider } from '@/contexts/ui-context'
 import { SystemAnnouncementModal } from '@/components/system-announcement-modal'
 import { getActiveAnnouncement } from '@/lib/get-active-announcement'
+import { OfflineModal } from '@/components/offline-modal'
 
 const outfit = Outfit({
     weight: ['400', '600', '700'],
@@ -92,6 +93,7 @@ export default async function RootLayout({
                             {children}
                             <SystemAnnouncementModal initialAnnouncement={systemAnnouncement as any} />
                             <PwaInstallPrompt />
+                            <OfflineModal />
                             <Toaster position="top-center" richColors expand />
                         </UIProvider>
                     </AuthProvider>

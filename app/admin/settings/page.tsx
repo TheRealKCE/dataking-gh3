@@ -41,6 +41,7 @@ export default function AdminSettingsPage() {
     const [webPaymentProvider, setWebPaymentProvider] = useState<'moolre' | 'hubtel' | 'paystack'>('moolre')
     const [shopPaymentProvider, setShopPaymentProvider] = useState<'moolre' | 'hubtel' | 'paystack'>('moolre')
     const [classifiedsPaymentProvider, setClassifiedsPaymentProvider] = useState<'moolre' | 'hubtel' | 'paystack'>('moolre')
+    const [rcWalletPaymentEnabled, setRcWalletPaymentEnabled] = useState(true)
     const [skipGoogleOauthOtp, setSkipGoogleOauthOtp] = useState(false)
 
     // Page access states
@@ -106,6 +107,7 @@ export default function AdminSettingsPage() {
             setShopPaymentProvider(shopProvider === 'paystack' ? 'paystack' : shopProvider === 'hubtel' ? 'hubtel' : 'moolre')
             setClassifiedsPaymentProvider(classifiedsProvider === 'paystack' ? 'paystack' : classifiedsProvider === 'hubtel' ? 'hubtel' : 'moolre')
             setSkipGoogleOauthOtp(settingsMap.skip_google_oauth_otp === 'true')
+            setRcWalletPaymentEnabled(settingsMap.rc_wallet_payment_enabled !== 'false')
 
             // Initialize page access values
             setPageAccessDashboard(settingsMap.page_access_dashboard !== 'false')
@@ -158,6 +160,7 @@ export default function AdminSettingsPage() {
                 { key: 'active_payment_provider_web', value: webPaymentProvider },
                 { key: 'active_payment_provider_shop', value: shopPaymentProvider },
                 { key: 'active_payment_provider_classifieds', value: classifiedsPaymentProvider },
+                { key: 'rc_wallet_payment_enabled', value: String(rcWalletPaymentEnabled) },
                 { key: 'skip_google_oauth_otp', value: String(skipGoogleOauthOtp) },
                 // Page access settings
                 { key: 'page_access_dashboard', value: String(pageAccessDashboard) },
@@ -444,6 +447,14 @@ export default function AdminSettingsPage() {
                                         Paystack
                                     </button>
                                 </div>
+                            </div>
+
+                            <div className="flex items-center justify-between p-4 border rounded-lg">
+                                <div className="space-y-0.5">
+                                    <Label className="text-base">Results Checker — Allow Wallet Payment</Label>
+                                    <p className="text-sm text-muted-foreground">When OFF, the wallet option is hidden on the Results Checker checkout page and users must pay directly via the active gateway.</p>
+                                </div>
+                                <Switch checked={rcWalletPaymentEnabled} onCheckedChange={setRcWalletPaymentEnabled} />
                             </div>
 
                             <div className="flex items-center justify-between p-4 border rounded-lg">
