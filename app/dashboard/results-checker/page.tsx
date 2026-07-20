@@ -70,34 +70,22 @@ function ResultsCheckerContent() {
 
     const fetchSettings = useCallback(async () => {
         try {
-            const { data } = await supabase
-                .from('admin_settings')
-                .select('key, value')
-                .in('key', ['rc_wallet_payment_enabled', 'active_payment_provider_web', 'paystack_fee_percent', 'agent_paystack_fee_percent'])
-            
-            if (data) {
-                const settings = data as any[]
-                
-                const rcEnabledRow = settings.find(s => s.key === 'rc_wallet_payment_enabled')
-                const isWalletEnabled = rcEnabledRow ? rcEnabledRow.value !== 'false' : true
-                setRcWalletPaymentEnabled(isWalletEnabled)
-                if (!isWalletEnabled) {
-                    setPaymentMethod('direct')
-                }
+            const res = await fetch('/api/admin-settings?keys=rc_wallet_payment_enabled,active_payment_provider_web,paystack_fee_percent,agent_paystack_fee_percent')
+            if (!res.ok) return
+            const settings = await res.json()
 
-                const providerRow = settings.find(s => s.key === 'active_payment_provider_web')
-                if (providerRow) {
-                    const val = String(providerRow.value || 'moolre')
-                    setWebPaymentProvider(val === 'paystack' ? 'paystack' : val === 'hubtel' ? 'hubtel' : 'moolre')
-                }
-
-                let targetKey = dbUser?.role === 'agent' ? 'agent_paystack_fee_percent' : 'paystack_fee_percent'
-                const feeSetting = settings.find(s => s.key === targetKey) || settings.find(s => s.key === 'paystack_fee_percent')
-                if (feeSetting && feeSetting.value) {
-                    const parsed = parseFloat(feeSetting.value)
-                    if (!isNaN(parsed)) setPaystackFeePercent(parsed)
-                }
+            const isWalletEnabled = settings.rc_wallet_payment_enabled !== 'false'
+            setRcWalletPaymentEnabled(isWalletEnabled)
+            if (!isWalletEnabled) {
+                setPaymentMethod('direct')
             }
+
+            const provider = String(settings.active_payment_provider_web || 'moolre')
+            setWebPaymentProvider(provider === 'paystack' ? 'paystack' : provider === 'hubtel' ? 'hubtel' : 'moolre')
+
+            const feeKey = dbUser?.role === 'agent' ? 'agent_paystack_fee_percent' : 'paystack_fee_percent'
+            const feeVal = parseFloat(settings[feeKey] || settings.paystack_fee_percent || '1.95')
+            if (!isNaN(feeVal)) setPaystackFeePercent(feeVal)
         } catch (error) {
             console.error('Error fetching settings:', error)
         }
@@ -106,7 +94,7 @@ function ResultsCheckerContent() {
     const fetchTypes = useCallback(async () => {
         setLoading(true)
         try {
-            const res = await fetch('/api/admin/vouchers/types')
+            const res = await fetch('/api/vouchers/types')
             const json = await res.json()
             if (res.ok) {
                 const active = (json.data || []).filter((t: RCType) => t.is_active && (t.stock?.available || 0) > 0)
