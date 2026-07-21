@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, Suspense } from 'react'
+import { useEffect, useRef, useState, Suspense } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
@@ -27,8 +27,7 @@ import {
     TrendingDown,
     MessageSquare,
     Send,
-    Check,
-    Lock
+    Check
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { WalletTransaction } from '@/types/supabase'
@@ -70,12 +69,12 @@ function WalletContent() {
         }
     }, [dbUser])
 
-    // Security: When Hubtel is selected, lock the phone to the registered profile number
+    // Prefill the phone with the registered number as a convenience; the user can edit it.
     useEffect(() => {
-        if (webPaymentProvider === 'hubtel' && dbUser?.phone_number) {
+        if (webPaymentProvider === 'hubtel' && dbUser?.phone_number && !paymentPhone) {
             setPaymentPhone(dbUser.phone_number)
         }
-    }, [webPaymentProvider, dbUser?.phone_number])
+    }, [webPaymentProvider, dbUser?.phone_number, paymentPhone])
 
     useEffect(() => {
         const success = searchParams.get('success')
@@ -178,9 +177,9 @@ function WalletContent() {
                 const providerRow = settings.find(s => s.key === 'active_payment_provider_web')
                 if (providerRow) {
                     const val = String(providerRow.value || 'moolre')
+                    // Paystack is hidden from the web wallet; fall back to Moolre if configured.
                     setWebPaymentProvider(
-                        val === 'paystack' ? 'paystack'
-                        : val === 'hubtel' ? 'hubtel'
+                        val === 'hubtel' ? 'hubtel'
                         : 'moolre'
                     )
                 }
@@ -306,6 +305,23 @@ function WalletContent() {
             // Keep modal open so user can retry
         }
     }
+
+    // Auto-submit the OTP as soon as a full 6-digit code is entered, so the
+    // user doesn't have to click "Verify". Guarded against double-submission
+    // and against re-firing on the same code after a failed attempt.
+    const lastSubmittedOtp = useRef<string>('')
+    useEffect(() => {
+        const code = otpCode.trim()
+        if (
+            otpRequired &&
+            !isProcessing &&
+            /^\d{6}$/.test(code) &&
+            code !== lastSubmittedOtp.current
+        ) {
+            lastSubmittedOtp.current = code
+            handleVerifyOtp()
+        }
+    }, [otpCode, otpRequired, isProcessing])
 
     const HUBTEL_FEE_PERCENT = 1.8
     const fee = topUpAmount
@@ -438,7 +454,6 @@ function WalletContent() {
                                 {([
                                     { id: 'moolre', label: 'Moolre' },
                                     { id: 'hubtel', label: 'Hubtel' },
-                                    { id: 'paystack', label: 'Paystack' },
                                 ] as const).map(({ id, label }) => (
                                     <button
                                         key={id}
@@ -536,30 +551,15 @@ function WalletContent() {
                                             <div>
                                                 <Label htmlFor="phone" className="text-xs flex items-center gap-1">
                                                     Mobile Number
-                                                    {webPaymentProvider === 'hubtel' && (
-                                                        <Lock className="w-3 h-3 text-muted-foreground" />
-                                                    )}
                                                 </Label>
                                                 <Input
                                                     id="phone"
                                                     type="tel"
                                                     placeholder="e.g. 0540000000"
                                                     value={paymentPhone}
-                                                    onChange={(e) => {
-                                                        // Hubtel: phone is locked to registered number (security requirement)
-                                                        if (webPaymentProvider !== 'hubtel') {
-                                                            setPaymentPhone(e.target.value)
-                                                        }
-                                                    }}
-                                                    readOnly={webPaymentProvider === 'hubtel'}
-                                                    className={`mt-1 h-12 ${webPaymentProvider === 'hubtel' ? 'bg-muted cursor-not-allowed opacity-75' : ''}`}
+                                                    onChange={(e) => setPaymentPhone(e.target.value)}
+                                                    className="mt-1 h-12"
                                                 />
-                                                {webPaymentProvider === 'hubtel' && (
-                                                    <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                                                        <Lock className="w-3 h-3" />
-                                                        Locked to your registered number for security
-                                                    </p>
-                                                )}
                                             </div>
                                         </div>
                                     </div>
