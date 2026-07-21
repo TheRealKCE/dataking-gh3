@@ -191,14 +191,35 @@ export async function POST(request: NextRequest) {
 
         // ── HUBTEL BRANCH ───────────────────────────────────────────────────
         if (gateway === 'hubtel') {
-            if (!momoPhone || !momoNetwork || !HUBTEL_CHANNEL_MAP[momoNetwork]) {
-                return NextResponse.json({ error: 'Valid MoMo phone and network are required for Hubtel payments' }, { status: 400 })
+            if (!momoNetwork || !HUBTEL_CHANNEL_MAP[momoNetwork]) {
+                return NextResponse.json({ error: 'Valid MoMo network is required for Hubtel payments' }, { status: 400 })
+            }
+
+            // SECURITY (Hubtel Option 1): Always use the phone number from the authenticated user's
+            // profile — never trust client-supplied momoPhone. Guest checkout is not permitted for Hubtel.
+            if (!userId) {
+                return NextResponse.json({ error: 'You must be logged in to pay with Hubtel.' }, { status: 401 })
+            }
+
+            const { createServerClient: createAdminClientForPhone } = await import('@/lib/supabase')
+            const dbAdminForPhone = createAdminClientForPhone()
+            const { data: profileForPhone } = await (dbAdminForPhone.from('users') as any)
+                .select('phone_number')
+                .eq('id', userId)
+                .single()
+
+            const registeredPhone = (profileForPhone as any)?.phone_number
+            if (!registeredPhone) {
+                return NextResponse.json(
+                    { error: 'No phone number found on your account. Please update your profile before paying with Hubtel.' },
+                    { status: 400 }
+                )
             }
 
             const hubtelChannel = HUBTEL_CHANNEL_MAP[momoNetwork]
             const hubtelResponse = await hubtelInitiatePayment({
                 amount: breakdown.total,
-                payerPhone: momoPhone,
+                payerPhone: registeredPhone,   // always use the DB-stored number
                 channel: hubtelChannel,
                 clientReference: referenceCode,
                 customerName: customerName || 'Guest Customer',

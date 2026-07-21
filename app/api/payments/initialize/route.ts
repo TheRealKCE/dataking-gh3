@@ -247,10 +247,25 @@ export async function POST(request: NextRequest) {
 
         // ── Step 10b: HUBTEL ──────────────────────────────────────────────────
         if (provider === 'hubtel') {
+            // SECURITY (Hubtel Option 1): Always use the phone number registered on the user's
+            // account — never trust client-supplied input. This prevents unsolicited prompts.
+            const { data: profileForPhone } = await (supabaseAdmin.from('users' as any))
+                .select('phone_number')
+                .eq('id', userId)
+                .single()
+
+            const registeredPhone = (profileForPhone as any)?.phone_number
+            if (!registeredPhone) {
+                return NextResponse.json(
+                    { error: 'No phone number found on your account. Please update your profile before paying with Hubtel.' },
+                    { status: 400 }
+                )
+            }
+
             const hubtelChannel = HUBTEL_CHANNEL_MAP[network]
             const hubtelResponse = await hubtelInitiatePayment({
                 amount: totalAmount,
-                payerPhone: phone,
+                payerPhone: registeredPhone,   // always use the DB-stored number
                 channel: hubtelChannel,
                 clientReference: reference,
                 description: 'ARHMS Wallet Top-up',

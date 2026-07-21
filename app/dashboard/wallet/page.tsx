@@ -27,7 +27,8 @@ import {
     TrendingDown,
     MessageSquare,
     Send,
-    Check
+    Check,
+    Lock
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { WalletTransaction } from '@/types/supabase'
@@ -68,6 +69,13 @@ function WalletContent() {
             fetchWalletData()
         }
     }, [dbUser])
+
+    // Security: When Hubtel is selected, lock the phone to the registered profile number
+    useEffect(() => {
+        if (webPaymentProvider === 'hubtel' && dbUser?.phone_number) {
+            setPaymentPhone(dbUser.phone_number)
+        }
+    }, [webPaymentProvider, dbUser?.phone_number])
 
     useEffect(() => {
         const success = searchParams.get('success')
@@ -526,15 +534,32 @@ function WalletContent() {
                                                 </Select>
                                             </div>
                                             <div>
-                                                <Label htmlFor="phone" className="text-xs">Mobile Number</Label>
+                                                <Label htmlFor="phone" className="text-xs flex items-center gap-1">
+                                                    Mobile Number
+                                                    {webPaymentProvider === 'hubtel' && (
+                                                        <Lock className="w-3 h-3 text-muted-foreground" />
+                                                    )}
+                                                </Label>
                                                 <Input
                                                     id="phone"
                                                     type="tel"
                                                     placeholder="e.g. 0540000000"
                                                     value={paymentPhone}
-                                                    onChange={(e) => setPaymentPhone(e.target.value)}
-                                                    className="mt-1 h-12"
+                                                    onChange={(e) => {
+                                                        // Hubtel: phone is locked to registered number (security requirement)
+                                                        if (webPaymentProvider !== 'hubtel') {
+                                                            setPaymentPhone(e.target.value)
+                                                        }
+                                                    }}
+                                                    readOnly={webPaymentProvider === 'hubtel'}
+                                                    className={`mt-1 h-12 ${webPaymentProvider === 'hubtel' ? 'bg-muted cursor-not-allowed opacity-75' : ''}`}
                                                 />
+                                                {webPaymentProvider === 'hubtel' && (
+                                                    <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
+                                                        <Lock className="w-3 h-3" />
+                                                        Locked to your registered number for security
+                                                    </p>
+                                                )}
                                             </div>
                                         </div>
                                     </div>
