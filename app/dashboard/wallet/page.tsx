@@ -177,9 +177,9 @@ function WalletContent() {
                 const providerRow = settings.find(s => s.key === 'active_payment_provider_web')
                 if (providerRow) {
                     const val = String(providerRow.value || 'moolre')
-                    // Paystack is hidden from the web wallet; fall back to Moolre if configured.
                     setWebPaymentProvider(
-                        val === 'hubtel' ? 'hubtel'
+                        val === 'paystack' ? 'paystack'
+                        : val === 'hubtel' ? 'hubtel'
                         : 'moolre'
                     )
                 }
@@ -454,6 +454,7 @@ function WalletContent() {
                                 {([
                                     { id: 'moolre', label: 'Moolre' },
                                     { id: 'hubtel', label: 'Hubtel' },
+                                    { id: 'paystack', label: 'Paystack' },
                                 ] as const).map(({ id, label }) => (
                                     <button
                                         key={id}
