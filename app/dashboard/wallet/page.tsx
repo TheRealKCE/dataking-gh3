@@ -447,31 +447,7 @@ function WalletContent() {
                                 Add funds to your wallet using Mobile Money
                             </CardDescription>
                         </CardHeader>
-                        {/* ── Payment Provider Toggle ── */}
-                        <div className="px-6 pb-2">
-                            <Label className="text-xs text-muted-foreground mb-2 block">Pay via</Label>
-                            <div className="flex gap-1 p-1 rounded-xl bg-muted w-full">
-                                {([
-                                    { id: 'moolre', label: 'Moolre' },
-                                    { id: 'hubtel', label: 'Hubtel' },
-                                    { id: 'paystack', label: 'Paystack' },
-                                ] as const).map(({ id, label }) => (
-                                    <button
-                                        key={id}
-                                        type="button"
-                                        onClick={() => setWebPaymentProvider(id)}
-                                        className={cn(
-                                            'flex-1 py-2 px-3 rounded-lg text-sm font-medium transition-all',
-                                            webPaymentProvider === id
-                                                ? 'bg-white dark:bg-zinc-900 shadow text-foreground'
-                                                : 'text-muted-foreground hover:text-foreground'
-                                        )}
-                                    >
-                                        {label}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
+                        {/* Provider is chosen by the admin setting (active_payment_provider_web); users can't switch. */}
                         <form onSubmit={(e) => { e.preventDefault(); handleTopUp(); }}>
                             <CardContent className="space-y-6">
                                 {/* Quick Amounts */}
