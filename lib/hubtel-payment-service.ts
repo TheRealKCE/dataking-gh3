@@ -102,6 +102,24 @@ function getCollectionAccount(): string {
     return account
 }
 
+/**
+ * Normalizes a Ghanaian phone number to Hubtel's required international format:
+ * a bare "233XXXXXXXXX" (12 digits, NO leading "+"), per the Direct Receive Money spec
+ * (e.g. "233249111411"). Accepts local "0XXXXXXXXX" and "+233XXXXXXXXX" inputs.
+ */
+export function toHubtelMsisdn(phone: string): string {
+    let digits = (phone || '').replace(/\D/g, '')
+    if (digits.startsWith('0')) {
+        digits = '233' + digits.slice(1)
+    } else if (digits.startsWith('233')) {
+        // already international
+    } else if (digits.length === 9) {
+        // bare subscriber number without leading 0, e.g. "249111411"
+        digits = '233' + digits
+    }
+    return digits
+}
+
 // ─── Initiate Payment ─────────────────────────────────────────────────────────
 
 /**
@@ -116,7 +134,7 @@ export async function initiatePayment(params: HubtelInitiateParams): Promise<Hub
 
         const payload = {
             CustomerName: params.customerName || '',
-            CustomerMsisdn: params.payerPhone,
+            CustomerMsisdn: toHubtelMsisdn(params.payerPhone),
             CustomerEmail: params.customerEmail || '',
             Channel: params.channel,
             Amount: parseFloat(params.amount.toFixed(2)),
