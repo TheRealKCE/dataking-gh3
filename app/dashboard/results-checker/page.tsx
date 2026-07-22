@@ -42,10 +42,10 @@ function ResultsCheckerContent() {
     const [quantity, setQuantity] = useState<number>(1)
     
     // Settings state
-    const [rcWalletPaymentEnabled, setRcWalletPaymentEnabled] = useState(true)
+    const [rcWalletPaymentEnabled, setRcWalletPaymentEnabled] = useState(false)
     const [webPaymentProvider, setWebPaymentProvider] = useState<'moolre' | 'hubtel' | 'paystack'>('moolre')
     const [paystackFeePercent, setPaystackFeePercent] = useState(1.95)
-    const [paymentMethod, setPaymentMethod] = useState<'wallet' | 'direct'>('wallet')
+    const [paymentMethod, setPaymentMethod] = useState<'wallet' | 'direct'>('direct')
     const [paymentNetwork, setPaymentNetwork] = useState('')
     
     // Customer info form (pre-filled if possible)
@@ -74,11 +74,9 @@ function ResultsCheckerContent() {
             if (!res.ok) return
             const settings = await res.json()
 
-            const isWalletEnabled = settings.rc_wallet_payment_enabled !== 'false'
-            setRcWalletPaymentEnabled(isWalletEnabled)
-            if (!isWalletEnabled) {
-                setPaymentMethod('direct')
-            }
+            // Force direct payments and hide wallet
+            setRcWalletPaymentEnabled(false)
+            setPaymentMethod('direct')
 
             const provider = String(settings.active_payment_provider_web || 'moolre')
             setWebPaymentProvider(provider === 'paystack' ? 'paystack' : provider === 'hubtel' ? 'hubtel' : 'moolre')
@@ -154,11 +152,11 @@ function ResultsCheckerContent() {
         if (pollingRef) {
             interval = setInterval(async () => {
                 try {
-                    const { data: order } = await supabase
+                    const { data: order } = await (supabase
                         .from('results_checker_orders')
                         .select('id, status, payment_status, inventory_ids, type_name')
                         .eq('reference_code', pollingRef)
-                        .single()
+                        .single() as any)
                     
                     if (order && order.status === 'completed') {
                         clearInterval(interval)
