@@ -27,7 +27,8 @@ import {
     TrendingDown,
     MessageSquare,
     Send,
-    Check
+    Check,
+    Lock
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { WalletTransaction } from '@/types/supabase'
@@ -61,6 +62,14 @@ function WalletContent() {
     const [otpCode, setOtpCode] = useState('')
     const [paymentReference, setPaymentReference] = useState<string | null>(null)
     const [webPaymentProvider, setWebPaymentProvider] = useState<'moolre' | 'hubtel' | 'paystack'>('moolre')
+    // Hubtel security: number is locked to the registered one (Option 1); paying from a
+    // different number requires SMS OTP confirmation first (Option 2).
+    const [useAltNumber, setUseAltNumber] = useState(false)
+    const [altOtpSent, setAltOtpSent] = useState(false)
+    const [altOtpCode, setAltOtpCode] = useState('')
+    const [altVerified, setAltVerified] = useState(false)
+    const [altOtpLoading, setAltOtpLoading] = useState(false)
+    const [altOtpError, setAltOtpError] = useState('')
     const searchParams = useSearchParams()
 
     useEffect(() => {
@@ -69,12 +78,92 @@ function WalletContent() {
         }
     }, [dbUser])
 
-    // Prefill the phone with the registered number as a convenience; the user can edit it.
+    // Hubtel Option 1: the number is locked to the registered profile number unless the
+    // user explicitly opts to pay from a different, OTP-verified number (Option 2).
     useEffect(() => {
-        if (webPaymentProvider === 'hubtel' && dbUser?.phone_number && !paymentPhone) {
+        if (webPaymentProvider === 'hubtel' && dbUser?.phone_number && !useAltNumber) {
             setPaymentPhone(dbUser.phone_number)
         }
-    }, [webPaymentProvider, dbUser?.phone_number, paymentPhone])
+    }, [webPaymentProvider, dbUser?.phone_number, useAltNumber])
+
+    // Reset the alternate-number flow when the provider changes.
+    useEffect(() => {
+        setUseAltNumber(false)
+        setAltOtpSent(false)
+        setAltOtpCode('')
+        setAltVerified(false)
+        setAltOtpError('')
+    }, [webPaymentProvider])
+
+    const startAltNumber = () => {
+        setUseAltNumber(true)
+        setPaymentPhone('')
+        setAltVerified(false)
+        setAltOtpSent(false)
+        setAltOtpError('')
+    }
+
+    const cancelAltNumber = () => {
+        setUseAltNumber(false)
+        setAltOtpSent(false)
+        setAltOtpCode('')
+        setAltVerified(false)
+        setAltOtpError('')
+        if (dbUser?.phone_number) setPaymentPhone(dbUser.phone_number)
+    }
+
+    const sendAltOtp = async () => {
+        setAltOtpError('')
+        setAltOtpLoading(true)
+        try {
+            const res = await fetch('/api/payments/otp/send', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phone: paymentPhone }),
+            })
+            const data = await res.json()
+            if (!res.ok) {
+                setAltOtpError(data.error || 'Could not send the code.')
+                return
+            }
+            if (data.alreadyRegistered) {
+                setAltVerified(true)
+                setAltOtpSent(false)
+                toast.success('This is your registered number — ready to pay.')
+                return
+            }
+            setAltOtpSent(true)
+            toast.success('Verification code sent to that number.')
+        } catch {
+            setAltOtpError('Network error. Please try again.')
+        } finally {
+            setAltOtpLoading(false)
+        }
+    }
+
+    const verifyAltOtp = async () => {
+        setAltOtpError('')
+        setAltOtpLoading(true)
+        try {
+            const res = await fetch('/api/payments/otp/verify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ phone: paymentPhone, code: altOtpCode }),
+            })
+            const data = await res.json()
+            if (!res.ok) {
+                setAltOtpError(data.error || 'Verification failed.')
+                return
+            }
+            setAltVerified(true)
+            setAltOtpSent(false)
+            toast.success('Number verified. You can now pay from it.')
+        } catch {
+            setAltOtpError('Network error. Please try again.')
+        } finally {
+            setAltOtpLoading(false)
+        }
+    }
 
     useEffect(() => {
         const success = searchParams.get('success')
@@ -221,6 +310,12 @@ function WalletContent() {
 
         if ((webPaymentProvider === 'moolre' || webPaymentProvider === 'hubtel') && (!paymentPhone || !paymentNetwork)) {
             toast.error('Please provide a valid Mobile Money number and select a network')
+            return
+        }
+
+        // Hubtel Option 2: an alternate (non-registered) number must be OTP-verified first.
+        if (webPaymentProvider === 'hubtel' && useAltNumber && !altVerified) {
+            toast.error('Please verify this number with the code we sent before paying.')
             return
         }
 
@@ -528,15 +623,98 @@ function WalletContent() {
                                             <div>
                                                 <Label htmlFor="phone" className="text-xs flex items-center gap-1">
                                                     Mobile Number
+                                                    {webPaymentProvider === 'hubtel' && !useAltNumber && (
+                                                        <Lock className="w-3 h-3 text-muted-foreground" />
+                                                    )}
                                                 </Label>
                                                 <Input
                                                     id="phone"
                                                     type="tel"
                                                     placeholder="e.g. 0540000000"
                                                     value={paymentPhone}
-                                                    onChange={(e) => setPaymentPhone(e.target.value)}
-                                                    className="mt-1 h-12"
+                                                    onChange={(e) => {
+                                                        // Hubtel: locked to the registered number unless verifying an alternate.
+                                                        if (webPaymentProvider !== 'hubtel' || useAltNumber) {
+                                                            setPaymentPhone(e.target.value)
+                                                            setAltVerified(false)
+                                                            setAltOtpSent(false)
+                                                            setAltOtpError('')
+                                                        }
+                                                    }}
+                                                    readOnly={webPaymentProvider === 'hubtel' && !useAltNumber}
+                                                    className={`mt-1 h-12 ${webPaymentProvider === 'hubtel' && !useAltNumber ? 'bg-muted cursor-not-allowed opacity-75' : ''}`}
                                                 />
+
+                                                {/* Option 1 — locked to registered number */}
+                                                {webPaymentProvider === 'hubtel' && !useAltNumber && (
+                                                    <div className="mt-1 flex items-center justify-between gap-2">
+                                                        <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                                            <Lock className="w-3 h-3" />
+                                                            Locked to your registered number
+                                                        </p>
+                                                        <button
+                                                            type="button"
+                                                            onClick={startAltNumber}
+                                                            className="text-xs font-medium text-primary hover:underline shrink-0"
+                                                        >
+                                                            Use another number
+                                                        </button>
+                                                    </div>
+                                                )}
+
+                                                {/* Option 2 — confirm an alternate number by OTP */}
+                                                {webPaymentProvider === 'hubtel' && useAltNumber && (
+                                                    <div className="mt-2 space-y-2">
+                                                        {altVerified ? (
+                                                            <p className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
+                                                                <Check className="w-3 h-3" />
+                                                                Number verified — ready to pay.
+                                                            </p>
+                                                        ) : altOtpSent ? (
+                                                            <div className="flex items-center gap-2">
+                                                                <Input
+                                                                    type="text"
+                                                                    inputMode="numeric"
+                                                                    maxLength={6}
+                                                                    placeholder="Enter 6-digit code"
+                                                                    value={altOtpCode}
+                                                                    onChange={(e) => setAltOtpCode(e.target.value.replace(/\D/g, ''))}
+                                                                    className="h-10 flex-1"
+                                                                />
+                                                                <Button
+                                                                    type="button"
+                                                                    size="sm"
+                                                                    onClick={verifyAltOtp}
+                                                                    disabled={altOtpLoading || altOtpCode.length !== 6}
+                                                                >
+                                                                    {altOtpLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Verify'}
+                                                                </Button>
+                                                            </div>
+                                                        ) : (
+                                                            <Button
+                                                                type="button"
+                                                                size="sm"
+                                                                variant="outline"
+                                                                onClick={sendAltOtp}
+                                                                disabled={altOtpLoading || !paymentPhone}
+                                                            >
+                                                                {altOtpLoading ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
+                                                                Send verification code
+                                                            </Button>
+                                                        )}
+
+                                                        {altOtpError && (
+                                                            <p className="text-xs text-red-600 dark:text-red-400">{altOtpError}</p>
+                                                        )}
+                                                        <button
+                                                            type="button"
+                                                            onClick={cancelAltNumber}
+                                                            className="text-xs text-muted-foreground hover:underline"
+                                                        >
+                                                            Use my registered number instead
+                                                        </button>
+                                                    </div>
+                                                )}
                                             </div>
                                         </div>
                                     </div>

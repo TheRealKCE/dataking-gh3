@@ -4,6 +4,7 @@ import { createClient } from '@supabase/supabase-js'
 import { calculatePaystackFee, generateReferenceCode } from '@/lib/utils'
 import { initiatePayment, MOOLRE_PAYMENT_CHANNEL_MAP } from '@/lib/moolre-payment-service'
 import { initiatePayment as hubtelInitiatePayment, HUBTEL_CHANNEL_MAP, calculateHubtelFee } from '@/lib/hubtel-payment-service'
+import { isPaymentPhoneVerified, consumePaymentPhoneVerification, normalizeMsisdn } from '@/lib/payment-otp'
 
 // Build admin client safely — returns null with an error string if env vars are missing
 function buildAdminClient(): { client: ReturnType<typeof createClient> | null; error: string | null } {
@@ -247,8 +248,12 @@ export async function POST(request: NextRequest) {
 
         // ── Step 10b: HUBTEL ──────────────────────────────────────────────────
         if (provider === 'hubtel') {
-            // SECURITY (Hubtel Option 1): Always use the phone number registered on the user's
-            // account — never trust client-supplied input. This prevents unsolicited prompts.
+            // SECURITY — Hubtel requires a safeguard against unsolicited prompts. We implement BOTH:
+            //   Option 1: only registered users pay, and the client cannot choose the number —
+            //             the registered profile number is used and client input is ignored.
+            //   Option 2: to pay from a DIFFERENT number, that number must first be confirmed
+            //             via a one-time SMS code (see /api/payments/otp/*). Without a live
+            //             verification marker the request is refused before reaching Hubtel.
             const { data: profileForPhone } = await (supabaseAdmin.from('users' as any))
                 .select('phone_number')
                 .eq('id', userId)
@@ -262,10 +267,30 @@ export async function POST(request: NextRequest) {
                 )
             }
 
+            const registeredMsisdn = normalizeMsisdn(registeredPhone)
+            const submittedMsisdn = normalizeMsisdn(phone || '')
+
+            let payerPhone = registeredPhone
+            if (submittedMsisdn && submittedMsisdn !== registeredMsisdn) {
+                const verified = await isPaymentPhoneVerified(userId, submittedMsisdn)
+                if (!verified) {
+                    return NextResponse.json(
+                        {
+                            error: 'Please verify this number with the code we send before paying from it.',
+                            code: 'OTP_REQUIRED',
+                        },
+                        { status: 403 }
+                    )
+                }
+                payerPhone = submittedMsisdn
+                // Single-use: prevents the verification being replayed for later payments.
+                await consumePaymentPhoneVerification(userId, submittedMsisdn)
+            }
+
             const hubtelChannel = HUBTEL_CHANNEL_MAP[network]
             const hubtelResponse = await hubtelInitiatePayment({
                 amount: totalAmount,
-                payerPhone: registeredPhone,   // always use the DB-stored number
+                payerPhone,   // registered number, or an OTP-verified alternate
                 channel: hubtelChannel,
                 clientReference: reference,
                 description: 'ARHMS Wallet Top-up',
