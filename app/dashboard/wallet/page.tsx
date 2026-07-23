@@ -313,8 +313,11 @@ function WalletContent() {
             return
         }
 
-        // Hubtel Option 2: an alternate (non-registered) number must be OTP-verified first.
-        if (webPaymentProvider === 'hubtel' && useAltNumber && !altVerified) {
+        // Hubtel Option 2: a DIFFERENT number must be OTP-verified first. The user's own
+        // registered number never needs OTP (Option 1 covers it) even in "use another number" mode.
+        const digits = (v?: string) => (v || '').replace(/\D/g, '').replace(/^0/, '233')
+        const isRegisteredNumber = digits(paymentPhone) === digits(dbUser?.phone_number)
+        if (webPaymentProvider === 'hubtel' && useAltNumber && !altVerified && !isRegisteredNumber) {
             toast.error('Please verify this number with the code we sent before paying.')
             return
         }
@@ -665,7 +668,12 @@ function WalletContent() {
                                                 {/* Option 2 — confirm an alternate number by OTP */}
                                                 {webPaymentProvider === 'hubtel' && useAltNumber && (
                                                     <div className="mt-2 space-y-2">
-                                                        {altVerified ? (
+                                                        {paymentPhone.replace(/\D/g, '').replace(/^0/, '233') === (dbUser?.phone_number || '').replace(/\D/g, '').replace(/^0/, '233') && paymentPhone ? (
+                                                            <p className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
+                                                                <Check className="w-3 h-3" />
+                                                                This is your registered number — ready to pay.
+                                                            </p>
+                                                        ) : altVerified ? (
                                                             <p className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
                                                                 <Check className="w-3 h-3" />
                                                                 Number verified — ready to pay.

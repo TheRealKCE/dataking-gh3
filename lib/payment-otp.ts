@@ -58,8 +58,15 @@ export async function createPaymentOtp(userId: string, phone: string): Promise<S
     if (!msisdn) return { ok: false, error: 'Invalid phone number.' }
 
     const code = generateCode()
-    await redis.set(codeKey(userId, msisdn), code, { ex: OTP_TTL_SECONDS })
-    await redis.del(attemptsKey(userId, msisdn))
+    try {
+        await redis.set(codeKey(userId, msisdn), code, { ex: OTP_TTL_SECONDS })
+        await redis.del(attemptsKey(userId, msisdn))
+    } catch (e) {
+        // e.g. Upstash quota exhausted / transient outage. Surface a clean error
+        // instead of a 500 so the caller can show a friendly message.
+        console.error('[PaymentOtp] Redis unavailable while storing OTP:', e)
+        return { ok: false, error: 'Verification is temporarily unavailable. Please try again shortly.' }
+    }
     return { ok: true, msisdn, code }
 }
 
@@ -74,36 +81,50 @@ export async function verifyPaymentOtp(userId: string, phone: string, code: stri
     if (!msisdn) return { ok: false, error: 'Invalid phone number.' }
     if (!/^\d{6}$/.test(String(code || ''))) return { ok: false, error: 'Enter the 6-digit code.' }
 
-    const stored = await redis.get<string>(codeKey(userId, msisdn))
-    if (!stored) return { ok: false, error: 'Code expired. Please request a new one.' }
+    try {
+        const stored = await redis.get<string>(codeKey(userId, msisdn))
+        if (!stored) return { ok: false, error: 'Code expired. Please request a new one.' }
 
-    const attempts = await redis.incr(attemptsKey(userId, msisdn))
-    if (attempts === 1) await redis.expire(attemptsKey(userId, msisdn), OTP_TTL_SECONDS)
-    if (attempts > MAX_ATTEMPTS) {
+        const attempts = await redis.incr(attemptsKey(userId, msisdn))
+        if (attempts === 1) await redis.expire(attemptsKey(userId, msisdn), OTP_TTL_SECONDS)
+        if (attempts > MAX_ATTEMPTS) {
+            await redis.del(codeKey(userId, msisdn))
+            return { ok: false, error: 'Too many attempts. Please request a new code.' }
+        }
+
+        if (String(stored) !== String(code)) {
+            return { ok: false, error: 'Incorrect code. Please try again.' }
+        }
+
         await redis.del(codeKey(userId, msisdn))
-        return { ok: false, error: 'Too many attempts. Please request a new code.' }
+        await redis.del(attemptsKey(userId, msisdn))
+        await redis.set(verifiedKey(userId, msisdn), '1', { ex: VERIFIED_TTL_SECONDS })
+        return { ok: true }
+    } catch (e) {
+        console.error('[PaymentOtp] Redis unavailable during verification:', e)
+        return { ok: false, error: 'Verification is temporarily unavailable. Please try again shortly.' }
     }
-
-    if (String(stored) !== String(code)) {
-        return { ok: false, error: 'Incorrect code. Please try again.' }
-    }
-
-    await redis.del(codeKey(userId, msisdn))
-    await redis.del(attemptsKey(userId, msisdn))
-    await redis.set(verifiedKey(userId, msisdn), '1', { ex: VERIFIED_TTL_SECONDS })
-    return { ok: true }
 }
 
-/** True if (userId, phone) currently holds a verified marker. */
+/** True if (userId, phone) currently holds a verified marker. Fails CLOSED (denies) on Redis error. */
 export async function isPaymentPhoneVerified(userId: string, phone: string): Promise<boolean> {
     const msisdn = normalizeMsisdn(phone)
     if (!msisdn) return false
-    return (await redis.get(verifiedKey(userId, msisdn))) != null
+    try {
+        return (await redis.get(verifiedKey(userId, msisdn))) != null
+    } catch (e) {
+        console.error('[PaymentOtp] Redis unavailable checking verification (denying):', e)
+        return false
+    }
 }
 
 /** Consumes the verified marker after a payment is initiated (single-use). */
 export async function consumePaymentPhoneVerification(userId: string, phone: string): Promise<void> {
     const msisdn = normalizeMsisdn(phone)
     if (!msisdn) return
-    await redis.del(verifiedKey(userId, msisdn))
+    try {
+        await redis.del(verifiedKey(userId, msisdn))
+    } catch (e) {
+        console.error('[PaymentOtp] Redis unavailable consuming verification:', e)
+    }
 }
