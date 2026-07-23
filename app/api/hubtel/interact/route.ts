@@ -39,14 +39,46 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-    const requestStartTime = Date.now();
     try {
         const body = await req.json();
-        const { Mobile, SessionId, Type: RequestType, Message, Operator } = body;
-
-        // Hubtel sends Type capitalised ("Initiation" | "Response" | "Timeout").
+        const { Mobile, SessionId, Type: RequestType } = body;
         const requestType = String(RequestType || '').toLowerCase();
 
+        // ULTRA-FAST PATH: Initiation — return hardcoded response, defer everything
+        if (requestType === 'initiation' && SessionId) {
+            // Return immediately with zero DB operations
+            const response = NextResponse.json({
+                SessionId: SessionId,
+                Type: 'Response',
+                Message: 'Welcome to ARHMS TECHNOLOGIES\n1. Buy Result Checker\n0. Exit',
+                Label: 'Welcome',
+                DataType: 'input',
+                FieldType: 'text',
+            });
+
+            // Defer Supabase init and session creation to background
+            waitUntil((async () => {
+                try {
+                    const client = createClient(
+                        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+                        process.env.SUPABASE_SERVICE_ROLE_KEY!
+                    );
+                    await client.from('hubtel_sessions').upsert({
+                        session_id: SessionId,
+                        mobile: Mobile || '',
+                        current_step: 'choose_action',
+                        data: { operator: 'mtn' },
+                        updated_at: new Date().toISOString(),
+                    });
+                } catch (err) {
+                    console.error('[Hubtel] Initiation session creation error:', err);
+                }
+            })());
+
+            return response;
+        }
+
+        // For any other request type, we need the full client
         if (!SessionId || !Mobile) {
             return respond(SessionId, 'release', 'Invalid USSD request. Missing session data.');
         }
@@ -55,37 +87,6 @@ export async function POST(req: Request) {
         if (requestType === 'timeout') {
             await supabaseAdmin.from('hubtel_sessions').delete().eq('session_id', SessionId);
             return respond(SessionId, 'release', 'Session timed out. Thank you for using ARHMS.');
-        }
-
-        // FAST PATH: On initiation, respond immediately (<10ms) and defer ALL DB work.
-        // This ensures we never timeout on the first hit, no matter how slow Supabase is.
-        if (requestType === 'initiation') {
-            console.log('[Hubtel Interact] Initiation from', Mobile, 'SessionId:', SessionId);
-
-            // Respond immediately — this response completes before Hubtel's timeout
-            const response = respond(
-                SessionId,
-                'response',
-                'Welcome to ARHMS TECHNOLOGIES\n1. Buy Result Checker\n0. Exit',
-                { label: 'Welcome' }
-            );
-
-            // Fire-and-forget: create session async after responding
-            waitUntil((async () => {
-                try {
-                    await supabaseAdmin.from('hubtel_sessions').upsert({
-                        session_id: SessionId,
-                        mobile: Mobile,
-                        current_step: 'choose_action',
-                        data: { operator: (Operator || 'mtn').toLowerCase() },
-                        updated_at: new Date().toISOString(),
-                    });
-                } catch (err) {
-                    console.error('[Hubtel Interact] Initiation session creation error:', err);
-                }
-            })());
-
-            return response;
         }
 
         // 1. Fetch existing session for a continuation request
