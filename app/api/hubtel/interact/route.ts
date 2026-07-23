@@ -57,37 +57,39 @@ export async function POST(req: Request) {
             return respond(SessionId, 'release', 'Session timed out. Thank you for using ARHMS.');
         }
 
-        // FAST PATH: On initiation (Hubtel's first, latency-sensitive hit) a
-        // session cannot already exist, so skip the SELECT. Write the session
-        // already advanced to 'choose_action' in a single upsert, then respond.
-        // This collapses 3 sequential DB round-trips (select+upsert+update) to 1.
+        // FAST PATH: On initiation, respond immediately (<10ms) and defer ALL DB work.
+        // This ensures we never timeout on the first hit, no matter how slow Supabase is.
         if (requestType === 'initiation') {
-            // Fire-and-forget: respond immediately; DB write completes async.
-            // Wrapped in waitUntil so Vercel doesn't freeze the container.
+            console.log('[Hubtel Interact] Initiation from', Mobile, 'SessionId:', SessionId);
+
+            // Respond immediately — this response completes before Hubtel's timeout
+            const response = respond(
+                SessionId,
+                'response',
+                'Welcome to ARHMS TECHNOLOGIES\n1. Buy Result Checker\n0. Exit',
+                { label: 'Welcome' }
+            );
+
+            // Fire-and-forget: create session async after responding
             waitUntil((async () => {
-                const { error } = await supabaseAdmin
-                    .from('hubtel_sessions')
-                    .upsert({
+                try {
+                    await supabaseAdmin.from('hubtel_sessions').upsert({
                         session_id: SessionId,
                         mobile: Mobile,
                         current_step: 'choose_action',
                         data: { operator: (Operator || 'mtn').toLowerCase() },
                         updated_at: new Date().toISOString(),
                     });
-                if (error) console.error('[Hubtel Interact] Session upsert error:', error);
+                } catch (err) {
+                    console.error('[Hubtel Interact] Initiation session creation error:', err);
+                }
             })());
 
-            return respond(
-                SessionId,
-                'response',
-                'Welcome to ARHMS TECHNOLOGIES\n1. Buy Result Checker\n0. Exit',
-                { label: 'Welcome' }
-            );
+            return response;
         }
 
         // 1. Fetch existing session for a continuation request
-        // Use a 5-second timeout to fail fast if Supabase is slow, preventing the entire
-        // request from exhausting Hubtel's timeout budget.
+        // Use a 9-second timeout — aggressive but leaves 1s buffer before Hubtel's timeout
         const sessionFetchStart = Date.now();
         let session: any = null;
         let sessionError: any = null;
@@ -98,7 +100,7 @@ export async function POST(req: Request) {
                 .eq('session_id', SessionId)
                 .single();
             const timeoutPromise = new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('Session fetch timeout')), 5000)
+                setTimeout(() => reject(new Error('Session fetch timeout')), 9000)
             );
             const result = await Promise.race([sessionFetchPromise, timeoutPromise]) as any;
             session = result.data;
@@ -119,7 +121,7 @@ export async function POST(req: Request) {
             return respond(SessionId, 'release', 'Session expired. Please dial again.');
         }
 
-        if (sessionFetchDuration > 2000) {
+        if (sessionFetchDuration > 3000) {
             console.warn('[Hubtel Interact] Slow session fetch (', sessionFetchDuration, 'ms) for SessionId:', SessionId, 'Type:', requestType);
         }
 
@@ -163,7 +165,7 @@ export async function POST(req: Request) {
                     );
                 }
 
-                // Fetch checker types with a 6-second timeout to fail fast
+                // Fetch checker types with a 8-second timeout to fail fast
                 let activeTypes: any[] | null = null;
                 let typesError: any = null;
                 try {
@@ -173,7 +175,7 @@ export async function POST(req: Request) {
                         .eq('is_active', true)
                         .order('display_order', { ascending: true });
                     const timeoutPromise = new Promise((_, reject) =>
-                        setTimeout(() => reject(new Error('Types fetch timeout')), 6000)
+                        setTimeout(() => reject(new Error('Types fetch timeout')), 8000)
                     );
                     const result = await Promise.race([typesPromise, timeoutPromise]) as any;
                     activeTypes = result.data;
@@ -259,13 +261,13 @@ export async function POST(req: Request) {
                 // This one IS awaited: the fulfill route needs this state written before
                 // Hubtel calls /fulfill. In practice Hubtel waits for payment confirmation
                 // (seconds to minutes) before calling fulfill, so this is safe.
-                // Use a 3-second timeout to fail fast instead of exhausting Hubtel's window.
+                // Use a 8-second timeout instead of exhausting Hubtel's window.
                 sessionData.chargedAmount = price;
                 const confirmSaveStart = Date.now();
                 try {
                     const confirmSavePromise = save(SessionId, 'awaiting_payment', sessionData);
                     const timeoutPromise = new Promise((_, reject) =>
-                        setTimeout(() => reject(new Error('Confirm save timeout')), 3000)
+                        setTimeout(() => reject(new Error('Confirm save timeout')), 8000)
                     );
                     await Promise.race([confirmSavePromise, timeoutPromise]);
                 } catch (confirmError: any) {
