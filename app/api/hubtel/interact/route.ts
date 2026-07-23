@@ -99,7 +99,7 @@ export async function POST(req: Request) {
                     
                     responseMessage = "Select Checker Type:\n";
                     activeTypes.forEach((type, index) => {
-                        responseMessage += `${index + 1}. ${type.name}\n`;
+                        responseMessage += `${index + 1}. ${type.name} (${formatGhs(type.customer_price)} GHS)\n`;
                     });
                     responseMessage += "0. Back";
                     
@@ -125,7 +125,7 @@ export async function POST(req: Request) {
                 } else {
                     responseMessage = "Invalid selection.\nSelect Checker Type:\n";
                     availableCheckers.forEach((type: any, index: number) => {
-                        responseMessage += `${index + 1}. ${type.name}\n`;
+                        responseMessage += `${index + 1}. ${type.name} (${formatGhs(type.customer_price)} GHS)\n`;
                     });
                     responseMessage += "0. Back";
                     nextStep = 'select_checker_type';
@@ -204,6 +204,13 @@ export async function POST(req: Request) {
         console.error('[Hubtel Interact] Unhandled error:', error);
         return NextResponse.json({ Type: 'Release', Message: 'An unexpected error occurred.' });
     }
+}
+
+/** Formats a GHS amount without trailing zeros: 18 -> "18", 0.01 -> "0.01", 18.5 -> "18.5" */
+function formatGhs(price: any): string {
+    const n = parseFloat(String(price ?? 0));
+    if (isNaN(n)) return '0';
+    return n.toFixed(2).replace(/\.?0+$/, '');
 }
 
 async function updateAndRespond(sessionId: string, nextStep: string, data: any, responseType: string, message: string) {
