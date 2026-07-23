@@ -14,7 +14,6 @@ import { Loader2, User, Phone, AlertCircle, CheckCircle2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { validateGhanaianPhone } from '@/lib/phone-validation'
 import { BackgroundBubbles } from '@/components/background-bubbles'
-import { FloatingWhatsApp } from '@/components/floating-whatsapp'
 
 export default function CompleteProfilePage() {
     const [formData, setFormData] = useState({
@@ -91,7 +90,6 @@ export default function CompleteProfilePage() {
     return (
         <div className="relative min-h-screen w-full flex flex-col items-center justify-center px-4 py-12 overflow-y-auto bg-background">
             <BackgroundBubbles scrollable />
-            <FloatingWhatsApp variant="auth" />
 
             <div className="w-full max-w-[420px] relative z-10 flex flex-col items-center animate-slow-fade">
                 <div className="text-center mb-10">

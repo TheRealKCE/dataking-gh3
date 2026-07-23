@@ -10,7 +10,6 @@ import { Card, CardContent } from '@/components/ui/card'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Loader2, AlertCircle, Phone, ArrowRight } from 'lucide-react'
 import { BackgroundBubbles } from '@/components/background-bubbles'
-import { FloatingWhatsApp } from '@/components/floating-whatsapp'
 
 export default function PhoneSetupPage() {
     const [phoneNumber, setPhoneNumber] = useState('')
@@ -70,7 +69,6 @@ export default function PhoneSetupPage() {
     return (
         <div className="relative min-h-screen w-full flex flex-col items-center justify-center px-4 py-12 overflow-y-auto bg-background">
             <BackgroundBubbles scrollable />
-            <FloatingWhatsApp variant="auth" />
 
             <div className="w-full max-w-[420px] relative z-10 flex flex-col items-center animate-slow-fade">
                 {/* Logo */}

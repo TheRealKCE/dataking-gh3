@@ -86,7 +86,7 @@ export async function POST(req: Request) {
         }
 
         // 1. Fetch existing session for a continuation request
-        // Use a 3-second timeout to fail fast if Supabase is slow, preventing the entire
+        // Use a 5-second timeout to fail fast if Supabase is slow, preventing the entire
         // request from exhausting Hubtel's timeout budget.
         const sessionFetchStart = Date.now();
         let session: any = null;
@@ -98,7 +98,7 @@ export async function POST(req: Request) {
                 .eq('session_id', SessionId)
                 .single();
             const timeoutPromise = new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('Session fetch timeout')), 3000)
+                setTimeout(() => reject(new Error('Session fetch timeout')), 5000)
             );
             const result = await Promise.race([sessionFetchPromise, timeoutPromise]) as any;
             session = result.data;
@@ -163,7 +163,7 @@ export async function POST(req: Request) {
                     );
                 }
 
-                // Fetch checker types with a 4-second timeout to fail fast
+                // Fetch checker types with a 6-second timeout to fail fast
                 let activeTypes: any[] | null = null;
                 let typesError: any = null;
                 try {
@@ -173,7 +173,7 @@ export async function POST(req: Request) {
                         .eq('is_active', true)
                         .order('display_order', { ascending: true });
                     const timeoutPromise = new Promise((_, reject) =>
-                        setTimeout(() => reject(new Error('Types fetch timeout')), 4000)
+                        setTimeout(() => reject(new Error('Types fetch timeout')), 6000)
                     );
                     const result = await Promise.race([typesPromise, timeoutPromise]) as any;
                     activeTypes = result.data;
@@ -259,13 +259,13 @@ export async function POST(req: Request) {
                 // This one IS awaited: the fulfill route needs this state written before
                 // Hubtel calls /fulfill. In practice Hubtel waits for payment confirmation
                 // (seconds to minutes) before calling fulfill, so this is safe.
-                // Use a 2-second timeout to fail fast instead of exhausting Hubtel's window.
+                // Use a 3-second timeout to fail fast instead of exhausting Hubtel's window.
                 sessionData.chargedAmount = price;
                 const confirmSaveStart = Date.now();
                 try {
                     const confirmSavePromise = save(SessionId, 'awaiting_payment', sessionData);
                     const timeoutPromise = new Promise((_, reject) =>
-                        setTimeout(() => reject(new Error('Confirm save timeout')), 2000)
+                        setTimeout(() => reject(new Error('Confirm save timeout')), 3000)
                     );
                     await Promise.race([confirmSavePromise, timeoutPromise]);
                 } catch (confirmError: any) {

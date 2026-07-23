@@ -12,7 +12,6 @@ import { Loader2, Mail, Send } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 import { BackgroundBubbles } from '@/components/background-bubbles'
-import { FloatingWhatsApp } from '@/components/floating-whatsapp'
 import { WhatsAppCommunityButtons } from '@/components/whatsapp-community-buttons'
 
 export default function ResetPasswordPage() {
@@ -63,7 +62,6 @@ export default function ResetPasswordPage() {
     return (
         <div className="relative min-h-screen w-full flex flex-col items-center justify-center px-4 py-8 sm:py-10 overflow-y-auto">
             <BackgroundBubbles scrollable />
-            <FloatingWhatsApp variant="auth" />
             <div className="w-full max-w-[380px] sm:max-w-md relative z-10 flex flex-col items-center">
                 {/* Logo - professional and visible */}
                 <div className="text-center mb-6">
