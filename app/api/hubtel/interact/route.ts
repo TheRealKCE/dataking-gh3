@@ -1,22 +1,43 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
-import { initiatePayment, HUBTEL_CHANNEL_MAP } from '@/lib/hubtel-payment-service';
 
-// Use a service role client to bypass RLS for USSD interactions
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
+/**
+ * Hubtel Programmable Services — Service Interaction URL
+ *
+ * Hubtel POSTs a Push Request here on every USSD keypress (Type: Initiation |
+ * Response | Timeout). We drive a server-side state machine and reply with a
+ * Programmable Services response.
+ *
+ * IMPORTANT: We do NOT initiate payment ourselves. When the user confirms, we
+ * return a `Type: "AddToCart"` response with an Item — Hubtel then charges the
+ * customer and POSTs the result to our Service Fulfilment URL
+ * (/api/hubtel/fulfill).
+ *
+ * Docs: https://developers.hubtel.com — Programmable Services API
+ */
+
+// Service-role client to bypass RLS for USSD interactions
+const supabaseAdmin = createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+);
 
 export async function POST(req: Request) {
     try {
         const body = await req.json();
         const { Mobile, SessionId, Type: RequestType, Message, Operator } = body;
 
+        // Hubtel sends Type capitalised ("Initiation" | "Response" | "Timeout").
+        const requestType = String(RequestType || '').toLowerCase();
+
         if (!SessionId || !Mobile) {
-            return NextResponse.json({
-                Type: 'Release',
-                Message: 'Invalid USSD request. Missing session data.'
-            });
+            return respond(SessionId, 'release', 'Invalid USSD request. Missing session data.');
+        }
+
+        // Timeout — user cancelled the session. Clean up and end.
+        if (requestType === 'timeout') {
+            await supabaseAdmin.from('hubtel_sessions').delete().eq('session_id', SessionId);
+            return respond(SessionId, 'release', 'Session timed out. Thank you for using ARHMS.');
         }
 
         // 1. Fetch or create session
@@ -28,182 +49,183 @@ export async function POST(req: Request) {
 
         if (sessionError && sessionError.code !== 'PGRST116') {
             console.error('[Hubtel Interact] Session fetch error:', sessionError);
-            return NextResponse.json({ Type: 'Release', Message: 'System error. Please try again.' });
+            return respond(SessionId, 'release', 'System error. Please try again.');
         }
 
-        if (!session || RequestType === 'initiation') {
-            // New session
+        if (!session || requestType === 'initiation') {
             const newSession = {
                 session_id: SessionId,
                 mobile: Mobile,
                 current_step: 'initiation',
-                data: { operator: Operator || 'mtn' }
+                data: { operator: (Operator || 'mtn').toLowerCase() },
             };
-            
+
             const { error: insertError } = await supabaseAdmin
                 .from('hubtel_sessions')
                 .upsert(newSession);
 
             if (insertError) {
                 console.error('[Hubtel Interact] Session create error:', insertError);
-                return NextResponse.json({ Type: 'Release', Message: 'System error. Please try again later.' });
+                return respond(SessionId, 'release', 'System error. Please try again later.');
             }
-            
             session = newSession;
         }
 
-        // 2. State Machine processing
+        // 2. State machine
         let currentStep = session.current_step;
         let sessionData = session.data || {};
-        let responseMessage = '';
-        let responseType = 'Response';
-        let nextStep = currentStep;
-
         const userInput = Message?.trim();
 
-        // If user typed 0 at any point (except initiation), we can treat it as 'Back' or 'Exit'
-        if (RequestType !== 'initiation' && userInput === '0') {
-             if (currentStep === 'choose_action') {
-                 responseType = 'Release';
-                 responseMessage = 'Thank you for using ARHMS. Goodbye.';
-                 return updateAndRespond(SessionId, nextStep, sessionData, responseType, responseMessage);
-             } else {
-                 // Simple global "Back to Main Menu" behavior for '0'
-                 currentStep = 'initiation';
-             }
+        // Global "0" = Back to main menu (or Exit at the main menu)
+        if (requestType !== 'initiation' && userInput === '0') {
+            if (currentStep === 'choose_action') {
+                await supabaseAdmin.from('hubtel_sessions').delete().eq('session_id', SessionId);
+                return respond(SessionId, 'release', 'Thank you for using ARHMS. Goodbye.');
+            }
+            currentStep = 'initiation';
         }
 
         switch (currentStep) {
             case 'initiation':
-                responseMessage = "Welcome to ARHMS TECHNOLOGIES\n1. Buy Result Checker\n0. Exit";
-                nextStep = 'choose_action';
-                break;
+                await save(SessionId, 'choose_action', sessionData);
+                return respond(
+                    SessionId,
+                    'response',
+                    'Welcome to ARHMS TECHNOLOGIES\n1. Buy Result Checker\n0. Exit',
+                    { label: 'Welcome' }
+                );
 
-            case 'choose_action':
-                if (userInput === '1') {
-                    // Fetch active result checkers
-                    const { data: activeTypes, error: typesError } = await supabaseAdmin
-                        .from('results_checker_types')
-                        .select('id, name, customer_price')
-                        .eq('is_active', true)
-                        .order('display_order', { ascending: true });
-
-                    if (typesError || !activeTypes || activeTypes.length === 0) {
-                        responseMessage = "Result checkers are currently unavailable. Please try again later.";
-                        responseType = 'Release';
-                        break;
-                    }
-
-                    // Store types in session to map selection later
-                    sessionData.availableCheckers = activeTypes;
-                    
-                    responseMessage = "Select Checker Type:\n";
-                    activeTypes.forEach((type, index) => {
-                        responseMessage += `${index + 1}. ${type.name} (${formatGhs(type.customer_price)} GHS)\n`;
-                    });
-                    responseMessage += "0. Back";
-                    
-                    nextStep = 'select_checker_type';
-                } else {
-                    responseMessage = "Invalid input.\n1. Buy Result Checker\n0. Exit";
-                    nextStep = 'choose_action';
+            case 'choose_action': {
+                if (userInput !== '1') {
+                    await save(SessionId, 'choose_action', sessionData);
+                    return respond(
+                        SessionId,
+                        'response',
+                        'Invalid input.\n1. Buy Result Checker\n0. Exit',
+                        { label: 'Welcome' }
+                    );
                 }
-                break;
 
-            case 'select_checker_type': {
-                const selectionIndex = parseInt(userInput) - 1;
-                const availableCheckers = sessionData.availableCheckers || [];
+                const { data: activeTypes, error: typesError } = await supabaseAdmin
+                    .from('results_checker_types')
+                    .select('id, name, customer_price')
+                    .eq('is_active', true)
+                    .order('display_order', { ascending: true });
 
-                if (!isNaN(selectionIndex) && selectionIndex >= 0 && selectionIndex < availableCheckers.length) {
-                    const selectedChecker = availableCheckers[selectionIndex];
-                    sessionData.selectedCheckerId = selectedChecker.id;
-                    sessionData.selectedCheckerName = selectedChecker.name;
-                    sessionData.selectedCheckerPrice = selectedChecker.customer_price;
-
-                    responseMessage = "Enter recipient number (for SMS delivery):\n(leave blank/send 1 to use your current number)";
-                    nextStep = 'enter_phone';
-                } else {
-                    responseMessage = "Invalid selection.\nSelect Checker Type:\n";
-                    availableCheckers.forEach((type: any, index: number) => {
-                        responseMessage += `${index + 1}. ${type.name} (${formatGhs(type.customer_price)} GHS)\n`;
-                    });
-                    responseMessage += "0. Back";
-                    nextStep = 'select_checker_type';
+                if (typesError || !activeTypes || activeTypes.length === 0) {
+                    return respond(
+                        SessionId,
+                        'release',
+                        'Result checkers are currently unavailable. Please try again later.'
+                    );
                 }
-                break;
+
+                sessionData.availableCheckers = activeTypes;
+                await save(SessionId, 'select_checker_type', sessionData);
+                return respond(SessionId, 'response', renderCheckerMenu(activeTypes), {
+                    label: 'Select Checker',
+                });
             }
 
-            case 'enter_phone':
-                // Clean phone number input
+            case 'select_checker_type': {
+                const availableCheckers = sessionData.availableCheckers || [];
+                const selectionIndex = parseInt(userInput) - 1;
+
+                if (isNaN(selectionIndex) || selectionIndex < 0 || selectionIndex >= availableCheckers.length) {
+                    await save(SessionId, 'select_checker_type', sessionData);
+                    return respond(
+                        SessionId,
+                        'response',
+                        'Invalid selection.\n' + renderCheckerMenu(availableCheckers),
+                        { label: 'Select Checker' }
+                    );
+                }
+
+                const selected = availableCheckers[selectionIndex];
+                sessionData.selectedCheckerId = selected.id;
+                sessionData.selectedCheckerName = selected.name;
+                sessionData.selectedCheckerPrice = selected.customer_price;
+
+                await save(SessionId, 'enter_phone', sessionData);
+                return respond(
+                    SessionId,
+                    'response',
+                    'Enter recipient number (for SMS delivery):\n(leave blank/send 1 to use your current number)',
+                    { label: 'Recipient number', fieldType: 'phone' }
+                );
+            }
+
+            case 'enter_phone': {
                 let recipientMobile = userInput;
                 if (!recipientMobile || recipientMobile === '1' || recipientMobile.trim() === '') {
                     recipientMobile = Mobile;
                 }
                 sessionData.recipientMobile = recipientMobile;
 
-                responseMessage = `Confirm Order:\n${sessionData.selectedCheckerName} x1\nCost: GHS ${sessionData.selectedCheckerPrice}\nTo: ${sessionData.recipientMobile}\n\n1. Confirm & Pay\n0. Cancel`;
-                nextStep = 'confirm';
-                break;
+                await save(SessionId, 'confirm', sessionData);
+                const price = formatGhs(sessionData.selectedCheckerPrice);
+                return respond(
+                    SessionId,
+                    'response',
+                    `Confirm Order:\n${sessionData.selectedCheckerName} x1\nCost: GHS ${price}\nTo: ${recipientMobile}\n\n1. Confirm & Pay\n0. Cancel`,
+                    { label: 'Confirm order' }
+                );
+            }
 
             case 'confirm': {
-                if (userInput === '1') {
-                    // Map USSD operator to Hubtel channel name
-                    const ussdOperatorMap: Record<string, string> = {
-                        'mtn': 'mtn-gh',
-                        'vodafone': 'vodafone-gh',
-                        'telecel': 'vodafone-gh',
-                        'tigo': 'tigo-gh',
-                        'airteltigo': 'tigo-gh',
-                        'airtel': 'tigo-gh',
-                    }
-                    const operator = (sessionData.operator || 'mtn').toLowerCase()
-                    const channel = ussdOperatorMap[operator] || HUBTEL_CHANNEL_MAP['MTN']
-                    const clientReference = `USSD-RC-${SessionId}`
-                    // UAT: charge a tiny test amount (default 0.01) while keeping the
-                    // real menu and prices on screen. Production leaves this flag off.
-                    const uatMode = process.env.USSD_UAT_MODE === 'true'
-                    const amount = uatMode
-                        ? parseFloat(process.env.USSD_UAT_AMOUNT || '0.01')
-                        : parseFloat(sessionData.selectedCheckerPrice || '0')
-
-                    const paymentResult = await initiatePayment({
-                        amount,
-                        payerPhone: Mobile,
-                        channel,
-                        clientReference,
-                        description: `ARHMS ${sessionData.selectedCheckerName} Result Checker`,
-                    })
-
-                    if (paymentResult.success) {
-                        // Store the clientReference so the webhook can find the session
-                        sessionData.clientReference = clientReference
-                        responseMessage = 'Please approve the MoMo prompt on your phone to complete your purchase. Thank you!';
-                    } else {
-                        console.error('[Hubtel Interact] initiatePayment failed:', paymentResult.error)
-                        responseMessage = 'Payment initiation failed. Please try again later.';
-                    }
-                    responseType = 'Release';
-                    nextStep = 'completed';
-                } else {
-                    responseMessage = "Order cancelled. Thank you for using ARHMS.";
-                    responseType = 'Release';
-                    nextStep = 'completed';
+                if (userInput !== '1') {
+                    await supabaseAdmin.from('hubtel_sessions').delete().eq('session_id', SessionId);
+                    return respond(SessionId, 'release', 'Order cancelled. Thank you for using ARHMS.');
                 }
-                break;
+
+                const price = parseFloat(String(sessionData.selectedCheckerPrice || '0'));
+
+                // Persist so the fulfilment callback can reconcile the amount.
+                sessionData.chargedAmount = price;
+                await save(SessionId, 'awaiting_payment', sessionData);
+
+                // AddToCart hands the cart to Hubtel, which prompts the user to pay.
+                // On success Hubtel POSTs to our Service Fulfilment URL.
+                return respond(
+                    SessionId,
+                    'AddToCart',
+                    'The request has been submitted. Please wait for a payment prompt soon.',
+                    {
+                        label: 'The request has been submitted. Please wait for a payment prompt soon.',
+                        dataType: 'display',
+                        item: {
+                            ItemName: sessionData.selectedCheckerName,
+                            Qty: 1,
+                            Price: price,
+                        },
+                    }
+                );
             }
 
             default:
-                responseMessage = "Session expired or invalid state.";
-                responseType = 'Release';
-                break;
+                return respond(SessionId, 'release', 'Session expired or invalid state.');
         }
-
-        return await updateAndRespond(SessionId, nextStep, sessionData, responseType, responseMessage);
-
     } catch (error) {
         console.error('[Hubtel Interact] Unhandled error:', error);
-        return NextResponse.json({ Type: 'Release', Message: 'An unexpected error occurred.' });
+        // No SessionId available in the catch scope; reply with a bare release.
+        return NextResponse.json({
+            Type: 'release',
+            Message: 'An unexpected error occurred.',
+            Label: 'Error',
+            DataType: 'display',
+            FieldType: 'text',
+        });
     }
+}
+
+/** Renders the numbered checker list with inline prices, e.g. "1. BECE (18 GHS)". */
+function renderCheckerMenu(types: Array<{ name: string; customer_price: any }>): string {
+    let msg = 'Select Checker Type:\n';
+    types.forEach((t, i) => {
+        msg += `${i + 1}. ${t.name} (${formatGhs(t.customer_price)} GHS)\n`;
+    });
+    msg += '0. Back';
+    return msg;
 }
 
 /** Formats a GHS amount without trailing zeros: 18 -> "18", 0.01 -> "0.01", 18.5 -> "18.5" */
@@ -213,22 +235,47 @@ function formatGhs(price: any): string {
     return n.toFixed(2).replace(/\.?0+$/, '');
 }
 
-async function updateAndRespond(sessionId: string, nextStep: string, data: any, responseType: string, message: string) {
+/** Persists the session's next step and data. */
+async function save(sessionId: string, nextStep: string, data: any) {
     const { error } = await supabaseAdmin
         .from('hubtel_sessions')
-        .update({
-            current_step: nextStep,
-            data: data,
-            updated_at: new Date().toISOString()
-        })
+        .update({ current_step: nextStep, data, updated_at: new Date().toISOString() })
         .eq('session_id', sessionId);
+    if (error) console.error('[Hubtel Interact] Session update error:', error);
+}
 
-    if (error) {
-        console.error('[Hubtel Interact] Session update error:', error);
+interface RespondOpts {
+    label?: string;
+    /** "input" (default) or "display" */
+    dataType?: 'input' | 'display';
+    /** "text" (default) | "phone" | "decimal" | "number" | "email" | "textarea" */
+    fieldType?: 'text' | 'phone' | 'decimal' | 'number' | 'email' | 'textarea';
+    /** AddToCart cart item */
+    item?: { ItemName: string; Qty: number; Price: number };
+}
+
+/**
+ * Builds a Programmable Services response with all mandatory fields
+ * (SessionId, Type, Message, Label, DataType, FieldType). A missing field
+ * makes Hubtel reject the response with "Error: UUE".
+ */
+function respond(
+    sessionId: string,
+    type: 'response' | 'release' | 'AddToCart',
+    message: string,
+    opts: RespondOpts = {}
+) {
+    const isAddToCart = type === 'AddToCart';
+    const payload: Record<string, any> = {
+        SessionId: sessionId,
+        Type: type,
+        Message: message,
+        Label: opts.label || message.split('\n')[0].slice(0, 60),
+        DataType: opts.dataType || (type === 'response' ? 'input' : 'display'),
+        FieldType: opts.fieldType || 'text',
+    };
+    if (isAddToCart && opts.item) {
+        payload.Item = opts.item;
     }
-
-    return NextResponse.json({
-        Type: responseType,
-        Message: message
-    });
+    return NextResponse.json(payload);
 }

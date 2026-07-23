@@ -1,8 +1,10 @@
 /**
  * USSD Result Checker Fulfillment
  *
- * Called by the Hubtel webhook (api/webhooks/hubtel) after a USSD-RC-* payment
- * is confirmed. Assigns a voucher, finalises the sale, sends SMS, and cleans up.
+ * Called after a USSD result-checker payment is confirmed. On the Hubtel
+ * Programmable Services flow this runs from the Service Fulfilment endpoint
+ * (api/hubtel/fulfill) with the Hubtel OrderId as the reference. Assigns a
+ * voucher, finalises the sale, sends SMS, and cleans up.
  */
 import { createClient } from '@supabase/supabase-js'
 import { sendHubtelSMS } from '@/lib/hubtel-sms-service'
@@ -13,14 +15,31 @@ const supabaseAdmin = createClient(
     process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
+/**
+ * Legacy entry: reference format `USSD-RC-{sessionId}` (Direct Receive Money).
+ * Kept for backward compatibility; delegates to the session-based fulfiller.
+ */
 export async function fulfillUSSDRCOrder(
     clientReference: string,
     amountPaid: number
 ): Promise<{ success: boolean; error?: string }> {
-    // Extract sessionId from reference format: USSD-RC-{sessionId}
     const sessionId = clientReference.replace('USSD-RC-', '')
+    return fulfillUSSDRCBySession({ sessionId, referenceCode: clientReference, amountPaid })
+}
 
-    console.log('[USSD-RC Fulfill] Starting fulfillment for sessionId:', sessionId)
+/**
+ * Fulfils a USSD result-checker order from a session id and a unique
+ * reference/order id (the idempotency key stored on the order record).
+ */
+export async function fulfillUSSDRCBySession(params: {
+    sessionId: string
+    referenceCode: string
+    amountPaid: number
+}): Promise<{ success: boolean; error?: string }> {
+    const { sessionId, referenceCode, amountPaid } = params
+    const clientReference = referenceCode
+
+    console.log('[USSD-RC Fulfill] Starting fulfillment for sessionId:', sessionId, 'ref:', referenceCode)
 
     // 1. Look up the session
     const { data: session, error: sessionError } = await supabaseAdmin
@@ -47,11 +66,8 @@ export async function fulfillUSSDRCOrder(
     // Hubtel's AmountCharged may include a transaction fee on top of the price,
     // so we only reject amounts that fall short of the quoted price (with a
     // small tolerance for rounding), not amounts that exceed it.
-    // UAT mode charges a tiny test amount against real (higher) prices, so the
-    // underpayment guard is skipped while it is on. Must be OFF in production.
-    const uatMode = process.env.USSD_UAT_MODE === 'true'
     const expectedPrice = parseFloat(String(selectedCheckerPrice ?? 0))
-    if (!uatMode && expectedPrice > 0 && amountPaid + 0.01 < expectedPrice) {
+    if (expectedPrice > 0 && amountPaid + 0.01 < expectedPrice) {
         console.error(
             `[USSD-RC Fulfill] AMOUNT MISMATCH for ${clientReference}: expected >= GHS ${expectedPrice}, got GHS ${amountPaid}`
         )

@@ -28,7 +28,7 @@ const HUBTEL_STATUS_BASE_URL = 'https://api-txnstatus.hubtel.com/transactions'
  *
  * Priority: FIXIE_URL → QUOTAGUARDSTATIC_URL → no proxy (will fail on Vercel)
  */
-function getDispatcher(): ProxyAgent | Agent {
+export function getDispatcher(): ProxyAgent | Agent {
     const proxyUrl = process.env.FIXIE_URL || process.env.QUOTAGUARDSTATIC_URL
     if (proxyUrl) {
         console.log('[HubtelPayment] Routing through static proxy:', proxyUrl.split('@')[1] ?? 'proxy')

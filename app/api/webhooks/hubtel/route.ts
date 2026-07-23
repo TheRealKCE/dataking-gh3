@@ -74,17 +74,10 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ received: true })
         }
 
-        // ── USSD RESULTS CHECKER (USSD-RC-{sessionId}) ───────────────────────────
-        // Amount is verified inside fulfillUSSDRCOrder against the session's
-        // quoted price (the expected amount isn't known here without loading
-        // the session), so an under-payment cannot mint a voucher.
-        if (ClientReference.startsWith('USSD-RC-')) {
-            const { fulfillUSSDRCOrder } = await import('@/lib/ussd-rc-fulfillment')
-            const amountGHS = parseFloat(String(AmountCharged || 0))
-            console.log('[HubtelWebhook] Routing USSD RC order payment:', ClientReference)
-            await fulfillUSSDRCOrder(ClientReference, amountGHS)
-            return NextResponse.json({ received: true })
-        }
+        // NOTE: USSD result-checker payments are NOT handled here. They run on
+        // Hubtel's Programmable Services API, which delivers payment via the
+        // Service Fulfilment callback at /api/hubtel/fulfill — not this
+        // Receive-Money webhook.
 
         // For Wallet Top-ups, Agent Upgrades, and Classifieds Boosts — look up via wallet_payments
         const { data: payment } = await supabase
