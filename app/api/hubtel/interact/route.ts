@@ -16,6 +16,12 @@ import { createClient } from '@supabase/supabase-js';
  * Docs: https://developers.hubtel.com — Programmable Services API
  */
 
+// USSD callbacks are latency-sensitive: Hubtel times out if we respond slowly.
+// Never cache/prerender, and cap execution so a slow DB call fails fast rather
+// than hanging past Hubtel's timeout window.
+export const dynamic = 'force-dynamic';
+export const maxDuration = 15;
+
 // Service-role client to bypass RLS for USSD interactions
 const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -40,7 +46,35 @@ export async function POST(req: Request) {
             return respond(SessionId, 'release', 'Session timed out. Thank you for using ARHMS.');
         }
 
-        // 1. Fetch or create session
+        // FAST PATH: On initiation (Hubtel's first, latency-sensitive hit) a
+        // session cannot already exist, so skip the SELECT. Write the session
+        // already advanced to 'choose_action' in a single upsert, then respond.
+        // This collapses 3 sequential DB round-trips (select+upsert+update) to 1.
+        if (requestType === 'initiation') {
+            const { error: initError } = await supabaseAdmin
+                .from('hubtel_sessions')
+                .upsert({
+                    session_id: SessionId,
+                    mobile: Mobile,
+                    current_step: 'choose_action',
+                    data: { operator: (Operator || 'mtn').toLowerCase() },
+                    updated_at: new Date().toISOString(),
+                });
+
+            if (initError) {
+                console.error('[Hubtel Interact] Session create error:', initError);
+                return respond(SessionId, 'release', 'System error. Please try again later.');
+            }
+
+            return respond(
+                SessionId,
+                'response',
+                'Welcome to ARHMS TECHNOLOGIES\n1. Buy Result Checker\n0. Exit',
+                { label: 'Welcome' }
+            );
+        }
+
+        // 1. Fetch existing session for a continuation request
         let { data: session, error: sessionError } = await supabaseAdmin
             .from('hubtel_sessions')
             .select('*')
@@ -52,23 +86,9 @@ export async function POST(req: Request) {
             return respond(SessionId, 'release', 'System error. Please try again.');
         }
 
-        if (!session || requestType === 'initiation') {
-            const newSession = {
-                session_id: SessionId,
-                mobile: Mobile,
-                current_step: 'initiation',
-                data: { operator: (Operator || 'mtn').toLowerCase() },
-            };
-
-            const { error: insertError } = await supabaseAdmin
-                .from('hubtel_sessions')
-                .upsert(newSession);
-
-            if (insertError) {
-                console.error('[Hubtel Interact] Session create error:', insertError);
-                return respond(SessionId, 'release', 'System error. Please try again later.');
-            }
-            session = newSession;
+        if (!session) {
+            // Session missing (expired/cleaned) — restart from the menu.
+            return respond(SessionId, 'release', 'Session expired. Please dial again.');
         }
 
         // 2. State machine
