@@ -28,6 +28,15 @@ const supabaseAdmin = createClient(
     process.env.SUPABASE_SERVICE_ROLE_KEY!
 );
 
+/**
+ * Keep-warm ping. A Vercel Cron GET keeps this exact function instance hot so a
+ * real USSD initiation never pays a cold-start (which can exceed Hubtel's
+ * timeout). Returns immediately with no DB work.
+ */
+export async function GET() {
+    return NextResponse.json({ ok: true, warm: true, ts: Date.now() });
+}
+
 export async function POST(req: Request) {
     try {
         const body = await req.json();
