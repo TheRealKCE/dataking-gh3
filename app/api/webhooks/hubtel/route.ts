@@ -75,6 +75,9 @@ export async function POST(request: NextRequest) {
         }
 
         // ── USSD RESULTS CHECKER (USSD-RC-{sessionId}) ───────────────────────────
+        // Amount is verified inside fulfillUSSDRCOrder against the session's
+        // quoted price (the expected amount isn't known here without loading
+        // the session), so an under-payment cannot mint a voucher.
         if (ClientReference.startsWith('USSD-RC-')) {
             const { fulfillUSSDRCOrder } = await import('@/lib/ussd-rc-fulfillment')
             const amountGHS = parseFloat(String(AmountCharged || 0))

@@ -43,6 +43,23 @@ export async function fulfillUSSDRCOrder(
         return { success: false, error: 'Incomplete session data' }
     }
 
+    // 1a. Amount verification — never fulfill on an under-payment.
+    // Hubtel's AmountCharged may include a transaction fee on top of the price,
+    // so we only reject amounts that fall short of the quoted price (with a
+    // small tolerance for rounding), not amounts that exceed it.
+    const expectedPrice = parseFloat(String(selectedCheckerPrice ?? 0))
+    if (expectedPrice > 0 && amountPaid + 0.01 < expectedPrice) {
+        console.error(
+            `[USSD-RC Fulfill] AMOUNT MISMATCH for ${clientReference}: expected >= GHS ${expectedPrice}, got GHS ${amountPaid}`
+        )
+        await sendPushToAdmins({
+            title: '⚠️ USSD RC Underpayment',
+            body: `Paid GHS ${amountPaid} for ${selectedCheckerName} priced GHS ${expectedPrice}. Ref: ${clientReference}`,
+            url: '/admin/vouchers',
+        }).catch(() => {})
+        return { success: false, error: 'Amount paid is less than the checker price' }
+    }
+
     // 2. Idempotency — check for existing completed order
     const { data: existingOrder } = await supabaseAdmin
         .from('results_checker_orders')
