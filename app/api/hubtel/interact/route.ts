@@ -238,7 +238,7 @@ export async function POST(req: Request) {
         console.error('[Hubtel Interact] Unhandled error:', error);
         // No SessionId available in the catch scope; reply with a bare release.
         return NextResponse.json({
-            Type: 'release',
+            Type: 'Release',
             Message: 'An unexpected error occurred.',
             Label: 'Error',
             DataType: 'display',
@@ -295,9 +295,14 @@ function respond(
     opts: RespondOpts = {}
 ) {
     const isAddToCart = type === 'AddToCart';
+    // Hubtel Programmable Services requires the Type value capitalised
+    // ("Response" | "Release" | "AddToCart"). Sending lowercase makes the
+    // gateway fail to render the next screen and the handset shows
+    // "Error Service Timeout". Normalise here so call sites can stay lowercase.
+    const TYPE_MAP = { response: 'Response', release: 'Release', AddToCart: 'AddToCart' } as const;
     const payload: Record<string, any> = {
         SessionId: sessionId,
-        Type: type,
+        Type: TYPE_MAP[type],
         Message: message,
         Label: opts.label || message.split('\n')[0].slice(0, 60),
         DataType: opts.dataType || (type === 'response' ? 'input' : 'display'),
