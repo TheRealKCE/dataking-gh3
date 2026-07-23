@@ -1,31 +1,22 @@
 /**
  * Payment Phone OTP — Hubtel Direct Receive Money security (Option 2)
  *
- * Hubtel requires one of two safeguards against unsolicited prompts:
- *   Option 1 — only registered users pay, and cannot edit their number.
- *   Option 2 — OTP-confirm a number before initiating payment.
+ * A logged-in user who wants to pay from a number that is NOT their registered
+ * profile number must first prove control of it via a one-time SMS code. Only
+ * then is the Hubtel prompt sent.
  *
- * This module implements Option 2. A logged-in user who wants to pay from a
- * number that is NOT their registered profile number must first prove control
- * of it via a one-time SMS code. Only then will the Hubtel prompt be sent.
+ * Storage: Supabase table `public.payment_otps` (see migrations/20260723_payment_otps.sql).
+ * We deliberately DON'T use Redis here — the Upstash instance is quota-capped and
+ * this flow must stay available. Expiry is enforced by comparing timestamps.
  *
- * Flow:
- *   1. createPaymentOtp(userId, phone)  → 6-digit code in Redis (5 min TTL); caller SMSes it.
- *   2. verifyPaymentOtp(userId, phone, code) → on match, burns the code and sets a
- *      short-lived "verified" marker (15 min TTL) keyed to userId+msisdn.
- *   3. isPaymentPhoneVerified(userId, phone) → payments/initialize checks this before
- *      sending a non-registered number to Hubtel.
- *   4. consumePaymentPhoneVerification(...) → single-use, prevents replay.
- *
- * Storage: Upstash Redis (already used app-wide). Codes are never logged or returned.
+ * Public API is unchanged from the previous Redis implementation, so the routes
+ * that call it need no edits.
  */
-import { Redis } from '@upstash/redis'
+import { createServerClient } from '@/lib/supabase'
 
-const redis = Redis.fromEnv()
-
-const OTP_TTL_SECONDS = 5 * 60          // code valid for 5 minutes
-const VERIFIED_TTL_SECONDS = 15 * 60    // verified marker valid for 15 minutes
-const MAX_ATTEMPTS = 5                   // wrong-code attempts before the code is burned
+const OTP_TTL_MS = 5 * 60 * 1000          // code valid for 5 minutes
+const VERIFIED_TTL_MS = 15 * 60 * 1000    // verified marker valid for 15 minutes
+const MAX_ATTEMPTS = 5                      // wrong-code attempts before the code is burned
 
 /** Normalizes a Ghana phone to bare 233XXXXXXXXX (12 digits), or null if invalid. */
 export function normalizeMsisdn(phone: string): string | null {
@@ -35,10 +26,6 @@ export function normalizeMsisdn(phone: string): string | null {
     if (!p.startsWith('233') || p.length !== 12) return null
     return p
 }
-
-const codeKey = (u: string, m: string) => `pay:otp:${u}:${m}`
-const attemptsKey = (u: string, m: string) => `pay:otp:attempts:${u}:${m}`
-const verifiedKey = (u: string, m: string) => `pay:otp:verified:${u}:${m}`
 
 function generateCode(): string {
     return Math.floor(Math.random() * 1_000_000).toString().padStart(6, '0')
@@ -58,15 +45,32 @@ export async function createPaymentOtp(userId: string, phone: string): Promise<S
     if (!msisdn) return { ok: false, error: 'Invalid phone number.' }
 
     const code = generateCode()
+    const now = Date.now()
+
     try {
-        await redis.set(codeKey(userId, msisdn), code, { ex: OTP_TTL_SECONDS })
-        await redis.del(attemptsKey(userId, msisdn))
+        const db = createServerClient() as any
+        const { error } = await db
+            .from('payment_otps')
+            .upsert({
+                user_id: userId,
+                msisdn,
+                code,
+                attempts: 0,
+                verified: false,
+                expires_at: new Date(now + OTP_TTL_MS).toISOString(),
+                verified_until: null,
+                updated_at: new Date(now).toISOString(),
+            }, { onConflict: 'user_id,msisdn' })
+
+        if (error) {
+            console.error('[PaymentOtp] Failed to store OTP:', error.message)
+            return { ok: false, error: 'Verification is temporarily unavailable. Please try again shortly.' }
+        }
     } catch (e) {
-        // e.g. Upstash quota exhausted / transient outage. Surface a clean error
-        // instead of a 500 so the caller can show a friendly message.
-        console.error('[PaymentOtp] Redis unavailable while storing OTP:', e)
+        console.error('[PaymentOtp] DB unavailable while storing OTP:', e)
         return { ok: false, error: 'Verification is temporarily unavailable. Please try again shortly.' }
     }
+
     return { ok: true, msisdn, code }
 }
 
@@ -75,45 +79,74 @@ export interface VerifyOtpResult {
     error?: string
 }
 
-/** Verifies a code; on success burns it and marks the number verified. */
+/** Verifies a code; on success marks the number verified for a short window. */
 export async function verifyPaymentOtp(userId: string, phone: string, code: string): Promise<VerifyOtpResult> {
     const msisdn = normalizeMsisdn(phone)
     if (!msisdn) return { ok: false, error: 'Invalid phone number.' }
     if (!/^\d{6}$/.test(String(code || ''))) return { ok: false, error: 'Enter the 6-digit code.' }
 
     try {
-        const stored = await redis.get<string>(codeKey(userId, msisdn))
-        if (!stored) return { ok: false, error: 'Code expired. Please request a new one.' }
+        const db = createServerClient() as any
+        const { data: row } = await db
+            .from('payment_otps')
+            .select('code, attempts, expires_at')
+            .eq('user_id', userId)
+            .eq('msisdn', msisdn)
+            .maybeSingle()
 
-        const attempts = await redis.incr(attemptsKey(userId, msisdn))
-        if (attempts === 1) await redis.expire(attemptsKey(userId, msisdn), OTP_TTL_SECONDS)
+        if (!row) return { ok: false, error: 'Code expired. Please request a new one.' }
+        if (new Date(row.expires_at).getTime() < Date.now()) {
+            return { ok: false, error: 'Code expired. Please request a new one.' }
+        }
+
+        const attempts = (row.attempts ?? 0) + 1
         if (attempts > MAX_ATTEMPTS) {
-            await redis.del(codeKey(userId, msisdn))
+            await db.from('payment_otps').delete().eq('user_id', userId).eq('msisdn', msisdn)
             return { ok: false, error: 'Too many attempts. Please request a new code.' }
         }
 
-        if (String(stored) !== String(code)) {
+        if (String(row.code) !== String(code)) {
+            await db.from('payment_otps')
+                .update({ attempts, updated_at: new Date().toISOString() })
+                .eq('user_id', userId).eq('msisdn', msisdn)
             return { ok: false, error: 'Incorrect code. Please try again.' }
         }
 
-        await redis.del(codeKey(userId, msisdn))
-        await redis.del(attemptsKey(userId, msisdn))
-        await redis.set(verifiedKey(userId, msisdn), '1', { ex: VERIFIED_TTL_SECONDS })
+        // Success — mark verified, clear the code so it can't be reused.
+        await db.from('payment_otps')
+            .update({
+                verified: true,
+                code: '000000',
+                attempts: 0,
+                verified_until: new Date(Date.now() + VERIFIED_TTL_MS).toISOString(),
+                updated_at: new Date().toISOString(),
+            })
+            .eq('user_id', userId).eq('msisdn', msisdn)
+
         return { ok: true }
     } catch (e) {
-        console.error('[PaymentOtp] Redis unavailable during verification:', e)
+        console.error('[PaymentOtp] DB unavailable during verification:', e)
         return { ok: false, error: 'Verification is temporarily unavailable. Please try again shortly.' }
     }
 }
 
-/** True if (userId, phone) currently holds a verified marker. Fails CLOSED (denies) on Redis error. */
+/** True if (userId, phone) holds a live verified marker. Fails CLOSED (deny) on error. */
 export async function isPaymentPhoneVerified(userId: string, phone: string): Promise<boolean> {
     const msisdn = normalizeMsisdn(phone)
     if (!msisdn) return false
     try {
-        return (await redis.get(verifiedKey(userId, msisdn))) != null
+        const db = createServerClient() as any
+        const { data: row } = await db
+            .from('payment_otps')
+            .select('verified, verified_until')
+            .eq('user_id', userId)
+            .eq('msisdn', msisdn)
+            .maybeSingle()
+
+        if (!row || !row.verified || !row.verified_until) return false
+        return new Date(row.verified_until).getTime() >= Date.now()
     } catch (e) {
-        console.error('[PaymentOtp] Redis unavailable checking verification (denying):', e)
+        console.error('[PaymentOtp] DB unavailable checking verification (denying):', e)
         return false
     }
 }
@@ -123,8 +156,9 @@ export async function consumePaymentPhoneVerification(userId: string, phone: str
     const msisdn = normalizeMsisdn(phone)
     if (!msisdn) return
     try {
-        await redis.del(verifiedKey(userId, msisdn))
+        const db = createServerClient() as any
+        await db.from('payment_otps').delete().eq('user_id', userId).eq('msisdn', msisdn)
     } catch (e) {
-        console.error('[PaymentOtp] Redis unavailable consuming verification:', e)
+        console.error('[PaymentOtp] DB unavailable consuming verification:', e)
     }
 }
