@@ -3,7 +3,7 @@
   "crons": [
     {
       "path": "/api/hubtel/interact",
-      "schedule": "*/5 * * * *"
+      "schedule": "*/1 * * * *"
     }
   ]
 }

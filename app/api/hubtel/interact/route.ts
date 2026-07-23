@@ -20,7 +20,7 @@ import { createClient } from '@supabase/supabase-js';
 // Never cache/prerender, and cap execution so a slow DB call fails fast rather
 // than hanging past Hubtel's timeout window.
 export const dynamic = 'force-dynamic';
-export const maxDuration = 15;
+export const maxDuration = 25;
 
 // Service-role client to bypass RLS for USSD interactions
 const supabaseAdmin = createClient(
@@ -60,7 +60,10 @@ export async function POST(req: Request) {
         // already advanced to 'choose_action' in a single upsert, then respond.
         // This collapses 3 sequential DB round-trips (select+upsert+update) to 1.
         if (requestType === 'initiation') {
-            const { error: initError } = await supabaseAdmin
+            // Fire-and-forget: respond immediately; DB write completes async.
+            // This keeps the critical cold-start response well within Hubtel's
+            // ~5-second USSD window even if Supabase has a slow round-trip.
+            supabaseAdmin
                 .from('hubtel_sessions')
                 .upsert({
                     session_id: SessionId,
@@ -68,12 +71,10 @@ export async function POST(req: Request) {
                     current_step: 'choose_action',
                     data: { operator: (Operator || 'mtn').toLowerCase() },
                     updated_at: new Date().toISOString(),
+                })
+                .then(({ error }) => {
+                    if (error) console.error('[Hubtel Interact] Session upsert error:', error);
                 });
-
-            if (initError) {
-                console.error('[Hubtel Interact] Session create error:', initError);
-                return respond(SessionId, 'release', 'System error. Please try again later.');
-            }
 
             return respond(
                 SessionId,
@@ -108,7 +109,9 @@ export async function POST(req: Request) {
         // Global "0" = Back to main menu (or Exit at the main menu)
         if (requestType !== 'initiation' && userInput === '0') {
             if (currentStep === 'choose_action') {
-                await supabaseAdmin.from('hubtel_sessions').delete().eq('session_id', SessionId);
+                // Fire-and-forget: delete session async, respond immediately
+                supabaseAdmin.from('hubtel_sessions').delete().eq('session_id', SessionId)
+                    .then(({ error }) => { if (error) console.error('[Hubtel Interact] Session delete error:', error); });
                 return respond(SessionId, 'release', 'Thank you for using ARHMS. Goodbye.');
             }
             currentStep = 'initiation';
@@ -116,7 +119,8 @@ export async function POST(req: Request) {
 
         switch (currentStep) {
             case 'initiation':
-                await save(SessionId, 'choose_action', sessionData);
+                // Fire-and-forget: respond without blocking on the DB write
+                saveAsync(SessionId, 'choose_action', sessionData);
                 return respond(
                     SessionId,
                     'response',
@@ -126,7 +130,7 @@ export async function POST(req: Request) {
 
             case 'choose_action': {
                 if (userInput !== '1') {
-                    await save(SessionId, 'choose_action', sessionData);
+                    // No state change needed — don't write to DB at all
                     return respond(
                         SessionId,
                         'response',
@@ -135,11 +139,25 @@ export async function POST(req: Request) {
                     );
                 }
 
-                const { data: activeTypes, error: typesError } = await supabaseAdmin
-                    .from('results_checker_types')
-                    .select('id, name, customer_price')
-                    .eq('is_active', true)
-                    .order('display_order', { ascending: true });
+                // Fetch checker types with a 4-second timeout to fail fast
+                const controller = new AbortController();
+                const fetchTimeout = setTimeout(() => controller.abort(), 4000);
+                let activeTypes: any[] | null = null;
+                let typesError: any = null;
+                try {
+                    const result = await supabaseAdmin
+                        .from('results_checker_types')
+                        .select('id, name, customer_price')
+                        .eq('is_active', true)
+                        .order('display_order', { ascending: true })
+                        .abortSignal(controller.signal);
+                    activeTypes = result.data;
+                    typesError = result.error;
+                } catch (e: any) {
+                    typesError = e;
+                } finally {
+                    clearTimeout(fetchTimeout);
+                }
 
                 if (typesError || !activeTypes || activeTypes.length === 0) {
                     return respond(
@@ -150,7 +168,8 @@ export async function POST(req: Request) {
                 }
 
                 sessionData.availableCheckers = activeTypes;
-                await save(SessionId, 'select_checker_type', sessionData);
+                // Fire-and-forget the DB write, respond immediately
+                saveAsync(SessionId, 'select_checker_type', sessionData);
                 return respond(SessionId, 'response', renderCheckerMenu(activeTypes), {
                     label: 'Select Checker',
                 });
@@ -175,7 +194,7 @@ export async function POST(req: Request) {
                 sessionData.selectedCheckerName = selected.name;
                 sessionData.selectedCheckerPrice = selected.customer_price;
 
-                await save(SessionId, 'enter_phone', sessionData);
+                saveAsync(SessionId, 'enter_phone', sessionData);
                 return respond(
                     SessionId,
                     'response',
@@ -191,7 +210,7 @@ export async function POST(req: Request) {
                 }
                 sessionData.recipientMobile = recipientMobile;
 
-                await save(SessionId, 'confirm', sessionData);
+                saveAsync(SessionId, 'confirm', sessionData);
                 const price = formatGhs(sessionData.selectedCheckerPrice);
                 return respond(
                     SessionId,
@@ -203,13 +222,18 @@ export async function POST(req: Request) {
 
             case 'confirm': {
                 if (userInput !== '1') {
-                    await supabaseAdmin.from('hubtel_sessions').delete().eq('session_id', SessionId);
+                    // Fire-and-forget: delete session async
+                    supabaseAdmin.from('hubtel_sessions').delete().eq('session_id', SessionId)
+                        .then(({ error }) => { if (error) console.error('[Hubtel Interact] Session delete error:', error); });
                     return respond(SessionId, 'release', 'Order cancelled. Thank you for using ARHMS.');
                 }
 
                 const price = parseFloat(String(sessionData.selectedCheckerPrice || '0'));
 
                 // Persist so the fulfilment callback can reconcile the amount.
+                // This one IS awaited: the fulfill route needs this state written before
+                // Hubtel calls /fulfill. In practice Hubtel waits for payment confirmation
+                // (seconds to minutes) before calling fulfill, so this is safe.
                 sessionData.chargedAmount = price;
                 await save(SessionId, 'awaiting_payment', sessionData);
 
@@ -264,13 +288,29 @@ function formatGhs(price: any): string {
     return n.toFixed(2).replace(/\.?0+$/, '');
 }
 
-/** Persists the session's next step and data. */
+/** Persists the session's next step and data (awaited — use when ordering matters). */
 async function save(sessionId: string, nextStep: string, data: any) {
     const { error } = await supabaseAdmin
         .from('hubtel_sessions')
         .update({ current_step: nextStep, data, updated_at: new Date().toISOString() })
         .eq('session_id', sessionId);
     if (error) console.error('[Hubtel Interact] Session update error:', error);
+}
+
+/**
+ * Fire-and-forget session save — responds to Hubtel immediately without blocking
+ * on the DB write. Errors are logged but never surfaced to the user.
+ * Use this for every step except the final `awaiting_payment` transition, where
+ * the fulfill route needs the state persisted before it is called by Hubtel.
+ */
+function saveAsync(sessionId: string, nextStep: string, data: any): void {
+    supabaseAdmin
+        .from('hubtel_sessions')
+        .update({ current_step: nextStep, data, updated_at: new Date().toISOString() })
+        .eq('session_id', sessionId)
+        .then(({ error }) => {
+            if (error) console.error('[Hubtel Interact] Async session update error:', error);
+        });
 }
 
 interface RespondOpts {
