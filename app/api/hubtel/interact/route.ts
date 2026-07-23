@@ -39,6 +39,7 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+    const requestStartTime = Date.now();
     try {
         const body = await req.json();
         const { Mobile, SessionId, Type: RequestType, Message, Operator } = body;
@@ -85,20 +86,42 @@ export async function POST(req: Request) {
         }
 
         // 1. Fetch existing session for a continuation request
-        let { data: session, error: sessionError } = await supabaseAdmin
-            .from('hubtel_sessions')
-            .select('*')
-            .eq('session_id', SessionId)
-            .single();
+        // Use a 3-second timeout to fail fast if Supabase is slow, preventing the entire
+        // request from exhausting Hubtel's timeout budget.
+        const sessionFetchStart = Date.now();
+        const sessionController = new AbortController();
+        const sessionFetchTimeout = setTimeout(() => sessionController.abort(), 3000);
+        let session: any = null;
+        let sessionError: any = null;
+        try {
+            const result = await supabaseAdmin
+                .from('hubtel_sessions')
+                .select('*')
+                .eq('session_id', SessionId)
+                .single()
+                .abortSignal(sessionController.signal);
+            session = result.data;
+            sessionError = result.error;
+        } catch (e: any) {
+            sessionError = e;
+        } finally {
+            clearTimeout(sessionFetchTimeout);
+        }
+        const sessionFetchDuration = Date.now() - sessionFetchStart;
 
         if (sessionError && sessionError.code !== 'PGRST116') {
-            console.error('[Hubtel Interact] Session fetch error:', sessionError);
+            console.error('[Hubtel Interact] Session fetch error (took', sessionFetchDuration, 'ms):', sessionError);
             return respond(SessionId, 'release', 'System error. Please try again.');
         }
 
         if (!session) {
             // Session missing (expired/cleaned) — restart from the menu.
+            console.log('[Hubtel Interact] Session not found (fetch took', sessionFetchDuration, 'ms) for SessionId:', SessionId);
             return respond(SessionId, 'release', 'Session expired. Please dial again.');
+        }
+
+        if (sessionFetchDuration > 2000) {
+            console.warn('[Hubtel Interact] Slow session fetch (', sessionFetchDuration, 'ms) for SessionId:', SessionId, 'Type:', requestType);
         }
 
         // 2. State machine
@@ -238,8 +261,23 @@ export async function POST(req: Request) {
                 // This one IS awaited: the fulfill route needs this state written before
                 // Hubtel calls /fulfill. In practice Hubtel waits for payment confirmation
                 // (seconds to minutes) before calling fulfill, so this is safe.
+                // Use a 2-second timeout to fail fast instead of exhausting Hubtel's window.
                 sessionData.chargedAmount = price;
-                await save(SessionId, 'awaiting_payment', sessionData);
+                const confirmSaveStart = Date.now();
+                try {
+                    const confirmController = new AbortController();
+                    const confirmTimeout = setTimeout(() => confirmController.abort(), 2000);
+                    try {
+                        await saveWithSignal(SessionId, 'awaiting_payment', sessionData, confirmController.signal);
+                    } finally {
+                        clearTimeout(confirmTimeout);
+                    }
+                } catch (confirmError: any) {
+                    console.error('[Hubtel Interact] Confirm save timeout/error:', confirmError?.message);
+                    return respond(SessionId, 'release', 'Payment confirmation failed. Please try again.');
+                }
+                const confirmSaveDuration = Date.now() - confirmSaveStart;
+                console.log('[Hubtel Interact] Confirm save took', confirmSaveDuration, 'ms for SessionId:', SessionId);
 
                 // AddToCart hands the cart to Hubtel, which prompts the user to pay.
                 // On success Hubtel POSTs to our Service Fulfilment URL.
@@ -263,7 +301,8 @@ export async function POST(req: Request) {
                 return respond(SessionId, 'release', 'Session expired or invalid state.');
         }
     } catch (error) {
-        console.error('[Hubtel Interact] Unhandled error:', error);
+        const totalDuration = Date.now() - requestStartTime;
+        console.error('[Hubtel Interact] Unhandled error (took', totalDuration, 'ms):', error);
         // No SessionId available in the catch scope; reply with a bare release.
         return NextResponse.json({
             Type: 'Release',
@@ -299,6 +338,22 @@ async function save(sessionId: string, nextStep: string, data: any) {
         .update({ current_step: nextStep, data, updated_at: new Date().toISOString() })
         .eq('session_id', sessionId);
     if (error) console.error('[Hubtel Interact] Session update error:', error);
+}
+
+/** Persists the session with an optional abort signal for timeout safety. */
+async function saveWithSignal(sessionId: string, nextStep: string, data: any, signal?: AbortSignal) {
+    const { error } = await supabaseAdmin
+        .from('hubtel_sessions')
+        .update({ current_step: nextStep, data, updated_at: new Date().toISOString() })
+        .eq('session_id', sessionId)
+        .abortSignal(signal);
+    if (error) {
+        if (signal?.aborted) {
+            throw new Error('Save timeout');
+        }
+        console.error('[Hubtel Interact] Session update error:', error);
+        throw error;
+    }
 }
 
 /**

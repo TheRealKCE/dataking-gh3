@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server';
+import { waitUntil } from '@vercel/functions';
 import { fulfillUSSDRCBySession } from '@/lib/ussd-rc-fulfillment';
 import { getDispatcher } from '@/lib/hubtel-payment-service';
 
@@ -16,6 +17,9 @@ import { getDispatcher } from '@/lib/hubtel-payment-service';
  * The gs-callback endpoint is IP-whitelisted, so the ack is sent through the
  * Fixie static proxy (same dispatcher used for all Hubtel API traffic).
  */
+
+export const runtime = 'nodejs';
+export const maxDuration = 45; // 45 seconds for the sequential fulfillment chain (voucher assign, SMS, ack)
 
 const GS_CALLBACK_URL = 'https://gs-callback.hubtel.com:9055/callback';
 
@@ -53,15 +57,24 @@ export async function POST(req: Request) {
             String(payment.AmountAfterCharges ?? payment.AmountPaid ?? orderInfo.Subtotal ?? 0)
         );
 
-        // Fulfil: assign voucher, send SMS, clean up session (idempotent on OrderId).
+        // Fulfil: assign voucher, send SMS (idempotent on OrderId).
+        // Pass a callback for non-critical tasks to defer (admin push, session cleanup).
+        const deferredWork: Array<() => Promise<void>> = [];
         const result = await fulfillUSSDRCBySession({
             sessionId,
             referenceCode: orderId,
             amountPaid,
+            deferredWork,
         });
 
-        // Report the outcome to Hubtel. "success" only when value was rendered.
+        // Report the outcome to Hubtel immediately. "success" only when value was rendered.
         await sendServiceCallback(sessionId, orderId, result.success ? 'success' : 'failed');
+
+        // Fire-and-forget the deferred work (admin push, session cleanup) so it doesn't
+        // block the Hubtel callback response.
+        if (deferredWork.length > 0) {
+            waitUntil(Promise.all(deferredWork.map((fn) => fn().catch(() => {}))));
+        }
 
         if (!result.success) {
             console.error('[Hubtel Fulfill] Fulfilment failed:', result.error);

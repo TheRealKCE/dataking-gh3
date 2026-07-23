@@ -30,13 +30,18 @@ export async function fulfillUSSDRCOrder(
 /**
  * Fulfils a USSD result-checker order from a session id and a unique
  * reference/order id (the idempotency key stored on the order record).
+ *
+ * Non-critical cleanup tasks (admin notifications, session deletion) can be
+ * pushed to the deferredWork array to run fire-and-forget after the customer
+ * outcome (voucher + SMS) is guaranteed.
  */
 export async function fulfillUSSDRCBySession(params: {
     sessionId: string
     referenceCode: string
     amountPaid: number
+    deferredWork?: Array<() => Promise<void>>
 }): Promise<{ success: boolean; error?: string }> {
-    const { sessionId, referenceCode, amountPaid } = params
+    const { sessionId, referenceCode, amountPaid, deferredWork = [] } = params
     const clientReference = referenceCode
 
     console.log('[USSD-RC Fulfill] Starting fulfillment for sessionId:', sessionId, 'ref:', referenceCode)
@@ -71,11 +76,14 @@ export async function fulfillUSSDRCBySession(params: {
         console.error(
             `[USSD-RC Fulfill] AMOUNT MISMATCH for ${clientReference}: expected >= GHS ${expectedPrice}, got GHS ${amountPaid}`
         )
-        await sendPushToAdmins({
-            title: '⚠️ USSD RC Underpayment',
-            body: `Paid GHS ${amountPaid} for ${selectedCheckerName} priced GHS ${expectedPrice}. Ref: ${clientReference}`,
-            url: '/admin/vouchers',
-        }).catch(() => {})
+        // Defer admin notification (non-critical)
+        deferredWork.push(() =>
+            sendPushToAdmins({
+                title: '⚠️ USSD RC Underpayment',
+                body: `Paid GHS ${amountPaid} for ${selectedCheckerName} priced GHS ${expectedPrice}. Ref: ${clientReference}`,
+                url: '/admin/vouchers',
+            }).catch(() => {})
+        )
         return { success: false, error: 'Amount paid is less than the checker price' }
     }
 
@@ -133,11 +141,14 @@ export async function fulfillUSSDRCBySession(params: {
             .update({ status: 'failed', updated_at: new Date().toISOString() })
             .eq('id', orderId)
 
-        await sendPushToAdmins({
-            title: '⚠️ USSD RC Fulfillment Failed',
-            body: `Out of stock: ${selectedCheckerName}. Ref: ${clientReference}`,
-            url: '/admin/vouchers',
-        }).catch(() => {})
+        // Defer admin notification (non-critical)
+        deferredWork.push(() =>
+            sendPushToAdmins({
+                title: '⚠️ USSD RC Fulfillment Failed',
+                body: `Out of stock: ${selectedCheckerName}. Ref: ${clientReference}`,
+                url: '/admin/vouchers',
+            }).catch(() => {})
+        )
 
         return { success: false, error: 'Insufficient voucher stock' }
     }
@@ -177,18 +188,23 @@ export async function fulfillUSSDRCBySession(params: {
 
     console.log('[USSD-RC Fulfill] SMS result:', smsResult)
 
-    // 8. Notify admins
-    await sendPushToAdmins({
-        title: '✅ USSD RC Sale',
-        body: `${selectedCheckerName} sold to ${recipientPhone}. Ref: ${clientReference}`,
-        url: '/admin/vouchers',
-    }).catch(() => {})
+    // 8 & 9 are deferred: admin push and session cleanup are not on the critical path.
+    // They fire-and-forget after the Hubtel callback, so don't block the customer-facing response.
+    deferredWork.push(async () => {
+        // 8. Notify admins
+        await sendPushToAdmins({
+            title: '✅ USSD RC Sale',
+            body: `${selectedCheckerName} sold to ${recipientPhone}. Ref: ${clientReference}`,
+            url: '/admin/vouchers',
+        }).catch(() => {})
 
-    // 9. Clean up session
-    await supabaseAdmin
-        .from('hubtel_sessions')
-        .delete()
-        .eq('session_id', sessionId)
+        // 9. Clean up session
+        await supabaseAdmin
+            .from('hubtel_sessions')
+            .delete()
+            .eq('session_id', sessionId)
+            .catch(() => {})
+    })
 
     console.log('[USSD-RC Fulfill] Successfully fulfilled order:', orderId)
     return { success: true }
