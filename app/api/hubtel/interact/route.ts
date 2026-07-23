@@ -89,23 +89,22 @@ export async function POST(req: Request) {
         // Use a 3-second timeout to fail fast if Supabase is slow, preventing the entire
         // request from exhausting Hubtel's timeout budget.
         const sessionFetchStart = Date.now();
-        const sessionController = new AbortController();
-        const sessionFetchTimeout = setTimeout(() => sessionController.abort(), 3000);
         let session: any = null;
         let sessionError: any = null;
         try {
-            const result = await supabaseAdmin
+            const sessionFetchPromise = supabaseAdmin
                 .from('hubtel_sessions')
                 .select('*')
                 .eq('session_id', SessionId)
-                .single()
-                .abortSignal(sessionController.signal);
+                .single();
+            const timeoutPromise = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Session fetch timeout')), 3000)
+            );
+            const result = await Promise.race([sessionFetchPromise, timeoutPromise]) as any;
             session = result.data;
             sessionError = result.error;
         } catch (e: any) {
             sessionError = e;
-        } finally {
-            clearTimeout(sessionFetchTimeout);
         }
         const sessionFetchDuration = Date.now() - sessionFetchStart;
 
@@ -165,23 +164,22 @@ export async function POST(req: Request) {
                 }
 
                 // Fetch checker types with a 4-second timeout to fail fast
-                const controller = new AbortController();
-                const fetchTimeout = setTimeout(() => controller.abort(), 4000);
                 let activeTypes: any[] | null = null;
                 let typesError: any = null;
                 try {
-                    const result = await supabaseAdmin
+                    const typesPromise = supabaseAdmin
                         .from('results_checker_types')
                         .select('id, name, customer_price')
                         .eq('is_active', true)
-                        .order('display_order', { ascending: true })
-                        .abortSignal(controller.signal);
+                        .order('display_order', { ascending: true });
+                    const timeoutPromise = new Promise((_, reject) =>
+                        setTimeout(() => reject(new Error('Types fetch timeout')), 4000)
+                    );
+                    const result = await Promise.race([typesPromise, timeoutPromise]) as any;
                     activeTypes = result.data;
                     typesError = result.error;
                 } catch (e: any) {
                     typesError = e;
-                } finally {
-                    clearTimeout(fetchTimeout);
                 }
 
                 if (typesError || !activeTypes || activeTypes.length === 0) {
@@ -265,13 +263,11 @@ export async function POST(req: Request) {
                 sessionData.chargedAmount = price;
                 const confirmSaveStart = Date.now();
                 try {
-                    const confirmController = new AbortController();
-                    const confirmTimeout = setTimeout(() => confirmController.abort(), 2000);
-                    try {
-                        await saveWithSignal(SessionId, 'awaiting_payment', sessionData, confirmController.signal);
-                    } finally {
-                        clearTimeout(confirmTimeout);
-                    }
+                    const confirmSavePromise = save(SessionId, 'awaiting_payment', sessionData);
+                    const timeoutPromise = new Promise((_, reject) =>
+                        setTimeout(() => reject(new Error('Confirm save timeout')), 2000)
+                    );
+                    await Promise.race([confirmSavePromise, timeoutPromise]);
                 } catch (confirmError: any) {
                     console.error('[Hubtel Interact] Confirm save timeout/error:', confirmError?.message);
                     return respond(SessionId, 'release', 'Payment confirmation failed. Please try again.');
@@ -338,22 +334,6 @@ async function save(sessionId: string, nextStep: string, data: any) {
         .update({ current_step: nextStep, data, updated_at: new Date().toISOString() })
         .eq('session_id', sessionId);
     if (error) console.error('[Hubtel Interact] Session update error:', error);
-}
-
-/** Persists the session with an optional abort signal for timeout safety. */
-async function saveWithSignal(sessionId: string, nextStep: string, data: any, signal?: AbortSignal) {
-    const { error } = await supabaseAdmin
-        .from('hubtel_sessions')
-        .update({ current_step: nextStep, data, updated_at: new Date().toISOString() })
-        .eq('session_id', sessionId)
-        .abortSignal(signal);
-    if (error) {
-        if (signal?.aborted) {
-            throw new Error('Save timeout');
-        }
-        console.error('[Hubtel Interact] Session update error:', error);
-        throw error;
-    }
 }
 
 /**
