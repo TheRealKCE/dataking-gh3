@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
+import { waitUntil } from '@vercel/functions';
 
 /**
  * Hubtel Programmable Services — Service Interaction URL
@@ -17,10 +18,10 @@ import { createClient } from '@supabase/supabase-js';
  */
 
 // USSD callbacks are latency-sensitive: Hubtel times out if we respond slowly.
-// Never cache/prerender, and cap execution so a slow DB call fails fast rather
-// than hanging past Hubtel's timeout window.
+// Never cache/prerender. We also use the Edge runtime to completely eliminate
+// cold-start latency, which is the #1 cause of Hubtel USSD timeouts.
 export const dynamic = 'force-dynamic';
-export const maxDuration = 25;
+export const runtime = 'edge';
 
 // Service-role client to bypass RLS for USSD interactions
 const supabaseAdmin = createClient(
@@ -61,20 +62,19 @@ export async function POST(req: Request) {
         // This collapses 3 sequential DB round-trips (select+upsert+update) to 1.
         if (requestType === 'initiation') {
             // Fire-and-forget: respond immediately; DB write completes async.
-            // This keeps the critical cold-start response well within Hubtel's
-            // ~5-second USSD window even if Supabase has a slow round-trip.
-            supabaseAdmin
-                .from('hubtel_sessions')
-                .upsert({
-                    session_id: SessionId,
-                    mobile: Mobile,
-                    current_step: 'choose_action',
-                    data: { operator: (Operator || 'mtn').toLowerCase() },
-                    updated_at: new Date().toISOString(),
-                })
-                .then(({ error }) => {
-                    if (error) console.error('[Hubtel Interact] Session upsert error:', error);
-                });
+            // Wrapped in waitUntil so Vercel doesn't freeze the container.
+            waitUntil((async () => {
+                const { error } = await supabaseAdmin
+                    .from('hubtel_sessions')
+                    .upsert({
+                        session_id: SessionId,
+                        mobile: Mobile,
+                        current_step: 'choose_action',
+                        data: { operator: (Operator || 'mtn').toLowerCase() },
+                        updated_at: new Date().toISOString(),
+                    });
+                if (error) console.error('[Hubtel Interact] Session upsert error:', error);
+            })());
 
             return respond(
                 SessionId,
@@ -110,8 +110,10 @@ export async function POST(req: Request) {
         if (requestType !== 'initiation' && userInput === '0') {
             if (currentStep === 'choose_action') {
                 // Fire-and-forget: delete session async, respond immediately
-                supabaseAdmin.from('hubtel_sessions').delete().eq('session_id', SessionId)
-                    .then(({ error }) => { if (error) console.error('[Hubtel Interact] Session delete error:', error); });
+                waitUntil((async () => {
+                    const { error } = await supabaseAdmin.from('hubtel_sessions').delete().eq('session_id', SessionId);
+                    if (error) console.error('[Hubtel Interact] Session delete error:', error);
+                })());
                 return respond(SessionId, 'release', 'Thank you for using ARHMS. Goodbye.');
             }
             currentStep = 'initiation';
@@ -223,8 +225,10 @@ export async function POST(req: Request) {
             case 'confirm': {
                 if (userInput !== '1') {
                     // Fire-and-forget: delete session async
-                    supabaseAdmin.from('hubtel_sessions').delete().eq('session_id', SessionId)
-                        .then(({ error }) => { if (error) console.error('[Hubtel Interact] Session delete error:', error); });
+                    waitUntil((async () => {
+                        const { error } = await supabaseAdmin.from('hubtel_sessions').delete().eq('session_id', SessionId);
+                        if (error) console.error('[Hubtel Interact] Session delete error:', error);
+                    })());
                     return respond(SessionId, 'release', 'Order cancelled. Thank you for using ARHMS.');
                 }
 
@@ -304,13 +308,13 @@ async function save(sessionId: string, nextStep: string, data: any) {
  * the fulfill route needs the state persisted before it is called by Hubtel.
  */
 function saveAsync(sessionId: string, nextStep: string, data: any): void {
-    supabaseAdmin
-        .from('hubtel_sessions')
-        .update({ current_step: nextStep, data, updated_at: new Date().toISOString() })
-        .eq('session_id', sessionId)
-        .then(({ error }) => {
-            if (error) console.error('[Hubtel Interact] Async session update error:', error);
-        });
+    waitUntil((async () => {
+        const { error } = await supabaseAdmin
+            .from('hubtel_sessions')
+            .update({ current_step: nextStep, data, updated_at: new Date().toISOString() })
+            .eq('session_id', sessionId);
+        if (error) console.error('[Hubtel Interact] Async session update error:', error);
+    })());
 }
 
 interface RespondOpts {
