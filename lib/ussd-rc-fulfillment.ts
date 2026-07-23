@@ -47,8 +47,11 @@ export async function fulfillUSSDRCOrder(
     // Hubtel's AmountCharged may include a transaction fee on top of the price,
     // so we only reject amounts that fall short of the quoted price (with a
     // small tolerance for rounding), not amounts that exceed it.
+    // UAT mode charges a tiny test amount against real (higher) prices, so the
+    // underpayment guard is skipped while it is on. Must be OFF in production.
+    const uatMode = process.env.USSD_UAT_MODE === 'true'
     const expectedPrice = parseFloat(String(selectedCheckerPrice ?? 0))
-    if (expectedPrice > 0 && amountPaid + 0.01 < expectedPrice) {
+    if (!uatMode && expectedPrice > 0 && amountPaid + 0.01 < expectedPrice) {
         console.error(
             `[USSD-RC Fulfill] AMOUNT MISMATCH for ${clientReference}: expected >= GHS ${expectedPrice}, got GHS ${amountPaid}`
         )

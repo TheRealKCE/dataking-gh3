@@ -159,7 +159,12 @@ export async function POST(req: Request) {
                     const operator = (sessionData.operator || 'mtn').toLowerCase()
                     const channel = ussdOperatorMap[operator] || HUBTEL_CHANNEL_MAP['MTN']
                     const clientReference = `USSD-RC-${SessionId}`
-                    const amount = parseFloat(sessionData.selectedCheckerPrice || '0')
+                    // UAT: charge a tiny test amount (default 0.01) while keeping the
+                    // real menu and prices on screen. Production leaves this flag off.
+                    const uatMode = process.env.USSD_UAT_MODE === 'true'
+                    const amount = uatMode
+                        ? parseFloat(process.env.USSD_UAT_AMOUNT || '0.01')
+                        : parseFloat(sessionData.selectedCheckerPrice || '0')
 
                     const paymentResult = await initiatePayment({
                         amount,
