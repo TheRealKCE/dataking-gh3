@@ -21,11 +21,17 @@ import { waitUntil } from '@vercel/functions';
 export const dynamic = 'force-dynamic';
 export const maxDuration = 25;
 
-// Service-role client to bypass RLS for USSD interactions
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+// Lazy-load Supabase client to avoid blocking on module import
+let supabaseAdmin: any = null;
+function getSupabaseAdmin() {
+    if (!supabaseAdmin) {
+        supabaseAdmin = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.SUPABASE_SERVICE_ROLE_KEY!
+        );
+    }
+    return supabaseAdmin;
+}
 
 /**
  * Keep-warm ping. A Vercel Cron GET keeps this exact function instance hot so a
@@ -47,12 +53,8 @@ export async function POST(req: Request) {
         if (requestType === 'initiation' && SessionId) {
             // Return immediately with zero DB operations
             const response = NextResponse.json({
-                SessionId: SessionId,
                 Type: 'Response',
-                Message: 'Welcome to ARHMS TECHNOLOGIES\n1. Buy Result Checker\n0. Exit',
-                Label: 'Welcome',
-                DataType: 'input',
-                FieldType: 'text',
+                Message: 'Welcome to ARHMS TECHNOLOGIES\n1. Buy Result Checker\n0. Exit'
             });
 
             // Defer Supabase init and session creation to background
@@ -84,7 +86,7 @@ export async function POST(req: Request) {
 
         // Timeout — user cancelled the session. Clean up and end.
         if (requestType === 'timeout') {
-            await supabaseAdmin.from('hubtel_sessions').delete().eq('session_id', SessionId);
+            await getSupabaseAdmin().from('hubtel_sessions').delete().eq('session_id', SessionId);
             return respond(SessionId, 'release', 'Session timed out. Thank you for using ARHMS.');
         }
 
@@ -94,7 +96,7 @@ export async function POST(req: Request) {
         let session: any = null;
         let sessionError: any = null;
         try {
-            const sessionFetchPromise = supabaseAdmin
+            const sessionFetchPromise = getSupabaseAdmin()
                 .from('hubtel_sessions')
                 .select('*')
                 .eq('session_id', SessionId)
@@ -135,7 +137,7 @@ export async function POST(req: Request) {
             if (currentStep === 'choose_action') {
                 // Fire-and-forget: delete session async, respond immediately
                 waitUntil((async () => {
-                    const { error } = await supabaseAdmin.from('hubtel_sessions').delete().eq('session_id', SessionId);
+                    const { error } = await getSupabaseAdmin().from('hubtel_sessions').delete().eq('session_id', SessionId);
                     if (error) console.error('[Hubtel Interact] Session delete error:', error);
                 })());
                 return respond(SessionId, 'release', 'Thank you for using ARHMS. Goodbye.');
@@ -169,7 +171,7 @@ export async function POST(req: Request) {
                 let activeTypes: any[] | null = null;
                 let typesError: any = null;
                 try {
-                    const typesPromise = supabaseAdmin
+                    const typesPromise = getSupabaseAdmin()
                         .from('results_checker_types')
                         .select('id, name, customer_price')
                         .eq('is_active', true)
@@ -249,7 +251,7 @@ export async function POST(req: Request) {
                 if (userInput !== '1') {
                     // Fire-and-forget: delete session async
                     waitUntil((async () => {
-                        const { error } = await supabaseAdmin.from('hubtel_sessions').delete().eq('session_id', SessionId);
+                        const { error } = await getSupabaseAdmin().from('hubtel_sessions').delete().eq('session_id', SessionId);
                         if (error) console.error('[Hubtel Interact] Session delete error:', error);
                     })());
                     return respond(SessionId, 'release', 'Order cancelled. Thank you for using ARHMS.');
@@ -304,10 +306,7 @@ export async function POST(req: Request) {
         // No SessionId available in the catch scope; reply with a bare release.
         return NextResponse.json({
             Type: 'Release',
-            Message: 'An unexpected error occurred.',
-            Label: 'Error',
-            DataType: 'display',
-            FieldType: 'text',
+            Message: 'An unexpected error occurred.'
         });
     }
 }
@@ -331,7 +330,7 @@ function formatGhs(price: any): string {
 
 /** Persists the session's next step and data (awaited — use when ordering matters). */
 async function save(sessionId: string, nextStep: string, data: any) {
-    const { error } = await supabaseAdmin
+    const { error } = await getSupabaseAdmin()
         .from('hubtel_sessions')
         .update({ current_step: nextStep, data, updated_at: new Date().toISOString() })
         .eq('session_id', sessionId);
@@ -346,7 +345,7 @@ async function save(sessionId: string, nextStep: string, data: any) {
  */
 function saveAsync(sessionId: string, nextStep: string, data: any): void {
     waitUntil((async () => {
-        const { error } = await supabaseAdmin
+        const { error } = await getSupabaseAdmin()
             .from('hubtel_sessions')
             .update({ current_step: nextStep, data, updated_at: new Date().toISOString() })
             .eq('session_id', sessionId);
@@ -376,18 +375,13 @@ function respond(
     opts: RespondOpts = {}
 ) {
     const isAddToCart = type === 'AddToCart';
-    // Hubtel Programmable Services requires the Type value capitalised
-    // ("Response" | "Release" | "AddToCart"). Sending lowercase makes the
-    // gateway fail to render the next screen and the handset shows
-    // "Error Service Timeout". Normalise here so call sites can stay lowercase.
+    // Hubtel Programmable Services strictly expects Type and Message.
+    // Including unknown fields like DataType or SessionId can cause their
+    // internal JSON deserializer to crash, resulting in "Error Service Timeout".
     const TYPE_MAP = { response: 'Response', release: 'Release', AddToCart: 'AddToCart' } as const;
     const payload: Record<string, any> = {
-        SessionId: sessionId,
         Type: TYPE_MAP[type],
         Message: message,
-        Label: opts.label || message.split('\n')[0].slice(0, 60),
-        DataType: opts.dataType || (type === 'response' ? 'input' : 'display'),
-        FieldType: opts.fieldType || 'text',
     };
     if (isAddToCart && opts.item) {
         payload.Item = opts.item;
