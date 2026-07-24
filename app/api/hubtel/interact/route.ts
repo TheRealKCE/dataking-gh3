@@ -17,11 +17,9 @@ import { waitUntil } from '@vercel/functions';
  * Docs: https://developers.hubtel.com — Programmable Services API
  */
 
-// USSD callbacks are latency-sensitive: Hubtel times out if we respond slowly.
-// Never cache/prerender. We also use the Edge runtime to completely eliminate
-// cold-start latency, which is the #1 cause of Hubtel USSD timeouts.
+// Never cache/prerender.
 export const dynamic = 'force-dynamic';
-export const runtime = 'edge';
+export const maxDuration = 25;
 
 // Service-role client to bypass RLS for USSD interactions
 const supabaseAdmin = createClient(
