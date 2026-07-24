@@ -205,6 +205,13 @@ export async function middleware(request: NextRequest) {
     const subdomain = getSubdomain(request)
     const isMarketplace = subdomain === 'marketplace'
 
+    // === HUBTEL WEBHOOK BYPASS ===
+    // Hubtel USSD webhooks (/api/hubtel/*) are unsigned and don't have auth credentials.
+    // Skip all middleware checks for them to eliminate latency.
+    if (pathname.startsWith('/api/hubtel')) {
+        return NextResponse.next({ request: { headers: request.headers } })
+    }
+
     // === MARKETPLACE SUBDOMAIN ROUTING ===
     // marketplace.arhmsgh.com serves the classifieds app (app/classifieds/*).
     // Auth routes (/auth/*) redirect to the main domain (centralized auth).
