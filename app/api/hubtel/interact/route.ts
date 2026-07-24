@@ -49,12 +49,13 @@ export async function POST(req: Request) {
         const { Mobile, SessionId, Type: RequestType, Message, Operator } = body;
         const requestType = String(RequestType || '').toLowerCase();
 
-        // ULTRA-FAST PATH: Initiation — return hardcoded response, defer everything
-        if (requestType === 'initiation' && SessionId) {
-            // Return immediately with zero DB operations
             const response = NextResponse.json({
-                Type: 'Response',
-                Message: 'Welcome to ARHMS TECHNOLOGIES\n1. Buy Result Checker\n0. Exit'
+                SessionId: SessionId,
+                Type: 'response',
+                Message: 'Welcome to ARHMS TECHNOLOGIES\n1. Buy Result Checker\n0. Exit',
+                Label: 'Welcome',
+                DataType: 'input',
+                FieldType: 'text',
             });
 
             // Defer Supabase init and session creation to background
@@ -303,10 +304,13 @@ export async function POST(req: Request) {
     } catch (error) {
         const totalDuration = Date.now() - requestStartTime;
         console.error('[Hubtel Interact] Unhandled error (took', totalDuration, 'ms):', error);
-        // No SessionId available in the catch scope; reply with a bare release.
         return NextResponse.json({
-            Type: 'Release',
-            Message: 'An unexpected error occurred.'
+            SessionId: 'fatal-error', // SessionId is mandatory even on error
+            Type: 'release',
+            Message: 'An unexpected error occurred.',
+            Label: 'Error',
+            DataType: 'display',
+            FieldType: 'text',
         });
     }
 }
@@ -375,13 +379,15 @@ function respond(
     opts: RespondOpts = {}
 ) {
     const isAddToCart = type === 'AddToCart';
-    // Hubtel Programmable Services strictly expects Type and Message.
-    // Including unknown fields like DataType or SessionId can cause their
-    // internal JSON deserializer to crash, resulting in "Error Service Timeout".
-    const TYPE_MAP = { response: 'Response', release: 'Release', AddToCart: 'AddToCart' } as const;
+    // Hubtel Programmable Services strictly expects lowercase "response" / "release".
+    // All fields defined here are Mandatory according to Hubtel documentation.
     const payload: Record<string, any> = {
-        Type: TYPE_MAP[type],
+        SessionId: sessionId,
+        Type: type, // "response" | "release" | "AddToCart"
         Message: message,
+        Label: opts.label || message.split('\n')[0].slice(0, 60),
+        DataType: opts.dataType || (type === 'response' ? 'input' : 'display'),
+        FieldType: opts.fieldType || 'text',
     };
     if (isAddToCart && opts.item) {
         payload.Item = opts.item;
