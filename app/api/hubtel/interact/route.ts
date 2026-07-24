@@ -52,12 +52,8 @@ export async function POST(req: Request) {
         // ULTRA-FAST PATH: Initiation — return hardcoded response, defer everything
         if (requestType === 'initiation' && SessionId) {
             const response = NextResponse.json({
-                SessionId: SessionId,
-                Type: 'response',
-                Message: 'Welcome to ARHMS TECHNOLOGIES\n1. Buy Result Checker\n0. Exit',
-                Label: 'Welcome',
-                DataType: 'input',
-                FieldType: 'text',
+                Type: 'Response',
+                Message: 'Welcome to ARHMS TECHNOLOGIES\n1. Buy Result Checker\n0. Exit'
             });
 
             // Defer Supabase init and session creation to background
@@ -307,12 +303,8 @@ export async function POST(req: Request) {
         const totalDuration = Date.now() - requestStartTime;
         console.error('[Hubtel Interact] Unhandled error (took', totalDuration, 'ms):', error);
         return NextResponse.json({
-            SessionId: 'fatal-error', // SessionId is mandatory even on error
-            Type: 'release',
-            Message: 'An unexpected error occurred.',
-            Label: 'Error',
-            DataType: 'display',
-            FieldType: 'text',
+            Type: 'Release',
+            Message: 'An unexpected error occurred.'
         });
     }
 }
@@ -381,15 +373,12 @@ function respond(
     opts: RespondOpts = {}
 ) {
     const isAddToCart = type === 'AddToCart';
-    // Hubtel Programmable Services strictly expects lowercase "response" / "release".
-    // All fields defined here are Mandatory according to Hubtel documentation.
+    // Hubtel Programmable Services strictly expects Type and Message only.
+    // Extra fields (SessionId, Label, DataType, FieldType) can cause deserializer crashes.
+    const TYPE_MAP = { response: 'Response', release: 'Release', AddToCart: 'AddToCart' } as const;
     const payload: Record<string, any> = {
-        SessionId: sessionId,
-        Type: type, // "response" | "release" | "AddToCart"
+        Type: TYPE_MAP[type],
         Message: message,
-        Label: opts.label || message.split('\n')[0].slice(0, 60),
-        DataType: opts.dataType || (type === 'response' ? 'input' : 'display'),
-        FieldType: opts.fieldType || 'text',
     };
     if (isAddToCart && opts.item) {
         payload.Item = opts.item;
