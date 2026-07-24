@@ -49,6 +49,8 @@ export async function POST(req: Request) {
         const { Mobile, SessionId, Type: RequestType, Message, Operator } = body;
         const requestType = String(RequestType || '').toLowerCase();
 
+        // ULTRA-FAST PATH: Initiation — return hardcoded response, defer everything
+        if (requestType === 'initiation' && SessionId) {
             const response = NextResponse.json({
                 SessionId: SessionId,
                 Type: 'response',
