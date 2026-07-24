@@ -19,7 +19,7 @@ import { waitUntil } from '@vercel/functions';
 
 // Never cache/prerender.
 export const dynamic = 'force-dynamic';
-export const maxDuration = 25;
+export const runtime = 'edge';
 
 // Lazy-load Supabase client to avoid blocking on module import
 let supabaseAdmin: any = null;
