@@ -37,9 +37,10 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
+    const requestStartTime = Date.now();
     try {
         const body = await req.json();
-        const { Mobile, SessionId, Type: RequestType } = body;
+        const { Mobile, SessionId, Type: RequestType, Message, Operator } = body;
         const requestType = String(RequestType || '').toLowerCase();
 
         // ULTRA-FAST PATH: Initiation — return hardcoded response, defer everything
@@ -65,7 +66,7 @@ export async function POST(req: Request) {
                         session_id: SessionId,
                         mobile: Mobile || '',
                         current_step: 'choose_action',
-                        data: { operator: 'mtn' },
+                        data: { operator: (Operator || 'mtn').toLowerCase() },
                         updated_at: new Date().toISOString(),
                     });
                 } catch (err) {
