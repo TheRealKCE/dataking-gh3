@@ -188,6 +188,9 @@ export async function POST(request: NextRequest) {
             let fulfillmentSettings = {
                 networks: {} as Record<string, boolean>,
                 codecraft_networks: {} as Record<string, boolean>,
+                kingflexy_networks: {} as Record<string, boolean>,
+                eazydata_networks: {} as Record<string, boolean>,
+                agentportal_networks: {} as Record<string, boolean>,
             }
             if (settingsMap.fulfillment_settings) {
                 try {
@@ -196,18 +199,34 @@ export async function POST(request: NextRequest) {
                         : settingsMap.fulfillment_settings
                     fulfillmentSettings.networks = parsed?.networks || {}
                     fulfillmentSettings.codecraft_networks = parsed?.codecraft_networks || {}
+                    fulfillmentSettings.kingflexy_networks = parsed?.kingflexy_networks || {}
+                    fulfillmentSettings.eazydata_networks = parsed?.eazydata_networks || {}
+                    fulfillmentSettings.agentportal_networks = parsed?.agentportal_networks || {}
                 } catch { /* ignore — stays as empty, order stays pending */ }
             }
 
             const isDataKazina = fulfillmentSettings.networks[pkg.network] === true
             const isCodeCraft = fulfillmentSettings.codecraft_networks[pkg.network] === true
+            const isKingFlexy = fulfillmentSettings.kingflexy_networks[pkg.network] === true
+            const isEazyData = fulfillmentSettings.eazydata_networks[pkg.network] === true
+            const isAgentPortal = fulfillmentSettings.agentportal_networks[pkg.network] === true
 
-            // Only attempt if exactly one supplier is active for this network
-            if ((isDataKazina || isCodeCraft) && !(isDataKazina && isCodeCraft)) {
+            // Only attempt if EXACTLY one supplier is active for this network
+            const activeCount = [isDataKazina, isCodeCraft, isKingFlexy, isEazyData, isAgentPortal].filter(Boolean).length
+            if (activeCount === 1) {
                 let result: { success: boolean; transactionId?: string; reference?: string; error?: string }
 
                 if (isCodeCraft) {
                     const { fulfillOrder } = await import('@/lib/codecraft-service')
+                    result = await fulfillOrder(pkg.network, cleanPhone, pkg.size, (order as any).id)
+                } else if (isKingFlexy) {
+                    const { fulfillOrder } = await import('@/lib/kingflexy-service')
+                    result = await fulfillOrder(pkg.network, cleanPhone, pkg.size, (order as any).id)
+                } else if (isEazyData) {
+                    const { fulfillOrder } = await import('@/lib/eazydata-service')
+                    result = await fulfillOrder(pkg.network, cleanPhone, pkg.size, (order as any).id)
+                } else if (isAgentPortal) {
+                    const { fulfillOrder } = await import('@/lib/agentportal-service')
                     result = await fulfillOrder(pkg.network, cleanPhone, pkg.size, (order as any).id)
                 } else {
                     const { fulfillOrder } = await import('@/lib/fulfillment-service')
@@ -215,15 +234,19 @@ export async function POST(request: NextRequest) {
                 }
 
                 if (result.success) {
-                    const supplierLabel = isCodeCraft ? 'codecraft' : 'datakazina'
+                    const supplierLabel = isCodeCraft ? 'codecraft' : isKingFlexy ? 'kingflexy' : isEazyData ? 'eazydata' : isAgentPortal ? 'agentportal' : 'datakazina'
                     const orderUpdate: Record<string, any> = {
                         status: 'processing',
                         fulfillment_method: supplierLabel,
                         updated_at: new Date().toISOString(),
                     }
                     if (result.transactionId || result.reference) {
-                        if (isCodeCraft) orderUpdate.codecraft_reference = result.transactionId || result.reference
-                        else orderUpdate.dakazina_reference = result.transactionId || result.reference
+                        const ref = result.transactionId || result.reference
+                        if (isCodeCraft) orderUpdate.codecraft_reference = ref
+                        else if (isKingFlexy) orderUpdate.kingflexy_reference = ref
+                        else if (isEazyData) orderUpdate.eazydata_reference = ref
+                        else if (isAgentPortal) orderUpdate.agentportal_reference = ref
+                        else orderUpdate.dakazina_reference = ref
                     }
                     await (supabase.from('orders') as any).update(orderUpdate).eq('id', (order as any).id)
                     fulfillmentStatus = 'processing'

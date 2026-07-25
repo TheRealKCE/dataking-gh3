@@ -42,6 +42,16 @@ jobs:
           -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
           -H "User-Agent: GitHub-Actions-Cron"
 
+  sync-agentportal-status:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '*/10 * * * *'
+    steps:
+      - name: Ping sync-agentportal-status
+        run: |
+          curl -sf -X GET "https://www.arhmsgh.com/api/cron/sync-agentportal-status" \
+          -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+          -H "User-Agent: GitHub-Actions-Cron"
+
   agent-renewal-reminder:
     runs-on: ubuntu-latest
     if: github.event_name == 'workflow_dispatch' || github.event.schedule == '0 7 * * *'

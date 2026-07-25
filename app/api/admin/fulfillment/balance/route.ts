@@ -41,23 +41,27 @@ export async function GET() {
                 kingflexy_currency: (balanceCache as any).kingflexy_currency,
                 eazydata_balance: (balanceCache as any).eazydata_balance,
                 eazydata_currency: (balanceCache as any).eazydata_currency,
+                agentportal_balance: (balanceCache as any).agentportal_balance,
+                agentportal_currency: (balanceCache as any).agentportal_currency,
                 cached: true
             })
         }
 
-        // 4. Fetch balances from all four suppliers in parallel
+        // 4. Fetch balances from all suppliers in parallel
         const { fetchSupplierBalance: fetchCodeCraftBalance } = await import('@/lib/codecraft-service')
         const { fetchSupplierBalance: fetchKingFlexyBalance } = await import('@/lib/kingflexy-service')
         const { fetchSupplierBalance: fetchEazyDataBalance } = await import('@/lib/eazydata-service')
+        const { fetchSupplierBalance: fetchAgentPortalBalance } = await import('@/lib/agentportal-service')
 
-        const [dakazinaResult, codecraftResult, kingflexyResult, eazydataResult] = await Promise.all([
+        const [dakazinaResult, codecraftResult, kingflexyResult, eazydataResult, agentportalResult] = await Promise.all([
             fetchSupplierBalance(),
             fetchCodeCraftBalance(),
             fetchKingFlexyBalance(),
-            fetchEazyDataBalance()
+            fetchEazyDataBalance(),
+            fetchAgentPortalBalance()
         ])
 
-        if (!dakazinaResult.success && !codecraftResult.success && !kingflexyResult.success && !eazydataResult.success) {
+        if (!dakazinaResult.success && !codecraftResult.success && !kingflexyResult.success && !eazydataResult.success && !agentportalResult.success) {
             return NextResponse.json({ error: 'Failed to fetch balances from all suppliers' }, { status: 500 })
         }
 
@@ -71,6 +75,8 @@ export async function GET() {
             kingflexy_currency: kingflexyResult.currency || 'GHS',
             eazydata_balance: eazydataResult.balance || 0,
             eazydata_currency: eazydataResult.currency || 'GHS',
+            agentportal_balance: agentportalResult.balance || 0,
+            agentportal_currency: agentportalResult.currency || 'GHS',
             timestamp: now
         } as any
 
@@ -83,6 +89,8 @@ export async function GET() {
             kingflexy_currency: kingflexyResult.currency || 'GHS',
             eazydata_balance: eazydataResult.balance || 0,
             eazydata_currency: eazydataResult.currency || 'GHS',
+            agentportal_balance: agentportalResult.balance || 0,
+            agentportal_currency: agentportalResult.currency || 'GHS',
             cached: false
         })
 

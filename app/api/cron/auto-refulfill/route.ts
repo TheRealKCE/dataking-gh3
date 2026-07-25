@@ -53,6 +53,7 @@ export async function GET(request: NextRequest) {
     const codecraftNetworkSettings: Record<string, boolean> = dbFulfillmentSettings.codecraft_networks || {}
     const kingflexyNetworkSettings: Record<string, boolean> = dbFulfillmentSettings.kingflexy_networks || {}
     const eazydataNetworkSettings: Record<string, boolean> = dbFulfillmentSettings.eazydata_networks || {}
+    const agentportalNetworkSettings: Record<string, boolean> = dbFulfillmentSettings.agentportal_networks || {}
 
     // ── Fetch pending orders older than the configured delay (max 50) ─────────
     const { data: pendingOrders, error: fetchError } = await supabaseAdmin
@@ -81,6 +82,7 @@ export async function GET(request: NextRequest) {
     const { fulfillOrder: ccFulfillOrder } = await import('@/lib/codecraft-service')
     const { fulfillOrder: kfFulfillOrder } = await import('@/lib/kingflexy-service')
     const { fulfillOrder: edFulfillOrder } = await import('@/lib/eazydata-service')
+    const { fulfillOrder: apFulfillOrder } = await import('@/lib/agentportal-service')
     const { syncShopOrderStatus } = await import('@/lib/shop-service')
 
     for (const order of pendingOrders) {
@@ -88,16 +90,17 @@ export async function GET(request: NextRequest) {
         const isCodeCraftEnabled = codecraftNetworkSettings[order.network] === true
         const isKingFlexyEnabled = kingflexyNetworkSettings[order.network] === true
         const isEazyDataEnabled = eazydataNetworkSettings[order.network] === true
+        const isAgentPortalEnabled = agentportalNetworkSettings[order.network] === true
 
         // No supplier active → skip
-        if (!isDataKazinaEnabled && !isCodeCraftEnabled && !isKingFlexyEnabled && !isEazyDataEnabled) {
+        if (!isDataKazinaEnabled && !isCodeCraftEnabled && !isKingFlexyEnabled && !isEazyDataEnabled && !isAgentPortalEnabled) {
             console.log(`[CronRefulfill] No active supplier for ${order.network} — skipping ${order.id}`)
             skipped++
             continue
         }
 
         // More than one active → conflict — skip and alert
-        const activeCount = [isDataKazinaEnabled, isCodeCraftEnabled, isKingFlexyEnabled, isEazyDataEnabled].filter(Boolean).length
+        const activeCount = [isDataKazinaEnabled, isCodeCraftEnabled, isKingFlexyEnabled, isEazyDataEnabled, isAgentPortalEnabled].filter(Boolean).length
         if (activeCount > 1) {
             console.error(`[CronRefulfill] CONFLICT: Multiple suppliers active for ${order.network} on ${order.id}`)
             await sendAdminNewOrderAlert({
@@ -116,7 +119,7 @@ export async function GET(request: NextRequest) {
             continue
         }
 
-        const supplierLabel = isCodeCraftEnabled ? 'codecraft' : isKingFlexyEnabled ? 'kingflexy' : isEazyDataEnabled ? 'eazydata' : 'datakazina'
+        const supplierLabel = isCodeCraftEnabled ? 'codecraft' : isKingFlexyEnabled ? 'kingflexy' : isEazyDataEnabled ? 'eazydata' : isAgentPortalEnabled ? 'agentportal' : 'datakazina'
 
         // ── ATOMIC LOCK: claim the order ─────────────────────────────────────
         const { data: lockedOrder, error: lockError } = await supabaseAdmin
@@ -147,7 +150,9 @@ export async function GET(request: NextRequest) {
                 ? await kfFulfillOrder(order.network, order.phone_number, order.size, order.id)
                 : isEazyDataEnabled
                     ? await edFulfillOrder(order.network, order.phone_number, order.size, order.id)
-                    : await fulfillOrder(order.network, order.phone_number, order.size, order.id)
+                    : isAgentPortalEnabled
+                        ? await apFulfillOrder(order.network, order.phone_number, order.size, order.id)
+                        : await fulfillOrder(order.network, order.phone_number, order.size, order.id)
 
         // An idempotency collision (alreadySubmitted) is not a fresh success, but
         // the order already exists at the supplier — keep it in 'processing' (locked
@@ -179,6 +184,7 @@ export async function GET(request: NextRequest) {
                 if (isCodeCraftEnabled) refUpdate.codecraft_reference = result.transactionId
                 else if (isKingFlexyEnabled) refUpdate.kingflexy_reference = result.transactionId
                 else if (isEazyDataEnabled) refUpdate.eazydata_reference = result.transactionId
+                else if (isAgentPortalEnabled) refUpdate.agentportal_reference = result.transactionId
                 else refUpdate.dakazina_reference = result.transactionId
             }
             if (Object.keys(refUpdate).length > 0) {
@@ -201,6 +207,9 @@ export async function GET(request: NextRequest) {
                 }
                 if (isEazyDataEnabled && result.transactionId) {
                     shopOrderUpdate.eazydata_reference = result.transactionId
+                }
+                if (isAgentPortalEnabled && result.transactionId) {
+                    shopOrderUpdate.agentportal_reference = result.transactionId
                 }
                 await supabaseAdmin.from('shop_orders').update(shopOrderUpdate).eq('id', order.shop_order_id)
             }
