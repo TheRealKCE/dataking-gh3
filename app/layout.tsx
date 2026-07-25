@@ -3,7 +3,12 @@ import type { Metadata, Viewport } from 'next'
 export const viewport: Viewport = {
     width: 'device-width',
     initialScale: 1,
-    themeColor: '#0A0A0A',
+    // Browser chrome (iOS Safari status bar + toolbar, Android address bar) follows
+    // the phone's system theme: white in light mode, dark in dark mode.
+    themeColor: [
+        { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+        { media: '(prefers-color-scheme: dark)', color: '#0A0A0A' },
+    ],
     // interactiveWidget removed: only supported in Chrome 108+, causes viewport
     // layout issues on older Android WebView (common on low-end phones in Ghana)
 }
@@ -81,7 +86,7 @@ export default async function RootLayout({
             <body className={inter.className}>
                 <ThemeProvider
                     attribute="class"
-                    defaultTheme="light"
+                    defaultTheme="system"
                     enableSystem
                     disableTransitionOnChange
                 >
