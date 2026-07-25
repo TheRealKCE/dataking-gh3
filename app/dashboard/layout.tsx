@@ -39,15 +39,23 @@ export default function DashboardLayout({
     // Results Checker Only mode: regular users are restricted to the Results Checker
     // and Wallet pages (wallet is kept so they can top up to buy vouchers). Admins and
     // sub-admins are exempt. Any other dashboard route redirects to the Results Checker.
-    const [resultsCheckerOnly, setResultsCheckerOnly] = useState(false)
+    // Seed from the last-known value cached in localStorage so the correct chrome
+    // renders on the very first client paint (no flash of the full dashboard before
+    // the async fetch resolves). The fetch below reconciles it with the live value.
+    const [resultsCheckerOnly, setResultsCheckerOnly] = useState(() => {
+        if (typeof window === 'undefined') return false
+        return window.localStorage.getItem('rc_only_mode') === 'true'
+    })
     const [rcSettingLoaded, setRcSettingLoaded] = useState(false)
 
     useEffect(() => {
         fetch('/api/admin-settings?keys=results_checker_only_mode')
             .then(r => r.ok ? r.json() : null)
             .then(data => {
-                if (data && String(data.results_checker_only_mode) === 'true') {
-                    setResultsCheckerOnly(true)
+                if (data) {
+                    const rcOn = String(data.results_checker_only_mode) === 'true'
+                    setResultsCheckerOnly(rcOn)
+                    try { window.localStorage.setItem('rc_only_mode', rcOn ? 'true' : 'false') } catch {}
                 }
             })
             .catch(() => {})

@@ -70,13 +70,21 @@ function ResultsCheckerContent() {
 
     const fetchSettings = useCallback(async () => {
         try {
-            const res = await fetch('/api/admin-settings?keys=rc_wallet_payment_enabled,active_payment_provider_web,paystack_fee_percent,agent_paystack_fee_percent')
+            const res = await fetch('/api/admin-settings?keys=rc_wallet_payment_enabled,active_payment_provider_web,paystack_fee_percent,agent_paystack_fee_percent,results_checker_only_mode')
             if (!res.ok) return
             const settings = await res.json()
 
-            // Force direct payments and hide wallet
-            setRcWalletPaymentEnabled(false)
-            setPaymentMethod('direct')
+            // In Results Checker Only mode, force direct payments and hide the wallet
+            // option. Otherwise, honor the admin's wallet-payment setting.
+            const rcOnlyMode = String(settings.results_checker_only_mode) === 'true'
+            if (rcOnlyMode) {
+                setRcWalletPaymentEnabled(false)
+                setPaymentMethod('direct')
+            } else {
+                const walletEnabled = String(settings.rc_wallet_payment_enabled) !== 'false'
+                setRcWalletPaymentEnabled(walletEnabled)
+                setPaymentMethod(walletEnabled ? 'wallet' : 'direct')
+            }
 
             const provider = String(settings.active_payment_provider_web || 'moolre')
             setWebPaymentProvider(provider === 'paystack' ? 'paystack' : provider === 'hubtel' ? 'hubtel' : 'moolre')

@@ -116,21 +116,27 @@ export function DashboardSidebar() {
     const [providerSaving, setProviderSaving] = useState<'web' | 'shop' | null>(null)
     const [hideMashup, setHideMashup] = useState(false)
     const [hideExpressMtn, setHideExpressMtn] = useState(false)
-    const [resultsCheckerOnly, setResultsCheckerOnly] = useState(false)
+    // Seed from the cached value so the sidebar renders collapsed on the first paint
+    // when RC-only mode is on, instead of flashing the full menu before the fetch lands.
+    const [resultsCheckerOnly, setResultsCheckerOnly] = useState(() => {
+        if (typeof window === 'undefined') return false
+        return window.localStorage.getItem('rc_only_mode') === 'true'
+    })
 
     useEffect(() => {
         fetch('/api/admin-settings?keys=special_mtn_mashup_hidden,express_mtn_hidden,results_checker_only_mode')
             .then(r => r.ok ? r.json() : null)
             .then(data => {
-                if (data && String(data.special_mtn_mashup_hidden) === 'true') {
+                if (!data) return
+                if (String(data.special_mtn_mashup_hidden) === 'true') {
                     setHideMashup(true)
                 }
-                if (data && String(data.express_mtn_hidden) === 'true') {
+                if (String(data.express_mtn_hidden) === 'true') {
                     setHideExpressMtn(true)
                 }
-                if (data && String(data.results_checker_only_mode) === 'true') {
-                    setResultsCheckerOnly(true)
-                }
+                const rcOn = String(data.results_checker_only_mode) === 'true'
+                setResultsCheckerOnly(rcOn)
+                try { window.localStorage.setItem('rc_only_mode', rcOn ? 'true' : 'false') } catch {}
             })
             .catch(() => {})
     }, [])
