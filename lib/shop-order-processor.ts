@@ -590,6 +590,17 @@ async function triggerShopFulfillment(
 
             console.log(`[Shop Order Processor] Fulfillment success for order ${orderId} via ${supplierLabel}`)
 
+            // AirtelTigo via Agent Portal has no verification gate — it delivers quickly.
+            // Reassure the recipient once that delivery is instant.
+            if (isAgentPortalEnabled && /^AT/i.test(network)) {
+                try {
+                    const { sendAtInstantDeliverySMS } = await import('@/lib/sms-service')
+                    await sendAtInstantDeliverySMS(phone, { network, size: extra.size || '' })
+                } catch (smsErr: any) {
+                    console.error(`[Shop Order Processor] AT instant SMS failed for ${orderId}:`, smsErr?.message)
+                }
+            }
+
         } else {
             // ALL failures → keep order as PENDING — never mark as failed
             console.warn(`[Shop Order Processor] Fulfillment attempt failed for order ${orderId} via ${supplierLabel}:`, result.error)

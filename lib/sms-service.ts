@@ -271,6 +271,20 @@ export async function sendMtnVerificationPendingSMS(
     })
 }
 
+// Sent ONCE at order time for AirtelTigo orders (no verification gate — they
+// deliver quickly). Reassures the recipient that delivery is instant.
+export async function sendAtInstantDeliverySMS(
+    recipientNumber: string,
+    details: { network: string; size: string }
+) {
+    const displayNumber = recipientNumber.replace(/^233/, '0')
+
+    return sendSMS({
+        recipient: recipientNumber,
+        message: `Your ${details.network} ${details.size} data order for ${displayNumber} has been received and will be delivered instantly. Thank you.\n\nARHMSGh`,
+    })
+}
+
 export async function sendOrderFailedSMS(
     phoneNumber: string,
     recipientNumber: string,

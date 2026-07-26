@@ -619,6 +619,16 @@ async function triggerFulfillment(orderId: string, network: string, user: { emai
             await syncShopOrderStatus(orderId, 'processing').catch(err =>
                 console.error(`[Fulfillment] syncShopOrderStatus failed for ${orderId}:`, err)
             )
+
+            // AirtelTigo via Agent Portal has no verification gate — it delivers quickly.
+            // Reassure the recipient once that delivery is instant.
+            if (isAgentPortalEnabled && /^AT/i.test(network)) {
+                const { sendAtInstantDeliverySMS } = await import('@/lib/sms-service')
+                await sendAtInstantDeliverySMS((order as any).phone_number, {
+                    network: (order as any).network,
+                    size: (order as any).size,
+                }).catch(err => console.error('[Fulfillment] AT instant SMS failed:', err))
+            }
         } else {
             // Failure — keep order as pending (do not update orders table status)
             console.warn(`[Fulfillment] Supplier ${supplierLabel} failed for order ${orderId}: ${result.error}`)
