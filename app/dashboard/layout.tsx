@@ -25,7 +25,7 @@ export default function DashboardLayout({
 }: {
     children: React.ReactNode
 }) {
-    const { user, dbUser, isLoading, isAdmin, isSubAdmin } = useAuth()
+    const { user, dbUser, isLoading, isAdmin, isSubAdmin, refreshUser } = useAuth()
     const { isCollapsed } = useUI()
     const router = useRouter()
     const pathname = usePathname()
@@ -35,6 +35,18 @@ export default function DashboardLayout({
             router.push('/auth/login')
         }
     }, [user, isLoading, router])
+
+    // If auth succeeded but the profile row didn't load (e.g. the initial fetch
+    // timed out on a slow mobile network), try once more automatically before
+    // showing the hard "Connection Error" screen. `refreshUser` refreshes the JWT
+    // and re-runs the resilient, self-retrying fetch in the auth context.
+    const [profileRetryDone, setProfileRetryDone] = useState(false)
+    useEffect(() => {
+        if (isLoading || !user || dbUser || profileRetryDone) return
+        let active = true
+        refreshUser().finally(() => { if (active) setProfileRetryDone(true) })
+        return () => { active = false }
+    }, [isLoading, user, dbUser, profileRetryDone, refreshUser])
 
     // Results Checker Only mode: regular users are restricted to the Results Checker
     // and Wallet pages (wallet is kept so they can top up to buy vouchers). Admins and
@@ -107,6 +119,20 @@ export default function DashboardLayout({
         return null
     }
 
+    // Auto-retry still in flight — keep the loading chrome rather than flashing
+    // the error screen, which the retry may clear on its own.
+    if (user && !dbUser && !profileRetryDone) {
+        return (
+            <div className="min-h-screen bg-background flex items-center justify-center">
+                <div className="space-y-4 w-full max-w-md p-8">
+                    <Skeleton className="h-12 w-full" />
+                    <Skeleton className="h-8 w-3/4" />
+                    <Skeleton className="h-8 w-1/2" />
+                </div>
+            </div>
+        )
+    }
+
     if (user && !dbUser) {
         return (
             <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
@@ -118,8 +144,8 @@ export default function DashboardLayout({
                     <p className="text-muted-foreground mb-6">
                         We securely authenticated you, but couldn't load your dashboard profile. This can happen during network delays or system updates.
                     </p>
-                    <button 
-                        onClick={() => window.location.reload()}
+                    <button
+                        onClick={() => setProfileRetryDone(false)}
                         className="inline-flex items-center justify-center rounded-xl bg-primary px-8 py-3 text-sm font-bold text-primary-foreground shadow hover:bg-primary/90 transition-colors w-full sm:w-auto"
                     >
                         Reload Dashboard

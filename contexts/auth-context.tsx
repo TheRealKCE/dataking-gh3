@@ -46,53 +46,73 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const isSeller = dbUser?.is_seller ?? false
     const phoneVerified = dbUser?.phone_verified ?? false
 
-    const fetchDbUser = useCallback(async (userId: string) => {
-        try {
-            // Add 10 second timeout to prevent hanging (increased from 5s)
-            const timeout = new Promise((_, reject) =>
-                setTimeout(() => reject(new Error('Database timeout')), 10000)
-            )
+    // Fetch the profile row for the authenticated user. Returns true on success.
+    // Resilient by design: mobile networks (see the "Connection Error" screen in
+    // the dashboard layout) frequently drop a single request, so we retry with
+    // backoff and refresh the JWT when the failure looks auth-related (stale token
+    // after the tab/app was backgrounded).
+    const fetchDbUser = useCallback(async (userId: string): Promise<boolean> => {
+        const MAX_ATTEMPTS = 3
 
-            // Use explicit columns instead of SELECT * for better performance
-            const query = supabase
-                .from('users')
-                .select(`
-                    id,
-                    email,
-                    first_name,
-                    last_name,
-                    phone_number,
-                    phone_verified,
-                    role,
-                    status,
-                    agent_expires_at,
-                    dealer_claimed_at,
-                    dealer_expires_at,
-                    is_seller,
-                    created_at,
-                    updated_at
-                `)
-                .eq('id', userId)
-                .single()
+        const runQuery = () => supabase
+            .from('users')
+            .select(`
+                id,
+                email,
+                first_name,
+                last_name,
+                phone_number,
+                phone_verified,
+                role,
+                status,
+                agent_expires_at,
+                dealer_claimed_at,
+                dealer_expires_at,
+                is_seller,
+                created_at,
+                updated_at
+            `)
+            .eq('id', userId)
+            .single()
 
-            const { data, error } = await Promise.race([
-                query,
-                timeout
-            ]) as any
+        for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+            try {
+                // Per-attempt timeout so one hung request can't stall the whole flow.
+                const timeout = new Promise((_, reject) =>
+                    setTimeout(() => reject(new Error('Database timeout')), 10000)
+                )
 
-            if (error) {
-                console.error('Error fetching user data:', error)
-                // Don't block UI on error - continue with auth user only
-                return
+                const { data, error } = await Promise.race([runQuery(), timeout]) as any
+
+                if (!error && data) {
+                    setDbUser(data)
+                    return true
+                }
+
+                if (error) {
+                    console.error(`Error fetching user data (attempt ${attempt}/${MAX_ATTEMPTS}):`, error)
+                    // A JWT/permission failure won't fix itself on retry — refresh the
+                    // session token first so the next attempt carries a valid claim.
+                    const authRelated =
+                        error?.code === 'PGRST301' ||
+                        error?.code === '401' ||
+                        /jwt|token|auth/i.test(error?.message ?? '')
+                    if (authRelated) {
+                        try { await supabase.auth.refreshSession() } catch {}
+                    }
+                }
+            } catch (error) {
+                console.error(`Error fetching user data (attempt ${attempt}/${MAX_ATTEMPTS}):`, error)
             }
 
-            if (data) {
-                setDbUser(data)
+            // Backoff before the next try (skip the wait after the final attempt).
+            if (attempt < MAX_ATTEMPTS) {
+                await new Promise(res => setTimeout(res, 500 * attempt))
             }
-        } catch (error) {
-            console.error('Error fetching user data:', error)
-            // Don't block UI on error - continue with auth user only
         }
+
+        // Exhausted retries — leave dbUser as-is so the UI can surface a retry path.
+        return false
     }, [])
 
     // Auto-downgrade expired agents and dealers
