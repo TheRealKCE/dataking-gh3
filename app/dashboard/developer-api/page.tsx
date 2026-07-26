@@ -70,7 +70,7 @@ const LANGS: { id: Lang; label: string }[] = [
     { id: 'php',        label: 'PHP'        },
 ]
 
-const BASE = 'https://www.arhmsgh.com'
+const BASE = 'https://www.dataking.qzz.io'
 const KEY  = 'YOUR_API_KEY'
 
 const ENDPOINTS: {
@@ -375,7 +375,7 @@ export default function DeveloperApiPage() {
     }, [fetchKey, fetchLogs])
 
     useEffect(() => {
-        if (dbUser && dbUser.role !== 'agent' && dbUser.role !== 'admin' && dbUser.role !== 'sub-admin') {
+        if (dbUser && dbUser.role !== 'agent' && dbUser.role !== 'dealer' && dbUser.role !== 'admin' && dbUser.role !== 'sub-admin') {
             router.push('/dashboard/upgrade')
         }
     }, [dbUser, router])
@@ -444,7 +444,7 @@ export default function DeveloperApiPage() {
             <div>
                 <h1 className="text-2xl font-bold tracking-tight">Developer API</h1>
                 <p className="text-muted-foreground text-sm mt-1">
-                    Integrate ARHMS into your own apps. Agent plan required.
+                    Integrate DataKing into your own apps. Agent or dealer account required.
                 </p>
             </div>
 
