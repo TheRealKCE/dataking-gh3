@@ -133,3 +133,7 @@ export async function GET(request: NextRequest) {
         errors,
     })
 }
+
+// Some cron schedulers (e.g. cron-job.org) send POST instead of GET. Accept both —
+// the handler is auth-gated by the Bearer CRON_SECRET regardless of method.
+export const POST = GET
