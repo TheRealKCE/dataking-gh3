@@ -594,6 +594,19 @@ async function triggerShopFulfillment(
             // ALL failures → keep order as PENDING — never mark as failed
             console.warn(`[Shop Order Processor] Fulfillment attempt failed for order ${orderId} via ${supplierLabel}:`, result.error)
             console.warn(`[Shop Order Processor] Order ${orderId} kept as PENDING for manual review.`)
+
+            // MTN whitelist gate (Agent Portal): number auto-submitted to MTN for
+            // verification (~24h). Notify the recipient ONCE here at order time; the
+            // auto-refulfill cron retries silently afterwards (no repeat SMS).
+            if ((result as any).whitelistPending) {
+                try {
+                    const { sendMtnVerificationPendingSMS } = await import('@/lib/sms-service')
+                    await sendMtnVerificationPendingSMS(phone, { network, size: extra.size || '' })
+                } catch (smsErr: any) {
+                    console.error(`[Shop Order Processor] MTN verification SMS failed for ${orderId}:`, smsErr?.message)
+                }
+            }
+
             await sendAdminNewOrderAlert({
                 ...alertDetails,
                 reason: `Auto-fulfillment (${supplierLabel}) failed: ${result.error || 'Unknown error'}. Order kept pending.`

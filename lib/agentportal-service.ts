@@ -29,6 +29,10 @@ interface FulfillmentResponse {
     apiResponse?: any
     isRateLimited?: boolean
     alreadySubmitted?: boolean
+    // True when the order was rejected because the MTN number isn't enabled on the
+    // account yet (whitelist gate). Agent Portal auto-submits it to MTN for enabling
+    // (~24h); the order is kept pending and the auto-refulfill cron retries it later.
+    whitelistPending?: boolean
 }
 
 interface StatusResponse {
@@ -226,8 +230,11 @@ export async function fulfillOrder(
             const reason = Array.isArray(data?.rejected) && data.rejected[0]?.reason
                 ? data.rejected[0].reason
                 : 'number not enabled on MTN yet'
-            console.warn(`[AgentPortal] Order ${orderId} not enqueued (added: 0): ${reason}. Kept pending.`)
-            return { success: false, error: reason, apiResponse: sanitizeForLog(data) }
+            // The whitelist/verification gate is MTN-only — only flag whitelistPending
+            // (which triggers the customer verification SMS) for MTN orders.
+            const isMtn = svc.service === 'mtn'
+            console.warn(`[AgentPortal] Order ${orderId} not enqueued (added: 0): ${reason}.${isMtn ? ' Number auto-submitted to MTN for verification (~24h).' : ''} Kept pending.`)
+            return { success: false, error: reason, whitelistPending: isMtn, apiResponse: sanitizeForLog(data) }
         }
 
         // ── Error responses: { error: "message" } ───────────────────────────

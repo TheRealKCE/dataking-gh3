@@ -622,6 +622,18 @@ async function triggerFulfillment(orderId: string, network: string, user: { emai
         } else {
             // Failure — keep order as pending (do not update orders table status)
             console.warn(`[Fulfillment] Supplier ${supplierLabel} failed for order ${orderId}: ${result.error}`)
+
+            // MTN whitelist gate (Agent Portal): the number was auto-submitted to MTN
+            // for verification (~24h). Tell the customer ONCE — the auto-refulfill cron
+            // silently retries afterwards, so no SMS is sent on subsequent attempts.
+            if ((result as any).whitelistPending) {
+                const { sendMtnVerificationPendingSMS } = await import('@/lib/sms-service')
+                await sendMtnVerificationPendingSMS((order as any).phone_number, {
+                    network: (order as any).network,
+                    size: (order as any).size,
+                }).catch(err => console.error('[Fulfillment] MTN verification SMS failed:', err))
+            }
+
             await sendAdminNewOrderAlert({ ...alertDetails, reason: `Auto-fulfillment API error (${supplierLabel}): ${result.error || 'Unknown error'}` })
                 .catch(err => console.error('[Fulfillment] Admin alert (API failed) failed:', err))
 
