@@ -351,6 +351,89 @@ function mapAgentPortalStatus(status: string): 'pending' | 'processing' | 'compl
     return 'processing'
 }
 
+// ─── Batch Status Fetch (for the reconciliation cron) ───────────────────────────
+/**
+ * Fetch the status of every item across the last 2 days of Agent Portal orders in a
+ * SINGLE pass, returning a Map keyed by the `reference` we submitted (the Arhms order
+ * id) → mapped status. The reconciliation cron calls this ONCE per run and then looks
+ * up each of its processing orders locally — far cheaper than scanning per order.
+ *
+ * `success` is false only when we couldn't reach the supplier at all (so the cron can
+ * bail without mistakenly treating an empty map as "everything still pending").
+ */
+export async function fetchRecentItemStatuses(): Promise<{
+    success: boolean
+    statuses: Map<string, 'pending' | 'processing' | 'completed' | 'failed'>
+    error?: string
+}> {
+    const statuses = new Map<string, 'pending' | 'processing' | 'completed' | 'failed'>()
+
+    if (!checkCircuit()) return { success: false, statuses, error: 'Service unavailable (circuit open)' }
+    if (!AGENTPORTAL_API_KEY) return { success: false, statuses, error: 'API key not configured' }
+
+    // Last 2 calendar days (covers same-day + overnight verification turnarounds).
+    const dates: string[] = []
+    for (let i = 0; i < 2; i++) {
+        dates.push(new Date(Date.now() - i * 86400000).toISOString().slice(0, 10))
+    }
+
+    let reachedSupplier = false
+
+    try {
+        for (const date of dates) {
+            const listResp = await fetch(`${AGENTPORTAL_API_URL}/api/beneficiaries/orders?date=${date}`, {
+                method: 'GET',
+                headers: { 'Accept': 'application/json', 'X-API-Key': AGENTPORTAL_API_KEY },
+            })
+
+            const listText = await listResp.text()
+            let listData: any
+            try {
+                listData = JSON.parse(listText)
+            } catch {
+                continue // non-JSON (WAF/HTML) — skip this date
+            }
+            reachedSupplier = true
+
+            const orders: any[] = Array.isArray(listData) ? listData : (listData?.data || [])
+            for (const grp of orders) {
+                const orderId = grp?.id || grp?.order_id
+                if (!orderId) continue
+
+                const itemsResp = await fetch(
+                    `${AGENTPORTAL_API_URL}/api/beneficiaries/orders/${encodeURIComponent(orderId)}/items`,
+                    { method: 'GET', headers: { 'Accept': 'application/json', 'X-API-Key': AGENTPORTAL_API_KEY } }
+                )
+                const itemsText = await itemsResp.text()
+                let itemsData: any
+                try {
+                    itemsData = JSON.parse(itemsText)
+                } catch {
+                    continue
+                }
+
+                const items: any[] = Array.isArray(itemsData) ? itemsData : (itemsData?.data || itemsData?.items || [])
+                for (const it of items) {
+                    if (it?.reference) {
+                        statuses.set(String(it.reference), mapAgentPortalStatus(it.status))
+                    }
+                }
+            }
+        }
+
+        if (!reachedSupplier) {
+            recordFailure()
+            return { success: false, statuses, error: 'Could not reach Agent Portal' }
+        }
+
+        recordSuccess()
+        return { success: true, statuses }
+    } catch (error: any) {
+        recordFailure()
+        return { success: false, statuses, error: error?.message || 'Connection error during batch status fetch' }
+    }
+}
+
 // ─── Balance Fetch ─────────────────────────────────────────────────────────────
 /**
  * Fetch live Agent Portal wallet balance.
