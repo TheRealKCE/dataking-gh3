@@ -109,7 +109,7 @@ export async function validateApiKey(request: NextRequest): Promise<ApiAuthResul
 
     const allowedRoles = parseAllowedRoles(settings['api_allowed_roles'])
     if (!allowedRoles.includes(userRole)) {
-        return apiError(403, `API access requires agent status. Your current role: ${userRole}`)
+        return apiError(403, `API access requires an agent or dealer account. Your current role: ${userRole}`)
     }
 
     // Cache valid auth for 60s
