@@ -51,10 +51,12 @@ export async function POST(req: Request) {
 
         // ULTRA-FAST PATH: Initiation — return hardcoded response, defer everything
         if (requestType === 'initiation' && SessionId) {
-            const response = NextResponse.json({
-                Type: 'Response',
-                Message: 'Welcome to ARHMS TECHNOLOGIES\n1. Buy Result Checker\n0. Exit'
-            });
+            const response = respond(
+                SessionId,
+                'response',
+                'Welcome to ARHMS TECHNOLOGIES\n1. Buy Result Checker\n0. Exit',
+                { label: 'Welcome', dataType: 'menu' }
+            );
 
             // Defer Supabase init and session creation to background
             waitUntil((async () => {
@@ -353,8 +355,8 @@ function saveAsync(sessionId: string, nextStep: string, data: any): void {
 
 interface RespondOpts {
     label?: string;
-    /** "input" (default) or "display" */
-    dataType?: 'input' | 'display';
+    /** "menu" | "input" (default) | "display" */
+    dataType?: 'menu' | 'input' | 'display';
     /** "text" (default) | "phone" | "decimal" | "number" | "email" | "textarea" */
     fieldType?: 'text' | 'phone' | 'decimal' | 'number' | 'email' | 'textarea';
     /** AddToCart cart item */
@@ -373,12 +375,18 @@ function respond(
     opts: RespondOpts = {}
 ) {
     const isAddToCart = type === 'AddToCart';
-    // Hubtel Programmable Services strictly expects Type and Message only.
-    // Extra fields (SessionId, Label, DataType, FieldType) can cause deserializer crashes.
+    const isRelease = type === 'release';
+    // Hubtel Programmable Services requires every response to echo SessionId and
+    // carry the display metadata (Label, DataType, FieldType). Omitting them makes
+    // Hubtel reject the payload as incomplete ("missing sessionId and required parameters").
     const TYPE_MAP = { response: 'Response', release: 'Release', AddToCart: 'AddToCart' } as const;
     const payload: Record<string, any> = {
+        SessionId: sessionId,
         Type: TYPE_MAP[type],
         Message: message,
+        Label: opts.label || 'ARHMS',
+        DataType: opts.dataType || (isAddToCart || isRelease ? 'display' : 'input'),
+        FieldType: opts.fieldType || 'text',
     };
     if (isAddToCart && opts.item) {
         payload.Item = opts.item;
