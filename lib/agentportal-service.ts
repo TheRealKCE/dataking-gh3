@@ -400,25 +400,17 @@ export async function fetchRecentItemStatuses(): Promise<{
                 const orderId = grp?.id || grp?.order_id
                 if (!orderId) continue
 
-                // Determine the group's terminal outcome from its COUNTS, not per-item
-                // status. Agent Portal's items feed splits each order into two rows: the
-                // row carrying OUR `reference` keeps a stale "uploaded" status, while the
-                // delivered row has the real success/failed status but a null reference.
-                // So per-item status is unreliable. We submit one item per order, so one
-                // group == one of our orders — the group's success/failure count is the
-                // authoritative outcome.
+                // Light pre-filter: skip groups that haven't done anything terminal yet
+                // (still uploading, nothing succeeded or failed) to save an items call.
                 const ps = String(grp?.processing_status || '').toUpperCase()
                 const success = Number(grp?.success_count) || 0
                 const failure = Number(grp?.failure_count) || 0
-                let groupStatus: 'completed' | 'failed' | 'processing' = 'processing'
-                if (ps === 'DONE' || grp?.completed_at) {
-                    if (success > 0) groupStatus = 'completed'
-                    else if (failure > 0) groupStatus = 'failed'
-                }
-                if (groupStatus === 'processing') continue // not terminal yet — nothing to reconcile
+                if (ps !== 'DONE' && success === 0 && failure === 0) continue
 
-                // Fetch items only for terminal groups, to recover the reference we sent
-                // (it lives on the "uploaded" row).
+                // Fetch the group's items. Agent Portal splits each order into rows: the
+                // "uploaded" row carries OUR `reference`; the delivered row has the terminal
+                // status (success/failed) but a null reference. So take the reference from
+                // whichever row has it, and the outcome from the terminal rows.
                 const itemsResp = await fetch(
                     `${AGENTPORTAL_API_URL}/api/beneficiaries/orders/${encodeURIComponent(orderId)}/items`,
                     { method: 'GET', headers: { 'Accept': 'application/json', 'X-API-Key': AGENTPORTAL_API_KEY } }
@@ -432,11 +424,27 @@ export async function fetchRecentItemStatuses(): Promise<{
                 }
 
                 const items: any[] = Array.isArray(itemsData) ? itemsData : (itemsData?.data || itemsData?.items || [])
-                for (const it of items) {
-                    if (it?.reference) {
-                        statuses.set(String(it.reference), groupStatus)
-                    }
+
+                // The reference we submitted (lives on the row that still has it).
+                const ourRef = items.find((it: any) => it?.reference)?.reference
+                if (!ourRef) continue
+
+                // Terminal outcome:
+                //  • success is always terminal → completed.
+                //  • a failed row is only FINAL when non-retriable — i.e. auto-refunded
+                //    (refunded_at set). A failed row without refunded_at may still be
+                //    retried, so we WAIT (leave the order processing) rather than mark it
+                //    failed prematurely during Agent Portal's retry window.
+                const hasSuccess = items.some((it: any) => String(it?.status || '').toLowerCase() === 'success')
+                const hasTerminalFailure = items.some((it: any) =>
+                    String(it?.status || '').toLowerCase() === 'failed' && it?.refunded_at)
+
+                if (hasSuccess) {
+                    statuses.set(String(ourRef), 'completed')
+                } else if (hasTerminalFailure) {
+                    statuses.set(String(ourRef), 'failed')
                 }
+                // else: still in-flight / retriable — leave as processing.
             }
         }
 
