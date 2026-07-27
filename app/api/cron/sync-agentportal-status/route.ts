@@ -134,6 +134,10 @@ export async function GET(request: NextRequest) {
     })
 }
 
-// Some cron schedulers (e.g. cron-job.org) send POST instead of GET. Accept both —
-// the handler is auth-gated by the Bearer CRON_SECRET regardless of method.
+// Cron schedulers vary in which HTTP method they send (GET/POST/PUT/…), and the
+// method actually sent doesn't always match the UI. Accept them all — the handler
+// is auth-gated by the Bearer CRON_SECRET regardless of method, so this is safe.
 export const POST = GET
+export const PUT = GET
+export const PATCH = GET
+export const DELETE = GET
