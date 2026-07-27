@@ -501,3 +501,56 @@ export async function fetchSupplierBalance(): Promise<{
         return { success: false, error: error.message }
     }
 }
+
+// ─── MTN Whitelist Verify / Submit ──────────────────────────────────────────────
+/**
+ * Check which MTN numbers are enabled ("whitelisted") on the account, and — as a side
+ * effect of the same endpoint — auto-submit any that aren't yet for enabling (~24h).
+ * POST /api/mtn-whitelist/verify { msisdns: [...] } → { results: [{ input, normalized, allowed }] }.
+ * Returns the set of ENABLED numbers (both input and normalized forms) so callers can
+ * match regardless of phone format. Up to 1000 numbers per call.
+ */
+export async function verifyMtnWhitelist(msisdns: string[]): Promise<{
+    success: boolean
+    allowed: Set<string>
+    error?: string
+}> {
+    const allowed = new Set<string>()
+    if (!AGENTPORTAL_API_KEY) return { success: false, allowed, error: 'API key not configured' }
+    if (!msisdns || msisdns.length === 0) return { success: true, allowed }
+
+    try {
+        const response = await fetch(`${AGENTPORTAL_API_URL}/api/mtn-whitelist/verify`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'X-API-Key': AGENTPORTAL_API_KEY,
+            },
+            body: JSON.stringify({ msisdns: msisdns.slice(0, 1000) }),
+        })
+
+        const rawText = await response.text()
+        let data: any
+        try {
+            data = JSON.parse(rawText)
+        } catch {
+            return { success: false, allowed, error: `Unexpected response (HTTP ${response.status})` }
+        }
+
+        if (response.ok && Array.isArray(data?.results)) {
+            for (const r of data.results) {
+                if (r?.allowed === true) {
+                    if (r.normalized) allowed.add(String(r.normalized))
+                    if (r.input) allowed.add(String(r.input))
+                }
+            }
+            return { success: true, allowed }
+        }
+
+        return { success: false, allowed, error: data?.error || `Failed to verify (HTTP ${response.status})` }
+    } catch (error: any) {
+        console.error('[AgentPortal Whitelist] Error:', error)
+        return { success: false, allowed, error: error?.message || 'Connection error' }
+    }
+}

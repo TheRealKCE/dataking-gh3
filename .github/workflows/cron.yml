@@ -48,7 +48,17 @@ jobs:
     steps:
       - name: Ping sync-agentportal-status
         run: |
-          curl -sf -X GET "https://www.arhmsgh.com/api/cron/sync-agentportal-status" \
+          curl -sf -X GET "https://arhmsgh.com/api/cron/sync-agentportal-status" \
+          -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+          -H "User-Agent: GitHub-Actions-Cron"
+
+  agentportal-mtn-verify:
+    runs-on: ubuntu-latest
+    if: github.event_name == 'workflow_dispatch' || github.event.schedule == '*/10 * * * *'
+    steps:
+      - name: Ping agentportal-mtn-verify
+        run: |
+          curl -sf -X GET "https://arhmsgh.com/api/cron/agentportal-mtn-verify" \
           -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
           -H "User-Agent: GitHub-Actions-Cron"
 
