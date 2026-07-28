@@ -222,9 +222,20 @@ export async function POST(req: Request) {
                 sessionData.selectedCheckerName = selected.name;
                 sessionData.selectedCheckerPrice = selected.customer_price;
 
-                // The voucher always goes to the number dialling the USSD code —
-                // no recipient prompt, straight to confirmation.
-                const recipientMobile = Mobile;
+                saveAsync(SessionId, 'enter_phone', sessionData);
+                return respond(
+                    SessionId,
+                    'response',
+                    'Enter recipient number:\n(or send 1 for your own number)',
+                    { label: 'Recipient number', fieldType: 'phone' }
+                );
+            }
+
+            case 'enter_phone': {
+                let recipientMobile = userInput;
+                if (!recipientMobile || recipientMobile === '1' || recipientMobile.trim() === '') {
+                    recipientMobile = Mobile;
+                }
                 sessionData.recipientMobile = recipientMobile;
 
                 saveAsync(SessionId, 'confirm', sessionData);
