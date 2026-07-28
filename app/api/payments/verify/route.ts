@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
 
         const { data: paymentRecord, error: paymentLookupError } = await (supabase
             .from('wallet_payments') as any)
-            .select('id, user_id, amount, total_amount, status, provider')
+            .select('id, user_id, amount, total_amount, status, provider, metadata')
             .eq('reference', reference)
             .single()
 
@@ -65,6 +65,20 @@ export async function GET(request: NextRequest) {
 
         // Fast-path: Check if webhook already processed it
         if (paymentRecord.status === 'completed') {
+            // Direct-pay data orders: return what was actually bought. The webhook
+            // usually settles before the first poll, so this is the normal path.
+            if (reference.startsWith('DATA-')) {
+                const orderRefs: string[] = (paymentRecord as any).metadata?.order_refs || []
+                let placedOrders: any[] = []
+                if (orderRefs.length > 0) {
+                    const { data: orderRows } = await (supabase.from('orders') as any)
+                        .select('id, reference_code, network, size, phone_number, price')
+                        .in('reference_code', orderRefs)
+                    placedOrders = orderRows || []
+                }
+                if (isInline) return NextResponse.json({ success: true, status: 'completed', message: 'Payment successful', orders: placedOrders })
+                return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/data-packages?success=true`)
+            }
             if (isInline) return NextResponse.json({ success: true, status: 'completed', message: 'Payment successful' })
             return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/wallet?success=true`)
         } else if (paymentRecord.status === 'failed') {
@@ -100,7 +114,21 @@ export async function GET(request: NextRequest) {
                 return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/wallet?error=payment_failed`)
             }
 
-            // hubtelResponse.status === 'Paid' — fall through to process payment below
+            // hubtelResponse.status === 'Paid' — settle direct-pay data orders here.
+            // The generic path below queries Moolre, which cannot verify a Hubtel
+            // reference, so a DATA- order must be settled before we reach it.
+            if (reference.startsWith('DATA-')) {
+                const { processDataDirectOrder } = await import('@/lib/data-order-payments')
+                const result = await processDataDirectOrder(reference, user.id)
+                if (!result.success) {
+                    if (isInline) return NextResponse.json({ success: false, status: 'failed', error: result.error || 'Order processing failed' }, { status: 500 })
+                    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/data-packages?error=order_failed`)
+                }
+                if (isInline) return NextResponse.json({ success: true, status: 'completed', message: 'Payment successful', orders: result.orders || [] })
+                return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/data-packages?success=true`)
+            }
+
+            // fall through to process payment below
         }
 
         // Verify with Moolre
@@ -129,6 +157,20 @@ export async function GET(request: NextRequest) {
         }
 
         // Processing successful payment (txstatus === 1)
+        // For DATA- references, delegate to the data order processor. Without this
+        // the payment would fall through below and CREDIT THE WALLET instead of
+        // creating and fulfilling the data bundle order.
+        if (reference.startsWith('DATA-')) {
+            const { processDataDirectOrder } = await import('@/lib/data-order-payments')
+            const result = await processDataDirectOrder(reference, user.id)
+            if (!result.success) {
+                if (isInline) return NextResponse.json({ success: false, status: 'failed', error: result.error || 'Order processing failed' }, { status: 500 })
+                return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/data-packages?error=order_failed`)
+            }
+            if (isInline) return NextResponse.json({ success: true, status: 'completed', message: 'Payment successful', orders: (result as any).orders })
+            return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/data-packages?success=true`)
+        }
+
         // For BOOST- references, delegate to the boost processor
         if (reference.startsWith('BOOST-')) {
             const { processBoostPayment } = await import('@/lib/classifieds-payments')

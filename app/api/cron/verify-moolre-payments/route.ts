@@ -62,7 +62,17 @@ export async function GET(request: NextRequest) {
                         )
                         const metadata = payment.metadata || {}
 
-                        if (payment.reference.startsWith('BOOST-')) {
+                        if (payment.reference.startsWith('DATA-')) {
+                            // Direct-pay data bundle orders
+                            const { processDataDirectOrder } = await import('@/lib/data-order-payments')
+                            const dataResult = await processDataDirectOrder(payment.reference)
+                            if (dataResult.success || dataResult.alreadyProcessed) {
+                                results.walletCredited++
+                                console.log(`[CronMoolre] ✅ Data order ${payment.reference} settled`)
+                            } else {
+                                console.error(`[CronMoolre] ❌ Data order ${payment.reference} failed:`, dataResult.error)
+                            }
+                        } else if (payment.reference.startsWith('BOOST-')) {
                             // Process boost payments
                             results.boostChecked++
                             const { processBoostPayment } = await import('@/lib/classifieds-payments')
