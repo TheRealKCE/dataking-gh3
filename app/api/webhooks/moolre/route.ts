@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
-import { processCompletedWalletPayment, processCompletedUpgradePayment } from '@/lib/payments'
+import { processCompletedWalletPayment, processCompletedUpgradePayment, processCompletedDealerSubscription } from '@/lib/payments'
 import { Redis } from '@upstash/redis'
 
 const redis = Redis.fromEnv()
@@ -112,6 +112,14 @@ export async function POST(request: NextRequest) {
                     metadata: metadata,
                 }
                 await processCompletedUpgradePayment(externalref, mappedEventData)
+            } else if (externalref.startsWith('dealer_sub_') || metadata.upgrade_type === 'dealer_subscription') {
+                // Dealer subscriptions
+                const mappedEventData = {
+                    reference: externalref,
+                    amount: paidAmountKobo,
+                    metadata: metadata,
+                }
+                await processCompletedDealerSubscription(externalref, mappedEventData)
             } else {
                 // Standard wallet top-up
                 const mappedEventData = {

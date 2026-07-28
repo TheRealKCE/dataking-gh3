@@ -186,19 +186,27 @@ export default function AdminUsersPage() {
         }
     }
 
-    const handleRoleChange = async (userId: string, newRole: string) => {
-        if (!confirm(`Are you sure you want to make this user ${newRole}?`)) return
+    const handleRoleChange = async (userId: string, newRole: string, dealerMonths?: number) => {
+        const currentRole = users.find(u => u.id === userId)?.role
+        const prompt = newRole === 'dealer' && dealerMonths
+            ? `${currentRole === 'dealer' ? 'Extend this dealer by' : 'Make this user a dealer for'} ${dealerMonths} month${dealerMonths > 1 ? 's' : ''}?`
+            : `Are you sure you want to make this user ${newRole}?`
+        if (!confirm(prompt)) return
         try {
             setLoading(true)
             const response = await fetch('/api/admin/users/role', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId, role: newRole })
+                body: JSON.stringify({ userId, role: newRole, ...(dealerMonths && { dealerMonths }) })
             })
             const result = await response.json()
             if (!response.ok) throw new Error(result.error || 'Failed to update user role')
             setUsers(prevUsers => Array.isArray(prevUsers) ? prevUsers.map(u => u.id === userId ? { ...u, role: newRole } : u) : [])
-            toast.success(`User role updated to ${newRole}`)
+            toast.success(
+                result.dealerExpiresAt
+                    ? `User is now a dealer until ${new Date(result.dealerExpiresAt).toLocaleDateString()}`
+                    : `User role updated to ${newRole}`
+            )
         } catch (error: any) {
             console.error('Role change error:', error)
             toast.error(error.message || 'Failed to update user role')
@@ -408,10 +416,17 @@ export default function AdminUsersPage() {
                                                     {user.status === 'suspended' ? <><CheckCircle className="w-4 h-4 mr-2 text-green-500" /> Activate Account</> : <><Ban className="w-4 h-4 mr-2 text-orange-500" /> Suspend Account</>}
                                                 </DropdownMenuItem>
                                                 <DropdownMenuLabel className="text-xs text-muted-foreground pt-2">Change Role</DropdownMenuLabel>
-                                                {['customer', 'dealer', 'agent', 'sub-admin', 'admin'].filter(r => r !== user.role).map(role => (
+                                                {['customer', 'agent', 'sub-admin', 'admin'].filter(r => r !== user.role).map(role => (
                                                     <DropdownMenuItem key={role} onClick={() => handleRoleChange(user.id, role)}>
                                                         <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: roleConfig[role as UserRole].color }} />
                                                         Make {role.charAt(0).toUpperCase() + role.slice(1)}
+                                                    </DropdownMenuItem>
+                                                ))}
+                                                {/* Dealer stays listed even for current dealers so admins can extend an active subscription */}
+                                                {[1, 3, 6].map(months => (
+                                                    <DropdownMenuItem key={`dealer-${months}`} onClick={() => handleRoleChange(user.id, 'dealer', months)}>
+                                                        <div className="w-3 h-3 rounded-full mr-2" style={{ backgroundColor: roleConfig.dealer.color }} />
+                                                        {user.role === 'dealer' ? 'Extend' : 'Make'} Dealer ({months} Month{months > 1 ? 's' : ''})
                                                     </DropdownMenuItem>
                                                 ))}
                                                 <div className="h-px bg-border my-1" />

@@ -26,10 +26,19 @@ export async function POST(request: NextRequest) {
         }
 
         const body = await request.json()
-        const { userId, role } = body
+        const { userId, role, dealerMonths } = body
 
         if (!userId || !role) {
             return NextResponse.json({ error: 'userId and role are required' }, { status: 400 })
+        }
+
+        // Dealer grants can run for 1, 3 or 6 months. Defaults to 1 month so
+        // existing callers that omit the field keep their previous behaviour.
+        const DEALER_PLAN_DAYS: Record<number, number> = { 1: 30, 3: 90, 6: 180 }
+        const requestedMonths = dealerMonths === undefined ? 1 : Number(dealerMonths)
+
+        if (role === 'dealer' && !DEALER_PLAN_DAYS[requestedMonths]) {
+            return NextResponse.json({ error: 'dealerMonths must be 1, 3 or 6' }, { status: 400 })
         }
 
         // Service role client to bypass RLS
@@ -41,7 +50,7 @@ export async function POST(request: NextRequest) {
         // -----------------------------------------------------------------
         const { data: currentUser } = await (supabase
             .from('users') as any)
-            .select('role')
+            .select('role, dealer_claimed_at, dealer_expires_at')
             .eq('id', userId)
             .single()
 
@@ -57,9 +66,17 @@ export async function POST(request: NextRequest) {
             updateData.dealer_expires_at = null
         } else if (role === 'dealer') {
             const now = new Date()
-            const expiresAt = new Date(now)
-            expiresAt.setDate(expiresAt.getDate() + 30) // 30-day dealer subscription
-            updateData.dealer_claimed_at = now.toISOString()
+            const planDays = DEALER_PLAN_DAYS[requestedMonths]
+
+            // Extend from the later of "now" and any unexpired dealer window,
+            // matching how paid dealer subscriptions stack.
+            const currentExpiry = currentUser?.dealer_expires_at ? new Date(currentUser.dealer_expires_at) : null
+            const base = currentExpiry && currentExpiry > now ? currentExpiry : now
+            const expiresAt = new Date(base.getTime() + planDays * 24 * 60 * 60 * 1000)
+
+            // Preserve the original claim date so an admin grant doesn't retroactively
+            // burn a user's free-trial eligibility record.
+            updateData.dealer_claimed_at = currentUser?.dealer_claimed_at ?? now.toISOString()
             updateData.dealer_expires_at = expiresAt.toISOString()
             updateData.agent_expires_at = null
         } else {
@@ -178,7 +195,11 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({
             success: true,
             userId,
-            newRole: role
+            newRole: role,
+            ...(role === 'dealer' && {
+                dealerMonths: requestedMonths,
+                dealerExpiresAt: updateData.dealer_expires_at,
+            }),
         })
     } catch (error: any) {
         console.error('Admin Role Update Error:', error)
