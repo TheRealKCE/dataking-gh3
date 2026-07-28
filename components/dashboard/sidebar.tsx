@@ -49,7 +49,7 @@ import { BrandLogo } from '@/components/BrandLogo'
 
 const userNavItems = [
     { href: '/dashboard', label: 'Home', icon: LayoutDashboard },
-    { href: '/dashboard/upgrade', label: 'Membership', icon: Crown },
+    { href: '/dashboard/upgrade', label: 'Role Upgrade', icon: Crown },
     { href: '/dashboard/data-packages', label: 'Data Packages', icon: Package },
     { href: '/dashboard/results-checker', label: 'Results Checker', icon: Tag },
     { href: '/dashboard/afa-orders', label: 'AFA Application', icon: BadgeCheck },
