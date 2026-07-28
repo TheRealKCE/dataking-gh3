@@ -1,6 +1,6 @@
 import { createServerClient } from './supabase'
 import { sendWalletTopupSuccessEmail, sendPermanentAgentUpgradeSuccessEmail } from './email-service'
-import { sendWalletTopupSuccessSMS, sendAgentUpgradeSuccessSMS, sendAgentExtensionSuccessSMS, sendPermanentAgentUpgradeSuccessSMS } from './sms-service'
+import { sendWalletTopupSuccessSMS, sendAgentUpgradeSuccessSMS, sendAgentExtensionSuccessSMS, sendPermanentAgentUpgradeSuccessSMS, sendDealerUpgradeSuccessSMS } from './sms-service'
 import { sendPushToUser, sendPushToAdmins } from './web-push'
 
 /**
@@ -315,4 +315,135 @@ export async function processCompletedUpgradePayment(reference: string, provider
     }
 
     return { success: true }
+}
+
+/**
+ * Processes a completed dealer subscription payment: marks the payment completed,
+ * promotes the user to `dealer`, extends `dealer_expires_at` by the purchased plan
+ * length, and re-bases their shop pricing onto the dealer cost tier.
+ * Idempotent — safe to call from both the webhook and the client-side verify poll.
+ */
+export async function processCompletedDealerSubscription(reference: string, providerMetadata?: any) {
+    const supabase = createServerClient()
+
+    // 1. Get payment record
+    const { data: paymentData, error: paymentError } = await supabase
+        .from('wallet_payments')
+        .select('*')
+        .eq('reference', reference)
+        .single()
+
+    const payment = paymentData as any
+
+    if (paymentError || !payment) {
+        console.error('[DealerSubProcess] Payment not found:', reference)
+        return { success: false, error: 'Payment not found' }
+    }
+
+    const originalMetadata = typeof payment.metadata === 'string'
+        ? JSON.parse(payment.metadata)
+        : (payment.metadata || {})
+
+    // 2. Atomic status flip (idempotency guard)
+    const { data: updatedPayment, error: updatePaymentError } = await (supabase
+        .from('wallet_payments') as any)
+        .update({
+            status: 'completed',
+            metadata: { ...originalMetadata, provider_data: providerMetadata },
+            updated_at: new Date().toISOString(),
+        })
+        .eq('id', payment.id)
+        .eq('status', 'pending')
+        .select()
+        .single()
+
+    if (updatePaymentError) {
+        if (updatePaymentError.code === 'PGRST116') {
+            return { success: true, alreadyProcessed: true }
+        }
+        console.error('[DealerSubProcess] Update payment error:', updatePaymentError)
+        return { success: false, error: 'Failed to update payment status' }
+    }
+
+    if (!updatedPayment) return { success: true, alreadyProcessed: true }
+
+    // 3. Load the user
+    const { data: userData, error: userError } = await supabase
+        .from('users')
+        .select('role, dealer_expires_at, dealer_claimed_at, first_name, phone_number')
+        .eq('id', payment.user_id)
+        .single()
+
+    const user = userData as any
+
+    if (userError || !user) {
+        console.error('[DealerSubProcess] User not found:', payment.user_id)
+        return { success: false, error: 'User not found' }
+    }
+
+    // 4. Extend from the later of "now" and the current expiry
+    const planDays: number = Number(originalMetadata?.plan_days) || 180
+    const now = new Date()
+    const currentExpiry = user.dealer_expires_at ? new Date(user.dealer_expires_at) : null
+    const base = currentExpiry && currentExpiry > now ? currentExpiry : now
+    const newExpiry = new Date(base.getTime() + planDays * 24 * 60 * 60 * 1000)
+
+    const previousRole = user.role
+
+    const { error: updateUserError } = await (supabase
+        .from('users') as any)
+        .update({
+            role: 'dealer',
+            dealer_expires_at: newExpiry.toISOString(),
+            dealer_claimed_at: user.dealer_claimed_at ?? now.toISOString(),
+            updated_at: now.toISOString(),
+        })
+        .eq('id', payment.user_id)
+
+    if (updateUserError) {
+        console.error('[DealerSubProcess] Update user error:', updateUserError)
+        return { success: false, error: 'Failed to update user role' }
+    }
+
+    // 5. Re-base shop pricing onto the dealer cost tier (preserves profit margins)
+    if (previousRole !== 'dealer') {
+        try {
+            const { error: rpcError } = await (supabase as any)
+                .rpc('adjust_shop_pricing_for_role_change', {
+                    p_user_id: payment.user_id,
+                    p_old_role: previousRole,
+                    p_new_role: 'dealer',
+                })
+            if (rpcError) {
+                console.error('[DealerSubProcess] Pricing RPC error (non-fatal):', rpcError)
+            }
+        } catch (rpcErr) {
+            console.error('[DealerSubProcess] Unexpected RPC error (non-fatal):', rpcErr)
+        }
+    }
+
+    // 6. Notify
+    const wasExtension = !!(currentExpiry && currentExpiry > now)
+    await (supabase.from('notifications') as any).insert({
+        user_id: payment.user_id,
+        title: wasExtension ? 'Dealership Extended 🎉' : 'Dealership Activated 🎉',
+        message: `Your dealer subscription has been ${wasExtension ? 'extended' : 'activated'} until ${newExpiry.toLocaleDateString()}.`,
+        type: 'system',
+        action_url: '/dashboard',
+    })
+
+    // 7. SMS confirmation (non-fatal)
+    try {
+        if (user.phone_number) {
+            await sendDealerUpgradeSuccessSMS(
+                user.phone_number,
+                user.first_name || 'Dealer',
+                newExpiry.toISOString()
+            )
+        }
+    } catch (smsError) {
+        console.error('[DealerSubProcess] SMS error:', smsError)
+    }
+
+    return { success: true, dealer_expires_at: newExpiry.toISOString() }
 }

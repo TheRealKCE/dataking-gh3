@@ -46,7 +46,7 @@ export function TodaysOrdersSummary() {
                     .lte('created_at', endOfToday)
 
                 const { data: afaOrders } = await supabase
-                    .from('afa_registrations')
+                    .from('afa_orders')
                     .select('status, amount')
                     .eq('user_id', dbUser.id)
                     .gte('created_at', startOfToday)

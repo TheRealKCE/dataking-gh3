@@ -1,7 +1,8 @@
-﻿import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createRouteClient } from '@/lib/supabase-server'
 import { calculateRCPrice, getRCTypeById } from '@/lib/vouchers/pricing'
 import { initiatePayment, MOOLRE_PAYMENT_CHANNEL_MAP } from '@/lib/moolre-payment-service'
+import { initiatePayment as hubtelInitiatePayment, HUBTEL_CHANNEL_MAP } from '@/lib/hubtel-payment-service'
 
 export async function POST(request: NextRequest) {
     try {
@@ -43,8 +44,10 @@ export async function POST(request: NextRequest) {
             .select('value')
             .eq('key', 'active_payment_provider_web')
             .single()
-        const gateway: 'paystack' | 'moolre' =
-            String(providerRow?.value || 'moolre') === 'paystack' ? 'paystack' : 'moolre'
+        const gateway: 'paystack' | 'moolre' | 'hubtel' =
+            String(providerRow?.value || 'moolre') === 'paystack' ? 'paystack'
+            : String(providerRow?.value || 'moolre') === 'hubtel' ? 'hubtel'
+            : 'moolre'
 
         if (!typeId || !quantity || quantity <= 0 || !customerEmail) {
             return NextResponse.json({ error: 'Invalid request payload. Email and quantity are required.' }, { status: 400 })
@@ -56,7 +59,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Product not available' }, { status: 400 })
         }
 
-        // Calculate price — include gateway fee for Paystack, not for Moolre (Moolre fees are charged separately)
+        // Calculate price — include gateway fee for Paystack, not for Moolre/Hubtel (their fees are charged by Hubtel/Moolre separately)
         const breakdown = await calculateRCPrice({
             type,
             quantity,
@@ -101,7 +104,7 @@ export async function POST(request: NextRequest) {
                 email: customerEmail,
                 amount: Math.round(breakdown.total * 100), // Kobo
                 reference: referenceCode,
-                callback_url: `${process.env.NEXT_PUBLIC_APP_URL || ''}/dashboard/transactions`,
+                callback_url: `${process.env.NEXT_PUBLIC_APP_URL || ''}/dashboard/results-checker`,
                 metadata: {
                     order_type: 'results_checker',
                     type_id: typeId,
@@ -180,6 +183,58 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({
                 success: true,
                 gateway: 'moolre',
+                otpRequired: false,
+                reference: referenceCode,
+                message: 'Payment prompt sent to your phone. Please approve to complete your purchase.',
+            })
+        }
+
+        // ── HUBTEL BRANCH ───────────────────────────────────────────────────
+        if (gateway === 'hubtel') {
+            if (!momoNetwork || !HUBTEL_CHANNEL_MAP[momoNetwork]) {
+                return NextResponse.json({ error: 'Valid MoMo network is required for Hubtel payments' }, { status: 400 })
+            }
+
+            // SECURITY (Hubtel Option 1): Always use the phone number from the authenticated user's
+            // profile — never trust client-supplied momoPhone. Guest checkout is not permitted for Hubtel.
+            if (!userId) {
+                return NextResponse.json({ error: 'You must be logged in to pay with Hubtel.' }, { status: 401 })
+            }
+
+            const { createServerClient: createAdminClientForPhone } = await import('@/lib/supabase')
+            const dbAdminForPhone = createAdminClientForPhone()
+            const { data: profileForPhone } = await (dbAdminForPhone.from('users') as any)
+                .select('phone_number')
+                .eq('id', userId)
+                .single()
+
+            const registeredPhone = (profileForPhone as any)?.phone_number
+            if (!registeredPhone) {
+                return NextResponse.json(
+                    { error: 'No phone number found on your account. Please update your profile before paying with Hubtel.' },
+                    { status: 400 }
+                )
+            }
+
+            const hubtelChannel = HUBTEL_CHANNEL_MAP[momoNetwork]
+            const hubtelResponse = await hubtelInitiatePayment({
+                amount: breakdown.total,
+                payerPhone: registeredPhone,   // always use the DB-stored number
+                channel: hubtelChannel,
+                clientReference: referenceCode,
+                customerName: customerName || 'Guest Customer',
+                customerEmail: customerEmail || '',
+                description: `ARHMS Results Checker - ${type.name} x${quantity}`,
+            })
+
+            if (!hubtelResponse.success) {
+                console.error('[GatewayInit] Hubtel error:', hubtelResponse.error)
+                return NextResponse.json({ error: hubtelResponse.error || 'Failed to initialize Hubtel payment' }, { status: 500 })
+            }
+
+            return NextResponse.json({
+                success: true,
+                gateway: 'hubtel',
                 otpRequired: false,
                 reference: referenceCode,
                 message: 'Payment prompt sent to your phone. Please approve to complete your purchase.',

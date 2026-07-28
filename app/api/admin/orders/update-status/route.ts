@@ -105,12 +105,12 @@ export async function POST(request: Request) {
             }
         })
 
-        // Push notification to affected users (awaited to prevent Vercel from killing)
+        // Notify affected users (awaited to prevent Vercel from killing)
         if (status === 'completed' || status === 'failed') {
             try {
                 const { data: orderData } = await supabaseAdmin
                     .from('orders')
-                    .select('user_id, network, size, phone_number')
+                    .select('user_id, network, size, phone_number, users!inner(phone_number)')
                     .in('id', targetOrderIds)
                 if (orderData?.length) {
                     const pushTitle = status === 'completed' ? 'Data Bundle Sent' : 'Order Failed'

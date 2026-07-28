@@ -59,6 +59,7 @@ export async function POST(request: Request) {
         const codecraftNetworkSettings = dbFulfillmentSettings.codecraft_networks || {}
         const kingflexyNetworkSettings = dbFulfillmentSettings.kingflexy_networks || {}
         const eazydataNetworkSettings = dbFulfillmentSettings.eazydata_networks || {}
+        const agentportalNetworkSettings = dbFulfillmentSettings.agentportal_networks || {}
 
         // Construct query to find pending orders
         let query = supabaseAdmin
@@ -90,6 +91,7 @@ export async function POST(request: Request) {
         const { fulfillOrder: ccFulfillOrder } = await import('@/lib/codecraft-service')
         const { fulfillOrder: kfFulfillOrder } = await import('@/lib/kingflexy-service')
         const { fulfillOrder: edFulfillOrder } = await import('@/lib/eazydata-service')
+        const { fulfillOrder: apFulfillOrder } = await import('@/lib/agentportal-service')
 
         // Process each pending order safely
         for (const order of pendingOrders) {
@@ -97,16 +99,17 @@ export async function POST(request: Request) {
             const isCodeCraftEnabled = codecraftNetworkSettings[order.network] === true
             const isKingFlexyEnabled = kingflexyNetworkSettings[order.network] === true
             const isEazyDataEnabled = eazydataNetworkSettings[order.network] === true
+            const isAgentPortalEnabled = agentportalNetworkSettings[order.network] === true
 
             // No supplier enabled → skip
-            if (!isDataKazinaEnabled && !isCodeCraftEnabled && !isKingFlexyEnabled && !isEazyDataEnabled) {
+            if (!isDataKazinaEnabled && !isCodeCraftEnabled && !isKingFlexyEnabled && !isEazyDataEnabled && !isAgentPortalEnabled) {
                 console.log(`[ManualRefulfill] Skipping order ${order.id}: No active supplier for network ${order.network}.`)
                 skipped++
                 continue
             }
 
             // Multiple suppliers enabled → conflict guard, skip
-            const activeCount = [isDataKazinaEnabled, isCodeCraftEnabled, isKingFlexyEnabled, isEazyDataEnabled].filter(Boolean).length
+            const activeCount = [isDataKazinaEnabled, isCodeCraftEnabled, isKingFlexyEnabled, isEazyDataEnabled, isAgentPortalEnabled].filter(Boolean).length
             if (activeCount > 1) {
                 console.error(`[ManualRefulfill] CONFLICT: Multiple suppliers active for ${order.network} on order ${order.id}. Skipping.`)
                 await sendAdminNewOrderAlert({
@@ -126,7 +129,7 @@ export async function POST(request: Request) {
             }
 
             // Determine which supplier will handle this order
-            const supplierLabel = isCodeCraftEnabled ? 'codecraft' : isKingFlexyEnabled ? 'kingflexy' : isEazyDataEnabled ? 'eazydata' : 'datakazina'
+            const supplierLabel = isCodeCraftEnabled ? 'codecraft' : isKingFlexyEnabled ? 'kingflexy' : isEazyDataEnabled ? 'eazydata' : isAgentPortalEnabled ? 'agentportal' : 'datakazina'
 
             // ATOMIC LOCK: Try to update this specific order from 'pending' to 'processing'
             // If another process/request already took it, this will return 0 rows
@@ -156,26 +159,60 @@ export async function POST(request: Request) {
                     .eq('id', order.shop_order_id)
             }
 
-            let result: { success: boolean; reference?: string; transactionId?: string; error?: string; apiResponse?: any }
+            let result: { success: boolean; reference?: string; transactionId?: string; error?: string; apiResponse?: any; alreadySubmitted?: boolean }
             if (isCodeCraftEnabled) {
                 result = await ccFulfillOrder(order.network, order.phone_number, order.size, order.id)
             } else if (isKingFlexyEnabled) {
                 result = await kfFulfillOrder(order.network, order.phone_number, order.size, order.id)
             } else if (isEazyDataEnabled) {
                 result = await edFulfillOrder(order.network, order.phone_number, order.size, order.id)
+            } else if (isAgentPortalEnabled) {
+                result = await apFulfillOrder(order.network, order.phone_number, order.size, order.id)
             } else {
                 result = await fulfillOrder(order.network, order.phone_number, order.size, order.id)
             }
 
-            if (result.success) {
-                console.log(`[ManualRefulfill] SUCCESS for order ${order.id} via ${supplierLabel}`)
+            // An idempotency collision (alreadySubmitted) is not a fresh success, but
+            // the order already exists at the supplier — keep it in 'processing'
+            // (it was locked there above) rather than reverting to pending and
+            // looping forever. We just can't stamp a supplier reference for it.
+            const alreadySubmitted = !result.success && result.alreadySubmitted === true
+            if (result.success || alreadySubmitted) {
+                console.log(`[ManualRefulfill] ${alreadySubmitted ? 'ALREADY SUBMITTED — kept processing' : 'SUCCESS'} for order ${order.id} via ${supplierLabel}`)
 
-                // Track success
+                // Track outcome
                 await supabaseAdmin.from('mtn_fulfillment_tracking').insert({
                     order_id: order.id,
-                    status: 'success',
-                    api_response: { ...result.apiResponse, note: `Manual Admin Refill Success via ${supplierLabel}` }
+                    status: alreadySubmitted ? 'processing' : 'success',
+                    api_response: {
+                        ...result.apiResponse,
+                        note: alreadySubmitted
+                            ? `Manual Admin Refill: order already submitted at ${supplierLabel} (idempotency) — kept processing`
+                            : `Manual Admin Refill Success via ${supplierLabel}`
+                    }
                 })
+
+                // Stamp fulfillment_method + supplier reference on the orders row so the
+                // per-supplier status-sync crons (which filter on these) can later move
+                // this order from processing → completed/failed. Without this, a direct
+                // (non-shop) order refulfilled here stays stuck in 'processing' forever.
+                // Reference columns are unconstrained → stamp them first so they always
+                // apply, even on a DB where the eazydata fulfillment_method migration
+                // hasn't run yet.
+                const refUpdate: Record<string, any> = {}
+                if (result.transactionId) {
+                    if (isCodeCraftEnabled) refUpdate.codecraft_reference = result.transactionId
+                    else if (isKingFlexyEnabled) refUpdate.kingflexy_reference = result.transactionId
+                    else if (isEazyDataEnabled) refUpdate.eazydata_reference = result.transactionId
+                    else if (isAgentPortalEnabled) refUpdate.agentportal_reference = result.transactionId
+                    else refUpdate.dakazina_reference = result.transactionId
+                }
+                if (Object.keys(refUpdate).length > 0) {
+                    await supabaseAdmin.from('orders').update(refUpdate).eq('id', order.id)
+                }
+                // fulfillment_method is guarded by orders_fulfillment_method_check
+                // (requires migration 20260713_add_eazydata_fulfillment_method.sql).
+                await supabaseAdmin.from('orders').update({ fulfillment_method: supplierLabel }).eq('id', order.id)
 
                 // Update shop_orders to processing + stamp supplier reference
                 if (order.shop_order_id) {
@@ -191,6 +228,9 @@ export async function POST(request: Request) {
                     }
                     if (isEazyDataEnabled && result.transactionId) {
                         shopOrderUpdate.eazydata_reference = result.transactionId
+                    }
+                    if (isAgentPortalEnabled && result.transactionId) {
+                        shopOrderUpdate.agentportal_reference = result.transactionId
                     }
                     await supabaseAdmin
                         .from('shop_orders')

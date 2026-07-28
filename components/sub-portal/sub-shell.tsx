@@ -16,8 +16,10 @@ import {
   LayoutDashboard,
   ShoppingCart,
   Store,
+  ClipboardList,
   Tag,
   User,
+  Download,
   ExternalLink,
   LogOut,
   Menu,
@@ -30,10 +32,12 @@ const TEAL_DARK = '#155963'
 
 const NAV = [
   { href: '/dashboard/sub', label: 'Dashboard', icon: LayoutDashboard, exact: true },
+  { href: '/dashboard/sub/storefront-orders', label: 'Store Orders', icon: ClipboardList },
   { href: '/dashboard/sub/orders', label: 'My Orders', icon: ShoppingCart },
   { href: '/dashboard/sub/shop', label: 'My Shop', icon: Store },
   { href: '/dashboard/sub/pricing', label: 'Pricing', icon: Tag },
   { href: '/dashboard/sub/profile', label: 'Profile', icon: User },
+  { href: '/dashboard/sub/install', label: 'Install App', icon: Download },
 ]
 
 export function SubPortalShell({ children }: { children: React.ReactNode }) {
@@ -42,16 +46,42 @@ export function SubPortalShell({ children }: { children: React.ReactNode }) {
   const { setTheme } = useTheme()
   const [open, setOpen] = useState(false)
   const [brand, setBrand] = useState<BrandConfig | null>(null)
+  const [ownShopSlug, setOwnShopSlug] = useState<string | null>(null)
 
   // Follow the phone's light/dark setting inside the portal.
   useEffect(() => {
     setTheme('system')
   }, [setTheme])
 
+  // Point the PWA manifest at the portal's own (shop-branded) manifest while in
+  // the portal, so "install" produces a de-branded app scoped to /dashboard/sub.
+  // Restore the app's default manifest on unmount.
+  useEffect(() => {
+    let link = document.querySelector<HTMLLinkElement>('link[rel="manifest"]')
+    const previous = link?.getAttribute('href') ?? null
+    let created = false
+    if (!link) {
+      link = document.createElement('link')
+      link.rel = 'manifest'
+      document.head.appendChild(link)
+      created = true
+    }
+    link.setAttribute('href', '/dashboard/sub/manifest.webmanifest')
+    return () => {
+      const el = document.querySelector<HTMLLinkElement>('link[rel="manifest"]')
+      if (!el) return
+      if (created) el.remove()
+      else if (previous) el.setAttribute('href', previous)
+    }
+  }, [])
+
   useEffect(() => {
     fetch('/api/dashboard/sub/data')
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => d?.brandConfig && setBrand(d.brandConfig))
+      .then((d) => {
+        if (d?.brandConfig) setBrand(d.brandConfig)
+        if (d?.ownShopSlug) setOwnShopSlug(d.ownShopSlug)
+      })
       .catch(() => {})
   }, [])
 
@@ -116,13 +146,15 @@ export function SubPortalShell({ children }: { children: React.ReactNode }) {
               </Link>
             )
           })}
-          {brand?.uplineShopSlug && (
+          {ownShopSlug && (
             <a
-              href={`/shop/${brand.uplineShopSlug}`}
+              href={`/shop/${ownShopSlug}`}
+              target="_blank"
+              rel="noopener noreferrer"
               className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-semibold text-white/80 hover:bg-white/10 hover:text-white transition-colors"
             >
               <ExternalLink className="w-5 h-5 flex-shrink-0" />
-              Visit Store
+              Visit My Store
             </a>
           )}
         </nav>

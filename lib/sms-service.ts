@@ -1,4 +1,5 @@
 import { createServerClient } from '@/lib/supabase'
+import { sendHubtelSMS } from '@/lib/hubtel-sms-service'
 
 // ============================================================
 // Moolre SMS Service — https://api.moolre.com
@@ -36,6 +37,44 @@ export async function sendSMS(options: SMSOptions): Promise<SMSResult> {
         return { success: true, messageId: 'sms_disabled' }
     }
 
+    // Determine active provider from admin_settings (falls back to 'moolre')
+    const provider = await getActiveSmsProvider()
+
+    if (provider === 'hubtel') {
+        return sendHubtelSMS(options)
+    }
+
+    return sendMoolreSMS(options)
+}
+
+// ============================================================
+// PROVIDER ROUTING HELPER
+// ============================================================
+
+/**
+ * Reads the active SMS provider from the admin_settings table.
+ * Returns 'hubtel' | 'moolre'. Defaults to 'moolre' on any error.
+ */
+async function getActiveSmsProvider(): Promise<'hubtel' | 'moolre'> {
+    try {
+        const supabase = createServerClient()
+        const { data } = await supabase
+            .from('admin_settings')
+            .select('value')
+            .eq('key', 'active_sms_provider')
+            .single()
+        if (data && (data as any).value === 'hubtel') return 'hubtel'
+    } catch {
+        // Silently fall back to moolre on DB error
+    }
+    return 'moolre'
+}
+
+// ============================================================
+// MOOLRE SEND (internal)
+// ============================================================
+
+async function sendMoolreSMS(options: SMSOptions): Promise<SMSResult> {
     const apiKey = process.env.MOOLRE_API_KEY
     const senderId = (process.env.MOOLRE_SENDER_ID || 'ArhmsTech').trim()
 
@@ -109,7 +148,7 @@ export async function sendOrderSuccessSMS(
 ) {
     return sendSMS({
         recipient: details.recipientNumber,
-        message: `Your order for ${details.size} has been received and is being processed. You will receive your data in less than 48 hours thank you.\n\nARHMSGh`,
+        message: `Your order for ${details.size} has been received and is being processed. You will receive your data within 2 hours thank you.\n\nARHMSGh`,
     })
 }
 
@@ -216,6 +255,49 @@ export async function sendOrderRefundSMS(
     })
 }
 
+// Sent ONCE at order time when an MTN number must be verified/enabled first
+// (Agent Portal whitelist gate). The order stays pending and auto-delivers after
+// verification (~24h). Do NOT call this from the retry cron — it would spam the
+// customer every few minutes.
+export async function sendMtnVerificationPendingSMS(
+    recipientNumber: string,
+    details: { network: string; size: string }
+) {
+    const displayNumber = recipientNumber.replace(/^233/, '0')
+
+    return sendSMS({
+        recipient: recipientNumber,
+        message: `Your ${details.network} number ${displayNumber} is being verified for the first time. This takes up to 24 hours, after which your ${details.size} data will be delivered automatically. Once your number is verified, future orders are delivered within 5 minutes. Thank you.\n\nARHMSGh`,
+    })
+}
+
+// Sent ONCE at order time for AirtelTigo orders (no verification gate — they
+// deliver quickly). Reassures the recipient that delivery is instant.
+export async function sendAtInstantDeliverySMS(
+    recipientNumber: string,
+    details: { network: string; size: string }
+) {
+    const displayNumber = recipientNumber.replace(/^233/, '0')
+
+    return sendSMS({
+        recipient: recipientNumber,
+        message: `Your ${details.network} ${details.size} data order for ${displayNumber} has been received and will be delivered instantly. Thank you.\n\nARHMSGh`,
+    })
+}
+
+export async function sendOrderFailedSMS(
+    phoneNumber: string,
+    recipientNumber: string,
+    details: { network: string; size: string }
+) {
+    const displayNumber = recipientNumber.replace(/^233/, '0')
+
+    return sendSMS({
+        recipient: phoneNumber,
+        message: `Your ${details.network} ${details.size} order for ${displayNumber} could not be completed and has been marked failed. Please contact support for assistance.\n\nARHMSGh`,
+    })
+}
+
 // ============================================================
 // SHOP ALERT SMS
 // ============================================================
@@ -310,5 +392,24 @@ export async function sendAirtimeCompletedSMS(beneficiaryPhone: string, amount: 
     await sendSMS({
         recipient: beneficiaryPhone,
         message: `Dear customer, your airtime order of GH${amount.toFixed(2)} has been credited successfully. Kindly dial *124# to check your balance thank you.\n\nARHMSGh`,
+    })
+}
+
+// ============================================================
+// USSD RESULT CHECKER SMS
+// ============================================================
+
+export async function sendResultCheckerUSSDSMS(
+    recipientPhone: string,
+    details: { checkerName: string; pin: string; serialNumber: string }
+): Promise<SMSResult> {
+    return sendSMS({
+        recipient: recipientPhone,
+        message:
+            `ARHMS DATA LTD\n` +
+            `Your ${details.checkerName} Result Checker is ready!\n\n` +
+            `PIN: ${details.pin}\n` +
+            `Serial: ${details.serialNumber}\n\n` +
+            `Visit waecdirect.org to check your results.\n\nARHMSGh`,
     })
 }

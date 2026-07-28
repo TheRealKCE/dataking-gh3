@@ -9,7 +9,7 @@ import { cn } from '@/lib/utils'
 import {
     Phone, Mail, MessageCircle, ShoppingCart, Loader2,
     CheckCircle2, AlertCircle, X, Search, Zap, Smartphone, ChevronDown, Check, Menu, Bell,
-    History, TrendingUp, Coins, Calendar, CalendarRange, RefreshCw, Info, Clock, Copy, ArrowRight, AlertTriangle, Users, Target, Sparkles, Download, Share2, GraduationCap
+    History, TrendingUp, Coins, Calendar, CalendarRange, RefreshCw, Info, Clock, Copy, ArrowRight, AlertTriangle, Users, Target, Sparkles, Download, Share2, GraduationCap, Store
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
@@ -230,6 +230,10 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
     const isGlobalAirtimeEnabled = adminSettings['storefront_airtime_enabled'] === 'true'
     const isGlobalMashupEnabled = adminSettings['storefront_mashup_enabled'] === 'true'
     const isGlobalRcEnabled = adminSettings['storefront_rc_enabled'] === 'true'
+
+    // Marketplace ad — defaults ON unless an admin explicitly disables it
+    const isMarketplaceAdEnabled = adminSettings['storefront_marketplace_ad_enabled'] !== 'false'
+    const marketplaceUrl = process.env.NEXT_PUBLIC_MARKETPLACE_URL || 'https://marketplace.arhmsgh.com'
     
     const airtimeNetworks = [
         { id: 'MTN', fee: shop.airtime_fee_mtn || 0, enabled: adminSettings['airtime_enabled_mtn'] !== 'false' },
@@ -244,9 +248,11 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
     const [isExpressMtnHidden, setIsExpressMtnHidden] = useState(adminSettings['express_mtn_hidden'] === 'true')
     const [isStandardMtnHidden, setIsStandardMtnHidden] = useState(adminSettings['standard_mtn_hidden'] === 'true')
 
+    const [webPaymentProvider, setWebPaymentProvider] = useState<'moolre' | 'hubtel' | 'paystack'>('moolre')
+
     useEffect(() => {
         // Bypass ISR cache to get the very latest toggle status
-        fetch('/api/admin-settings?keys=special_mtn_mashup_hidden,express_mtn_hidden,standard_mtn_hidden', { cache: 'no-store' })
+        fetch('/api/admin-settings?keys=special_mtn_mashup_hidden,express_mtn_hidden,standard_mtn_hidden,active_payment_provider_web', { cache: 'no-store' })
             .then(res => res.json())
             .then(data => {
                 if (data && typeof data.special_mtn_mashup_hidden !== 'undefined') {
@@ -257,6 +263,10 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 }
                 if (data && typeof data.standard_mtn_hidden !== 'undefined') {
                     setIsStandardMtnHidden(String(data.standard_mtn_hidden) === 'true')
+                }
+                if (data && data.active_payment_provider_web) {
+                    const val = String(data.active_payment_provider_web)
+                    setWebPaymentProvider(val === 'paystack' ? 'paystack' : val === 'hubtel' ? 'hubtel' : 'moolre')
                 }
             })
             .catch(() => {})
@@ -476,6 +486,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                     packageId: selectedPackage.id,
                     guestPhone: cleanPhone,
                     guestEmail: email.trim() || undefined,
+                    provider: webPaymentProvider,
                 }),
             })
             const data = await res.json()
@@ -489,6 +500,13 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
 
             if (data.gateway === 'paystack') {
                 window.location.href = data.authorization_url
+                return
+            }
+
+            if (data.gateway === 'hubtel') {
+                toast.success(data.message || 'Payment prompt sent! Please approve on your phone.')
+                setPollingRef(data.reference)
+                setLoading(false)
                 return
             }
 
@@ -530,6 +548,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                     useExactAmount: useExact,
                     guestPhone: cleanPhone,
                     guestEmail: airtimeEmail.trim() || undefined,
+                    provider: webPaymentProvider,
                 }),
             })
             const data = await res.json()
@@ -543,6 +562,13 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
 
             if (data.gateway === 'paystack') {
                 window.location.href = data.authorization_url
+                return
+            }
+
+            if (data.gateway === 'hubtel') {
+                toast.success(data.message || 'Payment prompt sent! Please approve on your phone.')
+                setPollingRef(data.reference)
+                setLoading(false)
                 return
             }
 
@@ -623,6 +649,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                     bundlePreference,
                     guestPhone: cleanPhone,
                     guestEmail: mashupEmail.trim() || undefined,
+                    provider: webPaymentProvider,
                 }),
             })
             const data = await res.json()
@@ -632,6 +659,13 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 setLoading(false)
                 return
             }
+            if (data.gateway === 'hubtel') {
+                toast.success(data.message || 'Payment prompt sent! Please approve on your phone.')
+                setPollingRef(data.reference)
+                setLoading(false)
+                return
+            }
+
             try { localStorage.setItem('shop_last_phone', cleanPhone) } catch (_) { }
             setOtpReference(data.reference)
             setOtpOrderType('mashup')
@@ -658,7 +692,8 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                     rcTypeId: selectedRc.id,
                     quantity: rcQuantity,
                     customerPhone: cleanPhone,
-                    customerEmail: rcEmail.trim() || undefined
+                    customerEmail: rcEmail.trim() || undefined,
+                    provider: webPaymentProvider,
                 })
             })
             const data = await res.json()
@@ -670,6 +705,13 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
 
             if (data.gateway === 'paystack') {
                 window.location.href = data.authorization_url
+                return
+            }
+
+            if (data.gateway === 'hubtel') {
+                toast.success(data.message || 'Payment prompt sent! Please approve on your phone.')
+                setPollingRef(data.reference)
+                setLoading(false)
                 return
             }
 
@@ -710,7 +752,8 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 guestPhone: (otpOrderType === 'mashup' ? mashupPhone : airtimePhone).replace(/\s+/g, ''),
                 guestEmail: (otpOrderType === 'mashup' ? mashupEmail : airtimeEmail).trim() || undefined,
                 otpCode: otpCode.trim(),
-                reference: otpReference
+                reference: otpReference,
+                provider: webPaymentProvider
             } : otpOrderType === 'results_checker' ? {
                 shopSlug: shop.shop_slug,
                 rcTypeId: selectedRc?.id,
@@ -718,14 +761,16 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 customerPhone: rcPhone.replace(/\s+/g, ''),
                 customerEmail: rcEmail.trim() || undefined,
                 otpCode: otpCode.trim(),
-                reference: otpReference
+                reference: otpReference,
+                provider: webPaymentProvider
             } : {
                 shopSlug: shop.shop_slug,
                 packageId: selectedPackage?.id,
                 guestPhone: phone.replace(/\s+/g, ''),
                 guestEmail: email.trim() || undefined,
                 otpCode: otpCode.trim(),
-                reference: otpReference
+                reference: otpReference,
+                provider: webPaymentProvider
             }
 
             const endpoint = otpOrderType === 'results_checker' ? '/api/shop/rc/initialize' : '/api/shop/initialize'
@@ -874,6 +919,15 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                     >
                         <Info className="w-4 h-4" /> About Shop
                     </a>
+                    {isMarketplaceAdEnabled && (
+                        <a
+                            href={marketplaceUrl}
+                            target="_blank" rel="noopener noreferrer"
+                            className="flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold text-white/80 hover:bg-white/10 hover:text-white transition-colors"
+                        >
+                            <Store className="w-4 h-4 text-[#FFB800]" /> Buy &amp; Sell Marketplace
+                        </a>
+                    )}
                     {shop.whatsapp_number && (
                         <a
                             href={`https://wa.me/${shop.whatsapp_number}?text=Hello, I need help with ${shop.shop_name}`}
@@ -955,6 +1009,28 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
             </div>
 
             <div className="max-w-2xl mx-auto px-6 pb-40 -mt-6 relative z-20">
+                {/* Marketplace Ad */}
+                {isMarketplaceAdEnabled && (
+                    <a
+                        href={marketplaceUrl}
+                        target="_blank" rel="noopener noreferrer"
+                        className="group relative flex items-center gap-4 mb-6 w-full rounded-2xl border border-amber-300/40 dark:border-amber-500/20 bg-gradient-to-r from-amber-500 via-orange-500 to-rose-500 p-4 shadow-sm overflow-hidden transition-transform hover:scale-[1.01] active:scale-[0.99]"
+                    >
+                        <div className="absolute -right-6 -top-6 w-24 h-24 rounded-full bg-white/10 blur-xl" aria-hidden="true" />
+                        <div className="shrink-0 w-12 h-12 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center border border-white/20">
+                            <Store className="w-6 h-6 text-white" />
+                        </div>
+                        <div className="flex-1 min-w-0 text-left">
+                            <p className="text-[10px] font-black uppercase tracking-widest text-white/80">Marketplace</p>
+                            <p className="text-sm sm:text-base font-black text-white leading-tight">Visit our Marketplace to Buy &amp; Sell</p>
+                            <p className="text-[11px] text-white/85 leading-tight mt-0.5">Phones, fashion, electronics &amp; more</p>
+                        </div>
+                        <div className="shrink-0 flex items-center gap-1 rounded-full bg-white/95 text-gray-900 text-xs font-black px-3 py-2 shadow-sm">
+                            Explore <ArrowRight className="w-3.5 h-3.5 transition-transform group-hover:translate-x-0.5" />
+                        </div>
+                    </a>
+                )}
+
                 {/* Need Help Section */}
                 <div className={cn(
                     "grid gap-3 mb-8 w-full",
@@ -1254,6 +1330,31 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                                         </div>
                                     )}
 
+                                    <div className="space-y-2 pb-2">
+                                        <Label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 block">Pay via</Label>
+                                        <div className="flex gap-1 p-1 rounded-xl bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 w-full">
+                                            {([
+                                                { id: 'moolre', label: 'Moolre' },
+                                                { id: 'hubtel', label: 'Hubtel' },
+                                                { id: 'paystack', label: 'Paystack' },
+                                            ] as const).map(({ id, label }) => (
+                                                <button
+                                                    key={id}
+                                                    type="button"
+                                                    onClick={() => setWebPaymentProvider(id)}
+                                                    className={cn(
+                                                        'flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all',
+                                                        webPaymentProvider === id
+                                                            ? 'bg-white shadow text-gray-900'
+                                                            : 'text-gray-500 hover:text-gray-700'
+                                                    )}
+                                                >
+                                                    {label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
                                     <button
                                         onClick={handleBuyAirtime} disabled={loading || !detectedNetwork || parseFloat(airtimeAmount || '0') <= 0}
                                         className="w-full py-4 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-black text-base uppercase tracking-widest shadow-lg flex justify-center items-center gap-3 transition-transform active:scale-95 disabled:opacity-50 disabled:active:scale-100"
@@ -1350,6 +1451,31 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                                         type="email" value={rcEmail} onChange={(e) => setRcEmail(e.target.value)} placeholder="Email to receive PIN (Optional)"
                                         className="w-full pl-9 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 transition-all ring-[var(--brand-color)]"
                                     />
+                                </div>
+
+                                <div className="space-y-2 pb-2">
+                                    <Label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 block">Pay via</Label>
+                                    <div className="flex gap-1 p-1 rounded-xl bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 w-full">
+                                        {([
+                                            { id: 'moolre', label: 'Moolre' },
+                                            { id: 'hubtel', label: 'Hubtel' },
+                                            { id: 'paystack', label: 'Paystack' },
+                                        ] as const).map(({ id, label }) => (
+                                            <button
+                                                key={id}
+                                                type="button"
+                                                onClick={() => setWebPaymentProvider(id)}
+                                                className={cn(
+                                                    'flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all',
+                                                    webPaymentProvider === id
+                                                        ? 'bg-white shadow text-gray-900'
+                                                        : 'text-gray-500 hover:text-gray-700'
+                                                )}
+                                            >
+                                                {label}
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
 
                                 <button
@@ -1535,6 +1661,31 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                                 type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Your email to receive transaction receipt (Optional)"
                                 className="w-full pl-9 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 transition-all ring-[var(--brand-color)]"
                             />
+                        </div>
+
+                        <div className="space-y-2 pb-2">
+                            <Label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 block">Pay via</Label>
+                            <div className="flex gap-1 p-1 rounded-xl bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 w-full">
+                                {([
+                                    { id: 'moolre', label: 'Moolre' },
+                                    { id: 'hubtel', label: 'Hubtel' },
+                                    { id: 'paystack', label: 'Paystack' },
+                                ] as const).map(({ id, label }) => (
+                                    <button
+                                        key={id}
+                                        type="button"
+                                        onClick={() => setWebPaymentProvider(id)}
+                                        className={cn(
+                                            'flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all',
+                                            webPaymentProvider === id
+                                                ? 'bg-white shadow text-gray-900'
+                                                : 'text-gray-500 hover:text-gray-700'
+                                        )}
+                                    >
+                                        {label}
+                                    </button>
+                                ))}
+                            </div>
                         </div>
 
                         <button

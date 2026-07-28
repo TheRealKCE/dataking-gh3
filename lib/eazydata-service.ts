@@ -21,6 +21,10 @@ interface FulfillmentResponse {
     error?: string
     apiResponse?: any
     isRateLimited?: boolean
+    // True when the supplier rejected the request because THIS order was already
+    // submitted (idempotency-key collision). Not a fresh failure — the order
+    // already lives at the supplier, so callers should stop retrying it as pending.
+    alreadySubmitted?: boolean
 }
 
 interface StatusResponse {
@@ -121,6 +125,16 @@ export async function fulfillOrder(
         console.log(`[EazyData] Order ${orderId} | ${eazydataNetwork} | ${gigVolume}GB | recipient: ${normalizedPhone}`)
         console.log(`[EazyData] Request payload:`, sanitizeForLog(requestBody))
 
+        // Per-attempt idempotency key. It stays constant across THIS call's internal
+        // network retries (so a dropped-connection retry can't double-place the order)
+        // but differs on every separate (re)fulfill invocation. Using the bare orderId
+        // instead permanently poisoned the key: if a prior attempt registered the
+        // idempotency row at the supplier without a deliverable order, every later
+        // refulfill got "duplicate key ... idx_orders_idempotency_user_unique" and
+        // could never actually place the order. A fresh key lets a refulfill create a
+        // real, trackable order at EazyData.
+        const idempotencyKey = `${orderId}-${Date.now()}`
+
         // ── HTTP Fetch with 3-retry logic ───────────────────────────────────
         let response: Response | null = null
         let attempt = 0
@@ -136,7 +150,7 @@ export async function fulfillOrder(
                         'Content-Type': 'application/json',
                         'Accept': 'application/json',
                         'X-API-Key': EAZYDATA_API_KEY,
-                        'Idempotency-Key': orderId, // prevent duplicate orders on retry
+                        'Idempotency-Key': idempotencyKey, // constant across this call's retries; fresh per (re)fulfill
                     },
                     body: JSON.stringify(requestBody),
                 })
@@ -192,6 +206,24 @@ export async function fulfillOrder(
         const errMsg = data?.error || 'Unknown error'
         const errCode = data?.code || ''
 
+        // The supplier stores an idempotency row keyed by our order id. A
+        // duplicate-key error on that constraint means THIS order was already
+        // submitted to EazyData on a prior attempt (we most likely mis-recorded
+        // the first response as a failure). Re-sending with the same key can never
+        // succeed, and re-sending with a new key would risk double-charging — the
+        // order already exists at the supplier. Signal the caller to stop retrying
+        // it as pending and move it to processing instead. Don't trip the circuit
+        // breaker: the supplier is up, this is an expected replay collision.
+        if (/idempotenc/i.test(errMsg)) {
+            console.warn(`[EazyData] Order ${orderId} already submitted (idempotency collision) — signalling processing, not a retry.`)
+            return {
+                success: false,
+                alreadySubmitted: true,
+                error: 'Order already submitted to EazyData (idempotency collision)',
+                apiResponse: sanitizeForLog(data),
+            }
+        }
+
         if (errCode === 'package_out_of_stock') {
             console.warn(`[EazyData] Order ${orderId}: package out of stock — kept pending.`)
         } else if (errCode === 'insufficient_balance') {
@@ -201,7 +233,9 @@ export async function fulfillOrder(
         }
 
         console.warn(`[EazyData] Order ${orderId} not fulfilled: ${errMsg} (${errCode}). Kept pending.`)
-        recordFailure()
+        if (response.status >= 500) {
+            recordFailure()
+        }
         return {
             success: false,
             error: `${errMsg} (${errCode})`,
@@ -252,7 +286,9 @@ export async function checkOrderStatus(orderId: string): Promise<StatusResponse>
             return { success: true, status: mapped, message: order.status, data: order }
         }
 
-        recordFailure()
+        if (response.status >= 500) {
+            recordFailure()
+        }
         return { success: false, status: 'pending', message: data?.error || 'Failed to check status' }
 
     } catch (error) {

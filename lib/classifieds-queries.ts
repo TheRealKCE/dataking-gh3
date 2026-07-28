@@ -270,7 +270,8 @@ export async function createListing(sellerId: string, listing: {
 }
 
 export async function updateListing(listingId: string, updates: Partial<ClassifiedListing>) {
-    const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey)
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+    const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey)
 
     const { data, error } = await supabase
         .from('classified_listings')
@@ -284,7 +285,8 @@ export async function updateListing(listingId: string, updates: Partial<Classifi
 }
 
 export async function deleteListing(listingId: string) {
-    const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey)
+    const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
+    const supabase = createClient<Database>(supabaseUrl, supabaseServiceKey)
 
     const { error } = await supabase
         .from('classified_listings')

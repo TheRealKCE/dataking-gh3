@@ -13,7 +13,6 @@ import { Loader2, Lock, CheckCircle, Eye, EyeOff, AlertTriangle } from 'lucide-r
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 import { BackgroundBubbles } from '@/components/background-bubbles'
-import { FloatingWhatsApp } from '@/components/floating-whatsapp'
 
 export default function UpdatePasswordPage() {
     const router = useRouter()
@@ -85,7 +84,6 @@ export default function UpdatePasswordPage() {
     return (
         <div className="relative min-h-screen w-full flex flex-col items-center justify-center px-4 py-8 sm:py-10 overflow-y-auto">
             <BackgroundBubbles scrollable />
-            <FloatingWhatsApp variant="auth" />
             <div className="w-full max-w-[380px] sm:max-w-md relative z-10 flex flex-col items-center">
                 {/* Logo */}
                 <div className="text-center mb-6">

@@ -96,9 +96,9 @@ const faqItems = [
 ]
 
 // ── Dot indicators ───────────────────────────────────────────────────────────────
-function SlideDots({ current, total, onDotClick, dark }: { current: number; total: number; onDotClick: (i: number) => void; dark?: boolean }) {
+function SlideDots({ current, total, onDotClick }: { current: number; total: number; onDotClick: (i: number) => void }) {
     return (
-        <div className="flex items-center justify-between mt-6 pt-5" style={{ borderTop: dark ? '1px solid rgba(255,255,255,0.08)' : '1px solid rgba(37,99,235,0.10)' }}>
+        <div className="flex items-center justify-between mt-6 pt-5 border-t border-black/10 dark:border-white/10">
             <div className="flex items-center gap-1.5">
                 {Array.from({ length: total }).map((_, i) => (
                     <button
@@ -110,16 +110,15 @@ function SlideDots({ current, total, onDotClick, dark }: { current: number; tota
                             width: i === current ? 28 : 8,
                             borderRadius: 99,
                             transition: 'all 0.3s ease',
-                            backgroundColor: i === current ? BRAND_BLUE : dark ? 'rgba(255,255,255,0.18)' : 'rgba(37,99,235,0.16)',
                         }}
+                        className={i === current ? 'bg-[#2563eb]' : 'bg-black/10 dark:bg-white/20'}
                         aria-label={`Slide ${i + 1}`}
                     />
                 ))}
             </div>
             <Link
                 href="/shop/status"
-                className="flex items-center gap-1.5 text-[10px] font-bold transition-colors active:opacity-70"
-                style={{ color: dark ? 'rgba(255,255,255,0.3)' : 'rgba(37,99,235,0.32)' }}
+                className="flex items-center gap-1.5 text-[10px] font-bold transition-colors active:opacity-70 text-black/30 dark:text-white/30"
             >
                 <CheckCircle2 className="w-3 h-3" /> Track an Order
             </Link>
@@ -128,21 +127,20 @@ function SlideDots({ current, total, onDotClick, dark }: { current: number; tota
 }
 
 // ── Hero CTA buttons ──────────────────────────────────────────────────────────────
-function HeroBtn({ href, variant = 'primary', isDark = true, children, className }: { href: string; variant?: 'primary' | 'white' | 'dark'; isDark?: boolean; children: React.ReactNode; className?: string }) {
-    const base: React.CSSProperties = {
-        display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
-        width: '100%', height: 56, borderRadius: 999,
-        fontWeight: 800, fontSize: 13, letterSpacing: '0.08em', textTransform: 'uppercase',
-        cursor: 'pointer', transition: 'opacity 0.2s, transform 0.2s', textDecoration: 'none',
-        border: 'none', outline: 'none',
+function HeroBtn({ href, variant = 'primary', children, className }: { href: string; variant?: 'primary' | 'white' | 'dark'; children: React.ReactNode; className?: string }) {
+    const baseClasses = 'flex items-center justify-center gap-1.5 w-full h-14 rounded-full font-extrabold text-[13px] tracking-widest uppercase cursor-pointer transition-all active:scale-95 sm:h-[42px] sm:w-auto sm:px-6'
+    
+    let variantClasses = ''
+    if (variant === 'primary') {
+        variantClasses = 'bg-gradient-to-r from-[#7c3aed] via-[#2563eb] to-[#0ea5e9] text-white shadow-[0_12px_30px_rgba(37,99,235,0.28)]'
+    } else if (variant === 'white') {
+        variantClasses = 'bg-transparent dark:bg-white text-[#111] border-[1.5px] border-[#2563eb]/20 dark:border-white/15'
+    } else if (variant === 'dark') {
+        variantClasses = 'bg-[#2563eb]/5 dark:bg-white/5 text-[#111] dark:text-white border-[1.5px] border-[#2563eb]/10 dark:border-white/10'
     }
-    const styles: Record<string, React.CSSProperties> = {
-        primary: { ...base, backgroundImage: BRAND_GRADIENT, color: '#fff', boxShadow: '0 12px 30px rgba(37,99,235,0.28)' },
-        white:   { ...base, backgroundColor: isDark ? '#fff' : 'transparent', color: '#111', border: isDark ? '1.5px solid rgba(37,99,235,0.16)' : '1.5px solid rgba(37,99,235,0.22)' },
-        dark:    { ...base, backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(37,99,235,0.06)', color: isDark ? '#fff' : '#111', border: isDark ? '1.5px solid rgba(255,255,255,0.12)' : '1.5px solid rgba(37,99,235,0.14)' },
-    }
+
     return (
-        <Link href={href} style={styles[variant]} className={cn('active:scale-95 sm:h-[42px] sm:w-auto sm:px-6', className)}>
+        <Link href={href} className={cn(baseClasses, variantClasses, className)}>
             {children}
         </Link>
     )
@@ -173,8 +171,6 @@ export function LandingClientShell({
     initialFeaturedListings = [],
 }: LandingClientShellProps) {
     const router = useRouter()
-    const { resolvedTheme } = useTheme()
-    const isDark = resolvedTheme !== 'light'
     const [headerScrolled, setHeaderScrolled] = useState(false)
     const [guestUrl] = useState(initialGuestUrl)
     const [adminPhone] = useState(initialAdminPhone)
@@ -218,17 +214,13 @@ export function LandingClientShell({
             : 'opacity-0 translate-x-5 pointer-events-none'
 
     return (
-        <div
-            className={cn('min-h-screen text-foreground overflow-x-hidden', !isDark && 'bg-background')}
-            style={isDark ? { background: 'linear-gradient(160deg, #020617 0%, #070c1f 40%, #020617 100%)' } : undefined}
-        >
+        <div className="min-h-screen text-foreground overflow-x-hidden bg-background dark:bg-[linear-gradient(160deg,#020617_0%,#070c1f_40%,#020617_100%)]">
 
             {/* ══ NAV ══════════════════════════════════════════════════════════════ */}
             <nav className={cn(
                 'fixed top-0 w-full z-[100] transition-all duration-500 h-16 sm:h-20 flex items-center',
-                headerScrolled ? 'backdrop-blur-2xl border-b shadow-sm' : '',
-                headerScrolled ? (isDark ? 'border-white/10' : 'border-black/10') : ''
-            )} style={{ backgroundColor: headerScrolled ? (isDark ? 'rgba(2,6,23,0.97)' : 'rgba(255,255,255,0.97)') : 'transparent' }}>
+                headerScrolled ? 'backdrop-blur-2xl border-b shadow-sm border-black/10 dark:border-white/10 bg-white/95 dark:bg-[#020617]/95' : 'bg-transparent'
+            )}>
                 <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-10 w-full flex items-center justify-between">
                     <a href="#" className="flex items-center gap-2 min-w-0">
                         <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-xl overflow-hidden bg-white flex items-center justify-center shadow-md flex-shrink-0">
@@ -236,14 +228,14 @@ export function LandingClientShell({
                                 <Image src="/arhms-logo.png" alt="ARHMS Logo" fill className="object-contain" priority />
                             </div>
                         </div>
-                        <span className="font-black text-sm sm:text-base lg:text-lg tracking-tight truncate" style={{ color: isDark ? '#ffffff' : '#111111' }}>
+                        <span className="font-black text-sm sm:text-base lg:text-lg tracking-tight truncate text-[#111111] dark:text-white">
                             ARHMS <span className="hidden sm:inline" style={{ color: BRAND_BLUE }}>TECHNOLOGIES</span>
                         </span>
                     </a>
 
                     <div className="hidden md:flex items-center gap-7">
                         {[['Products','#features'],['Marketplace','#marketplace'],['Wallet','#plans'],['Resell','#plans'],['AFA','#support']].map(([l,h]) => (
-                            <a key={l} href={h} className="text-xs font-semibold transition-colors" style={{ color: isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.5)' }}>{l}</a>
+                            <a key={l} href={h} className="text-xs font-semibold transition-colors text-black/50 dark:text-white/60">{l}</a>
                         ))}
                     </div>
 
@@ -255,10 +247,10 @@ export function LandingClientShell({
                             </Link>
                         ) : (
                             <>
-                                <Link href="/dashboard/install" className="hidden sm:flex items-center gap-1.5 text-xs font-bold rounded-full px-3 h-8 transition-colors" style={{ color: isDark ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.6)', border: isDark ? '1px solid rgba(255,255,255,0.2)' : '1px solid rgba(0,0,0,0.15)' }}>
+                                <Link href="/dashboard/install" className="hidden sm:flex items-center gap-1.5 text-xs font-bold rounded-full px-3 h-8 transition-colors text-black/60 dark:text-white/70 border border-black/15 dark:border-white/20">
                                     <Smartphone className="w-3 h-3" /> Install App
                                 </Link>
-                                <Link href="/auth/login" className="text-sm font-bold px-3 h-9 flex items-center transition-colors" style={{ color: isDark ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.7)' }}>
+                                <Link href="/auth/login" className="text-sm font-bold px-3 h-9 flex items-center transition-colors text-black/70 dark:text-white/80">
                                     Login
                                 </Link>
                                 <Link href="/auth/signup" className="text-sm font-black text-white h-9 px-5 rounded-full flex items-center active:scale-95 transition-transform" style={{ backgroundImage: BRAND_GRADIENT }}>
@@ -282,23 +274,19 @@ export function LandingClientShell({
                 }}
             >
                 {/* Background ambience — light mode only */}
-                {!isDark && (
-                    <div className="pointer-events-none absolute inset-0 overflow-hidden">
-                        <div className="absolute -top-20 left-1/2 -translate-x-1/2 w-[600px] h-[400px] rounded-full" style={{ background: 'radial-gradient(ellipse, rgba(37,99,235,0.08) 0%, transparent 70%)', filter: 'blur(40px)' }} />
-                        <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[500px] h-[500px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(99,102,241,0.05) 0%, transparent 65%)', filter: 'blur(50px)' }} />
-                        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[560px] h-[200px] rounded-full" style={{ background: 'radial-gradient(ellipse, rgba(37,99,235,0.06) 0%, transparent 70%)', filter: 'blur(30px)' }} />
-                    </div>
-                )}
+                <div className="pointer-events-none absolute inset-0 overflow-hidden dark:hidden">
+                    <div className="absolute -top-20 left-1/2 -translate-x-1/2 w-[600px] h-[400px] rounded-full" style={{ background: 'radial-gradient(ellipse, rgba(37,99,235,0.08) 0%, transparent 70%)', filter: 'blur(40px)' }} />
+                    <div className="absolute top-1/3 left-1/2 -translate-x-1/2 w-[500px] h-[500px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(99,102,241,0.05) 0%, transparent 65%)', filter: 'blur(50px)' }} />
+                    <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[560px] h-[200px] rounded-full" style={{ background: 'radial-gradient(ellipse, rgba(37,99,235,0.06) 0%, transparent 70%)', filter: 'blur(30px)' }} />
+                </div>
 
                 {/* Background glow orbs — dark mode only */}
-                {isDark && (
-                    <div className="pointer-events-none absolute inset-0 overflow-hidden">
-                        <div className="absolute -top-24 -right-24 w-[700px] h-[700px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(79,70,229,0.5) 0%, transparent 62%)', filter: 'blur(44px)' }} />
-                        <div className="absolute top-1/4 -left-48 w-[560px] h-[560px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(37,99,235,0.3) 0%, transparent 68%)', filter: 'blur(32px)' }} />
-                        <div className="absolute bottom-0 right-1/3 w-[500px] h-[500px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(37,99,235,0.16) 0%, transparent 65%)', filter: 'blur(52px)' }} />
-                        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[500px] rounded-full" style={{ background: 'radial-gradient(ellipse, rgba(124,58,237,0.22) 0%, transparent 58%)', filter: 'blur(60px)' }} />
-                    </div>
-                )}
+                <div className="pointer-events-none absolute inset-0 overflow-hidden hidden dark:block">
+                    <div className="absolute -top-24 -right-24 w-[700px] h-[700px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(79,70,229,0.5) 0%, transparent 62%)', filter: 'blur(44px)' }} />
+                    <div className="absolute top-1/4 -left-48 w-[560px] h-[560px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(37,99,235,0.3) 0%, transparent 68%)', filter: 'blur(32px)' }} />
+                    <div className="absolute bottom-0 right-1/3 w-[500px] h-[500px] rounded-full" style={{ background: 'radial-gradient(circle, rgba(37,99,235,0.16) 0%, transparent 65%)', filter: 'blur(52px)' }} />
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[800px] h-[500px] rounded-full" style={{ background: 'radial-gradient(ellipse, rgba(124,58,237,0.22) 0%, transparent 58%)', filter: 'blur(60px)' }} />
+                </div>
 
                 <div className="relative z-10 w-full max-w-sm mx-auto flex flex-col items-center gap-4 sm:max-w-lg">
 
@@ -311,22 +299,22 @@ export function LandingClientShell({
 
                     {/* Brand name */}
                     <div className="text-center -mt-1">
-                        <p className="font-black text-2xl sm:text-3xl tracking-tight" style={{ color: isDark ? '#ffffff' : '#111111' }}>
+                        <p className="font-black text-2xl sm:text-3xl tracking-tight text-[#111111] dark:text-white">
                             ARHMS <span style={{ color: BRAND_BLUE }}>TECHNOLOGIES</span>
                         </p>
-                        <p className="text-[10px] font-bold uppercase tracking-[0.28em] mt-1" style={{ color: isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.4)' }}>
+                        <p className="text-[10px] font-bold uppercase tracking-[0.28em] mt-1 text-black/40 dark:text-white/40">
                             Smart Solutions. Endless Possibilities.
                         </p>
                     </div>
 
                     {/* Badge */}
-                    <div className="flex items-center gap-2 px-4 py-2 rounded-full border" style={{ backgroundColor: isDark ? 'rgba(255,255,255,0.07)' : 'rgba(37,99,235,0.05)', borderColor: 'rgba(37,99,235,0.28)' }}>
+                    <div className="flex items-center gap-2 px-4 py-2 rounded-full border bg-[#2563eb]/5 dark:bg-white/5 border-[#2563eb]/30">
                         <Zap className="w-3.5 h-3.5" style={{ color: BRAND_BLUE, fill: BRAND_BLUE }} />
                         <span className="text-[10px] font-black uppercase tracking-[0.2em] text-foreground/80">Ultra Fast Instant Delivery</span>
                     </div>
 
                     {/* Radial glow behind card — dark mode only */}
-                    {isDark && <div className="pointer-events-none absolute left-1/2 -translate-x-1/2" style={{ top: '8%', width: 440, height: 560, borderRadius: '50%', background: 'radial-gradient(ellipse, rgba(37,99,235,0.2) 0%, rgba(79,70,229,0.12) 40%, transparent 70%)', filter: 'blur(52px)', zIndex: 0 }} />}
+                    <div className="pointer-events-none absolute left-1/2 -translate-x-1/2 hidden dark:block" style={{ top: '8%', width: 440, height: 560, borderRadius: '50%', background: 'radial-gradient(ellipse, rgba(37,99,235,0.2) 0%, rgba(79,70,229,0.12) 40%, transparent 70%)', filter: 'blur(52px)', zIndex: 0 }} />
 
                     {/* ── Carousel ─────────────────────────────── */}
                     <div className="w-full relative z-10" style={{ minHeight: 640 }}>
@@ -341,10 +329,10 @@ export function LandingClientShell({
                                 Ghana&apos;s all-in-one platform for mobile data, airtime, Results Checkers, and business growth. Instant delivery, always.
                             </p>
                             <div className="flex flex-col gap-2.5">
-                                <HeroBtn href="/auth/login" variant="primary" isDark={isDark}>Sign In</HeroBtn>
-                                <HeroBtn href="/auth/signup" variant="white" isDark={isDark}>Create Account</HeroBtn>
-                                {isValidGuestUrl && <HeroBtn href={guestUrl} variant="dark" isDark={isDark}><Store className="w-4 h-4" /> Buy as Guest</HeroBtn>}
-                                <HeroBtn href="/dashboard/install" variant="dark" isDark={isDark}>
+                                <HeroBtn href="/auth/login" variant="primary">Sign In</HeroBtn>
+                                <HeroBtn href="/auth/signup" variant="white">Create Account</HeroBtn>
+                                {isValidGuestUrl && <HeroBtn href={guestUrl} variant="dark"><Store className="w-4 h-4" /> Buy as Guest</HeroBtn>}
+                                <HeroBtn href="/dashboard/install" variant="dark">
                                     <Smartphone className="w-4 h-4" />
                                     Download App
                                     <span className="flex items-center gap-1 ml-1" style={{ opacity: 0.5 }}>
@@ -354,7 +342,7 @@ export function LandingClientShell({
                                     </span>
                                 </HeroBtn>
                             </div>
-                            <SlideDots current={0} total={SLIDE_COUNT} onDotClick={setSlide} dark={isDark} />
+                            <SlideDots current={0} total={SLIDE_COUNT} onDotClick={setSlide} />
                         </div>
 
                         {/* Slide 2 — Result Checker */}
@@ -374,7 +362,7 @@ export function LandingClientShell({
                                 ))}
                             </div>
                             <HeroBtn href="/dashboard/results-checker" variant="primary"><GraduationCap className="w-4 h-4" /> Check Results Now</HeroBtn>
-                            <SlideDots current={1} total={SLIDE_COUNT} onDotClick={setSlide} dark={isDark} />
+                            <SlideDots current={1} total={SLIDE_COUNT} onDotClick={setSlide} />
                         </div>
 
                         {/* Slide 3 — Create Your Shop */}
@@ -400,7 +388,7 @@ export function LandingClientShell({
                                     ))}
                                 </div>
                                 <HeroBtn href="/auth/signup" variant="primary"><Store className="w-4 h-4" /> Open Your Shop</HeroBtn>
-                                <SlideDots current={2} total={SLIDE_COUNT} onDotClick={setSlide} dark={isDark} />
+                                <SlideDots current={2} total={SLIDE_COUNT} onDotClick={setSlide} />
                             </div>
                         </div>
 
@@ -421,7 +409,7 @@ export function LandingClientShell({
                                 ))}
                             </div>
                             <HeroBtn href="/auth/signup" variant="primary"><Code2 className="w-4 h-4" /> Get API Access</HeroBtn>
-                            <SlideDots current={3} total={SLIDE_COUNT} onDotClick={setSlide} dark={isDark} />
+                            <SlideDots current={3} total={SLIDE_COUNT} onDotClick={setSlide} />
                         </div>
 
                         {/* Slide 5 — Marketplace */}
@@ -441,7 +429,7 @@ export function LandingClientShell({
                                 ))}
                             </div>
                             <HeroBtn href={process.env.NEXT_PUBLIC_MARKETPLACE_URL || 'https://marketplace.arhmsgh.com'} variant="primary"><Store className="w-4 h-4" /> Explore Marketplace</HeroBtn>
-                            <SlideDots current={4} total={SLIDE_COUNT} onDotClick={setSlide} dark={isDark} />
+                            <SlideDots current={4} total={SLIDE_COUNT} onDotClick={setSlide} />
                         </div>
                     </div>
 

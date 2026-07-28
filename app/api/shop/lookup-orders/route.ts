@@ -1,13 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-
-// Service-role client — bypasses RLS completely
-const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!
-)
+import { createServerClient } from '@/lib/supabase'
 
 export async function GET(req: NextRequest) {
+    // Service-role client — bypasses RLS completely.
+    const supabaseAdmin = createServerClient()
+
     const { searchParams } = new URL(req.url)
     const phone = searchParams.get('phone')
     const reference = searchParams.get('reference')

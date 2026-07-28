@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { checkPaymentStatus } from '@/lib/moolre-payment-service'
-import { processCompletedWalletPayment, processCompletedUpgradePayment } from '@/lib/payments'
+import { processCompletedWalletPayment, processCompletedUpgradePayment, processCompletedDealerSubscription } from '@/lib/payments'
 import { Redis } from '@upstash/redis'
 
 const redis = Redis.fromEnv()
@@ -88,6 +88,20 @@ export async function GET(request: NextRequest) {
                             await processCompletedUpgradePayment(payment.reference, mappedEventData)
                             results.walletCredited++
                             console.log(`[CronMoolre] ✅ Agent upgrade payment ${payment.reference} credited`)
+                        } else if (
+                            payment.reference.startsWith('dealer_sub_') ||
+                            metadata.upgrade_type === 'dealer_subscription'
+                        ) {
+                            // Process dealer subscription payments
+                            results.walletChecked++
+                            const mappedEventData = {
+                                reference: payment.reference,
+                                amount: paidAmountPesewas,
+                                metadata,
+                            }
+                            await processCompletedDealerSubscription(payment.reference, mappedEventData)
+                            results.walletCredited++
+                            console.log(`[CronMoolre] ✅ Dealer subscription payment ${payment.reference} activated`)
                         } else {
                             // Process wallet top-up payments
                             results.walletChecked++

@@ -104,6 +104,31 @@ function recordFailure() {
     }
 }
 
+// ─── Response Helpers ─────────────────────────────────────────────────────────
+// CodeCraft returns status as number 200, string '200', or legacy string 'success'
+function isStatus200(data: any): boolean {
+    return data?.status === 200 || data?.status === '200' || data?.status === 'success'
+}
+
+async function parseJsonSafe(response: Response, logPrefix: string): Promise<any | null> {
+    const rawText = await response.text()
+    try {
+        return JSON.parse(rawText)
+    } catch (e) {
+        console.error(`${logPrefix} Non-JSON response (HTTP ${response.status}):`, rawText.slice(0, 300))
+        return null
+    }
+}
+
+// Ghana local format (0XXXXXXXXX) as expected by CodeCraft
+function normalizePhone(phoneNumber: string): string {
+    let normalized = (phoneNumber || '').trim().replace(/[\s-]/g, '')
+    if (normalized.startsWith('+')) normalized = normalized.slice(1)
+    if (normalized.startsWith('233')) return '0' + normalized.slice(3)
+    if (!normalized.startsWith('0')) return '0' + normalized
+    return normalized
+}
+
 // ─── Bundle Mapping Cache (Two-Tier: Memory + Supabase) ───────────────────────
 /**
  * Fetch available packages from CodeCraft and cache in memory + Supabase.
@@ -279,9 +304,7 @@ export async function fulfillOrder(
         }
 
         // ── Phone Normalization ─────────────────────────────────────────────
-        let normalizedPhone = phoneNumber
-        if (normalizedPhone.startsWith('233')) normalizedPhone = '0' + normalizedPhone.slice(3)
-        else if (!normalizedPhone.startsWith('0')) normalizedPhone = '0' + normalizedPhone
+        const normalizedPhone = normalizePhone(phoneNumber)
 
         const requestBody = {
             recipient_number: normalizedPhone,
@@ -336,26 +359,21 @@ export async function fulfillOrder(
         }
 
         // ── Attempt JSON Parse ──────────────────────────────────────────────
-        const rawText = await response.text()
-        let data: any
-        try {
-            data = JSON.parse(rawText)
-        } catch (e) {
-            console.error(`[CodeCraft] Non-JSON response (HTTP ${response.status}):`, rawText.slice(0, 300))
+        const data = await parseJsonSafe(response, '[CodeCraft]')
+        if (!data) {
             recordFailure()
             return { success: false, error: `Supplier returned unexpected response format (HTTP ${response.status})` }
         }
         console.log(`[CodeCraft] API response received`, { status: response.status, ok: response.ok })
 
         // ── Resilient Success Detection ─────────────────────────────────────
-        // CodeCraft may return status as number 200, string '200', or string 'success'
         // reference_id is always at top level — never nested
-        // 100 = low balance, 101 = out of stock, 500 = system error,
-        // 102 = agent not found, 103 = price not found, 555 = network not found
+        // 100 = admin wallet low, 101 = out of stock, 102 = agent not found,
+        // 103 = price not found, 402 = insufficient wallet, 409 = duplicate reference,
+        // 422 = invalid/unverified number, 500 = system error, 502 = upstream/SOAP failure,
+        // 503 = BigTime service unavailable, 555 = network not found
         // ALL non-success → keep order pending
-        const isSuccess = response.ok &&
-            (data.status === 200 || data.status === 'success' || data.status === '200') &&
-            data.reference_id
+        const isSuccess = response.ok && isStatus200(data) && data.reference_id
         if (isSuccess) {
             recordSuccess()
             return {
@@ -370,7 +388,14 @@ export async function fulfillOrder(
         const reasonCode = data.status
         const reasonMsg = data.message || 'Unknown error'
         console.warn(`[CodeCraft] Order ${orderId} not fulfilled. Code: ${reasonCode} — ${reasonMsg}. Order kept pending.`)
-        recordFailure()
+        
+        // ONLY open circuit breaker for actual supplier infrastructure/system failures,
+        // NOT for user/validation errors (422 unverified number) or funding errors
+        // (100 admin wallet low, 101 out of stock, 402 insufficient wallet)
+        const INFRA_FAILURE_CODES = [500, 502, 503, 555]
+        if (response.status >= 500 || INFRA_FAILURE_CODES.includes(Number(reasonCode))) {
+            recordFailure()
+        }
         return {
             success: false,
             error: `[${reasonCode}] ${reasonMsg}`,
@@ -387,29 +412,31 @@ export async function fulfillOrder(
 // ─── Order Status Check ────────────────────────────────────────────────────────
 /**
  * Check the status of an existing CodeCraft order.
- * Uses different endpoints for regular vs BigTime based on network.
+ * GET /status_regular.php?reference_id=...  (orders_agent)
+ * GET /status_bigtime.php?reference_id=...  (special_offers_orders)
+ * GET /status_console.php?reference_id=...  (console orders)
  */
 export async function checkOrderStatus(
     referenceId: string,
-    packageType: 'regular' | 'bigtime'
+    packageType: 'regular' | 'bigtime' | 'console'
 ): Promise<StatusResponse> {
 
     if (!checkCircuit()) return { success: false, status: 'pending', message: 'Service unavailable (circuit open)' }
     if (!CODECRAFT_API_KEY) return { success: false, status: 'pending', message: 'API key not configured' }
 
-    const endpoint = packageType === 'bigtime'
-        ? `${CODECRAFT_API_BASE_URL}/response_big_time.php`
-        : `${CODECRAFT_API_BASE_URL}/response_regular.php`
+    const statusPath =
+        packageType === 'bigtime' ? 'status_bigtime.php'
+            : packageType === 'console' ? 'status_console.php'
+                : 'status_regular.php'
+    const endpoint = `${CODECRAFT_API_BASE_URL}/${statusPath}?reference_id=${encodeURIComponent(referenceId)}`
 
     try {
         const response = await fetch(endpoint, {
-            method: 'POST',
+            method: 'GET',
             headers: {
-                'Content-Type': 'application/json',
                 'Accept': 'application/json',
                 'x-api-key': CODECRAFT_API_KEY,
             },
-            body: JSON.stringify({ reference_id: referenceId }),
         })
 
         const rawText = await response.text()
@@ -422,7 +449,7 @@ export async function checkOrderStatus(
             return { success: false, status: 'pending', message: `Unexpected response format (HTTP ${response.status})` }
         }
 
-        if (response.ok && data.status === 200 && data.success) {
+        if (response.ok && isStatus200(data) && data.success !== false) {
             recordSuccess()
             return {
                 success: true,
@@ -432,12 +459,237 @@ export async function checkOrderStatus(
             }
         }
 
-        recordFailure()
+        if (response.status >= 500 || data.status === 500 || data.status === 502 || data.status === 503) {
+            recordFailure()
+        }
         return { success: false, status: 'pending', message: data.message || 'Failed to check status' }
 
     } catch (error) {
         recordFailure()
         return { success: false, status: 'pending', message: 'Connection error during status check' }
+    }
+}
+
+// ─── Bulk Order Status ─────────────────────────────────────────────────────────
+/**
+ * Paginated status listing for the authenticated agent's orders.
+ * GET /status_bulk.php  (regular)  |  GET /status_bigtime_bulk.php  (BigTime)
+ * Max 100 orders per request.
+ */
+export async function checkBulkOrderStatus(
+    packageType: 'regular' | 'bigtime',
+    page = 1,
+    limit = 100
+): Promise<{
+    success: boolean
+    orders: any[]
+    pagination?: any
+    message?: string
+}> {
+    if (!CODECRAFT_API_KEY) return { success: false, orders: [], message: 'API key not configured' }
+
+    const path = packageType === 'bigtime' ? 'status_bigtime_bulk.php' : 'status_bulk.php'
+    const safeLimit = Math.min(Math.max(limit, 1), 100)
+    const endpoint = `${CODECRAFT_API_BASE_URL}/${path}?page=${page}&limit=${safeLimit}`
+
+    try {
+        const response = await fetch(endpoint, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'x-api-key': CODECRAFT_API_KEY,
+            },
+        })
+
+        const data = await parseJsonSafe(response, '[CodeCraft BulkStatus]')
+        if (!data) return { success: false, orders: [], message: `Unexpected response format (HTTP ${response.status})` }
+
+        if (response.ok && isStatus200(data) && data.success !== false) {
+            return {
+                success: true,
+                orders: data.data?.orders || [],
+                pagination: data.data?.pagination,
+                message: data.message,
+            }
+        }
+
+        return { success: false, orders: [], message: data.message || 'Failed to fetch bulk status' }
+    } catch (error: any) {
+        return { success: false, orders: [], message: error.message || 'Connection error during bulk status check' }
+    }
+}
+
+// ─── Phone Verification ────────────────────────────────────────────────────────
+/**
+ * POST /verify-phone.php — check whether a number exists in the beneficiary list.
+ * Does not create an order and does not deduct wallet balance.
+ * Rate limit: 100 HTTP requests per minute (a bulk call of 100 numbers counts as one).
+ */
+export async function verifyPhoneNumber(phoneNumber: string): Promise<{
+    success: boolean
+    verified: boolean
+    isRateLimited?: boolean
+    message?: string
+}> {
+    if (!CODECRAFT_API_KEY) return { success: false, verified: false, message: 'API key not configured' }
+
+    try {
+        const response = await fetch(`${CODECRAFT_API_BASE_URL}/verify-phone.php`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'x-api-key': CODECRAFT_API_KEY,
+            },
+            body: JSON.stringify({ phone_number: normalizePhone(phoneNumber) }),
+        })
+
+        if (response.status === 429) {
+            return { success: false, verified: false, isRateLimited: true, message: 'Rate limit exceeded (100 requests/minute)' }
+        }
+
+        const data = await parseJsonSafe(response, '[CodeCraft VerifyPhone]')
+        if (!data) return { success: false, verified: false, message: `Unexpected response format (HTTP ${response.status})` }
+
+        // 200 = verified, 422 = valid number but not in beneficiary list
+        return {
+            success: isStatus200(data),
+            verified: data.data?.verified === true,
+            message: data.data?.message || data.message,
+        }
+    } catch (error: any) {
+        return { success: false, verified: false, message: error.message || 'Connection error during phone verification' }
+    }
+}
+
+/**
+ * Bulk variant of verifyPhoneNumber — 1 to 100 numbers per request.
+ */
+export async function verifyPhoneNumbers(phoneNumbers: string[]): Promise<{
+    success: boolean
+    summary?: { total: number; verified: number; unverified: number; invalid: number }
+    results: any[]
+    isRateLimited?: boolean
+    message?: string
+}> {
+    if (!CODECRAFT_API_KEY) return { success: false, results: [], message: 'API key not configured' }
+    if (phoneNumbers.length < 1 || phoneNumbers.length > 100) {
+        return { success: false, results: [], message: 'Bulk verification accepts between 1 and 100 numbers' }
+    }
+
+    try {
+        const response = await fetch(`${CODECRAFT_API_BASE_URL}/verify-phone.php`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'x-api-key': CODECRAFT_API_KEY,
+            },
+            body: JSON.stringify({ phone_numbers: phoneNumbers.map(normalizePhone) }),
+        })
+
+        if (response.status === 429) {
+            return { success: false, results: [], isRateLimited: true, message: 'Rate limit exceeded (100 requests/minute)' }
+        }
+
+        const data = await parseJsonSafe(response, '[CodeCraft VerifyPhone Bulk]')
+        if (!data) return { success: false, results: [], message: `Unexpected response format (HTTP ${response.status})` }
+
+        return {
+            success: isStatus200(data),
+            summary: data.data?.summary,
+            results: data.data?.results || [],
+            message: data.message,
+        }
+    } catch (error: any) {
+        return { success: false, results: [], message: error.message || 'Connection error during bulk verification' }
+    }
+}
+
+// ─── Cancel Pending MTN EXCEL Order ────────────────────────────────────────────
+/**
+ * POST /cancel_mtn.php — cancel a pending MTN EXCEL order and refund the wallet.
+ * Only orders whose current status is "Pending" are eligible.
+ */
+export async function cancelPendingMtnOrder(referenceId: string): Promise<{
+    success: boolean
+    cancelledOrders?: number
+    refundAmount?: number
+    newWallet?: number
+    message?: string
+}> {
+    if (!CODECRAFT_API_KEY) return { success: false, message: 'API key not configured' }
+
+    try {
+        const response = await fetch(`${CODECRAFT_API_BASE_URL}/cancel_mtn.php`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json',
+                'x-api-key': CODECRAFT_API_KEY,
+            },
+            body: JSON.stringify({ reference_id: referenceId }),
+        })
+
+        const data = await parseJsonSafe(response, '[CodeCraft CancelMTN]')
+        if (!data) return { success: false, message: `Unexpected response format (HTTP ${response.status})` }
+
+        if (response.ok && isStatus200(data) && data.success !== false) {
+            return {
+                success: true,
+                cancelledOrders: Number(data.data?.cancelled_orders ?? 0),
+                refundAmount: Number(data.data?.refund_amount ?? 0),
+                newWallet: Number(data.data?.new_wallet ?? 0),
+                message: data.message,
+            }
+        }
+
+        // 404 = no eligible pending orders, 422 = not an MTN order
+        return { success: false, message: `[${data.status}] ${data.message || 'Cancellation failed'}` }
+    } catch (error: any) {
+        return { success: false, message: error.message || 'Connection error during cancellation' }
+    }
+}
+
+// ─── Console Balance ───────────────────────────────────────────────────────────
+/**
+ * GET /console_balance.php — active console status, remaining package balance
+ * and total used package for the authenticated agent.
+ */
+export async function fetchConsoleBalance(): Promise<{
+    success: boolean
+    consoleStatus?: string
+    balance?: number
+    usedPackage?: number
+    error?: string
+}> {
+    if (!CODECRAFT_API_KEY) return { success: false, error: 'API key not configured' }
+
+    try {
+        const response = await fetch(`${CODECRAFT_API_BASE_URL}/console_balance.php`, {
+            method: 'GET',
+            headers: {
+                'Accept': 'application/json',
+                'x-api-key': CODECRAFT_API_KEY,
+            },
+        })
+
+        const data = await parseJsonSafe(response, '[CodeCraft ConsoleBalance]')
+        if (!data) return { success: false, error: `Unexpected response format (HTTP ${response.status})` }
+
+        if (response.ok && isStatus200(data) && data.success !== false) {
+            return {
+                success: true,
+                consoleStatus: data.data?.console_status,
+                balance: Number(data.data?.balance ?? 0) || 0,
+                usedPackage: Number(data.data?.used_package ?? 0) || 0,
+            }
+        }
+
+        // 404 = no active console account
+        return { success: false, error: data.message || 'Failed to fetch console balance' }
+    } catch (error: any) {
+        return { success: false, error: error.message }
     }
 }
 
@@ -453,7 +705,7 @@ function mapOrderStatus(orderStatus: string): 'pending' | 'processing' | 'comple
 // ─── Balance Fetch ─────────────────────────────────────────────────────────────
 /**
  * Fetch live CodeCraft wallet balance.
- * Response: { status: "success", data: { wallet: 10.00 } }
+ * GET /wallet.php → { status: 200, message: "Successful", data: { wallet: 10.00 } }
  */
 export async function fetchSupplierBalance(): Promise<{
     success: boolean
@@ -470,17 +722,11 @@ export async function fetchSupplierBalance(): Promise<{
             },
         })
 
-        const rawText = await response.text()
-        let data: any
-        try {
-            data = JSON.parse(rawText)
-        } catch (e) {
-            console.error('[CodeCraft Balance] Non-JSON response (HTTP', response.status, '):', rawText.slice(0, 300))
-            return { success: false, error: `Unexpected response format (HTTP ${response.status})` }
-        }
+        const data = await parseJsonSafe(response, '[CodeCraft Balance]')
+        if (!data) return { success: false, error: `Unexpected response format (HTTP ${response.status})` }
         console.log('[CodeCraft Balance] API response received', { status: response.status, ok: response.ok })
 
-        if (response.ok && data.status === 'success') {
+        if (response.ok && isStatus200(data)) {
             const balance = parseFloat(data.data?.wallet ?? 0) || 0
             return { success: true, balance, currency: 'GHS' }
         }

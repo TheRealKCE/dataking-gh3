@@ -4,7 +4,6 @@ import { Suspense } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { GoogleSignInButton } from '@/components/google-sign-in-button'
-import { SellButton } from '@/components/classifieds/sell-button'
 import { ShoppingBag, AlertCircle } from 'lucide-react'
 
 /**
@@ -52,15 +51,9 @@ function MarketplaceLoginInner() {
                         next={redirect}
                     />
 
-                    <div className="mt-8 space-y-3 border-t border-gray-100 pt-6 dark:border-gray-800">
-                        {/* Seller onboarding — signs in with Google (same as above) and
-                            drops the user straight into the seller dashboard, which turns
-                            on their seller status on arrival. */}
-                        <SellButton className="flex h-12 w-full items-center justify-center gap-2 rounded-2xl border border-gray-200 bg-gray-50 text-sm font-bold text-gray-700 shadow-none hover:bg-gray-100 dark:border-gray-700 dark:bg-white/5 dark:text-gray-300 dark:hover:bg-white/10">
-                            <ShoppingBag className="h-4 w-4" />
-                            Are you a seller? Start selling
-                        </SellButton>
-
+                    {/* Buyers and sellers both sign in with Google above — sellers are
+                        routed to their dashboard by the OAuth callback. */}
+                    <div className="mt-8 border-t border-gray-100 pt-6 dark:border-gray-800">
                         <Link
                             href="/classifieds"
                             className="flex h-12 items-center justify-center rounded-2xl text-sm font-semibold text-gray-500 transition-colors hover:text-gray-700 dark:text-gray-500 dark:hover:text-gray-300"

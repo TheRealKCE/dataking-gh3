@@ -78,6 +78,7 @@ export default async function ShopPage({ params }: Props) {
             'storefront_airtime_enabled',
             'storefront_mashup_enabled',
             'storefront_rc_enabled',
+            'storefront_marketplace_ad_enabled',
             'airtime_fee_mtn_customer',
             'airtime_fee_mtn_agent',
             'airtime_fee_telecel_customer',

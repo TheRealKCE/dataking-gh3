@@ -376,7 +376,7 @@ export default function ShopOverviewPage() {
                                 <Button onClick={copyLink} variant="secondary" className="flex-1 sm:flex-none h-10 sm:h-9 bg-white dark:bg-zinc-900 text-emerald-600 gap-2 rounded-xl font-bold">
                                     {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />} {copied ? 'Copied!' : 'Copy Link'}
                                 </Button>
-                                <a href={shopUrl} target="_blank" rel="noopener noreferrer" aria-label="Visit shop"><Button className="w-full sm:w-9 h-10 sm:h-9 bg-emerald-600 text-white rounded-xl"><ExternalLink className="w-4 h-4" /></Button></a>
+                                <a href={shopUrl} target="_blank" rel="noopener noreferrer" aria-label="Go to live storefront"><Button className="w-full sm:w-auto h-10 sm:h-9 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl gap-2 font-bold"><ExternalLink className="w-4 h-4" /> Go to Live</Button></a>
                             </div>
                         </div>
                     )}
@@ -601,7 +601,7 @@ function SubAgentInviteCard() {
                         <Button onClick={copy} variant="secondary" className="flex-1 sm:flex-none h-9 bg-white dark:bg-zinc-900 text-violet-600 gap-2 rounded-xl font-bold">
                             {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />} {copied ? 'Copied!' : 'Copy Link'}
                         </Button>
-                        <Link href="/dashboard/shop/sub-agents" aria-label="Manage sub-agents"><Button className="w-full sm:w-9 h-9 bg-violet-600 text-white rounded-xl"><ArrowRight className="w-4 h-4" /></Button></Link>
+                        <Link href="/dashboard/shop/sub-agents" aria-label="Go to sub-agents"><Button className="w-full sm:w-auto h-9 px-4 bg-violet-600 hover:bg-violet-700 text-white rounded-xl gap-2 font-bold">Go to Sub-Agents <ArrowRight className="w-4 h-4" /></Button></Link>
                     </div>
                 </div>
             )}

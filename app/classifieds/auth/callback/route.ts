@@ -38,7 +38,7 @@ export async function GET(request: NextRequest) {
     // Return path comes from the cookie set before OAuth (see GoogleSignInButton),
     // falling back to a legacy ?next= query for safety. Default: marketplace home.
     const nextCookie = cookieStore.get('mkt_oauth_next')?.value
-    const next = safeNext(
+    let next = safeNext(
         nextCookie ? decodeURIComponent(nextCookie) : requestUrl.searchParams.get('next')
     )
     const supabase = createServerClient(
@@ -84,7 +84,7 @@ export async function GET(request: NextRequest) {
 
         const { data: existingUser } = await adminClient
             .from('users')
-            .select('id, first_name')
+            .select('id, first_name, is_seller')
             .eq('id', data.user.id)
             .maybeSingle()
 
@@ -105,6 +105,13 @@ export async function GET(request: NextRequest) {
             await (adminClient.from('users') as any)
                 .update({ first_name: firstName, last_name: lastName })
                 .eq('id', data.user.id)
+        }
+
+        // Returning sellers land on their dashboard by default. Only override the
+        // bare marketplace home — an explicit destination (a listing to save, a
+        // conversation, etc.) is always honoured.
+        if ((existingUser as any)?.is_seller && next === '/classifieds') {
+            next = '/classifieds/seller/dashboard'
         }
     } catch (e) {
         // A profile-row hiccup shouldn't strand the user — the session is already

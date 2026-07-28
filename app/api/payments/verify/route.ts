@@ -3,6 +3,7 @@ import { processCompletedWalletPayment } from '@/lib/payments'
 import { createRouteHandlerClient } from '@/lib/supabase-server'
 import { cookies } from 'next/headers'
 import { checkPaymentStatus } from '@/lib/moolre-payment-service'
+import { checkPaymentStatus as hubtelCheckPaymentStatus } from '@/lib/hubtel-payment-service'
 
 export async function GET(request: NextRequest) {
     try {
@@ -75,6 +76,31 @@ export async function GET(request: NextRequest) {
         if ((paymentRecord as any).provider === 'paystack') {
             if (isInline) return NextResponse.json({ success: true, status: 'pending', message: 'Waiting for payment confirmation...' })
             return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/wallet`)
+        }
+
+        // ── Hubtel status check ───────────────────────────────────────────────
+        if ((paymentRecord as any).provider === 'hubtel') {
+            const hubtelResponse = await hubtelCheckPaymentStatus(reference)
+
+            if (!hubtelResponse.success || hubtelResponse.status === null) {
+                console.error('[PaymentVerify] Hubtel verification failed:', hubtelResponse.error)
+                if (isInline) return NextResponse.json({ success: false, status: 'pending', error: 'Payment verification pending' })
+                return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/wallet`)
+            }
+
+            if (hubtelResponse.status === 'Unpaid') {
+                if (isInline) return NextResponse.json({ success: true, status: 'pending', message: 'Payment pending' })
+                return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/wallet`)
+            }
+
+            if (hubtelResponse.status === 'Refunded' || (hubtelResponse.status !== 'Paid')) {
+                // Any status other than 'Paid' is treated as failed
+                await (supabase.from('wallet_payments') as any).update({ status: 'failed' }).eq('id', paymentRecord.id)
+                if (isInline) return NextResponse.json({ success: false, status: 'failed', message: 'Payment failed or refunded' })
+                return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/wallet?error=payment_failed`)
+            }
+
+            // hubtelResponse.status === 'Paid' — fall through to process payment below
         }
 
         // Verify with Moolre

@@ -286,10 +286,10 @@ export default function AdminOrdersPage() {
 
     const handleUpdateStatus = async (orderId: string, newStatus: string) => {
         try {
-            const response = await fetch('/api/admin/orders/status', {
+            const response = await fetch('/api/admin/orders/update-status', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ orderId, status: newStatus })
+                body: JSON.stringify({ orderIds: [orderId], status: newStatus })
             })
 
             const result = await response.json()
@@ -782,7 +782,7 @@ export default function AdminOrdersPage() {
                                         <span className="text-[10px] text-muted-foreground">{order.network} {order.size}</span>
                                     </div>
                                     <div className="flex items-center gap-2">
-                                        {getStatusBadge(order.status)}
+                                        {getStatusBadge(displayStatus(order))}
                                         {order.payment_status === 'refunded' ? (
                                             <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 bg-gray-100 text-gray-500">
                                                 No actions
@@ -908,6 +908,11 @@ export default function AdminOrdersPage() {
         return batches || []
     }, [batches])
 
+    // A refunded order stores status='failed' + payment_status='refunded'
+    // (the base orders.status CHECK cannot hold 'refunded'), so derive the label.
+    const displayStatus = (order: any) =>
+        order?.payment_status === 'refunded' ? 'refunded' : order?.status
+
     const getStatusBadge = (status: string) => {
         const styles: Record<string, string> = {
             pending: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
@@ -1022,7 +1027,7 @@ export default function AdminOrdersPage() {
                                         <div className="font-mono text-sm text-muted-foreground">
                                             {order.reference_code}
                                         </div>
-                                        {getStatusBadge(order.status)}
+                                        {getStatusBadge(displayStatus(order))}
                                     </CardHeader>
                                     <CardContent className="space-y-4 pt-4">
                                         <div className="flex items-start gap-3">

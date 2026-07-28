@@ -14,7 +14,6 @@ import { Eye, EyeOff, Loader2, UserPlus, Mail, Lock, User, Phone, Store, Externa
 import { toast } from 'sonner'
 import { validateGhanaianPhone } from '@/lib/phone-validation'
 import { BackgroundBubbles } from '@/components/background-bubbles'
-import { FloatingWhatsApp } from '@/components/floating-whatsapp'
 import { GoogleSignInButton } from '@/components/google-sign-in-button'
 
 export default function SignupPage() {
@@ -128,7 +127,6 @@ export default function SignupPage() {
         return (
             <div className="relative min-h-screen w-full flex flex-col items-center justify-center px-4 py-8 sm:py-10 overflow-y-auto">
                 <BackgroundBubbles scrollable />
-                <FloatingWhatsApp variant="auth" />
                 <Card className="w-full max-w-[380px] sm:max-w-md border-0 bg-[#E5E7EB]/70 backdrop-blur-md relative z-10 shadow-2xl rounded-2xl">
                     <CardContent className="pt-8 text-center p-6">
                         <div className="w-16 h-16 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center mx-auto mb-4">
@@ -152,7 +150,6 @@ export default function SignupPage() {
     return (
         <div className="relative min-h-screen w-full flex flex-col items-center justify-center px-4 py-12 overflow-y-auto bg-background">
             <BackgroundBubbles scrollable />
-            <FloatingWhatsApp variant="auth" />
 
             <div className="w-full max-w-[480px] relative z-10 flex flex-col items-center animate-slow-fade">
                 {/* Logo & Branding */}

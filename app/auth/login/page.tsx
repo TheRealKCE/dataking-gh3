@@ -13,7 +13,6 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Eye, EyeOff, Loader2, LogIn, Mail, Lock, Store, ExternalLink, AlertCircle, ShoppingBag } from 'lucide-react'
 import { toast } from 'sonner'
 import { BackgroundBubbles } from '@/components/background-bubbles'
-import { FloatingWhatsApp } from '@/components/floating-whatsapp'
 import { GoogleSignInButton } from '@/components/google-sign-in-button'
 
 export default function LoginPage() {
@@ -67,7 +66,6 @@ export default function LoginPage() {
     return (
         <div className="relative min-h-screen w-full flex flex-col items-center justify-center px-4 py-12 overflow-y-auto bg-background">
             <BackgroundBubbles scrollable />
-            <FloatingWhatsApp variant="auth" />
 
             <div className="w-full max-w-[420px] relative z-10 flex flex-col items-center animate-slow-fade">
                 {/* Logo & Branding */}

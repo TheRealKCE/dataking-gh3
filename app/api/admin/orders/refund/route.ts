@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
         // 1. Fetch order details
         const { data: order, error: fetchError } = await supabase
             .from('orders')
-            .select('id, user_id, price, reference_code, phone_number, payment_status, download_batch_id, users!inner(phone_number)')
+            .select('id, user_id, price, reference_code, phone_number, network, status, payment_status, download_batch_id, users!inner(phone_number)')
             .eq('id', orderId)
             .single()
 
@@ -56,63 +56,68 @@ export async function POST(request: NextRequest) {
             }, { status: 400 })
         }
 
-        // 2. Verify order status is not already refunded and wallet exists in single transaction
-        // Use RLS-bypassing service role client for atomic operation
         const refundAmount = (order as any).price
+        const userId = (order as any).user_id
+        const previousStatus = (order as any).status
 
-        // Fetch wallet with FOR UPDATE lock to prevent concurrent refunds
-        // Note: Supabase client doesn't expose FOR UPDATE directly, so we use raw SQL
-        const { data: walletData, error: walletError } = await supabase.rpc(
-            'get_wallet_for_update',
-            { user_id: (order as any).user_id }
-        ) as any
+        // 2. Fetch the wallet row (needed for the ledger wallet_id and for the SMS balance).
+        const { data: wallet, error: walletFetchError } = await supabase
+            .from('wallets')
+            .select('id, balance')
+            .eq('user_id', userId)
+            .single()
 
-        if (walletError || !walletData) {
-            // If RPC doesn't exist, fall back to select + update pattern with validation
-            const { data: wallet, error: fetchError } = await supabase
-                .from('wallets')
-                .select('*')
-                .eq('user_id', (order as any).user_id)
-                .single()
-
-            if (fetchError || !wallet) {
-                console.error('[RefundOrder] Wallet fetch error:', fetchError)
-                return NextResponse.json({ error: 'User wallet not found' }, { status: 404 })
-            }
-
-            // Verify order hasn't been refunded in between (double-check)
-            const { data: orderCheck } = await supabase
-                .from('orders')
-                .select('payment_status')
-                .eq('id', orderId)
-                .single()
-
-            if ((orderCheck as any)?.payment_status === 'refunded') {
-                return NextResponse.json({
-                    error: 'Order was already refunded by another process'
-                }, { status: 409 })
-            }
-
-            const newBalance = (wallet as any).balance + refundAmount
-
-            // 3. Update wallet balance (with CAS check)
-            const { error: walletUpdateError } = await (supabase.from('wallets') as any)
-                .update({
-                    balance: newBalance,
-                    total_spent: (wallet as any).total_spent - refundAmount
-                })
-                .eq('id', (wallet as any).id)
-
-            if (walletUpdateError) {
-                console.error('[RefundOrder] Wallet update error:', walletUpdateError)
-                throw walletUpdateError
-            }
+        if (walletFetchError || !wallet) {
+            console.error('[RefundOrder] Wallet fetch error:', walletFetchError)
+            return NextResponse.json({ error: 'User wallet not found' }, { status: 404 })
         }
 
-        // 4. Create refund transaction
+        // 3. Atomically CLAIM the refund before crediting: transition paid -> refunded.
+        // The .eq('payment_status', 'paid') filter makes this a compare-and-set so two
+        // concurrent refunds can never both credit the wallet. Keep status='failed'
+        // (a valid orders.status CHECK value) instead of the illegal status='refunded'.
+        const { data: claimed, error: claimError } = await (supabase.from('orders') as any)
+            .update({
+                payment_status: 'refunded',
+                status: 'failed',
+                updated_at: new Date().toISOString()
+            })
+            .eq('id', orderId)
+            .eq('payment_status', 'paid')
+            .select('id')
+
+        if (claimError) {
+            console.error('[RefundOrder] Order claim error:', claimError)
+            throw claimError
+        }
+
+        if (!claimed?.length) {
+            return NextResponse.json({
+                error: 'Order was already refunded by another process'
+            }, { status: 409 })
+        }
+
+        // 4. Credit the wallet atomically via the shared RPC. If this fails, revert the
+        // claim so the order is never left marked refunded without the money credited.
+        const { error: creditError } = await (supabase as any).rpc('credit_wallet_balance', {
+            p_user_id: userId,
+            p_amount: refundAmount
+        })
+
+        if (creditError) {
+            console.error('[RefundOrder] Wallet credit error, reverting claim:', creditError)
+            await (supabase.from('orders') as any)
+                .update({ payment_status: 'paid', status: previousStatus })
+                .eq('id', orderId)
+            return NextResponse.json({ error: 'Failed to credit wallet' }, { status: 500 })
+        }
+
+        const newBalance = (wallet as any).balance + refundAmount
+
+        // 5. Create refund ledger row (non-fatal: the money has already moved).
         const { error: transactionError } = await (supabase.from('wallet_transactions') as any).insert({
             wallet_id: (wallet as any).id,
-            user_id: (order as any).user_id,
+            user_id: userId,
             type: 'credit',
             amount: refundAmount,
             description: `Refund for order ${(order as any).reference_code}`,
@@ -122,11 +127,10 @@ export async function POST(request: NextRequest) {
         })
 
         if (transactionError) {
-            console.error('[RefundOrder] Transaction creation error:', transactionError)
-            throw transactionError
+            console.error('[RefundOrder] Transaction log error (non-fatal):', transactionError)
         }
 
-        // 5. Check if order needs to be assigned to a batch
+        // 6. Check if order needs to be assigned to a batch
         let batchId = (order as any).download_batch_id
 
         if (!batchId) {
@@ -152,27 +156,19 @@ export async function POST(request: NextRequest) {
             }
         }
 
-        // 6. Update order status
-        const orderUpdate: any = {
-            payment_status: 'refunded',
-            status: 'refunded',
-            updated_at: new Date().toISOString()
+        // 7. Attach the newly created batch to the order if one was made.
+        // (Status/payment_status were already set atomically in the claim above.)
+        if (batchId && batchId !== (order as any).download_batch_id) {
+            const { error: orderUpdateError } = await (supabase.from('orders') as any)
+                .update({ download_batch_id: batchId, updated_at: new Date().toISOString() })
+                .eq('id', orderId)
+
+            if (orderUpdateError) {
+                console.error('[RefundOrder] Batch link error (non-fatal):', orderUpdateError)
+            }
         }
 
-        if (batchId) {
-            orderUpdate.download_batch_id = batchId
-        }
-
-        const { error: orderUpdateError } = await (supabase.from('orders') as any)
-            .update(orderUpdate)
-            .eq('id', orderId)
-
-        if (orderUpdateError) {
-            console.error('[RefundOrder] Order update error:', orderUpdateError)
-            throw orderUpdateError
-        }
-
-        // 7. Create user notification
+        // 8. Create user notification
         const { error: notificationError } = await (supabase.from('notifications') as any).insert({
             user_id: (order as any).user_id,
             title: 'Order Refunded',
@@ -186,14 +182,14 @@ export async function POST(request: NextRequest) {
             // Don't fail the refund if notification fails
         }
 
-        // 8. Push notification to user
+        // 9. Push notification to user
         await sendPushToUser((order as any).user_id, {
             title: 'Order Refunded',
             body: `GHS ${refundAmount.toFixed(2)} refunded to your wallet for order ${(order as any).reference_code}.`,
             url: '/dashboard/wallet',
         }).catch(() => {})
 
-        // 9. Send SMS notification
+        // 10. Send SMS notification
         const userPhone = (order as any).users?.phone_number
         if (userPhone) {
             sendOrderRefundSMS(

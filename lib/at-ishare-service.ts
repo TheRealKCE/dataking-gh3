@@ -38,10 +38,10 @@ export async function initiateRegularOrder(
         const data = await response.json()
 
         return {
-            success: data.success || false,
+            success: isOk(data) && !!data.reference_id,
             reference_id: data.reference_id,
             message: data.message,
-            error: data.error,
+            error: isOk(data) ? undefined : `[${data.status}] ${data.message || 'Order failed'}`,
         }
     } catch (error) {
         console.error('CodeCraft initiate error:', error)
@@ -54,7 +54,8 @@ export async function initiateRegularOrder(
 
 export async function initiateSpecialOrder(
     recipientNumber: string,
-    gig: string
+    gig: string,
+    network: string = 'AT'
 ): Promise<CodeCraftResponse> {
     try {
         const response = await fetch(`${CODECRAFT_API_URL}/special.php`, {
@@ -66,16 +67,17 @@ export async function initiateSpecialOrder(
             body: JSON.stringify({
                 recipient_number: recipientNumber,
                 gig: gig,
+                network: network,
             }),
         })
 
         const data = await response.json()
 
         return {
-            success: data.success || false,
+            success: isOk(data) && !!data.reference_id,
             reference_id: data.reference_id,
             message: data.message,
-            error: data.error,
+            error: isOk(data) ? undefined : `[${data.status}] ${data.message || 'Order failed'}`,
         }
     } catch (error) {
         console.error('CodeCraft special order error:', error)
@@ -89,7 +91,7 @@ export async function initiateSpecialOrder(
 export async function checkRegularOrderStatus(referenceId: string): Promise<OrderStatusResponse> {
     try {
         const response = await fetch(
-            `${CODECRAFT_API_URL}/response_regular.php?reference_id=${referenceId}`,
+            `${CODECRAFT_API_URL}/status_regular.php?reference_id=${encodeURIComponent(referenceId)}`,
             {
                 headers: {
                     'x-api-key': CODECRAFT_API_KEY,
@@ -100,8 +102,8 @@ export async function checkRegularOrderStatus(referenceId: string): Promise<Orde
         const data = await response.json()
 
         return {
-            success: true,
-            status: mapCodeCraftStatus(data.status),
+            success: isOk(data),
+            status: mapCodeCraftStatus(data.data?.order_status),
             message: data.message,
         }
     } catch (error) {
@@ -117,7 +119,7 @@ export async function checkRegularOrderStatus(referenceId: string): Promise<Orde
 export async function checkBigTimeOrderStatus(referenceId: string): Promise<OrderStatusResponse> {
     try {
         const response = await fetch(
-            `${CODECRAFT_API_URL}/response_big_time.php?reference_id=${referenceId}`,
+            `${CODECRAFT_API_URL}/status_bigtime.php?reference_id=${encodeURIComponent(referenceId)}`,
             {
                 headers: {
                     'x-api-key': CODECRAFT_API_KEY,
@@ -128,8 +130,8 @@ export async function checkBigTimeOrderStatus(referenceId: string): Promise<Orde
         const data = await response.json()
 
         return {
-            success: true,
-            status: mapCodeCraftStatus(data.status),
+            success: isOk(data),
+            status: mapCodeCraftStatus(data.data?.order_status),
             message: data.message,
         }
     } catch (error) {
@@ -142,15 +144,19 @@ export async function checkBigTimeOrderStatus(referenceId: string): Promise<Orde
     }
 }
 
-function mapCodeCraftStatus(status: string): 'pending' | 'completed' | 'failed' {
-    const lowerStatus = (status || '').toLowerCase()
+// CodeCraft returns status as number 200, string '200', or legacy string 'success'
+function isOk(data: any): boolean {
+    return data?.status === 200 || data?.status === '200' || data?.status === 'success'
+}
 
-    if (lowerStatus === 'success' || lowerStatus === 'completed') {
-        return 'completed'
-    }
-    if (lowerStatus === 'failed' || lowerStatus === 'error') {
-        return 'failed'
-    }
+function mapCodeCraftStatus(orderStatus: string): 'pending' | 'completed' | 'failed' {
+    const lowerStatus = (orderStatus || '').trim().toLowerCase()
+
+    const COMPLETED = ['success', 'completed', 'delivered', 'credited', 'crediting successful']
+    const FAILED = ['failed', 'error', 'rejected', 'reversed', 'cancelled']
+
+    if (COMPLETED.includes(lowerStatus)) return 'completed'
+    if (FAILED.includes(lowerStatus)) return 'failed'
     return 'pending'
 }
 

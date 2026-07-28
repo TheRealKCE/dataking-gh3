@@ -1,1 +1,9 @@
-{}
+{
+  "regions": ["dub1"],
+  "crons": [
+    {
+      "path": "/api/hubtel/interact",
+      "schedule": "*/1 * * * *"
+    }
+  ]
+}

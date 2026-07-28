@@ -39,6 +39,7 @@ interface Order {
     size: string
     price: number
     status: string
+    payment_status?: string
     user_id: string
     shop_name?: string
     users: {
@@ -59,6 +60,7 @@ interface FulfillmentSettings {
     codecraft_networks: Record<string, boolean>
     kingflexy_networks: Record<string, boolean>
     eazydata_networks: Record<string, boolean>
+    agentportal_networks: Record<string, boolean>
 }
 
 const NETWORKS = ['MTN', 'Telecel', 'AT-iShare', 'AT-BigTime']
@@ -73,6 +75,7 @@ export default function FulfillmentPage() {
     const [isLoadingOrders, setIsLoadingOrders] = useState(true)
     const [isUpdating, setIsUpdating] = useState(false)
     const [isRefulfilling, setIsRefulfilling] = useState(false)
+    const [refundingId, setRefundingId] = useState<string | null>(null)
 
     // Filter State
     const [networkFilter, setNetworkFilter] = useState('All')
@@ -90,7 +93,8 @@ export default function FulfillmentPage() {
         networks: NETWORKS.reduce((acc, n) => ({ ...acc, [n]: false }), {}),
         codecraft_networks: NETWORKS.reduce((acc, n) => ({ ...acc, [n]: false }), {}),
         kingflexy_networks: NETWORKS.reduce((acc, n) => ({ ...acc, [n]: false }), {}),
-        eazydata_networks: NETWORKS.reduce((acc, n) => ({ ...acc, [n]: false }), {})
+        eazydata_networks: NETWORKS.reduce((acc, n) => ({ ...acc, [n]: false }), {}),
+        agentportal_networks: NETWORKS.reduce((acc, n) => ({ ...acc, [n]: false }), {})
     })
     const [isSavingSettings, setIsSavingSettings] = useState(false)
 
@@ -99,6 +103,7 @@ export default function FulfillmentPage() {
     const [codecraftBalance, setCodecraftBalance] = useState<{ amount: number; currency: string } | null>(null)
     const [kingflexyBalance, setKingflexyBalance] = useState<{ amount: number; currency: string } | null>(null)
     const [eazydataBalance, setEazydataBalance] = useState<{ amount: number; currency: string } | null>(null)
+    const [agentportalBalance, setAgentportalBalance] = useState<{ amount: number; currency: string } | null>(null)
     const [isLoadingBalance, setIsLoadingBalance] = useState(false)
 
     // Sync CodeCraft Status state
@@ -194,6 +199,7 @@ export default function FulfillmentPage() {
             const dbCodecraftNetworks: Record<string, boolean> = dbFulfillmentSettings.codecraft_networks || {}
             const dbKingflexyNetworks: Record<string, boolean> = dbFulfillmentSettings.kingflexy_networks || {}
             const dbEazydataNetworks: Record<string, boolean> = dbFulfillmentSettings.eazydata_networks || {}
+            const dbAgentportalNetworks: Record<string, boolean> = dbFulfillmentSettings.agentportal_networks || {}
 
             setSettings({
                 is_global_enabled: String(map.auto_fulfillment_enabled) !== 'false',
@@ -212,6 +218,10 @@ export default function FulfillmentPage() {
                 eazydata_networks: NETWORKS.reduce((acc, n) => ({
                     ...acc,
                     [n]: dbEazydataNetworks[n] === true
+                }), {} as Record<string, boolean>),
+                agentportal_networks: NETWORKS.reduce((acc, n) => ({
+                    ...acc,
+                    [n]: dbAgentportalNetworks[n] === true
                 }), {} as Record<string, boolean>)
             })
 
@@ -251,7 +261,7 @@ export default function FulfillmentPage() {
         try {
             const updates = [
                 { key: 'auto_fulfillment_enabled', value: String(newSettings.is_global_enabled) },
-                { key: 'fulfillment_settings', value: JSON.stringify({ networks: newSettings.networks, codecraft_networks: newSettings.codecraft_networks, kingflexy_networks: newSettings.kingflexy_networks, eazydata_networks: newSettings.eazydata_networks }) }
+                { key: 'fulfillment_settings', value: JSON.stringify({ networks: newSettings.networks, codecraft_networks: newSettings.codecraft_networks, kingflexy_networks: newSettings.kingflexy_networks, eazydata_networks: newSettings.eazydata_networks, agentportal_networks: newSettings.agentportal_networks }) }
             ]
 
             const { error } = await (supabase
@@ -268,7 +278,7 @@ export default function FulfillmentPage() {
         }
     }
 
-    const toggleNetwork = (network: string, provider: 'datakazina' | 'codecraft' | 'kingflexy' | 'eazydata') => {
+    const toggleNetwork = (network: string, provider: 'datakazina' | 'codecraft' | 'kingflexy' | 'eazydata' | 'agentportal') => {
         const newSettings = { ...settings }
         if (provider === 'datakazina') {
             const isCurrentlyEnabled = settings.networks[network]
@@ -277,6 +287,7 @@ export default function FulfillmentPage() {
                 newSettings.codecraft_networks = { ...settings.codecraft_networks, [network]: false }
                 newSettings.kingflexy_networks = { ...settings.kingflexy_networks, [network]: false }
                 newSettings.eazydata_networks = { ...settings.eazydata_networks, [network]: false }
+                newSettings.agentportal_networks = { ...settings.agentportal_networks, [network]: false }
             }
         } else if (provider === 'codecraft') {
             const isCurrentlyEnabled = settings.codecraft_networks[network]
@@ -285,6 +296,7 @@ export default function FulfillmentPage() {
                 newSettings.networks = { ...settings.networks, [network]: false }
                 newSettings.kingflexy_networks = { ...settings.kingflexy_networks, [network]: false }
                 newSettings.eazydata_networks = { ...settings.eazydata_networks, [network]: false }
+                newSettings.agentportal_networks = { ...settings.agentportal_networks, [network]: false }
             }
         } else if (provider === 'kingflexy') {
             const isCurrentlyEnabled = settings.kingflexy_networks[network]
@@ -293,14 +305,25 @@ export default function FulfillmentPage() {
                 newSettings.networks = { ...settings.networks, [network]: false }
                 newSettings.codecraft_networks = { ...settings.codecraft_networks, [network]: false }
                 newSettings.eazydata_networks = { ...settings.eazydata_networks, [network]: false }
+                newSettings.agentportal_networks = { ...settings.agentportal_networks, [network]: false }
             }
-        } else {
+        } else if (provider === 'eazydata') {
             const isCurrentlyEnabled = settings.eazydata_networks[network]
             newSettings.eazydata_networks = { ...settings.eazydata_networks, [network]: !isCurrentlyEnabled }
             if (!isCurrentlyEnabled) {
                 newSettings.networks = { ...settings.networks, [network]: false }
                 newSettings.codecraft_networks = { ...settings.codecraft_networks, [network]: false }
                 newSettings.kingflexy_networks = { ...settings.kingflexy_networks, [network]: false }
+                newSettings.agentportal_networks = { ...settings.agentportal_networks, [network]: false }
+            }
+        } else {
+            const isCurrentlyEnabled = settings.agentportal_networks[network]
+            newSettings.agentportal_networks = { ...settings.agentportal_networks, [network]: !isCurrentlyEnabled }
+            if (!isCurrentlyEnabled) {
+                newSettings.networks = { ...settings.networks, [network]: false }
+                newSettings.codecraft_networks = { ...settings.codecraft_networks, [network]: false }
+                newSettings.kingflexy_networks = { ...settings.kingflexy_networks, [network]: false }
+                newSettings.eazydata_networks = { ...settings.eazydata_networks, [network]: false }
             }
         }
         saveSettings(newSettings)
@@ -411,6 +434,9 @@ export default function FulfillmentPage() {
             if (data.eazydata_currency !== undefined) {
                 setEazydataBalance({ amount: data.eazydata_balance, currency: data.eazydata_currency })
             }
+            if (data.agentportal_currency !== undefined) {
+                setAgentportalBalance({ amount: data.agentportal_balance, currency: data.agentportal_currency })
+            }
         } catch (error: any) {
             console.error('Balance fetch error:', error)
             toast.error('Failed to fetch supplier balance')
@@ -492,6 +518,31 @@ export default function FulfillmentPage() {
             toast.error('Update failed: ' + error.message)
         } finally {
             setIsUpdating(false)
+        }
+    }
+
+    const handleRefund = async (order: Order) => {
+        if (order.payment_status === 'refunded') return
+        if (!confirm(`Refund GHS ${Number(order.price).toFixed(2)} to ${order.users?.first_name || 'this user'} for ${order.network} ${order.size} (${order.phone_number})? This credits their wallet.`)) return
+
+        setRefundingId(order.id)
+        try {
+            const response = await fetch('/api/admin/orders/refund', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ orderId: order.id }),
+            })
+
+            const data = await response.json()
+            if (!response.ok) throw new Error(data.error || 'Refund failed')
+
+            toast.success('Order refunded successfully')
+            // Reflect the new state locally (refund sets status='failed' + payment_status='refunded')
+            setOrders(prev => prev.map(o => o.id === order.id ? { ...o, status: 'failed', payment_status: 'refunded' } : o))
+        } catch (error: any) {
+            toast.error('Refund failed: ' + error.message)
+        } finally {
+            setRefundingId(null)
         }
     }
 
@@ -662,6 +713,34 @@ export default function FulfillmentPage() {
                                     <p className="text-[10px] md:text-xs font-bold uppercase tracking-wider opacity-90">Eazy Data Balance</p>
                                     <p className="text-2xl md:text-3xl font-black">
                                         {eazydataBalance ? `${eazydataBalance.currency} ${eazydataBalance.amount.toFixed(2)}` : (isLoadingBalance ? 'Loading...' : 'GHS 0.00')}
+                                    </p>
+                                </div>
+                            </div>
+                            <Button
+                                onClick={fetchBalance}
+                                disabled={isLoadingBalance}
+                                variant="secondary"
+                                size="sm"
+                                className="bg-white/20 hover:bg-white/30 text-white border-white/30"
+                            >
+                                <RefreshCw className={`w-4 h-4 mr-2 ${isLoadingBalance ? 'animate-spin' : ''}`} />
+                                Refresh
+                            </Button>
+                        </div>
+                    </CardContent>
+                </Card>
+
+                <Card className="bg-gradient-to-br from-amber-600 to-orange-800 text-white border-none shadow-lg">
+                    <CardContent className="p-4 md:p-5">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div className="flex items-center gap-3">
+                                <div className="bg-white/20 p-2.5 rounded-lg">
+                                    <Server className="w-5 h-5 md:w-6 md:h-6" />
+                                </div>
+                                <div>
+                                    <p className="text-[10px] md:text-xs font-bold uppercase tracking-wider opacity-90">Agent Portal Balance</p>
+                                    <p className="text-2xl md:text-3xl font-black">
+                                        {agentportalBalance ? `${agentportalBalance.currency} ${agentportalBalance.amount.toFixed(2)}` : (isLoadingBalance ? 'Loading...' : 'GHS 0.00')}
                                     </p>
                                 </div>
                             </div>
@@ -941,6 +1020,44 @@ export default function FulfillmentPage() {
                                         <div className={`w-1.5 h-1.5 rounded-full ${settings.eazydata_networks[net] ? 'bg-rose-500' : 'bg-gray-300'}`} />
                                         <span className="font-bold text-rose-600 dark:text-rose-400">Eazy Data</span>
                                         {settings.eazydata_networks[net] && <span className="text-rose-500 font-semibold">· Active</span>}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </div>
+                </div>
+
+                {/* Agent Portal Row */}
+                <div>
+                    <div className="flex items-center gap-2 mb-2">
+                        <Server className="w-3.5 h-3.5 text-amber-500" />
+                        <span className="text-xs font-bold uppercase tracking-wide text-amber-700 dark:text-amber-400">Agent Portal Networks</span>
+                        <span className="text-[10px] text-muted-foreground">(enabling a network here auto-disables others for same network)</span>
+                    </div>
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+                        {NETWORKS.map(net => (
+                            <Card key={`agentportal-${net}`} className={`border-l-4 transition-colors ${settings.agentportal_networks[net] ? 'border-l-amber-500' : 'border-l-gray-300 dark:border-l-gray-600'}`}>
+                                <CardContent className="p-3 md:p-4">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <div className="flex items-center gap-2">
+                                            <Activity className={`w-3.5 h-3.5 ${settings.agentportal_networks[net] ? 'text-amber-500' : 'text-gray-400'}`} />
+                                            <span className="font-semibold text-xs md:text-sm">{net}</span>
+                                        </div>
+                                        <Button
+                                            id={`ap-toggle-${net}`}
+                                            variant={settings.agentportal_networks[net] ? 'outline' : 'default'}
+                                            size="sm"
+                                            className={`h-6 text-[10px] md:text-xs px-2 ${settings.agentportal_networks[net] ? 'border-amber-500 text-amber-600' : ''}`}
+                                            onClick={() => toggleNetwork(net, 'agentportal')}
+                                            disabled={isSavingSettings}
+                                        >
+                                            {settings.agentportal_networks[net] ? 'Disconnect' : 'Connect'}
+                                        </Button>
+                                    </div>
+                                    <div className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                        <div className={`w-1.5 h-1.5 rounded-full ${settings.agentportal_networks[net] ? 'bg-amber-500' : 'bg-gray-300'}`} />
+                                        <span className="font-bold text-amber-600 dark:text-amber-400">Agent Portal</span>
+                                        {settings.agentportal_networks[net] && <span className="text-amber-500 font-semibold">· Active</span>}
                                     </div>
                                 </CardContent>
                             </Card>
@@ -1307,6 +1424,28 @@ export default function FulfillmentPage() {
                                                     <p className="text-[11px] uppercase font-extrabold text-muted-foreground">Cost</p>
                                                     <p className="text-sm font-black text-primary">{formatCurrency(order.price)}</p>
                                                 </div>
+                                            </div>
+
+                                            {/* Per-order refund action (separate from status changes) */}
+                                            <div className="flex-shrink-0" onClick={(e) => e.stopPropagation()}>
+                                                {order.payment_status === 'refunded' ? (
+                                                    <Badge variant="outline" className="text-[10px] px-1.5 py-0.5 bg-gray-100 text-gray-500 dark:bg-gray-800">
+                                                        Refunded
+                                                    </Badge>
+                                                ) : (
+                                                    <Button
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        className="h-8 gap-1.5 text-amber-600 hover:text-amber-700 hover:bg-amber-50 dark:hover:bg-amber-900/20"
+                                                        disabled={refundingId === order.id}
+                                                        onClick={() => handleRefund(order)}
+                                                    >
+                                                        {refundingId === order.id
+                                                            ? <Loader2 className="w-4 h-4 animate-spin" />
+                                                            : <RefreshCw className="w-4 h-4" />}
+                                                        <span className="hidden md:inline text-xs font-bold">Refund</span>
+                                                    </Button>
+                                                )}
                                             </div>
                                         </div>
                                     ))}

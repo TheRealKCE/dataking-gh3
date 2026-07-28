@@ -3,7 +3,12 @@ import type { Metadata, Viewport } from 'next'
 export const viewport: Viewport = {
     width: 'device-width',
     initialScale: 1,
-    themeColor: '#0A0A0A',
+    // Browser chrome (iOS Safari status bar + toolbar, Android address bar) follows
+    // the phone's system theme: white in light mode, dark in dark mode.
+    themeColor: [
+        { media: '(prefers-color-scheme: light)', color: '#ffffff' },
+        { media: '(prefers-color-scheme: dark)', color: '#0A0A0A' },
+    ],
     // interactiveWidget removed: only supported in Chrome 108+, causes viewport
     // layout issues on older Android WebView (common on low-end phones in Ghana)
 }
@@ -18,6 +23,7 @@ import PwaInstallPrompt from '@/components/pwa-install-prompt'
 import { UIProvider } from '@/contexts/ui-context'
 import { SystemAnnouncementModal } from '@/components/system-announcement-modal'
 import { getActiveAnnouncement } from '@/lib/get-active-announcement'
+import { OfflineModal } from '@/components/offline-modal'
 
 const outfit = Outfit({
     weight: ['400', '600', '700'],
@@ -80,7 +86,7 @@ export default async function RootLayout({
             <body className={inter.className}>
                 <ThemeProvider
                     attribute="class"
-                    defaultTheme="light"
+                    defaultTheme="system"
                     enableSystem
                     disableTransitionOnChange
                 >
@@ -92,6 +98,7 @@ export default async function RootLayout({
                             {children}
                             <SystemAnnouncementModal initialAnnouncement={systemAnnouncement as any} />
                             <PwaInstallPrompt />
+                            <OfflineModal />
                             <Toaster position="top-center" richColors expand />
                         </UIProvider>
                     </AuthProvider>

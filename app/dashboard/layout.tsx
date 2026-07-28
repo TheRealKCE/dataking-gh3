@@ -25,7 +25,7 @@ export default function DashboardLayout({
 }: {
     children: React.ReactNode
 }) {
-    const { user, dbUser, isLoading, isAdmin, isSubAdmin } = useAuth()
+    const { user, dbUser, isLoading, isAdmin, isSubAdmin, refreshUser } = useAuth()
     const { isCollapsed } = useUI()
     const router = useRouter()
     const pathname = usePathname()
@@ -36,18 +36,38 @@ export default function DashboardLayout({
         }
     }, [user, isLoading, router])
 
+    // If auth succeeded but the profile row didn't load (e.g. the initial fetch
+    // timed out on a slow mobile network), try once more automatically before
+    // showing the hard "Connection Error" screen. `refreshUser` refreshes the JWT
+    // and re-runs the resilient, self-retrying fetch in the auth context.
+    const [profileRetryDone, setProfileRetryDone] = useState(false)
+    useEffect(() => {
+        if (isLoading || !user || dbUser || profileRetryDone) return
+        let active = true
+        refreshUser().finally(() => { if (active) setProfileRetryDone(true) })
+        return () => { active = false }
+    }, [isLoading, user, dbUser, profileRetryDone, refreshUser])
+
     // Results Checker Only mode: regular users are restricted to the Results Checker
     // and Wallet pages (wallet is kept so they can top up to buy vouchers). Admins and
     // sub-admins are exempt. Any other dashboard route redirects to the Results Checker.
-    const [resultsCheckerOnly, setResultsCheckerOnly] = useState(false)
+    // Seed from the last-known value cached in localStorage so the correct chrome
+    // renders on the very first client paint (no flash of the full dashboard before
+    // the async fetch resolves). The fetch below reconciles it with the live value.
+    const [resultsCheckerOnly, setResultsCheckerOnly] = useState(() => {
+        if (typeof window === 'undefined') return false
+        return window.localStorage.getItem('rc_only_mode') === 'true'
+    })
     const [rcSettingLoaded, setRcSettingLoaded] = useState(false)
 
     useEffect(() => {
         fetch('/api/admin-settings?keys=results_checker_only_mode')
             .then(r => r.ok ? r.json() : null)
             .then(data => {
-                if (data && String(data.results_checker_only_mode) === 'true') {
-                    setResultsCheckerOnly(true)
+                if (data) {
+                    const rcOn = String(data.results_checker_only_mode) === 'true'
+                    setResultsCheckerOnly(rcOn)
+                    try { window.localStorage.setItem('rc_only_mode', rcOn ? 'true' : 'false') } catch {}
                 }
             })
             .catch(() => {})
@@ -61,8 +81,21 @@ export default function DashboardLayout({
             pathname?.startsWith('/dashboard/sub')) ?? false
 
     // Sub-agents use a de-branded portal, so the main ARHMS chrome (sidebar,
-    // header, mobile nav, modals) must not apply to /dashboard/sub.
-    const isSubPortal = pathname?.startsWith('/dashboard/sub') ?? false
+    // header, mobile nav, modals) must not apply. This holds for EVERY dashboard
+    // route a sub-agent visits — not just /dashboard/sub — so tapping any link
+    // (e.g. Shop Setup) never bounces them into the main-branded site.
+    const [isSubAgent, setIsSubAgent] = useState(false)
+    useEffect(() => {
+        let active = true
+        // 200 → the caller is a sub-agent; 403 → not one. Fail-open (stay false)
+        // so a hiccup never wrongly de-brands a regular user's dashboard.
+        fetch('/api/dashboard/sub/data')
+            .then((r) => { if (active && r.ok) setIsSubAgent(true) })
+            .catch(() => {})
+        return () => { active = false }
+    }, [])
+
+    const isSubPortal = (pathname?.startsWith('/dashboard/sub') ?? false) || isSubAgent
 
     useEffect(() => {
         if (rcRestricted && rcSettingLoaded && pathname && !rcPathAllowed) {
@@ -86,6 +119,20 @@ export default function DashboardLayout({
         return null
     }
 
+    // Auto-retry still in flight — keep the loading chrome rather than flashing
+    // the error screen, which the retry may clear on its own.
+    if (user && !dbUser && !profileRetryDone) {
+        return (
+            <div className="min-h-screen bg-background flex items-center justify-center">
+                <div className="space-y-4 w-full max-w-md p-8">
+                    <Skeleton className="h-12 w-full" />
+                    <Skeleton className="h-8 w-3/4" />
+                    <Skeleton className="h-8 w-1/2" />
+                </div>
+            </div>
+        )
+    }
+
     if (user && !dbUser) {
         return (
             <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
@@ -97,8 +144,8 @@ export default function DashboardLayout({
                     <p className="text-muted-foreground mb-6">
                         We securely authenticated you, but couldn't load your dashboard profile. This can happen during network delays or system updates.
                     </p>
-                    <button 
-                        onClick={() => window.location.reload()}
+                    <button
+                        onClick={() => setProfileRetryDone(false)}
                         className="inline-flex items-center justify-center rounded-xl bg-primary px-8 py-3 text-sm font-bold text-primary-foreground shadow hover:bg-primary/90 transition-colors w-full sm:w-auto"
                     >
                         Reload Dashboard

@@ -37,9 +37,11 @@ export default function AdminSettingsPage() {
     const [footerCopyrightText, setFooterCopyrightText] = useState('')
     const [footerBrandingText, setFooterBrandingText] = useState('')
     const [autoFulfillment, setAutoFulfillment] = useState(true)
-    const [webPaymentProvider, setWebPaymentProvider] = useState<'moolre' | 'paystack'>('moolre')
-    const [shopPaymentProvider, setShopPaymentProvider] = useState<'moolre' | 'paystack'>('moolre')
-    const [classifiedsPaymentProvider, setClassifiedsPaymentProvider] = useState<'moolre' | 'paystack'>('moolre')
+    const [smsProvider, setSmsProvider] = useState<'moolre' | 'hubtel'>('moolre')
+    const [webPaymentProvider, setWebPaymentProvider] = useState<'moolre' | 'hubtel' | 'paystack'>('moolre')
+    const [shopPaymentProvider, setShopPaymentProvider] = useState<'moolre' | 'hubtel' | 'paystack'>('moolre')
+    const [classifiedsPaymentProvider, setClassifiedsPaymentProvider] = useState<'moolre' | 'hubtel' | 'paystack'>('moolre')
+    const [rcWalletPaymentEnabled, setRcWalletPaymentEnabled] = useState(true)
     const [skipGoogleOauthOtp, setSkipGoogleOauthOtp] = useState(false)
 
     // Page access states
@@ -57,6 +59,7 @@ export default function AdminSettingsPage() {
     const [hideExpressMtn, setHideExpressMtn] = useState(false)
     const [hideStandardMtn, setHideStandardMtn] = useState(false)
     const [resultsCheckerOnly, setResultsCheckerOnly] = useState(false)
+    const [storefrontMarketplaceAd, setStorefrontMarketplaceAd] = useState(true)
 
     useEffect(() => {
         fetchSettings()
@@ -96,13 +99,15 @@ export default function AdminSettingsPage() {
             setFooterCopyrightText(settingsMap.footer_copyright_text || `2025 ARHMS TECHNOLOGIES`)
             setFooterBrandingText(settingsMap.footer_branding_text || 'ARHMS')
             setAutoFulfillment(String(settingsMap.auto_fulfillment_enabled) !== 'false')
+            setSmsProvider(settingsMap.active_sms_provider === 'hubtel' ? 'hubtel' : 'moolre')
             const webProvider = String(settingsMap.active_payment_provider_web || 'moolre')
             const shopProvider = String(settingsMap.active_payment_provider_shop || 'moolre')
             const classifiedsProvider = String(settingsMap.active_payment_provider_classifieds || 'moolre')
-            setWebPaymentProvider(webProvider === 'paystack' ? 'paystack' : 'moolre')
-            setShopPaymentProvider(shopProvider === 'paystack' ? 'paystack' : 'moolre')
-            setClassifiedsPaymentProvider(classifiedsProvider === 'paystack' ? 'paystack' : 'moolre')
+            setWebPaymentProvider(webProvider === 'paystack' ? 'paystack' : webProvider === 'hubtel' ? 'hubtel' : 'moolre')
+            setShopPaymentProvider(shopProvider === 'paystack' ? 'paystack' : shopProvider === 'hubtel' ? 'hubtel' : 'moolre')
+            setClassifiedsPaymentProvider(classifiedsProvider === 'paystack' ? 'paystack' : classifiedsProvider === 'hubtel' ? 'hubtel' : 'moolre')
             setSkipGoogleOauthOtp(settingsMap.skip_google_oauth_otp === 'true')
+            setRcWalletPaymentEnabled(settingsMap.rc_wallet_payment_enabled !== 'false')
 
             // Initialize page access values
             setPageAccessDashboard(settingsMap.page_access_dashboard !== 'false')
@@ -119,6 +124,7 @@ export default function AdminSettingsPage() {
             setHideExpressMtn(settingsMap.express_mtn_hidden === 'true')
             setHideStandardMtn(settingsMap.standard_mtn_hidden === 'true')
             setResultsCheckerOnly(settingsMap.results_checker_only_mode === 'true')
+            setStorefrontMarketplaceAd(settingsMap.storefront_marketplace_ad_enabled !== 'false')
 
         } catch (error) {
             console.error('Error fetching settings:', error)
@@ -150,9 +156,11 @@ export default function AdminSettingsPage() {
                 { key: 'footer_copyright_text', value: footerCopyrightText },
                 { key: 'footer_branding_text', value: footerBrandingText },
                 { key: 'auto_fulfillment_enabled', value: String(autoFulfillment) },
+                { key: 'active_sms_provider', value: smsProvider },
                 { key: 'active_payment_provider_web', value: webPaymentProvider },
                 { key: 'active_payment_provider_shop', value: shopPaymentProvider },
                 { key: 'active_payment_provider_classifieds', value: classifiedsPaymentProvider },
+                { key: 'rc_wallet_payment_enabled', value: String(rcWalletPaymentEnabled) },
                 { key: 'skip_google_oauth_otp', value: String(skipGoogleOauthOtp) },
                 // Page access settings
                 { key: 'page_access_dashboard', value: String(pageAccessDashboard) },
@@ -169,6 +177,7 @@ export default function AdminSettingsPage() {
                 { key: 'express_mtn_hidden', value: String(hideExpressMtn) },
                 { key: 'standard_mtn_hidden', value: String(hideStandardMtn) },
                 { key: 'results_checker_only_mode', value: String(resultsCheckerOnly) },
+                { key: 'storefront_marketplace_ad_enabled', value: String(storefrontMarketplaceAd) },
                 // Classifieds boost fees
                 { key: 'classifieds_boost_fee_7d', value: settings['classifieds_boost_fee_7d'] || '' },
                 { key: 'classifieds_boost_fee_14d', value: settings['classifieds_boost_fee_14d'] || '' },
@@ -415,6 +424,18 @@ export default function AdminSettingsPage() {
                                     </button>
                                     <button
                                         type="button"
+                                        onClick={() => setWebPaymentProvider('hubtel')}
+                                        className={cn(
+                                            'px-4 py-2 text-sm font-medium transition-colors border-l',
+                                            webPaymentProvider === 'hubtel'
+                                                ? 'bg-primary text-primary-foreground'
+                                                : 'bg-background hover:bg-muted text-foreground'
+                                        )}
+                                    >
+                                        Hubtel
+                                    </button>
+                                    <button
+                                        type="button"
                                         onClick={() => setWebPaymentProvider('paystack')}
                                         className={cn(
                                             'px-4 py-2 text-sm font-medium transition-colors border-l',
@@ -426,6 +447,14 @@ export default function AdminSettingsPage() {
                                         Paystack
                                     </button>
                                 </div>
+                            </div>
+
+                            <div className="flex items-center justify-between p-4 border rounded-lg">
+                                <div className="space-y-0.5">
+                                    <Label className="text-base">Results Checker — Allow Wallet Payment</Label>
+                                    <p className="text-sm text-muted-foreground">When OFF, the wallet option is hidden on the Results Checker checkout page and users must pay directly via the active gateway.</p>
+                                </div>
+                                <Switch checked={rcWalletPaymentEnabled} onCheckedChange={setRcWalletPaymentEnabled} />
                             </div>
 
                             <div className="flex items-center justify-between p-4 border rounded-lg">
@@ -445,6 +474,18 @@ export default function AdminSettingsPage() {
                                         )}
                                     >
                                         Moolre
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setShopPaymentProvider('hubtel')}
+                                        className={cn(
+                                            'px-4 py-2 text-sm font-medium transition-colors border-l',
+                                            shopPaymentProvider === 'hubtel'
+                                                ? 'bg-primary text-primary-foreground'
+                                                : 'bg-background hover:bg-muted text-foreground'
+                                        )}
+                                    >
+                                        Hubtel
                                     </button>
                                     <button
                                         type="button"
@@ -544,6 +585,18 @@ export default function AdminSettingsPage() {
                                     </button>
                                     <button
                                         type="button"
+                                        onClick={() => setClassifiedsPaymentProvider('hubtel')}
+                                        className={cn(
+                                            'px-4 py-2 text-sm font-medium transition-colors border-l',
+                                            classifiedsPaymentProvider === 'hubtel'
+                                                ? 'bg-primary text-primary-foreground'
+                                                : 'bg-background hover:bg-muted text-foreground'
+                                        )}
+                                    >
+                                        Hubtel
+                                    </button>
+                                    <button
+                                        type="button"
                                         onClick={() => setClassifiedsPaymentProvider('paystack')}
                                         className={cn(
                                             'px-4 py-2 text-sm font-medium transition-colors border-l',
@@ -638,6 +691,47 @@ export default function AdminSettingsPage() {
                                     checked={autoFulfillment}
                                     onCheckedChange={setAutoFulfillment}
                                 />
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>SMS Provider</CardTitle>
+                            <CardDescription>Select the SMS gateway for all system notifications. Changes take effect immediately.</CardDescription>
+                        </CardHeader>
+                        <CardContent>
+                            <div className="flex items-center justify-between p-4 border rounded-lg">
+                                <div className="space-y-0.5">
+                                    <Label className="text-base">Active SMS Gateway</Label>
+                                    <p className="text-sm text-muted-foreground">Order confirmations, wallet top-ups, upgrades, etc.</p>
+                                </div>
+                                <div className="flex rounded-lg border overflow-hidden">
+                                    <button
+                                        type="button"
+                                        onClick={() => setSmsProvider('moolre')}
+                                        className={cn(
+                                            'px-4 py-2 text-sm font-medium transition-colors',
+                                            smsProvider === 'moolre'
+                                                ? 'bg-primary text-primary-foreground'
+                                                : 'bg-background hover:bg-muted text-foreground'
+                                        )}
+                                    >
+                                        Moolre
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setSmsProvider('hubtel')}
+                                        className={cn(
+                                            'px-4 py-2 text-sm font-medium transition-colors border-l',
+                                            smsProvider === 'hubtel'
+                                                ? 'bg-primary text-primary-foreground'
+                                                : 'bg-background hover:bg-muted text-foreground'
+                                        )}
+                                    >
+                                        Hubtel
+                                    </button>
+                                </div>
                             </div>
                         </CardContent>
                     </Card>
@@ -879,6 +973,23 @@ export default function AdminSettingsPage() {
                                     checked={pageAccessStorefront}
                                     onCheckedChange={setPageAccessStorefront}
                                     className="data-[state=checked]:bg-emerald-500"
+                                />
+                            </div>
+
+                            <div className="flex items-center justify-between p-4 border rounded-lg border-amber-100 dark:border-amber-900 bg-amber-50/50 dark:bg-amber-900/10">
+                                <div className="space-y-0.5">
+                                    <Label className="text-base text-amber-600 dark:text-amber-500 font-bold flex items-center gap-2">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="lucide lucide-store"><path d="m2 7 4.41-4.41A2 2 0 0 1 7.83 2h8.34a2 2 0 0 1 1.42.59L22 7" /><path d="M4 12v8a2 2 0 0 0 2 2h2" /><path d="M20 12v8a2 2 0 0 1-2 2h-2" /><path d="M15 22v-4a2 2 0 0 0-2-2h-2a2 2 0 0 0-2 2v4" /><path d="M2 7h20" /><path d="M22 7v3a2 2 0 0 1-2 2v0a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 16 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 12 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 8 12a2.7 2.7 0 0 1-1.59-.63.7.7 0 0 0-.82 0A2.7 2.7 0 0 1 4 12v0a2 2 0 0 1-2-2V7" /></svg>
+                                        Marketplace Ad on Storefronts
+                                    </Label>
+                                    <p className="text-sm text-amber-700/70 dark:text-amber-300/70 font-medium">
+                                        Shows a &quot;Visit our Marketplace to Buy &amp; Sell&quot; promo banner and menu link on every seller storefront
+                                    </p>
+                                </div>
+                                <Switch
+                                    checked={storefrontMarketplaceAd}
+                                    onCheckedChange={setStorefrontMarketplaceAd}
+                                    className="data-[state=checked]:bg-amber-500"
                                 />
                             </div>
                         </CardContent>

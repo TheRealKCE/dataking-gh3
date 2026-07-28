@@ -205,6 +205,13 @@ export async function middleware(request: NextRequest) {
     const subdomain = getSubdomain(request)
     const isMarketplace = subdomain === 'marketplace'
 
+    // === HUBTEL WEBHOOK BYPASS ===
+    // Hubtel USSD webhooks (/api/hubtel/*) are unsigned and don't have auth credentials.
+    // Skip all middleware checks for them to eliminate latency.
+    if (pathname.startsWith('/api/hubtel')) {
+        return NextResponse.next({ request: { headers: request.headers } })
+    }
+
     // === MARKETPLACE SUBDOMAIN ROUTING ===
     // marketplace.arhmsgh.com serves the classifieds app (app/classifieds/*).
     // Auth routes (/auth/*) redirect to the main domain (centralized auth).
@@ -442,7 +449,10 @@ export async function middleware(request: NextRequest) {
     }
 
     // Protected dashboard routes
-    if (pathname.startsWith('/dashboard')) {
+    // The portal PWA manifest must stay publicly fetchable — browsers request it
+    // to evaluate installability and may do so without credentials. The route
+    // itself returns a neutral manifest when there's no session.
+    if (pathname.startsWith('/dashboard') && pathname !== '/dashboard/sub/manifest.webmanifest') {
         if (!authUser) {
             // Sub-agents use the de-branded portal login, not the main ARHMS login.
             const loginPath = pathname.startsWith('/dashboard/sub') ? '/portal/login' : '/auth/login'
