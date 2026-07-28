@@ -75,7 +75,14 @@ export async function GET(request: NextRequest) {
                             metadata,
                         }
 
-                        if (payment.reference.startsWith('BOOST-')) {
+                        if (payment.reference.startsWith('DATA-')) {
+                            const { processDataDirectOrder } = await import('@/lib/data-order-payments')
+                            const dataResult = await processDataDirectOrder(payment.reference)
+                            if (!dataResult.success && !dataResult.alreadyProcessed) {
+                                throw new Error(dataResult.error || 'Data order processing failed')
+                            }
+                            console.log(`[CronHubtel] ✅ Data order ${payment.reference} settled`)
+                        } else if (payment.reference.startsWith('BOOST-')) {
                             const { processBoostPayment } = await import('@/lib/classifieds-payments')
                             const boostResult = await processBoostPayment(payment.reference, mappedEventData)
                             if (!boostResult.success && !boostResult.alreadyProcessed) {

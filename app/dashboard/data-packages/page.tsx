@@ -6,7 +6,7 @@ import { useAuth } from '@/contexts/auth-context'
 import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { formatCurrency, getNetworkGradient, cn } from '@/lib/utils'
-import { generateReferenceCode } from '@/lib/utils'
+import { generateReferenceCode, calculatePaystackFee } from '@/lib/utils'
 import { validateGhanaianPhone, detectNetwork } from '@/lib/phone-validation'
 import { NetworkIcon } from '@/components/network-icon'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -42,7 +42,9 @@ import {
     FileText,
     CloudUpload,
     ExternalLink,
-    Receipt
+    Receipt,
+    Wallet,
+    CreditCard
 } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
@@ -62,6 +64,12 @@ interface ValidationResult {
 
 
 const ALL_NETWORKS = ['MTN', 'Telecel', 'AT-iShare', 'AT-BigTime', 'Special MTN Mashup', 'EXPRESS MTN'] as const
+
+/** '1GB' → 1, '500MB' → 0.5 — used to summarise settled direct-pay bulk orders. */
+function sizeToGb(size: string): number {
+    const value = parseFloat(String(size).replace(/[^\d.]/g, '')) || 0
+    return /mb/i.test(String(size)) ? value / 1000 : value
+}
 
 export default function DataPackagesPage() {
     const { dbUser, session } = useAuth()
@@ -100,6 +108,24 @@ export default function DataPackagesPage() {
     // Idempotency: Generate a new referenceCode each time the modal opens
     const [currentReferenceCode, setCurrentReferenceCode] = useState('')
 
+    // Payment method: wallet (instant debit) or direct (MoMo / card via gateway)
+    const [paymentMethod, setPaymentMethod] = useState<'wallet' | 'direct'>('wallet')
+    const [bulkPaymentMethod, setBulkPaymentMethod] = useState<'wallet' | 'direct'>('wallet')
+    const [webPaymentProvider, setWebPaymentProvider] = useState<'moolre' | 'hubtel' | 'paystack'>('moolre')
+    const [paystackFeePercent, setPaystackFeePercent] = useState(1.95)
+    const [momoPhone, setMomoPhone] = useState('')
+    const [momoNetwork, setMomoNetwork] = useState('')
+
+    // Direct payment flow state
+    const [pollingRef, setPollingRef] = useState<string | null>(null)
+    const [pollingKind, setPollingKind] = useState<'single' | 'bulk'>('single')
+    const [otpRequired, setOtpRequired] = useState(false)
+    const [otpCode, setOtpCode] = useState('')
+    const [isVerifyingOtp, setIsVerifyingOtp] = useState(false)
+    // Gateway reference kept separate from currentReferenceCode, which is the
+    // wallet path's order idempotency key.
+    const [directPaymentRef, setDirectPaymentRef] = useState<string | null>(null)
+
     // Bulk success modal state
     const [bulkSuccess, setBulkSuccess] = useState(false)
     const [bulkSuccessDetails, setBulkSuccessDetails] = useState<{
@@ -128,7 +154,105 @@ export default function DataPackagesPage() {
         fetchWalletBalance()
         fetchOrdersToday()
         fetchMashupSetting()
+        fetchPaymentSettings()
     }, [dbUser])
+
+    // Prefill the MoMo number from the account profile
+    useEffect(() => {
+        if (dbUser?.phone_number && !momoPhone) setMomoPhone(dbUser.phone_number)
+    }, [dbUser])
+
+    // Paystack return leg — resume polling for the reference in the URL
+    useEffect(() => {
+        const ref = searchParams.get('reference')
+        if (ref && ref.startsWith('DATA-')) {
+            setPollingRef(ref)
+            router.replace('/dashboard/data-packages')
+        }
+    }, [searchParams, router])
+
+    // Poll the gateway until the direct payment settles
+    useEffect(() => {
+        if (!pollingRef) return
+
+        let elapsed = 0
+        const POLL_MS = 3000
+        const TIMEOUT_MS = 180000 // 3 minutes
+
+        const interval = setInterval(async () => {
+            elapsed += POLL_MS
+
+            if (elapsed >= TIMEOUT_MS) {
+                clearInterval(interval)
+                setPollingRef(null)
+                setIsPurchasing(false)
+                setIsSubmittingBulk(false)
+                toast.error('Still waiting on payment confirmation. Check My Orders in a moment.')
+                return
+            }
+
+            try {
+                const res = await fetch(`/api/payments/verify?reference=${pollingRef}`, {
+                    headers: { 'Accept': 'application/json' },
+                })
+                const data = await res.json()
+
+                if (data.status === 'completed') {
+                    const placedOrders = data.orders || []
+
+                    // The settling caller writes the order references a moment
+                    // after creating them — keep polling until they show up.
+                    if (placedOrders.length === 0) return
+
+                    clearInterval(interval)
+                    setPollingRef(null)
+                    setIsPurchasing(false)
+                    setIsSubmittingBulk(false)
+
+                    if (pollingKind === 'bulk') {
+                        setBulkSuccess(true)
+                        setBulkSuccessDetails({
+                            ordersPlaced: placedOrders.length,
+                            totalCost: placedOrders.reduce((sum: number, o: any) => sum + Number(o.price || 0), 0),
+                            newBalance: walletBalance,
+                            orders: placedOrders.map((o: any) => ({
+                                phoneNumber: o.phone_number,
+                                volume: sizeToGb(o.size),
+                                packagePrice: Number(o.price || 0),
+                            })),
+                        })
+                        setValidationResults([])
+                        setBulkText('')
+                        setBulkFile(null)
+                    } else {
+                        const order = placedOrders[0]
+                        setPurchaseSuccess(true)
+                        setPurchaseDetails({
+                            referenceCode: order.reference_code,
+                            network: order.network,
+                            size: order.size,
+                            phoneNumber: order.phone_number,
+                            price: Number(order.price || 0),
+                            newBalance: walletBalance,
+                        })
+                    }
+
+                    setOrdersToday(prev => prev + placedOrders.length)
+                    toast.success('Payment received — your order is being processed!')
+                } else if (data.status === 'failed') {
+                    clearInterval(interval)
+                    setPollingRef(null)
+                    setIsPurchasing(false)
+                    setIsSubmittingBulk(false)
+                    toast.error(data.message || data.error || 'Payment failed or was cancelled.')
+                }
+            } catch (e) {
+                console.error('Polling error', e)
+            }
+        }, POLL_MS)
+
+        return () => clearInterval(interval)
+    }, [pollingRef, pollingKind, walletBalance])
 
     useEffect(() => {
         filterPackages()
@@ -152,6 +276,23 @@ export default function DataPackagesPage() {
             }
         } catch (_) {
             // fallback
+        }
+    }
+
+    const fetchPaymentSettings = async () => {
+        try {
+            const res = await fetch('/api/admin-settings?keys=active_payment_provider_web,paystack_fee_percent,agent_paystack_fee_percent')
+            if (!res.ok) return
+            const settings = await res.json()
+
+            const provider = String(settings.active_payment_provider_web || 'moolre')
+            setWebPaymentProvider(provider === 'paystack' ? 'paystack' : provider === 'hubtel' ? 'hubtel' : 'moolre')
+
+            const feeKey = dbUser?.role === 'agent' ? 'agent_paystack_fee_percent' : 'paystack_fee_percent'
+            const feeVal = parseFloat(settings[feeKey] || settings.paystack_fee_percent || '1.95')
+            if (!isNaN(feeVal)) setPaystackFeePercent(feeVal)
+        } catch (_) {
+            // keep defaults
         }
     }
 
@@ -232,12 +373,36 @@ export default function DataPackagesPage() {
         return pkg.price
     }
 
+    // Gateway fee for Direct Pay — the server recomputes this authoritatively,
+    // this is for display only.
+    const HUBTEL_FEE_PERCENT = 1.8
+    const computeGatewayFee = (subtotal: number) => {
+        if (webPaymentProvider === 'hubtel') {
+            return parseFloat((subtotal * (HUBTEL_FEE_PERCENT / 100)).toFixed(2))
+        }
+        if (webPaymentProvider === 'paystack') {
+            return calculatePaystackFee(subtotal, paystackFeePercent)
+        }
+        return 0
+    }
+
+    const needsMomoDetails = webPaymentProvider === 'moolre' || webPaymentProvider === 'hubtel'
+
+    const selectedPrice = selectedPackage ? getEffectivePrice(selectedPackage) : 0
+    const selectedFee = paymentMethod === 'direct' ? computeGatewayFee(selectedPrice) : 0
+    const selectedTotal = selectedPrice + selectedFee
+
     const handlePurchaseClick = (pkg: DataPackage) => {
         setSelectedPackage(pkg)
         setPhoneNumber('')
         setPhoneError('')
         setPurchaseSuccess(false)
         setPurchaseDetails(null)
+        setOtpRequired(false)
+        setOtpCode('')
+        setDirectPaymentRef(null)
+        // Default to whichever method can actually complete right now
+        setPaymentMethod(walletBalance >= getEffectivePrice(pkg) ? 'wallet' : 'direct')
         // Generate a fresh idempotency key each time the modal opens
         setCurrentReferenceCode(generateReferenceCode())
     }
@@ -274,6 +439,11 @@ export default function DataPackagesPage() {
         }
 
         const effectivePrice = getEffectivePrice(selectedPackage)
+
+        if (paymentMethod === 'direct') {
+            await handleDirectPurchase(validation.normalizedNumber!)
+            return
+        }
 
         if (walletBalance < effectivePrice) {
             setPhoneError('Insufficient wallet balance')
@@ -318,6 +488,100 @@ export default function DataPackagesPage() {
             toast.error(error.message || 'Failed to place order')
         } finally {
             setIsPurchasing(false)
+        }
+    }
+
+    // Direct Pay: take the money through the gateway first, then the server
+    // creates and fulfils the order on confirmation.
+    const handleDirectPurchase = async (recipientNumber: string) => {
+        if (!selectedPackage) return
+
+        if (needsMomoDetails && !momoNetwork) {
+            toast.error('Please select the Mobile Money network to pay from')
+            return
+        }
+        if (needsMomoDetails && !momoPhone) {
+            toast.error('Please enter the Mobile Money number to charge')
+            return
+        }
+
+        setIsPurchasing(true)
+
+        try {
+            const res = await fetch('/api/orders/gateway-init', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({
+                    packageId: selectedPackage.id,
+                    phoneNumber: recipientNumber,
+                    momoPhone,
+                    momoNetwork,
+                }),
+            })
+
+            const data = await res.json()
+            if (!res.ok) throw new Error(data.error || 'Payment could not be started')
+
+            setPollingKind('single')
+
+            if (data.gateway === 'paystack') {
+                window.location.href = data.authorization_url
+                return
+            }
+
+            if (data.otpRequired) {
+                setDirectPaymentRef(data.reference)
+                setOtpRequired(true)
+                setIsPurchasing(false)
+                return
+            }
+
+            toast.success(data.message || 'Payment prompt sent! Approve it on your phone.')
+            setPollingRef(data.reference)
+        } catch (error: any) {
+            toast.error(error.message || 'Failed to start payment')
+            setIsPurchasing(false)
+        }
+    }
+
+    // Moolre asks for an OTP before it will send the debit prompt
+    const handleVerifyOtp = async () => {
+        if (!otpCode.trim()) {
+            toast.error('Please enter the OTP sent to your phone')
+            return
+        }
+        if (!selectedPackage) return
+
+        setIsVerifyingOtp(true)
+        try {
+            const validation = validateGhanaianPhone(phoneNumber)
+            const res = await fetch('/api/orders/gateway-init', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({
+                    packageId: selectedPackage.id,
+                    phoneNumber: validation.normalizedNumber,
+                    momoPhone,
+                    momoNetwork,
+                    otpCode: otpCode.trim(),
+                    reference: directPaymentRef,
+                }),
+            })
+
+            const data = await res.json()
+            if (!res.ok) throw new Error(data.error || 'Invalid OTP. Please try again.')
+
+            setOtpRequired(false)
+            setOtpCode('')
+            toast.success(data.message || 'OTP verified! Approve the prompt on your phone.')
+            setIsPurchasing(true)
+            setPollingRef(data.reference)
+        } catch (error: any) {
+            toast.error(error.message || 'Failed to verify OTP')
+        } finally {
+            setIsVerifyingOtp(false)
         }
     }
 
@@ -516,11 +780,65 @@ export default function DataPackagesPage() {
         setValidationResults(prev => prev.filter((_, i) => i !== index))
     }
 
+    // Direct Pay for a whole basket — one payment settles into N orders
+    const handleBulkDirectPurchase = async (validOrders: ValidationResult[]) => {
+        if (needsMomoDetails && (!momoNetwork || !momoPhone)) {
+            toast.error('Enter the Mobile Money number and network to pay from')
+            return
+        }
+
+        setIsSubmittingBulk(true)
+
+        try {
+            const res = await fetch('/api/orders/gateway-init', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({
+                    orders: validOrders.map(order => ({
+                        packageId: order.packageId,
+                        phoneNumber: validateGhanaianPhone(order.phoneNumber).normalizedNumber,
+                    })),
+                    momoPhone,
+                    momoNetwork,
+                }),
+            })
+
+            const data = await res.json()
+            if (!res.ok) throw new Error(data.error || 'Payment could not be started')
+
+            setPollingKind('bulk')
+
+            if (data.gateway === 'paystack') {
+                window.location.href = data.authorization_url
+                return
+            }
+
+            if (data.otpRequired) {
+                toast.error('This basket needs OTP approval. Please pay from your wallet or try a single purchase.')
+                setIsSubmittingBulk(false)
+                return
+            }
+
+            toast.success(data.message || 'Payment prompt sent! Approve it on your phone.')
+            setPollingRef(data.reference)
+        } catch (error: any) {
+            toast.error(error.message || 'Failed to start payment')
+            setIsSubmittingBulk(false)
+        }
+    }
+
     const handleSubmitBulkOrder = async () => {
         const validOrders = validationResults.filter(r => r.isValid)
         if (validOrders.length === 0) return
 
         const totalCost = validOrders.reduce((sum, order) => sum + order.packagePrice, 0)
+
+        if (bulkPaymentMethod === 'direct') {
+            await handleBulkDirectPurchase(validOrders)
+            return
+        }
+
         if (walletBalance < totalCost) {
             toast.error(`Insufficient balance. Need GHS ${formatCurrency(totalCost)}`)
             return
@@ -882,31 +1200,122 @@ export default function DataPackagesPage() {
 
                                             {/* Submit Section */}
                                             <div className="flex flex-col items-center justify-center gap-4 py-4 max-w-md mx-auto w-full">
-                                                {walletBalance < totalBulkCost ? (
-                                                    <Link href="/dashboard/wallet" className="w-full">
-                                                        <Button
-                                                            className="w-full bg-[#FFCE00] text-black hover:bg-[#FFCE00]/90 font-black py-6 rounded-2xl shadow-xl shadow-yellow-500/20 text-sm h-auto uppercase tracking-widest"
+                                                {/* Payment Method — Wallet or Direct Pay */}
+                                                <div className="w-full space-y-2">
+                                                    <Label>Payment Method</Label>
+                                                    <div className="grid grid-cols-2 gap-3">
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setBulkPaymentMethod('wallet')}
+                                                            className={cn(
+                                                                'p-3 rounded-xl border flex items-center gap-2 transition-colors text-left',
+                                                                bulkPaymentMethod === 'wallet' ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'hover:bg-muted/50'
+                                                            )}
                                                         >
-                                                            <DollarSign className="w-5 h-5 mr-2" />
-                                                            Recharge Wallet
-                                                        </Button>
-                                                    </Link>
+                                                            <Wallet className="w-5 h-5 text-primary shrink-0" />
+                                                            <div className="min-w-0">
+                                                                <div className="font-semibold text-sm">Wallet</div>
+                                                                <div className="text-xs text-muted-foreground truncate">{formatCurrency(walletBalance)} available</div>
+                                                            </div>
+                                                        </button>
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setBulkPaymentMethod('direct')}
+                                                            className={cn(
+                                                                'p-3 rounded-xl border flex items-center gap-2 transition-colors text-left',
+                                                                bulkPaymentMethod === 'direct' ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'hover:bg-muted/50'
+                                                            )}
+                                                        >
+                                                            <CreditCard className="w-5 h-5 text-blue-500 shrink-0" />
+                                                            <div className="min-w-0">
+                                                                <div className="font-semibold text-sm">Direct Pay</div>
+                                                                <div className="text-xs text-muted-foreground truncate">MoMo or Card</div>
+                                                            </div>
+                                                        </button>
+                                                    </div>
+                                                </div>
+
+                                                {bulkPaymentMethod === 'direct' && needsMomoDetails && (
+                                                    <div className="w-full space-y-3 animate-in fade-in slide-in-from-top-2">
+                                                        <div className="space-y-2">
+                                                            <Label htmlFor="bulk-momo-phone">Mobile Money Number</Label>
+                                                            <Input
+                                                                id="bulk-momo-phone"
+                                                                type="tel"
+                                                                placeholder="0241234567"
+                                                                value={momoPhone}
+                                                                onChange={(e) => setMomoPhone(e.target.value)}
+                                                            />
+                                                        </div>
+                                                        <div className="space-y-2">
+                                                            <Label>Mobile Money Network</Label>
+                                                            <Select value={momoNetwork} onValueChange={setMomoNetwork}>
+                                                                <SelectTrigger>
+                                                                    <SelectValue placeholder="Select Network" />
+                                                                </SelectTrigger>
+                                                                <SelectContent>
+                                                                    <SelectItem value="MTN">MTN MoMo</SelectItem>
+                                                                    <SelectItem value="Telecel">Telecel Cash</SelectItem>
+                                                                    <SelectItem value="AT">AT Money</SelectItem>
+                                                                </SelectContent>
+                                                            </Select>
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {bulkPaymentMethod === 'direct' && computeGatewayFee(totalBulkCost) > 0 && (
+                                                    <div className="w-full rounded-xl bg-muted/50 p-3 space-y-1 text-sm">
+                                                        <div className="flex justify-between">
+                                                            <span className="text-muted-foreground">Orders</span>
+                                                            <span>{formatCurrency(totalBulkCost)}</span>
+                                                        </div>
+                                                        <div className="flex justify-between">
+                                                            <span className="text-muted-foreground">Transaction fee</span>
+                                                            <span>{formatCurrency(computeGatewayFee(totalBulkCost))}</span>
+                                                        </div>
+                                                        <div className="flex justify-between border-t border-border/50 pt-1 font-bold">
+                                                            <span>Total</span>
+                                                            <span className="text-primary">{formatCurrency(totalBulkCost + computeGatewayFee(totalBulkCost))}</span>
+                                                        </div>
+                                                    </div>
+                                                )}
+
+                                                {bulkPaymentMethod === 'wallet' && walletBalance < totalBulkCost ? (
+                                                    <div className="w-full space-y-2">
+                                                        <Link href="/dashboard/wallet" className="w-full block">
+                                                            <Button
+                                                                className="w-full bg-[#FFCE00] text-black hover:bg-[#FFCE00]/90 font-black py-6 rounded-2xl shadow-xl shadow-yellow-500/20 text-sm h-auto uppercase tracking-widest"
+                                                            >
+                                                                <DollarSign className="w-5 h-5 mr-2" />
+                                                                Recharge Wallet
+                                                            </Button>
+                                                        </Link>
+                                                        <button
+                                                            type="button"
+                                                            className="w-full text-xs text-muted-foreground underline"
+                                                            onClick={() => setBulkPaymentMethod('direct')}
+                                                        >
+                                                            Or pay directly with MoMo / card
+                                                        </button>
+                                                    </div>
                                                 ) : (
                                                     <Button
                                                         className="w-full bg-black text-[#FFCE00] hover:bg-black/90 font-black py-5 rounded-2xl shadow-xl shadow-black/10 text-sm h-auto flex flex-col items-center gap-1"
                                                         onClick={handleSubmitBulkOrder}
-                                                        disabled={isSubmittingBulk || validationResults.filter(r => r.isValid).length === 0}
+                                                        disabled={isSubmittingBulk || !!pollingRef || validationResults.filter(r => r.isValid).length === 0}
                                                     >
-                                                        {isSubmittingBulk ? (
+                                                        {isSubmittingBulk || pollingRef ? (
                                                             <div className="flex items-center">
                                                                 <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                                                Processing...
+                                                                {pollingRef ? 'Waiting for approval...' : 'Processing...'}
                                                             </div>
                                                         ) : (
                                                             <>
                                                                 <div className="text-[10px] font-bold opacity-60 flex items-center gap-1 mb-1 bg-white/10 px-3 py-0.5 rounded-full">
                                                                     <DollarSign className="w-2.5 h-2.5" />
-                                                                    Wallet Balance: {formatCurrency(walletBalance)}
+                                                                    {bulkPaymentMethod === 'wallet'
+                                                                        ? `Wallet Balance: ${formatCurrency(walletBalance)}`
+                                                                        : `Pay ${formatCurrency(totalBulkCost + computeGatewayFee(totalBulkCost))}`}
                                                                 </div>
                                                                 <div className="flex items-center gap-2 text-base tracking-widest">
                                                                     <CheckCircle2 className="w-5 h-5" />
@@ -1119,7 +1528,7 @@ export default function DataPackagesPage() {
             </Tabs>
 
             {/* Purchase Dialog */}
-            <Dialog open={!!selectedPackage} onOpenChange={() => setSelectedPackage(null)}>
+            <Dialog open={!!selectedPackage} onOpenChange={() => { if (!pollingRef) setSelectedPackage(null) }}>
                 <DialogContent className="w-[95%] max-w-sm sm:max-w-md rounded-2xl p-4 sm:p-6">
                     {purchaseSuccess ? (
                         <div className="py-4 space-y-5">
@@ -1218,11 +1627,102 @@ export default function DataPackagesPage() {
                                     )}
                                 </div>
 
-                                {walletBalance < (selectedPackage ? getEffectivePrice(selectedPackage) : 0) && (
+                                {/* Payment Method — Wallet or Direct Pay */}
+                                <div className="space-y-2">
+                                    <Label>Payment Method</Label>
+                                    <div className="grid grid-cols-2 gap-3">
+                                        <button
+                                            type="button"
+                                            onClick={() => setPaymentMethod('wallet')}
+                                            className={cn(
+                                                'p-3 rounded-xl border flex items-center gap-2 transition-colors text-left',
+                                                paymentMethod === 'wallet' ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'hover:bg-muted/50'
+                                            )}
+                                        >
+                                            <Wallet className="w-5 h-5 text-primary shrink-0" />
+                                            <div className="min-w-0">
+                                                <div className="font-semibold text-sm">Wallet</div>
+                                                <div className="text-xs text-muted-foreground truncate">{formatCurrency(walletBalance)} available</div>
+                                            </div>
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setPaymentMethod('direct')}
+                                            className={cn(
+                                                'p-3 rounded-xl border flex items-center gap-2 transition-colors text-left',
+                                                paymentMethod === 'direct' ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'hover:bg-muted/50'
+                                            )}
+                                        >
+                                            <CreditCard className="w-5 h-5 text-blue-500 shrink-0" />
+                                            <div className="min-w-0">
+                                                <div className="font-semibold text-sm">Direct Pay</div>
+                                                <div className="text-xs text-muted-foreground truncate">MoMo or Card</div>
+                                            </div>
+                                        </button>
+                                    </div>
+                                </div>
+
+                                {/* MoMo details for Direct Pay */}
+                                {paymentMethod === 'direct' && needsMomoDetails && (
+                                    <div className="space-y-3 animate-in fade-in slide-in-from-top-2">
+                                        <div className="space-y-2">
+                                            <Label htmlFor="momo-phone">Mobile Money Number</Label>
+                                            <Input
+                                                id="momo-phone"
+                                                type="tel"
+                                                placeholder="0241234567"
+                                                value={momoPhone}
+                                                onChange={(e) => setMomoPhone(e.target.value)}
+                                            />
+                                            <p className="text-xs text-muted-foreground">The number to charge — this can differ from the recipient above.</p>
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>Mobile Money Network</Label>
+                                            <Select value={momoNetwork} onValueChange={setMomoNetwork}>
+                                                <SelectTrigger>
+                                                    <SelectValue placeholder="Select Network" />
+                                                </SelectTrigger>
+                                                <SelectContent>
+                                                    <SelectItem value="MTN">MTN MoMo</SelectItem>
+                                                    <SelectItem value="Telecel">Telecel Cash</SelectItem>
+                                                    <SelectItem value="AT">AT Money</SelectItem>
+                                                </SelectContent>
+                                            </Select>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Fee breakdown for Direct Pay */}
+                                {paymentMethod === 'direct' && selectedFee > 0 && (
+                                    <div className="rounded-xl bg-muted/50 p-3 space-y-1 text-sm">
+                                        <div className="flex justify-between">
+                                            <span className="text-muted-foreground">Package</span>
+                                            <span>{formatCurrency(selectedPrice)}</span>
+                                        </div>
+                                        <div className="flex justify-between">
+                                            <span className="text-muted-foreground">Transaction fee</span>
+                                            <span>{formatCurrency(selectedFee)}</span>
+                                        </div>
+                                        <div className="flex justify-between border-t border-border/50 pt-1 font-bold">
+                                            <span>Total</span>
+                                            <span className="text-primary">{formatCurrency(selectedTotal)}</span>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {paymentMethod === 'wallet' && walletBalance < selectedPrice && (
                                     <Alert variant="destructive">
                                         <AlertCircle className="w-4 h-4" />
-                                        <AlertDescription>
-                                            Insufficient balance. Please top up your wallet.
+                                        <AlertDescription className="flex flex-wrap items-center gap-x-1">
+                                            Insufficient balance.
+                                            <button
+                                                type="button"
+                                                className="underline font-semibold"
+                                                onClick={() => setPaymentMethod('direct')}
+                                            >
+                                                Pay directly instead
+                                            </button>
+                                            or top up your wallet.
                                         </AlertDescription>
                                     </Alert>
                                 )}
@@ -1233,25 +1733,61 @@ export default function DataPackagesPage() {
                             </div>
 
                             <DialogFooter>
-                                <Button variant="outline" onClick={() => setSelectedPackage(null)}>
+                                <Button variant="outline" onClick={() => setSelectedPackage(null)} disabled={!!pollingRef}>
                                     Cancel
                                 </Button>
                                 <Button
                                     onClick={handlePurchase}
-                                    disabled={isPurchasing || !phoneNumber || !!phoneError || walletBalance < (selectedPackage ? getEffectivePrice(selectedPackage) : 0)}
+                                    disabled={
+                                        isPurchasing ||
+                                        !!pollingRef ||
+                                        !phoneNumber ||
+                                        !!phoneError ||
+                                        (paymentMethod === 'wallet' && walletBalance < selectedPrice)
+                                    }
                                 >
-                                    {isPurchasing ? (
+                                    {isPurchasing || pollingRef ? (
                                         <>
                                             <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                            Processing...
+                                            {pollingRef ? 'Waiting for approval...' : 'Processing...'}
                                         </>
                                     ) : (
-                                        `Pay ${selectedPackage && formatCurrency(getEffectivePrice(selectedPackage))}`
+                                        `Pay ${formatCurrency(selectedTotal)}`
                                     )}
                                 </Button>
                             </DialogFooter>
                         </>
                     )}
+                </DialogContent>
+            </Dialog>
+
+            {/* Moolre OTP Dialog */}
+            <Dialog open={otpRequired} onOpenChange={(open) => { if (!open) { setOtpRequired(false); setOtpCode('') } }}>
+                <DialogContent className="w-[95%] max-w-sm rounded-2xl">
+                    <DialogHeader>
+                        <DialogTitle>Enter OTP</DialogTitle>
+                        <DialogDescription>
+                            Your network sent a one-time code to {momoPhone || 'your phone'}. Enter it to authorise this payment.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <Input
+                        autoFocus
+                        inputMode="numeric"
+                        placeholder="Enter OTP"
+                        value={otpCode}
+                        onChange={(e) => setOtpCode(e.target.value)}
+                        className="text-center text-lg tracking-widest"
+                    />
+                    <DialogFooter>
+                        <Button variant="outline" onClick={() => { setOtpRequired(false); setOtpCode('') }}>
+                            Cancel
+                        </Button>
+                        <Button onClick={handleVerifyOtp} disabled={isVerifyingOtp || !otpCode.trim()}>
+                            {isVerifyingOtp ? (
+                                <><Loader2 className="w-4 h-4 mr-2 animate-spin" /> Verifying...</>
+                            ) : 'Verify'}
+                        </Button>
+                    </DialogFooter>
                 </DialogContent>
             </Dialog>
 

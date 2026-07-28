@@ -74,6 +74,14 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({ received: true })
             }
 
+            // o. DATA BUNDLES: References starting with DATA- are direct-pay data orders
+            if (reference && reference.startsWith('DATA-')) {
+                const { processDataDirectOrder } = await import('@/lib/data-order-payments')
+                console.log('[PaystackWebhook] Routing direct-pay data order:', reference)
+                await processDataDirectOrder(reference)
+                return NextResponse.json({ received: true })
+            }
+
             // o. BOOST PAYMENTS: References starting with BOOST- are classified listing boosts
             if (reference && reference.startsWith('BOOST-')) {
                 const { processBoostPayment } = await import('@/lib/classifieds-payments')

@@ -88,6 +88,14 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({ received: true })
             }
 
+            // o. DATA BUNDLES: References starting with DATA- are direct-pay data orders
+            if (externalref.startsWith('DATA-')) {
+                const { processDataDirectOrder } = await import('@/lib/data-order-payments')
+                console.log('[MoolreWebhook] Routing direct-pay data order:', externalref)
+                await processDataDirectOrder(externalref)
+                return NextResponse.json({ received: true })
+            }
+
             // o. BOOST PAYMENTS: References starting with BOOST- are classified listing boosts
             if (externalref.startsWith('BOOST-')) {
                 const { processBoostPayment } = await import('@/lib/classifieds-payments')

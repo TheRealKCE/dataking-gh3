@@ -106,6 +106,14 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ received: true })
         }
 
+        // ── DATA BUNDLE (Direct Pay) ─────────────────────────────────────────────
+        if (ClientReference.startsWith('DATA-')) {
+            const { processDataDirectOrder } = await import('@/lib/data-order-payments')
+            console.log('[HubtelWebhook] Routing direct-pay data order:', ClientReference)
+            await processDataDirectOrder(ClientReference)
+            return NextResponse.json({ received: true })
+        }
+
         // ── CLASSIFIEDS BOOST ─────────────────────────────────────────────────────
         if (ClientReference.startsWith('BOOST-')) {
             const { processBoostPayment } = await import('@/lib/classifieds-payments')
