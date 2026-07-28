@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
-import { processCompletedWalletPayment, processCompletedUpgradePayment } from '@/lib/payments'
+import { processCompletedWalletPayment, processCompletedUpgradePayment, processCompletedDealerSubscription } from '@/lib/payments'
 import { Redis } from '@upstash/redis'
 
 const redis = Redis.fromEnv()
@@ -134,6 +134,10 @@ export async function POST(request: NextRequest) {
             // ── AGENT UPGRADE ─────────────────────────────────────────────────────
             console.log('[HubtelWebhook] Routing agent upgrade payment:', ClientReference)
             await processCompletedUpgradePayment(ClientReference, mappedEventData)
+        } else if (ClientReference.startsWith('dealer_sub_') || metadata.upgrade_type === 'dealer_subscription') {
+            // ── DEALER SUBSCRIPTION ───────────────────────────────────────────────
+            console.log('[HubtelWebhook] Routing dealer subscription payment:', ClientReference)
+            await processCompletedDealerSubscription(ClientReference, mappedEventData)
         } else {
             // ── WALLET TOP-UP ─────────────────────────────────────────────────────
             console.log('[HubtelWebhook] Routing wallet top-up payment:', ClientReference)

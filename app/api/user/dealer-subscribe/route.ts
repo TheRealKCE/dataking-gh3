@@ -4,6 +4,12 @@ import { cookies } from 'next/headers'
 import { createClient } from '@supabase/supabase-js'
 import { generateReferenceCode } from '@/lib/utils'
 import { initiatePayment, checkPaymentStatus, MOOLRE_PAYMENT_CHANNEL_MAP } from '@/lib/moolre-payment-service'
+import {
+    initiatePayment as hubtelInitiatePayment,
+    checkPaymentStatus as hubtelCheckPaymentStatus,
+    HUBTEL_CHANNEL_MAP,
+} from '@/lib/hubtel-payment-service'
+import { processCompletedDealerSubscription } from '@/lib/payments'
 
 export async function POST(request: NextRequest) {
     try {
@@ -15,7 +21,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        const { phone, network, otpCode, reference: existingRef, planType: rawPlanType } = await request.json().catch(() => ({}))
+        const { phone, network, otpCode, reference: existingRef, planType: rawPlanType, provider: bodyProvider } = await request.json().catch(() => ({}))
 
         const planType: 'dealer_3m' | 'dealer_6m' = rawPlanType === 'dealer_3m' ? 'dealer_3m' : 'dealer_6m'
         const planDays = planType === 'dealer_3m' ? 90 : 180
@@ -45,7 +51,16 @@ export async function POST(request: NextRequest) {
         const settingsMap: Record<string, string> = {}
         for (const row of (settings || [])) settingsMap[row.key] = row.value
 
-        const provider = settingsMap.active_payment_provider_web === 'paystack' ? 'paystack' : 'moolre'
+        // Provider resolution: body takes priority (frontend toggle), fall back to admin setting
+        const adminDefault = String(settingsMap.active_payment_provider_web || 'moolre')
+        const provider: 'moolre' | 'hubtel' | 'paystack' =
+            bodyProvider === 'hubtel' ? 'hubtel'
+            : bodyProvider === 'paystack' ? 'paystack'
+            : bodyProvider === 'moolre' ? 'moolre'
+            : adminDefault === 'paystack' ? 'paystack'
+            : adminDefault === 'hubtel' ? 'hubtel'
+            : 'moolre'
+
         const priceKey = planType === 'dealer_3m' ? 'dealer_subscription_price_3m' : 'dealer_subscription_price_6m'
         const subscriptionPrice = parseFloat(settingsMap[priceKey] || '0')
 
@@ -57,6 +72,12 @@ export async function POST(request: NextRequest) {
             const channelId = phone && MOOLRE_PAYMENT_CHANNEL_MAP[network]
             if (!phone || !network || !channelId) {
                 return NextResponse.json({ error: 'Phone number and network are required' }, { status: 400 })
+            }
+        }
+
+        if (provider === 'hubtel') {
+            if (!phone || !network || !HUBTEL_CHANNEL_MAP[network]) {
+                return NextResponse.json({ error: 'Phone number and network are required for Hubtel payment' }, { status: 400 })
             }
         }
 
@@ -118,9 +139,9 @@ export async function POST(request: NextRequest) {
                     callback_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/upgrade?reference=${reference}`,
                     metadata: {
                         upgrade_type: 'dealer_subscription',
-                        plan_type: 'dealer_6m',
-                        plan_days: 180,
-                        plan_label: '6 Months Dealer Subscription',
+                        plan_type: planType,
+                        plan_days: planDays,
+                        plan_label: planLabel,
                     },
                 }),
             })
@@ -141,6 +162,30 @@ export async function POST(request: NextRequest) {
             })
         }
 
+        // ── HUBTEL BRANCH ───────────────────────────────────────────────────────
+        if (provider === 'hubtel') {
+            const hubtelResponse = await hubtelInitiatePayment({
+                amount: subscriptionPrice,
+                payerPhone: phone,
+                channel: HUBTEL_CHANNEL_MAP[network],
+                clientReference: reference,
+                description: `ARHMS Dealer Subscription - ${planLabel}`,
+            })
+
+            if (!hubtelResponse.success) {
+                await (supabaseAdmin.from('wallet_payments') as any).update({ status: 'failed' }).eq('reference', reference)
+                throw new Error(hubtelResponse.error || 'Failed to initialize Hubtel payment')
+            }
+
+            return NextResponse.json({
+                success: true,
+                gateway: 'hubtel',
+                reference,
+                message: 'Payment prompt sent to your phone. Please approve to continue.',
+            })
+        }
+
+        // ── MOOLRE BRANCH ───────────────────────────────────────────────────────
         const channelId = MOOLRE_PAYMENT_CHANNEL_MAP[network]
 
         let moolreResponse = await initiatePayment({
@@ -207,20 +252,6 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ success: false, error: 'Not a dealer subscription reference' }, { status: 400 })
         }
 
-        const moolreResponse = await checkPaymentStatus(reference)
-
-        if (!moolreResponse.success || moolreResponse.txstatus === null) {
-            return NextResponse.json({ success: true, status: 'pending' })
-        }
-
-        if (moolreResponse.txstatus === 0 || moolreResponse.txstatus === 3) {
-            return NextResponse.json({ success: true, status: 'pending' })
-        }
-
-        if (moolreResponse.txstatus === 2) {
-            return NextResponse.json({ success: false, status: 'failed' })
-        }
-
         const supabaseAdmin = createClient(
             process.env.NEXT_PUBLIC_SUPABASE_URL!,
             process.env.SUPABASE_SERVICE_ROLE_KEY!,
@@ -229,7 +260,7 @@ export async function GET(request: NextRequest) {
 
         const { data: payment } = await supabaseAdmin
             .from('wallet_payments')
-            .select('id, status, user_id')
+            .select('id, status, user_id, provider, total_amount, metadata')
             .eq('reference', reference)
             .single()
 
@@ -237,51 +268,67 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ success: false, status: 'failed', error: 'Payment record not found' }, { status: 400 })
         }
 
-        if ((payment as any).status === 'completed') {
-            return NextResponse.json({ success: true, status: 'completed', alreadyProcessed: true })
-        }
-
         if ((payment as any).user_id !== authUser.id) {
             return NextResponse.json({ success: false, error: 'Forbidden' }, { status: 403 })
         }
 
-        // Mark payment completed
-        await (supabaseAdmin.from('wallet_payments') as any)
-            .update({ status: 'completed', updated_at: new Date().toISOString() })
-            .eq('id', (payment as any).id)
-            .eq('status', 'pending')
-
-        // Extend dealer_expires_at by plan_days from payment metadata (90 or 180)
-        const planDays: number = (payment as any)?.metadata?.plan_days ?? 180
-
-        const { data: userRow } = await supabaseAdmin
-            .from('users')
-            .select('dealer_expires_at, dealer_claimed_at, role')
-            .eq('id', authUser.id)
-            .single()
-
-        const currentExpiry = (userRow as any)?.dealer_expires_at
-            ? new Date((userRow as any).dealer_expires_at)
-            : new Date()
-
-        if (currentExpiry < new Date()) {
-            currentExpiry.setTime(new Date().getTime())
+        if ((payment as any).status === 'completed') {
+            return NextResponse.json({ success: true, status: 'completed', alreadyProcessed: true })
         }
 
-        const newExpiry = new Date(currentExpiry)
-        newExpiry.setDate(newExpiry.getDate() + planDays)
+        // Confirm with the gateway the payment was actually initiated through
+        const paymentProvider = String((payment as any).provider || 'moolre')
 
-        const now = new Date().toISOString()
-        await (supabaseAdmin.from('users') as any)
-            .update({
-                role: 'dealer',
-                dealer_expires_at: newExpiry.toISOString(),
-                dealer_claimed_at: (userRow as any)?.dealer_claimed_at ?? now,
-                updated_at: now,
+        if (paymentProvider === 'hubtel') {
+            const hubtelStatus = await hubtelCheckPaymentStatus(reference)
+
+            if (!hubtelStatus.success || hubtelStatus.status === null) {
+                return NextResponse.json({ success: true, status: 'pending' })
+            }
+            if (hubtelStatus.status !== 'Paid') {
+                return NextResponse.json({ success: true, status: 'pending' })
+            }
+        } else if (paymentProvider === 'paystack') {
+            const verifyRes = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, {
+                headers: { Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}` },
             })
-            .eq('id', authUser.id)
+            const verifyData = await verifyRes.json().catch(() => null)
 
-        return NextResponse.json({ success: true, status: 'completed' })
+            if (!verifyData?.status) {
+                return NextResponse.json({ success: true, status: 'pending' })
+            }
+            if (verifyData.data?.status === 'failed' || verifyData.data?.status === 'abandoned') {
+                return NextResponse.json({ success: false, status: 'failed' })
+            }
+            if (verifyData.data?.status !== 'success') {
+                return NextResponse.json({ success: true, status: 'pending' })
+            }
+        } else {
+            const moolreResponse = await checkPaymentStatus(reference)
+
+            if (!moolreResponse.success || moolreResponse.txstatus === null) {
+                return NextResponse.json({ success: true, status: 'pending' })
+            }
+            if (moolreResponse.txstatus === 0 || moolreResponse.txstatus === 3) {
+                return NextResponse.json({ success: true, status: 'pending' })
+            }
+            if (moolreResponse.txstatus === 2) {
+                return NextResponse.json({ success: false, status: 'failed' })
+            }
+        }
+
+        const result = await processCompletedDealerSubscription(reference, {
+            reference,
+            amount: Math.round(Number((payment as any).total_amount) * 100),
+            metadata: (payment as any).metadata || {},
+        })
+
+        if (!result.success && !result.alreadyProcessed) {
+            console.error('[DealerSubscribeVerify] Processing failed:', result.error)
+            return NextResponse.json({ success: false, status: 'failed', error: result.error || 'Processing failed' }, { status: 500 })
+        }
+
+        return NextResponse.json({ success: true, status: 'completed', alreadyProcessed: !!result.alreadyProcessed })
     } catch (error: any) {
         console.error('[DealerSubscribeVerify] Exception:', error)
         return NextResponse.json({ success: false, error: error.message || 'Verification failed' }, { status: 500 })

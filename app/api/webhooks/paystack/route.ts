@@ -92,6 +92,10 @@ export async function POST(request: NextRequest) {
                 // Agent membership upgrades
                 const { processCompletedUpgradePayment } = await import('@/lib/payments')
                 await processCompletedUpgradePayment(reference, event.data)
+            } else if (reference.startsWith('dealer_sub_') || metadata?.upgrade_type === 'dealer_subscription') {
+                // Dealer subscriptions
+                const { processCompletedDealerSubscription } = await import('@/lib/payments')
+                await processCompletedDealerSubscription(reference, event.data)
             } else {
                 // Standard wallet top-up
                 await processCompletedWalletPayment(reference, event.data)
