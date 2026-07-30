@@ -139,8 +139,13 @@ function HeroBtn({ href, variant = 'primary', children, className }: { href: str
         variantClasses = 'bg-[#2563eb]/5 dark:bg-white/5 text-[#111] dark:text-white border-[1.5px] border-[#2563eb]/10 dark:border-white/10'
     }
 
+    // Warm internal routes (/auth/login, /auth/signup) so the tap lands on an
+    // already-cached payload instead of a cold round-trip. External storefront
+    // URLs can't be prefetched by the router, so opt them out.
+    const isInternal = href.startsWith('/')
+
     return (
-        <Link href={href} className={cn(baseClasses, variantClasses, className)}>
+        <Link href={href} prefetch={isInternal ? true : false} className={cn(baseClasses, variantClasses, className)}>
             {children}
         </Link>
     )
@@ -250,10 +255,10 @@ export function LandingClientShell({
                                 <Link href="/dashboard/install" className="hidden sm:flex items-center gap-1.5 text-xs font-bold rounded-full px-3 h-8 transition-colors text-black/60 dark:text-white/70 border border-black/15 dark:border-white/20">
                                     <Smartphone className="w-3 h-3" /> Install App
                                 </Link>
-                                <Link href="/auth/login" className="text-sm font-bold px-3 h-9 flex items-center transition-colors text-black/70 dark:text-white/80">
+                                <Link href="/auth/login" prefetch className="text-sm font-bold px-3 h-9 flex items-center transition-colors text-black/70 dark:text-white/80">
                                     Login
                                 </Link>
-                                <Link href="/auth/signup" className="text-sm font-black text-white h-9 px-5 rounded-full flex items-center active:scale-95 transition-transform" style={{ backgroundImage: BRAND_GRADIENT }}>
+                                <Link href="/auth/signup" prefetch className="text-sm font-black text-white h-9 px-5 rounded-full flex items-center active:scale-95 transition-transform" style={{ backgroundImage: BRAND_GRADIENT }}>
                                     Get Started
                                 </Link>
                             </>

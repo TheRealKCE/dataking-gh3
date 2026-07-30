@@ -285,24 +285,42 @@ export async function middleware(request: NextRequest) {
 
     let authUser = null
 
-    try {
-        // Add 10 second timeout to prevent hanging (increased for slow connections)
-        const timeout = new Promise((_, reject) =>
-            setTimeout(() => reject(new Error('Session timeout')), 10000)
-        )
+    // === ANONYMOUS FAST PATH ===
+    // supabase.auth.getUser() is a network round-trip to the Supabase auth
+    // server on EVERY matched request — including logged-out visitors opening
+    // /auth/login or /auth/signup, and including Next's Link prefetches. That
+    // round-trip is what makes tapping "Login"/"Get Started" on the landing
+    // page feel unresponsive on slow mobile connections.
+    //
+    // Supabase stores the session in `sb-<project-ref>-auth-token` cookies
+    // (chunked as `...auth-token.0`, `.1` when large). No such cookie means
+    // there is no session to validate, so getUser() can only ever return null —
+    // skipping it is behaviour-preserving, not a weakened check. Every guard
+    // below still runs against `authUser === null` exactly as before.
+    const hasAuthCookie = request.cookies
+        .getAll()
+        .some(cookie => /^sb-.+-auth-token(\.\d+)?$/.test(cookie.name))
 
-        const userPromise = supabase.auth.getUser()
+    if (hasAuthCookie) {
+        try {
+            // Add 10 second timeout to prevent hanging (increased for slow connections)
+            const timeout = new Promise((_, reject) =>
+                setTimeout(() => reject(new Error('Session timeout')), 10000)
+            )
 
-        const { data } = await Promise.race([
-            userPromise,
-            timeout
-        ]) as any
+            const userPromise = supabase.auth.getUser()
 
-        authUser = data?.user || null
-    } catch (error) {
-        console.error('Middleware session error:', error)
-        // On error or timeout, treat as no session
-        authUser = null
+            const { data } = await Promise.race([
+                userPromise,
+                timeout
+            ]) as any
+
+            authUser = data?.user || null
+        } catch (error) {
+            console.error('Middleware session error:', error)
+            // On error or timeout, treat as no session
+            authUser = null
+        }
     }
 
     // === RATE LIMITING ===
