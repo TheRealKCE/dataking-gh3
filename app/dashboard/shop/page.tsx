@@ -85,6 +85,8 @@ export default function ShopOverviewPage() {
     const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([])
     const [filter, setFilter] = useState<'today' | '7d' | '30d' | 'all'>('today')
     const [loading, setLoading] = useState(true)
+    // Set when the shop lookup itself failed — never conflated with "no shop yet".
+    const [loadError, setLoadError] = useState<string | null>(null)
     const [isRefreshing, setIsRefreshing] = useState(false)
     const [copied, setCopied] = useState(false)
 
@@ -97,20 +99,18 @@ export default function ShopOverviewPage() {
     const fetchShopData = async () => {
         // --- Stage 1: Fetch the shop profile in isolation ---
         // Once a profile is found, we set the shop immediately so user sees shop UI.
+        // Served by /api/shop/profile (service role) so a browser-side auth/RLS
+        // failure can't be mistaken for "this user has no shop".
         let shopData: any = null
+        setLoadError(null)
         try {
-            const { data, error } = await ((supabase as any)
-                .from('shop_profiles')
-                .select('*')
-                .eq('owner_id', dbUser!.id)
-                .order('created_at', { ascending: false })
-                .limit(1)
-                .maybeSingle())
-
-            if (error) throw error
-            shopData = data
-        } catch (profileErr) {
+            const res = await fetch('/api/shop/profile', { cache: 'no-store' })
+            const payload = await res.json().catch(() => null)
+            if (!res.ok) throw new Error(payload?.error || 'Failed to load shop')
+            shopData = payload?.shop || null
+        } catch (profileErr: any) {
             console.error('[ShopPage] Failed to fetch shop profile:', profileErr)
+            setLoadError(profileErr?.message || 'Could not load your shop. Please try again.')
             setLoading(false)
             return
         }
@@ -283,6 +283,29 @@ export default function ShopOverviewPage() {
                     {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-28" />)}
                 </div>
                 <Skeleton className="h-64" />
+            </div>
+        )
+    }
+
+    // Couldn't tell whether a shop exists — offering "Create My Shop" here would
+    // look like the owner's storefront was lost, so ask them to retry instead.
+    if (loadError) {
+        return (
+            <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-6 px-4">
+                <div className="w-20 h-20 rounded-full bg-amber-100 dark:bg-amber-900/30 flex items-center justify-center">
+                    <AlertCircle className="w-10 h-10 text-amber-600 dark:text-amber-400" />
+                </div>
+                <div>
+                    <h2 className="text-2xl font-bold mb-2">Couldn&apos;t load your shop</h2>
+                    <p className="text-muted-foreground max-w-sm">{loadError}</p>
+                </div>
+                <Button
+                    size="lg"
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
+                    onClick={() => { setLoading(true); fetchShopData() }}
+                >
+                    <RefreshCcw className="w-5 h-5" /> Try again
+                </Button>
             </div>
         )
     }
@@ -594,6 +617,12 @@ function SubAgentInviteCard() {
                 )}
             </div>
 
+            <Link href="/dashboard/shop/sub-agents" className="block mt-3" aria-label="Manage and approve sub-agents">
+                <Button variant="secondary" className="w-full h-9 bg-white dark:bg-zinc-900 text-violet-700 dark:text-violet-300 gap-2 rounded-xl font-bold border border-violet-100 dark:border-violet-900/40">
+                    Manage &amp; Approve Sub-Agents <ArrowRight className="w-4 h-4" />
+                </Button>
+            </Link>
+
             {url && (
                 <div className="mt-3 flex flex-col sm:flex-row items-center gap-2 bg-white dark:bg-zinc-900 p-2 sm:pl-4 rounded-xl border border-violet-100 dark:border-violet-900/40">
                     <span className="text-xs font-mono text-violet-800 dark:text-violet-300 truncate w-full px-1 text-center sm:text-left">{url}</span>
@@ -601,7 +630,6 @@ function SubAgentInviteCard() {
                         <Button onClick={copy} variant="secondary" className="flex-1 sm:flex-none h-9 bg-white dark:bg-zinc-900 text-violet-600 gap-2 rounded-xl font-bold">
                             {copied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />} {copied ? 'Copied!' : 'Copy Link'}
                         </Button>
-                        <Link href="/dashboard/shop/sub-agents" aria-label="Go to sub-agents"><Button className="w-full sm:w-auto h-9 px-4 bg-violet-600 hover:bg-violet-700 text-white rounded-xl gap-2 font-bold">Go to Sub-Agents <ArrowRight className="w-4 h-4" /></Button></Link>
                     </div>
                 </div>
             )}

@@ -607,16 +607,8 @@ async function triggerShopFulfillment(
             console.warn(`[Shop Order Processor] Order ${orderId} kept as PENDING for manual review.`)
 
             // MTN whitelist gate (Agent Portal): number auto-submitted to MTN for
-            // verification (~24h). Notify the recipient ONCE here at order time; the
-            // auto-refulfill cron retries silently afterwards (no repeat SMS).
-            if ((result as any).whitelistPending) {
-                try {
-                    const { sendMtnVerificationPendingSMS } = await import('@/lib/sms-service')
-                    await sendMtnVerificationPendingSMS(phone, { network, size: extra.size || '' })
-                } catch (smsErr: any) {
-                    console.error(`[Shop Order Processor] MTN verification SMS failed for ${orderId}:`, smsErr?.message)
-                }
-            }
+            // verification (~24h) and the auto-refulfill cron delivers once it clears.
+            // No SMS is sent to the recipient while the order is pending.
 
             await sendAdminNewOrderAlert({
                 ...alertDetails,

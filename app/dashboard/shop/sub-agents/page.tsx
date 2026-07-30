@@ -75,36 +75,36 @@ export default function SubAgentsPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Sub-Agents</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Sub-Agents</h1>
           <p className="text-gray-600 mt-1">Manage your sub-agent network</p>
         </div>
         <button
           onClick={() => setShowInviteForm(!showInviteForm)}
-          className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold"
+          className="w-full sm:w-auto shrink-0 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold"
         >
           + Generate Invite Link
         </button>
       </div>
 
       {/* Quick Stats */}
-      <div className="grid grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 sm:gap-4">
         <div className="bg-white rounded-lg shadow p-4">
           <p className="text-gray-600 text-sm">Total Subs</p>
-          <p className="text-3xl font-bold text-gray-900">{stats.total}</p>
+          <p className="text-2xl sm:text-3xl font-bold text-gray-900">{stats.total}</p>
         </div>
         <div className="bg-yellow-50 rounded-lg shadow p-4">
           <p className="text-yellow-700 text-sm">Pending</p>
-          <p className="text-3xl font-bold text-yellow-900">{stats.pending}</p>
+          <p className="text-2xl sm:text-3xl font-bold text-yellow-900">{stats.pending}</p>
         </div>
         <div className="bg-green-50 rounded-lg shadow p-4">
           <p className="text-green-700 text-sm">Active</p>
-          <p className="text-3xl font-bold text-green-900">{stats.active}</p>
+          <p className="text-2xl sm:text-3xl font-bold text-green-900">{stats.active}</p>
         </div>
         <div className="bg-red-50 rounded-lg shadow p-4">
           <p className="text-red-700 text-sm">Suspended</p>
-          <p className="text-3xl font-bold text-red-900">{stats.suspended}</p>
+          <p className="text-2xl sm:text-3xl font-bold text-red-900">{stats.suspended}</p>
         </div>
       </div>
 
@@ -115,12 +115,12 @@ export default function SubAgentsPage() {
       }} />}
 
       {/* Tabs */}
-      <div className="flex border-b border-gray-200">
+      <div className="flex border-b border-gray-200 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
         {tabs.map(tab => (
           <button
             key={tab.id}
             onClick={() => setSelectedTab(tab.id)}
-            className={`px-4 py-2 font-semibold text-sm ${
+            className={`shrink-0 whitespace-nowrap px-4 py-2 font-semibold text-sm ${
               selectedTab === tab.id
                 ? 'text-blue-600 border-b-2 border-blue-600'
                 : 'text-gray-600 hover:text-gray-900'
@@ -205,28 +205,28 @@ function SubAgentRow({ sub, onSelect, onUpdated }: {
   }
 
   return (
-    <div className="bg-white rounded-lg shadow p-4 flex items-center justify-between hover:shadow-md transition">
-      <div className="flex-1">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 bg-gray-300 rounded-full"></div>
-          <div>
-            <p className="font-semibold text-gray-900">
+    <div className="bg-white rounded-lg shadow p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between hover:shadow-md transition">
+      <div className="flex items-center justify-between gap-3 sm:flex-1">
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="w-10 h-10 shrink-0 bg-gray-300 rounded-full"></div>
+          <div className="min-w-0">
+            <p className="font-semibold text-gray-900 truncate">
               {sub.user.first_name || sub.user.email}
             </p>
-            <p className="text-sm text-gray-600">{sub.user.phone_number}</p>
+            <p className="text-sm text-gray-600 truncate">{sub.user.phone_number}</p>
           </div>
         </div>
+
+        <span className={`shrink-0 px-3 py-1 rounded-full text-xs sm:text-sm font-semibold ${statusColors[sub.status]}`}>
+          {sub.status === 'pending' ? 'Pending' : sub.status.charAt(0).toUpperCase() + sub.status.slice(1)}
+        </span>
       </div>
 
-      <span className={`px-3 py-1 rounded-full text-sm font-semibold ${statusColors[sub.status]}`}>
-        {sub.status === 'pending' ? 'Pending Approval' : sub.status.charAt(0).toUpperCase() + sub.status.slice(1)}
-      </span>
-
-      <div className="flex gap-2 ml-4">
+      <div className="grid grid-cols-2 gap-2 sm:flex sm:ml-4 sm:shrink-0">
         {sub.status === 'pending' && (
           <button
             onClick={() => handleQuickAction('approve')}
-            className="px-3 py-1 bg-green-600 text-white text-sm rounded hover:bg-green-700"
+            className="px-3 py-2 sm:py-1 bg-green-600 text-white text-sm font-semibold rounded hover:bg-green-700"
           >
             Approve
           </button>
@@ -234,14 +234,14 @@ function SubAgentRow({ sub, onSelect, onUpdated }: {
         {sub.status !== 'suspended' && (
           <button
             onClick={() => handleQuickAction('suspend')}
-            className="px-3 py-1 bg-red-600 text-white text-sm rounded hover:bg-red-700"
+            className="px-3 py-2 sm:py-1 bg-red-600 text-white text-sm font-semibold rounded hover:bg-red-700"
           >
             Suspend
           </button>
         )}
         <button
           onClick={onSelect}
-          className="px-3 py-1 bg-gray-200 text-gray-900 text-sm rounded hover:bg-gray-300"
+          className="col-span-2 sm:col-auto px-3 py-2 sm:py-1 bg-gray-200 text-gray-900 text-sm font-semibold rounded hover:bg-gray-300"
         >
           Details
         </button>
@@ -284,7 +284,7 @@ function SubAgentDetail({ sub, onClose, onUpdated }: {
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white rounded-lg shadow-lg p-6 max-w-md w-full m-4">
+      <div className="bg-white rounded-lg shadow-lg p-6 max-w-md w-full m-4 max-h-[90vh] overflow-y-auto">
         <div className="flex items-center justify-between mb-4">
           <h2 className="text-xl font-bold text-gray-900">Sub-Agent Details</h2>
           <button
@@ -378,12 +378,12 @@ function InviteForm({ onSuccess }: { onSuccess: () => void }) {
     return (
       <div className="bg-green-50 border border-green-200 rounded-lg p-4">
         <p className="font-semibold text-green-900 mb-2">Invite Link Generated!</p>
-        <div className="flex gap-2">
+        <div className="flex flex-col sm:flex-row gap-2">
           <input
             type="text"
             readOnly
             value={generatedUrl}
-            className="flex-1 px-3 py-2 border border-gray-300 rounded bg-white"
+            className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded bg-white text-sm"
           />
           <button
             onClick={() => {
@@ -409,7 +409,7 @@ function InviteForm({ onSuccess }: { onSuccess: () => void }) {
     <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 space-y-3">
       <p className="font-semibold text-blue-900">Create Invite Link</p>
 
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>
           <label className="text-sm font-semibold text-gray-700 block mb-1">
             Max Uses (leave empty for unlimited)

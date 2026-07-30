@@ -167,6 +167,9 @@ export default function ShopSetupPage() {
     const isValidHex = (color: string) => /^#([A-Fa-f0-9]{3}){1,4}$/.test(color)
 
     const [existingShopId, setExistingShopId] = useState<string | null>(null)
+    // Non-null when we could not determine whether a shop exists — distinct from
+    // "no shop yet", so a failed check never renders the create form.
+    const [loadError, setLoadError] = useState<string | null>(null)
     const [savedIsActive, setSavedIsActive] = useState(true)
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
@@ -225,12 +228,18 @@ export default function ShopSetupPage() {
     }, [dbUser])
 
     const fetchExistingShop = async () => {
+        setLoadError(null)
         try {
-            const { data } = await ((supabase as any)
-                .from('shop_profiles')
-                .select('*')
-                .eq('owner_id', dbUser!.id)
-                .maybeSingle())
+            // Read through the API (service role) instead of the browser client:
+            // a failed read here used to be swallowed, leaving an owner looking at
+            // a blank "Create Your Shop" form as though their shop was gone.
+            const res = await fetch('/api/shop/profile', { cache: 'no-store' })
+            const payload = await res.json().catch(() => null)
+            if (!res.ok) {
+                setLoadError(payload?.error || 'Could not load your shop. Please try again.')
+                return
+            }
+            const data = payload?.shop
 
             if (data) {
                 setExistingShopId(data.id)
@@ -259,6 +268,7 @@ export default function ShopSetupPage() {
             }
         } catch (err) {
             console.error('[ShopSetup] Failed to fetch existing shop:', err)
+            setLoadError('Could not load your shop. Check your connection and try again.')
         } finally {
             setLoading(false)
         }
@@ -412,13 +422,22 @@ export default function ShopSetupPage() {
             }
 
             const method = existingShopId ? 'PUT' : 'POST'
-            const res = await fetch('/api/shop/profile', {
-                method,
+            const send = (verb: 'POST' | 'PUT') => fetch('/api/shop/profile', {
+                method: verb,
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(payload)
             })
 
-            const data = await res.json()
+            let res = await send(method)
+            let data = await res.json()
+
+            // "You already have a shop" on create means this form opened without
+            // knowing about it — save the edit instead of dead-ending the owner.
+            if (res.status === 409 && data?.alreadyExists) {
+                if (data.shopId) setExistingShopId(data.shopId)
+                res = await send('PUT')
+                data = await res.json()
+            }
 
             if (!res.ok) {
                 if (data.details && Array.isArray(data.details)) {
@@ -470,6 +489,25 @@ export default function ShopSetupPage() {
             <div className="space-y-6 max-w-2xl">
                 <Skeleton className="h-8 w-48" />
                 {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-16" />)}
+            </div>
+        )
+    }
+
+    if (loadError) {
+        return (
+            <div className="space-y-4 max-w-2xl">
+                <h1 className="text-2xl font-bold flex items-center gap-2">
+                    <Store className="w-6 h-6 text-emerald-600" /> Shop
+                </h1>
+                <div className="rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-900/10 dark:border-amber-900 p-4 text-sm text-amber-900 dark:text-amber-300">
+                    {loadError}
+                </div>
+                <Button
+                    onClick={() => { setLoading(true); fetchExistingShop() }}
+                    className="bg-emerald-600 hover:bg-emerald-700 text-white gap-2"
+                >
+                    <RefreshCw className="w-4 h-4" /> Try again
+                </Button>
             </div>
         )
     }
