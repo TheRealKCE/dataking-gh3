@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
         upline_shop_id,
         shop_profiles!upline_shop_id(
           shop_name,
-          owner_phone:owner_id(phone_number)
+          owner:owner_id(first_name, last_name, phone_number)
         )
       `)
       .eq('user_id', user.id)
@@ -57,6 +57,18 @@ export async function GET(request: NextRequest) {
       .eq('owner_id', user.id)
       .maybeSingle()
 
+    // Who the sub should contact for help. Google signups carry a placeholder
+    // phone ('oauth_<uuid>', see supabase/triggers.sql) that must never reach the
+    // UI, so lead with the Lead's name and only show a real Ghanaian number.
+    const uplineOwner = (subAgent.shop_profiles as any)?.owner
+    const uplineOwnerName =
+      [uplineOwner?.first_name, uplineOwner?.last_name]
+        .filter((part: string | null) => !!part && String(part).trim() !== '')
+        .join(' ')
+        .trim() || null
+    const rawPhone = String(uplineOwner?.phone_number || '')
+    const uplineOwnerPhone = /^(0\d{9}|233\d{9}|\+233\d{9})$/.test(rawPhone) ? rawPhone : null
+
     // Get brand context
     const brandConfig = await resolveBrandContext(user.id, supabase)
 
@@ -68,11 +80,12 @@ export async function GET(request: NextRequest) {
       ownShopSlug: ownShop?.shop_slug || null,
       uplineShop: {
         shopName: (subAgent.shop_profiles as any)?.shop_name || 'Your Lead',
-        // `owner_phone:owner_id(phone_number)` is a to-one embed, so it comes
-        // back as an object { phone_number }. Extract the string — the dashboard
-        // renders contactPhone directly, and rendering the object crashes React
-        // (error #31: "Objects are not valid as a React child").
-        contactPhone: (subAgent.shop_profiles as any)?.owner_phone?.phone_number || null,
+        // `owner:owner_id(...)` is a to-one embed, so it comes back as an object.
+        // Extract the strings — the dashboard renders these directly, and
+        // rendering the object crashes React (error #31: "Objects are not valid
+        // as a React child").
+        contactName: uplineOwnerName,
+        contactPhone: uplineOwnerPhone,
       },
       brandConfig,
     })

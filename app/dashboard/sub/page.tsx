@@ -10,7 +10,8 @@ interface SubDashboardData {
   totalWithdrawn: number
   uplineShop: {
     shopName: string
-    contactPhone?: string
+    contactName?: string | null
+    contactPhone?: string | null
   }
   ownShopSlug?: string | null
   brandConfig?: BrandConfig
@@ -233,11 +234,17 @@ export default function SubDashboard() {
         )}
       </div>
 
-      {/* Support Info */}
-      {data?.uplineShop.contactPhone && (
+      {/* Support Info — the Lead's name is the headline; the phone only shows
+          when it's a real number (Google signups carry a placeholder). */}
+      {(data?.uplineShop.contactName || data?.uplineShop.contactPhone) && (
         <div className="bg-gray-50 dark:bg-gray-800 rounded-lg p-4 text-center text-sm text-gray-600 dark:text-gray-400">
           <p>Need help? Contact your Lead</p>
-          <p className="font-semibold text-gray-900 dark:text-gray-100">{data.uplineShop.contactPhone}</p>
+          <p className="font-semibold text-gray-900 dark:text-gray-100">
+            {data.uplineShop.contactName || data.uplineShop.shopName}
+          </p>
+          {data.uplineShop.contactPhone && (
+            <p className="font-semibold text-gray-900 dark:text-gray-100">{data.uplineShop.contactPhone}</p>
+          )}
         </div>
       )}
 
