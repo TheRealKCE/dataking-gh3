@@ -110,6 +110,18 @@ function isStatus200(data: any): boolean {
     return data?.status === 200 || data?.status === '200' || data?.status === 'success'
 }
 
+// A failure on CodeCraft's own upstream leg rather than on our request.
+// Signals: undocumented 5xx-range code (502 SOAP/upstream, 512 observed for
+// Telecel), a nested provider_response, or an echoed upstream http_code.
+const UPSTREAM_PROVIDER_CODES = [502, 512]
+function isUpstreamProviderFailure(data: any): boolean {
+    if (UPSTREAM_PROVIDER_CODES.includes(Number(data?.status))) return true
+    if (data?.provider_response) return true
+    // http_code is the upstream's status, echoed alongside CodeCraft's own status
+    const upstreamHttp = Number(data?.http_code)
+    return !!upstreamHttp && upstreamHttp >= 400 && !isStatus200(data)
+}
+
 async function parseJsonSafe(response: Response, logPrefix: string): Promise<any | null> {
     const rawText = await response.text()
     try {
@@ -387,8 +399,37 @@ export async function fulfillOrder(
         // Any failure: log reason code but NEVER mark order as failed
         const reasonCode = data.status
         const reasonMsg = data.message || 'Unknown error'
+
+        // ── Upstream Provider Failure Detection ─────────────────────────────
+        // CodeCraft proxies each network to its own upstream provider. When THAT
+        // leg fails, CodeCraft still answers 200-shaped JSON with an undocumented
+        // code (512 observed for Telecel) plus a nested provider_response and the
+        // upstream's own http_code. Critically, a reference_id is echoed back even
+        // though no order was created on their side (status_regular.php returns 404
+        // for it) and no wallet deduction occurs — so the order is safe to retry.
+        //
+        // These MUST be reported distinctly: the nested message is often
+        // "Invalid or missing API key", which refers to CodeCraft's upstream
+        // credential, NOT ours. Surfacing it raw sends admins hunting for a
+        // problem with CODECRAFT_API_KEY that does not exist.
+        const upstream = isUpstreamProviderFailure(data)
+        if (upstream) {
+            recordFailure() // back off — the whole network channel is down at the supplier
+            const detail = data.provider_response?.error || reasonMsg
+            console.error(
+                `[CodeCraft] Order ${orderId} — SUPPLIER-SIDE ${codecraftNetwork} provider failure. ` +
+                `Code: ${reasonCode}, upstream HTTP: ${data.http_code ?? 'n/a'} — ${detail}. ` +
+                `No order created at CodeCraft (safe to retry). Order kept pending.`
+            )
+            return {
+                success: false,
+                error: `[${reasonCode}] CodeCraft's upstream ${codecraftNetwork} provider rejected the order (upstream HTTP ${data.http_code ?? 'n/a'}): ${detail}. This is a supplier-side outage — our API key is fine and no order was created.`,
+                apiResponse: sanitizeForLog(data),
+            }
+        }
+
         console.warn(`[CodeCraft] Order ${orderId} not fulfilled. Code: ${reasonCode} — ${reasonMsg}. Order kept pending.`)
-        
+
         // ONLY open circuit breaker for actual supplier infrastructure/system failures,
         // NOT for user/validation errors (422 unverified number) or funding errors
         // (100 admin wallet low, 101 out of stock, 402 insufficient wallet)
