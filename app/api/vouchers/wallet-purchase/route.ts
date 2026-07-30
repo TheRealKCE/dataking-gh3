@@ -4,7 +4,7 @@ import { purchaseWithWallet } from '@/lib/vouchers/checkout'
 
 export async function POST(request: NextRequest) {
     try {
-        const supabase = createRouteClient()
+        const supabase = await createRouteClient()
         
         // Ensure user is authenticated
         const { data: { session }, error: authError } = await supabase.auth.getSession()
@@ -57,6 +57,9 @@ export async function POST(request: NextRequest) {
         }
         if (error.message === 'INSUFFICIENT_BALANCE') {
             return NextResponse.json({ error: 'Insufficient wallet balance for this transaction' }, { status: 400 })
+        }
+        if (error.message === 'ORDER_CREATION_FAILED') {
+            return NextResponse.json({ error: 'Could not create your order. Your wallet has been refunded.' }, { status: 500 })
         }
         if (error.message === 'INSUFFICIENT_INVENTORY') {
             return NextResponse.json({ error: 'Not enough vouchers in stock to fulfill this request' }, { status: 400 })

@@ -6,7 +6,7 @@ import { initiatePayment as hubtelInitiatePayment, HUBTEL_CHANNEL_MAP } from '@/
 
 export async function POST(request: NextRequest) {
     try {
-        const supabase = createRouteClient()
+        const supabase = await createRouteClient()
 
         // Attempt to get user session (optional for guest checkout)
         const { data: { session } } = await supabase.auth.getSession()
@@ -70,8 +70,10 @@ export async function POST(request: NextRequest) {
         // Generate unique reference
         const referenceCode = `RC-${Date.now()}`
 
-        // Insert pending order
-        const { data: order, error: orderError } = await (supabase
+        // Insert pending order.
+        // Must use the service-role client: RLS only allows admins to INSERT into
+        // results_checker_orders, so the request-scoped client would be rejected.
+        const { data: order, error: orderError } = await (dbAdmin
             .from('results_checker_orders') as any)
             .insert({
                 user_id: userId,

@@ -119,12 +119,12 @@ export default function ShopPricingPage() {
                 fetch('/api/shop/pricing').then(res => res.json()),
                 (supabase.from('results_checker_types').select('id, name, cost_price, agent_price, dealer_price, customer_price').eq('is_active', true).order('display_order') as any),
                 fetch(`/api/shop/rc-pricing?shopId=${shopData.id}`).then(res => res.json()).catch(() => ({ pricing: [] })),
-                fetch('/api/admin/settings?key=storefront_rc_enabled').then(r => r.json()).catch(() => ({ value: 'false' }))
+                fetch('/api/admin-settings?keys=storefront_rc_enabled').then(r => r.json()).catch(() => ({}))
             ])
 
             setPackages(pkgRes.data || [])
             setRcTypes(rcTypesRes.data || [])
-            setStorefrontRcEnabled(rcSettingRes?.value === 'true')
+            setStorefrontRcEnabled(String(rcSettingRes?.storefront_rc_enabled) === 'true')
 
             const adminFlags: Record<string, number> = {}
             for (const [key, value] of Object.entries(adminRes || {})) {
