@@ -9,7 +9,6 @@
 
 import { useEffect, useState } from 'react'
 import { useAuth } from '@/contexts/auth-context'
-import { supabase } from '@/lib/supabase'
 
 interface Shop {
   shop_name: string
@@ -30,6 +29,10 @@ export default function SubShopPage() {
   const { dbUser } = useAuth()
   const [shop, setShop] = useState<Shop | null>(null)
   const [loading, setLoading] = useState(true)
+  // Set only when we could NOT determine whether a shop exists. Kept separate
+  // from `shop === null` so a failed check never masquerades as "no shop yet"
+  // and offers to create a second one.
+  const [loadError, setLoadError] = useState<string | null>(null)
 
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
@@ -40,21 +43,40 @@ export default function SubShopPage() {
 
   const origin = typeof window !== 'undefined' ? window.location.origin : 'https://arhmsgh.com'
 
-  const loadShop = async (uid: string) => {
-    const { data } = await (supabase
-      .from('shop_profiles')
-      .select('shop_name, shop_slug, approval_status, is_active')
-      .eq('owner_id', uid as any)
-      .maybeSingle() as any)
-    setShop((data as Shop) || null)
-    setLoading(false)
+  // Reads through /api/shop/profile (service role) rather than the browser
+  // Supabase client, so an expired token or RLS hiccup surfaces as an error to
+  // retry instead of an empty create form.
+  const loadShop = async () => {
+    setLoadError(null)
+    try {
+      const res = await fetch('/api/shop/profile', { cache: 'no-store' })
+      const data = await res.json().catch(() => null)
+      if (!res.ok) {
+        setShop(null)
+        setLoadError(data?.error || 'Could not load your shop. Please try again.')
+        return null
+      }
+      setShop((data?.shop as Shop) || null)
+      return (data?.shop as Shop) || null
+    } catch {
+      setShop(null)
+      setLoadError('Could not load your shop. Check your connection and try again.')
+      return null
+    } finally {
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
-    if (!dbUser?.id) return
-    setPhone((dbUser as any).phone_number || '')
-    loadShop(dbUser.id)
-  }, [dbUser?.id])
+    loadShop()
+  }, [])
+
+  // Prefilling the contact phone is a convenience — the shop check above no
+  // longer waits on the auth profile to resolve.
+  useEffect(() => {
+    const p = (dbUser as any)?.phone_number
+    if (p) setPhone(String(p))
+  }, [dbUser])
 
   const onName = (v: string) => {
     setName(v)
@@ -75,14 +97,35 @@ export default function SubShopPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ shop_name: name.trim(), shop_slug: slug, owner_phone: phone }),
       })
-      const data = await res.json()
-      if (!res.ok) {
-        setError(data.details?.[0] || data.error || 'Could not create shop')
+      const data = await res.json().catch(() => null)
+
+      // The shop already exists (this form was shown after a failed check, or the
+      // submit was double-tapped). That's not an error for the user — show it.
+      if (res.status === 409 && data?.alreadyExists) {
+        await loadShop()
         setSaving(false)
         return
       }
+
+      if (!res.ok) {
+        setError(data?.details?.[0] || data?.error || 'Could not create shop')
+        setSaving(false)
+        return
+      }
+
       // Shop created — stay in the de-branded portal and show the manage view.
-      if (dbUser?.id) await loadShop(dbUser.id)
+      // If the read-back fails we still have everything needed to render it, so
+      // a flaky follow-up request can't make the new shop look like it vanished.
+      const reloaded = await loadShop()
+      if (!reloaded) {
+        setShop({
+          shop_name: name.trim(),
+          shop_slug: data?.shopSlug || slug,
+          approval_status: 'approved',
+          is_active: true,
+        })
+        setLoadError(null)
+      }
     } catch {
       setError('Something went wrong')
     } finally {
@@ -98,6 +141,27 @@ export default function SubShopPage() {
 
   if (loading) {
     return <div className="max-w-2xl mx-auto p-4 text-center text-gray-500 dark:text-gray-400 py-16">Loading…</div>
+  }
+
+  // ── Couldn't check ────────────────────────────────────────────────────
+  // Never fall through to the create form here: if the sub already has a shop,
+  // offering to create one again loses their storefront in the UI and dead-ends
+  // on a conflict when they submit.
+  if (loadError) {
+    return (
+      <div className="max-w-2xl mx-auto p-4 space-y-4">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">My Shop</h1>
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-yellow-900 text-sm">
+          {loadError}
+        </div>
+        <button
+          onClick={() => { setLoading(true); loadShop() }}
+          className="px-5 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700"
+        >
+          Try again
+        </button>
+      </div>
+    )
   }
 
   // ── Manage existing shop ──────────────────────────────────────────────

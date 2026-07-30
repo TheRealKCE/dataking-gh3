@@ -42,6 +42,44 @@ function emptyToNull(val: string | undefined | null): string | null {
     return val.trim()
 }
 
+// ─── GET — Read the caller's own shop ─────────────────────────────────────────
+// Authoritative "do I have a shop?" answer. The dashboard pages used to ask the
+// browser Supabase client directly and treat ANY failure (expired token, network
+// blip, RLS change) as "no shop" — which silently showed the create form to an
+// owner who already had a shop, so their storefront looked lost after a re-login.
+// Reading through the service role here removes that whole failure class: the
+// caller either gets their shop, or an explicit error the UI can retry.
+export async function GET() {
+    try {
+        const supabaseUserClient = await createRouteHandlerClient()
+        const { data: { user: authUser }, error: authError } = await supabaseUserClient.auth.getUser()
+        if (authError || !authUser) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+
+        const supabaseAdmin = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.SUPABASE_SERVICE_ROLE_KEY!
+        )
+
+        const { data: shop, error } = await (supabaseAdmin as any)
+            .from('shop_profiles')
+            .select('*')
+            .eq('owner_id', authUser.id)
+            .maybeSingle()
+
+        if (error) {
+            console.error('[ShopProfile] GET error:', error)
+            return NextResponse.json({ error: 'Failed to load shop' }, { status: 503 })
+        }
+
+        return NextResponse.json({ success: true, shop: shop ?? null }, { status: 200 })
+    } catch (e: any) {
+        console.error('[ShopProfile] GET api error:', e)
+        return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 })
+    }
+}
+
 // ─── POST — Create shop ───────────────────────────────────────────────────────
 export async function POST(request: NextRequest) {
     return handleShopProfileWrite(request, 'create')
@@ -124,16 +162,32 @@ async function handleShopProfileWrite(request: NextRequest, mode: 'create' | 'up
         )
 
         if (mode === 'create') {
-            // Check the user doesn't already have a shop (idempotency guard)
-            const { data: existing } = await (supabaseAdmin as any)
+            // Check the user doesn't already have a shop (idempotency guard).
+            // A failed lookup must NOT fall through to the insert — treating a read
+            // error as "no shop" is how a returning owner ends up staring at an
+            // empty create form and a bogus conflict when they resubmit.
+            const { data: existing, error: existingError } = await (supabaseAdmin as any)
                 .from('shop_profiles')
-                .select('id')
+                .select('id, shop_slug')
                 .eq('owner_id', userId)
                 .maybeSingle()
 
+            if (existingError) {
+                console.error('[ShopProfile] Existing-shop lookup failed:', existingError)
+                return NextResponse.json(
+                    { error: 'Could not verify your shop right now. Please try again.' },
+                    { status: 503 }
+                )
+            }
+
             if (existing) {
                 return NextResponse.json(
-                    { error: 'You already have a shop. Use PUT to update it.' },
+                    {
+                        error: 'You already have a shop.',
+                        alreadyExists: true,
+                        shopId: existing.id,
+                        shopSlug: existing.shop_slug,
+                    },
                     { status: 409 }
                 )
             }
@@ -146,8 +200,27 @@ async function handleShopProfileWrite(request: NextRequest, mode: 'create' | 'up
 
             if (insertError) {
                 console.error('[ShopProfile] Insert error:', insertError)
-                // Expose slug conflict specifically for UI feedback
                 if (insertError.code === '23505') {
+                    // Two different unique indexes land here: shop_profiles_owner_id_key
+                    // (this user already has a shop — e.g. a double-submit that raced the
+                    // guard above) and the shop_slug index. Reporting the owner conflict
+                    // as "slug taken" sends owners hunting for a new name forever.
+                    if (String(insertError.message || '').includes('owner_id')) {
+                        const { data: mine } = await (supabaseAdmin as any)
+                            .from('shop_profiles')
+                            .select('id, shop_slug')
+                            .eq('owner_id', userId)
+                            .maybeSingle()
+                        return NextResponse.json(
+                            {
+                                error: 'You already have a shop.',
+                                alreadyExists: true,
+                                shopId: mine?.id ?? null,
+                                shopSlug: mine?.shop_slug ?? null,
+                            },
+                            { status: 409 }
+                        )
+                    }
                     return NextResponse.json(
                         { error: 'Invalid input', details: ['shop_slug: This slug is already taken'] },
                         { status: 409 }
@@ -161,13 +234,26 @@ async function handleShopProfileWrite(request: NextRequest, mode: 'create' | 'up
             // so auto-approve pricing and seed the catalog + airtime fees from the
             // parent. The sub can then adjust prices upward within their ceiling.
             await seedSubShopFromParent(supabaseAdmin, userId, created.id)
+
+            return NextResponse.json(
+                { success: true, shopId: created.id, shopSlug: dbPayload.shop_slug },
+                { status: 200 }
+            )
         } else {
             // Verify shop belongs to this authenticated user before updating
-            const { data: existing } = await (supabaseAdmin as any)
+            const { data: existing, error: existingError } = await (supabaseAdmin as any)
                 .from('shop_profiles')
                 .select('id')
                 .eq('owner_id', userId)
                 .maybeSingle()
+
+            if (existingError) {
+                console.error('[ShopProfile] Owner lookup failed:', existingError)
+                return NextResponse.json(
+                    { error: 'Could not verify your shop right now. Please try again.' },
+                    { status: 503 }
+                )
+            }
 
             if (!existing) {
                 return NextResponse.json({ error: 'Shop not found' }, { status: 404 })
