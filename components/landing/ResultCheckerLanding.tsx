@@ -142,7 +142,7 @@ export function ResultCheckerLanding({
                             </Link>
                         ) : (
                             <>
-                                <Link href="/auth/login" className="text-sm font-bold px-3 h-9 flex items-center transition-colors" style={{ color: isDark ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.7)' }}>
+                                <Link href="/auth/login" prefetch className="text-sm font-bold px-3 h-9 flex items-center transition-colors" style={{ color: isDark ? 'rgba(255,255,255,0.8)' : 'rgba(0,0,0,0.7)' }}>
                                     Login
                                 </Link>
                                 <Link href={RC_CHECKOUT_HREF} className="text-sm font-black text-white h-9 px-5 rounded-full flex items-center active:scale-95 transition-transform whitespace-nowrap" style={{ backgroundImage: BRAND_GRADIENT }}>

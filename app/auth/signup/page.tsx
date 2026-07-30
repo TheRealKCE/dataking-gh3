@@ -105,20 +105,23 @@ export default function SignupPage() {
                     setLockoutMinutes(null)
                     setError(error.message)
                 }
+                setIsLoading(false)
                 return
             }
 
             if (data?.session) {
                 toast.success('Account created! logging in...')
+                // Keep the spinner up while /dashboard loads — clearing it here
+                // makes a successful sign-up look like the button did nothing.
                 router.push('/dashboard')
                 return
             }
 
             setSuccess(true)
             toast.success('Account created successfully!')
+            setIsLoading(false)
         } catch (err) {
             setError('An unexpected error occurred')
-        } finally {
             setIsLoading(false)
         }
     }
