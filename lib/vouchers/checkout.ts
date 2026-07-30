@@ -50,7 +50,14 @@ export async function purchaseWithWallet(params: {
         throw new Error('INSUFFICIENT_BALANCE')
     }
 
-    const { new_balance, wallet_id } = walletData
+    // deduct_wallet_balance RETURNS TABLE, so PostgREST hands back an array of rows
+    const walletRow = Array.isArray(walletData) ? walletData[0] : walletData
+    const new_balance = walletRow?.new_balance
+    const wallet_id = walletRow?.wallet_id
+
+    if (!wallet_id) {
+        throw new Error('INSUFFICIENT_BALANCE')
+    }
 
     // 3. Create order record in pending state
     const referenceCode = `RC-${Date.now()}`

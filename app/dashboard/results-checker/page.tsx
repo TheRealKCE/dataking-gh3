@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback, Suspense } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
-import { formatCurrency, generateReferenceCode, cn, calculatePaystackFee } from '@/lib/utils'
+import { formatCurrency, cn, calculatePaystackFee } from '@/lib/utils'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -242,7 +242,6 @@ function ResultsCheckerContent() {
 
             setIsPurchasing(true)
             try {
-                const refCode = generateReferenceCode()
                 const res = await fetch('/api/vouchers/wallet-purchase', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -251,17 +250,20 @@ function ResultsCheckerContent() {
                         quantity,
                         customerName,
                         customerEmail,
-                        customerPhone,
-                        referenceCode: refCode
+                        customerPhone
                     })
                 })
                 const data = await res.json()
                 if (!res.ok) { throw new Error(data.error || 'Purchase failed') }
-                
+
                 toast.success('Purchase successful!')
                 await refreshUser()
                 await fetchWalletBalance()
-                setSuccessData({ reference: refCode, type_name: selectedType.name, vouchers: data.vouchers || [] })
+                setSuccessData({
+                    reference: data.data?.order?.reference_code || '',
+                    type_name: selectedType.name,
+                    vouchers: data.data?.vouchers || []
+                })
                 fetchTypes()
                 fetchOrders()
             } catch (err: any) {

@@ -5,7 +5,7 @@ import { createRouteClient } from '@/lib/supabase-server'
 export async function GET() {
     try {
         // Check admin authorization
-        const supabase = createRouteClient()
+        const supabase = await createRouteClient()
         const { data: { user } } = await supabase.auth.getUser()
 
         if (!user) {
