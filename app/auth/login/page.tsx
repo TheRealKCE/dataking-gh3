@@ -51,14 +51,17 @@ export default function LoginPage() {
                     setLockoutMinutes(null)
                     setError(error.message)
                 }
+                setIsLoading(false)
                 return
             }
 
             toast.success('Welcome back!')
+            // Keep the spinner up: the browser is still loading /dashboard.
+            // Clearing it here would snap the button back to "Login" mid-redirect
+            // and make a successful sign-in look like it did nothing.
             window.location.href = '/dashboard'
         } catch (err) {
             setError('An unexpected error occurred')
-        } finally {
             setIsLoading(false)
         }
     }
