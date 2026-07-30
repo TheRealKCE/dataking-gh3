@@ -54,6 +54,7 @@ export async function GET(request: NextRequest) {
     const kingflexyNetworkSettings: Record<string, boolean> = dbFulfillmentSettings.kingflexy_networks || {}
     const eazydataNetworkSettings: Record<string, boolean> = dbFulfillmentSettings.eazydata_networks || {}
     const agentportalNetworkSettings: Record<string, boolean> = dbFulfillmentSettings.agentportal_networks || {}
+    const netpulseNetworkSettings: Record<string, boolean> = dbFulfillmentSettings.netpulse_networks || {}
 
     // ── Fetch pending orders older than the configured delay (max 50) ─────────
     const { data: pendingOrders, error: fetchError } = await supabaseAdmin
@@ -83,6 +84,7 @@ export async function GET(request: NextRequest) {
     const { fulfillOrder: kfFulfillOrder } = await import('@/lib/kingflexy-service')
     const { fulfillOrder: edFulfillOrder } = await import('@/lib/eazydata-service')
     const { fulfillOrder: apFulfillOrder } = await import('@/lib/agentportal-service')
+    const { fulfillOrder: npFulfillOrder } = await import('@/lib/netpulse-service')
     const { syncShopOrderStatus } = await import('@/lib/shop-service')
 
     for (const order of pendingOrders) {
@@ -91,9 +93,10 @@ export async function GET(request: NextRequest) {
         const isKingFlexyEnabled = kingflexyNetworkSettings[order.network] === true
         const isEazyDataEnabled = eazydataNetworkSettings[order.network] === true
         const isAgentPortalEnabled = agentportalNetworkSettings[order.network] === true
+        const isNetPulseEnabled = netpulseNetworkSettings[order.network] === true
 
         // No supplier active → skip
-        if (!isDataKazinaEnabled && !isCodeCraftEnabled && !isKingFlexyEnabled && !isEazyDataEnabled && !isAgentPortalEnabled) {
+        if (!isDataKazinaEnabled && !isCodeCraftEnabled && !isKingFlexyEnabled && !isEazyDataEnabled && !isAgentPortalEnabled && !isNetPulseEnabled) {
             console.log(`[CronRefulfill] No active supplier for ${order.network} — skipping ${order.id}`)
             skipped++
             continue
@@ -119,7 +122,7 @@ export async function GET(request: NextRequest) {
             continue
         }
 
-        const supplierLabel = isCodeCraftEnabled ? 'codecraft' : isKingFlexyEnabled ? 'kingflexy' : isEazyDataEnabled ? 'eazydata' : isAgentPortalEnabled ? 'agentportal' : 'datakazina'
+        const supplierLabel = isCodeCraftEnabled ? 'codecraft' : isKingFlexyEnabled ? 'kingflexy' : isEazyDataEnabled ? 'eazydata' : isAgentPortalEnabled ? 'agentportal' : isNetPulseEnabled ? 'netpulse' : 'datakazina'
 
         // ── ATOMIC LOCK: claim the order ─────────────────────────────────────
         const { data: lockedOrder, error: lockError } = await supabaseAdmin
@@ -152,7 +155,9 @@ export async function GET(request: NextRequest) {
                     ? await edFulfillOrder(order.network, order.phone_number, order.size, order.id)
                     : isAgentPortalEnabled
                         ? await apFulfillOrder(order.network, order.phone_number, order.size, order.id)
-                        : await fulfillOrder(order.network, order.phone_number, order.size, order.id)
+                        : isNetPulseEnabled
+                            ? await npFulfillOrder(order.network, order.phone_number, order.size, order.id)
+                            : await fulfillOrder(order.network, order.phone_number, order.size, order.id)
 
         // An idempotency collision (alreadySubmitted) is not a fresh success, but
         // the order already exists at the supplier — keep it in 'processing' (locked
@@ -185,6 +190,7 @@ export async function GET(request: NextRequest) {
                 else if (isKingFlexyEnabled) refUpdate.kingflexy_reference = result.transactionId
                 else if (isEazyDataEnabled) refUpdate.eazydata_reference = result.transactionId
                 else if (isAgentPortalEnabled) refUpdate.agentportal_reference = result.transactionId
+                else if (isNetPulseEnabled) refUpdate.netpulse_reference = result.transactionId
                 else refUpdate.dakazina_reference = result.transactionId
             }
             if (Object.keys(refUpdate).length > 0) {
@@ -210,6 +216,9 @@ export async function GET(request: NextRequest) {
                 }
                 if (isAgentPortalEnabled && result.transactionId) {
                     shopOrderUpdate.agentportal_reference = result.transactionId
+                }
+                if (isNetPulseEnabled && result.transactionId) {
+                    shopOrderUpdate.netpulse_reference = result.transactionId
                 }
                 await supabaseAdmin.from('shop_orders').update(shopOrderUpdate).eq('id', order.shop_order_id)
             }
