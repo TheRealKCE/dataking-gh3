@@ -12,6 +12,16 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     const body = await request.json()
     const updates: Record<string, any> = { updated_at: new Date().toISOString() }
 
+    // A blank/garbage numeric field must be rejected up front — parseFloat would
+    // yield NaN, which serialises to null and trips the NOT NULL constraints.
+    const numericFields = ['customer_price', 'agent_price', 'dealer_price', 'cost_price', 'display_order'] as const
+    for (const field of numericFields) {
+        if (body[field] === undefined) continue
+        if (body[field] === null || body[field] === '' || !Number.isFinite(Number(body[field]))) {
+            return NextResponse.json({ error: `${field.replace(/_/g, ' ')} must be a valid number` }, { status: 400 })
+        }
+    }
+
     if (body.name !== undefined) updates.name = body.name
     if (body.customer_price !== undefined) updates.customer_price = parseFloat(body.customer_price)
     if (body.agent_price !== undefined) updates.agent_price = parseFloat(body.agent_price)
@@ -63,9 +73,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-    // Never send cost_price back to the client
-    const { cost_price: _omit, ...safeData } = data
-    return NextResponse.json({ data: safeData })
+    // cost_price is included — admin-only endpoint, the edit form needs it back.
+    return NextResponse.json({ data })
 }
 
 export async function DELETE(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {

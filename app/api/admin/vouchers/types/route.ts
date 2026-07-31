@@ -36,10 +36,11 @@ export async function GET() {
                     .eq('type_id', type.id)
                     .eq('status', 'sold')
 
-                // Never expose cost_price to the client — omit it
-                const { cost_price: _omit, ...safeType } = type
+                // cost_price IS returned here — this is the admin-only endpoint and the
+                // admin edit form needs it to round-trip. Public/shop endpoints
+                // (/api/shop/rc/*) still strip it.
                 return {
-                    ...safeType,
+                    ...type,
                     bulk_pricing: Array.isArray(type.bulk_pricing) ? type.bulk_pricing : [],
                     stock: { available: available || 0, reserved: reserved || 0, sold: sold || 0 }
                 }
@@ -102,9 +103,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: error.message }, { status: 500 })
         }
 
-        // Never send cost_price back to the client
-        const { cost_price: _omit, ...safeData } = data
-        return NextResponse.json({ data: safeData })
+        return NextResponse.json({ data })
     } catch (err: any) {
         console.error('[RC Types POST]', err)
         return NextResponse.json({ error: 'Failed to create type' }, { status: 500 })
