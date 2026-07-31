@@ -63,7 +63,11 @@ export default function VouchersAdminPage() {
             if (res.ok) {
                 setTypes(json.data || [])
                 if (json.data?.length > 0) setUploadTypeId((prev: string) => prev || json.data[0].id)
+            } else {
+                toast.error(json.error || 'Failed to load voucher types')
             }
+        } catch {
+            toast.error('Failed to load voucher types')
         } finally { setLoading(false) }
     }, [])
 
@@ -103,9 +107,10 @@ export default function VouchersAdminPage() {
         setBulkTiers([])
         setTypeModal(true)
     }
+    const num = (v: number | undefined | null) => (v === undefined || v === null ? '' : String(v))
     const openEditType = (t: RCType) => {
         setEditingType(t)
-        setTypeForm({ name: t.name, customer_price: String(t.customer_price), agent_price: String(t.agent_price), dealer_price: String(t.dealer_price || 0), cost_price: String(t.cost_price), display_order: String(t.display_order) })
+        setTypeForm({ name: t.name, customer_price: num(t.customer_price), agent_price: num(t.agent_price), dealer_price: num(t.dealer_price ?? 0), cost_price: num(t.cost_price), display_order: num(t.display_order ?? 0) })
         setBulkTiers(Array.isArray(t.bulk_pricing) ? t.bulk_pricing : [])
         setTypeModal(true)
     }
@@ -113,6 +118,11 @@ export default function VouchersAdminPage() {
     const saveType = async () => {
         if (!typeForm.name || !typeForm.customer_price || !typeForm.agent_price || !typeForm.cost_price) {
             toast.error('Name, customer price, agent price, and cost price are required'); return
+        }
+        const badField = (['customer_price', 'agent_price', 'dealer_price', 'cost_price', 'display_order'] as const)
+            .find(f => typeForm[f] !== '' && !Number.isFinite(Number(typeForm[f])))
+        if (badField) {
+            toast.error(`${badField.replace(/_/g, ' ')} must be a valid number`); return
         }
         setTypeSaving(true)
         try {
@@ -126,6 +136,9 @@ export default function VouchersAdminPage() {
             if (!res.ok) { toast.error(json.error || 'Failed to save'); return }
             toast.success(editingType ? 'Type updated' : 'Type created')
             setTypeModal(false); fetchTypes(); fetchStats()
+        } catch (err: any) {
+            console.error('[RC saveType]', err)
+            toast.error(err?.message || 'Could not reach the server. Check your connection and try again.')
         } finally { setTypeSaving(false) }
     }
 

@@ -89,12 +89,12 @@ export default function AdminPackagesPage() {
     const fetchPackages = async () => {
         try {
             const res = await fetch('/api/admin/packages')
-            if (!res.ok) throw new Error('Failed to fetch packages')
             const data = await res.json()
-            setPackages(data || [])
-        } catch (error) {
+            if (!res.ok) throw new Error(data?.error || 'Failed to fetch packages')
+            setPackages(Array.isArray(data) ? data : [])
+        } catch (error: any) {
             console.error('Error fetching packages:', error)
-            toast.error('Failed to load packages')
+            toast.error(error?.message || 'Failed to load packages')
         } finally {
             setIsLoading(false)
         }
@@ -140,14 +140,17 @@ export default function AdminPackagesPage() {
             })
 
             const data = await res.json()
-            if (!res.ok) throw new Error(data.error || 'Failed to save package')
+            if (!res.ok) {
+                const detail = Array.isArray(data?.details) ? ` (${data.details.join(', ')})` : ''
+                throw new Error(`${data?.error || 'Failed to save package'}${detail}`)
+            }
 
             toast.success(editingPackage ? 'Package updated successfully' : 'Package created successfully')
             setIsDialogOpen(false)
             fetchPackages()
-        } catch (error) {
+        } catch (error: any) {
             console.error('Error saving package:', error)
-            toast.error('Failed to save package')
+            toast.error(error?.message || 'Failed to save package')
         } finally {
             setIsSaving(false)
         }
@@ -381,7 +384,7 @@ export default function AdminPackagesPage() {
 
             {/* Create/Edit Dialog */}
             <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-                <DialogContent>
+                <DialogContent className="max-h-[90dvh] overflow-y-auto">
                     <DialogHeader>
                         <DialogTitle>
                             {editingPackage ? 'Edit Package' : 'Create Package'}
@@ -391,7 +394,7 @@ export default function AdminPackagesPage() {
                         </DialogDescription>
                     </DialogHeader>
                     <div className="space-y-4 py-4">
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label>Network</Label>
                                 <Select
@@ -421,7 +424,7 @@ export default function AdminPackagesPage() {
                                 />
                             </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label>Selling Price (GHS)</Label>
                                 <Input
@@ -461,7 +464,7 @@ export default function AdminPackagesPage() {
                                 />
                             </div>
                         </div>
-                        <div className="grid grid-cols-2 gap-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div className="space-y-2">
                                 <Label>Sort Order</Label>
                                 <Input
