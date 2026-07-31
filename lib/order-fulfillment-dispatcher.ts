@@ -59,7 +59,8 @@ export async function triggerFulfillment(orderId: string, network: string, user:
             kingflexy_networks: Record<string, boolean>
             eazydata_networks: Record<string, boolean>
             agentportal_networks: Record<string, boolean>
-        } = { networks: {}, codecraft_networks: {}, kingflexy_networks: {}, eazydata_networks: {}, agentportal_networks: {} }
+            netpulse_networks: Record<string, boolean>
+        } = { networks: {}, codecraft_networks: {}, kingflexy_networks: {}, eazydata_networks: {}, agentportal_networks: {}, netpulse_networks: {} }
         try {
             if (settingsMap.fulfillment_settings) {
                 const parsed = typeof settingsMap.fulfillment_settings === 'string'
@@ -70,6 +71,7 @@ export async function triggerFulfillment(orderId: string, network: string, user:
                 fulfillmentSettings.kingflexy_networks = parsed.kingflexy_networks || {}
                 fulfillmentSettings.eazydata_networks = parsed.eazydata_networks || {}
                 fulfillmentSettings.agentportal_networks = parsed.agentportal_networks || {}
+                fulfillmentSettings.netpulse_networks = parsed.netpulse_networks || {}
             }
         } catch (e) {
             console.error('[Fulfillment] Failed to parse fulfillment_settings:', e)
@@ -80,9 +82,10 @@ export async function triggerFulfillment(orderId: string, network: string, user:
         const isKingFlexyEnabled = fulfillmentSettings.kingflexy_networks[network] === true
         const isEazyDataEnabled = fulfillmentSettings.eazydata_networks[network] === true
         const isAgentPortalEnabled = fulfillmentSettings.agentportal_networks[network] === true
+        const isNetPulseEnabled = fulfillmentSettings.netpulse_networks[network] === true
 
         // ── Conflict Guard ─────────────────────────────────────────────────
-        const activeSupplierCount = [isDataKazinaEnabled, isCodeCraftEnabled, isKingFlexyEnabled, isEazyDataEnabled, isAgentPortalEnabled].filter(Boolean).length
+        const activeSupplierCount = [isDataKazinaEnabled, isCodeCraftEnabled, isKingFlexyEnabled, isEazyDataEnabled, isAgentPortalEnabled, isNetPulseEnabled].filter(Boolean).length
         if (activeSupplierCount > 1) {
             console.error(`[Fulfillment] CONFLICT DETECTED for ${network} on order ${orderId}`)
             await sendAdminNewOrderAlert({
@@ -93,14 +96,14 @@ export async function triggerFulfillment(orderId: string, network: string, user:
         }
 
         // ── No Supplier Guard ──────────────────────────────────────────────
-        if (!isDataKazinaEnabled && !isCodeCraftEnabled && !isKingFlexyEnabled && !isEazyDataEnabled && !isAgentPortalEnabled) {
+        if (!isDataKazinaEnabled && !isCodeCraftEnabled && !isKingFlexyEnabled && !isEazyDataEnabled && !isAgentPortalEnabled && !isNetPulseEnabled) {
             console.log(`[Fulfillment] No active supplier for network ${network}. Order ${orderId} kept pending.`)
             await sendAdminNewOrderAlert({ ...alertDetails, reason: `No active supplier configured for network: ${network}` })
                 .catch(err => console.error('[Fulfillment] No-supplier alert failed:', err))
             return
         }
 
-        const supplierLabel = isCodeCraftEnabled ? 'codecraft' : isKingFlexyEnabled ? 'kingflexy' : isEazyDataEnabled ? 'eazydata' : isAgentPortalEnabled ? 'agentportal' : 'datakazina'
+        const supplierLabel = isCodeCraftEnabled ? 'codecraft' : isKingFlexyEnabled ? 'kingflexy' : isEazyDataEnabled ? 'eazydata' : isAgentPortalEnabled ? 'agentportal' : isNetPulseEnabled ? 'netpulse' : 'datakazina'
         console.log(`[Fulfillment] Routing to ${supplierLabel} for order ${orderId} | network: ${network}`)
 
         // ── Idempotency check ──────────────────────────────────────────────
@@ -130,6 +133,9 @@ export async function triggerFulfillment(orderId: string, network: string, user:
             } else if (isAgentPortalEnabled) {
                 const { fulfillOrder: apFulfill } = await import('@/lib/agentportal-service')
                 result = await apFulfill(network, (order as any).phone_number, (order as any).size, orderId)
+            } else if (isNetPulseEnabled) {
+                const { fulfillOrder: npFulfill } = await import('@/lib/netpulse-service')
+                result = await npFulfill(network, (order as any).phone_number, (order as any).size, orderId)
             } else {
                 const { fulfillOrder: dkFulfill } = await import('@/lib/fulfillment-service')
                 result = await dkFulfill(network, (order as any).phone_number, (order as any).size, orderId)
@@ -160,7 +166,10 @@ export async function triggerFulfillment(orderId: string, network: string, user:
             if (isAgentPortalEnabled && (result.transactionId || result.reference)) {
                 ordersUpdate.agentportal_reference = result.transactionId || result.reference
             }
-            if (!isCodeCraftEnabled && !isKingFlexyEnabled && !isEazyDataEnabled && !isAgentPortalEnabled && (result.transactionId || result.reference)) {
+            if (isNetPulseEnabled && (result.transactionId || result.reference)) {
+                ordersUpdate.netpulse_reference = result.transactionId || result.reference
+            }
+            if (!isCodeCraftEnabled && !isKingFlexyEnabled && !isEazyDataEnabled && !isAgentPortalEnabled && !isNetPulseEnabled && (result.transactionId || result.reference)) {
                 ordersUpdate.dakazina_reference = result.transactionId || result.reference
             }
 

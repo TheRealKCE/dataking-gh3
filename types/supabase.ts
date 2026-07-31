@@ -207,6 +207,7 @@ export interface Database {
                     codecraft_reference: string | null
                     eazydata_reference: string | null
                     agentportal_reference: string | null
+                    netpulse_reference: string | null
                     error_message: string | null
                     download_batch_id: string | null
                     shop_order_id: string | null
@@ -227,6 +228,7 @@ export interface Database {
                     codecraft_reference?: string | null
                     eazydata_reference?: string | null
                     agentportal_reference?: string | null
+                    netpulse_reference?: string | null
                     error_message?: string | null
                     download_batch_id?: string | null
                     shop_order_id?: string | null
@@ -239,6 +241,7 @@ export interface Database {
                     codecraft_reference?: string | null
                     eazydata_reference?: string | null
                     agentportal_reference?: string | null
+                    netpulse_reference?: string | null
                     error_message?: string | null
                     download_batch_id?: string | null
                     shop_order_id?: string | null

@@ -459,7 +459,8 @@ async function triggerShopFulfillment(
             kingflexy_networks: Record<string, boolean>
             eazydata_networks: Record<string, boolean>
             agentportal_networks: Record<string, boolean>
-        } = { networks: {}, codecraft_networks: {}, kingflexy_networks: {}, eazydata_networks: {}, agentportal_networks: {} }
+            netpulse_networks: Record<string, boolean>
+        } = { networks: {}, codecraft_networks: {}, kingflexy_networks: {}, eazydata_networks: {}, agentportal_networks: {}, netpulse_networks: {} }
 
         try {
             if (settingsMap.fulfillment_settings) {
@@ -471,6 +472,7 @@ async function triggerShopFulfillment(
                 fulfillmentSettings.kingflexy_networks = parsed.kingflexy_networks || {}
                 fulfillmentSettings.eazydata_networks = parsed.eazydata_networks || {}
                 fulfillmentSettings.agentportal_networks = parsed.agentportal_networks || {}
+                fulfillmentSettings.netpulse_networks = parsed.netpulse_networks || {}
             }
         } catch (e) { /* ignore parse failure — defaults to empty */ }
 
@@ -479,9 +481,10 @@ async function triggerShopFulfillment(
         const isKingFlexyEnabled = fulfillmentSettings.kingflexy_networks[network] === true
         const isEazyDataEnabled = fulfillmentSettings.eazydata_networks[network] === true
         const isAgentPortalEnabled = fulfillmentSettings.agentportal_networks[network] === true
+        const isNetPulseEnabled = fulfillmentSettings.netpulse_networks[network] === true
 
         // ── 3. FULFILLMENT_CONFLICT Guard (absolute last line of defense) ──
-        const activeCount = [isDataKazinaEnabled, isCodeCraftEnabled, isKingFlexyEnabled, isEazyDataEnabled, isAgentPortalEnabled].filter(Boolean).length
+        const activeCount = [isDataKazinaEnabled, isCodeCraftEnabled, isKingFlexyEnabled, isEazyDataEnabled, isAgentPortalEnabled, isNetPulseEnabled].filter(Boolean).length
         if (activeCount > 1) {
             console.error(`[Fulfillment] CONFLICT DETECTED for ${network} on order ${orderId}`)
             await sendAdminNewOrderAlert({
@@ -493,14 +496,14 @@ async function triggerShopFulfillment(
         }
 
         // ── 4. No active supplier ──────────────────────────────────────────
-        if (!isDataKazinaEnabled && !isCodeCraftEnabled && !isKingFlexyEnabled && !isEazyDataEnabled && !isAgentPortalEnabled) {
+        if (!isDataKazinaEnabled && !isCodeCraftEnabled && !isKingFlexyEnabled && !isEazyDataEnabled && !isAgentPortalEnabled && !isNetPulseEnabled) {
             console.log(`[Shop Order Processor] No active supplier for network ${network}. Order ${orderId} kept pending.`)
             await sendAdminNewOrderAlert({ ...alertDetails, reason: `No active supplier configured for network: ${network}` })
             return
         }
 
         // ── 5. Determine supplier and stamp fulfilled_by ATOMICALLY first ──
-        const supplierLabel = isCodeCraftEnabled ? 'codecraft' : isKingFlexyEnabled ? 'kingflexy' : isEazyDataEnabled ? 'eazydata' : isAgentPortalEnabled ? 'agentportal' : 'datakazina'
+        const supplierLabel = isCodeCraftEnabled ? 'codecraft' : isKingFlexyEnabled ? 'kingflexy' : isEazyDataEnabled ? 'eazydata' : isAgentPortalEnabled ? 'agentportal' : isNetPulseEnabled ? 'netpulse' : 'datakazina'
         await db.from('shop_orders').update({ fulfilled_by: supplierLabel }).eq('id', orderId)
         console.log(`[Shop Order Processor] Routing to ${supplierLabel} for order ${orderId} | network: ${network}`)
 
@@ -520,6 +523,9 @@ async function triggerShopFulfillment(
             } else if (isAgentPortalEnabled) {
                 const { fulfillOrder: apFulfill } = await import('./agentportal-service')
                 result = await apFulfill(network, phone, extra.size || '', orderId)
+            } else if (isNetPulseEnabled) {
+                const { fulfillOrder: npFulfill } = await import('./netpulse-service')
+                result = await npFulfill(network, phone, extra.size || '', orderId)
             } else {
                 const { fulfillOrder: dkFulfill } = await import('./fulfillment-service')
                 result = await dkFulfill(network, phone, extra.size || '', orderId)
@@ -554,6 +560,9 @@ async function triggerShopFulfillment(
             if (isAgentPortalEnabled && result.transactionId) {
                 updatePayload.agentportal_reference = result.transactionId
             }
+            if (isNetPulseEnabled && result.transactionId) {
+                updatePayload.netpulse_reference = result.transactionId
+            }
 
             await db.from('shop_orders').update(updatePayload).eq('id', orderId)
             const ordersUpdate: Record<string, string> = { status: 'processing' }
@@ -573,9 +582,13 @@ async function triggerShopFulfillment(
                 ordersUpdate.agentportal_reference = result.transactionId
                 ordersUpdate.fulfillment_method = 'agentportal'
             }
+            if (isNetPulseEnabled && result.transactionId) {
+                ordersUpdate.netpulse_reference = result.transactionId
+                ordersUpdate.fulfillment_method = 'netpulse'
+            }
             await db.from('orders').update(ordersUpdate).eq('shop_order_id', orderId)
 
-            if (!isCodeCraftEnabled && !isKingFlexyEnabled && !isEazyDataEnabled && !isAgentPortalEnabled && (result.transactionId || result.reference)) {
+            if (!isCodeCraftEnabled && !isKingFlexyEnabled && !isEazyDataEnabled && !isAgentPortalEnabled && !isNetPulseEnabled && (result.transactionId || result.reference)) {
                 const { error: refError } = await db
                     .from('orders')
                     .update({ dakazina_reference: result.transactionId || result.reference })

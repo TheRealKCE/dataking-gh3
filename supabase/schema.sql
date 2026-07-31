@@ -86,10 +86,11 @@ CREATE TABLE IF NOT EXISTS public.orders (
   status TEXT DEFAULT 'pending' CHECK (status IN ('pending', 'processing', 'completed', 'failed')),
   payment_status TEXT DEFAULT 'paid' CHECK (payment_status IN ('paid', 'refunded')),
   reference_code TEXT NOT NULL UNIQUE,
-  fulfillment_method TEXT DEFAULT 'auto' CHECK (fulfillment_method IN ('auto', 'manual', 'codecraft', 'datakazina', 'kingflexy', 'eazydata', 'agentportal')),
+  fulfillment_method TEXT DEFAULT 'auto' CHECK (fulfillment_method IN ('auto', 'manual', 'codecraft', 'datakazina', 'kingflexy', 'eazydata', 'agentportal', 'netpulse')),
   codecraft_reference TEXT,
   dakazina_reference TEXT,
   agentportal_reference TEXT,
+  netpulse_reference TEXT,
   error_message TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -208,10 +209,15 @@ ALTER TABLE public.wallets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.wallet_transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.wallet_payments ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users can view own payments"
-  ON public.wallet_payments
-  FOR SELECT
-  USING (auth.uid() = user_id);
+-- Policies are wrapped so re-running this schema is a no-op when they already
+-- exist (Postgres has no CREATE POLICY IF NOT EXISTS). Existing policies are
+-- left untouched so later migrations are not reverted.
+DO $$ BEGIN
+  CREATE POLICY "Users can view own payments"
+    ON public.wallet_payments
+    FOR SELECT
+    USING (auth.uid() = user_id);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 ALTER TABLE public.orders ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
@@ -221,61 +227,93 @@ ALTER TABLE public.customer_purchases ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.afa_orders ENABLE ROW LEVEL SECURITY;
 
 -- Users policies
-CREATE POLICY "Users can view own profile" ON public.users
-  FOR SELECT USING (auth.uid() = id);
+DO $$ BEGIN
+  CREATE POLICY "Users can view own profile" ON public.users
+    FOR SELECT USING (auth.uid() = id);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
-CREATE POLICY "Users can update own profile" ON public.users
-  FOR UPDATE USING (auth.uid() = id);
+DO $$ BEGIN
+  CREATE POLICY "Users can update own profile" ON public.users
+    FOR UPDATE USING (auth.uid() = id);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
-CREATE POLICY "Users can insert their own profile" ON public.users
-  FOR INSERT WITH CHECK (auth.uid() = id);
+DO $$ BEGIN
+  CREATE POLICY "Users can insert their own profile" ON public.users
+    FOR INSERT WITH CHECK (auth.uid() = id);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- Wallets policies
-CREATE POLICY "Users can view own wallet" ON public.wallets
-  FOR SELECT USING (auth.uid() = user_id);
+DO $$ BEGIN
+  CREATE POLICY "Users can view own wallet" ON public.wallets
+    FOR SELECT USING (auth.uid() = user_id);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- Wallet transactions policies
-CREATE POLICY "Users can view own transactions" ON public.wallet_transactions
-  FOR SELECT USING (auth.uid() = user_id);
+DO $$ BEGIN
+  CREATE POLICY "Users can view own transactions" ON public.wallet_transactions
+    FOR SELECT USING (auth.uid() = user_id);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- Orders policies
-CREATE POLICY "Users can view own orders" ON public.orders
-  FOR SELECT USING (auth.uid() = user_id);
+DO $$ BEGIN
+  CREATE POLICY "Users can view own orders" ON public.orders
+    FOR SELECT USING (auth.uid() = user_id);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
-CREATE POLICY "Users can create orders" ON public.orders
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
+DO $$ BEGIN
+  CREATE POLICY "Users can create orders" ON public.orders
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- Notifications policies
-CREATE POLICY "Users can view own notifications" ON public.notifications
-  FOR SELECT USING (auth.uid() = user_id);
+DO $$ BEGIN
+  CREATE POLICY "Users can view own notifications" ON public.notifications
+    FOR SELECT USING (auth.uid() = user_id);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
-CREATE POLICY "Users can update own notifications" ON public.notifications
-  FOR UPDATE USING (auth.uid() = user_id);
+DO $$ BEGIN
+  CREATE POLICY "Users can update own notifications" ON public.notifications
+    FOR UPDATE USING (auth.uid() = user_id);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
-CREATE POLICY "Users can delete own notifications" ON public.notifications
-  FOR DELETE USING (auth.uid() = user_id);
+DO $$ BEGIN
+  CREATE POLICY "Users can delete own notifications" ON public.notifications
+    FOR DELETE USING (auth.uid() = user_id);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- Complaints policies
-CREATE POLICY "Users can view own complaints" ON public.complaints
-  FOR SELECT USING (auth.uid() = user_id);
+DO $$ BEGIN
+  CREATE POLICY "Users can view own complaints" ON public.complaints
+    FOR SELECT USING (auth.uid() = user_id);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
-CREATE POLICY "Users can create complaints" ON public.complaints
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
+DO $$ BEGIN
+  CREATE POLICY "Users can create complaints" ON public.complaints
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- Data packages policies (public read)
-CREATE POLICY "Anyone can view packages" ON public.data_packages
-  FOR SELECT USING (true);
+DO $$ BEGIN
+  CREATE POLICY "Anyone can view packages" ON public.data_packages
+    FOR SELECT USING (true);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- Customer purchases policies
-CREATE POLICY "Users can view own customer purchases" ON public.customer_purchases
-  FOR SELECT USING (auth.uid() = user_id);
+DO $$ BEGIN
+  CREATE POLICY "Users can view own customer purchases" ON public.customer_purchases
+    FOR SELECT USING (auth.uid() = user_id);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- AFA orders policies
-CREATE POLICY "Users can view own AFA orders" ON public.afa_orders
-  FOR SELECT USING (auth.uid() = user_id);
+DO $$ BEGIN
+  CREATE POLICY "Users can view own AFA orders" ON public.afa_orders
+    FOR SELECT USING (auth.uid() = user_id);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
-CREATE POLICY "Users can create AFA orders" ON public.afa_orders
-  FOR INSERT WITH CHECK (auth.uid() = user_id);
+DO $$ BEGIN
+  CREATE POLICY "Users can create AFA orders" ON public.afa_orders
+    FOR INSERT WITH CHECK (auth.uid() = user_id);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
 -- Function to auto-create wallet on user creation
 CREATE OR REPLACE FUNCTION public.handle_new_user_wallet()
@@ -325,7 +363,7 @@ INSERT INTO public.data_packages (network, size, price, cost_price, description,
   ('AT-BigTime', '10GB', 45.00, 36.00, '10GB BigTime data', 2)
 ON CONFLICT DO NOTHING;
 
-create table public.system_announcements (
+create table if not exists public.system_announcements (
   id uuid default gen_random_uuid() primary key,
   title text not null,
   message text not null,
@@ -339,16 +377,20 @@ create table public.system_announcements (
 alter table public.system_announcements enable row level security;
 
 -- Policies
-create policy "Public read access"
-  on public.system_announcements for select
-  using (true);
+DO $$ BEGIN
+  create policy "Public read access"
+    on public.system_announcements for select
+    using (true);
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 
-create policy "Admin full access"
-  on public.system_announcements for all
-  using (
-    exists (
-      select 1 from public.users
-      where users.id = auth.uid() and users.role = 'admin'
-    )
-  );
+DO $$ BEGIN
+  create policy "Admin full access"
+    on public.system_announcements for all
+    using (
+      exists (
+        select 1 from public.users
+        where users.id = auth.uid() and users.role = 'admin'
+      )
+    );
+EXCEPTION WHEN duplicate_object THEN NULL; END $$;
 

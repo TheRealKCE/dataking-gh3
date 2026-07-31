@@ -43,6 +43,8 @@ export async function GET() {
                 eazydata_currency: (balanceCache as any).eazydata_currency,
                 agentportal_balance: (balanceCache as any).agentportal_balance,
                 agentportal_currency: (balanceCache as any).agentportal_currency,
+                netpulse_balance: (balanceCache as any).netpulse_balance,
+                netpulse_currency: (balanceCache as any).netpulse_currency,
                 cached: true
             })
         }
@@ -52,16 +54,18 @@ export async function GET() {
         const { fetchSupplierBalance: fetchKingFlexyBalance } = await import('@/lib/kingflexy-service')
         const { fetchSupplierBalance: fetchEazyDataBalance } = await import('@/lib/eazydata-service')
         const { fetchSupplierBalance: fetchAgentPortalBalance } = await import('@/lib/agentportal-service')
+        const { fetchSupplierBalance: fetchNetPulseBalance } = await import('@/lib/netpulse-service')
 
-        const [dakazinaResult, codecraftResult, kingflexyResult, eazydataResult, agentportalResult] = await Promise.all([
+        const [dakazinaResult, codecraftResult, kingflexyResult, eazydataResult, agentportalResult, netpulseResult] = await Promise.all([
             fetchSupplierBalance(),
             fetchCodeCraftBalance(),
             fetchKingFlexyBalance(),
             fetchEazyDataBalance(),
-            fetchAgentPortalBalance()
+            fetchAgentPortalBalance(),
+            fetchNetPulseBalance()
         ])
 
-        if (!dakazinaResult.success && !codecraftResult.success && !kingflexyResult.success && !eazydataResult.success && !agentportalResult.success) {
+        if (!dakazinaResult.success && !codecraftResult.success && !kingflexyResult.success && !eazydataResult.success && !agentportalResult.success && !netpulseResult.success) {
             return NextResponse.json({ error: 'Failed to fetch balances from all suppliers' }, { status: 500 })
         }
 
@@ -77,6 +81,8 @@ export async function GET() {
             eazydata_currency: eazydataResult.currency || 'GHS',
             agentportal_balance: agentportalResult.balance || 0,
             agentportal_currency: agentportalResult.currency || 'GHS',
+            netpulse_balance: netpulseResult.balance || 0,
+            netpulse_currency: netpulseResult.currency || 'GHS',
             timestamp: now
         } as any
 
@@ -91,6 +97,8 @@ export async function GET() {
             eazydata_currency: eazydataResult.currency || 'GHS',
             agentportal_balance: agentportalResult.balance || 0,
             agentportal_currency: agentportalResult.currency || 'GHS',
+            netpulse_balance: netpulseResult.balance || 0,
+            netpulse_currency: netpulseResult.currency || 'GHS',
             cached: false
         })
 
