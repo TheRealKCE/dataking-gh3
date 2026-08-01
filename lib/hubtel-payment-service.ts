@@ -28,14 +28,26 @@ const HUBTEL_STATUS_BASE_URL = 'https://api-txnstatus.hubtel.com/transactions'
  *
  * Priority: FIXIE_URL → QUOTAGUARDSTATIC_URL → no proxy (will fail on Vercel)
  */
+let cachedDispatcher: ProxyAgent | Agent | null = null
+
 export function getDispatcher(): ProxyAgent | Agent {
+    // Built once per process, not once per request. Every ProxyAgent owns a
+    // connection pool; constructing one per call meant no keep-alive reuse and a
+    // steady leak of sockets that were never destroyed — each payment paid for a
+    // fresh TCP + TLS handshake through the proxy, and a busy instance eventually
+    // ran out of descriptors. Env is fixed for the life of the process, so a
+    // single instance is safe to share.
+    if (cachedDispatcher) return cachedDispatcher
+
     const proxyUrl = process.env.FIXIE_URL || process.env.QUOTAGUARDSTATIC_URL
     if (proxyUrl) {
         console.log('[HubtelPayment] Routing through static proxy:', proxyUrl.split('@')[1] ?? 'proxy')
-        return new ProxyAgent(proxyUrl)
+        cachedDispatcher = new ProxyAgent(proxyUrl)
+    } else {
+        console.warn('[HubtelPayment] No static proxy configured (FIXIE_URL). Hubtel will likely return 403 on Vercel.')
+        cachedDispatcher = new Agent()
     }
-    console.warn('[HubtelPayment] No static proxy configured (FIXIE_URL). Hubtel will likely return 403 on Vercel.')
-    return new Agent()
+    return cachedDispatcher
 }
 
 /** Maps the internal network label to Hubtel's channel name */
