@@ -120,6 +120,44 @@ export function toHubtelMsisdn(phone: string): string {
     return digits
 }
 
+/**
+ * Turns a thrown fetch error into something a customer can act on, while logging
+ * the real cause for us.
+ *
+ * undici throws a bare `TypeError: fetch failed` for every connection-level
+ * problem — DNS, TLS, an unreachable proxy, a timeout. That string used to be
+ * passed straight through to the checkout, where it told the customer nothing and
+ * told us nothing either. The underlying reason is on err.cause.
+ */
+function describeNetworkFailure(err: any, context: string): string {
+    const cause = err?.cause
+    const code = cause?.code || err?.code
+    const usingProxy = !!(process.env.FIXIE_URL || process.env.QUOTAGUARDSTATIC_URL)
+
+    console.error(`[HubtelPayment] ${context} failed to reach Hubtel:`, {
+        message: err?.message,
+        code,
+        cause: cause?.message,
+        usingProxy,
+    })
+
+    if (err?.name === 'TimeoutError' || code === 'UND_ERR_CONNECT_TIMEOUT' || code === 'UND_ERR_HEADERS_TIMEOUT') {
+        return 'Hubtel did not respond in time. Please try again in a moment.'
+    }
+
+    if (code === 'ENOTFOUND' || code === 'EAI_AGAIN' || code === 'ECONNREFUSED' || code === 'ECONNRESET') {
+        // Almost always the static proxy: unset, wrong credentials, or unreachable.
+        console.error(
+            usingProxy
+                ? '[HubtelPayment] The static proxy (FIXIE_URL / QUOTAGUARDSTATIC_URL) appears unreachable. Check the URL and that the quota is not exhausted.'
+                : '[HubtelPayment] No static proxy is configured. Set FIXIE_URL and whitelist its IP in the Hubtel dashboard.'
+        )
+        return 'Could not reach the payment provider. Please try again shortly.'
+    }
+
+    return 'Could not reach the payment provider. Please try again shortly.'
+}
+
 // ─── Initiate Payment ─────────────────────────────────────────────────────────
 
 /**
@@ -161,6 +199,9 @@ export async function initiatePayment(params: HubtelInitiateParams): Promise<Hub
                     'Cache-Control': 'no-cache',
                 },
                 body: JSON.stringify(payload),
+                // Without this a dead proxy hangs the checkout until the platform
+                // kills the function, and the customer just watches a spinner.
+                signal: AbortSignal.timeout(20_000),
                 // @ts-ignore — undici dispatcher for static IP routing
                 dispatcher: getDispatcher(),
             }
@@ -197,11 +238,7 @@ export async function initiatePayment(params: HubtelInitiateParams): Promise<Hub
             error: data.Message || `Hubtel error (HTTP ${response.status})`,
         }
     } catch (err: any) {
-        console.error('[HubtelPayment] initiatePayment error:', err.message)
-        return {
-            success: false,
-            error: err.message || 'Network error during Hubtel payment initiation',
-        }
+        return { success: false, error: describeNetworkFailure(err, 'initiatePayment') }
     }
 }
 
@@ -227,6 +264,7 @@ export async function checkPaymentStatus(clientReference: string): Promise<Hubte
                 Authorization: authHeader,
                 Accept: 'application/json',
             },
+            signal: AbortSignal.timeout(20_000),
             // @ts-ignore — undici dispatcher for static IP routing
             dispatcher: getDispatcher(),
         })
@@ -261,8 +299,7 @@ export async function checkPaymentStatus(clientReference: string): Promise<Hubte
             transactionId: data.data?.transactionId ?? undefined,
         }
     } catch (err: any) {
-        console.error('[HubtelPayment] checkPaymentStatus error:', err.message)
-        return { success: false, status: null, error: err.message }
+        return { success: false, status: null, error: describeNetworkFailure(err, 'checkPaymentStatus') }
     }
 }
 
