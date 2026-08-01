@@ -6,7 +6,7 @@ import { initiatePayment, MOOLRE_PAYMENT_CHANNEL_MAP } from '@/lib/moolre-paymen
 import { initiatePayment as hubtelInitiatePayment, HUBTEL_CHANNEL_MAP, calculateHubtelFee } from '@/lib/hubtel-payment-service'
 import { isPaymentPhoneVerified, consumePaymentPhoneVerification, normalizeMsisdn } from '@/lib/payment-otp'
 import { isTrustedPaymentNumber } from '@/lib/trusted-payment-numbers'
-import { checkHubtelPromptLimit } from '@/lib/hubtel-prompt-limit'
+import { checkHubtelPromptLimit, recordHubtelPrompt } from '@/lib/hubtel-prompt-limit'
 import { resolveDataPrice } from '@/lib/data-order-pricing'
 
 /**
@@ -419,6 +419,9 @@ export async function POST(request: NextRequest) {
                 await supabase.from('wallet_payments').update({ status: 'failed' }).eq('id', paymentId)
                 return NextResponse.json({ error: hubtelResponse.error || 'Failed to initialize Hubtel payment' }, { status: 500 })
             }
+
+            // Only now has a prompt actually gone to the handset.
+            await recordHubtelPrompt(payerPhone)
 
             return NextResponse.json({
                 success: true,

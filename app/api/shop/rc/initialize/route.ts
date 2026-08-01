@@ -5,7 +5,7 @@ import { initiatePayment, MOOLRE_PAYMENT_CHANNEL_MAP } from '@/lib/moolre-paymen
 import { initiatePayment as hubtelInitiatePayment, HUBTEL_CHANNEL_MAP } from '@/lib/hubtel-payment-service'
 import { isGuestPhoneVerified, consumeGuestPhoneVerification } from '@/lib/guest-payment-otp'
 import { isTrustedPaymentNumber } from '@/lib/trusted-payment-numbers'
-import { checkHubtelPromptLimit } from '@/lib/hubtel-prompt-limit'
+import { checkHubtelPromptLimit, recordHubtelPrompt } from '@/lib/hubtel-prompt-limit'
 
 let redis: Redis | null = null
 try { redis = Redis.fromEnv() } catch (_) {}
@@ -293,6 +293,9 @@ export async function POST(request: NextRequest) {
                         { status: 500 }
                     )
                 }
+
+                // Only now has a prompt actually gone to the handset.
+                await recordHubtelPrompt(cleanPhone)
 
                 return NextResponse.json({
                     success: true,
