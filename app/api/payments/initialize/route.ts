@@ -83,14 +83,29 @@ export async function POST(request: NextRequest) {
         const settingsMap: Record<string, any> = {}
         for (const row of ((feeData as any[]) || [])) settingsMap[row.key] = row.value
 
-        // Provider resolution: body takes priority (frontend toggle), fall back to admin setting
+        // Provider resolution: the admin setting is the ONLY source of truth.
+        //
+        // The body used to win here, left over from a frontend provider toggle that no
+        // longer exists (the wallet UI states the provider is admin-chosen). That made
+        // the setting unenforceable: a page loaded before an admin switched providers
+        // keeps the old value in React state and forces it on every subsequent payment.
+        // When a provider is switched off *because it is broken*, those stale tabs keep
+        // hitting the dead gateway and the switch appears to do nothing.
+        //
+        // Matches how /api/vouchers/gateway-init and /api/orders/gateway-init already
+        // resolve the gateway.
         const adminDefault = String(settingsMap.active_payment_provider_web || 'moolre')
         const provider: 'moolre' | 'hubtel' | 'paystack' =
-            bodyProvider === 'hubtel' ? 'hubtel'
-            : bodyProvider === 'paystack' ? 'paystack'
-            : adminDefault === 'paystack' ? 'paystack'
+            adminDefault === 'paystack' ? 'paystack'
             : adminDefault === 'hubtel' ? 'hubtel'
             : 'moolre'
+
+        if (bodyProvider && bodyProvider !== provider) {
+            console.warn(
+                `[WalletInit] Ignoring client-supplied provider "${bodyProvider}" — admin setting is "${provider}". ` +
+                'Likely a stale tab opened before the provider was changed.'
+            )
+        }
         console.log('[WalletInit] provider:', provider, '| userId:', userId)
 
         // ── Step 6: Validate provider-specific inputs ─────────────────────────
