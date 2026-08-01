@@ -3,6 +3,9 @@ import { createRouteClient } from '@/lib/supabase-server'
 import { calculateRCPrice, getRCTypeById } from '@/lib/vouchers/pricing'
 import { initiatePayment, MOOLRE_PAYMENT_CHANNEL_MAP } from '@/lib/moolre-payment-service'
 import { initiatePayment as hubtelInitiatePayment, HUBTEL_CHANNEL_MAP } from '@/lib/hubtel-payment-service'
+import { isPaymentPhoneVerified, consumePaymentPhoneVerification, normalizeMsisdn } from '@/lib/payment-otp'
+import { isTrustedPaymentNumber } from '@/lib/trusted-payment-numbers'
+import { checkHubtelPromptLimit, recordHubtelPrompt } from '@/lib/hubtel-prompt-limit'
 
 export async function POST(request: NextRequest) {
     try {
@@ -197,8 +200,10 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({ error: 'Valid MoMo network is required for Hubtel payments' }, { status: 400 })
             }
 
-            // SECURITY (Hubtel Option 1): Always use the phone number from the authenticated user's
-            // profile — never trust client-supplied momoPhone. Guest checkout is not permitted for Hubtel.
+            // SECURITY: the registered profile number is used by default (Hubtel Option 1).
+            // Paying from a different number requires an SMS code the FIRST time only —
+            // after that the number is permanently trusted, matching the wallet and data
+            // checkouts. Guest checkout is not permitted for Hubtel here.
             if (!userId) {
                 return NextResponse.json({ error: 'You must be logged in to pay with Hubtel.' }, { status: 401 })
             }
@@ -218,10 +223,37 @@ export async function POST(request: NextRequest) {
                 )
             }
 
+            const registeredMsisdn = normalizeMsisdn(registeredPhone)
+            const submittedMsisdn = normalizeMsisdn(momoPhone || '')
+
+            let payerPhone = registeredPhone
+            if (submittedMsisdn && submittedMsisdn !== registeredMsisdn) {
+                if (!(await isTrustedPaymentNumber(submittedMsisdn))) {
+                    const verified = await isPaymentPhoneVerified(userId, submittedMsisdn)
+                    if (!verified) {
+                        return NextResponse.json(
+                            {
+                                error: 'Please verify this number with the code we send before paying from it.',
+                                code: 'OTP_REQUIRED',
+                            },
+                            { status: 403 }
+                        )
+                    }
+                    await consumePaymentPhoneVerification(userId, submittedMsisdn)
+                }
+                payerPhone = submittedMsisdn
+            }
+
+            // Applies to trusted numbers too — see lib/hubtel-prompt-limit.ts.
+            const promptLimit = await checkHubtelPromptLimit(payerPhone)
+            if (!promptLimit.allowed) {
+                return NextResponse.json({ error: promptLimit.error }, { status: 429 })
+            }
+
             const hubtelChannel = HUBTEL_CHANNEL_MAP[momoNetwork]
             const hubtelResponse = await hubtelInitiatePayment({
                 amount: breakdown.total,
-                payerPhone: registeredPhone,   // always use the DB-stored number
+                payerPhone,   // registered number, or a previously verified one
                 channel: hubtelChannel,
                 clientReference: referenceCode,
                 customerName: customerName || 'Guest Customer',
@@ -233,6 +265,9 @@ export async function POST(request: NextRequest) {
                 console.error('[GatewayInit] Hubtel error:', hubtelResponse.error)
                 return NextResponse.json({ error: hubtelResponse.error || 'Failed to initialize Hubtel payment' }, { status: 500 })
             }
+
+            // Only now has a prompt actually gone to the handset.
+            await recordHubtelPrompt(payerPhone)
 
             return NextResponse.json({
                 success: true,

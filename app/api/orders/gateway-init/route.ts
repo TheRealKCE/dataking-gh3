@@ -5,6 +5,8 @@ import { calculatePaystackFee, generateReferenceCode } from '@/lib/utils'
 import { initiatePayment, MOOLRE_PAYMENT_CHANNEL_MAP } from '@/lib/moolre-payment-service'
 import { initiatePayment as hubtelInitiatePayment, HUBTEL_CHANNEL_MAP, calculateHubtelFee } from '@/lib/hubtel-payment-service'
 import { isPaymentPhoneVerified, consumePaymentPhoneVerification, normalizeMsisdn } from '@/lib/payment-otp'
+import { isTrustedPaymentNumber } from '@/lib/trusted-payment-numbers'
+import { checkHubtelPromptLimit, recordHubtelPrompt } from '@/lib/hubtel-prompt-limit'
 import { resolveDataPrice } from '@/lib/data-order-pricing'
 
 /**
@@ -345,8 +347,9 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({ error: 'Valid Mobile Money network is required' }, { status: 400 })
             }
 
-            // SECURITY: the account's registered number is used by default. Paying
-            // from a different number requires a live SMS OTP verification.
+            // SECURITY: the account's registered number is used by default. Paying from a
+            // different number requires an SMS verification the FIRST time only — once
+            // confirmed, the number is trusted permanently (lib/trusted-payment-numbers.ts).
             const registeredPhone = (profile as any)?.phone_number
             if (!registeredPhone) {
                 return NextResponse.json(
@@ -360,19 +363,46 @@ export async function POST(request: NextRequest) {
 
             let payerPhone = registeredPhone
             if (submittedMsisdn && submittedMsisdn !== registeredMsisdn) {
-                const verified = await isPaymentPhoneVerified(userId, submittedMsisdn)
-                if (!verified) {
-                    return NextResponse.json(
-                        {
-                            error: 'Please verify this number with the code we send before paying from it.',
-                            code: 'OTP_REQUIRED',
-                        },
-                        { status: 403 }
-                    )
+                if (!(await isTrustedPaymentNumber(submittedMsisdn))) {
+                    const verified = await isPaymentPhoneVerified(userId, submittedMsisdn)
+                    if (!verified) {
+                        return NextResponse.json(
+                            {
+                                error: 'Please verify this number with the code we send before paying from it.',
+                                code: 'OTP_REQUIRED',
+                            },
+                            { status: 403 }
+                        )
+                    }
+                    await consumePaymentPhoneVerification(userId, submittedMsisdn)
                 }
                 payerPhone = submittedMsisdn
-                await consumePaymentPhoneVerification(userId, submittedMsisdn)
             }
+
+            // Applies to trusted numbers too — see lib/hubtel-prompt-limit.ts.
+            const promptLimit = await checkHubtelPromptLimit(payerPhone)
+            if (!promptLimit.allowed) {
+                await supabase.from('wallet_payments').update({ status: 'failed' }).eq('id', paymentId)
+                return NextResponse.json({ error: promptLimit.error }, { status: 429 })
+            }
+
+            // Record the payer for webhook usage stats. Read-modify-write: this metadata
+            // carries the order items that processDataDirectOrder depends on, so it must
+            // be merged, never replaced.
+            const { data: currentPayment } = await supabase
+                .from('wallet_payments')
+                .select('metadata')
+                .eq('id', paymentId)
+                .single()
+            await supabase
+                .from('wallet_payments')
+                .update({
+                    metadata: {
+                        ...(((currentPayment as any)?.metadata) || {}),
+                        payer_msisdn: normalizeMsisdn(payerPhone),
+                    },
+                } as any)
+                .eq('id', paymentId)
 
             const hubtelResponse = await hubtelInitiatePayment({
                 amount: totalAmount,
@@ -389,6 +419,9 @@ export async function POST(request: NextRequest) {
                 await supabase.from('wallet_payments').update({ status: 'failed' }).eq('id', paymentId)
                 return NextResponse.json({ error: hubtelResponse.error || 'Failed to initialize Hubtel payment' }, { status: 500 })
             }
+
+            // Only now has a prompt actually gone to the handset.
+            await recordHubtelPrompt(payerPhone)
 
             return NextResponse.json({
                 success: true,

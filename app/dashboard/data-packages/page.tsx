@@ -9,6 +9,7 @@ import { formatCurrency, getNetworkGradient, cn } from '@/lib/utils'
 import { generateReferenceCode, calculatePaystackFee } from '@/lib/utils'
 import { validateGhanaianPhone, detectNetwork } from '@/lib/phone-validation'
 import { NetworkIcon } from '@/components/network-icon'
+import { PaymentOtpDialog } from '@/components/PaymentOtpDialog'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -120,6 +121,11 @@ export default function DataPackagesPage() {
     const [pollingRef, setPollingRef] = useState<string | null>(null)
     const [pollingKind, setPollingKind] = useState<'single' | 'bulk'>('single')
     const [otpRequired, setOtpRequired] = useState(false)
+    // One-time verification of the paying number (Hubtel). Separate from the Moolre
+    // per-transaction OTP above — this one happens once per number, ever.
+    const [payOtpOpen, setPayOtpOpen] = useState(false)
+    const [payOtpPhone, setPayOtpPhone] = useState('')
+    const [payOtpRetry, setPayOtpRetry] = useState<() => void>(() => () => {})
     const [otpCode, setOtpCode] = useState('')
     const [isVerifyingOtp, setIsVerifyingOtp] = useState(false)
     // Gateway reference kept separate from currentReferenceCode, which is the
@@ -492,6 +498,15 @@ export default function DataPackagesPage() {
     }
 
     // Direct Pay: take the money through the gateway first, then the server
+    // One-time verification of the paying number. The checkout returns 403
+    // OTP_REQUIRED only on the first payment from a number; after that it is
+    // trusted permanently and this never fires again.
+    const openPayVerification = (phone: string, retry: () => void) => {
+        setPayOtpPhone(phone)
+        setPayOtpRetry(() => retry)
+        setPayOtpOpen(true)
+    }
+
     // creates and fulfils the order on confirmation.
     const handleDirectPurchase = async (recipientNumber: string) => {
         if (!selectedPackage) return
@@ -521,6 +536,14 @@ export default function DataPackagesPage() {
             })
 
             const data = await res.json()
+
+            // First-ever payment from this number — verify it once, then retry.
+            if (res.status === 403 && data.code === 'OTP_REQUIRED') {
+                setIsPurchasing(false)
+                openPayVerification(momoPhone, () => handleDirectPurchase(recipientNumber))
+                return
+            }
+
             if (!res.ok) throw new Error(data.error || 'Payment could not be started')
 
             setPollingKind('single')
@@ -805,6 +828,14 @@ export default function DataPackagesPage() {
             })
 
             const data = await res.json()
+
+            // First-ever payment from this number — verify it once, then retry.
+            if (res.status === 403 && data.code === 'OTP_REQUIRED') {
+                setIsSubmittingBulk(false)
+                openPayVerification(momoPhone, () => handleBulkDirectPurchase(validOrders))
+                return
+            }
+
             if (!res.ok) throw new Error(data.error || 'Payment could not be started')
 
             setPollingKind('bulk')
@@ -1760,6 +1791,14 @@ export default function DataPackagesPage() {
                     )}
                 </DialogContent>
             </Dialog>
+
+            {/* One-time verification of the paying number (first payment only) */}
+            <PaymentOtpDialog
+                open={payOtpOpen}
+                onOpenChange={setPayOtpOpen}
+                phone={payOtpPhone}
+                onVerified={() => payOtpRetry()}
+            />
 
             {/* Moolre OTP Dialog */}
             <Dialog open={otpRequired} onOpenChange={(open) => { if (!open) { setOtpRequired(false); setOtpCode('') } }}>

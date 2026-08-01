@@ -1,33 +1,27 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createRouteClient } from '@/lib/supabase-server'
-import { createServerClient } from '@/lib/supabase'
-import { createPaymentOtp, normalizeMsisdn } from '@/lib/payment-otp'
+import { normalizeMsisdn } from '@/lib/payment-otp'
+import { createGuestPaymentOtp } from '@/lib/guest-payment-otp'
 import { isTrustedPaymentNumber } from '@/lib/trusted-payment-numbers'
 import { sendSMS } from '@/lib/sms-service'
 import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
 
-// 3 sends per user+number per 15 min.
-const otpSendLimit = new Ratelimit({
+// 3 sends per number per 15 min. Guests have no account, so the number is the key.
+const shopOtpSendLimit = new Ratelimit({
     redis: Redis.fromEnv(),
     limiter: Ratelimit.slidingWindow(3, '15 m'),
-    prefix: 'rl:pay-otp-send',
+    prefix: 'rl:shop-otp-send',
 })
 
 /**
- * POST /api/payments/otp/send   Body: { phone }
+ * POST /api/shop/otp/send   Body: { phone }
  *
- * Hubtel Option 2: sends a 6-digit code so a logged-in user can confirm a number
- * that is not their registered one, before any payment prompt is initiated.
- * The registered number needs no OTP (covered by Option 1).
+ * Guest-storefront twin of /api/payments/otp/send, for customers with no account.
+ * Sends a 6-digit code the FIRST time a number is used to pay; once verified, the
+ * number is trusted permanently and this route short-circuits without an SMS.
  */
 export async function POST(request: NextRequest) {
     try {
-        const supabase = await createRouteClient()
-        const { data: { user: authUser } } = await supabase.auth.getUser()
-        if (!authUser) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-        const userId = authUser.id
-
         let body: any
         try {
             body = await request.json()
@@ -40,7 +34,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Enter a valid Ghana phone number.' }, { status: 400 })
         }
 
-        // Already verified once → trusted forever, so don't burn an SMS on it.
+        // Already verified once → never ask again, and don't burn an SMS.
         if (await isTrustedPaymentNumber(msisdn)) {
             return NextResponse.json({
                 success: true,
@@ -49,23 +43,10 @@ export async function POST(request: NextRequest) {
             })
         }
 
-        // Registered number → no OTP needed (Option 1 already covers it).
-        const admin = createServerClient()
-        const { data: profile } = await (admin.from('users') as any)
-            .select('phone_number')
-            .eq('id', userId)
-            .single()
-        const registered = normalizeMsisdn((profile as any)?.phone_number || '')
-        if (registered && registered === msisdn) {
-            return NextResponse.json({
-                success: true,
-                alreadyRegistered: true,
-                message: 'This is your registered number — no verification needed.',
-            })
-        }
-
+        // Fails CLOSED: this route sends an SMS to a number the caller chose, so an
+        // unreachable limiter must not become an open relay.
         try {
-            const { success } = await otpSendLimit.limit(`${userId}:${msisdn}`)
+            const { success } = await shopOtpSendLimit.limit(msisdn)
             if (!success) {
                 return NextResponse.json(
                     { error: 'Too many code requests. Please wait a few minutes and try again.' },
@@ -73,10 +54,14 @@ export async function POST(request: NextRequest) {
                 )
             }
         } catch (e) {
-            console.error('[PayOtpSend] rate-limit error, continuing:', e)
+            console.error('[ShopOtpSend] rate-limit unreachable, denying:', e)
+            return NextResponse.json(
+                { error: 'Verification is temporarily unavailable. Please try again shortly.' },
+                { status: 503 }
+            )
         }
 
-        const otp = await createPaymentOtp(userId, msisdn)
+        const otp = await createGuestPaymentOtp(msisdn)
         if (!otp.ok || !otp.code) {
             return NextResponse.json({ error: otp.error || 'Could not generate a code.' }, { status: 400 })
         }
@@ -87,7 +72,7 @@ export async function POST(request: NextRequest) {
         })
 
         if (!sms.success) {
-            console.error('[PayOtpSend] SMS failed:', sms.error)
+            console.error('[ShopOtpSend] SMS failed:', sms.error)
             return NextResponse.json(
                 { error: 'Could not send the code. Please check the number and try again.' },
                 { status: 502 }
@@ -99,7 +84,7 @@ export async function POST(request: NextRequest) {
             message: 'A 6-digit code was sent to that number.',
         })
     } catch (e) {
-        console.error('[PayOtpSend] error:', e)
+        console.error('[ShopOtpSend] error:', e)
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
     }
 }

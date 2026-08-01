@@ -1,16 +1,22 @@
 /**
  * Payment Phone OTP — Hubtel Direct Receive Money security (Option 2)
  *
- * A logged-in user who wants to pay from a number that is NOT their registered
- * profile number must first prove control of it via a one-time SMS code. Only
- * then is the Hubtel prompt sent.
+ * A customer who wants to pay from a number we have never confirmed must first
+ * prove control of it via a one-time SMS code. Only then is the Hubtel prompt sent.
+ *
+ * This is the TRANSIENT half of the flow: codes live 5 minutes and the verified
+ * marker 15. The permanent half is lib/trusted-payment-numbers.ts — once a code is
+ * accepted the number is trusted forever and this table stops being consulted for
+ * it entirely. Keeping the short-lived marker matters anyway: it carries the
+ * customer from "code accepted" to "payment initiated" if the trust write fails.
+ *
+ * This module covers logged-in users only. Guest storefront customers have no
+ * user_id to key against and live in lib/guest-payment-otp.ts, which mirrors this
+ * API against its own table — payment_otps is deliberately left unchanged.
  *
  * Storage: Supabase table `public.payment_otps` (see migrations/20260723_payment_otps.sql).
  * We deliberately DON'T use Redis here — the Upstash instance is quota-capped and
  * this flow must stay available. Expiry is enforced by comparing timestamps.
- *
- * Public API is unchanged from the previous Redis implementation, so the routes
- * that call it need no edits.
  */
 import { createServerClient } from '@/lib/supabase'
 
@@ -151,7 +157,13 @@ export async function isPaymentPhoneVerified(userId: string, phone: string): Pro
     }
 }
 
-/** Consumes the verified marker after a payment is initiated (single-use). */
+/**
+ * Consumes the short-lived verified marker after a payment is initiated.
+ *
+ * Note this only ever runs on the untrusted path now — a trusted number never
+ * reaches it. Deleting the row is harmless either way: permanent trust lives in
+ * trusted_payment_numbers, which was already written when the code was accepted.
+ */
 export async function consumePaymentPhoneVerification(userId: string, phone: string): Promise<void> {
     const msisdn = normalizeMsisdn(phone)
     if (!msisdn) return

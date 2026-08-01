@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createRouteClient } from '@/lib/supabase-server'
 import { verifyPaymentOtp } from '@/lib/payment-otp'
+import { markNumberTrusted } from '@/lib/trusted-payment-numbers'
 import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
 
@@ -50,7 +51,16 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: result.error || 'Verification failed.' }, { status: 400 })
         }
 
-        return NextResponse.json({ success: true, message: 'Number verified. You can now pay from it.' })
+        // The code checked out — trust this number permanently. From here on every
+        // Hubtel payment from it skips verification, on any surface and any device.
+        // If the write fails the customer can still pay now (the short-lived marker
+        // from verifyPaymentOtp covers them); they'd just be asked again next time.
+        await markNumberTrusted(phone, userId)
+
+        return NextResponse.json({
+            success: true,
+            message: 'Number verified. You won\'t need a code for this number again.',
+        })
     } catch (e) {
         console.error('[PayOtpVerify] error:', e)
         return NextResponse.json({ error: 'Internal server error' }, { status: 500 })

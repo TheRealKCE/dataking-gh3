@@ -2,6 +2,11 @@
 import { createRouteHandlerClient } from '@/lib/supabase-server'
 import { Redis } from '@upstash/redis'
 import { initiatePayment, MOOLRE_PAYMENT_CHANNEL_MAP } from '@/lib/moolre-payment-service'
+import { initiatePayment as hubtelInitiatePayment, HUBTEL_CHANNEL_MAP } from '@/lib/hubtel-payment-service'
+import { normalizeMsisdn } from '@/lib/payment-otp'
+import { isGuestPhoneVerified, consumeGuestPhoneVerification } from '@/lib/guest-payment-otp'
+import { isTrustedPaymentNumber } from '@/lib/trusted-payment-numbers'
+import { checkHubtelPromptLimit, recordHubtelPrompt } from '@/lib/hubtel-prompt-limit'
 
 // Redis client for distributed idempotency across all serverless instances.
 // In-memory Maps were removed — they reset on every Vercel cold start.
@@ -247,7 +252,11 @@ export async function POST(request: NextRequest) {
             else paymentNetwork = 'MTN' // Fallback
         }
 
-        const shopProvider = String(settings.active_payment_provider_shop || 'moolre') === 'paystack' ? 'paystack' : 'moolre'
+        const configuredShopProvider = String(settings.active_payment_provider_shop || 'moolre')
+        const shopProvider: 'paystack' | 'hubtel' | 'moolre' =
+            configuredShopProvider === 'paystack' ? 'paystack'
+                : configuredShopProvider === 'hubtel' ? 'hubtel'
+                    : 'moolre'
         const shopRef = existingRef || `SHOP-${shop.id.slice(0, 8)}-${Date.now()}`
 
         // Full metadata used by both webhook paths
@@ -291,6 +300,76 @@ export async function POST(request: NextRequest) {
                 gateway: 'paystack',
                 authorization_url: paystackData.data.authorization_url,
                 reference: shopRef,
+            })
+        }
+
+        // ── HUBTEL BRANCH ────────────────────────────────────────────────────────
+        if (shopProvider === 'hubtel') {
+            const hubtelChannel = HUBTEL_CHANNEL_MAP[paymentNetwork]
+            if (!hubtelChannel) {
+                return NextResponse.json({ error: 'Unsupported payment network' }, { status: 400 })
+            }
+
+            // SECURITY: Hubtel forbids unsolicited prompts. A guest number must be
+            // confirmed by SMS code the FIRST time it pays; after that it is trusted
+            // permanently and never challenged again, here or on the dashboard.
+            if (!(await isTrustedPaymentNumber(cleanPhone))) {
+                const verified = await isGuestPhoneVerified(cleanPhone)
+                if (!verified) {
+                    return NextResponse.json(
+                        {
+                            error: 'Please verify this number with the code we send before paying from it.',
+                            code: 'OTP_REQUIRED',
+                            reference: shopRef,
+                        },
+                        { status: 403 }
+                    )
+                }
+                await consumeGuestPhoneVerification(cleanPhone)
+            }
+
+            // Applies to trusted numbers too — see lib/hubtel-prompt-limit.ts.
+            const promptLimit = await checkHubtelPromptLimit(cleanPhone)
+            if (!promptLimit.allowed) {
+                return NextResponse.json({ error: promptLimit.error }, { status: 429 })
+            }
+
+            // Metadata must land in Redis BEFORE the prompt — the callback reads it
+            // and a fast approval can otherwise beat the write.
+            if (!existingRef) {
+                await redis.set(
+                    `shop:meta:${shopRef}`,
+                    JSON.stringify({ ...fullMetadata, payer_msisdn: normalizeMsisdn(cleanPhone) }),
+                    { ex: 86400 }
+                )
+            }
+
+            const hubtelResponse = await hubtelInitiatePayment({
+                amount: totalAmount / 100,   // stored in pesewas, Hubtel expects GHS
+                payerPhone: cleanPhone,
+                channel: hubtelChannel,
+                clientReference: shopRef,
+                customerName: 'Guest Customer',
+                customerEmail: validatedGuestEmail || '',
+                description: `${shop.shop_name} — ${orderType === 'airtime' ? 'Airtime' : 'Data Bundle'}`,
+            })
+
+            if (!hubtelResponse.success) {
+                console.error('[ShopInit] Hubtel error:', hubtelResponse.error)
+                return NextResponse.json(
+                    { error: hubtelResponse.error || 'Failed to initialize Hubtel payment' },
+                    { status: 500 }
+                )
+            }
+
+            // Only now has a prompt actually gone to the handset.
+            await recordHubtelPrompt(cleanPhone)
+
+            return NextResponse.json({
+                success: true,
+                gateway: 'hubtel',
+                reference: shopRef,
+                message: 'Payment prompt sent to your phone. Please approve to complete your purchase.',
             })
         }
 
