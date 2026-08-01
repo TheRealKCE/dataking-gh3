@@ -45,7 +45,7 @@ export async function GET(request: NextRequest) {
 
         const { data: paymentRecord, error: paymentLookupError } = await (supabase
             .from('wallet_payments') as any)
-            .select('id, user_id, amount, total_amount, status, provider, metadata')
+            .select('id, user_id, amount, total_amount, status, provider, metadata, created_at')
             .eq('reference', reference)
             .single()
 
@@ -94,6 +94,35 @@ export async function GET(request: NextRequest) {
 
         // ── Hubtel status check ───────────────────────────────────────────────
         if ((paymentRecord as any).provider === 'hubtel') {
+            // The client polls this endpoint every 3 seconds. Hubtel's status API is
+            // reached through a metered static-IP proxy, so calling it on every poll
+            // burned roughly 20 proxy requests per payment and exhausted the monthly
+            // quota after ~25 top-ups — which then broke payments outright with a 407.
+            //
+            // Hubtel confirms via webhook, and the DB fast-path above already catches
+            // that. So treat the status API as a FALLBACK for when the webhook does not
+            // arrive: stay quiet for a grace period, then poll it at a slow interval.
+            const now = Date.now()
+            const createdAt = new Date((paymentRecord as any).created_at).getTime()
+            const meta = ((paymentRecord as any).metadata || {}) as Record<string, any>
+            const lastCheck = meta.last_hubtel_check ? new Date(meta.last_hubtel_check).getTime() : 0
+
+            const WEBHOOK_GRACE_MS = 45_000   // give the callback time to land
+            const MIN_CHECK_INTERVAL_MS = 20_000
+
+            const tooEarly = Number.isFinite(createdAt) && (now - createdAt) < WEBHOOK_GRACE_MS
+            const tooSoon = (now - lastCheck) < MIN_CHECK_INTERVAL_MS
+
+            if (tooEarly || tooSoon) {
+                if (isInline) return NextResponse.json({ success: true, status: 'pending', message: 'Waiting for payment confirmation...' })
+                return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/wallet`)
+            }
+
+            // Stamp before the call so concurrent polls don't all queue up behind it.
+            await (supabase.from('wallet_payments') as any)
+                .update({ metadata: { ...meta, last_hubtel_check: new Date(now).toISOString() } })
+                .eq('id', (paymentRecord as any).id)
+
             const hubtelResponse = await hubtelCheckPaymentStatus(reference)
 
             if (!hubtelResponse.success || hubtelResponse.status === null) {
