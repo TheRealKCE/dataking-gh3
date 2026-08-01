@@ -35,6 +35,23 @@ for (const file of ['.env.local', '.env']) {
 const sep = '─'.repeat(64)
 const proxyUrl = process.env.FIXIE_URL || process.env.QUOTAGUARDSTATIC_URL
 
+/**
+ * Prints this machine's public IP. On a fixed-IP host (a VPS, or a dev machine on a
+ * static connection) you can whitelist this in Hubtel and skip the proxy entirely.
+ * Not viable on Vercel, whose egress IPs rotate — that is what the proxy is for.
+ */
+async function reportEgressIp() {
+    try {
+        const r = await fetch('https://api.ipify.org?format=json', { signal: AbortSignal.timeout(10000) })
+        const { ip } = await r.json()
+        console.log(`\nThis machine's public egress IP: ${ip}`)
+        console.log('Whitelisting that in Hubtel lets you run without a proxy from HERE only')
+        console.log('(unset FIXIE_URL to go direct). Vercel needs the proxy — its IPs rotate.')
+    } catch {
+        console.log('\nCould not determine the public egress IP.')
+    }
+}
+
 async function main() {
     console.log(sep)
     console.log('HUBTEL CONNECTIVITY DIAGNOSTIC')
@@ -131,4 +148,8 @@ async function main() {
     console.log(sep)
 }
 
-main().catch((e) => { console.error('Diagnostic crashed:', e); process.exit(1) })
+// Runs after every exit path — main() returns early on each distinct failure, and
+// the egress IP is most useful precisely when something failed.
+main()
+    .catch((e) => { console.error('Diagnostic crashed:', e) })
+    .finally(reportEgressIp)
