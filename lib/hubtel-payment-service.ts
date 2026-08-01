@@ -133,6 +133,7 @@ function describeNetworkFailure(err: any, context: string): string {
     const cause = err?.cause
     const code = cause?.code || err?.code
     const usingProxy = !!(process.env.FIXIE_URL || process.env.QUOTAGUARDSTATIC_URL)
+    const text = `${err?.message || ''} ${cause?.message || ''}`
 
     console.error(`[HubtelPayment] ${context} failed to reach Hubtel:`, {
         message: err?.message,
@@ -140,6 +141,21 @@ function describeNetworkFailure(err: any, context: string): string {
         cause: cause?.message,
         usingProxy,
     })
+
+    // The static proxy rejected us. Undici surfaces this as a cancelled request
+    // rather than an HTTP status, so without this branch it looks like a random
+    // timeout and sends you hunting in the wrong place. It means the proxy
+    // credentials are wrong or the account is expired/out of quota — a config
+    // problem no retry will clear.
+    if (/407|proxy auth|Proxy response/i.test(text) || (usingProxy && /cancelled/i.test(text))) {
+        console.error(
+            '[HubtelPayment] ACTION REQUIRED: the static proxy rejected our credentials (HTTP 407). ' +
+            'Hubtel only accepts whitelisted IPs, so payments cannot go out until this is fixed. ' +
+            'Get a fresh proxy URL from the provider dashboard, update FIXIE_URL, and confirm its ' +
+            'static IP is whitelisted in the Hubtel Merchant Portal.'
+        )
+        return 'Mobile money payments are temporarily unavailable. Please try another payment method or contact support.'
+    }
 
     if (err?.name === 'TimeoutError' || code === 'UND_ERR_CONNECT_TIMEOUT' || code === 'UND_ERR_HEADERS_TIMEOUT') {
         return 'Hubtel did not respond in time. Please try again in a moment.'
