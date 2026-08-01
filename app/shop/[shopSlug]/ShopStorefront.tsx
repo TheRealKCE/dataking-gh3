@@ -12,6 +12,7 @@ import {
     History, TrendingUp, Coins, Calendar, CalendarRange, RefreshCw, Info, Clock, Copy, ArrowRight, AlertTriangle, Users, Target, Sparkles, Download, Share2, GraduationCap, Store
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { PaymentOtpDialog } from '@/components/PaymentOtpDialog'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { CopyrightFooter } from '@/components/CopyrightFooter'
 import dynamic from 'next/dynamic'
@@ -187,6 +188,11 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
     const [announcementDismissed, setAnnouncementDismissed] = useState(false)
     const [scrolled, setScrolled] = useState(false)
     const [otpRequired, setOtpRequired] = useState(false)
+    // One-time verification of the paying number (Hubtel). Unrelated to the Moolre
+    // per-transaction OTP below — this is asked once per number and never again.
+    const [payOtpOpen, setPayOtpOpen] = useState(false)
+    const [payOtpPhone, setPayOtpPhone] = useState('')
+    const [payOtpRetry, setPayOtpRetry] = useState<() => void>(() => () => { })
     const [otpCode, setOtpCode] = useState('')
     const [otpReference, setOtpReference] = useState<string | null>(null)
     const [otpOrderType, setOtpOrderType] = useState<'data' | 'airtime' | 'mashup' | 'results_checker'>('data')
@@ -466,6 +472,19 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
         }
     }
 
+    // Hubtel refuses to prompt a number we've never confirmed. The checkout answers
+    // 403 OTP_REQUIRED on that first attempt only — once the customer enters the code,
+    // the number is trusted permanently and this branch never runs for them again.
+    const isFirstTimeNumber = (res: Response, data: any) =>
+        res.status === 403 && data?.code === 'OTP_REQUIRED'
+
+    const startNumberVerification = (phoneToVerify: string, retry: () => void) => {
+        setLoading(false)
+        setPayOtpPhone(phoneToVerify)
+        setPayOtpRetry(() => retry)
+        setPayOtpOpen(true)
+    }
+
     const handleBuyData = async () => {
         if (!selectedPackage) { toast.error('Select a package first'); return }
         if (!phone.trim()) { toast.error('Enter your phone number'); return }
@@ -490,6 +509,11 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 }),
             })
             const data = await res.json()
+
+            if (isFirstTimeNumber(res, data)) {
+                startNumberVerification(cleanPhone, handleBuyData)
+                return
+            }
 
             if (!res.ok || !data.reference) {
                 setErrorMsg(data.error || 'Failed to initialize payment')
@@ -552,6 +576,11 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 }),
             })
             const data = await res.json()
+
+            if (isFirstTimeNumber(res, data)) {
+                startNumberVerification(cleanPhone, handleBuyAirtime)
+                return
+            }
 
             if (!res.ok || !data.reference) {
                 setErrorMsg(data.error || 'Failed to initialize airtime payment')
@@ -653,6 +682,10 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 }),
             })
             const data = await res.json()
+            if (isFirstTimeNumber(res, data)) {
+                startNumberVerification(cleanPhone, handleBuyMashup)
+                return
+            }
             if (!res.ok || !data.reference) {
                 setErrorMsg(data.error || 'Failed to initialize mashup payment')
                 if (data.contact) setContactInfo(data.contact)
@@ -697,6 +730,10 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 })
             })
             const data = await res.json()
+            if (isFirstTimeNumber(res, data)) {
+                startNumberVerification(cleanPhone, handleBuyRc)
+                return
+            }
             if (!res.ok || !data.success) {
                 setErrorMsg(data.error || 'Failed to initialize payment')
                 setLoading(false)
@@ -1863,6 +1900,15 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
             />
 
             {/* OTP Modal */}
+            {/* One-time verification of the paying number (first purchase only) */}
+            <PaymentOtpDialog
+                open={payOtpOpen}
+                onOpenChange={setPayOtpOpen}
+                phone={payOtpPhone}
+                variant="guest"
+                onVerified={() => payOtpRetry()}
+            />
+
             <Dialog open={otpRequired} onOpenChange={(open) => !open && setOtpRequired(false)}>
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>

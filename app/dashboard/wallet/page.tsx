@@ -132,6 +132,13 @@ function WalletContent() {
                 toast.success('This is your registered number — ready to pay.')
                 return
             }
+            // Verified once before — trusted permanently, so no code is sent.
+            if (data.alreadyVerified) {
+                setAltVerified(true)
+                setAltOtpSent(false)
+                toast.success('This number is already verified — ready to pay.')
+                return
+            }
             setAltOtpSent(true)
             toast.success('Verification code sent to that number.')
         } catch {

@@ -5,6 +5,8 @@ import { calculatePaystackFee, generateReferenceCode } from '@/lib/utils'
 import { initiatePayment, MOOLRE_PAYMENT_CHANNEL_MAP } from '@/lib/moolre-payment-service'
 import { initiatePayment as hubtelInitiatePayment, HUBTEL_CHANNEL_MAP, calculateHubtelFee } from '@/lib/hubtel-payment-service'
 import { isPaymentPhoneVerified, consumePaymentPhoneVerification, normalizeMsisdn } from '@/lib/payment-otp'
+import { isTrustedPaymentNumber } from '@/lib/trusted-payment-numbers'
+import { checkHubtelPromptLimit } from '@/lib/hubtel-prompt-limit'
 
 // Build admin client safely — returns null with an error string if env vars are missing
 function buildAdminClient(): { client: ReturnType<typeof createClient> | null; error: string | null } {
@@ -249,11 +251,12 @@ export async function POST(request: NextRequest) {
         // ── Step 10b: HUBTEL ──────────────────────────────────────────────────
         if (provider === 'hubtel') {
             // SECURITY — Hubtel requires a safeguard against unsolicited prompts. We implement BOTH:
-            //   Option 1: only registered users pay, and the client cannot choose the number —
-            //             the registered profile number is used and client input is ignored.
-            //   Option 2: to pay from a DIFFERENT number, that number must first be confirmed
-            //             via a one-time SMS code (see /api/payments/otp/*). Without a live
-            //             verification marker the request is refused before reaching Hubtel.
+            //   Option 1: the registered profile number is used by default.
+            //   Option 2: to pay from a DIFFERENT number, that number must be confirmed via a
+            //             one-time SMS code (see /api/payments/otp/*) — ONCE. After that it is
+            //             permanently trusted and no further code is requested.
+            // The per-number prompt rate limit below applies on both paths and is what caps
+            // abuse of an already-trusted number.
             const { data: profileForPhone } = await (supabaseAdmin.from('users' as any))
                 .select('phone_number')
                 .eq('id', userId)
@@ -272,20 +275,35 @@ export async function POST(request: NextRequest) {
 
             let payerPhone = registeredPhone
             if (submittedMsisdn && submittedMsisdn !== registeredMsisdn) {
-                const verified = await isPaymentPhoneVerified(userId, submittedMsisdn)
-                if (!verified) {
-                    return NextResponse.json(
-                        {
-                            error: 'Please verify this number with the code we send before paying from it.',
-                            code: 'OTP_REQUIRED',
-                        },
-                        { status: 403 }
-                    )
+                if (!(await isTrustedPaymentNumber(submittedMsisdn))) {
+                    const verified = await isPaymentPhoneVerified(userId, submittedMsisdn)
+                    if (!verified) {
+                        return NextResponse.json(
+                            {
+                                error: 'Please verify this number with the code we send before paying from it.',
+                                code: 'OTP_REQUIRED',
+                            },
+                            { status: 403 }
+                        )
+                    }
+                    await consumePaymentPhoneVerification(userId, submittedMsisdn)
                 }
                 payerPhone = submittedMsisdn
-                // Single-use: prevents the verification being replayed for later payments.
-                await consumePaymentPhoneVerification(userId, submittedMsisdn)
             }
+
+            // Applies to trusted numbers too — see lib/hubtel-prompt-limit.ts.
+            const promptLimit = await checkHubtelPromptLimit(payerPhone)
+            if (!promptLimit.allowed) {
+                if (!existingRef) {
+                    await (supabaseAdmin.from('wallet_payments' as any)).update({ status: 'failed' }).eq('id', paymentId)
+                }
+                return NextResponse.json({ error: promptLimit.error }, { status: 429 })
+            }
+
+            // Record who actually pays, so the webhook can attribute usage stats.
+            await (supabaseAdmin.from('wallet_payments' as any))
+                .update({ metadata: { user_id: userId, amount, fee, payer_msisdn: normalizeMsisdn(payerPhone) } })
+                .eq('id', paymentId)
 
             const hubtelChannel = HUBTEL_CHANNEL_MAP[network]
             const hubtelResponse = await hubtelInitiatePayment({

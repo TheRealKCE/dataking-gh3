@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { Redis } from '@upstash/redis'
 import { initiatePayment, MOOLRE_PAYMENT_CHANNEL_MAP } from '@/lib/moolre-payment-service'
+import { initiatePayment as hubtelInitiatePayment, HUBTEL_CHANNEL_MAP } from '@/lib/hubtel-payment-service'
+import { isGuestPhoneVerified, consumeGuestPhoneVerification } from '@/lib/guest-payment-otp'
+import { isTrustedPaymentNumber } from '@/lib/trusted-payment-numbers'
+import { checkHubtelPromptLimit } from '@/lib/hubtel-prompt-limit'
 
 let redis: Redis | null = null
 try { redis = Redis.fromEnv() } catch (_) {}
@@ -58,7 +62,37 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Results Checker is not available on storefronts' }, { status: 503 })
         }
 
-        const provider = String(adminSettings['active_payment_provider_shop'] || 'paystack') === 'paystack' ? 'paystack' : 'moolre'
+        const configuredProvider = String(adminSettings['active_payment_provider_shop'] || 'paystack')
+        const provider: 'paystack' | 'hubtel' | 'moolre' =
+            configuredProvider === 'paystack' ? 'paystack'
+                : configuredProvider === 'hubtel' ? 'hubtel'
+                    : 'moolre'
+
+        // SECURITY: Hubtel forbids unsolicited prompts. A guest number must be confirmed
+        // by SMS code the FIRST time it pays; after that it is trusted permanently.
+        // Checked up front — before an order row is written — so a customer who still
+        // needs to verify does not leave a pending order behind.
+        if (provider === 'hubtel' && !existingRef) {
+            if (!(await isTrustedPaymentNumber(cleanPhone))) {
+                const verified = await isGuestPhoneVerified(cleanPhone)
+                if (!verified) {
+                    return NextResponse.json(
+                        {
+                            error: 'Please verify this number with the code we send before paying from it.',
+                            code: 'OTP_REQUIRED',
+                        },
+                        { status: 403 }
+                    )
+                }
+                await consumeGuestPhoneVerification(cleanPhone)
+            }
+
+            // Applies to trusted numbers too — see lib/hubtel-prompt-limit.ts.
+            const promptLimit = await checkHubtelPromptLimit(cleanPhone)
+            if (!promptLimit.allowed) {
+                return NextResponse.json({ error: promptLimit.error }, { status: 429 })
+            }
+        }
 
         // ── 2. Fetch shop ─────────────────────────────────────────────────────────
         const { data: shop } = await db
@@ -225,6 +259,47 @@ export async function POST(request: NextRequest) {
                     gateway: 'paystack',
                     authorization_url: paystackData.data.authorization_url,
                     reference: referenceCode,
+                })
+            }
+
+            // ── HUBTEL BRANCH ─────────────────────────────────────────────────────
+            // Verification and the prompt limit were already cleared above, before the
+            // order row was created.
+            if (provider === 'hubtel') {
+                const hubtelPrefix = cleanPhone.substring(0, 3)
+                let hubtelNetwork = 'MTN'
+                if (['020', '050'].includes(hubtelPrefix)) hubtelNetwork = 'Telecel'
+                else if (['026', '027', '056', '028', '058', '057'].includes(hubtelPrefix)) hubtelNetwork = 'AT'
+
+                const hubtelChannel = HUBTEL_CHANNEL_MAP[hubtelNetwork]
+                if (!hubtelChannel) {
+                    return NextResponse.json({ error: 'Unsupported payment network' }, { status: 400 })
+                }
+
+                const hubtelResponse = await hubtelInitiatePayment({
+                    amount: totalAmount,
+                    payerPhone: cleanPhone,
+                    channel: hubtelChannel,
+                    clientReference: referenceCode,
+                    customerName: customerName || 'Guest Customer',
+                    customerEmail: validEmail || '',
+                    description: `${shop.shop_name} — ${rcType.name} x${qty}`,
+                })
+
+                if (!hubtelResponse.success) {
+                    console.error('[shop/rc/initialize] Hubtel error:', hubtelResponse.error)
+                    return NextResponse.json(
+                        { error: hubtelResponse.error || 'Failed to initialize Hubtel payment' },
+                        { status: 500 }
+                    )
+                }
+
+                return NextResponse.json({
+                    success: true,
+                    gateway: 'hubtel',
+                    otpRequired: false,
+                    reference: referenceCode,
+                    message: 'Payment prompt sent to your phone. Please approve to complete your purchase.',
                 })
             }
 
