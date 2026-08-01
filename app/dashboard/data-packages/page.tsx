@@ -1763,6 +1763,26 @@ export default function DataPackagesPage() {
                                 </div>
                             </div>
 
+                            {/* Say WHY Pay is disabled. A greyed-out button with no
+                                explanation reads as a broken page — most often the
+                                recipient number is simply still empty, and the field's
+                                placeholder is a realistic Ghana number that looks like
+                                a filled-in value. */}
+                            {!isPurchasing && !pollingRef && (() => {
+                                let reason: string | null = null
+                                if (!phoneNumber) reason = 'Enter the recipient phone number to continue.'
+                                else if (phoneError) reason = null // already shown in red under the field
+                                else if (paymentMethod === 'wallet' && walletBalance < selectedPrice)
+                                    reason = 'Your wallet balance is too low for this package.'
+                                else if (paymentMethod === 'direct' && needsMomoDetails && !momoPhone)
+                                    reason = 'Enter the Mobile Money number to charge.'
+                                else if (paymentMethod === 'direct' && needsMomoDetails && !momoNetwork)
+                                    reason = 'Select the Mobile Money network.'
+                                return reason ? (
+                                    <p className="text-sm text-muted-foreground text-center pb-1">{reason}</p>
+                                ) : null
+                            })()}
+
                             <DialogFooter>
                                 <Button variant="outline" onClick={() => setSelectedPackage(null)} disabled={!!pollingRef}>
                                     Cancel
