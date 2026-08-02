@@ -438,9 +438,22 @@ export default function DataPackagesPage() {
     const handlePurchase = async () => {
         if (!selectedPackage || !dbUser) return
 
+        // The recipient field sits at the top of a scrollable dialog, so on a short
+        // screen it is often out of view while Pay is not. Rather than leaving the
+        // button dead — which reads as "the button doesn't work" — bring the field
+        // back into view and say what is missing.
+        if (!phoneNumber.trim()) {
+            setPhoneError('Enter the recipient phone number')
+            const el = document.getElementById('phone')
+            el?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+            el?.focus()
+            return
+        }
+
         const validation = validateGhanaianPhone(phoneNumber)
         if (!validation.isValid) {
             setPhoneError(validation.error || 'Invalid phone number')
+            document.getElementById('phone')?.scrollIntoView({ behavior: 'smooth', block: 'center' })
             return
         }
 
@@ -1789,10 +1802,12 @@ export default function DataPackagesPage() {
                                 </Button>
                                 <Button
                                     onClick={handlePurchase}
+                                    // Deliberately NOT disabled on a missing recipient
+                                    // number — handlePurchase scrolls to the field and
+                                    // explains instead, so the click always does something.
                                     disabled={
                                         isPurchasing ||
                                         !!pollingRef ||
-                                        !phoneNumber ||
                                         !!phoneError ||
                                         (paymentMethod === 'wallet' && walletBalance < selectedPrice)
                                     }

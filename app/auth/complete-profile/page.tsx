@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
@@ -25,6 +25,24 @@ export default function CompleteProfilePage() {
     const [error, setError] = useState('')
     const { user, isLoading: authLoading } = useAuth()
     const router = useRouter()
+
+    // Everyone sent here signed in with Google, which already gave us their name.
+    // Prefill it so the only thing left to type is the phone number — that is the
+    // one piece we genuinely don't have. Never prefill the phone: OAuth accounts
+    // carry an 'oauth_<id>' placeholder, and putting that in the field would just
+    // fail validation and confuse.
+    useEffect(() => {
+        const meta = (user as any)?.user_metadata || {}
+        const full = String(meta.full_name || meta.name || '').trim()
+        const first = String(meta.given_name || '').trim() || full.split(' ')[0] || ''
+        const last = String(meta.family_name || '').trim() || full.split(' ').slice(1).join(' ') || ''
+        if (!first && !last) return
+        setFormData(prev => ({
+            ...prev,
+            firstName: prev.firstName || first,
+            lastName: prev.lastName || last,
+        }))
+    }, [user])
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }))

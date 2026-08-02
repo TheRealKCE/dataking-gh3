@@ -58,6 +58,14 @@ export async function createPaymentOtp(userId: string, phone: string): Promise<S
         const { error } = await db
             .from('payment_otps')
             .upsert({
+                // owner_key carries the unique constraint this table actually has.
+                // The original (user_id, msisdn) primary key was replaced during an
+                // earlier migration; upserting on the old target fails with
+                // "no unique or exclusion constraint matching the ON CONFLICT
+                // specification", which surfaced to customers as
+                // "Verification is temporarily unavailable".
+                // user_id is still written so the FK cascade cleans rows up.
+                owner_key: `user:${userId}`,
                 user_id: userId,
                 msisdn,
                 code,
@@ -66,10 +74,10 @@ export async function createPaymentOtp(userId: string, phone: string): Promise<S
                 expires_at: new Date(now + OTP_TTL_MS).toISOString(),
                 verified_until: null,
                 updated_at: new Date(now).toISOString(),
-            }, { onConflict: 'user_id,msisdn' })
+            }, { onConflict: 'owner_key,msisdn' })
 
         if (error) {
-            console.error('[PaymentOtp] Failed to store OTP:', error.message)
+            console.error('[PaymentOtp] Failed to store OTP:', error.message, error.code)
             return { ok: false, error: 'Verification is temporarily unavailable. Please try again shortly.' }
         }
     } catch (e) {

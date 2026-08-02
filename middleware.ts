@@ -496,7 +496,16 @@ export async function middleware(request: NextRequest) {
                 const { data: userStatus } = await Promise.race([phoneQuery, phoneTimeout]) as any
 
                 if (userStatus) {
-                    if (!userStatus.phone_number || userStatus.phone_number === '') {
+                    // Google/OAuth signups do NOT arrive with an empty phone — the signup
+                    // trigger stores a synthetic placeholder, 'oauth_<id-prefix>' (see
+                    // supabase/triggers.sql). Checking only for empty therefore let every
+                    // OAuth user straight through, and they reached the dashboard with a
+                    // placeholder saved as their phone number. That breaks anything keyed
+                    // on a real MSISDN: Hubtel payments, SMS, order notifications.
+                    const phone = String(userStatus.phone_number || '')
+                    const isPlaceholder = phone === '' || phone.startsWith('oauth_')
+
+                    if (isPlaceholder) {
                         return addNoCacheHeaders(NextResponse.redirect(new URL('/auth/complete-profile', request.url)))
                     }
                     // phone_verified check removed to allow users to go straight to dashboard
