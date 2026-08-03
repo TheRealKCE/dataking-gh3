@@ -174,7 +174,7 @@ export async function POST(req: Request) {
                 try {
                     const typesPromise = getSupabaseAdmin()
                         .from('results_checker_types')
-                        .select('id, name, customer_price')
+                        .select('id, name, customer_price, ussd_price')
                         .eq('is_active', true)
                         .order('display_order', { ascending: true });
                     const timeoutPromise = new Promise((_, reject) =>
@@ -220,7 +220,7 @@ export async function POST(req: Request) {
                 const selected = availableCheckers[selectionIndex];
                 sessionData.selectedCheckerId = selected.id;
                 sessionData.selectedCheckerName = selected.name;
-                sessionData.selectedCheckerPrice = selected.customer_price;
+                sessionData.selectedCheckerPrice = ussdPrice(selected);
 
                 saveAsync(SessionId, 'enter_phone', sessionData);
                 return respond(
@@ -311,11 +311,19 @@ export async function POST(req: Request) {
     }
 }
 
+/**
+ * The price this checker costs on USSD: ussd_price when set, otherwise the
+ * web-facing customer_price. Keeps the short code priced independently.
+ */
+function ussdPrice(type: { customer_price: any; ussd_price?: any }): any {
+    return type.ussd_price ?? type.customer_price;
+}
+
 /** Renders the numbered checker list with inline prices, e.g. "1. BECE (18 GHS)". */
-function renderCheckerMenu(types: Array<{ name: string; customer_price: any }>): string {
+function renderCheckerMenu(types: Array<{ name: string; customer_price: any; ussd_price?: any }>): string {
     let msg = 'Select Checker Type:\n';
     types.forEach((t, i) => {
-        msg += `${i + 1}. ${t.name} (${formatGhs(t.customer_price)} GHS)\n`;
+        msg += `${i + 1}. ${t.name} (${formatGhs(ussdPrice(t))} GHS)\n`;
     });
     msg += '0. Back';
     return msg;
