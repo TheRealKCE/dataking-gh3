@@ -12,8 +12,18 @@ import { areCronJobsEnabled, cronDisabledResponse } from '@/lib/cron-control'
 //   NetPulse → processing : do nothing
 //   Order already completed or pending : skip (only process orders in processing state)
 
+// This cron polls the supplier once PER ORDER, serially. Without a duration cap the
+// platform kills the function mid-loop and every order after that point is silently
+// skipped — so give it room, then stop ourselves just short of the kill with a clean
+// response. Combined with oldest-first ordering, the next run resumes where we left off.
+export const maxDuration = 60
+const RUN_BUDGET_MS = 50_000
+
 export async function GET(request: NextRequest) {
     if (!areCronJobsEnabled()) return cronDisabledResponse()
+
+    const startedAt = Date.now()
+    const outOfTime = () => Date.now() - startedAt > RUN_BUDGET_MS
 
     const authHeader = request.headers.get('authorization')
     if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
@@ -34,12 +44,20 @@ export async function GET(request: NextRequest) {
             .eq('fulfilled_by', 'netpulse')
             .eq('status', 'processing')      // only orders currently in processing
             .not('netpulse_reference', 'is', null)
+            // Oldest first: without an explicit order Postgres returns an arbitrary
+            // (but stable) page, so anything past the limit is NEVER checked and the
+            // backlog starves itself. Oldest-first guarantees stuck orders drain.
+            .order('created_at', { ascending: true })
             .limit(50)
 
         if (shopError) {
             errors.push(`shop_orders query failed: ${shopError.message}`)
         } else {
             for (const order of shopOrders || []) {
+                if (outOfTime()) {
+                    errors.push('shop_orders: run budget exhausted — remaining orders deferred to next run')
+                    break
+                }
                 // Extra safety: skip if somehow already completed or pending
                 if (order.status === 'completed' || order.status === 'pending') continue
 
@@ -95,12 +113,20 @@ export async function GET(request: NextRequest) {
             .eq('fulfillment_method', 'netpulse')
             .eq('status', 'processing')
             .not('netpulse_reference', 'is', null)
+            // Oldest first: without an explicit order Postgres returns an arbitrary
+            // (but stable) page, so anything past the limit is NEVER checked and the
+            // backlog starves itself. Oldest-first guarantees stuck orders drain.
+            .order('created_at', { ascending: true })
             .limit(50)
 
         if (mainError) {
             errors.push(`orders query failed: ${mainError.message}`)
         } else {
             for (const order of mainOrders || []) {
+                if (outOfTime()) {
+                    errors.push('orders: run budget exhausted — remaining orders deferred to next run')
+                    break
+                }
                 if (order.status === 'completed' || order.status === 'pending') continue
 
                 totalChecked++
