@@ -16,14 +16,30 @@ export type OrderDisplayStatus =
     | 'failed'
     | 'refunded'
 
+/**
+ * Lowercase a supplier status and flatten `_`/`-` to spaces so "on_hold",
+ * "on-hold" and "On Hold" all compare equal.
+ *
+ * NetPulse is genuinely inconsistent here: its API returns "on_hold" while its
+ * own dashboard renders "On Hold — Verifying". Matching literal strings meant
+ * the underscore form missed and 12 live orders sat unrecognised. Compare on
+ * words, not punctuation.
+ *
+ * Lives in this module rather than the supplier service so that client bundles
+ * importing it never pull the supplier API client in with it.
+ */
+export function normaliseSupplierStatus(status: string | null | undefined): string {
+    return (status || '').trim().toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ')
+}
+
 // Raw supplier labels that mean "placed, but held for review". Kept broad
 // because each supplier words it differently and they are free to change the
 // wording without telling us — an unlisted label just falls back to
-// 'processing', which is the pre-existing behaviour.
+// 'processing', which is the pre-existing behaviour. Compared post-normalisation,
+// so only the word form is listed, never the punctuation variants.
 const VERIFYING_LABELS = new Set([
     'verifying',
     'on hold',
-    'on-hold',
     'onhold',
     'awaiting verification',
     'pending verification',
@@ -49,8 +65,7 @@ export function getOrderDisplayStatus(order: {
     const status = (order?.status || 'pending') as OrderDisplayStatus
 
     if (status === 'processing') {
-        const supplier = (order?.supplier_status || '').trim().toLowerCase()
-        if (VERIFYING_LABELS.has(supplier)) return 'verifying'
+        if (VERIFYING_LABELS.has(normaliseSupplierStatus(order?.supplier_status))) return 'verifying'
     }
 
     return status

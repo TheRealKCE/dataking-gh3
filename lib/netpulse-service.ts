@@ -1,4 +1,5 @@
 import { sanitizeForLog } from '@/lib/safe-log'
+import { normaliseSupplierStatus } from '@/lib/order-status-display'
 
 // NetPulse Fulfillment Service — mirrors lib/eazydata-service.ts architecture.
 // API Docs: https://netpluse.shop  ("Developer API" reference)
@@ -348,10 +349,14 @@ export async function checkOrderStatus(reference: string): Promise<StatusRespons
  * supplier, so it stays in-flight (processing) and gets polled again next run.
  */
 function mapNetPulseStatus(status: string): 'pending' | 'processing' | 'completed' | 'failed' {
-    const s = (status || '').trim().toLowerCase()
+    // Separators are normalised because NetPulse is not consistent about them:
+    // the API returns "on_hold" while their dashboard renders "On Hold". Matching
+    // the literal strings meant the underscore form fell through to 'pending' and
+    // 12 live orders sat unrecognised. Compare on words, not punctuation.
+    const s = normaliseSupplierStatus(status)
     const COMPLETED = ['completed', 'complete', 'delivered', 'success', 'successful', 'credited']
     const FAILED = ['failed', 'cancelled', 'canceled', 'refunded', 'rejected', 'reversed']
-    const IN_FLIGHT = ['processing', 'verifying', 'on hold', 'on-hold', 'onhold', 'awaiting verification', 'queued', 'pending verification']
+    const IN_FLIGHT = ['processing', 'verifying', 'on hold', 'onhold', 'awaiting verification', 'queued', 'pending verification', 'under review']
     if (COMPLETED.includes(s)) return 'completed'
     if (FAILED.includes(s)) return 'failed'
     if (IN_FLIGHT.includes(s)) return 'processing'
