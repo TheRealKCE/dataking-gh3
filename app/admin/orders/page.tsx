@@ -3,6 +3,7 @@
 import { useEffect, useState, Fragment, useMemo } from 'react'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency, formatDate } from '@/lib/utils'
+import { getOrderDisplayStatus } from '@/lib/order-status-display'
 import { Card, CardContent, CardHeader, CardTitle, CardFooter } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -910,13 +911,15 @@ export default function AdminOrdersPage() {
 
     // A refunded order stores status='failed' + payment_status='refunded'
     // (the base orders.status CHECK cannot hold 'refunded'), so derive the label.
-    const displayStatus = (order: any) =>
-        order?.payment_status === 'refunded' ? 'refunded' : order?.status
+    // Also resolves 'processing' → 'verifying' when the supplier reports the
+    // order as held for review. Display only — `status` is untouched.
+    const displayStatus = (order: any) => getOrderDisplayStatus(order)
 
     const getStatusBadge = (status: string) => {
         const styles: Record<string, string> = {
             pending: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
             processing: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
+            verifying: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
             completed: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400',
             failed: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
             refunded: 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-400',

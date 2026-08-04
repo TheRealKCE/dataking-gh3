@@ -4,6 +4,7 @@ import { useEffect, useState, useMemo } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency } from '@/lib/utils'
+import { getOrderDisplayStatus, getOrderStatusLabel, getOrderStatusBadgeClass } from '@/lib/order-status-display'
 import { NetworkIcon } from '@/components/network-icon'
 import { Card, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
@@ -243,18 +244,7 @@ export default function MyOrdersPage() {
         }
     }
 
-    const getStatusBadgeClass = (status: string) => {
-        switch (status) {
-            case 'completed':
-                return 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-            case 'processing':
-                return 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400'
-            case 'failed':
-                return 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400'
-            default:
-                return 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
-        }
-    }
+    const getStatusBadgeClass = getOrderStatusBadgeClass
 
     // const getNetworkIcon = (network: string) => { ... } // Removed
 
@@ -415,8 +405,8 @@ export default function MyOrdersPage() {
                                             <p className="text-sm text-muted-foreground">{order.phone_number}</p>
                                         </div>
                                     </div>
-                                    <span className={`px-3 py-1 rounded-full text-xs font-medium ${getStatusBadgeClass(order.status)}`}>
-                                        {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                                    <span className={`px-3 py-1 rounded-full text-xs font-medium whitespace-nowrap ${getStatusBadgeClass(getOrderDisplayStatus(order))}`}>
+                                        {getOrderStatusLabel(getOrderDisplayStatus(order))}
                                     </span>
                                 </div>
 
