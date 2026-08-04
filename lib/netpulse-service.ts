@@ -336,12 +336,25 @@ export async function checkOrderStatus(reference: string): Promise<StatusRespons
     }
 }
 
-// NetPulse statuses: "processing" → "completed" | "failed"
+/**
+ * Map a NetPulse order status to ours.
+ *
+ * The dashboard at netpluse.shop labels the terminal success state "Delivered",
+ * not "completed", and parks orders under manual review as "On Hold — Verifying"
+ * / "Awaiting verification". Matching only "completed" left every delivered order
+ * falling through to 'pending', so the sync cron never closed it out.
+ *
+ * Verifying is NOT a failure — the order is placed and under review at the
+ * supplier, so it stays in-flight (processing) and gets polled again next run.
+ */
 function mapNetPulseStatus(status: string): 'pending' | 'processing' | 'completed' | 'failed' {
-    const s = (status || '').toLowerCase()
-    if (s === 'completed') return 'completed'
-    if (s === 'failed' || s === 'cancelled' || s === 'refunded') return 'failed'
-    if (s === 'processing') return 'processing'
+    const s = (status || '').trim().toLowerCase()
+    const COMPLETED = ['completed', 'complete', 'delivered', 'success', 'successful', 'credited']
+    const FAILED = ['failed', 'cancelled', 'canceled', 'refunded', 'rejected', 'reversed']
+    const IN_FLIGHT = ['processing', 'verifying', 'on hold', 'on-hold', 'onhold', 'awaiting verification', 'queued', 'pending verification']
+    if (COMPLETED.includes(s)) return 'completed'
+    if (FAILED.includes(s)) return 'failed'
+    if (IN_FLIGHT.includes(s)) return 'processing'
     return 'pending'
 }
 

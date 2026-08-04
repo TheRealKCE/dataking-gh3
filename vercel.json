@@ -4,6 +4,10 @@
     {
       "path": "/api/hubtel/interact",
       "schedule": "*/1 * * * *"
+    },
+    {
+      "path": "/api/cron/sync-netpulse-status",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

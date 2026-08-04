@@ -6,10 +6,10 @@ import { areCronJobsEnabled, cronDisabledResponse } from '@/lib/cron-control'
 // NetPulse has no webhook — polling GET /api/v1/order-status/{reference} is the
 // ONLY way an order reaches a terminal state. Mirrors sync-eazydata-status.
 //
-// Rules:
-//   NetPulse → completed  : update order to completed
-//   NetPulse → failed     : update order to failed (admin does manual refund)
-//   NetPulse → processing : do nothing
+// Rules (supplier label → mapped status, see mapNetPulseStatus):
+//   "Delivered"/"completed"        → completed : update order to completed
+//   "failed"/"cancelled"/"refunded"→ failed    : update order to failed (admin does manual refund)
+//   "Verifying"/"On Hold"          → processing: do nothing, re-poll next run
 //   Order already completed or pending : skip (only process orders in processing state)
 
 // This cron polls the supplier once PER ORDER, serially. Without a duration cap the
