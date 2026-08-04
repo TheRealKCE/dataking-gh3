@@ -36,6 +36,18 @@ export async function GET(request: NextRequest) {
     let totalFailed = 0
     const errors: string[] = []
 
+    // Tally of the supplier's RAW status labels for orders that did NOT move.
+    // mapNetPulseStatus matches a hand-transcribed list; a label outside it parks
+    // an order in processing forever, and the console log that would reveal it is
+    // only visible to whoever can read the platform logs. Returning the tally
+    // makes a stuck-label diagnosable from the response alone. Labels only —
+    // no order ids, no phone numbers.
+    const supplierLabelCounts: Record<string, number> = {}
+    const noteSupplierLabel = (raw: string | undefined) => {
+        const label = (raw || '').trim().toLowerCase() || '(empty)'
+        supplierLabelCounts[label] = (supplierLabelCounts[label] || 0) + 1
+    }
+
     // ── Part A: shop_orders ───────────────────────────────────────────────────
     try {
         const { data: shopOrders, error: shopError } = await (supabase
@@ -112,8 +124,10 @@ export async function GET(request: NextRequest) {
                     } else {
                         // Still in flight — supplier_status above now carries the sub-state
                         // so the UI can show "Verifying" rather than a bare "Processing".
-                        // Log the RAW label too: mapNetPulseStatus works off a hand-transcribed
-                        // list, so an unrecognised string parks the order here forever.
+                        // Log + tally the RAW label too: mapNetPulseStatus works off a
+                        // hand-transcribed list, so an unrecognised string parks the
+                        // order here forever.
+                        noteSupplierLabel(statusResult.message)
                         console.log(`[NetPulseCron] shop_orders ${order.id}: supplier says "${statusResult.message}" → ${newStatus} (no change)`)
                     }
                 } catch (orderErr: any) {
@@ -189,6 +203,7 @@ export async function GET(request: NextRequest) {
                             totalUpdated++
                         }
                     } else {
+                        noteSupplierLabel(statusResult.message)
                         console.log(`[NetPulseCron] orders ${order.id}: supplier says "${statusResult.message}" → ${newStatus} (no change)`)
                     }
                 } catch (orderErr: any) {
@@ -206,6 +221,10 @@ export async function GET(request: NextRequest) {
         checked: totalChecked,
         updated: totalUpdated,
         failed: totalFailed,
+        // Raw supplier labels for everything that stayed put, e.g.
+        // { "verifying": 18, "processing": 2 }. If a label here is one
+        // mapNetPulseStatus doesn't recognise, those orders are stuck.
+        supplierLabels: supplierLabelCounts,
         errors,
     })
 }
