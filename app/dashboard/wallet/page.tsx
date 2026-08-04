@@ -211,13 +211,28 @@ function WalletContent() {
     useEffect(() => {
         let interval: NodeJS.Timeout
         if (pollingRef) {
+            // A MoMo prompt expires in a couple of minutes. Polling past that told the
+            // customer nothing new and kept the tab hitting the gateway indefinitely, so
+            // give up at 3 minutes. Nothing is lost by stopping: the Hubtel webhook
+            // credits the wallet whenever it lands, and the reconciliation sweep catches
+            // anything the webhook misses — neither needs this tab to stay open.
+            const startedAt = Date.now()
+            const GIVE_UP_MS = 3 * 60 * 1000
+
             interval = setInterval(async () => {
+                if (Date.now() - startedAt > GIVE_UP_MS) {
+                    clearInterval(interval)
+                    setPollingRef(null)
+                    setIsProcessing(false)
+                    toast.info('Still waiting on your approval. If you approve the prompt, your wallet is credited automatically.')
+                    return
+                }
                 try {
                     const res = await fetch(`/api/payments/verify?reference=${pollingRef}`, {
                         headers: { 'Accept': 'application/json' }
                     })
                     const data = await res.json()
-                    
+
                     if (data.status === 'completed') {
                         clearInterval(interval)
                         setPollingRef(null)

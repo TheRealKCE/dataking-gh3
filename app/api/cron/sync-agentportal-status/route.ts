@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
-import { fetchRecentItemStatuses } from '@/lib/agentportal-service'
+import { fetchRecentItemStatuses, AGENTPORTAL_SCAN_DAYS } from '@/lib/agentportal-service'
 import { syncShopOrderStatus } from '@/lib/shop-service'
 import { areCronJobsEnabled, cronDisabledResponse } from '@/lib/cron-control'
 
@@ -16,6 +16,10 @@ import { areCronJobsEnabled, cronDisabledResponse } from '@/lib/cron-control'
 // number of Agent Portal API calls is bounded per run regardless of order volume.
 // `reference` is the Arhms order id we sent at fulfillment time (agentportal_reference).
 
+// The batch fetch walks every supplier order group for the scanned dates, so this run
+// can span many supplier calls. Give it room rather than being killed mid-scan.
+export const maxDuration = 60
+
 export async function GET(request: NextRequest) {
     if (!areCronJobsEnabled()) return cronDisabledResponse()
 
@@ -25,6 +29,17 @@ export async function GET(request: NextRequest) {
     }
 
     const supabase = createServerClient()
+
+    // Only consider orders the scan can actually see. Agent Portal is queried by
+    // calendar date, so an order older than the scan window can never be resolved here —
+    // and with an oldest-first query those unresolvable rows would otherwise sit at the
+    // head of the page forever and starve the ones we could have resolved. Anything that
+    // ages out of this window needs the admin's manual review, not another cron pass.
+    const scanStart = new Date()
+    scanStart.setUTCDate(scanStart.getUTCDate() - (AGENTPORTAL_SCAN_DAYS - 1))
+    scanStart.setUTCHours(0, 0, 0, 0)
+    const scanCutoff = scanStart.toISOString()
+
     let totalChecked = 0
     let totalUpdated = 0
     let totalFailed = 0
@@ -51,6 +66,11 @@ export async function GET(request: NextRequest) {
             .eq('fulfilled_by', 'agentportal')
             .eq('status', 'processing')
             .not('agentportal_reference', 'is', null)
+            .gte('created_at', scanCutoff)
+            // Oldest first: without an explicit order Postgres returns an arbitrary
+            // (but stable) page, so anything past the limit is NEVER checked and the
+            // backlog starves itself. Oldest-first guarantees stuck orders drain.
+            .order('created_at', { ascending: true })
             .limit(200)
 
         if (shopError) {
@@ -88,6 +108,11 @@ export async function GET(request: NextRequest) {
             .eq('fulfillment_method', 'agentportal')
             .eq('status', 'processing')
             .not('agentportal_reference', 'is', null)
+            .gte('created_at', scanCutoff)
+            // Oldest first: without an explicit order Postgres returns an arbitrary
+            // (but stable) page, so anything past the limit is NEVER checked and the
+            // backlog starves itself. Oldest-first guarantees stuck orders drain.
+            .order('created_at', { ascending: true })
             .limit(200)
 
         if (mainError) {

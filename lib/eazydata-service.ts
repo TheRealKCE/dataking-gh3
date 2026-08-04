@@ -268,6 +268,9 @@ export async function checkOrderStatus(orderId: string): Promise<StatusResponse>
                 'Accept': 'application/json',
                 'X-API-Key': EAZYDATA_API_KEY,
             },
+            // The reconciliation cron calls this once per order, serially. One hung
+            // request would otherwise eat the whole run and starve every order behind it.
+            signal: AbortSignal.timeout(10_000),
         })
 
         const rawText = await response.text()

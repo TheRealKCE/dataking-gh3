@@ -13,6 +13,13 @@ import { sanitizeForLog } from '@/lib/safe-log'
 const AGENTPORTAL_API_KEY = process.env.AGENTPORTAL_API_KEY || ''
 const AGENTPORTAL_API_URL = process.env.AGENTPORTAL_API_URL || 'https://api.agentportalgh.com'
 
+// How many calendar days back the reconciliation scan reads (today + the previous
+// AGENTPORTAL_SCAN_DAYS-1). Exported so the cron can bound its DB query to the same
+// window — see fetchRecentItemStatuses for why the two must agree.
+export const AGENTPORTAL_SCAN_DAYS = 3
+// Safety stop for the paginated order-list walk, so a broken paginator can't spin.
+const AGENTPORTAL_MAX_PAGES = 20
+
 // ─── Circuit Breaker ───────────────────────────────────────────────────────────
 let circuitState: 'closed' | 'open' | 'half-open' = 'closed'
 let failureCount = 0
@@ -371,9 +378,12 @@ export async function fetchRecentItemStatuses(): Promise<{
     if (!checkCircuit()) return { success: false, statuses, error: 'Service unavailable (circuit open)' }
     if (!AGENTPORTAL_API_KEY) return { success: false, statuses, error: 'API key not configured' }
 
-    // Last 2 calendar days (covers same-day + overnight verification turnarounds).
+    // Scan window. Anything older than this can never be resolved by the cron, which is
+    // why the caller must bound its DB query to the SAME window (AGENTPORTAL_SCAN_DAYS) —
+    // otherwise unresolvable old orders sit at the head of an oldest-first query forever
+    // and starve the orders that this scan could actually have resolved.
     const dates: string[] = []
-    for (let i = 0; i < 2; i++) {
+    for (let i = 0; i < AGENTPORTAL_SCAN_DAYS; i++) {
         dates.push(new Date(Date.now() - i * 86400000).toISOString().slice(0, 10))
     }
 
@@ -381,9 +391,14 @@ export async function fetchRecentItemStatuses(): Promise<{
 
     try {
         for (const date of dates) {
-            const listResp = await fetch(`${AGENTPORTAL_API_URL}/api/beneficiaries/orders?date=${date}`, {
+          // The list endpoint is paginated — reading only page 1 silently drops the
+          // older groups of a busy day, which is exactly how orders got stranded in
+          // 'processing'. Follow the pages until the supplier says there are no more.
+          for (let page = 1; page <= AGENTPORTAL_MAX_PAGES; page++) {
+            const listResp = await fetch(`${AGENTPORTAL_API_URL}/api/beneficiaries/orders?date=${date}&page=${page}`, {
                 method: 'GET',
                 headers: { 'Accept': 'application/json', 'X-API-Key': AGENTPORTAL_API_KEY },
+                signal: AbortSignal.timeout(15_000),
             })
 
             const listText = await listResp.text()
@@ -391,11 +406,21 @@ export async function fetchRecentItemStatuses(): Promise<{
             try {
                 listData = JSON.parse(listText)
             } catch {
-                continue // non-JSON (WAF/HTML) — skip this date
+                break // non-JSON (WAF/HTML) — abandon this date
             }
             reachedSupplier = true
 
             const orders: any[] = Array.isArray(listData) ? listData : (listData?.data || [])
+            if (orders.length === 0) break
+
+            // Stop when the paginator says this was the last page. Shapes vary between
+            // envelopes, so accept any of them; if none are present, the `orders.length
+            // === 0` check above terminates us on the following (empty) page instead.
+            const meta = listData?.meta || listData
+            const lastPage = Number(meta?.last_page ?? meta?.lastPage ?? 0)
+            const hasNext = meta?.next_page_url != null
+                || (lastPage > 0 && page < lastPage)
+
             for (const grp of orders) {
                 const orderId = grp?.id || grp?.order_id
                 if (!orderId) continue
@@ -413,7 +438,11 @@ export async function fetchRecentItemStatuses(): Promise<{
                 // whichever row has it, and the outcome from the terminal rows.
                 const itemsResp = await fetch(
                     `${AGENTPORTAL_API_URL}/api/beneficiaries/orders/${encodeURIComponent(orderId)}/items`,
-                    { method: 'GET', headers: { 'Accept': 'application/json', 'X-API-Key': AGENTPORTAL_API_KEY } }
+                    {
+                        method: 'GET',
+                        headers: { 'Accept': 'application/json', 'X-API-Key': AGENTPORTAL_API_KEY },
+                        signal: AbortSignal.timeout(15_000),
+                    }
                 )
                 const itemsText = await itemsResp.text()
                 let itemsData: any
@@ -446,6 +475,9 @@ export async function fetchRecentItemStatuses(): Promise<{
                 }
                 // else: still in-flight / retriable — leave as processing.
             }
+
+            if (!hasNext) break
+          }
         }
 
         if (!reachedSupplier) {
