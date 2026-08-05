@@ -87,6 +87,7 @@ const adminNavItems = [
     { href: '/admin/sms-broadcast', label: 'SMS', icon: MessageSquare },
     { href: '/admin/email-broadcast', label: 'Email', icon: Send },
     { href: '/admin/finance', label: 'Finance', icon: Banknote },
+    { href: '/admin/hubtel-payments', label: 'Hubtel Payments', icon: Banknote },
     { href: '/admin/profits-history', label: 'Profits', icon: Wallet },
     { href: '/admin/api-keys', label: 'API Keys', icon: Code2 },
     { href: '/admin/settings', label: 'Settings', icon: Settings },

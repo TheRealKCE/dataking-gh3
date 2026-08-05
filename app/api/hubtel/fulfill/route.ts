@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { waitUntil } from '@vercel/functions';
 import { fulfillUSSDRCBySession } from '@/lib/ussd-rc-fulfillment';
 import { getDispatcher } from '@/lib/hubtel-payment-service';
+import { logFulfillment } from '@/lib/hubtel-payment-log';
 
 /**
  * Hubtel Programmable Services — Service Fulfilment URL
@@ -46,8 +47,21 @@ export async function POST(req: Request) {
             payment.IsSuccessful === true ||
             String(orderInfo.Status || '').toLowerCase() === 'paid';
 
+        // USSD payments never pass through initiatePayment or the Receive-Money webhook —
+        // Hubtel collects on its side and only tells us here — so this is the only chance
+        // to put the attempt on the admin's payment record.
+        const payerMsisdn = orderInfo.CustomerMobileNumber ?? body.Mobile ?? null;
+
         if (!paid) {
             console.warn('[Hubtel Fulfill] Order not paid, skipping fulfilment:', orderId, orderInfo.Status);
+            await logFulfillment({
+                orderId,
+                status: 'failed',
+                amount: parseFloat(String(orderInfo.Subtotal ?? 0)) || null,
+                payerMsisdn,
+                message: `USSD order not paid (status: ${orderInfo.Status ?? 'unknown'}).`,
+                raw: body,
+            });
             // Ack Hubtel so it stops retrying; nothing to render for an unpaid order.
             await sendServiceCallback(sessionId, orderId, 'failed');
             return NextResponse.json({ message: 'Order not paid.' });
@@ -65,6 +79,16 @@ export async function POST(req: Request) {
             referenceCode: orderId,
             amountPaid,
             deferredWork,
+        });
+
+        // The money is in either way; `status` here reflects whether we rendered the value.
+        await logFulfillment({
+            orderId,
+            status: result.success ? 'success' : 'failed',
+            amount: amountPaid || null,
+            payerMsisdn,
+            message: result.success ? null : `Paid but fulfilment failed: ${result.error ?? 'unknown error'}`,
+            raw: body,
         });
 
         // Report the outcome to Hubtel immediately. "success" only when value was rendered.

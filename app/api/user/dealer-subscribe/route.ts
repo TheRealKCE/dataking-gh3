@@ -170,6 +170,7 @@ export async function POST(request: NextRequest) {
                 channel: HUBTEL_CHANNEL_MAP[network],
                 clientReference: reference,
                 description: `ARHMS Dealer Subscription - ${planLabel}`,
+                userId: authUser.id,
             })
 
             if (!hubtelResponse.success) {

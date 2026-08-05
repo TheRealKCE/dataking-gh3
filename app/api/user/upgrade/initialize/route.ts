@@ -188,6 +188,7 @@ export async function POST(request: Request) {
                 channel: hubtelChannel,
                 clientReference: reference,
                 description: `ARHMS Agent Upgrade - ${planLabel}`,
+                userId: authUser.id,
             })
 
             if (!hubtelResponse.success) {

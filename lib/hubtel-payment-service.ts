@@ -17,6 +17,7 @@
  * Auth: Basic Auth (base64(CLIENT_ID:CLIENT_SECRET))
  */
 import { ProxyAgent, Agent } from 'undici'
+import { logInitiate } from '@/lib/hubtel-payment-log'
 
 const HUBTEL_RECEIVE_BASE_URL = 'https://rmp.hubtel.com/merchantaccount/merchants'
 const HUBTEL_STATUS_BASE_URL = 'https://api-txnstatus.hubtel.com/transactions'
@@ -75,6 +76,8 @@ export interface HubtelInitiateParams {
     customerEmail?: string
     /** Description shown to customer */
     description?: string
+    /** Optional owning user — recorded on the payment log so admins can trace the payer */
+    userId?: string
 }
 
 export interface HubtelInitiateResult {
@@ -88,8 +91,18 @@ export interface HubtelStatusResult {
     success: boolean
     /** 'Paid' | 'Unpaid' | 'Refunded' | null */
     status: string | null
+    /** Hubtel's own transaction ID */
     transactionId?: string
+    /** The telco's reference — the number a customer quotes off their MoMo SMS */
+    externalTransactionId?: string
+    paymentMethod?: string
+    amount?: number
+    charges?: number
+    amountAfterCharges?: number
+    date?: string
     error?: string
+    /** Full `data` object as returned, kept for the payment record */
+    raw?: unknown
 }
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -188,6 +201,18 @@ function describeNetworkFailure(err: any, context: string): string {
 
 // ─── Initiate Payment ─────────────────────────────────────────────────────────
 
+/** The who/what/how-much fields shared by every payment-log write in initiatePayment. */
+function logIdentity(params: HubtelInitiateParams, payload: { CustomerMsisdn: string }) {
+    return {
+        clientReference: params.clientReference,
+        amount: params.amount,
+        channel: params.channel,
+        payerMsisdn: payload.CustomerMsisdn,
+        customerName: params.customerName ?? null,
+        userId: params.userId ?? null,
+    }
+}
+
 /**
  * Sends a Direct Mobile Money payment prompt to the customer's phone.
  * ResponseCode '0001' = pending (prompt sent successfully).
@@ -242,6 +267,12 @@ export async function initiatePayment(params: HubtelInitiateParams): Promise<Hub
         } catch (parseError) {
             console.error('[HubtelPayment] Failed to parse Hubtel response. Status:', response.status)
             console.error('[HubtelPayment] Raw response:', responseText.substring(0, 500))
+            await logInitiate({
+                ...logIdentity(params, payload),
+                status: 'failed',
+                message: `Unparseable Hubtel response (HTTP ${response.status})`,
+                raw: { request: payload, responseText: responseText.substring(0, 1000) },
+            })
             return {
                 success: false,
                 error: `Hubtel API Error (HTTP ${response.status}). The server returned an invalid response. This often happens if your IP is not whitelisted in the Hubtel dashboard.`,
@@ -253,6 +284,16 @@ export async function initiatePayment(params: HubtelInitiateParams): Promise<Hub
         // 0001 = accepted, callback will confirm final state
         // 0000 = immediately successful (rare for mobile money)
         if (data.ResponseCode === '0001' || data.ResponseCode === '0000') {
+            // '0001' only means the prompt is on its way — the callback decides the
+            // outcome, so the record stays pending until then.
+            await logInitiate({
+                ...logIdentity(params, payload),
+                status: data.ResponseCode === '0000' ? 'success' : 'pending',
+                transactionId: data.Data?.TransactionId ?? null,
+                responseCode: data.ResponseCode,
+                message: data.Message ?? null,
+                raw: { request: payload, response: data },
+            })
             return {
                 success: true,
                 transactionId: data.Data?.TransactionId,
@@ -261,12 +302,33 @@ export async function initiatePayment(params: HubtelInitiateParams): Promise<Hub
         }
 
         // Any other code is a failure
+        await logInitiate({
+            ...logIdentity(params, payload),
+            status: 'failed',
+            responseCode: data.ResponseCode ?? null,
+            message: data.Message || `Hubtel error (HTTP ${response.status})`,
+            raw: { request: payload, response: data },
+        })
         return {
             success: false,
             error: data.Message || `Hubtel error (HTTP ${response.status})`,
         }
     } catch (err: any) {
-        return { success: false, error: describeNetworkFailure(err, 'initiatePayment') }
+        const error = describeNetworkFailure(err, 'initiatePayment')
+        // Nothing ever reached the customer's handset here, but the attempt still belongs
+        // in the record — an admin looking at a customer's complaint needs to see it.
+        await logInitiate({
+            clientReference: params.clientReference,
+            status: 'failed',
+            amount: params.amount,
+            channel: params.channel,
+            payerMsisdn: toHubtelMsisdn(params.payerPhone),
+            customerName: params.customerName ?? null,
+            userId: params.userId ?? null,
+            message: error,
+            raw: { error: String(err?.message || err) },
+        })
+        return { success: false, error }
     }
 }
 
@@ -325,6 +387,13 @@ export async function checkPaymentStatus(clientReference: string): Promise<Hubte
             success: true,
             status: data.data?.status ?? null,     // 'Paid' | 'Unpaid' | 'Refunded'
             transactionId: data.data?.transactionId ?? undefined,
+            externalTransactionId: data.data?.externalTransactionId ?? undefined,
+            paymentMethod: data.data?.paymentMethod ?? undefined,
+            amount: data.data?.amount ?? undefined,
+            charges: data.data?.charges ?? undefined,
+            amountAfterCharges: data.data?.amountAfterCharges ?? undefined,
+            date: data.data?.date ?? undefined,
+            raw: data.data ?? null,
         }
     } catch (err: any) {
         return { success: false, status: null, error: describeNetworkFailure(err, 'checkPaymentStatus') }

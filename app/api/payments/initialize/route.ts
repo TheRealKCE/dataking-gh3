@@ -327,6 +327,7 @@ export async function POST(request: NextRequest) {
                 channel: hubtelChannel,
                 clientReference: reference,
                 description: 'ARHMS Wallet Top-up',
+                userId,
             })
 
             if (!hubtelResponse.success) {
