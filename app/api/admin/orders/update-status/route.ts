@@ -4,6 +4,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { syncShopOrderStatus } from '@/lib/shop-service'
 import { sendPushToUser } from '@/lib/web-push'
+import { isVerifyingLabel, normaliseSupplierStatus } from '@/lib/order-status-display'
 
 // Create a service role client to bypass RLS for admin updates functions
 const supabaseAdmin = createClient(
@@ -44,11 +45,23 @@ export async function POST(request: Request) {
         }
 
         const body = await request.json()
-        const { orderIds, batchId, status } = body
+        const { orderIds, batchId, status, supplierStatus } = body
 
         if (!status) {
             return NextResponse.json(
                 { error: 'Status is required' },
+                { status: 400 }
+            )
+        }
+
+        // Optional in-flight sub-state (currently only "verifying"). It is a
+        // display label, not a status: the order stays 'processing' so every
+        // existing filter, stat and cron keeps seeing it. Rejecting unknown
+        // labels here keeps the column to values getOrderDisplayStatus can read —
+        // anything else would silently render as a plain "Processing".
+        if (supplierStatus !== undefined && supplierStatus !== null && !isVerifyingLabel(supplierStatus)) {
+            return NextResponse.json(
+                { error: `Unsupported supplier status: ${supplierStatus}` },
                 { status: 400 }
             )
         }
@@ -95,6 +108,26 @@ export async function POST(request: Request) {
                 { error: error.message },
                 { status: 500 }
             )
+        }
+
+        // Sub-state, written separately from the status update above and with its
+        // error deliberately swallowed: supplier_status is a later migration than
+        // this route, and if it is missing PostgREST would reject the whole
+        // statement — losing a cosmetic label is acceptable, losing the status
+        // change is not. (Same reasoning as the NetPulse sync cron.)
+        //
+        // Always written, never omitted: a terminal or re-queued order must not
+        // keep the "verifying" label that described a previous attempt.
+        const isTerminal = status === 'completed' || status === 'failed'
+        const nextSupplierStatus = isTerminal || !supplierStatus
+            ? null
+            : normaliseSupplierStatus(supplierStatus)
+        const { error: supplierStatusError } = await (supabaseAdmin
+            .from('orders') as any)
+            .update({ supplier_status: nextSupplierStatus })
+            .in('id', targetOrderIds)
+        if (supplierStatusError) {
+            console.error('[UpdateStatus] supplier_status update failed (non-fatal):', supplierStatusError)
         }
 
         // Sync with shop_orders

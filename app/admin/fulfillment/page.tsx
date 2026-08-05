@@ -25,9 +25,11 @@ import {
     ChevronLeft,
     ChevronRight,
     MoreHorizontal,
-    Loader2
+    Loader2,
+    PauseCircle
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { ADMIN_VERIFYING_LABEL, getOrderDisplayStatus } from '@/lib/order-status-display'
 import { formatCurrency, cn } from '@/lib/utils'
 import { format } from 'date-fns'
 
@@ -40,6 +42,7 @@ interface Order {
     price: number
     status: string
     payment_status?: string
+    supplier_status?: string | null
     user_id: string
     shop_name?: string
     users: {
@@ -510,7 +513,13 @@ export default function FulfillmentPage() {
         }
     }
 
-    const bulkUpdateStatus = async (newStatus: 'completed' | 'failed' | 'processing' | 'pending') => {
+    // `supplierStatus` carries the in-flight sub-state (only "verifying" today).
+    // It is deliberately separate from `newStatus`: a held order is still
+    // 'processing' as far as filters, stats and the crons are concerned.
+    const bulkUpdateStatus = async (
+        newStatus: 'completed' | 'failed' | 'processing' | 'pending',
+        supplierStatus?: string
+    ) => {
         if (selectedOrders.size === 0) {
             toast.error('No orders selected')
             return
@@ -522,13 +531,13 @@ export default function FulfillmentPage() {
             const response = await fetch('/api/admin/orders/update-status', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ orderIds, status: newStatus }),
+                body: JSON.stringify({ orderIds, status: newStatus, supplierStatus: supplierStatus ?? null }),
             })
 
             const data = await response.json()
             if (!response.ok) throw new Error(data.error || 'Update failed')
 
-            toast.success(`${orderIds.length} order(s) marked as ${newStatus}`)
+            toast.success(`${orderIds.length} order(s) marked as ${supplierStatus || newStatus}`)
             setSelectedOrders(new Set())
 
             // Re-fetch current view
@@ -1324,7 +1333,7 @@ export default function FulfillmentPage() {
                             <div className="space-y-1.5">
                                 <label className="text-[10px] uppercase font-bold text-muted-foreground">Status</label>
                                 <div className="flex flex-wrap gap-1.5">
-                                    {['All', 'Pending', 'Processing', 'Completed', 'Failed'].map(s => (
+                                    {['All', 'Pending', 'Processing', 'Verifying', 'Completed', 'Failed'].map(s => (
                                         <Button
                                             key={s}
                                             variant={statusFilter === (s === 'All' ? 'All' : s.toLowerCase()) ? "default" : "outline"}
@@ -1433,6 +1442,15 @@ export default function FulfillmentPage() {
                                 <Button size="sm" onClick={() => bulkUpdateStatus('processing')} className="h-9 md:h-10 text-xs md:text-sm px-3 md:px-4 bg-yellow-500 hover:bg-yellow-600 text-black font-bold shadow-sm" disabled={isUpdating || isRefulfilling}>
                                     <RotateCcw className="w-3.5 h-3.5 mr-1.5" /> Reprocess
                                 </Button>
+                                <Button
+                                    size="sm"
+                                    onClick={() => bulkUpdateStatus('processing', ADMIN_VERIFYING_LABEL)}
+                                    className="h-9 md:h-10 text-xs md:text-sm px-3 md:px-4 bg-orange-500 hover:bg-orange-600 text-white font-bold shadow-sm"
+                                    disabled={isUpdating || isRefulfilling}
+                                    title="Hold under review — the order stays processing, the customer sees 'On Hold — Verifying'"
+                                >
+                                    <PauseCircle className="w-3.5 h-3.5 mr-1.5" /> Verifying
+                                </Button>
                                 <Button size="sm" onClick={() => bulkUpdateStatus('completed')} className="h-9 md:h-10 text-xs md:text-sm px-3 md:px-4 bg-green-600 hover:bg-green-700 font-bold shadow-sm" disabled={isUpdating || isRefulfilling}>
                                     <CheckCircle2 className="w-3.5 h-3.5 mr-1.5" /> Complete
                                 </Button>
@@ -1464,7 +1482,12 @@ export default function FulfillmentPage() {
                                 </div>
                             ) : (
                                 <div className="space-y-3">
-                                    {orders.map(order => (
+                                    {orders.map(order => {
+                                        // 'verifying' is derived, not stored in status — see lib/order-status-display.
+                                        const isHeld = getOrderDisplayStatus(order) === 'verifying'
+                                        const isQueued = order.status === 'processing'
+                                            && order.mtn_fulfillment_tracking?.some((t: any) => t.api_response?.note === 'Background Queue Fulfillment Success')
+                                        return (
                                         <div
                                             key={order.id}
                                             onClick={() => {
@@ -1516,14 +1539,15 @@ export default function FulfillmentPage() {
                                                     <p className="text-[10px] md:text-[11px] uppercase font-extrabold text-muted-foreground">Status</p>
                                                     <div>
                                                         <Badge
-                                                            variant={order.status === 'completed' ? 'success' : order.status === 'failed' ? 'destructive' : order.status === 'pending' ? 'outline' : 'default'}
+                                                            variant={order.status === 'completed' ? 'success' : order.status === 'failed' ? 'destructive' : order.status === 'pending' || isHeld ? 'outline' : 'default'}
                                                             className={cn(
                                                                 "text-[10px] md:text-[11px] font-black uppercase tracking-wider h-5 px-2",
                                                                 order.status === 'pending' && "border-amber-500 text-amber-600 bg-amber-50 dark:bg-amber-900/20",
-                                                                order.status === 'processing' && order.mtn_fulfillment_tracking?.some((t: any) => t.api_response?.note === 'Background Queue Fulfillment Success') && "border-yellow-500 text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 after:content-['_(QUEUED)'] after:text-[8px] after:ml-1"
+                                                                isHeld && "border-orange-500 text-orange-600 bg-orange-50 dark:bg-orange-900/20",
+                                                                isQueued && !isHeld && "border-yellow-500 text-yellow-600 bg-yellow-50 dark:bg-yellow-900/20 after:content-['_(QUEUED)'] after:text-[8px] after:ml-1"
                                                             )}
                                                         >
-                                                            {order.status === 'processing' && order.mtn_fulfillment_tracking?.some((t: any) => t.api_response?.note === 'Background Queue Fulfillment Success') ? 'Queued Processing' : order.status}
+                                                            {isHeld ? 'Verifying' : isQueued ? 'Queued Processing' : order.status}
                                                         </Badge>
                                                     </div>
                                                 </div>
@@ -1561,7 +1585,8 @@ export default function FulfillmentPage() {
                                                 )}
                                             </div>
                                         </div>
-                                    ))}
+                                        )
+                                    })}
 
                                     {/* Footer Info */}
                                     {orders.length > 0 && (

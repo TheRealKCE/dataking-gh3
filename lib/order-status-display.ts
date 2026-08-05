@@ -37,14 +37,26 @@ export function normaliseSupplierStatus(status: string | null | undefined): stri
 // wording without telling us — an unlisted label just falls back to
 // 'processing', which is the pre-existing behaviour. Compared post-normalisation,
 // so only the word form is listed, never the punctuation variants.
-const VERIFYING_LABELS = new Set([
+export const VERIFYING_LABELS = [
     'verifying',
     'on hold',
     'onhold',
     'awaiting verification',
     'pending verification',
     'under review',
-])
+] as const
+
+const VERIFYING_LABEL_SET = new Set<string>(VERIFYING_LABELS)
+
+// What an admin writes when they park an order under review by hand. One of the
+// labels above, so a manual hold and a supplier-reported one are indistinguishable
+// downstream — every reader already understands this value.
+export const ADMIN_VERIFYING_LABEL = 'verifying'
+
+/** Whether a raw supplier label means "held for review". */
+export function isVerifyingLabel(status: string | null | undefined): boolean {
+    return VERIFYING_LABEL_SET.has(normaliseSupplierStatus(status))
+}
 
 /**
  * Resolve what an order should be labelled as in the UI.
@@ -65,7 +77,7 @@ export function getOrderDisplayStatus(order: {
     const status = (order?.status || 'pending') as OrderDisplayStatus
 
     if (status === 'processing') {
-        if (VERIFYING_LABELS.has(normaliseSupplierStatus(order?.supplier_status))) return 'verifying'
+        if (isVerifyingLabel(order?.supplier_status)) return 'verifying'
     }
 
     return status

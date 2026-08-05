@@ -21,52 +21,75 @@ export async function GET(request: NextRequest) {
         // Use service role client to bypass RLS
         const supabase = createServerClient()
 
-        let query = supabase
-            .from('orders')
-            .select(`
-                id, created_at, phone_number, network, size, price, status, payment_status, user_id, shop_name, shop_order_id, cost_price_at_time,
-                users (
-                    first_name,
-                    last_name,
-                    role,
-                    email
-                ),
-                shop_orders (
-                    cost_price,
-                    admin_cost_at_time
-                ),
-                mtn_fulfillment_tracking (
-                    status,
-                    api_response,
-                    retry_count
-                )
-            `)
+        // `supplier_status` is a later migration than this route. Selected through a
+        // flag so that a DB without it degrades to the old column list instead of
+        // PostgREST rejecting the whole query and blanking the fulfillment list —
+        // the same trade the NetPulse cron makes on the write side.
+        const buildQuery = (withSupplierStatus: boolean) => {
+            let q = supabase
+                .from('orders')
+                .select(`
+                    id, created_at, phone_number, network, size, price, status, payment_status,${withSupplierStatus ? ' supplier_status,' : ''} user_id, shop_name, shop_order_id, cost_price_at_time,
+                    users (
+                        first_name,
+                        last_name,
+                        role,
+                        email
+                    ),
+                    shop_orders (
+                        cost_price,
+                        admin_cost_at_time
+                    ),
+                    mtn_fulfillment_tracking (
+                        status,
+                        api_response,
+                        retry_count
+                    )
+                `)
 
-        // Filter by pertinent statuses for fulfillment center
-        if (status && status !== 'All') {
-            query = query.eq('status', status)
-        } else {
-            query = query.in('status', ['processing', 'failed', 'completed', 'pending'])
+            // Filter by pertinent statuses for fulfillment center
+            if (withSupplierStatus && status === 'verifying') {
+                // Not a real status — an order held for review is still 'processing',
+                // carrying the hold in supplier_status. Matched with LIKE rather than
+                // an exact list because suppliers write the label their own way
+                // ("On Hold", "on_hold", "Pending Verification"); the canonical set
+                // lives in lib/order-status-display.
+                q = q
+                    .eq('status', 'processing')
+                    .or('supplier_status.ilike.%verif%,supplier_status.ilike.%hold%,supplier_status.ilike.%review%')
+            } else if (status === 'verifying') {
+                q = q.eq('status', 'processing')
+            } else if (status && status !== 'All') {
+                q = q.eq('status', status)
+            } else {
+                q = q.in('status', ['processing', 'failed', 'completed', 'pending'])
+            }
+
+            if (network && network !== 'All') {
+                q = q.eq('network', network)
+            }
+
+            if (startDate) {
+                q = q.gte('created_at', startDate)
+            }
+            if (endDate) {
+                q = q.lte('created_at', endDate)
+            }
+
+            if (search) {
+                q = q.ilike('phone_number', `%${search}%`)
+            }
+
+            return q.order('created_at', { ascending: false }).limit(limit)
         }
 
-        if (network && network !== 'All') {
-            query = query.eq('network', network)
-        }
+        let { data: rawOrders, error: fetchError } = await buildQuery(true)
 
-        if (startDate) {
-            query = query.gte('created_at', startDate)
+        // 42703 = undefined_column: the migration has not been applied here.
+        if (fetchError?.code === '42703') {
+            console.warn('[FulfillmentFetch] supplier_status missing — retrying without it')
+            ;({ data: rawOrders, error: fetchError } = await buildQuery(false))
         }
-        if (endDate) {
-            query = query.lte('created_at', endDate)
-        }
-
-        if (search) {
-            query = query.ilike('phone_number', `%${search}%`)
-        }
-
-        const { data: rawOrders, error: fetchError } = await query
-            .order('created_at', { ascending: false })
-            .limit(limit)
 
         if (fetchError) {
             console.error('[FulfillmentFetch] Error:', fetchError)
