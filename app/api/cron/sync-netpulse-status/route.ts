@@ -36,6 +36,18 @@ export async function GET(request: NextRequest) {
     let totalFailed = 0
     const errors: string[] = []
 
+    // Tally of the supplier's RAW status labels for orders that did NOT move.
+    // mapNetPulseStatus matches a hand-transcribed list; a label outside it parks
+    // an order in processing forever, and the console log that would reveal it is
+    // only visible to whoever can read the platform logs. Returning the tally
+    // makes a stuck-label diagnosable from the response alone. Labels only —
+    // no order ids, no phone numbers.
+    const supplierLabelCounts: Record<string, number> = {}
+    const noteSupplierLabel = (raw: string | undefined) => {
+        const label = (raw || '').trim().toLowerCase() || '(empty)'
+        supplierLabelCounts[label] = (supplierLabelCounts[label] || 0) + 1
+    }
+
     // ── Part A: shop_orders ───────────────────────────────────────────────────
     try {
         const { data: shopOrders, error: shopError } = await (supabase
@@ -68,6 +80,22 @@ export async function GET(request: NextRequest) {
 
                     const newStatus = statusResult.status
 
+                    // Raw supplier label, for display only (see lib/order-status-display).
+                    // Nulled on terminal states so a stale "verifying" can't outlive
+                    // the order it described.
+                    //
+                    // Written in its OWN statement, never merged into the status update
+                    // below, and its error is deliberately ignored. supplier_status is a
+                    // later addition than this route: if the code ever runs against a DB
+                    // where the migration hasn't been applied, PostgREST rejects the
+                    // whole statement — merging it would take order completion down with
+                    // it. Losing a cosmetic label is acceptable; losing completions is not.
+                    const supplierLabel = (statusResult.message || '').trim().toLowerCase() || null
+                    const isTerminal = newStatus === 'completed' || newStatus === 'failed'
+                    await (supabase.from('shop_orders') as any)
+                        .update({ supplier_status: isTerminal ? null : supplierLabel })
+                        .eq('id', order.id)
+
                     if (newStatus === 'completed') {
                         const { error: updateError } = await (supabase
                             .from('shop_orders') as any)
@@ -93,8 +121,15 @@ export async function GET(request: NextRequest) {
                             console.log(`[NetPulseCron] shop_orders ${order.id}: processing → failed (manual refund required)`)
                             totalUpdated++
                         }
+                    } else {
+                        // Still in flight — supplier_status above now carries the sub-state
+                        // so the UI can show "Verifying" rather than a bare "Processing".
+                        // Log + tally the RAW label too: mapNetPulseStatus works off a
+                        // hand-transcribed list, so an unrecognised string parks the
+                        // order here forever.
+                        noteSupplierLabel(statusResult.message)
+                        console.log(`[NetPulseCron] shop_orders ${order.id}: supplier says "${statusResult.message}" → ${newStatus} (no change)`)
                     }
-                    // newStatus === 'processing' or 'pending' → do nothing
                 } catch (orderErr: any) {
                     errors.push(`shop_orders exception for ${order.id}: ${orderErr.message}`)
                     totalFailed++
@@ -136,6 +171,13 @@ export async function GET(request: NextRequest) {
 
                     const newStatus = statusResult.status
 
+                    // Separate, error-ignored write — see the shop_orders half above.
+                    const supplierLabel = (statusResult.message || '').trim().toLowerCase() || null
+                    const isTerminal = newStatus === 'completed' || newStatus === 'failed'
+                    await (supabase.from('orders') as any)
+                        .update({ supplier_status: isTerminal ? null : supplierLabel })
+                        .eq('id', order.id)
+
                     if (newStatus === 'completed') {
                         const { error: updateError } = await (supabase
                             .from('orders') as any)
@@ -160,6 +202,9 @@ export async function GET(request: NextRequest) {
                             console.log(`[NetPulseCron] orders ${order.id}: processing → failed (manual refund required)`)
                             totalUpdated++
                         }
+                    } else {
+                        noteSupplierLabel(statusResult.message)
+                        console.log(`[NetPulseCron] orders ${order.id}: supplier says "${statusResult.message}" → ${newStatus} (no change)`)
                     }
                 } catch (orderErr: any) {
                     errors.push(`orders exception for ${order.id}: ${orderErr.message}`)
@@ -176,6 +221,10 @@ export async function GET(request: NextRequest) {
         checked: totalChecked,
         updated: totalUpdated,
         failed: totalFailed,
+        // Raw supplier labels for everything that stayed put, e.g.
+        // { "verifying": 18, "processing": 2 }. If a label here is one
+        // mapNetPulseStatus doesn't recognise, those orders are stuck.
+        supplierLabels: supplierLabelCounts,
         errors,
     })
 }
