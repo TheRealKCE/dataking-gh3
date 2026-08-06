@@ -754,6 +754,62 @@ export interface Database {
                     created_at?: string
                 }
             }
+            hubtel_payment_logs: {
+                Row: {
+                    id: string
+                    client_reference: string
+                    flow: string | null
+                    status: 'pending' | 'success' | 'failed'
+                    stage: 'initiate' | 'callback' | 'status_check' | 'fulfill'
+                    amount: number | null
+                    channel: string | null
+                    payer_msisdn: string | null
+                    customer_name: string | null
+                    transaction_id: string | null
+                    response_code: string | null
+                    message: string | null
+                    user_id: string | null
+                    raw_initiate: Json | null
+                    raw_callback: Json | null
+                    created_at: string
+                    updated_at: string
+                }
+                Insert: {
+                    id?: string
+                    client_reference: string
+                    flow?: string | null
+                    status?: 'pending' | 'success' | 'failed'
+                    stage?: 'initiate' | 'callback' | 'status_check' | 'fulfill'
+                    amount?: number | null
+                    channel?: string | null
+                    payer_msisdn?: string | null
+                    customer_name?: string | null
+                    transaction_id?: string | null
+                    response_code?: string | null
+                    message?: string | null
+                    user_id?: string | null
+                    raw_initiate?: Json | null
+                    raw_callback?: Json | null
+                    created_at?: string
+                    updated_at?: string
+                }
+                Update: {
+                    flow?: string | null
+                    status?: 'pending' | 'success' | 'failed'
+                    stage?: 'initiate' | 'callback' | 'status_check' | 'fulfill'
+                    amount?: number | null
+                    channel?: string | null
+                    payer_msisdn?: string | null
+                    customer_name?: string | null
+                    transaction_id?: string | null
+                    response_code?: string | null
+                    message?: string | null
+                    user_id?: string | null
+                    raw_initiate?: Json | null
+                    raw_callback?: Json | null
+                    updated_at?: string
+                }
+            }
         }
     }
 }
@@ -773,6 +829,7 @@ export type DownloadBatch = Database['public']['Tables']['download_batches']['Ro
 export type SystemAnnouncement = Database['public']['Tables']['system_announcements']['Row']
 export type ShopAnnouncement = Database['public']['Tables']['shop_announcements']['Row']
 export type PendingSettlement = Database['public']['Tables']['pending_settlements']['Row']
+export type HubtelPaymentLog = Database['public']['Tables']['hubtel_payment_logs']['Row']
 
 export type ClassifiedCategory = Database['public']['Tables']['classified_categories']['Row']
 export type ClassifiedListing = Database['public']['Tables']['classified_listings']['Row']

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { processCompletedWalletPayment, processCompletedUpgradePayment, processCompletedDealerSubscription } from '@/lib/payments'
 import { recordTrustedUsage } from '@/lib/trusted-payment-numbers'
+import { logCallback } from '@/lib/hubtel-payment-log'
 import { Redis } from '@upstash/redis'
 
 const redis = Redis.fromEnv()
@@ -43,6 +44,19 @@ export async function POST(request: NextRequest) {
 
         console.log('[HubtelWebhook] Received callback:', JSON.stringify(event))
 
+        // Record EVERY callback before any early return. Non-'0000' codes are dropped a few
+        // lines below, and that used to be the end of the story — a cancelled or rejected
+        // payment left no trace anywhere for an admin to find.
+        await logCallback({
+            clientReference: event.Data?.ClientReference,
+            responseCode: event.ResponseCode,
+            message: event.Message ?? null,
+            amount: event.Data?.AmountCharged != null ? parseFloat(String(event.Data.AmountCharged)) : undefined,
+            transactionId: event.Data?.TransactionId ?? undefined,
+            payerMsisdn: event.Data?.CustomerMobileNumber ?? undefined,
+            raw: event,
+        })
+
         // Only process successful payments — ResponseCode '0000'
         if (event.ResponseCode !== '0000') {
             console.log(`[HubtelWebhook] Ignoring non-successful callback. ResponseCode: ${event.ResponseCode}, Message: ${event.Message}`)
@@ -65,6 +79,14 @@ export async function POST(request: NextRequest) {
 
             if (!metadataStr) {
                 console.error(`[HubtelWebhook] Metadata not found in Redis for Shop Order: ${ClientReference}`)
+                // Paid, but the cart expired out of Redis — the customer is out of pocket
+                // with no order. Flag it rather than letting it pass as a success.
+                await logCallback({
+                    clientReference: ClientReference,
+                    responseCode: event.ResponseCode,
+                    status: 'failed',
+                    message: 'Paid but shop order metadata had expired from Redis — order not created.',
+                })
                 return NextResponse.json({ received: true })
             }
 
@@ -104,6 +126,12 @@ export async function POST(request: NextRequest) {
 
         if (!payment) {
             console.error('[HubtelWebhook] Payment not found in database:', ClientReference)
+            await logCallback({
+                clientReference: ClientReference,
+                responseCode: event.ResponseCode,
+                status: 'failed',
+                message: 'Paid but no matching wallet_payments row for this reference — nothing was credited.',
+            })
             return NextResponse.json({ received: true })
         }
 
@@ -119,6 +147,12 @@ export async function POST(request: NextRequest) {
             console.error(
                 `[HubtelWebhook] AMOUNT MISMATCH for ${ClientReference}: Expected ${expectedAmountPesewas} pesewas, got ${paidAmountKobo} pesewas`
             )
+            await logCallback({
+                clientReference: ClientReference,
+                responseCode: event.ResponseCode,
+                status: 'failed',
+                message: `Amount mismatch — expected GHS ${(expectedAmountPesewas / 100).toFixed(2)}, Hubtel charged GHS ${(paidAmountKobo / 100).toFixed(2)}. Not credited.`,
+            })
             return NextResponse.json({ received: true })
         }
 

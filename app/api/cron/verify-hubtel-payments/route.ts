@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { checkPaymentStatus } from '@/lib/hubtel-payment-service'
 import { processCompletedWalletPayment, processCompletedUpgradePayment, processCompletedDealerSubscription } from '@/lib/payments'
+import { logStatusCheck } from '@/lib/hubtel-payment-log'
 
 /**
  * Reconciles Hubtel payments whose callback never arrived.
@@ -110,6 +111,19 @@ export async function GET(request: NextRequest) {
                             console.log(`[CronHubtel] ✅ Wallet payment ${payment.reference} credited`)
                         }
 
+                        // Reconciled out of band — the payment log still shows 'pending'
+                        // from initiate because no callback ever arrived.
+                        await logStatusCheck({
+                            clientReference: payment.reference,
+                            status: 'success',
+                            transactionId: statusResult.transactionId ?? null,
+                            amount: statusResult.amount ?? null,
+                            message: statusResult.externalTransactionId
+                                ? `Settled by reconciliation cron — no callback was received. Telco ref: ${statusResult.externalTransactionId}`
+                                : 'Settled by reconciliation cron — no callback was received.',
+                            raw: statusResult.raw,
+                        })
+
                         results.credited++
                     } else if (new Date(payment.created_at) < failureCutoff) {
                         // 'Unpaid' / 'Refunded' well past the approval window — give up.
@@ -119,6 +133,14 @@ export async function GET(request: NextRequest) {
                             .update({ status: 'failed', updated_at: new Date().toISOString() })
                             .eq('id', payment.id)
                             .eq('status', 'pending')
+                        await logStatusCheck({
+                            clientReference: payment.reference,
+                            status: 'failed',
+                            transactionId: statusResult.transactionId ?? null,
+                            message: `Given up by reconciliation cron after ${FAILURE_CUTOFF_MINUTES} minutes (Hubtel status: ${statusResult.status}).`,
+                            raw: statusResult.raw,
+                        })
+
                         results.failed++
                         console.log(`[CronHubtel] ❌ Payment ${payment.reference} marked failed (${statusResult.status})`)
                     } else {

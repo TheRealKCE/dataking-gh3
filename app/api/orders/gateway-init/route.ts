@@ -412,6 +412,7 @@ export async function POST(request: NextRequest) {
                 customerName: `${(profile as any)?.first_name || ''} ${(profile as any)?.last_name || ''}`.trim() || 'Customer',
                 customerEmail: (profile as any)?.email || '',
                 description,
+                userId,
             })
 
             if (!hubtelResponse.success) {
