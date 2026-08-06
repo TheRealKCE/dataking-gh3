@@ -37,6 +37,12 @@ const FLOW_LABELS: Record<string, string> = {
     unknown: 'Other',
 }
 
+/**
+ * The only two flows worth filtering on today. The label map above stays complete so a
+ * wallet or storefront row still renders a readable Type under "All types".
+ */
+const FILTERABLE_FLOWS = ['ussd', 'results_checker'] as const
+
 interface HubtelPaymentRecord {
     id: string
     client_reference: string
@@ -173,8 +179,8 @@ export default function HubtelPaymentsPage() {
             <div>
                 <h1 className="text-2xl font-bold">Hubtel Payments</h1>
                 <p className="text-sm text-muted-foreground mt-1">
-                    Every Hubtel payment attempt across wallet, storefront, data, results checker
-                    and USSD — including the ones that failed.
+                    Every Hubtel payment attempt across USSD and results checker — including the
+                    ones that failed.
                 </p>
             </div>
 
@@ -203,8 +209,8 @@ export default function HubtelPaymentsPage() {
                             <SelectTrigger><SelectValue placeholder="Type" /></SelectTrigger>
                             <SelectContent>
                                 <SelectItem value="all">All types</SelectItem>
-                                {Object.entries(FLOW_LABELS).map(([value, label]) => (
-                                    <SelectItem key={value} value={value}>{label}</SelectItem>
+                                {FILTERABLE_FLOWS.map((value) => (
+                                    <SelectItem key={value} value={value}>{FLOW_LABELS[value]}</SelectItem>
                                 ))}
                             </SelectContent>
                         </Select>
