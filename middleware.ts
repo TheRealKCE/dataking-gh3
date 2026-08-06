@@ -75,6 +75,8 @@ const rateLimiters = redis ? {
     airtimeCreate: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, '1 m') }),
     ordersPurchase: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, '1 m') }),
     ordersBulk: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(3, '1 m') }),
+    // Open to every logged-in user, and each call consumes shared Agent Portal quota
+    mtnRegCheck: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, '1 m') }),
     // ── Payments ──────────────────────────────────────────────
     paymentsInitialize: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(30, '1 m') }),
     paymentsVerify: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(30, '1 m') }),
@@ -379,6 +381,9 @@ export async function middleware(request: NextRequest) {
             identifier = authUser?.id ? `${authUser.id}-${ip}` : ip
         } else if (pathname === '/api/orders/bulk-purchase') {
             limiter = rateLimiters?.ordersBulk
+            identifier = authUser?.id ? `${authUser.id}-${ip}` : ip
+        } else if (pathname === '/api/mtn/check-registration') {
+            limiter = rateLimiters?.mtnRegCheck
             identifier = authUser?.id ? `${authUser.id}-${ip}` : ip
         } else if (pathname === '/api/payments/initialize') {
             limiter = rateLimiters?.paymentsInitialize
