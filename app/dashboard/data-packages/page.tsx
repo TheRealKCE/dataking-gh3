@@ -43,6 +43,7 @@ import {
     FileText,
     CloudUpload,
     ExternalLink,
+    ShieldCheck,
     Receipt,
     Wallet,
     CreditCard
@@ -988,6 +989,24 @@ export default function DataPackagesPage() {
                         </p>
                     </div>
                 </div>
+
+                {/* MTN Registration Check - all users */}
+                <button
+                    type="button"
+                    onClick={() => router.push('/dashboard/mtn-registration')}
+                    className="w-full max-w-3xl mx-auto bg-white dark:bg-[#1A1A1A] rounded-3xl p-5 shadow-md lg:shadow-lg flex items-center gap-4 text-left hover:shadow-xl transition-shadow"
+                >
+                    <div className="bg-amber-100 dark:bg-amber-900/30 p-3 rounded-2xl shrink-0">
+                        <ShieldCheck className="w-6 h-6 text-amber-600 dark:text-amber-500" />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                        <h2 className="text-base sm:text-lg font-bold leading-tight">Check MTN Number Registration</h2>
+                        <p className="text-xs sm:text-sm text-muted-foreground">
+                            Not-registered numbers are sent to MTN automatically · up to 1,000 at once
+                        </p>
+                    </div>
+                    <ExternalLink className="w-5 h-5 text-muted-foreground shrink-0" />
+                </button>
 
                 {/* Bulk Order Section - Agents, Admins, and Sub-Admins */}
                 {(dbUser?.role === 'agent' || dbUser?.role === 'admin' || dbUser?.role === 'sub-admin') && (
