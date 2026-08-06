@@ -179,8 +179,8 @@ export default function HubtelPaymentsPage() {
             <div>
                 <h1 className="text-2xl font-bold">Hubtel Payments</h1>
                 <p className="text-sm text-muted-foreground mt-1">
-                    Every Hubtel payment attempt across wallet, storefront, data, results checker
-                    and USSD — including the ones that failed.
+                    Every Hubtel payment attempt across USSD and results checker — including the
+                    ones that failed.
                 </p>
             </div>
 
