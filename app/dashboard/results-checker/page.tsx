@@ -15,7 +15,6 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogD
 import { Skeleton } from '@/components/ui/skeleton'
 import { Loader2, Package, CheckCircle2, ShoppingCart, CreditCard, Wallet, AlertCircle, Copy, Clock, FileText, Zap, Smartphone } from 'lucide-react'
 import { toast } from 'sonner'
-import { PaymentOtpDialog } from '@/components/PaymentOtpDialog'
 
 interface BulkTier { min_qty: number; max_qty: number; unit_price: number }
 interface RCType {
@@ -57,10 +56,6 @@ function ResultsCheckerContent() {
     // Direct Payment Flow State
     const [pollingRef, setPollingRef] = useState<string | null>(null)
     const [otpRequired, setOtpRequired] = useState(false)
-    // One-time verification of the paying number (Hubtel). Distinct from the Moolre
-    // per-transaction OTP above — this happens once per number, ever.
-    const [payOtpOpen, setPayOtpOpen] = useState(false)
-    const [payOtpPhone, setPayOtpPhone] = useState('')
     const [otpCode, setOtpCode] = useState('')
     const [paymentReference, setPaymentReference] = useState<string | null>(null)
 
@@ -301,13 +296,6 @@ function ResultsCheckerContent() {
                 })
                 const data = await res.json()
 
-                // First-ever payment from this number — verify it once, then retry.
-                if (res.status === 403 && data.code === 'OTP_REQUIRED') {
-                    setIsPurchasing(false)
-                    setPayOtpPhone(customerPhone)
-                    setPayOtpOpen(true)
-                    return
-                }
 
                 if (!res.ok) { throw new Error(data.error || 'Purchase failed') }
 
@@ -687,13 +675,6 @@ function ResultsCheckerContent() {
                 )}
             </div>
 
-            {/* One-time verification of the paying number (first payment only) */}
-            <PaymentOtpDialog
-                open={payOtpOpen}
-                onOpenChange={setPayOtpOpen}
-                phone={payOtpPhone}
-                onVerified={() => handlePurchase({ preventDefault: () => {} } as React.FormEvent)}
-            />
 
             {/* OTP Modal */}
             <Dialog open={otpRequired} onOpenChange={(open) => !open && setOtpRequired(false)}>
