@@ -1778,7 +1778,10 @@ export default function DataPackagesPage() {
                                         </span>
                                     </button>
 
-                                    <div className={cn("space-y-2 transition-opacity", payWithSameNumber && "opacity-50 pointer-events-none")}>
+                                    {/* While the box is ticked this mirrors the beneficiary number; typing here
+                                        unticks it so the buyer keeps what they typed. Any number on any network
+                                        is allowed to pay — the gateway does not require the two to match. */}
+                                    <div className="space-y-2">
                                         <Label htmlFor="momo-phone" className="text-sm font-black text-gray-900 dark:text-gray-100">
                                             Mobile Money number <span className="font-semibold text-gray-400">(to pay)</span>
                                         </Label>
@@ -1788,9 +1791,8 @@ export default function DataPackagesPage() {
                                             inputMode="numeric"
                                             placeholder="0241234567"
                                             value={payWithSameNumber ? phoneNumber : momoPhone}
-                                            onChange={(e) => setMomoPhone(e.target.value)}
-                                            disabled={payWithSameNumber}
-                                            className="w-full px-4 py-3.5 rounded-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-base font-semibold focus:outline-none focus:ring-2 ring-primary transition-all disabled:bg-gray-50 dark:disabled:bg-gray-800/50"
+                                            onChange={(e) => { setPayWithSameNumber(false); setMomoPhone(e.target.value) }}
+                                            className="w-full px-4 py-3.5 rounded-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-base font-semibold focus:outline-none focus:ring-2 ring-primary transition-all"
                                         />
                                     </div>
 

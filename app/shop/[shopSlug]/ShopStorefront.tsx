@@ -1771,20 +1771,22 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                                     </span>
                                 </button>
 
-                                {/* Payer */}
-                                <div className={cn("space-y-2 transition-opacity", payWithSameNumber && "opacity-50 pointer-events-none")}>
+                                {/* Payer — mirrors the beneficiary number while the box is ticked; typing here
+                                    unticks it so the buyer keeps what they typed. Any number on any network may
+                                    pay, so this is never locked to the beneficiary's number. */}
+                                <div className="space-y-2">
                                     <Label className="text-sm font-black text-gray-900 dark:text-gray-100">
                                         Mobile Money number <span className="font-semibold text-gray-400">(to pay)</span>
                                     </Label>
                                     <input
                                         type="tel" inputMode="numeric"
                                         value={payWithSameNumber ? phone : payPhone}
-                                        onChange={(e) => setPayPhone(e.target.value)}
-                                        disabled={payWithSameNumber}
+                                        onChange={(e) => { setPayWithSameNumber(false); setPayPhone(e.target.value) }}
                                         placeholder="0241234567"
-                                        className="w-full px-4 py-3.5 rounded-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-base font-semibold focus:outline-none focus:ring-2 ring-[var(--brand-color)] transition-all disabled:bg-gray-50 dark:disabled:bg-gray-800/50"
+                                        className="w-full px-4 py-3.5 rounded-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-base font-semibold focus:outline-none focus:ring-2 ring-[var(--brand-color)] transition-all"
                                     />
                                 </div>
+
 
                                 {/* Payment network */}
                                 <div className="space-y-2">
