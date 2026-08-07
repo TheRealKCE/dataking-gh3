@@ -82,7 +82,10 @@ const rateLimiters = redis ? {
     paymentsVerify: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(30, '1 m') }),
     // ── Shop ──────────────────────────────────────────────────
     shopValidateAccount: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(5, '1 m') }),
-    shopInitialize: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(10, '1 m') }),
+    // Keyed by IP, and storefront buyers are guests on mobile data — carrier NAT puts
+    // many unrelated customers behind one address, so this has to clear a whole
+    // neighbourhood of shoppers, not one person's retries.
+    shopInitialize: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(30, '1 m') }),
     shopVerifyOrder: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(20, '1 m') }),
     shopPricing: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(20, '1 m') }),
     shopWithdraw: new Ratelimit({ redis, limiter: Ratelimit.slidingWindow(3, '1 h') }),

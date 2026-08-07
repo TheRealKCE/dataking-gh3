@@ -12,7 +12,6 @@ import {
     History, TrendingUp, Coins, Calendar, CalendarRange, RefreshCw, Info, Clock, Copy, ArrowRight, AlertTriangle, Users, Target, Sparkles, Download, Share2, GraduationCap, Store
 } from 'lucide-react'
 import { toast } from 'sonner'
-import { PaymentOtpDialog } from '@/components/PaymentOtpDialog'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { CopyrightFooter } from '@/components/CopyrightFooter'
 import dynamic from 'next/dynamic'
@@ -227,12 +226,8 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
     const [announcement] = useState<StorefrontAnnouncement | null>(initialAnnouncement)
     const [announcementDismissed, setAnnouncementDismissed] = useState(false)
     const [scrolled, setScrolled] = useState(false)
+    // Moolre per-transaction OTP. Hubtel checkouts never ask for a code on the storefront.
     const [otpRequired, setOtpRequired] = useState(false)
-    // One-time verification of the paying number (Hubtel). Unrelated to the Moolre
-    // per-transaction OTP below — this is asked once per number and never again.
-    const [payOtpOpen, setPayOtpOpen] = useState(false)
-    const [payOtpPhone, setPayOtpPhone] = useState('')
-    const [payOtpRetry, setPayOtpRetry] = useState<() => void>(() => () => { })
     const [otpCode, setOtpCode] = useState('')
     const [otpReference, setOtpReference] = useState<string | null>(null)
     const [otpOrderType, setOtpOrderType] = useState<'data' | 'airtime' | 'mashup' | 'results_checker'>('data')
@@ -526,6 +521,17 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
         setErrorMsg(null)
     }
 
+    // The middleware's 429 body says nothing about how long to wait, and the limit is
+    // per IP — on mobile data a buyer can trip it without having done anything wrong.
+    // Give them a time to come back to instead of a dead end.
+    const rateLimitMessage = (res: Response): string | null => {
+        if (res.status !== 429) return null
+        const retryAfter = parseInt(res.headers.get('Retry-After') || '', 10)
+        return retryAfter > 0
+            ? `Too many payment attempts right now. Please try again in ${retryAfter} second${retryAfter === 1 ? '' : 's'}.`
+            : 'Too many payment attempts right now. Please wait a moment and try again.'
+    }
+
     const handleBuyData = async () => {
         if (!selectedPackage) { toast.error('Select a package first'); return }
         if (!phone.trim()) { toast.error('Enter the beneficiary number'); return }
@@ -562,7 +568,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
             const data = await res.json()
 
             if (!res.ok || !data.reference) {
-                setErrorMsg(data.error || 'Failed to initialize payment')
+                setErrorMsg(rateLimitMessage(res) || data.error || 'Failed to initialize payment')
                 if (data.contact) setContactInfo(data.contact)
                 setLoading(false)
                 return
@@ -624,7 +630,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
             const data = await res.json()
 
             if (!res.ok || !data.reference) {
-                setErrorMsg(data.error || 'Failed to initialize airtime payment')
+                setErrorMsg(rateLimitMessage(res) || data.error || 'Failed to initialize airtime payment')
                 if (data.contact) setContactInfo(data.contact)
                 setLoading(false)
                 return
@@ -724,7 +730,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
             })
             const data = await res.json()
             if (!res.ok || !data.reference) {
-                setErrorMsg(data.error || 'Failed to initialize mashup payment')
+                setErrorMsg(rateLimitMessage(res) || data.error || 'Failed to initialize mashup payment')
                 if (data.contact) setContactInfo(data.contact)
                 setLoading(false)
                 return
@@ -768,7 +774,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
             })
             const data = await res.json()
             if (!res.ok || !data.success) {
-                setErrorMsg(data.error || 'Failed to initialize payment')
+                setErrorMsg(rateLimitMessage(res) || data.error || 'Failed to initialize payment')
                 setLoading(false)
                 return
             }
@@ -1693,7 +1699,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 Steps aside while an OTP dialog is up — the sheet outranks the Radix
                 overlay, so leaving it up would bury the code input. The typed values
                 live in this component, so they survive and the sheet returns intact. */}
-            {selectedPackage && !otpRequired && !payOtpOpen && (() => {
+            {selectedPackage && !otpRequired && (() => {
                 const sheetStyle = getNetworkCardStyle(selectedPackage.network)
                 const payNetworks: { id: PayNetwork; label: string; dot: string }[] = [
                     { id: 'MTN', label: 'MTN', dot: 'bg-[#FFCC00]' },
@@ -1830,7 +1836,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                                 >
                                     {loading
                                         ? <><Loader2 className="w-5 h-5 animate-spin" /> {pollingRef ? 'Waiting for approval...' : 'Processing...'}</>
-                                        : <><Smartphone className="w-5 h-5" /> Proceed to payment</>}
+                                        : <><Smartphone className="w-5 h-5" /> Pay {formatCurrency(selectedPackage.selling_price)}</>}
                                 </button>
 
                                 <p className="text-[13px] text-center font-semibold text-gray-400 leading-snug">
@@ -2131,4 +2137,3 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
         </div>
     )
 }
-                                                                                                                                                                                                                                                                                                                               
