@@ -156,6 +156,40 @@ const NetworkLogo = ({ id }: { id: string }) => {
     return <ATLogo />
 }
 
+// Payment (MoMo) networks — the wallet that gets charged, not the bundle's network.
+type PayNetwork = 'MTN' | 'Telecel' | 'AT'
+const PAY_NETWORK_PREFIXES: Record<PayNetwork, string[]> = {
+    MTN: ['024', '054', '055', '059', '025', '053', '098'],
+    Telecel: ['020', '050'],
+    AT: ['026', '027', '056', '028', '058', '057'],
+}
+
+const detectPayNetwork = (raw: string): PayNetwork | null => {
+    const prefix = raw.replace(/\s+/g, '').substring(0, 3)
+    if (prefix.length < 3) return null
+    for (const [net, prefixes] of Object.entries(PAY_NETWORK_PREFIXES)) {
+        if (prefixes.includes(prefix)) return net as PayNetwork
+    }
+    return null
+}
+
+const getNetworkCardStyle = (net: string) => {
+    switch (net) {
+        case 'Telecel':
+            return { bg: 'bg-[#da291c]', bottom: 'bg-[#b01e14]', pill: 'bg-white/20 text-white', text: 'text-white', iconBg: 'bg-white/20' }
+        case 'AT-iShare':
+            return { bg: 'bg-[#2463eb]', bottom: 'bg-[#1d4ed8]', pill: 'bg-white/20 text-white', text: 'text-white', iconBg: 'bg-white/20' }
+        case 'AT-BigTime':
+            return { bg: 'bg-[#8b5cf6]', bottom: 'bg-[#6d28d9]', pill: 'bg-white/20 text-white', text: 'text-white', iconBg: 'bg-white/20' }
+        case 'MTN':
+        case 'Special MTN Mashup':
+        case 'EXPRESS MTN':
+            return { bg: 'bg-[#FFCC00]', bottom: 'bg-[#eab308]', pill: 'bg-black/10 text-black', text: 'text-black', iconBg: 'bg-white/30' }
+        default:
+            return { bg: 'bg-[var(--brand-color)]', bottom: 'bg-black/20', pill: 'bg-white/20 text-white', text: 'text-white', iconBg: 'bg-white/20' }
+    }
+}
+
 export default function ShopStorefront({ shop, packages, adminSettings, initialAnnouncement = null }: Props) {
     const searchParams = useSearchParams()
     
@@ -163,7 +197,13 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
     const [selectedPackage, setSelectedPackage] = useState<Package | null>(null)
     const [phone, setPhone] = useState('')
     const [email, setEmail] = useState('')
-    
+    // The bundle goes to `phone`; the MoMo prompt goes to `payPhone`. They are the
+    // same number unless the customer unticks the box (someone else pays for them).
+    const [payPhone, setPayPhone] = useState('')
+    const [payWithSameNumber, setPayWithSameNumber] = useState(true)
+    const [payNetwork, setPayNetwork] = useState<PayNetwork | null>(null)
+    const [payNetworkManual, setPayNetworkManual] = useState(false)
+
     // Airtime State
     const [isAirtimeOpen, setIsAirtimeOpen] = useState(false)
     const [airtimePhone, setAirtimePhone] = useState('')
@@ -472,28 +512,37 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
         }
     }
 
-    // Hubtel refuses to prompt a number we've never confirmed. The checkout answers
-    // 403 OTP_REQUIRED on that first attempt only — once the customer enters the code,
-    // the number is trusted permanently and this branch never runs for them again.
-    const isFirstTimeNumber = (res: Response, data: any) =>
-        res.status === 403 && data?.code === 'OTP_REQUIRED'
+    // The number that actually gets charged
+    const effectivePayPhone = (payWithSameNumber ? phone : payPhone).replace(/\s+/g, '')
 
-    const startNumberVerification = (phoneToVerify: string, retry: () => void) => {
-        setLoading(false)
-        setPayOtpPhone(phoneToVerify)
-        setPayOtpRetry(() => retry)
-        setPayOtpOpen(true)
+    // Follow the paying number until the customer picks a network themselves
+    useEffect(() => {
+        if (payNetworkManual) return
+        setPayNetwork(detectPayNetwork(effectivePayPhone))
+    }, [effectivePayPhone, payNetworkManual])
+
+    const closeDataCheckout = () => {
+        setSelectedPackage(null)
+        setErrorMsg(null)
     }
 
     const handleBuyData = async () => {
         if (!selectedPackage) { toast.error('Select a package first'); return }
-        if (!phone.trim()) { toast.error('Enter your phone number'); return }
+        if (!phone.trim()) { toast.error('Enter the beneficiary number'); return }
 
         const cleanPhone = phone.replace(/\s+/g, '')
         if (!/^(0\d{9}|233\d{9})$/.test(cleanPhone)) {
-            toast.error('Invalid phone number. Use format: 0XXXXXXXXX')
+            toast.error('Invalid beneficiary number. Use format: 0XXXXXXXXX')
             return
         }
+
+        const cleanPayPhone = effectivePayPhone
+        if (!cleanPayPhone) { toast.error('Enter the Mobile Money number to charge'); return }
+        if (!/^(0\d{9}|233\d{9})$/.test(cleanPayPhone)) {
+            toast.error('Invalid Mobile Money number. Use format: 0XXXXXXXXX')
+            return
+        }
+        if (!payNetwork) { toast.error('Select the Mobile Money network to pay from'); return }
 
         setLoading(true)
         try {
@@ -504,16 +553,13 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                     shopSlug: shop.shop_slug,
                     packageId: selectedPackage.id,
                     guestPhone: cleanPhone,
+                    payerPhone: cleanPayPhone,
+                    payerNetwork: payNetwork,
                     guestEmail: email.trim() || undefined,
                     provider: webPaymentProvider,
                 }),
             })
             const data = await res.json()
-
-            if (isFirstTimeNumber(res, data)) {
-                startNumberVerification(cleanPhone, handleBuyData)
-                return
-            }
 
             if (!res.ok || !data.reference) {
                 setErrorMsg(data.error || 'Failed to initialize payment')
@@ -576,11 +622,6 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 }),
             })
             const data = await res.json()
-
-            if (isFirstTimeNumber(res, data)) {
-                startNumberVerification(cleanPhone, handleBuyAirtime)
-                return
-            }
 
             if (!res.ok || !data.reference) {
                 setErrorMsg(data.error || 'Failed to initialize airtime payment')
@@ -682,10 +723,6 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 }),
             })
             const data = await res.json()
-            if (isFirstTimeNumber(res, data)) {
-                startNumberVerification(cleanPhone, handleBuyMashup)
-                return
-            }
             if (!res.ok || !data.reference) {
                 setErrorMsg(data.error || 'Failed to initialize mashup payment')
                 if (data.contact) setContactInfo(data.contact)
@@ -730,10 +767,6 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 })
             })
             const data = await res.json()
-            if (isFirstTimeNumber(res, data)) {
-                startNumberVerification(cleanPhone, handleBuyRc)
-                return
-            }
             if (!res.ok || !data.success) {
                 setErrorMsg(data.error || 'Failed to initialize payment')
                 setLoading(false)
@@ -804,6 +837,8 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 shopSlug: shop.shop_slug,
                 packageId: selectedPackage?.id,
                 guestPhone: phone.replace(/\s+/g, ''),
+                payerPhone: effectivePayPhone,
+                payerNetwork: payNetwork,
                 guestEmail: email.trim() || undefined,
                 otpCode: otpCode.trim(),
                 reference: otpReference,
@@ -1601,28 +1636,12 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                         {filteredPackages.map((pkg) => {
                             const netStyle = networkColors[pkg.network]
                             const isSelected = selectedPackage?.id === pkg.id
-                            const getCardStyle = (net: string) => {
-                                switch(net) {
-                                    case 'Telecel':
-                                        return { bg: 'bg-[#da291c]', bottom: 'bg-[#b01e14]', pill: 'bg-white/20 text-white', text: 'text-white', iconBg: 'bg-white/20' }
-                                    case 'AT-iShare':
-                                        return { bg: 'bg-[#2463eb]', bottom: 'bg-[#1d4ed8]', pill: 'bg-white/20 text-white', text: 'text-white', iconBg: 'bg-white/20' }
-                                    case 'AT-BigTime':
-                                        return { bg: 'bg-[#8b5cf6]', bottom: 'bg-[#6d28d9]', pill: 'bg-white/20 text-white', text: 'text-white', iconBg: 'bg-white/20' }
-                                    case 'MTN':
-                                    case 'Special MTN Mashup':
-                                    case 'EXPRESS MTN':
-                                        return { bg: 'bg-[#FFCC00]', bottom: 'bg-[#eab308]', pill: 'bg-black/10 text-black', text: 'text-black', iconBg: 'bg-white/30' }
-                                    default:
-                                        return { bg: 'bg-[var(--brand-color)]', bottom: 'bg-black/20', pill: 'bg-white/20 text-white', text: 'text-white', iconBg: 'bg-white/20' }
-                                }
-                            }
-                            const cardStyle = getCardStyle(pkg.network)
+                            const cardStyle = getNetworkCardStyle(pkg.network)
                             const pillText = pkg.network === 'AT-iShare' ? 'AT-IS' : pkg.network === 'AT-BigTime' ? 'AT-BT' : pkg.network === 'Special MTN Mashup' ? 'MASHUP' : pkg.network === 'EXPRESS MTN' ? 'EXPRESS' : pkg.network
                             
                             return (
                                 <button
-                                    key={pkg.id} onClick={() => setSelectedPackage(isSelected ? null : pkg)}
+                                    key={pkg.id} onClick={() => { setErrorMsg(null); setSelectedPackage(pkg) }}
                                     className={cn(
                                         'relative rounded-[24px] overflow-hidden transition-all duration-200 active:scale-95 text-left flex flex-col',
                                         cardStyle.bg,
@@ -1668,73 +1687,160 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 </div>
             )}
 
-                {/* Checkout card for DATA Packages */}
-                {selectedPackage && (
-                    <div className="sticky bottom-4 bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 p-4 space-y-3">
-                        <div className="flex items-center justify-between">
-                            <div>
-                                <p className="text-xs text-muted-foreground">Selected</p>
-                                <p className="font-bold text-sm">{selectedPackage.network} {selectedPackage.size}</p>
+            </div>
+
+            {/* Checkout sheet for DATA packages.
+                Steps aside while an OTP dialog is up — the sheet outranks the Radix
+                overlay, so leaving it up would bury the code input. The typed values
+                live in this component, so they survive and the sheet returns intact. */}
+            {selectedPackage && !otpRequired && !payOtpOpen && (() => {
+                const sheetStyle = getNetworkCardStyle(selectedPackage.network)
+                const payNetworks: { id: PayNetwork; label: string; dot: string }[] = [
+                    { id: 'MTN', label: 'MTN', dot: 'bg-[#FFCC00]' },
+                    { id: 'Telecel', label: 'Telecel', dot: 'bg-[#da291c]' },
+                    { id: 'AT', label: 'AirtelTigo', dot: 'bg-[#2463eb]' },
+                ]
+                return (
+                    <div className="fixed inset-0 z-[70] flex items-end justify-center">
+                        <div
+                            className="absolute inset-0 bg-black/50 backdrop-blur-[2px] animate-in fade-in duration-200"
+                            onClick={() => !loading && closeDataCheckout()}
+                        />
+                        <div className="relative w-full sm:max-w-lg bg-white dark:bg-gray-900 rounded-t-[28px] sm:rounded-b-[28px] sm:mb-6 shadow-2xl max-h-[92vh] overflow-y-auto animate-in slide-in-from-bottom duration-300">
+                            <div className="sticky top-0 z-10 bg-white dark:bg-gray-900 pt-3 pb-1 rounded-t-[28px]">
+                                <div className="mx-auto w-10 h-1.5 rounded-full bg-gray-200 dark:bg-gray-700" />
+                                <button
+                                    onClick={() => !loading && closeDataCheckout()}
+                                    aria-label="Close checkout"
+                                    className="absolute top-2 right-4 w-9 h-9 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors"
+                                >
+                                    <X className="w-5 h-5" />
+                                </button>
                             </div>
-                            <div className="text-right">
-                                <p className="text-xs text-muted-foreground">Total</p>
-                                <p className="font-black text-lg text-[var(--brand-color)]">
-                                    {formatCurrency(selectedPackage.selling_price)}
+
+                            <div className="px-5 pb-8 pt-3 space-y-5">
+                                {/* Selected package banner */}
+                                <div className={cn('rounded-2xl px-4 py-4 flex items-center justify-between gap-3', sheetStyle.bg, sheetStyle.text)}>
+                                    <div className="flex items-center gap-3 min-w-0">
+                                        <div className={cn('w-10 h-10 rounded-full flex items-center justify-center shrink-0', sheetStyle.iconBg)}>
+                                            <div className="w-6 h-6">
+                                                {selectedPackage.network === 'Telecel' ? <TelecelLogo /> :
+                                                    selectedPackage.network.startsWith('AT') ? <ATLogo /> : <MTNLogo />}
+                                            </div>
+                                        </div>
+                                        <p className="text-lg font-black tracking-tight truncate">
+                                            {selectedPackage.network} · {selectedPackage.size}
+                                        </p>
+                                    </div>
+                                    <p className="text-lg font-black tracking-tight shrink-0">{formatCurrency(selectedPackage.selling_price)}</p>
+                                </div>
+
+                                {/* Beneficiary */}
+                                <div className="space-y-2">
+                                    <Label className="text-sm font-black text-gray-900 dark:text-gray-100">
+                                        Beneficiary number <span className="font-semibold text-gray-400">(gets the data)</span>
+                                    </Label>
+                                    <input
+                                        type="tel" inputMode="numeric" value={phone}
+                                        onChange={(e) => setPhone(e.target.value)}
+                                        placeholder="0241234567"
+                                        className="w-full px-4 py-3.5 rounded-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-base font-semibold focus:outline-none focus:ring-2 ring-[var(--brand-color)] transition-all"
+                                    />
+                                </div>
+
+                                {/* Same-number toggle */}
+                                <button
+                                    type="button"
+                                    onClick={() => setPayWithSameNumber(!payWithSameNumber)}
+                                    className="flex items-center gap-3 w-full text-left"
+                                >
+                                    <span className={cn(
+                                        'w-6 h-6 rounded-md border-2 flex items-center justify-center shrink-0 transition-all',
+                                        payWithSameNumber ? 'bg-gray-900 dark:bg-white border-gray-900 dark:border-white text-white dark:text-gray-900' : 'border-gray-300 dark:border-gray-600'
+                                    )}>
+                                        {payWithSameNumber && <Check className="w-4 h-4 stroke-[3px]" />}
+                                    </span>
+                                    <span className="text-[15px] font-semibold text-gray-500 dark:text-gray-400">
+                                        Use this number for Mobile Money payment
+                                    </span>
+                                </button>
+
+                                {/* Payer */}
+                                {!payWithSameNumber && (
+                                    <div className="space-y-2">
+                                        <Label className="text-sm font-black text-gray-900 dark:text-gray-100">
+                                            Mobile Money number <span className="font-semibold text-gray-400">(to pay)</span>
+                                        </Label>
+                                        <input
+                                            type="tel" inputMode="numeric" value={payPhone}
+                                            onChange={(e) => setPayPhone(e.target.value)}
+                                            placeholder="0241234567"
+                                            className="w-full px-4 py-3.5 rounded-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-base font-semibold focus:outline-none focus:ring-2 ring-[var(--brand-color)] transition-all"
+                                        />
+                                    </div>
+                                )}
+
+                                {/* Payment network */}
+                                <div className="space-y-2">
+                                    <Label className="text-sm font-black text-gray-900 dark:text-gray-100">Network</Label>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        {payNetworks.map(({ id, label, dot }) => (
+                                            <button
+                                                key={id}
+                                                type="button"
+                                                onClick={() => { setPayNetwork(id); setPayNetworkManual(true) }}
+                                                className={cn(
+                                                    'flex items-center justify-center gap-2 py-3 rounded-2xl border text-sm font-bold transition-all',
+                                                    payNetwork === id
+                                                        ? 'border-gray-900 dark:border-white bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
+                                                        : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-gray-300'
+                                                )}
+                                            >
+                                                <span className={cn('w-2.5 h-2.5 rounded-full shrink-0', dot)} />
+                                                {label}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Email */}
+                                <div className="space-y-2">
+                                    <Label className="text-sm font-black text-gray-900 dark:text-gray-100">
+                                        Email <span className="font-semibold text-gray-400">(for receipt — optional)</span>
+                                    </Label>
+                                    <input
+                                        type="email" value={email}
+                                        onChange={(e) => setEmail(e.target.value)}
+                                        placeholder="you@example.com"
+                                        className="w-full px-4 py-3.5 rounded-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-base font-semibold focus:outline-none focus:ring-2 ring-[var(--brand-color)] transition-all"
+                                    />
+                                </div>
+
+                                {/* The page-level banner sits behind this sheet, so repeat it here */}
+                                {errorMsg && (
+                                    <div className="flex items-start gap-2 p-3 rounded-2xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+                                        <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
+                                        <p className="text-xs font-bold text-red-800 dark:text-red-300">{errorMsg}</p>
+                                    </div>
+                                )}
+
+                                <button
+                                    onClick={handleBuyData} disabled={loading}
+                                    className="w-full py-4 rounded-full bg-[var(--brand-color)] text-white font-black text-lg flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-70"
+                                >
+                                    {loading
+                                        ? <><Loader2 className="w-5 h-5 animate-spin" /> {pollingRef ? 'Waiting for approval...' : 'Processing...'}</>
+                                        : <><Smartphone className="w-5 h-5" /> Proceed to payment</>}
+                                </button>
+
+                                <p className="text-[13px] text-center font-semibold text-gray-400 leading-snug">
+                                    A small payment fee applies. Confirm the exact total on your phone.
                                 </p>
                             </div>
                         </div>
-
-                        <div className="relative">
-                            <Phone className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                            <input
-                                type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Recipient phone: 0244123456"
-                                className="w-full pl-9 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 transition-all ring-[var(--brand-color)]"
-                            />
-                        </div>
-
-                        <div className="relative">
-                            <Mail className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                            <input
-                                type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="Your email to receive transaction receipt (Optional)"
-                                className="w-full pl-9 pr-4 py-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800 text-sm focus:outline-none focus:ring-2 transition-all ring-[var(--brand-color)]"
-                            />
-                        </div>
-
-                        <div className="space-y-2 pb-2">
-                            <Label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 block">Pay via</Label>
-                            <div className="flex gap-1 p-1 rounded-xl bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 w-full">
-                                {([
-                                    { id: 'moolre', label: 'Moolre' },
-                                    { id: 'hubtel', label: 'Hubtel' },
-                                    { id: 'paystack', label: 'Paystack' },
-                                ] as const).map(({ id, label }) => (
-                                    <button
-                                        key={id}
-                                        type="button"
-                                        onClick={() => setWebPaymentProvider(id)}
-                                        className={cn(
-                                            'flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all',
-                                            webPaymentProvider === id
-                                                ? 'bg-white shadow text-gray-900'
-                                                : 'text-gray-500 hover:text-gray-700'
-                                        )}
-                                    >
-                                        {label}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        <button
-                            onClick={handleBuyData} disabled={loading}
-                            className="w-full py-3.5 rounded-xl text-white font-bold text-base flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-70 bg-[var(--brand-color)]"
-                        >
-                            {loading ? <><Loader2 className="w-5 h-5 animate-spin" /> {pollingRef ? 'Waiting for Approval...' : 'Processing...'}</> : <><ShoppingCart className="w-5 h-5" /> Pay {formatCurrency(selectedPackage.selling_price)}</>}
-                        </button>
-                        <p className="text-[10px] text-center text-muted-foreground">Direct MoMo Prompt</p>
                     </div>
-                )}
-            </div>
+                )
+            })()}
 
             {/* WhatsApp floating button */}
             {shop.whatsapp_number && (
@@ -1899,16 +2005,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 brandColor={shop.brand_color}
             />
 
-            {/* OTP Modal */}
-            {/* One-time verification of the paying number (first purchase only) */}
-            <PaymentOtpDialog
-                open={payOtpOpen}
-                onOpenChange={setPayOtpOpen}
-                phone={payOtpPhone}
-                variant="guest"
-                onVerified={() => payOtpRetry()}
-            />
-
+            {/* Moolre per-transaction OTP */}
             <Dialog open={otpRequired} onOpenChange={(open) => !open && setOtpRequired(false)}>
                 <DialogContent className="sm:max-w-md">
                     <DialogHeader>
@@ -2034,3 +2131,4 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
         </div>
     )
 }
+                                                                                                                                                                                                                                                                                                                               

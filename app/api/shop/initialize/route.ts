@@ -4,8 +4,6 @@ import { Redis } from '@upstash/redis'
 import { initiatePayment, MOOLRE_PAYMENT_CHANNEL_MAP } from '@/lib/moolre-payment-service'
 import { initiatePayment as hubtelInitiatePayment, HUBTEL_CHANNEL_MAP } from '@/lib/hubtel-payment-service'
 import { normalizeMsisdn } from '@/lib/payment-otp'
-import { isGuestPhoneVerified, consumeGuestPhoneVerification } from '@/lib/guest-payment-otp'
-import { isTrustedPaymentNumber } from '@/lib/trusted-payment-numbers'
 import { checkHubtelPromptLimit, recordHubtelPrompt } from '@/lib/hubtel-prompt-limit'
 
 // Redis client for distributed idempotency across all serverless instances.
@@ -15,7 +13,7 @@ const redis = Redis.fromEnv()
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json()
-        const { shopSlug, packageId, guestPhone, guestEmail, orderType, network, amount, useExactAmount, isMashup, bundlePreference, otpCode, reference: existingRef } = body
+        const { shopSlug, packageId, guestPhone, guestEmail, payerPhone, payerNetwork, orderType, network, amount, useExactAmount, isMashup, bundlePreference, otpCode, reference: existingRef } = body
 
         if (!shopSlug || !guestPhone) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
@@ -51,6 +49,20 @@ export async function POST(request: NextRequest) {
         if (!/^(0\d{9}|233\d{9})$/.test(cleanPhone)) {
             return NextResponse.json({ error: 'Invalid phone number. Use format: 0XXXXXXXXX or 233XXXXXXXXX' }, { status: 400 })
         }
+
+        // The bundle goes to guestPhone; the MoMo prompt may go to a different wallet.
+        // Older clients send neither field — then the beneficiary pays, as before.
+        let payerClean = cleanPhone
+        if (payerPhone !== undefined && payerPhone !== null && String(payerPhone).trim() !== '') {
+            if (typeof payerPhone !== 'string') {
+                return NextResponse.json({ error: 'Invalid Mobile Money number' }, { status: 400 })
+            }
+            payerClean = payerPhone.replace(/\s+/g, '')
+            if (!/^(0\d{9}|233\d{9})$/.test(payerClean)) {
+                return NextResponse.json({ error: 'Invalid Mobile Money number. Use format: 0XXXXXXXXX or 233XXXXXXXXX' }, { status: 400 })
+            }
+        }
+        const payerIsSeparate = payerClean !== cleanPhone
 
         const { createServerClient } = await import('@/lib/supabase')
         const db = createServerClient() as any
@@ -242,10 +254,13 @@ export async function POST(request: NextRequest) {
             }
         }
 
-        // Auto-detect payment network if not explicitly provided or if it's not a main network (e.g. AT-iShare)
-        let paymentNetwork = network
+        // Payment network: the customer's explicit pick wins, then the order's own
+        // network (airtime, where payer and recipient are the same), then the prefix
+        // of the wallet we are about to charge.
+        let paymentNetwork = ['MTN', 'Telecel', 'AT'].includes(payerNetwork) ? payerNetwork : ''
+        if (!paymentNetwork && !payerIsSeparate) paymentNetwork = network
         if (!paymentNetwork || !['MTN', 'Telecel', 'AT'].includes(paymentNetwork)) {
-            const prefix = cleanPhone.substring(0, 3)
+            const prefix = payerClean.substring(0, 3)
             if (['024', '054', '055', '059', '025', '053', '098'].includes(prefix)) paymentNetwork = 'MTN'
             else if (['020', '050'].includes(prefix)) paymentNetwork = 'Telecel'
             else if (['026', '027', '056', '028', '058', '057'].includes(prefix)) paymentNetwork = 'AT'
@@ -266,6 +281,7 @@ export async function POST(request: NextRequest) {
             shop_slug: shopSlug,
             slug: shopSlug, // legacy alias consumed by processShopOrder
             guest_phone: cleanPhone,
+            payer_phone: payerClean,
             guest_email: validatedGuestEmail,
             fulfillment_mode: shop.fulfillment_mode,
             ...metadataPayload,
@@ -310,26 +326,9 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({ error: 'Unsupported payment network' }, { status: 400 })
             }
 
-            // SECURITY: Hubtel forbids unsolicited prompts. A guest number must be
-            // confirmed by SMS code the FIRST time it pays; after that it is trusted
-            // permanently and never challenged again, here or on the dashboard.
-            if (!(await isTrustedPaymentNumber(cleanPhone))) {
-                const verified = await isGuestPhoneVerified(cleanPhone)
-                if (!verified) {
-                    return NextResponse.json(
-                        {
-                            error: 'Please verify this number with the code we send before paying from it.',
-                            code: 'OTP_REQUIRED',
-                            reference: shopRef,
-                        },
-                        { status: 403 }
-                    )
-                }
-                await consumeGuestPhoneVerification(cleanPhone)
-            }
-
-            // Applies to trusted numbers too — see lib/hubtel-prompt-limit.ts.
-            const promptLimit = await checkHubtelPromptLimit(cleanPhone)
+            // No SMS verification on the storefront: guests are prompted straight away.
+            // The per-number prompt limit below is the only throttle on Hubtel prompts.
+            const promptLimit = await checkHubtelPromptLimit(payerClean)
             if (!promptLimit.allowed) {
                 return NextResponse.json({ error: promptLimit.error }, { status: 429 })
             }
@@ -339,14 +338,14 @@ export async function POST(request: NextRequest) {
             if (!existingRef) {
                 await redis.set(
                     `shop:meta:${shopRef}`,
-                    JSON.stringify({ ...fullMetadata, payer_msisdn: normalizeMsisdn(cleanPhone) }),
+                    JSON.stringify({ ...fullMetadata, payer_msisdn: normalizeMsisdn(payerClean) }),
                     { ex: 86400 }
                 )
             }
 
             const hubtelResponse = await hubtelInitiatePayment({
                 amount: totalAmount / 100,   // stored in pesewas, Hubtel expects GHS
-                payerPhone: cleanPhone,
+                payerPhone: payerClean,
                 channel: hubtelChannel,
                 clientReference: shopRef,
                 customerName: 'Guest Customer',
@@ -363,7 +362,7 @@ export async function POST(request: NextRequest) {
             }
 
             // Only now has a prompt actually gone to the handset.
-            await recordHubtelPrompt(cleanPhone)
+            await recordHubtelPrompt(payerClean)
 
             return NextResponse.json({
                 success: true,
@@ -379,7 +378,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Unsupported payment network' }, { status: 400 })
         }
 
-        const idemKey = `shop:idem:${shop.id}-${cleanPhone}-${totalAmount}`
+        const idemKey = `shop:idem:${shop.id}-${cleanPhone}-${payerClean}-${totalAmount}`
         if (!otpCode) {
             const cachedIdem = await redis.get<{ ref: string }>(idemKey)
             if (cachedIdem) {
@@ -389,7 +388,7 @@ export async function POST(request: NextRequest) {
 
         let moolreResponse = await initiatePayment({
             amount: totalAmount / 100,
-            payerPhone: cleanPhone,
+            payerPhone: payerClean,
             channel: channelId,
             externalRef: shopRef,
             otpCode,
