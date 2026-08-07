@@ -37,16 +37,19 @@ const config = {
         'border-blue-200/60', 'dark:border-b-blue-900/60',
         'from-blue-600', 'to-indigo-700',
         'bg-blue-500/10',
-        // Customer
-        'from-yellow-50/90', 'to-amber-100/50',
-        'dark:to-yellow-950/20',
-        'border-r-yellow-200/50', 'dark:border-r-yellow-900/50',
-        'hover:text-amber-600', 'dark:hover:text-amber-400',
-        'hover:bg-amber-500/5',
-        'bg-yellow-50/90',
-        'border-yellow-200/60', 'dark:border-b-yellow-900/60',
-        'from-amber-500', 'to-yellow-600',
-        'bg-amber-500/10',
+        // Customer — white surfaces, gold-ink text, bright-gold fills
+        'bg-white', 'bg-white/85', 'dark:bg-slate-950', 'dark:bg-slate-900/80',
+        'border-r-slate-200', 'dark:border-r-slate-800',
+        'border-slate-200', 'dark:border-b-slate-800', 'dark:border-slate-800',
+        'bg-slate-50', 'dark:bg-slate-800/50', 'border-slate-200/80', 'dark:border-slate-700/60',
+        'from-brand-gold', 'to-brand-gold-dark',
+        'hover:text-brand-gold-ink', 'dark:hover:text-brand-gold',
+        'hover:bg-brand-gold/[0.07]', 'bg-brand-gold/[0.12]', 'bg-brand-gold/15',
+        'bg-brand-gold/[0.06]', 'dark:bg-brand-gold/[0.08]',
+        'text-brand-gold-ink', 'dark:text-brand-gold',
+        'border-brand-gold/25', 'border-brand-gold/20', 'dark:border-brand-gold/20',
+        'ring-1', 'ring-inset', 'ring-brand-gold/20', 'ring-brand-gold/25',
+        'shadow-soft', 'hover:shadow-soft-lg', 'shadow-nav', 'shadow-gold-fab',
         // Badges / pills
         'bg-violet-500/15', 'text-violet-600', 'dark:text-violet-400',
         'bg-blue-500/15', 'text-blue-600', 'dark:text-blue-400',
@@ -129,6 +132,12 @@ const config = {
                     gold: '#D4AF37',
                     'gold-light': '#E6C547',
                     'gold-dark': '#B89D2E',
+                    // Deep bronze-gold for accent TEXT on white surfaces.
+                    // #D4AF37 is only 2.1:1 on white and #B89D2E is 2.7:1 — both
+                    // fail WCAG AA. This is 6.0:1, so gold-family text stays legible.
+                    // Bright gold is still the right choice for fills, where the
+                    // near-black label sitting on it carries the contrast.
+                    'gold-ink': '#7A5F22',
                 },
                 network: {
                     mtn: '#FFCC00',
@@ -190,6 +199,13 @@ const config = {
                 '2xl': '0 40px 60px -20px rgb(0 0 0 / 0.35)',
                 'gold': '0 10px 30px -5px rgb(212 175 55 / 0.2)',
                 'gold-lg': '0 20px 50px -10px rgb(212 175 55 / 0.25)',
+                // Two-layer elevation: a tight contact shadow to hold the card's
+                // edge against off-white, plus a wide soft one for depth. A single
+                // blurred shadow reads as a smudge on white-on-white.
+                'soft': '0 1px 2px rgb(16 24 40 / 0.04), 0 12px 32px -8px rgb(16 24 40 / 0.10)',
+                'soft-lg': '0 1px 2px rgb(16 24 40 / 0.04), 0 16px 40px -8px rgb(16 24 40 / 0.16)',
+                'nav': '0 -8px 24px -8px rgb(16 24 40 / 0.12)',
+                'gold-fab': '0 8px 20px -4px rgb(212 175 55 / 0.5)',
                 'inner-luxury': 'inset 0 2px 4px 0 rgb(255 255 255 / 0.1)',
                 'glass': '0 8px 32px 0 rgb(31 38 135 / 0.37)',
             },

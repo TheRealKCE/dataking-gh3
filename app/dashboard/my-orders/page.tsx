@@ -552,7 +552,7 @@ export default function MyOrdersPage() {
                                     toast.error('Please select both dates')
                                 }
                             }}
-                            className="rounded-xl bg-[#1a1a1a] text-white hover:bg-black dark:bg-[#FACC15] dark:text-black dark:hover:bg-yellow-500"
+                            className="rounded-xl bg-[#1a1a1a] text-white hover:bg-black dark:bg-brand-gold dark:text-black dark:hover:bg-brand-gold-dark"
                         >
                             Apply Filter
                         </Button>

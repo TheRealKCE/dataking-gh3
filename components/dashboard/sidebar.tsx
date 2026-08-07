@@ -398,7 +398,7 @@ export function DashboardSidebar() {
                             dbUser.role === 'agent' 
                                 ? "bg-blue-500/5 border-blue-200/50 dark:bg-blue-950/10 dark:border-blue-900/40 text-slate-800 dark:text-slate-100" 
                                 : dbUser.role === 'customer' 
-                                    ? "bg-amber-500/5 border-amber-200/50 dark:bg-amber-950/10 dark:border-amber-900/40 text-slate-800 dark:text-slate-100" 
+                                    ? "bg-brand-gold/[0.06] border-brand-gold/20 dark:bg-brand-gold/[0.08] dark:border-brand-gold/20 text-slate-800 dark:text-slate-100"
                                     : "bg-secondary/5 border-border/50 text-foreground"
                         )}>
                             <div className="flex items-center gap-4 mb-4">

@@ -111,8 +111,11 @@ export function RoleGreetingBox({ stats }: RoleGreetingBoxProps) {
         'Valued Customer'
 
     const Icon = currentRole.icon
-    const accentClass = dbUser.role === 'dealer' ? 'text-white' : currentRole.textColor
+    const accentClass = currentRole.accentText
     const pillClass = currentRole.greetingPill
+    // Dealer and agent greeting cards are saturated gradients; everyone else
+    // (customer included, now that it is white) sits on a light surface.
+    const onDarkCard = dbUser.role === 'dealer' || dbUser.role === 'agent'
 
     return (
         <div className={cn("transition-all overflow-hidden relative", currentRole.greetingCard)}>
@@ -120,7 +123,11 @@ export function RoleGreetingBox({ stats }: RoleGreetingBoxProps) {
                 "absolute inset-0 pointer-events-none",
                 dbUser.role === 'dealer'
                     ? "bg-[radial-gradient(circle_at_top_right,rgba(255,255,255,0.15),transparent_45%)]"
-                    : "bg-[radial-gradient(circle_at_top_right,hsl(var(--primary)/0.12),transparent_45%)]"
+                    : dbUser.role === 'customer'
+                        // The shared glow is --primary, which is blue; a blue wash
+                        // on a gold-accented white card fights the theme.
+                        ? "bg-[radial-gradient(circle_at_top_right,rgba(212,175,55,0.16),transparent_55%)]"
+                        : "bg-[radial-gradient(circle_at_top_right,hsl(var(--primary)/0.12),transparent_45%)]"
             )} />
             <div className="absolute top-0 right-0 -mt-10 -mr-10 opacity-10 pointer-events-none">
                 <Icon className={cn('w-40 h-40', accentClass)} />
@@ -130,16 +137,16 @@ export function RoleGreetingBox({ stats }: RoleGreetingBoxProps) {
                 <div className="flex flex-col gap-2 min-w-0">
                     <div className="flex items-center gap-2 min-w-0">
                         <Icon className={cn('w-5 h-5 sm:w-6 sm:h-6 shrink-0', accentClass)} />
-                        <h2 className={cn("text-xl sm:text-2xl font-black truncate", dbUser.role === 'dealer' || dbUser.role === 'agent' || dbUser.role === 'customer' ? "text-white" : "text-foreground")}>
+                        <h2 className={cn("text-xl sm:text-2xl font-black truncate", onDarkCard ? "text-white" : "text-foreground")}>
                             {getGreeting()}, {dbUser.first_name}!
                         </h2>
                     </div>
-                    <p className={cn("text-xs sm:text-sm pl-0.5", dbUser.role === 'dealer' || dbUser.role === 'agent' || dbUser.role === 'customer' ? "text-white/80" : "text-muted-foreground")}>
+                    <p className={cn("text-xs sm:text-sm pl-0.5", onDarkCard ? "text-white/80" : "text-muted-foreground")}>
                         Here is an overview of your transactions, shop performance, and recent activity.
                     </p>
                 </div>
-                <div className={cn("flex flex-row sm:flex-col items-start sm:items-end gap-2 sm:gap-0", dbUser.role === 'dealer' || dbUser.role === 'agent' || dbUser.role === 'customer' ? "text-white" : "text-foreground")}>
-                    <p className={cn("text-xs sm:text-sm font-semibold", dbUser.role === 'dealer' || dbUser.role === 'agent' || dbUser.role === 'customer' ? "text-white/80" : "text-muted-foreground")}>{dateStr}</p>
+                <div className={cn("flex flex-row sm:flex-col items-start sm:items-end gap-2 sm:gap-0", onDarkCard ? "text-white" : "text-foreground")}>
+                    <p className={cn("text-xs sm:text-sm font-semibold", onDarkCard ? "text-white/80" : "text-muted-foreground")}>{dateStr}</p>
                     <p className="text-sm sm:text-lg font-black">{timeStr}</p>
                 </div>
             </div>
@@ -225,7 +232,7 @@ export function RoleGreetingBox({ stats }: RoleGreetingBoxProps) {
                             <ShoppingCart className={cn("w-5 h-5 sm:w-6 sm:h-6 shrink-0", currentRole.greetingText)} />
                             <p className={cn("text-xs sm:text-sm font-semibold", currentRole.greetingText)}>Total Orders</p>
                         </div>
-                        <p className="text-sm sm:text-lg font-black text-white shrink-0">
+                        <p className={cn("text-sm sm:text-lg font-black shrink-0", onDarkCard ? "text-white" : "text-foreground")}>
                             {stats?.totalOrders || 0}
                         </p>
                     </div>
@@ -269,7 +276,7 @@ export function RoleGreetingBox({ stats }: RoleGreetingBoxProps) {
                             {dbUser.role === 'customer' ? 'Wallet Balance' : 'Member Since'}
                         </p>
                     </div>
-                    <p className="text-xs sm:text-sm md:text-lg font-black text-white shrink-0 text-right max-w-[50%] break-all">
+                    <p className={cn("text-xs sm:text-sm md:text-lg font-black shrink-0 text-right max-w-[50%] break-all", onDarkCard ? "text-white" : "text-foreground")}>
                         {dbUser.role === 'customer'
                             ? formatCurrency(stats?.walletBalance || 0)
                             : getTimeSinceJoined()
