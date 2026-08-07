@@ -509,26 +509,33 @@ export async function fetchSupplierBalance(): Promise<{
     }
 
     try {
-        // Connections to this supplier fail intermittently from serverless egress — which
-        // is why fulfillOrder retries network errors. Without the same treatment a single
-        // blip renders the admin card as "fetch failed". Retry with backoff, bound each
-        // attempt, and report the underlying cause code (ETIMEDOUT/ECONNRESET/...) so a
-        // persistent failure is diagnosable from the card itself.
+        // This host intermittently accepts the TCP connection and then never completes the
+        // TLS handshake — measured directly: a normal call is ~0.8s, but a run of requests
+        // will stall at tls=0.000 and hang. undici surfaces that as a bare "fetch failed",
+        // which is why fulfillOrder already retries network errors 3x. A single attempt
+        // here meant one blip blanked the admin card.
+        //
+        // Both endpoints below return `balance` (see the Agent Portal API reference:
+        // GET /api/wallet and GET /api/wallet/summary). The last attempt uses the summary
+        // route so a fault specific to one endpoint still yields a balance.
+        const endpoints = ['/api/wallet', '/api/wallet', '/api/wallet/summary']
         let response: Response | null = null
         let lastError: any = null
 
-        for (let attempt = 1; attempt <= 3; attempt++) {
+        for (let attempt = 0; attempt < endpoints.length; attempt++) {
             try {
-                response = await fetch(`${AGENTPORTAL_API_URL}/api/wallet`, {
+                response = await fetch(`${AGENTPORTAL_API_URL}${endpoints[attempt]}`, {
                     method: 'GET',
                     headers: { 'Accept': 'application/json', 'X-API-Key': AGENTPORTAL_API_KEY },
-                    signal: AbortSignal.timeout(10_000),
+                    // Bounded per attempt: a stalled handshake must fail fast enough to
+                    // leave room for the remaining attempts inside the route's budget.
+                    signal: AbortSignal.timeout(8_000),
                 })
                 break
             } catch (err: any) {
                 lastError = err
-                console.warn(`[AgentPortal Balance] Attempt ${attempt} failed: ${err?.message} (${err?.cause?.code || 'no cause'})`)
-                if (attempt < 3) await new Promise(res => setTimeout(res, 1000 * attempt))
+                console.warn(`[AgentPortal Balance] Attempt ${attempt + 1} (${endpoints[attempt]}) failed: ${err?.message} (${err?.cause?.code || err?.name || 'no cause'})`)
+                if (attempt < endpoints.length - 1) await new Promise(res => setTimeout(res, 500 * (attempt + 1)))
             }
         }
 

@@ -3,6 +3,12 @@ import { createRouteHandlerClient } from '@/lib/supabase-server'
 import { cookies } from 'next/headers'
 import { fetchSupplierBalance } from '@/lib/fulfillment-service'
 
+// Suppliers are polled in parallel, but a flaky one burns its retry budget before
+// answering (Agent Portal stalls TLS handshakes and retries up to 3 times, ~25s worst
+// case). The default function limit would cut the whole route off first, blanking every
+// card because of one slow supplier.
+export const maxDuration = 60
+
 const CACHE_DURATION = 300000 // 5 minutes in milliseconds
 
 type SupplierResult = { success: boolean; balance?: number; currency?: string; error?: string }
