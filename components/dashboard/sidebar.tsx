@@ -38,7 +38,6 @@ import {
     Download,
     Code2,
     CreditCard,
-    ShieldCheck,
     Loader2,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
@@ -52,7 +51,6 @@ const userNavItems = [
     { href: '/dashboard', label: 'Home', icon: LayoutDashboard },
     { href: '/dashboard/upgrade', label: 'Role Upgrade', icon: Crown },
     { href: '/dashboard/data-packages', label: 'Data Packages', icon: Package },
-    { href: '/dashboard/mtn-registration', label: 'MTN Registration Check', icon: ShieldCheck },
     { href: '/dashboard/results-checker', label: 'Results Checker', icon: Tag },
     { href: '/dashboard/afa-orders', label: 'AFA Application', icon: BadgeCheck },
     { href: '/dashboard/airtime', label: 'Buy Airtime', icon: Phone },
