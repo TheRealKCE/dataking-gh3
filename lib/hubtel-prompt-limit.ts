@@ -22,7 +22,7 @@
  * anyone locked out by the attempt-counting bug is released as soon as this ships.
  */
 import { Redis } from '@upstash/redis'
-import { normalizeMsisdn } from '@/lib/payment-otp'
+import { toHubtelMsisdn as normalizeMsisdn } from '@/lib/hubtel-payment-service'
 
 const redis = Redis.fromEnv()
 

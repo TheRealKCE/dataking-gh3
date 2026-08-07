@@ -1,25 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { processCompletedWalletPayment, processCompletedUpgradePayment, processCompletedDealerSubscription } from '@/lib/payments'
-import { recordTrustedUsage } from '@/lib/trusted-payment-numbers'
 import { logCallback } from '@/lib/hubtel-payment-log'
 import { Redis } from '@upstash/redis'
 
 const redis = Redis.fromEnv()
 
-/**
- * Bumps usage stats for the number that paid. Statistics only — trust was already
- * granted when the customer's code was accepted, so a failure here changes nothing
- * for them and must never affect the webhook's response.
- */
-async function trackPayer(payerMsisdn?: string | null): Promise<void> {
-    if (!payerMsisdn) return
-    try {
-        await recordTrustedUsage(payerMsisdn)
-    } catch (e) {
-        console.error('[HubtelWebhook] Could not record payer usage (non-fatal):', e)
-    }
-}
 
 /**
  * Hubtel Receive Money Callback Handler
@@ -100,7 +86,6 @@ export async function POST(request: NextRequest) {
             const { processShopOrder } = await import('@/lib/shop-order-processor')
             console.log('[HubtelWebhook] Routing shop order payment:', ClientReference)
             await processShopOrder(ClientReference, metadata, paidAmountKobo, metadata?.shop_slug)
-            await trackPayer(metadata?.payer_msisdn || metadata?.guest_phone)
             return NextResponse.json({ received: true })
         }
 
@@ -161,7 +146,6 @@ export async function POST(request: NextRequest) {
             const { processDataDirectOrder } = await import('@/lib/data-order-payments')
             console.log('[HubtelWebhook] Routing direct-pay data order:', ClientReference)
             await processDataDirectOrder(ClientReference)
-            await trackPayer(((payment as any).metadata || {}).payer_msisdn)
             return NextResponse.json({ received: true })
         }
 
@@ -202,8 +186,6 @@ export async function POST(request: NextRequest) {
             console.log('[HubtelWebhook] Routing wallet top-up payment:', ClientReference)
             await processCompletedWalletPayment(ClientReference, mappedEventData)
         }
-
-        await trackPayer(metadata.payer_msisdn)
 
         return NextResponse.json({ received: true })
     } catch (error) {

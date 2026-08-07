@@ -3,9 +3,7 @@ import { createRouteClient } from '@/lib/supabase-server'
 import { createClient } from '@supabase/supabase-js'
 import { calculatePaystackFee, generateReferenceCode } from '@/lib/utils'
 import { initiatePayment, MOOLRE_PAYMENT_CHANNEL_MAP } from '@/lib/moolre-payment-service'
-import { initiatePayment as hubtelInitiatePayment, HUBTEL_CHANNEL_MAP, calculateHubtelFee } from '@/lib/hubtel-payment-service'
-import { isPaymentPhoneVerified, consumePaymentPhoneVerification, normalizeMsisdn } from '@/lib/payment-otp'
-import { isTrustedPaymentNumber } from '@/lib/trusted-payment-numbers'
+import { initiatePayment as hubtelInitiatePayment, HUBTEL_CHANNEL_MAP, calculateHubtelFee, toHubtelMsisdn } from '@/lib/hubtel-payment-service'
 import { checkHubtelPromptLimit, recordHubtelPrompt } from '@/lib/hubtel-prompt-limit'
 
 // Build admin client safely — returns null with an error string if env vars are missing
@@ -265,45 +263,21 @@ export async function POST(request: NextRequest) {
 
         // ── Step 10b: HUBTEL ──────────────────────────────────────────────────
         if (provider === 'hubtel') {
-            // SECURITY — Hubtel requires a safeguard against unsolicited prompts. We implement BOTH:
-            //   Option 1: the registered profile number is used by default.
-            //   Option 2: to pay from a DIFFERENT number, that number must be confirmed via a
-            //             one-time SMS code (see /api/payments/otp/*) — ONCE. After that it is
-            //             permanently trusted and no further code is requested.
-            // The per-number prompt rate limit below applies on both paths and is what caps
-            // abuse of an already-trusted number.
+            // Use the phone number submitted by the user, falling back to the profile number.
             const { data: profileForPhone } = await (supabaseAdmin.from('users' as any))
                 .select('phone_number')
                 .eq('id', userId)
                 .single()
 
             const registeredPhone = (profileForPhone as any)?.phone_number
-            if (!registeredPhone) {
+            const submittedMsisdn = toHubtelMsisdn(phone || '')
+            const payerPhone = submittedMsisdn || registeredPhone
+
+            if (!payerPhone) {
                 return NextResponse.json(
-                    { error: 'No phone number found on your account. Please update your profile before paying with Hubtel.' },
+                    { error: 'No phone number found. Please enter a Mobile Money number.' },
                     { status: 400 }
                 )
-            }
-
-            const registeredMsisdn = normalizeMsisdn(registeredPhone)
-            const submittedMsisdn = normalizeMsisdn(phone || '')
-
-            let payerPhone = registeredPhone
-            if (submittedMsisdn && submittedMsisdn !== registeredMsisdn) {
-                if (!(await isTrustedPaymentNumber(submittedMsisdn))) {
-                    const verified = await isPaymentPhoneVerified(userId, submittedMsisdn)
-                    if (!verified) {
-                        return NextResponse.json(
-                            {
-                                error: 'Please verify this number with the code we send before paying from it.',
-                                code: 'OTP_REQUIRED',
-                            },
-                            { status: 403 }
-                        )
-                    }
-                    await consumePaymentPhoneVerification(userId, submittedMsisdn)
-                }
-                payerPhone = submittedMsisdn
             }
 
             // Applies to trusted numbers too — see lib/hubtel-prompt-limit.ts.
@@ -317,7 +291,7 @@ export async function POST(request: NextRequest) {
 
             // Record who actually pays, so the webhook can attribute usage stats.
             await (supabaseAdmin.from('wallet_payments' as any))
-                .update({ metadata: { user_id: userId, amount, fee, payer_msisdn: normalizeMsisdn(payerPhone) } })
+                .update({ metadata: { user_id: userId, amount, fee, payer_msisdn: toHubtelMsisdn(payerPhone) } })
                 .eq('id', paymentId)
 
             const hubtelChannel = HUBTEL_CHANNEL_MAP[network]
