@@ -3,6 +3,7 @@ import { createServerClient } from '@/lib/supabase'
 import { checkPaymentStatus } from '@/lib/hubtel-payment-service'
 import { processCompletedWalletPayment, processCompletedUpgradePayment, processCompletedDealerSubscription } from '@/lib/payments'
 import { logStatusCheck } from '@/lib/hubtel-payment-log'
+import { claimHubtelStatusCheck, CRON_THROTTLE_KEYS } from '@/lib/hubtel-status-throttle'
 
 /**
  * Reconciles Hubtel payments whose callback never arrived.
@@ -20,6 +21,33 @@ import { logStatusCheck } from '@/lib/hubtel-payment-log'
 const CALLBACK_GRACE_MINUTES = 5
 // Only give up on a payment well after any prompt could still be approved.
 const FAILURE_CUTOFF_MINUTES = 60
+// Stop sweeping a payment entirely once it is this old. The query below has to
+// have an upper bound: a row Hubtel keeps reporting as Pending (or that we can
+// never get a readable answer for) matches the filter forever, and at one run
+// every 5 minutes that is 288 metered proxy requests per day, per row, without
+// end. That single missing bound is what drains the quota while the site is idle.
+//
+// Rows past this point keep status='pending' rather than being guessed at — a
+// wrong 'failed' would deny a customer who was actually debited — and are counted
+// into `abandoned` below so they surface in the run log for manual settlement.
+const ABANDON_AFTER_MINUTES = 24 * 60
+// Ceiling on proxied status checks per payment, enforced by the throttle. With the
+// backoff below this reaches past FAILURE_CUTOFF_MINUTES, so a payment still gets
+// a verdict; it just cannot be re-asked indefinitely.
+const MAX_CRON_CHECKS = 6
+
+/**
+ * Widening gap between checks: 5, 10, 20, 40 minutes, then hourly.
+ *
+ * A pending payment is most likely to resolve right after it is created, so the
+ * early checks are cheap and close together; past that, re-asking often buys
+ * nothing but costs quota. Checks land near 5, 15, 35 and 75 minutes of age — the
+ * last comfortably past FAILURE_CUTOFF_MINUTES, which is what lets the give-up
+ * branch below run at all.
+ */
+function cronBackoffMs(_ageMs: number, checkCount: number): number {
+    return Math.min(60, 5 * Math.pow(2, checkCount)) * 60 * 1000
+}
 
 export async function GET(request: NextRequest) {
     const startTime = Date.now()
@@ -35,6 +63,8 @@ export async function GET(request: NextRequest) {
         credited: 0,
         failed: 0,
         stillPending: 0,
+        throttled: 0,
+        abandoned: 0,
         errors: [] as string[],
         totalTimeMs: 0,
     }
@@ -42,6 +72,17 @@ export async function GET(request: NextRequest) {
     try {
         const graceCutoff = new Date(Date.now() - CALLBACK_GRACE_MINUTES * 60 * 1000).toISOString()
         const failureCutoff = new Date(Date.now() - FAILURE_CUTOFF_MINUTES * 60 * 1000)
+        const abandonCutoff = new Date(Date.now() - ABANDON_AFTER_MINUTES * 60 * 1000).toISOString()
+
+        // Surfaced only so an operator can see rows the sweep has stopped touching.
+        // Counting them is free; checking them is not.
+        const { count: abandonedCount } = await (supabase
+            .from('wallet_payments') as any)
+            .select('id', { count: 'exact', head: true })
+            .eq('status', 'pending')
+            .eq('provider', 'hubtel')
+            .lt('created_at', abandonCutoff)
+        results.abandoned = abandonedCount || 0
 
         const { data: pendingPayments, error: fetchError } = await (supabase
             .from('wallet_payments') as any)
@@ -49,6 +90,12 @@ export async function GET(request: NextRequest) {
             .eq('status', 'pending')
             .eq('provider', 'hubtel')
             .lt('created_at', graceCutoff)
+            .gt('created_at', abandonCutoff)
+            // Oldest first. The 10-row cap is applied by the DB before the throttle
+            // runs, so without a deterministic order a batch of freshly-created rows
+            // (which the throttle will skip anyway) could crowd out an older payment
+            // that is due for the check that decides its verdict.
+            .order('created_at', { ascending: true })
             .limit(10)
 
         if (fetchError) {
@@ -56,8 +103,25 @@ export async function GET(request: NextRequest) {
             results.errors.push(`wallet_payments query: ${fetchError.message}`)
         } else if (pendingPayments && pendingPayments.length > 0) {
             const checkPromises = pendingPayments.map(async (payment: any) => {
-                results.checked++
                 try {
+                    // The sweep runs every 5 minutes, so without this every pending row
+                    // costs a metered proxy request every 5 minutes for as long as it
+                    // stays pending. Back off as the payment ages instead. Grace is 0
+                    // here: the query already excludes anything newer than
+                    // CALLBACK_GRACE_MINUTES, so the webhook has had its head start.
+                    const decision = await claimHubtelStatusCheck(supabase, payment, {
+                        graceMs: 0,
+                        interval: cronBackoffMs,
+                        maxChecks: MAX_CRON_CHECKS,
+                        keys: CRON_THROTTLE_KEYS,
+                    })
+
+                    if (!decision.allowed) {
+                        results.throttled++
+                        return
+                    }
+
+                    results.checked++
                     const statusResult = await checkPaymentStatus(payment.reference)
 
                     if (!statusResult.success || statusResult.status === null) {
