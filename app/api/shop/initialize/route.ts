@@ -350,7 +350,7 @@ export async function POST(request: NextRequest) {
                 clientReference: shopRef,
                 customerName: 'Guest Customer',
                 customerEmail: validatedGuestEmail || '',
-                description: `${shop.shop_name} — ${orderType === 'airtime' ? 'Airtime' : 'Data Bundle'}`,
+                description: `${shop.shop_name} - ${orderType === 'airtime' ? 'Airtime' : 'Data Bundle'}`,
             })
 
             if (!hubtelResponse.success) {

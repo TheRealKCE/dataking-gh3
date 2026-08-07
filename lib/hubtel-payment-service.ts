@@ -146,6 +146,37 @@ export function toHubtelMsisdn(phone: string): string {
 }
 
 /**
+ * Reduces free text to plain ASCII before it goes to Hubtel.
+ *
+ * Hubtel echoes Description and CustomerName back in its response body. Any
+ * multi-byte character in them breaks the framing of that response and undici
+ * aborts the read with `TypeError: terminated` — but only AFTER Hubtel has
+ * accepted the payment and pushed the prompt to the customer's handset. The
+ * caller sees a network error for a payment that is actually live.
+ *
+ * This is why the storefront failed on every single attempt while the main site
+ * never did: the storefront joined the shop name and the item with an em dash,
+ * and the main site's descriptions are plain ASCII. Shop names are supplied by
+ * customers, so an em dash is only the instance we happened to ship — emoji and
+ * accented letters would do the same. Stripping at the boundary is the fix that
+ * holds regardless of what a shop calls itself.
+ */
+export function toHubtelSafeText(value: string, fallback = ''): string {
+    const ascii = (value || '')
+        // Typographic punctuation first, so it degrades to something readable
+        // rather than being dropped outright by the ASCII filter below.
+        .replace(/[‐-―−]/g, '-')  // dashes, incl. the em dash
+        .replace(/[‘’‛]/g, "'")   // curly single quotes
+        .replace(/[“”]/g, '"')         // curly double quotes
+        .replace(/…/g, '...')               // ellipsis
+        .normalize('NFKD')                       // accented letter -> letter + mark
+        .replace(/[^\x20-\x7E]/g, '')            // drop everything still non-ASCII
+        .replace(/\s+/g, ' ')
+        .trim()
+    return ascii || fallback
+}
+
+/**
  * Turns a thrown fetch error into something a customer can act on, while logging
  * the real cause for us.
  *
@@ -218,21 +249,28 @@ function logIdentity(params: HubtelInitiateParams, payload: { CustomerMsisdn: st
  * ResponseCode '0001' = pending (prompt sent successfully).
  */
 export async function initiatePayment(params: HubtelInitiateParams): Promise<HubtelInitiateResult> {
+    // Kept outside the try so the failure log can show exactly what we sent —
+    // the payload is what identified the bad Description in the first place.
+    let payloadForLog: Record<string, unknown> | null = null
+
     try {
         const account = getCollectionAccount()
         const authHeader = getAuthHeader()
         const callbackUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/hubtel`
 
         const payload = {
-            CustomerName: params.customerName || '',
+            // Both of these are echoed back by Hubtel — see toHubtelSafeText.
+            CustomerName: toHubtelSafeText(params.customerName || ''),
             CustomerMsisdn: toHubtelMsisdn(params.payerPhone),
             CustomerEmail: params.customerEmail || '',
             Channel: params.channel,
             Amount: parseFloat(params.amount.toFixed(2)),
             PrimaryCallbackUrl: callbackUrl,
-            Description: params.description || 'ARHMS Payment',
+            Description: toHubtelSafeText(params.description || '', 'ARHMS Payment'),
             ClientReference: params.clientReference,
         }
+
+        payloadForLog = payload
 
         console.log('[HubtelPayment] Initiating payment:', {
             account,
@@ -326,7 +364,15 @@ export async function initiatePayment(params: HubtelInitiateParams): Promise<Hub
             customerName: params.customerName ?? null,
             userId: params.userId ?? null,
             message: error,
-            raw: { error: String(err?.message || err) },
+            // err.message alone is useless here — undici reports every transport
+            // problem as a bare "fetch failed" or "terminated". The cause is what
+            // distinguishes a dead proxy from a broken response body.
+            raw: {
+                error: String(err?.message || err),
+                code: err?.cause?.code ?? err?.code ?? null,
+                cause: String(err?.cause?.message ?? err?.cause ?? ''),
+                request: payloadForLog,
+            },
         })
         return { success: false, error }
     }
