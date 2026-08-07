@@ -131,10 +131,7 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({ error: 'Airtime purchase is disabled' }, { status: 503 })
             }
             if (isMashup && settings.storefront_mashup_enabled !== 'true') {
-                return NextResponse.json({ error: 'MTN Mashup bundles are not currently available' }, { status: 503 })
-            }
-            if (isMashup && network !== 'MTN') {
-                return NextResponse.json({ error: 'Mashup bundles are only available on MTN' }, { status: 400 })
+                return NextResponse.json({ error: 'Mashup bundles are not currently available' }, { status: 503 })
             }
             if (settings[`airtime_enabled_${network.toLowerCase()}`] === 'false') {
                 return NextResponse.json({ error: `${network} airtime is disabled` }, { status: 503 })
