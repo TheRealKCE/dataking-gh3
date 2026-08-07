@@ -504,6 +504,10 @@ export async function fetchSupplierBalance(): Promise<{
     currency?: string
     error?: string
 }> {
+    if (!AGENTPORTAL_API_KEY) {
+        return { success: false, error: 'AGENTPORTAL_API_KEY not configured' }
+    }
+
     try {
         const response = await fetch(`${AGENTPORTAL_API_URL}/api/wallet`, {
             method: 'GET',
