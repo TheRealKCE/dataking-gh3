@@ -3,8 +3,6 @@ import { createServerClient } from '@/lib/supabase'
 import { Redis } from '@upstash/redis'
 import { initiatePayment, MOOLRE_PAYMENT_CHANNEL_MAP } from '@/lib/moolre-payment-service'
 import { initiatePayment as hubtelInitiatePayment, HUBTEL_CHANNEL_MAP } from '@/lib/hubtel-payment-service'
-import { isGuestPhoneVerified, consumeGuestPhoneVerification } from '@/lib/guest-payment-otp'
-import { isTrustedPaymentNumber } from '@/lib/trusted-payment-numbers'
 import { checkHubtelPromptLimit, recordHubtelPrompt } from '@/lib/hubtel-prompt-limit'
 
 let redis: Redis | null = null
@@ -68,26 +66,10 @@ export async function POST(request: NextRequest) {
                 : configuredProvider === 'hubtel' ? 'hubtel'
                     : 'moolre'
 
-        // SECURITY: Hubtel forbids unsolicited prompts. A guest number must be confirmed
-        // by SMS code the FIRST time it pays; after that it is trusted permanently.
-        // Checked up front — before an order row is written — so a customer who still
-        // needs to verify does not leave a pending order behind.
+        // No SMS verification on the storefront: guests are prompted straight away.
+        // The per-number prompt limit is the only throttle, and it is checked up front —
+        // before an order row is written — so a throttled customer leaves no pending order.
         if (provider === 'hubtel' && !existingRef) {
-            if (!(await isTrustedPaymentNumber(cleanPhone))) {
-                const verified = await isGuestPhoneVerified(cleanPhone)
-                if (!verified) {
-                    return NextResponse.json(
-                        {
-                            error: 'Please verify this number with the code we send before paying from it.',
-                            code: 'OTP_REQUIRED',
-                        },
-                        { status: 403 }
-                    )
-                }
-                await consumeGuestPhoneVerification(cleanPhone)
-            }
-
-            // Applies to trusted numbers too — see lib/hubtel-prompt-limit.ts.
             const promptLimit = await checkHubtelPromptLimit(cleanPhone)
             if (!promptLimit.allowed) {
                 return NextResponse.json({ error: promptLimit.error }, { status: 429 })
