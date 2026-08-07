@@ -17,7 +17,20 @@ const supabaseAdmin = createClient(
     }
 )
 
+// Orders are refulfilled one at a time, and each one waits on a supplier HTTP call.
+// With the default limit a handful of slow orders runs past it and the function is
+// killed mid-loop — the admin sees no response at all, and whichever order held the
+// lock is stranded in 'processing'.
+export const maxDuration = 60
+
+// Stop starting new orders once this much of the budget is gone, so the route always
+// gets to return its counts. An order already in flight still needs its supplier call
+// to finish: a fully stalled supplier takes ~31s to exhaust its own retry budget
+// (measured), so 25s here keeps the worst case (~56s) inside maxDuration.
+const REFULFILL_TIME_BUDGET_MS = 25_000
+
 export async function POST(request: Request) {
+    const startedAt = Date.now()
     try {
         const supabase = await createRouteHandlerClient()
         const { data: { user: authUser } } = await supabase.auth.getUser()
@@ -87,6 +100,7 @@ export async function POST(request: Request) {
         let fulfilled = 0
         let skipped = 0
         let failed = 0
+        let remaining = 0
 
         const { sendAdminNewOrderAlert } = await import('@/lib/email-service')
         const { fulfillOrder: ccFulfillOrder } = await import('@/lib/codecraft-service')
@@ -97,6 +111,15 @@ export async function POST(request: Request) {
 
         // Process each pending order safely
         for (const order of pendingOrders) {
+            // Out of budget: leave the rest untouched (still 'pending', so a later run
+            // picks them up) and return what we managed, rather than being killed with
+            // no response at all.
+            if (Date.now() - startedAt > REFULFILL_TIME_BUDGET_MS) {
+                remaining = pendingOrders.length - (fulfilled + skipped + failed)
+                console.warn(`[ManualRefulfill] Time budget exhausted — stopping with ${remaining} order(s) left for the next run.`)
+                break
+            }
+
             const isDataKazinaEnabled = networkSettings[order.network] === true
             const isCodeCraftEnabled = codecraftNetworkSettings[order.network] === true
             const isKingFlexyEnabled = kingflexyNetworkSettings[order.network] === true
@@ -290,7 +313,8 @@ export async function POST(request: Request) {
             count: pendingOrders.length,
             fulfilled,
             skipped,
-            failed
+            failed,
+            remaining
         })
     } catch (error: any) {
         console.error('[ManualRefulfill] Route Error:', error)
