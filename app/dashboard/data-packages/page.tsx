@@ -44,6 +44,7 @@ import {
     CloudUpload,
     ExternalLink,
     ShieldCheck,
+    Smartphone,
     Receipt,
     Wallet,
     CreditCard
@@ -53,6 +54,31 @@ import { toast } from 'sonner'
 import { DataPackage } from '@/types/supabase'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Trash2, Upload } from 'lucide-react'
+// Colours for the checkout sheet's package banner, matching the storefront sheet.
+const getNetworkSheetStyle = (net: string) => {
+    switch (net) {
+        case 'Telecel':
+            return { bg: 'bg-[#da291c]', text: 'text-white', iconBg: 'bg-white/20' }
+        case 'AT-iShare':
+            return { bg: 'bg-[#2463eb]', text: 'text-white', iconBg: 'bg-white/20' }
+        case 'AT-BigTime':
+            return { bg: 'bg-[#8b5cf6]', text: 'text-white', iconBg: 'bg-white/20' }
+        case 'MTN':
+        case 'Special MTN Mashup':
+        case 'EXPRESS MTN':
+            return { bg: 'bg-[#FFCC00]', text: 'text-black', iconBg: 'bg-white/30' }
+        default:
+            return { bg: 'bg-primary', text: 'text-primary-foreground', iconBg: 'bg-white/20' }
+    }
+}
+
+// MoMo wallets that can be charged — not the bundle's network
+const PAY_NETWORKS: { id: string; label: string; dot: string }[] = [
+    { id: 'MTN', label: 'MTN', dot: 'bg-[#FFCC00]' },
+    { id: 'Telecel', label: 'Telecel', dot: 'bg-[#da291c]' },
+    { id: 'AT', label: 'AirtelTigo', dot: 'bg-[#2463eb]' },
+]
+
 interface ValidationResult {
     lineNumber: number
     phoneNumber: string
@@ -117,6 +143,12 @@ export default function DataPackagesPage() {
     const [paystackFeePercent, setPaystackFeePercent] = useState(1.95)
     const [momoPhone, setMomoPhone] = useState('')
     const [momoNetwork, setMomoNetwork] = useState('')
+    // Single checkout only: the bundle goes to `phoneNumber`, the MoMo prompt goes to
+    // `momoPhone`. They are the same number unless the buyer unticks the box (someone
+    // else is paying). The bulk checkout keeps using `momoPhone` on its own.
+    const [payWithSameNumber, setPayWithSameNumber] = useState(true)
+    const [singleMomoNetwork, setSingleMomoNetwork] = useState('')
+    const [momoNetworkManual, setMomoNetworkManual] = useState(false)
 
     // Direct payment flow state
     const [pollingRef, setPollingRef] = useState<string | null>(null)
@@ -399,6 +431,17 @@ export default function DataPackagesPage() {
     const selectedFee = paymentMethod === 'direct' ? computeGatewayFee(selectedPrice) : 0
     const selectedTotal = selectedPrice + selectedFee
 
+    // The number that actually gets charged in the single checkout
+    const effectiveMomoPhone = (payWithSameNumber ? phoneNumber : momoPhone).replace(/\s+/g, '')
+
+    // Follow the paying number until the buyer picks a network themselves.
+    // detectNetwork returns the bundle-style name; the gateway wants 'AT' for AirtelTigo.
+    useEffect(() => {
+        if (momoNetworkManual) return
+        const detected = detectNetwork(effectiveMomoPhone)
+        setSingleMomoNetwork(detected === 'AirtelTigo' ? 'AT' : detected || '')
+    }, [effectiveMomoPhone, momoNetworkManual])
+
     const handlePurchaseClick = (pkg: DataPackage) => {
         setSelectedPackage(pkg)
         setPhoneNumber('')
@@ -408,6 +451,9 @@ export default function DataPackagesPage() {
         setOtpRequired(false)
         setOtpCode('')
         setDirectPaymentRef(null)
+        // Fresh sheet: pay from the beneficiary's own number and re-detect the network
+        setPayWithSameNumber(true)
+        setMomoNetworkManual(false)
         // Default to whichever method can actually complete right now
         setPaymentMethod(walletBalance >= getEffectivePrice(pkg) ? 'wallet' : 'direct')
         // Generate a fresh idempotency key each time the modal opens
@@ -525,11 +571,11 @@ export default function DataPackagesPage() {
     const handleDirectPurchase = async (recipientNumber: string) => {
         if (!selectedPackage) return
 
-        if (needsMomoDetails && !momoNetwork) {
+        if (needsMomoDetails && !singleMomoNetwork) {
             toast.error('Please select the Mobile Money network to pay from')
             return
         }
-        if (needsMomoDetails && !momoPhone) {
+        if (needsMomoDetails && !effectiveMomoPhone) {
             toast.error('Please enter the Mobile Money number to charge')
             return
         }
@@ -544,8 +590,8 @@ export default function DataPackagesPage() {
                 body: JSON.stringify({
                     packageId: selectedPackage.id,
                     phoneNumber: recipientNumber,
-                    momoPhone,
-                    momoNetwork,
+                    momoPhone: effectiveMomoPhone,
+                    momoNetwork: singleMomoNetwork,
                 }),
             })
 
@@ -554,7 +600,7 @@ export default function DataPackagesPage() {
             // First-ever payment from this number — verify it once, then retry.
             if (res.status === 403 && data.code === 'OTP_REQUIRED') {
                 setIsPurchasing(false)
-                openPayVerification(momoPhone, () => handleDirectPurchase(recipientNumber))
+                openPayVerification(effectiveMomoPhone, () => handleDirectPurchase(recipientNumber))
                 return
             }
 
@@ -600,8 +646,8 @@ export default function DataPackagesPage() {
                 body: JSON.stringify({
                     packageId: selectedPackage.id,
                     phoneNumber: validation.normalizedNumber,
-                    momoPhone,
-                    momoNetwork,
+                    momoPhone: effectiveMomoPhone,
+                    momoNetwork: singleMomoNetwork,
                     otpCode: otpCode.trim(),
                     reference: directPaymentRef,
                 }),
@@ -1590,17 +1636,41 @@ export default function DataPackagesPage() {
                 </TabsContent>
             </Tabs>
 
-            {/* Purchase Dialog */}
-            <Dialog open={!!selectedPackage} onOpenChange={() => { if (!pollingRef) setSelectedPackage(null) }}>
-                <DialogContent className="w-[95%] max-w-sm sm:max-w-md rounded-2xl p-4 sm:p-6">
+            {/* Purchase sheet */}
+            {selectedPackage && (() => {
+                const sheetStyle = getNetworkSheetStyle(selectedPackage.network)
+                const closeSheet = () => { if (!pollingRef) setSelectedPackage(null) }
+                return (
+                <div className="fixed inset-0 z-[70] flex items-end justify-center">
+                    <div
+                        className="absolute inset-0 bg-black/50 backdrop-blur-[2px] animate-in fade-in duration-200"
+                        onClick={closeSheet}
+                    />
+                    <div
+                        role="dialog"
+                        aria-modal="true"
+                        className="relative w-full sm:max-w-lg bg-white dark:bg-gray-900 rounded-t-[28px] sm:rounded-b-[28px] sm:mb-6 shadow-2xl max-h-[92vh] overflow-y-auto animate-in slide-in-from-bottom duration-300"
+                    >
+                        <div className="sticky top-0 z-10 bg-white dark:bg-gray-900 pt-3 pb-1 rounded-t-[28px]">
+                            <div className="mx-auto w-10 h-1.5 rounded-full bg-gray-200 dark:bg-gray-700" />
+                            <button
+                                onClick={closeSheet}
+                                aria-label="Close checkout"
+                                disabled={!!pollingRef}
+                                className="absolute top-2 right-4 w-9 h-9 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center text-gray-500 hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors disabled:opacity-40"
+                            >
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+
                     {purchaseSuccess ? (
-                        <div className="py-4 space-y-5">
+                        <div className="px-5 pb-8 pt-3 space-y-5">
                             {/* Success Icon */}
                             <div className="flex flex-col items-center gap-2">
                                 <div className="w-14 h-14 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center">
                                     <CheckCircle2 className="w-7 h-7 text-green-600" />
                                 </div>
-                                <DialogTitle className="text-lg font-black">Order Placed!</DialogTitle>
+                                <h2 className="text-lg font-black">Order Placed!</h2>
                                 <p className="text-xs text-muted-foreground text-center">Your data bundle is being processed</p>
                             </div>
 
@@ -1645,206 +1715,238 @@ export default function DataPackagesPage() {
                             </div>
                         </div>
                     ) : (
-                        <>
-                            <DialogHeader>
-                                <DialogTitle className="flex items-center gap-2">
-                                    <span className="flex items-center justify-center">
-                                        <NetworkIcon network={selectedPackage?.network || ''} size={32} />
-                                    </span>
-                                    Buy {selectedPackage?.size}
-                                </DialogTitle>
-                                <DialogDescription>
-                                    Enter the phone number to receive the data bundle
-                                </DialogDescription>
-                            </DialogHeader>
-
-                            <div className="space-y-4 py-4">
-                                <div className="p-4 rounded-xl bg-muted/50">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <span className="text-sm text-muted-foreground">Package</span>
-                                        <Badge>{selectedPackage?.network}</Badge>
+                        <div className="px-5 pb-8 pt-3 space-y-5">
+                            {/* Selected package banner */}
+                            <div className={cn('rounded-2xl px-4 py-4 flex items-center justify-between gap-3', sheetStyle.bg, sheetStyle.text)}>
+                                <div className="flex items-center gap-3 min-w-0">
+                                    <div className={cn('w-10 h-10 rounded-full flex items-center justify-center shrink-0', sheetStyle.iconBg)}>
+                                        <NetworkIcon network={selectedPackage.network} size={24} />
                                     </div>
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-lg font-semibold">{selectedPackage?.size}</span>
-                                        <span className="text-lg font-bold text-primary">
-                                            {selectedPackage && formatCurrency(getEffectivePrice(selectedPackage))}
-                                        </span>
-                                    </div>
+                                    <p className="text-lg font-black tracking-tight truncate">
+                                        {selectedPackage.network} · {selectedPackage.size}
+                                    </p>
                                 </div>
+                                <p className="text-lg font-black tracking-tight shrink-0">{formatCurrency(selectedTotal)}</p>
+                            </div>
 
-                                <div className="space-y-2">
-                                    <Label htmlFor="phone">Phone Number</Label>
-                                    <Input
-                                        id="phone"
-                                        type="tel"
-                                        placeholder="0241234567"
-                                        value={phoneNumber}
-                                        onChange={(e) => handlePhoneChange(e.target.value)}
-                                        className={phoneError ? 'border-red-500' : ''}
-                                    />
-                                    {phoneError && (
-                                        <p className="text-sm text-red-500 flex items-center gap-1">
-                                            <AlertCircle className="w-4 h-4" />
-                                            {phoneError}
-                                        </p>
+                            {/* How to pay */}
+                            <div className="grid grid-cols-2 gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => setPaymentMethod('wallet')}
+                                    className={cn(
+                                        'p-3 rounded-2xl border flex items-center gap-2 transition-colors text-left',
+                                        paymentMethod === 'wallet' ? 'border-gray-900 dark:border-white bg-gray-50 dark:bg-gray-800 shadow-sm' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
                                     )}
-                                </div>
-
-                                {/* Payment Method — Wallet or Direct Pay */}
-                                <div className="space-y-2">
-                                    <Label>Payment Method</Label>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <button
-                                            type="button"
-                                            onClick={() => setPaymentMethod('wallet')}
-                                            className={cn(
-                                                'p-3 rounded-xl border flex items-center gap-2 transition-colors text-left',
-                                                paymentMethod === 'wallet' ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'hover:bg-muted/50'
-                                            )}
-                                        >
-                                            <Wallet className="w-5 h-5 text-primary shrink-0" />
-                                            <div className="min-w-0">
-                                                <div className="font-semibold text-sm">Wallet</div>
-                                                <div className="text-xs text-muted-foreground truncate">{formatCurrency(walletBalance)} available</div>
-                                            </div>
-                                        </button>
-                                        <button
-                                            type="button"
-                                            onClick={() => setPaymentMethod('direct')}
-                                            className={cn(
-                                                'p-3 rounded-xl border flex items-center gap-2 transition-colors text-left',
-                                                paymentMethod === 'direct' ? 'border-primary bg-primary/5 ring-1 ring-primary' : 'hover:bg-muted/50'
-                                            )}
-                                        >
-                                            <CreditCard className="w-5 h-5 text-blue-500 shrink-0" />
-                                            <div className="min-w-0">
-                                                <div className="font-semibold text-sm">Direct Pay</div>
-                                                <div className="text-xs text-muted-foreground truncate">MoMo or Card</div>
-                                            </div>
-                                        </button>
+                                >
+                                    <Wallet className="w-5 h-5 text-primary shrink-0" />
+                                    <div className="min-w-0">
+                                        <div className="font-bold text-sm">Wallet</div>
+                                        <div className="text-xs text-muted-foreground truncate">{formatCurrency(walletBalance)} available</div>
                                     </div>
-                                </div>
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => setPaymentMethod('direct')}
+                                    className={cn(
+                                        'p-3 rounded-2xl border flex items-center gap-2 transition-colors text-left',
+                                        paymentMethod === 'direct' ? 'border-gray-900 dark:border-white bg-gray-50 dark:bg-gray-800 shadow-sm' : 'border-gray-200 dark:border-gray-700 hover:border-gray-300'
+                                    )}
+                                >
+                                    <CreditCard className="w-5 h-5 text-blue-500 shrink-0" />
+                                    <div className="min-w-0">
+                                        <div className="font-bold text-sm">Direct Pay</div>
+                                        <div className="text-xs text-muted-foreground truncate">MoMo or Card</div>
+                                    </div>
+                                </button>
+                            </div>
 
-                                {/* MoMo details for Direct Pay */}
-                                {paymentMethod === 'direct' && needsMomoDetails && (
-                                    <div className="space-y-3 animate-in fade-in slide-in-from-top-2">
+                            {/* Beneficiary */}
+                            <div className="space-y-2">
+                                <Label htmlFor="phone" className="text-sm font-black text-gray-900 dark:text-gray-100">
+                                    Beneficiary number <span className="font-semibold text-gray-400">(gets the data)</span>
+                                </Label>
+                                <input
+                                    id="phone"
+                                    type="tel"
+                                    inputMode="numeric"
+                                    placeholder="0241234567"
+                                    value={phoneNumber}
+                                    onChange={(e) => handlePhoneChange(e.target.value)}
+                                    className={cn(
+                                        'w-full px-4 py-3.5 rounded-full border bg-white dark:bg-gray-800 text-base font-semibold focus:outline-none focus:ring-2 ring-primary transition-all',
+                                        phoneError ? 'border-red-500' : 'border-gray-200 dark:border-gray-700'
+                                    )}
+                                />
+                                {phoneError && (
+                                    <p className="text-sm text-red-500 flex items-center gap-1">
+                                        <AlertCircle className="w-4 h-4" />
+                                        {phoneError}
+                                    </p>
+                                )}
+                            </div>
+
+                            {/* MoMo details — direct payment only */}
+                            {paymentMethod === 'direct' && needsMomoDetails && (
+                                <>
+                                    <button
+                                        type="button"
+                                        onClick={() => setPayWithSameNumber(!payWithSameNumber)}
+                                        className="flex items-center gap-3 w-full text-left"
+                                    >
+                                        <span className={cn(
+                                            'w-6 h-6 rounded-md border-2 flex items-center justify-center shrink-0 transition-all',
+                                            payWithSameNumber ? 'bg-gray-900 dark:bg-white border-gray-900 dark:border-white text-white dark:text-gray-900' : 'border-gray-300 dark:border-gray-600'
+                                        )}>
+                                            {payWithSameNumber && <Check className="w-4 h-4 stroke-[3px]" />}
+                                        </span>
+                                        <span className="text-[15px] font-semibold text-gray-500 dark:text-gray-400">
+                                            Use this number for Mobile Money payment
+                                        </span>
+                                    </button>
+
+                                    {!payWithSameNumber && (
                                         <div className="space-y-2">
-                                            <Label htmlFor="momo-phone">Mobile Money Number</Label>
-                                            <Input
+                                            <Label htmlFor="momo-phone" className="text-sm font-black text-gray-900 dark:text-gray-100">
+                                                Mobile Money number <span className="font-semibold text-gray-400">(to pay)</span>
+                                            </Label>
+                                            <input
                                                 id="momo-phone"
                                                 type="tel"
+                                                inputMode="numeric"
                                                 placeholder="0241234567"
                                                 value={momoPhone}
                                                 onChange={(e) => setMomoPhone(e.target.value)}
+                                                className="w-full px-4 py-3.5 rounded-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-base font-semibold focus:outline-none focus:ring-2 ring-primary transition-all"
                                             />
-                                            <p className="text-xs text-muted-foreground">The number to charge — this can differ from the recipient above.</p>
                                         </div>
-                                        <div className="space-y-2">
-                                            <Label>Mobile Money Network</Label>
-                                            <Select value={momoNetwork} onValueChange={setMomoNetwork}>
-                                                <SelectTrigger>
-                                                    <SelectValue placeholder="Select Network" />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    <SelectItem value="MTN">MTN MoMo</SelectItem>
-                                                    <SelectItem value="Telecel">Telecel Cash</SelectItem>
-                                                    <SelectItem value="AT">AT Money</SelectItem>
-                                                </SelectContent>
-                                            </Select>
+                                    )}
+
+                                    <div className="space-y-2">
+                                        <Label className="text-sm font-black text-gray-900 dark:text-gray-100">Network</Label>
+                                        <div className="grid grid-cols-3 gap-2">
+                                            {PAY_NETWORKS.map(({ id, label, dot }) => (
+                                                <button
+                                                    key={id}
+                                                    type="button"
+                                                    onClick={() => { setSingleMomoNetwork(id); setMomoNetworkManual(true) }}
+                                                    className={cn(
+                                                        'flex items-center justify-center gap-2 py-3 rounded-2xl border text-sm font-bold transition-all',
+                                                        singleMomoNetwork === id
+                                                            ? 'border-gray-900 dark:border-white bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
+                                                            : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-gray-300'
+                                                    )}
+                                                >
+                                                    <span className={cn('w-2.5 h-2.5 rounded-full shrink-0', dot)} />
+                                                    {label}
+                                                </button>
+                                            ))}
                                         </div>
                                     </div>
-                                )}
+                                </>
+                            )}
 
-                                {/* Fee breakdown for Direct Pay */}
-                                {paymentMethod === 'direct' && selectedFee > 0 && (
-                                    <div className="rounded-xl bg-muted/50 p-3 space-y-1 text-sm">
-                                        <div className="flex justify-between">
-                                            <span className="text-muted-foreground">Package</span>
-                                            <span>{formatCurrency(selectedPrice)}</span>
-                                        </div>
-                                        <div className="flex justify-between">
-                                            <span className="text-muted-foreground">Transaction fee</span>
-                                            <span>{formatCurrency(selectedFee)}</span>
-                                        </div>
-                                        <div className="flex justify-between border-t border-border/50 pt-1 font-bold">
-                                            <span>Total</span>
-                                            <span className="text-primary">{formatCurrency(selectedTotal)}</span>
-                                        </div>
+                            {/* Fee breakdown for Direct Pay */}
+                            {paymentMethod === 'direct' && selectedFee > 0 && (
+                                <div className="rounded-2xl bg-muted/50 p-3 space-y-1 text-sm">
+                                    <div className="flex justify-between">
+                                        <span className="text-muted-foreground">Package</span>
+                                        <span>{formatCurrency(selectedPrice)}</span>
                                     </div>
-                                )}
-
-                                {paymentMethod === 'wallet' && walletBalance < selectedPrice && (
-                                    <Alert variant="destructive">
-                                        <AlertCircle className="w-4 h-4" />
-                                        <AlertDescription className="flex flex-wrap items-center gap-x-1">
-                                            Insufficient balance.
-                                            <button
-                                                type="button"
-                                                className="underline font-semibold"
-                                                onClick={() => setPaymentMethod('direct')}
-                                            >
-                                                Pay directly instead
-                                            </button>
-                                            or top up your wallet.
-                                        </AlertDescription>
-                                    </Alert>
-                                )}
-
-                                <div className="text-sm text-muted-foreground">
-                                    Wallet Balance: <span className="font-medium text-foreground">{formatCurrency(walletBalance)}</span>
+                                    <div className="flex justify-between">
+                                        <span className="text-muted-foreground">Transaction fee</span>
+                                        <span>{formatCurrency(selectedFee)}</span>
+                                    </div>
+                                    <div className="flex justify-between border-t border-border/50 pt-1 font-bold">
+                                        <span>Total</span>
+                                        <span className="text-primary">{formatCurrency(selectedTotal)}</span>
+                                    </div>
                                 </div>
-                            </div>
+                            )}
+
+                            {paymentMethod === 'wallet' && walletBalance < selectedPrice && (
+                                <Alert variant="destructive">
+                                    <AlertCircle className="w-4 h-4" />
+                                    <AlertDescription className="flex flex-wrap items-center gap-x-1">
+                                        Insufficient balance.
+                                        <button
+                                            type="button"
+                                            className="underline font-semibold"
+                                            onClick={() => setPaymentMethod('direct')}
+                                        >
+                                            Pay directly instead
+                                        </button>
+                                        or top up your wallet.
+                                    </AlertDescription>
+                                </Alert>
+                            )}
 
                             {/* Say WHY Pay is disabled. A greyed-out button with no
                                 explanation reads as a broken page — most often the
-                                recipient number is simply still empty, and the field's
+                                beneficiary number is simply still empty, and the field's
                                 placeholder is a realistic Ghana number that looks like
                                 a filled-in value. */}
                             {!isPurchasing && !pollingRef && (() => {
                                 let reason: string | null = null
-                                if (!phoneNumber) reason = 'Enter the recipient phone number to continue.'
+                                if (!phoneNumber) reason = 'Enter the beneficiary number to continue.'
                                 else if (phoneError) reason = null // already shown in red under the field
                                 else if (paymentMethod === 'wallet' && walletBalance < selectedPrice)
                                     reason = 'Your wallet balance is too low for this package.'
-                                else if (paymentMethod === 'direct' && needsMomoDetails && !momoPhone)
+                                else if (paymentMethod === 'direct' && needsMomoDetails && !effectiveMomoPhone)
                                     reason = 'Enter the Mobile Money number to charge.'
-                                else if (paymentMethod === 'direct' && needsMomoDetails && !momoNetwork)
+                                else if (paymentMethod === 'direct' && needsMomoDetails && !singleMomoNetwork)
                                     reason = 'Select the Mobile Money network.'
                                 return reason ? (
-                                    <p className="text-sm text-muted-foreground text-center pb-1">{reason}</p>
+                                    <p className="text-sm text-muted-foreground text-center">{reason}</p>
                                 ) : null
                             })()}
 
-                            <DialogFooter>
-                                <Button variant="outline" onClick={() => setSelectedPackage(null)} disabled={!!pollingRef}>
-                                    Cancel
-                                </Button>
-                                <Button
-                                    onClick={handlePurchase}
-                                    // Deliberately NOT disabled on a missing recipient
-                                    // number — handlePurchase scrolls to the field and
-                                    // explains instead, so the click always does something.
-                                    disabled={
-                                        isPurchasing ||
-                                        !!pollingRef ||
-                                        !!phoneError ||
-                                        (paymentMethod === 'wallet' && walletBalance < selectedPrice)
-                                    }
-                                >
-                                    {isPurchasing || pollingRef ? (
-                                        <>
-                                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                            {pollingRef ? 'Waiting for approval...' : 'Processing...'}
-                                        </>
-                                    ) : (
-                                        `Pay ${formatCurrency(selectedTotal)}`
-                                    )}
-                                </Button>
-                            </DialogFooter>
-                        </>
+                            <button
+                                onClick={handlePurchase}
+                                // Deliberately NOT disabled on a missing beneficiary
+                                // number — handlePurchase scrolls to the field and
+                                // explains instead, so the click always does something.
+                                disabled={
+                                    isPurchasing ||
+                                    !!pollingRef ||
+                                    !!phoneError ||
+                                    (paymentMethod === 'wallet' && walletBalance < selectedPrice)
+                                }
+                                className="w-full py-4 rounded-full bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:hover:bg-green-600 text-white text-base font-black flex items-center justify-center gap-2 transition-colors"
+                            >
+                                {isPurchasing || pollingRef ? (
+                                    <>
+                                        <Loader2 className="w-5 h-5 animate-spin" />
+                                        {pollingRef ? 'Waiting for approval...' : 'Processing...'}
+                                    </>
+                                ) : paymentMethod === 'wallet' ? (
+                                    <>
+                                        <Wallet className="w-5 h-5" />
+                                        Pay {formatCurrency(selectedTotal)} from wallet
+                                    </>
+                                ) : (
+                                    <>
+                                        <Smartphone className="w-5 h-5" />
+                                        Proceed to payment
+                                    </>
+                                )}
+                            </button>
+
+                            {paymentMethod === 'direct' ? (
+                                <p className="text-xs text-center text-muted-foreground">
+                                    A small payment fee applies. Confirm the exact total on your phone.
+                                </p>
+                            ) : (
+                                <p className="text-xs text-center text-muted-foreground">
+                                    Wallet Balance: <span className="font-semibold text-foreground">{formatCurrency(walletBalance)}</span>
+                                </p>
+                            )}
+                        </div>
                     )}
-                </DialogContent>
-            </Dialog>
+                    </div>
+                </div>
+                )
+            })()}
 
             {/* One-time verification of the paying number (first payment only) */}
             <PaymentOtpDialog
@@ -1860,7 +1962,7 @@ export default function DataPackagesPage() {
                     <DialogHeader>
                         <DialogTitle>Enter OTP</DialogTitle>
                         <DialogDescription>
-                            Your network sent a one-time code to {momoPhone || 'your phone'}. Enter it to authorise this payment.
+                            Your network sent a one-time code to {effectiveMomoPhone || 'your phone'}. Enter it to authorise this payment.
                         </DialogDescription>
                     </DialogHeader>
                     <Input
