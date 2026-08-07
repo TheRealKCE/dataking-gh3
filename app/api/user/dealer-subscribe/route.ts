@@ -9,6 +9,7 @@ import {
     checkPaymentStatus as hubtelCheckPaymentStatus,
     HUBTEL_CHANNEL_MAP,
 } from '@/lib/hubtel-payment-service'
+import { claimHubtelStatusCheck } from '@/lib/hubtel-status-throttle'
 import { processCompletedDealerSubscription } from '@/lib/payments'
 
 export async function POST(request: NextRequest) {
@@ -261,7 +262,7 @@ export async function GET(request: NextRequest) {
 
         const { data: payment } = await supabaseAdmin
             .from('wallet_payments')
-            .select('id, status, user_id, provider, total_amount, metadata')
+            .select('id, status, user_id, provider, total_amount, metadata, created_at')
             .eq('reference', reference)
             .single()
 
@@ -281,6 +282,25 @@ export async function GET(request: NextRequest) {
         const paymentProvider = String((payment as any).provider || 'moolre')
 
         if (paymentProvider === 'hubtel') {
+            // /dashboard/upgrade polls this endpoint every 3 seconds while the prompt
+            // is on the customer's handset. Hubtel's status API costs a metered proxy
+            // request per call, so an unthrottled poll burned ~20 of the 500 monthly
+            // requests PER MINUTE — a single abandoned subscription could exhaust the
+            // quota on its own, and an exhausted quota 407s every payment in the app.
+            //
+            // The DB fast-path above already returns the moment the webhook lands, so
+            // the status API only needs a small fallback budget. Past it, the webhook
+            // and /api/cron/verify-hubtel-payments still settle the payment.
+            const decision = await claimHubtelStatusCheck(supabaseAdmin, payment as any, {
+                graceMs: 45_000,
+                interval: 20_000,
+                maxChecks: 5,
+            })
+
+            if (!decision.allowed) {
+                return NextResponse.json({ success: true, status: 'pending' })
+            }
+
             const hubtelStatus = await hubtelCheckPaymentStatus(reference)
 
             if (!hubtelStatus.success || hubtelStatus.status === null) {

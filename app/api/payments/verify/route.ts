@@ -4,6 +4,7 @@ import { createRouteHandlerClient } from '@/lib/supabase-server'
 import { cookies } from 'next/headers'
 import { checkPaymentStatus } from '@/lib/moolre-payment-service'
 import { checkPaymentStatus as hubtelCheckPaymentStatus } from '@/lib/hubtel-payment-service'
+import { claimHubtelStatusCheck } from '@/lib/hubtel-status-throttle'
 
 export async function GET(request: NextRequest) {
     try {
@@ -101,44 +102,21 @@ export async function GET(request: NextRequest) {
             //
             // Hubtel confirms via webhook, and the DB fast-path above already catches
             // that. So treat the status API as a FALLBACK for when the webhook does not
-            // arrive: stay quiet for a grace period, then poll it at a slow interval.
-            const now = Date.now()
-            const createdAt = new Date((paymentRecord as any).created_at).getTime()
-            const meta = ((paymentRecord as any).metadata || {}) as Record<string, any>
-            const lastCheck = meta.last_hubtel_check ? new Date(meta.last_hubtel_check).getTime() : 0
-            const checkCount = Number(meta.hubtel_check_count) || 0
-
-            const WEBHOOK_GRACE_MS = 45_000   // give the callback time to land
-            const MIN_CHECK_INTERVAL_MS = 20_000
-            // Hard ceiling per payment. Throttling alone is not enough: a customer who
-            // never approves the prompt leaves the page polling, and one call every 20s
-            // forever cost ~13 proxy requests per abandoned payment. Most payments are
-            // abandoned, so that dominated the metered quota.
-            //
-            // Past this point the webhook and the reconciliation sweep
+            // arrive: stay quiet for a grace period, poll at a slow interval, then stop
+            // (see lib/hubtel-status-throttle.ts for why the hard cap is the load-bearing
+            // part). Past the cap the webhook and the reconciliation sweep
             // (/api/cron/verify-hubtel-payments) are the safety net — neither depends on
             // anyone keeping a browser tab open.
-            const MAX_CHECKS = 5
+            const decision = await claimHubtelStatusCheck(supabase, paymentRecord as any, {
+                graceMs: 45_000,       // give the callback time to land
+                interval: 20_000,
+                maxChecks: 5,
+            })
 
-            const tooEarly = Number.isFinite(createdAt) && (now - createdAt) < WEBHOOK_GRACE_MS
-            const tooSoon = (now - lastCheck) < MIN_CHECK_INTERVAL_MS
-            const exhausted = checkCount >= MAX_CHECKS
-
-            if (tooEarly || tooSoon || exhausted) {
+            if (!decision.allowed) {
                 if (isInline) return NextResponse.json({ success: true, status: 'pending', message: 'Waiting for payment confirmation...' })
                 return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/wallet`)
             }
-
-            // Stamp before the call so concurrent polls don't all queue up behind it.
-            await (supabase.from('wallet_payments') as any)
-                .update({
-                    metadata: {
-                        ...meta,
-                        last_hubtel_check: new Date(now).toISOString(),
-                        hubtel_check_count: checkCount + 1,
-                    },
-                })
-                .eq('id', (paymentRecord as any).id)
 
             const hubtelResponse = await hubtelCheckPaymentStatus(reference)
 

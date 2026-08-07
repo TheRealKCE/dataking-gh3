@@ -3,9 +3,7 @@ import { createRouteHandlerClient } from '@/lib/supabase-server'
 import { createServerClient } from '@/lib/supabase'
 import { calculatePaystackFee, generateReferenceCode } from '@/lib/utils'
 import { initiatePayment, MOOLRE_PAYMENT_CHANNEL_MAP } from '@/lib/moolre-payment-service'
-import { initiatePayment as hubtelInitiatePayment, HUBTEL_CHANNEL_MAP, calculateHubtelFee } from '@/lib/hubtel-payment-service'
-import { isPaymentPhoneVerified, consumePaymentPhoneVerification, normalizeMsisdn } from '@/lib/payment-otp'
-import { isTrustedPaymentNumber } from '@/lib/trusted-payment-numbers'
+import { initiatePayment as hubtelInitiatePayment, HUBTEL_CHANNEL_MAP, calculateHubtelFee, toHubtelMsisdn } from '@/lib/hubtel-payment-service'
 import { checkHubtelPromptLimit, recordHubtelPrompt } from '@/lib/hubtel-prompt-limit'
 import { resolveDataPrice } from '@/lib/data-order-pricing'
 
@@ -347,36 +345,14 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({ error: 'Valid Mobile Money network is required' }, { status: 400 })
             }
 
-            // SECURITY: the account's registered number is used by default. Paying from a
-            // different number requires an SMS verification the FIRST time only — once
-            // confirmed, the number is trusted permanently (lib/trusted-payment-numbers.ts).
-            const registeredPhone = (profile as any)?.phone_number
-            if (!registeredPhone) {
+            // Use the phone number the user submitted directly.
+            const payerPhone = toHubtelMsisdn(momoPhone || '') || momoPhone
+
+            if (!payerPhone) {
                 return NextResponse.json(
-                    { error: 'No phone number found on your account. Please update your profile before paying with Hubtel.' },
+                    { error: 'Please provide a Mobile Money phone number.' },
                     { status: 400 }
                 )
-            }
-
-            const registeredMsisdn = normalizeMsisdn(registeredPhone)
-            const submittedMsisdn = normalizeMsisdn(momoPhone || '')
-
-            let payerPhone = registeredPhone
-            if (submittedMsisdn && submittedMsisdn !== registeredMsisdn) {
-                if (!(await isTrustedPaymentNumber(submittedMsisdn))) {
-                    const verified = await isPaymentPhoneVerified(userId, submittedMsisdn)
-                    if (!verified) {
-                        return NextResponse.json(
-                            {
-                                error: 'Please verify this number with the code we send before paying from it.',
-                                code: 'OTP_REQUIRED',
-                            },
-                            { status: 403 }
-                        )
-                    }
-                    await consumePaymentPhoneVerification(userId, submittedMsisdn)
-                }
-                payerPhone = submittedMsisdn
             }
 
             // Applies to trusted numbers too — see lib/hubtel-prompt-limit.ts.
@@ -399,7 +375,7 @@ export async function POST(request: NextRequest) {
                 .update({
                     metadata: {
                         ...(((currentPayment as any)?.metadata) || {}),
-                        payer_msisdn: normalizeMsisdn(payerPhone),
+                        payer_msisdn: toHubtelMsisdn(payerPhone),
                     },
                 } as any)
                 .eq('id', paymentId)

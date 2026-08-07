@@ -1,9 +1,8 @@
-﻿import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@/lib/supabase-server'
 import { Redis } from '@upstash/redis'
 import { initiatePayment, MOOLRE_PAYMENT_CHANNEL_MAP } from '@/lib/moolre-payment-service'
-import { initiatePayment as hubtelInitiatePayment, HUBTEL_CHANNEL_MAP } from '@/lib/hubtel-payment-service'
-import { normalizeMsisdn } from '@/lib/payment-otp'
+import { initiatePayment as hubtelInitiatePayment, HUBTEL_CHANNEL_MAP, toHubtelMsisdn } from '@/lib/hubtel-payment-service'
 import { checkHubtelPromptLimit, recordHubtelPrompt } from '@/lib/hubtel-prompt-limit'
 
 // Redis client for distributed idempotency across all serverless instances.
@@ -132,10 +131,7 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({ error: 'Airtime purchase is disabled' }, { status: 503 })
             }
             if (isMashup && settings.storefront_mashup_enabled !== 'true') {
-                return NextResponse.json({ error: 'MTN Mashup bundles are not currently available' }, { status: 503 })
-            }
-            if (isMashup && network !== 'MTN') {
-                return NextResponse.json({ error: 'Mashup bundles are only available on MTN' }, { status: 400 })
+                return NextResponse.json({ error: 'Mashup bundles are not currently available' }, { status: 503 })
             }
             if (settings[`airtime_enabled_${network.toLowerCase()}`] === 'false') {
                 return NextResponse.json({ error: `${network} airtime is disabled` }, { status: 503 })
@@ -338,7 +334,7 @@ export async function POST(request: NextRequest) {
             if (!existingRef) {
                 await redis.set(
                     `shop:meta:${shopRef}`,
-                    JSON.stringify({ ...fullMetadata, payer_msisdn: normalizeMsisdn(payerClean) }),
+                    JSON.stringify({ ...fullMetadata, payer_msisdn: toHubtelMsisdn(payerClean) }),
                     { ex: 86400 }
                 )
             }

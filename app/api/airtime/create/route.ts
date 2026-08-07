@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { generateReferenceCode } from '@/lib/utils'
 import { createRouteHandlerClient } from '@/lib/supabase-server'
@@ -43,15 +43,11 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Invalid network' }, { status: 400 })
         }
 
-        // ── Mashup is MTN-exclusive ───────────────────────────────────────────
+        // ── Mashup order resolution ───────────────────────────────────────────
         const resolvedType: 'airtime' | 'mashup' = orderType === 'mashup' ? 'mashup' : 'airtime'
         const resolvedPreference: 'balanced' | 'data' | 'voice' = ['balanced', 'data', 'voice'].includes(bundlePreference)
             ? bundlePreference
             : 'balanced'
-
-        if (resolvedType === 'mashup' && network !== 'MTN') {
-            return NextResponse.json({ error: 'Mashup orders are only available for MTN' }, { status: 400 })
-        }
 
         // ── Tier 1 phone validation (hard) ────────────────────────────────────
         const cleanPhone = String(beneficiaryPhone).replace(/\s+/g, '')
@@ -221,7 +217,7 @@ export async function POST(request: NextRequest) {
             type: 'debit',
             amount: totalPaid,
             description: resolvedType === 'mashup'
-                ? `Mashup Bundle: GHS ${airtimeAmount.toFixed(2)} for ${cleanPhone} (MTN)`
+                ? `Mashup Bundle: GHS ${airtimeAmount.toFixed(2)} for ${cleanPhone} (${network})`
                 : `Airtime: GHS ${airtimeAmount.toFixed(2)} for ${cleanPhone} (${network})`,
             reference: referenceCode,
             source: resolvedType === 'mashup' ? 'mashup' : 'airtime',
@@ -233,7 +229,7 @@ export async function POST(request: NextRequest) {
             user_id: userId,
             title: resolvedType === 'mashup' ? 'Mashup Order Placed 🎯' : 'Airtime Order Placed',
             message: resolvedType === 'mashup'
-                ? `MTN Bundle request of GHS ${airtimeAmount.toFixed(2)} for ${cleanPhone} is pending. Ref: ${referenceCode}`
+                ? `${network} Mashup request of GHS ${airtimeAmount.toFixed(2)} for ${cleanPhone} is pending. Ref: ${referenceCode}`
                 : `GHS ${airtimeAmount.toFixed(2)} airtime for ${cleanPhone} (${network}) is pending. Ref: ${referenceCode}`,
             type: 'order_update',
             action_url: '/dashboard/airtime',
@@ -242,7 +238,7 @@ export async function POST(request: NextRequest) {
         await sendPushToUser(userId, {
             title: resolvedType === 'mashup' ? 'Mashup Order Placed' : 'Airtime Order Placed',
             body: resolvedType === 'mashup'
-                ? `MTN Bundle of GHS ${airtimeAmount.toFixed(2)} for ${cleanPhone} is pending.`
+                ? `${network} Mashup of GHS ${airtimeAmount.toFixed(2)} for ${cleanPhone} is pending.`
                 : `GHS ${airtimeAmount.toFixed(2)} airtime for ${cleanPhone} (${network}) is pending.`,
             url: '/dashboard/airtime',
         }).catch(() => {})

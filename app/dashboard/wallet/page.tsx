@@ -24,21 +24,11 @@ import {
     Building,
     Loader2,
     TrendingUp,
-    TrendingDown,
-    MessageSquare,
-    Send,
-    Check
+    TrendingDown
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { WalletTransaction } from '@/types/supabase'
-import {
-    Dialog,
-    DialogContent,
-    DialogDescription,
-    DialogHeader,
-    DialogTitle,
-    DialogFooter
-} from "@/components/ui/dialog"
+
 
 const QUICK_AMOUNTS = [5, 10, 20, 50]
 const MIN_AMOUNT = 5
@@ -61,15 +51,6 @@ function WalletContent() {
     const [otpCode, setOtpCode] = useState('')
     const [paymentReference, setPaymentReference] = useState<string | null>(null)
     const [webPaymentProvider, setWebPaymentProvider] = useState<'moolre' | 'hubtel' | 'paystack'>('moolre')
-    // Hubtel security: any number can be typed, but an unrecognised one must pass a
-    // one-time SMS code before it is prompted. Once confirmed it is trusted for good.
-    const [altOtpSent, setAltOtpSent] = useState(false)
-    const [altOtpCode, setAltOtpCode] = useState('')
-    const [altVerified, setAltVerified] = useState(false)
-    const [altOtpLoading, setAltOtpLoading] = useState(false)
-    const [altOtpError, setAltOtpError] = useState('')
-    // What we know about the number currently typed: does it still need verifying?
-    const [phoneCheck, setPhoneCheck] = useState<'idle' | 'checking' | 'trusted' | 'needs'>('idle')
     const searchParams = useSearchParams()
 
     useEffect(() => {
@@ -87,102 +68,7 @@ function WalletContent() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [dbUser?.phone_number])
 
-    // Reset the verification flow when the provider changes.
-    useEffect(() => {
-        setAltOtpSent(false)
-        setAltOtpCode('')
-        setAltVerified(false)
-        setAltOtpError('')
-        setPhoneCheck('idle')
-    }, [webPaymentProvider])
 
-    // As the customer types, find out whether this number still needs the one-time
-    // code — so we can say so up front instead of refusing the payment afterwards.
-    useEffect(() => {
-        if (webPaymentProvider !== 'hubtel') { setPhoneCheck('idle'); return }
-
-        const digitsOnly = paymentPhone.replace(/\D/g, '')
-        if (digitsOnly.length < 9) { setPhoneCheck('idle'); return }
-
-        let cancelled = false
-        setPhoneCheck('checking')
-        const t = setTimeout(async () => {
-            try {
-                const res = await fetch(`/api/payments/otp/status?phone=${encodeURIComponent(paymentPhone)}`)
-                const data = await res.json()
-                if (cancelled) return
-                setPhoneCheck(data.needsVerification ? 'needs' : 'trusted')
-            } catch {
-                // Can't tell — ask for the code rather than assume trust.
-                if (!cancelled) setPhoneCheck('needs')
-            }
-        }, 400)
-
-        return () => { cancelled = true; clearTimeout(t) }
-    }, [paymentPhone, webPaymentProvider])
-
-    const sendAltOtp = async () => {
-        setAltOtpError('')
-        setAltOtpLoading(true)
-        try {
-            const res = await fetch('/api/payments/otp/send', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ phone: paymentPhone }),
-            })
-            const data = await res.json()
-            if (!res.ok) {
-                setAltOtpError(data.error || 'Could not send the code.')
-                return
-            }
-            if (data.alreadyRegistered) {
-                setAltVerified(true)
-                setAltOtpSent(false)
-                setPhoneCheck('trusted')
-                toast.success('This is your registered number — ready to pay.')
-                return
-            }
-            // Verified once before — trusted permanently, so no code is sent.
-            if (data.alreadyVerified) {
-                setAltVerified(true)
-                setAltOtpSent(false)
-                setPhoneCheck('trusted')
-                toast.success('This number is already verified — ready to pay.')
-                return
-            }
-            setAltOtpSent(true)
-            toast.success('Verification code sent to that number.')
-        } catch {
-            setAltOtpError('Network error. Please try again.')
-        } finally {
-            setAltOtpLoading(false)
-        }
-    }
-
-    const verifyAltOtp = async () => {
-        setAltOtpError('')
-        setAltOtpLoading(true)
-        try {
-            const res = await fetch('/api/payments/otp/verify', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ phone: paymentPhone, code: altOtpCode }),
-            })
-            const data = await res.json()
-            if (!res.ok) {
-                setAltOtpError(data.error || 'Verification failed.')
-                return
-            }
-            setAltVerified(true)
-            setAltOtpSent(false)
-            setPhoneCheck('trusted')
-            toast.success('Number verified — you won\'t need a code for it again.')
-        } catch {
-            setAltOtpError('Network error. Please try again.')
-        } finally {
-            setAltOtpLoading(false)
-        }
-    }
 
     useEffect(() => {
         const success = searchParams.get('success')
@@ -347,12 +233,6 @@ function WalletContent() {
             return
         }
 
-        // A number we've never confirmed needs its one-time code first. Anything already
-        // trusted (or the registered number) goes straight through.
-        if (webPaymentProvider === 'hubtel' && phoneCheck === 'needs' && !altVerified) {
-            toast.error('Please verify this number with the code we send before paying from it.')
-            return
-        }
 
         setIsProcessing(true)
 
@@ -667,77 +547,10 @@ function WalletContent() {
                                                     value={paymentPhone}
                                                     onChange={(e) => {
                                                         setPaymentPhone(e.target.value)
-                                                        // A new number invalidates any code already sent for the old one.
-                                                        setAltVerified(false)
-                                                        setAltOtpSent(false)
-                                                        setAltOtpCode('')
-                                                        setAltOtpError('')
                                                     }}
                                                     className="mt-1 h-12"
                                                 />
 
-                                                {/* Verification state for the number just typed */}
-                                                {webPaymentProvider === 'hubtel' && (
-                                                    <div className="mt-2 space-y-2">
-                                                        {phoneCheck === 'checking' ? (
-                                                            <p className="text-xs text-muted-foreground flex items-center gap-1">
-                                                                <Loader2 className="w-3 h-3 animate-spin" />
-                                                                Checking this number…
-                                                            </p>
-                                                        ) : phoneCheck === 'trusted' ? (
-                                                            <p className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
-                                                                <Check className="w-3 h-3" />
-                                                                Verified — ready to pay.
-                                                            </p>
-                                                        ) : altVerified ? (
-                                                            <p className="text-xs text-green-600 dark:text-green-400 flex items-center gap-1">
-                                                                <Check className="w-3 h-3" />
-                                                                Number verified — you won&apos;t need a code for it again.
-                                                            </p>
-                                                        ) : altOtpSent ? (
-                                                            <div className="flex items-center gap-2">
-                                                                <Input
-                                                                    type="text"
-                                                                    inputMode="numeric"
-                                                                    maxLength={6}
-                                                                    placeholder="Enter 6-digit code"
-                                                                    value={altOtpCode}
-                                                                    onChange={(e) => setAltOtpCode(e.target.value.replace(/\D/g, ''))}
-                                                                    className="h-10 flex-1"
-                                                                />
-                                                                <Button
-                                                                    type="button"
-                                                                    size="sm"
-                                                                    onClick={verifyAltOtp}
-                                                                    disabled={altOtpLoading || altOtpCode.length !== 6}
-                                                                >
-                                                                    {altOtpLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Verify'}
-                                                                </Button>
-                                                            </div>
-                                                        ) : phoneCheck === 'needs' ? (
-                                                            <div className="space-y-1.5">
-                                                                <p className="text-xs text-muted-foreground">
-                                                                    First time paying from this number — we&apos;ll text you a
-                                                                    code once, then never again.
-                                                                </p>
-                                                                <Button
-                                                                    type="button"
-                                                                    size="sm"
-                                                                    variant="outline"
-                                                                    onClick={sendAltOtp}
-                                                                    disabled={altOtpLoading || !paymentPhone}
-                                                                >
-                                                                    {altOtpLoading ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : null}
-                                                                    Send verification code
-                                                                </Button>
-                                                            </div>
-                                                        ) : null}
-
-                                                        {altOtpError && (
-                                                            <p className="text-xs text-red-600 dark:text-red-400">{altOtpError}</p>
-                                                        )}
-                                                    </div>
-                                                )}
                                             </div>
                                         </div>
                                     </div>
@@ -853,47 +666,6 @@ function WalletContent() {
                 </CardContent>
             </Card>
 
-            {/* OTP Modal */}
-            <Dialog open={otpRequired} onOpenChange={(open) => !open && setOtpRequired(false)}>
-                <DialogContent className="sm:max-w-md">
-                    <DialogHeader>
-                        <DialogTitle>OTP Verification</DialogTitle>
-                        <DialogDescription>
-                            Please enter the OTP sent to your phone to complete the payment.
-                        </DialogDescription>
-                    </DialogHeader>
-                    <div className="flex flex-col space-y-4 py-4">
-                        <div className="space-y-2">
-                            <Label htmlFor="otp">Enter OTP</Label>
-                            <Input
-                                id="otp"
-                                type="text"
-                                placeholder="Enter code"
-                                value={otpCode}
-                                onChange={(e) => setOtpCode(e.target.value)}
-                                className="h-12 text-center text-2xl tracking-widest font-bold"
-                            />
-                        </div>
-                    </div>
-                    <DialogFooter className="sm:justify-end">
-                        <Button
-                            type="button"
-                            variant="secondary"
-                            onClick={() => setOtpRequired(false)}
-                        >
-                            Cancel
-                        </Button>
-                        <Button
-                            type="button"
-                            onClick={handleVerifyOtp}
-                            disabled={isProcessing || !otpCode}
-                            className="bg-blue-600 hover:bg-blue-700"
-                        >
-                            {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Verify & Continue'}
-                        </Button>
-                    </DialogFooter>
-                </DialogContent>
-            </Dialog>
         </div>
     )
 }

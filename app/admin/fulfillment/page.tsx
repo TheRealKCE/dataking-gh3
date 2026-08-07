@@ -125,6 +125,10 @@ export default function FulfillmentPage() {
     const [agentportalBalance, setAgentportalBalance] = useState<{ amount: number; currency: string } | null>(null)
     const [netpulseBalance, setNetpulseBalance] = useState<{ amount: number; currency: string } | null>(null)
     const [isLoadingBalance, setIsLoadingBalance] = useState(false)
+    // Per-supplier failure reason, keyed by the API prefix ('agentportal', ...; 'dakazina'
+    // for the unprefixed one). Set when a supplier's balance call failed, so the card can
+    // say "Unavailable — <reason>" instead of a misleading GHS 0.00.
+    const [balanceErrors, setBalanceErrors] = useState<Record<string, string>>({})
 
     // Sync CodeCraft Status state
     const [isSyncing, setIsSyncing] = useState(false)
@@ -420,21 +424,36 @@ export default function FulfillmentPage() {
             }
 
             const data = await response.json()
-            setBalance({ amount: data.balance, currency: data.currency })
-            if (data.codecraft_currency !== undefined) {
-                setCodecraftBalance({ amount: data.codecraft_balance, currency: data.codecraft_currency })
+
+            // A supplier that failed comes back as `<prefix>_error` with no balance —
+            // clear its card rather than leaving a stale figure on screen.
+            const errors: Record<string, string> = {}
+            const apply = (
+                prefix: string,
+                setter: (v: { amount: number; currency: string } | null) => void
+            ) => {
+                const balanceKey = prefix === 'dakazina' ? 'balance' : `${prefix}_balance`
+                const currencyKey = prefix === 'dakazina' ? 'currency' : `${prefix}_currency`
+                const errorKey = `${prefix}_error`
+                if (data[currencyKey] !== undefined) {
+                    setter({ amount: data[balanceKey], currency: data[currencyKey] })
+                } else if (data[errorKey]) {
+                    errors[prefix] = String(data[errorKey])
+                    setter(null)
+                }
             }
-            if (data.kingflexy_currency !== undefined) {
-                setKingflexyBalance({ amount: data.kingflexy_balance, currency: data.kingflexy_currency })
-            }
-            if (data.eazydata_currency !== undefined) {
-                setEazydataBalance({ amount: data.eazydata_balance, currency: data.eazydata_currency })
-            }
-            if (data.agentportal_currency !== undefined) {
-                setAgentportalBalance({ amount: data.agentportal_balance, currency: data.agentportal_currency })
-            }
-            if (data.netpulse_currency !== undefined) {
-                setNetpulseBalance({ amount: data.netpulse_balance, currency: data.netpulse_currency })
+
+            apply('dakazina', setBalance)
+            apply('codecraft', setCodecraftBalance)
+            apply('kingflexy', setKingflexyBalance)
+            apply('eazydata', setEazydataBalance)
+            apply('agentportal', setAgentportalBalance)
+            apply('netpulse', setNetpulseBalance)
+
+            setBalanceErrors(errors)
+            const failed = Object.keys(errors)
+            if (failed.length > 0) {
+                toast.error(`Balance unavailable for: ${failed.join(', ')}`)
             }
         } catch (error: any) {
             console.error('Balance fetch error:', error)
@@ -442,6 +461,27 @@ export default function FulfillmentPage() {
         } finally {
             setIsLoadingBalance(false)
         }
+    }
+
+    // Renders a supplier balance figure, or the reason it couldn't be read. Never falls
+    // back to "GHS 0.00" on failure — that reads as an empty wallet and hides the cause.
+    const renderBalance = (prefix: string, value: { amount: number; currency: string } | null) => {
+        if (value) {
+            return <span>{`${value.currency} ${value.amount.toFixed(2)}`}</span>
+        }
+        if (isLoadingBalance) {
+            return <span>Loading...</span>
+        }
+        const error = balanceErrors[prefix]
+        if (error) {
+            return (
+                <span className="flex flex-col">
+                    <span className="text-lg md:text-xl">Unavailable</span>
+                    <span className="text-[10px] font-medium opacity-90 normal-case">{error}</span>
+                </span>
+            )
+        }
+        return <span>&mdash;</span>
     }
 
     const handleSyncKingFlexy = async () => {
@@ -656,7 +696,7 @@ export default function FulfillmentPage() {
                                 <div>
                                     <p className="text-[10px] md:text-xs font-bold uppercase tracking-wider opacity-90">DataKazina Balance</p>
                                     <p className="text-2xl md:text-3xl font-black">
-                                        {balance ? `${balance.currency} ${balance.amount.toFixed(2)}` : (isLoadingBalance ? 'Loading...' : 'GHS 0.00')}
+                                        {renderBalance('dakazina', balance)}
                                     </p>
                                 </div>
                             </div>
@@ -684,7 +724,7 @@ export default function FulfillmentPage() {
                                 <div>
                                     <p className="text-[10px] md:text-xs font-bold uppercase tracking-wider opacity-90">CodeCraft Balance</p>
                                     <p className="text-2xl md:text-3xl font-black">
-                                        {codecraftBalance ? `${codecraftBalance.currency} ${codecraftBalance.amount.toFixed(2)}` : (isLoadingBalance ? 'Loading...' : 'GHS 0.00')}
+                                        {renderBalance('codecraft', codecraftBalance)}
                                     </p>
                                 </div>
                             </div>
@@ -712,7 +752,7 @@ export default function FulfillmentPage() {
                                 <div>
                                     <p className="text-[10px] md:text-xs font-bold uppercase tracking-wider opacity-90">KingFlexyGH Balance</p>
                                     <p className="text-2xl md:text-3xl font-black">
-                                        {kingflexyBalance ? `${kingflexyBalance.currency} ${kingflexyBalance.amount.toFixed(2)}` : (isLoadingBalance ? 'Loading...' : 'GHS 0.00')}
+                                        {renderBalance('kingflexy', kingflexyBalance)}
                                     </p>
                                 </div>
                             </div>
@@ -740,7 +780,7 @@ export default function FulfillmentPage() {
                                 <div>
                                     <p className="text-[10px] md:text-xs font-bold uppercase tracking-wider opacity-90">Eazy Data Balance</p>
                                     <p className="text-2xl md:text-3xl font-black">
-                                        {eazydataBalance ? `${eazydataBalance.currency} ${eazydataBalance.amount.toFixed(2)}` : (isLoadingBalance ? 'Loading...' : 'GHS 0.00')}
+                                        {renderBalance('eazydata', eazydataBalance)}
                                     </p>
                                 </div>
                             </div>
@@ -768,7 +808,7 @@ export default function FulfillmentPage() {
                                 <div>
                                     <p className="text-[10px] md:text-xs font-bold uppercase tracking-wider opacity-90">Agent Portal Balance</p>
                                     <p className="text-2xl md:text-3xl font-black">
-                                        {agentportalBalance ? `${agentportalBalance.currency} ${agentportalBalance.amount.toFixed(2)}` : (isLoadingBalance ? 'Loading...' : 'GHS 0.00')}
+                                        {renderBalance('agentportal', agentportalBalance)}
                                     </p>
                                 </div>
                             </div>
@@ -796,7 +836,7 @@ export default function FulfillmentPage() {
                                 <div>
                                     <p className="text-[10px] md:text-xs font-bold uppercase tracking-wider opacity-90">NetPulse Balance</p>
                                     <p className="text-2xl md:text-3xl font-black">
-                                        {netpulseBalance ? `${netpulseBalance.currency} ${netpulseBalance.amount.toFixed(2)}` : (isLoadingBalance ? 'Loading...' : 'GHS 0.00')}
+                                        {renderBalance('netpulse', netpulseBalance)}
                                     </p>
                                 </div>
                             </div>

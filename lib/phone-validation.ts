@@ -1,8 +1,12 @@
-// Network prefixes for Ghanaian phone numbers
+// Network prefixes for Ghanaian phone numbers.
+// Kept in step with PAY_NETWORK_PREFIXES in app/shop/[shopSlug]/ShopStorefront.tsx —
+// the storefront accepted 028/058 (AirtelTigo) and 098 (MTN) while this validator
+// rejected them outright as "Invalid network prefix", so the same number worked on
+// the storefront and failed on the dashboard.
 const NETWORK_PREFIXES: Record<string, string[]> = {
-    'MTN': ['024', '025', '053', '054', '055', '059'],
+    'MTN': ['024', '025', '053', '054', '055', '059', '098'],
     'Telecel': ['020', '050'],
-    'AirtelTigo': ['026', '027', '056', '057'],
+    'AirtelTigo': ['026', '027', '028', '056', '057', '058'],
 }
 
 export interface PhoneValidationResult {
