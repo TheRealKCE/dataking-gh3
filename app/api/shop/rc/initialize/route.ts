@@ -265,7 +265,7 @@ export async function POST(request: NextRequest) {
                     clientReference: referenceCode,
                     customerName: customerName || 'Guest Customer',
                     customerEmail: validEmail || '',
-                    description: `${shop.shop_name} — ${rcType.name} x${qty}`,
+                    description: `${shop.shop_name} - ${rcType.name} x${qty}`,
                 })
 
                 if (!hubtelResponse.success) {
