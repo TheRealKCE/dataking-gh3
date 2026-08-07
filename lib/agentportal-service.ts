@@ -509,10 +509,36 @@ export async function fetchSupplierBalance(): Promise<{
     }
 
     try {
-        const response = await fetch(`${AGENTPORTAL_API_URL}/api/wallet`, {
-            method: 'GET',
-            headers: { 'Accept': 'application/json', 'X-API-Key': AGENTPORTAL_API_KEY },
-        })
+        // Connections to this supplier fail intermittently from serverless egress — which
+        // is why fulfillOrder retries network errors. Without the same treatment a single
+        // blip renders the admin card as "fetch failed". Retry with backoff, bound each
+        // attempt, and report the underlying cause code (ETIMEDOUT/ECONNRESET/...) so a
+        // persistent failure is diagnosable from the card itself.
+        let response: Response | null = null
+        let lastError: any = null
+
+        for (let attempt = 1; attempt <= 3; attempt++) {
+            try {
+                response = await fetch(`${AGENTPORTAL_API_URL}/api/wallet`, {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json', 'X-API-Key': AGENTPORTAL_API_KEY },
+                    signal: AbortSignal.timeout(10_000),
+                })
+                break
+            } catch (err: any) {
+                lastError = err
+                console.warn(`[AgentPortal Balance] Attempt ${attempt} failed: ${err?.message} (${err?.cause?.code || 'no cause'})`)
+                if (attempt < 3) await new Promise(res => setTimeout(res, 1000 * attempt))
+            }
+        }
+
+        if (!response) {
+            const code = lastError?.cause?.code || lastError?.name
+            return {
+                success: false,
+                error: `Could not reach Agent Portal${code ? ` (${code})` : ''}`,
+            }
+        }
 
         const rawText = await response.text()
         let data: any
@@ -530,7 +556,11 @@ export async function fetchSupplierBalance(): Promise<{
             return { success: true, balance, currency: 'GHS' }
         }
 
-        return { success: false, error: data?.error || 'Failed to fetch balance' }
+        if (response.status === 401) {
+            return { success: false, error: 'Authentication failed — check AGENTPORTAL_API_KEY' }
+        }
+
+        return { success: false, error: `${data?.error || 'Failed to fetch balance'} (HTTP ${response.status})` }
 
     } catch (error: any) {
         console.error('[AgentPortal Balance] Error:', error)
