@@ -39,7 +39,7 @@ export default async function CategoriesPage() {
     const categories = await getCategories()
 
     return (
-        <div className="min-h-screen bg-background">
+        <div className="min-h-screen">
             <div className="container py-8">
                 <div className="mb-8">
                     <h1 className="text-3xl font-bold mb-2">Browse Categories</h1>

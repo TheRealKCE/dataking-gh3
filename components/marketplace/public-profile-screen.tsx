@@ -154,7 +154,7 @@ export function PublicProfileScreen({
     }
 
     return (
-        <div className="mx-auto min-h-screen max-w-[480px] bg-white dark:bg-[#0a0f1c]">
+        <div className="mx-auto min-h-screen max-w-[480px]">
             {/* Top bar */}
             <header className="sticky top-0 z-20 flex items-center justify-between border-b border-gray-100 bg-white/95 px-2 py-2.5 backdrop-blur dark:border-gray-800 dark:bg-[#0a0f1c]/95">
                 <button

@@ -40,7 +40,7 @@ export default async function SettingsPage() {
     const sellerProfile = await getSellerProfile(user.id)
 
     return (
-        <div className="min-h-screen bg-background">
+        <div className="min-h-screen">
             <div className="container py-8 max-w-2xl">
                 <h1 className="text-3xl font-bold mb-2">Profile Settings</h1>
                 <p className="text-muted-foreground mb-8">

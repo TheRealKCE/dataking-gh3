@@ -37,7 +37,7 @@ export default function AdminLayout({
 
     if (isLoading) {
         return (
-            <div className="min-h-screen bg-background flex items-center justify-center">
+            <div className="min-h-screen flex items-center justify-center">
                 <div className="space-y-4 w-full max-w-md p-8">
                     <Skeleton className="h-12 w-full" />
                     <Skeleton className="h-8 w-3/4" />
@@ -53,7 +53,7 @@ export default function AdminLayout({
 
     if (!isAdmin && !isSubAdmin) {
         return (
-            <div className="min-h-screen bg-background flex items-center justify-center p-4">
+            <div className="min-h-screen flex items-center justify-center p-4">
                 <Alert variant="destructive" className="max-w-md">
                     <ShieldAlert className="h-4 w-4" />
                     <AlertTitle>Access Denied</AlertTitle>

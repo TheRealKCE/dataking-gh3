@@ -110,55 +110,74 @@
   }
 
   .dark {
-    /* Dark is no longer pure black. Each surface step is ~3-4% lightness, which
-       is what lets elevation read without drawing a border on everything. The
-       neutral carries a slight violet-blue cast so it belongs to the brand
-       rather than looking like a separate grey product.
+    /* Deep black mirror. The page itself is true #000 — on OLED that is an
+       unlit pixel, so the panel edge disappears and the UI reads as objects
+       floating on black glass. Surfaces step in small, near-neutral increments
+       (0 → 4 → 7 → 11 → 15%) with only a whisper of violet in the hue so the
+       neutral still belongs to the brand instead of going flat grey.
+       Because the steps are tight, separation is carried by the specular top
+       edge in --elev-* (the "mirror" highlight), not by fill contrast alone.
        Note: --primary, --ring, --gradient-accent and --glow-accent are declared
        at :root as var() indirections on the accent channel, so redeclaring the
        channel here is enough — they follow automatically. */
-    --background: 235 30% 6%;    /* #0B0C14 */
-    --surface-0: 235 28% 8%;
-    --surface-1: 235 26% 11%;
-    --surface-2: 234 24% 15%;
-    --surface-3: 234 22% 19%;
+    --background: 0 0% 0%;       /* #000000 — true black */
+    --surface-0: 240 12% 3%;
+    --surface-1: 240 10% 6%;
+    --surface-2: 240 9% 10%;
+    --surface-3: 240 8% 15%;
 
     --foreground: 0 0% 100%;
-    --card: 235 26% 11%;
+    --card: 240 10% 6%;
     --card-foreground: 0 0% 100%;
-    --popover: 234 22% 19%;
+    --popover: 240 9% 10%;
     --popover-foreground: 0 0% 100%;
-    --muted: 235 22% 14%;
-    --muted-foreground: 232 16% 68%;   /* 6.8:1 on --background */
-    --border: 235 20% 20%;
-    --border-strong: 235 18% 30%;
-    --input: 235 20% 20%;
+    --muted: 240 9% 9%;
+    --muted-foreground: 240 8% 68%;   /* 8.6:1 on pure black */
+    --border: 240 8% 16%;
+    --border-strong: 240 8% 28%;
+    --input: 240 8% 16%;
 
-    /* Accent channel, lifted: #4F46E5 is too dark to read on #0B0C14, so the
+    /* Accent channel, lifted: #4F46E5 is too dark to read on black, so the
        solid moves up in lightness and the contrast ink flips to near-black. */
     --accent-solid: 246 84% 68%;
     --accent-strong: 246 88% 74%;
-    --accent-soft: 243 40% 18%;
-    --accent-softer: 240 30% 13%;
-    --accent-contrast: 235 40% 8%;
+    --accent-soft: 243 38% 15%;
+    --accent-softer: 240 30% 9%;
+    --accent-contrast: 240 20% 4%;
     --accent-ring: 246 84% 68%;
 
-    --secondary: 235 22% 14%;
+    --secondary: 240 9% 9%;
     --secondary-foreground: 0 0% 100%;
 
     --destructive: 0 78% 62%;
     --destructive-foreground: 0 0% 100%;
     --success: 158 64% 46%;
-    --success-foreground: 235 40% 8%;
+    --success-foreground: 240 20% 4%;
     --warning: 38 92% 56%;
-    --warning-foreground: 235 40% 8%;
+    --warning-foreground: 240 20% 4%;
     --info: 213 92% 62%;
-    --info-foreground: 235 40% 8%;
+    --info-foreground: 240 20% 4%;
 
-    --elev-1: 0 1px 2px hsl(0 0% 0% / 0.5), inset 0 1px 0 hsl(0 0% 100% / 0.04);
-    --elev-2: 0 2px 4px hsl(0 0% 0% / 0.5), 0 10px 26px -8px hsl(0 0% 0% / 0.6), inset 0 1px 0 hsl(0 0% 100% / 0.05);
-    --elev-3: 0 20px 44px -14px hsl(0 0% 0% / 0.7), inset 0 1px 0 hsl(0 0% 100% / 0.06);
-    --elev-4: 0 28px 72px -18px hsl(0 0% 0% / 0.8), inset 0 1px 0 hsl(0 0% 100% / 0.07);
+    /* On true black a drop shadow has nothing to darken, so elevation is
+       carried the other way round: a specular top edge and a hairline rim,
+       like light catching the bevel of black glass. The outer shadow is kept
+       only to seat the object — it is the inset highlight that does the work,
+       and it strengthens with each step. */
+    --elev-1:
+      0 1px 2px hsl(0 0% 0% / 0.9),
+      inset 0 1px 0 hsl(0 0% 100% / 0.07);
+    --elev-2:
+      0 2px 4px hsl(0 0% 0% / 0.9),
+      0 10px 26px -8px hsl(0 0% 0% / 0.95),
+      inset 0 1px 0 hsl(0 0% 100% / 0.10);
+    --elev-3:
+      0 20px 44px -14px hsl(0 0% 0% / 1),
+      0 0 0 1px hsl(0 0% 100% / 0.04),
+      inset 0 1px 0 hsl(0 0% 100% / 0.13);
+    --elev-4:
+      0 28px 72px -18px hsl(0 0% 0% / 1),
+      0 0 0 1px hsl(0 0% 100% / 0.06),
+      inset 0 1px 0 hsl(0 0% 100% / 0.16);
   }
 }
 @layer base {
@@ -179,6 +198,49 @@
     line-height: 1.6;
     letter-spacing: 0;
     overflow-x: hidden;
+  }
+
+  /* ── Bubble field ────────────────────────────────────────────────────────
+     Soft blue discs floating on the white surface. This is what keeps "pure
+     white" from reading as flat: the page stays #FFFFFF, and the depth comes
+     from a handful of very low-alpha circles rather than from tinting the
+     background itself.
+
+     Painted with radial-gradients rather than elements, so it costs one
+     background on an existing box — no extra DOM, no extra composited layer,
+     and nothing for the browser to lay out. `fixed` keeps the field still
+     while content scrolls over it. */
+  .bg-bubbles {
+    background-color: hsl(var(--background));
+    background-image:
+      radial-gradient(circle at 78% 10%, hsl(217 84% 62% / 0.16) 0%, hsl(217 84% 62% / 0.13) 52%, transparent 70%),
+      radial-gradient(circle at 2%  24%, hsl(217 84% 62% / 0.13) 0%, hsl(217 84% 62% / 0.10) 52%, transparent 70%),
+      radial-gradient(circle at 99% 27%, hsl(221 76% 58% / 0.12) 0%, hsl(221 76% 58% / 0.09) 52%, transparent 70%),
+      radial-gradient(circle at 4%  60%, hsl(217 84% 62% / 0.11) 0%, hsl(217 84% 62% / 0.08) 52%, transparent 70%),
+      radial-gradient(circle at 88% 58%, hsl(217 84% 62% / 0.12) 0%, hsl(217 84% 62% / 0.09) 52%, transparent 70%),
+      radial-gradient(circle at 86% 88%, hsl(221 76% 58% / 0.13) 0%, hsl(221 76% 58% / 0.10) 52%, transparent 70%);
+    background-repeat: no-repeat;
+    background-attachment: fixed;
+    background-size: cover;
+  }
+
+  /* On black glass the discs stop being bubbles and become reflections: two
+     wide, very low-alpha brand washes bled in from the top corners, plus a
+     cool sheen low on the right. Any stronger and they read as grey smudges
+     and give back the milky look that true black is here to avoid. */
+  .dark .bg-bubbles {
+    background-image:
+      radial-gradient(circle at 78% 8%,  hsl(var(--brand-1) / 0.07) 0%, transparent 62%),
+      radial-gradient(circle at 2%  46%, hsl(var(--brand-2) / 0.05) 0%, transparent 60%),
+      radial-gradient(circle at 92% 88%, hsl(var(--brand-3) / 0.04) 0%, transparent 60%);
+  }
+
+  /* The bubble field is decorative. Anyone who has asked for reduced data or
+     reduced motion gets the plain surface. */
+  @media (prefers-reduced-transparency: reduce) {
+    .bg-bubbles {
+      background-image: none;
+    }
   }
 
   h1, h2, h3, h4, h5, h6, .font-heading {
@@ -205,8 +267,8 @@
     @media (min-width: 640px) {
       .glass {
         background: hsl(var(--surface-1) / 0.62);
-        backdrop-filter: blur(16px) saturate(140%);
         -webkit-backdrop-filter: blur(16px) saturate(140%);
+        backdrop-filter: blur(16px) saturate(140%);
       }
     }
   }
@@ -220,8 +282,8 @@
     @media (min-width: 640px) {
       .glass-dark {
         background: hsl(var(--surface-0) / 0.6);
-        backdrop-filter: blur(20px) saturate(140%);
         -webkit-backdrop-filter: blur(20px) saturate(140%);
+        backdrop-filter: blur(20px) saturate(140%);
       }
     }
   }
@@ -265,9 +327,9 @@
     box-shadow: 0 25px 60px rgba(37,99,235,0.10);
   }
   .dark .hero-slide-1 {
-    background: linear-gradient(145deg,#09111f,#050816);
+    background: linear-gradient(145deg,#0a0a0f,#000000);
     border: 1px solid rgba(255,255,255,0.09);
-    box-shadow: 0 32px 80px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.05);
+    box-shadow: 0 32px 80px rgba(0,0,0,1), inset 0 1px 0 rgba(255,255,255,0.10);
   }
 
   .hero-slide-2 {
@@ -276,9 +338,9 @@
     box-shadow: 0 25px 60px rgba(124,58,237,0.08);
   }
   .dark .hero-slide-2 {
-    background: linear-gradient(145deg,#0f172a,#17143f);
+    background: linear-gradient(145deg,#05050c,#0d0a24);
     border: 1px solid rgba(124,58,237,0.25);
-    box-shadow: 0 25px 60px rgba(124,58,237,0.15);
+    box-shadow: 0 25px 60px rgba(0,0,0,0.9), inset 0 1px 0 rgba(255,255,255,0.09);
   }
 
   .hero-slide-3 {
@@ -489,16 +551,32 @@
   height: 8px;
 }
 
+/* The dark track is a token, not a gray-800 literal: gray-800 is a blue-grey
+   #1F2937 and on true black it reads as a lit stripe down the edge of every
+   scroll container. */
 ::-webkit-scrollbar-track {
-  @apply bg-gray-100 dark:bg-gray-800;
+  @apply bg-gray-100;
+}
+
+.dark ::-webkit-scrollbar-track {
+  background: transparent;
 }
 
 ::-webkit-scrollbar-thumb {
-  @apply bg-gray-300 dark:bg-gray-600 rounded-full;
+  @apply bg-gray-300 rounded-full;
+}
+
+.dark ::-webkit-scrollbar-thumb {
+  background: hsl(var(--border-strong));
+  border-radius: 9999px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  @apply bg-gray-400 dark:bg-gray-500;
+  @apply bg-gray-400;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: hsl(var(--muted-foreground) / 0.5);
 }
 
 /* Page transition animations - Lean for mobile */

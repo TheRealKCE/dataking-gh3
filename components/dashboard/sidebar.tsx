@@ -268,6 +268,9 @@ export function DashboardSidebar() {
     const userRole = isAdmin ? 'admin' : isSubAdmin ? 'sub-admin' : (dbUser?.role || 'customer') as keyof typeof roleConfig
     const currentRole = roleConfig[userRole] || roleConfig['customer']
     const RoleIcon = currentRole.icon
+    // Roles whose sidebar chrome is a solid dark panel need light-on-dark
+    // treatment for anything rendered inside it.
+    const onDarkPanel = currentRole.darkPanel
 
     // Results Checker Only mode collapses the sidebar for regular users, but admins
     // and sub-admins keep their full sidebar (they need it to reach Admin → Settings
@@ -391,11 +394,17 @@ export function DashboardSidebar() {
                             </div>
                         </div>
                     ) : (
-                        /* Standard Profile Widget styled with roleConfig */
-                        <div className={cn("mx-4 mt-6 p-5 rounded-2xl border shadow-sm", 
-                            dbUser.role === 'agent' 
-                                ? "bg-blue-500/5 border-blue-200/50 dark:bg-blue-950/10 dark:border-blue-900/40 text-slate-800 dark:text-slate-100" 
-                                : dbUser.role === 'customer' 
+                        /* Standard Profile Widget styled with roleConfig.
+                           `onDarkPanel` matters: agent's sidebar is now a solid
+                           navy panel, so the light-panel treatment below (dark
+                           slate text, a 50%-white balance card, muted-grey
+                           labels) becomes dark-on-dark and unreadable. Dealer
+                           has its own block further up; agent is the one role
+                           that renders this widget on a dark surface. */
+                        <div className={cn("mx-4 mt-6 p-5 rounded-2xl border shadow-sm",
+                            onDarkPanel
+                                ? "bg-white/10 border-white/15 text-white"
+                                : dbUser.role === 'customer'
                                     ? "bg-brand-gold/[0.06] border-brand-gold/20 dark:bg-brand-gold/[0.08] dark:border-brand-gold/20 text-slate-800 dark:text-slate-100"
                                     : "bg-secondary/5 border-border/50 text-foreground"
                         )}>
@@ -415,7 +424,12 @@ export function DashboardSidebar() {
                                         <span
                                             className={cn(
                                                 "text-[10px] font-black px-2 py-0.5 rounded-full uppercase tracking-widest",
-                                                currentRole.badgeClass
+                                                // badgeClass is a tinted chip meant for light surfaces
+                                                // (dark ink on a 15% wash of the role colour). On the
+                                                // navy panel that is navy-on-navy.
+                                                onDarkPanel
+                                                    ? "bg-white/20 text-white border border-white/30"
+                                                    : currentRole.badgeClass
                                             )}
                                         >
                                             {currentRole.label}
@@ -425,9 +439,19 @@ export function DashboardSidebar() {
                             </div>
 
                             {/* Wallet Balance - Clean Look */}
-                            <div className="p-3 rounded-xl bg-background/50 border border-border/50 flex items-center justify-between">
+                            <div className={cn(
+                                "p-3 rounded-xl border flex items-center justify-between",
+                                // bg-background/50 is 50% PURE WHITE now, which over the
+                                // navy panel produced a washed-out grey slab.
+                                onDarkPanel
+                                    ? "bg-black/25 border-white/10"
+                                    : "bg-background/50 border-border/50"
+                            )}>
                                 <div>
-                                    <p className="text-[9px] uppercase tracking-widest text-muted-foreground font-bold mb-0.5">Balance</p>
+                                    <p className={cn(
+                                        "text-[9px] uppercase tracking-widest font-bold mb-0.5",
+                                        onDarkPanel ? "text-white/70" : "text-muted-foreground"
+                                    )}>Balance</p>
                                     <p className="text-lg font-black text-current tracking-tight">{formatCurrency(walletBalance)}</p>
                                 </div>
                                 {isPageAccessible('/dashboard/wallet') && (
@@ -442,10 +466,12 @@ export function DashboardSidebar() {
                             {/* Agent Subscription - Subtle Indicator */}
                             {dbUser?.role === 'agent' && daysRemaining !== null && (
                                 <div className="mt-3 flex items-center justify-between text-[11px] font-medium px-1">
-                                    <span className="text-muted-foreground">Subscription</span>
+                                    <span className={onDarkPanel ? "text-white/70" : "text-muted-foreground"}>Subscription</span>
                                     <span className={cn(
                                         "font-bold",
-                                        daysRemaining <= 3 ? "text-red-500" : "text-emerald-500"
+                                        daysRemaining <= 3
+                                            ? (onDarkPanel ? "text-red-300" : "text-red-500")
+                                            : (onDarkPanel ? "text-emerald-300" : "text-emerald-500")
                                     )}>{daysRemaining}d left</span>
                                 </div>
                             )}

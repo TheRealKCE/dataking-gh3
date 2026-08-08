@@ -117,7 +117,7 @@ export default function ClassifiedsPage() {
     }
 
     return (
-        <div className="min-h-screen bg-white dark:bg-[#0a0f1c]">
+        <div className="min-h-screen">
             {/* Hero search header — carries the premium "hero" treatment
                 (emerald gradient, inset glow, floating circles, dot grid) with
                 the real search form on top. Replaces the old flat banner + promo carousel. */}

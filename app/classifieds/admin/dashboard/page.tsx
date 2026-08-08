@@ -56,7 +56,7 @@ export default function AdminDashboardPage() {
     ]
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-[#0a0f1c] flex">
+        <div className="min-h-screen flex">
             <ClassifiedsAdminSidebar />
 
             <div className="flex-1">

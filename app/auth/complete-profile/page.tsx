@@ -94,7 +94,7 @@ export default function CompleteProfilePage() {
 
     if (authLoading) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-background">
+            <div className="min-h-screen flex items-center justify-center">
                 <Loader2 className="w-8 h-8 animate-spin text-primary" />
             </div>
         )
@@ -106,7 +106,7 @@ export default function CompleteProfilePage() {
     }
 
     return (
-        <div className="relative min-h-screen w-full flex flex-col items-center justify-center px-4 py-12 overflow-y-auto bg-background">
+        <div className="relative min-h-screen w-full flex flex-col items-center justify-center px-4 py-12 overflow-y-auto">
             <BackgroundBubbles scrollable />
 
             <div className="w-full max-w-[420px] relative z-10 flex flex-col items-center animate-slow-fade">

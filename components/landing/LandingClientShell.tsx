@@ -219,7 +219,7 @@ export function LandingClientShell({
             : 'opacity-0 translate-x-5 pointer-events-none'
 
     return (
-        <div className="min-h-screen text-foreground overflow-x-hidden bg-background dark:bg-[linear-gradient(160deg,#020617_0%,#070c1f_40%,#020617_100%)]">
+        <div className="min-h-screen text-foreground overflow-x-hidden dark:bg-[linear-gradient(160deg,#020617_0%,#070c1f_40%,#020617_100%)]">
 
             {/* ══ NAV ══════════════════════════════════════════════════════════════ */}
             <nav className={cn(

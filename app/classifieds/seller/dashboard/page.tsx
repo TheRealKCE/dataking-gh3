@@ -162,7 +162,7 @@ export default function SellerDashboardPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-[#0a0f1c] flex">
+        <div className="min-h-screen flex">
             <ClassifiedsSellerSidebar />
 
             <div className="flex-1 min-w-0 pb-20 lg:pb-0">

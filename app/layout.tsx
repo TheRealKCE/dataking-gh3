@@ -7,7 +7,7 @@ export const viewport: Viewport = {
     // the phone's system theme: white in light mode, dark in dark mode.
     themeColor: [
         { media: '(prefers-color-scheme: light)', color: '#ffffff' },
-        { media: '(prefers-color-scheme: dark)', color: '#0A0A0A' },
+        { media: '(prefers-color-scheme: dark)', color: '#000000' },
     ],
     // interactiveWidget removed: only supported in Chrome 108+, causes viewport
     // layout issues on older Android WebView (common on low-end phones in Ghana)
@@ -85,7 +85,7 @@ export default async function RootLayout({
                     }}
                 />
             </head>
-            <body className="font-body">
+            <body className="font-body bg-bubbles">
                 <ThemeProvider
                     attribute="class"
                     defaultTheme="system"

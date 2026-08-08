@@ -15,7 +15,7 @@ export default function Error({
     }, [error])
 
     return (
-        <div className="min-h-screen flex flex-col items-center justify-center bg-background text-foreground px-6 text-center">
+        <div className="min-h-screen flex flex-col items-center justify-center text-foreground px-6 text-center">
             <div className="space-y-6 max-w-md">
                 <div className="w-16 h-16 rounded-full bg-destructive/10 flex items-center justify-center mx-auto">
                     <RefreshCw className="w-8 h-8 text-destructive" />

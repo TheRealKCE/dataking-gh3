@@ -15,6 +15,13 @@ interface RoleConfigItem {
     accentText: string
     gradient: string
     badgeClass: string
+    /**
+     * True when this role's sidebar/header chrome is a solid dark panel.
+     * Components that render on that chrome need light-on-dark treatment —
+     * `badgeClass` in particular is a tinted chip designed for light surfaces
+     * and goes dark-on-dark otherwise.
+     */
+    darkPanel: boolean
     sidebarBg: string
     sidebarNavHover: string
     sidebarNavActive: string
@@ -39,6 +46,7 @@ export const roleConfig: Record<UserRole, RoleConfigItem> = {
         accentText: 'text-rose-500',
         gradient: 'from-rose-700 to-red-900',
         badgeClass: 'bg-rose-500/15 text-rose-600 dark:text-rose-400',
+        darkPanel: false,
         sidebarBg: "bg-card/80 backdrop-blur-xl border-r border-border/50 text-slate-800 dark:text-slate-100",
         sidebarNavHover: "text-slate-600 dark:text-slate-300 hover:text-rose-500 hover:bg-rose-500/5",
         sidebarNavActive: "bg-rose-500/10 text-rose-600 dark:text-rose-400 font-bold",
@@ -61,6 +69,7 @@ export const roleConfig: Record<UserRole, RoleConfigItem> = {
         accentText: 'text-emerald-500',
         gradient: 'from-emerald-500 to-teal-700',
         badgeClass: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
+        darkPanel: false,
         sidebarBg: "bg-card/80 backdrop-blur-xl border-r border-border/50 text-slate-800 dark:text-slate-100",
         sidebarNavHover: "text-slate-600 dark:text-slate-300 hover:text-emerald-500 hover:bg-emerald-500/5",
         sidebarNavActive: "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 font-bold",
@@ -88,6 +97,7 @@ export const roleConfig: Record<UserRole, RoleConfigItem> = {
         accentText: 'text-white',
         gradient: 'from-[#123A63] to-[#0A2A4A]',
         badgeClass: 'bg-[#0A2A4A]/15 text-[#0A2A4A] dark:text-sky-300',
+        darkPanel: true,
         sidebarBg: "bg-gradient-to-b from-[#123A63] to-[#061C33] text-sky-100 border-r border-r-sky-900/40 backdrop-blur-xl shadow-premium",
         sidebarNavHover: "text-sky-200/80 hover:text-white hover:bg-white/10",
         // Active item is a near-black pill punched into the navy, not a
@@ -112,6 +122,7 @@ export const roleConfig: Record<UserRole, RoleConfigItem> = {
         accentText: 'text-white',
         gradient: 'from-purple-600 to-indigo-700',
         badgeClass: 'bg-violet-500/15 text-violet-600 dark:text-violet-400',
+        darkPanel: true,
         sidebarBg: "bg-gradient-to-b from-[#6b21a8] to-[#4c1d95] text-purple-100 border-r border-r-purple-700/30 backdrop-blur-xl shadow-premium",
         sidebarNavHover: "text-purple-200/80 hover:text-white hover:bg-white/10",
         sidebarNavActive: "bg-white/15 text-white font-bold",
@@ -134,6 +145,7 @@ export const roleConfig: Record<UserRole, RoleConfigItem> = {
         accentText: 'text-brand-gold-ink dark:text-brand-gold',
         gradient: 'from-brand-gold to-brand-gold-dark',
         badgeClass: 'bg-brand-gold/15 text-brand-gold-ink dark:text-brand-gold',
+        darkPanel: false,
         // Sidebar is pure white and the page behind it is the off-white
         // --background (#F7F9FC), so the panel reads as raised without a heavy
         // border. Doing it the other way round made both surfaces the same value.

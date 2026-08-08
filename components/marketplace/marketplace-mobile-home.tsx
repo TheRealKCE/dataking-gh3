@@ -138,7 +138,7 @@ export function MarketplaceMobileHome() {
         href === '/classifieds' ? pathname === '/classifieds' : pathname?.startsWith(href)
 
     return (
-        <div className="mx-auto min-h-screen max-w-[480px] bg-white dark:bg-[#0a0f1c]">
+        <div className="mx-auto min-h-screen max-w-[480px]">
             {/* pb leaves room for the fixed bottom nav + iOS safe area */}
             <div className="px-4 pb-28 pt-4">
                 {/* ── 1. TOP CATEGORY SCROLL ROW ─────────────────────────── */}

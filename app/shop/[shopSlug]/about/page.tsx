@@ -61,7 +61,7 @@ export default async function ShopAboutPage({ params }: Props) {
     const safeBrandColor = isValidHex(brandColor) ? brandColor : '#2563eb'
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col theme-shop pt-16">
+        <div className="min-h-screen flex flex-col theme-shop pt-16">
             <style dangerouslySetInnerHTML={{ __html: `.theme-shop { --brand-color: ${safeBrandColor}; }` }} />
 
             {/* Permanent Header (Simplified) */}

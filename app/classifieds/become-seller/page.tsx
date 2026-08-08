@@ -19,7 +19,7 @@ export default function BecomeSellerPage() {
 
     if (!user) {
         return (
-            <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-[#0a0f1c]">
+            <div className="min-h-screen flex items-center justify-center">
                 <div className="text-center">
                     <p className="text-gray-600 dark:text-gray-400 mb-4">Please log in to continue</p>
                     <Link href="/auth/login">

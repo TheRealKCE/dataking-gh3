@@ -6,7 +6,7 @@ import Link from 'next/link'
 
 export default function AdminSettingsPage() {
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-[#0a0f1c] flex">
+        <div className="min-h-screen flex">
             <ClassifiedsAdminSidebar />
 
             <div className="flex-1">

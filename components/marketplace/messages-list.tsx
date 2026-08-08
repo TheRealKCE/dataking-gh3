@@ -116,7 +116,7 @@ export function MessagesList({ conversations, onOpen, onDelete, loading }: Messa
     }
 
     return (
-        <div className="mx-auto flex min-h-screen max-w-[480px] flex-col bg-white dark:bg-[#0a0f1c]">
+        <div className="mx-auto flex min-h-screen max-w-[480px] flex-col">
             {/* Header */}
             <header className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-100 bg-white/95 px-4 py-3 backdrop-blur dark:border-gray-800 dark:bg-[#0a0f1c]/95">
                 <h1 className="text-xl font-black text-gray-900 dark:text-white">Messages</h1>

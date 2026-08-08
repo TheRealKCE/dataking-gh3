@@ -98,7 +98,7 @@ export function SubPortalShell({ children }: { children: React.ReactNode }) {
     item.exact ? pathname === item.href : pathname?.startsWith(item.href)
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-950">
+    <div className="min-h-screen">
       {/* ── Sidebar ─────────────────────────────────────────────── */}
       {open && (
         <div className="lg:hidden fixed inset-0 z-40 bg-black/50" onClick={() => setOpen(false)} />

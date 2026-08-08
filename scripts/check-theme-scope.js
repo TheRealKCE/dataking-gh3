@@ -39,7 +39,7 @@ const ACCENT_CHANNEL = new Set([
     '--ring',
 ])
 
-/** Network + partner brand hexes. These belong in lib/networks.ts, nowhere else. */
+/** Network + partner brand hexes. These belong in lib/networks.tsx, nowhere else. */
 const NETWORK_HEXES = [
     '#FFCC00', '#FFCE00', '#E30613', '#ED1C24', '#E60000',
     '#0056B3', '#6f42c1', '#F97316', '#da291c', '#2463eb', '#25D366',
@@ -133,7 +133,7 @@ const rel = (f) => path.relative(ROOT, f).split(path.sep).join('/')
 
 // -- Check 3: network hexes live only in lib/networks.ts --------------------
 {
-    const ALLOWED = new Set(['lib/networks.ts'])
+    const ALLOWED = new Set(['lib/networks.ts', 'lib/networks.tsx'])
     const pattern = new RegExp(NETWORK_HEXES.join('|'), 'i')
     for (const file of walk(ROOT, ['.tsx', '.ts', '.css'])) {
         const r = rel(file)

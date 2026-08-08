@@ -20,7 +20,7 @@ export default function MarketplaceLayout({
     const year = new Date().getFullYear()
 
     return (
-        <div className="theme-marketplace min-h-screen bg-background text-foreground flex flex-col">
+        <div className="theme-marketplace min-h-screen text-foreground flex flex-col">
             <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
                 <MarketplaceHeader />
                 <main className="flex-1">

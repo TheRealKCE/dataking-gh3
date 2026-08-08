@@ -185,7 +185,7 @@ export default function AdminProfitsPage() {
     const COLORS = ['#10b981', '#3b82f6'];
 
     return (
-        <div className="p-4 md:p-6 lg:p-8 space-y-8 bg-background dark:bg-slate-950 min-h-screen pb-20">
+        <div className="p-4 md:p-6 lg:p-8 space-y-8 dark:bg-slate-950 min-h-screen pb-20">
             
             {/* --- HEADER & CONTROLS --- */}
             <div className="flex flex-col gap-6 md:flex-row md:items-end justify-between">

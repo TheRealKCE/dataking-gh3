@@ -11,7 +11,7 @@
 // so this skeleton ships in the shared chunk and renders with no extra fetch.
 export default function AuthLoading() {
     return (
-        <div className="relative min-h-screen w-full flex flex-col items-center justify-center px-4 py-12 bg-background">
+        <div className="relative min-h-screen w-full flex flex-col items-center justify-center px-4 py-12">
             <div className="w-full max-w-[420px] flex flex-col items-center">
                 {/* Logo + branding placeholder */}
                 <div className="flex flex-col items-center mb-10">

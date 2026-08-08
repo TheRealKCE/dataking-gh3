@@ -122,7 +122,7 @@ export default function AdminSellersPage() {
 
     if (isLoading) {
         return (
-            <div className="min-h-screen bg-gray-50 dark:bg-[#0a0f1c] flex">
+            <div className="min-h-screen flex">
                 <ClassifiedsAdminSidebar />
                 <div className="flex-1 flex items-center justify-center">
                     <Loader2 className="w-8 h-8 text-emerald-600 dark:text-emerald-400 animate-spin" />
@@ -132,7 +132,7 @@ export default function AdminSellersPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-[#0a0f1c] flex">
+        <div className="min-h-screen flex">
             <ClassifiedsAdminSidebar />
 
             <div className="flex-1">

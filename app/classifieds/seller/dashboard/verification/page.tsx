@@ -131,7 +131,7 @@ export default function SellerVerificationPage() {
 
     if (isLoading) {
         return (
-            <div className="min-h-screen bg-gray-50 dark:bg-[#0a0f1c] flex">
+            <div className="min-h-screen flex">
                 <ClassifiedsSellerSidebar />
                 <div className="flex-1 min-w-0 pb-20 lg:pb-0 flex items-center justify-center">
                     <Loader2 className="w-8 h-8 text-emerald-600 dark:text-emerald-400 animate-spin" />
@@ -141,7 +141,7 @@ export default function SellerVerificationPage() {
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-[#0a0f1c] flex">
+        <div className="min-h-screen flex">
             <ClassifiedsSellerSidebar />
 
             <div className="flex-1 min-w-0 pb-20 lg:pb-0">

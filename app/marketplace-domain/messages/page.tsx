@@ -19,7 +19,7 @@ export default async function MessagesPage() {
     }
 
     return (
-        <div className="min-h-screen bg-background">
+        <div className="min-h-screen">
             <div className="container py-8 max-w-4xl">
                 <h1 className="text-3xl font-bold mb-2">Messages</h1>
                 <p className="text-muted-foreground mb-8">

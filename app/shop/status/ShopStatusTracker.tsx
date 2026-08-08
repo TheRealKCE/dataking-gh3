@@ -214,7 +214,7 @@ export default function ShopStatusTracker() {
     }
 
     return (
-        <div className={cn("min-h-screen bg-gray-50 dark:bg-gray-950 pb-20", shopData && "theme-tracker")}>
+        <div className={cn("min-h-screen  pb-20", shopData && "theme-tracker")}>
             {shopData && (
                 <style dangerouslySetInnerHTML={{
                     __html: `

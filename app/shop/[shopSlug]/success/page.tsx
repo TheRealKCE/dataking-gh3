@@ -123,7 +123,7 @@ export default async function ShopSuccessPage({ params, searchParams }: Props) {
         : `Hi! I just bought ${isAirtime ? 'airtime' : 'data'} from your shop. Reference: ${ref || ''}`
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-950 flex flex-col">
+        <div className="min-h-screen flex flex-col">
             {/* Header */}
             <div className="py-6 px-4" style={{ backgroundColor: brandColor } as any}>
                 <div className="max-w-md mx-auto flex items-center gap-3">

@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { formatCurrency } from '@/lib/utils'
 import { cn } from '@/lib/utils'
+import { NETWORK_ORDER, NetworkLogo, detectPayNetwork, type PayNetwork } from '@/lib/networks'
 import {
     Phone, Mail, MessageCircle, ShoppingCart, Loader2,
     CheckCircle2, AlertCircle, X, Search, Zap, Smartphone, ChevronDown, Check, Menu, Bell,
@@ -106,9 +107,15 @@ interface StorefrontAnnouncement {
     title?: string
 }
 
-// Fixed network order + brand colors (matches main platform)
-const NETWORK_ORDER = ['MTN', 'Telecel', 'AT-iShare', 'AT-BigTime', 'AT', 'Special MTN Mashup', 'EXPRESS MTN']
-
+// Order, logo marks and MoMo-prefix detection now come from lib/networks.tsx,
+// the single source of truth for network identity.
+//
+// TODO(Phase 3): `networkColors` and `getNetworkCardStyle` below are the last
+// two duplicated colour maps. They are left in place deliberately — their call
+// sites are spread through this 2,141-line component, which Phase 3 splits into
+// CheckoutSheet / PackageGrid / NetworkTabs. Rewriting the markup twice would be
+// wasted work, so they move then. Until then check-theme-scope.js keeps
+// reporting them, which is the point.
 const networkColors: Record<string, { bgClass: string; textClass: string; borderClass: string; gradient: string }> = {
     MTN: { bgClass: 'bg-[#FFCE00]', textClass: 'text-[#000000]', borderClass: 'border-[#e6b800]', gradient: 'from-yellow-400 to-yellow-500' },
     Telecel: { bgClass: 'bg-[#E60000]', textClass: 'text-[#ffffff]', borderClass: 'border-[#cc0000]', gradient: 'from-red-500 to-red-600' },
@@ -120,57 +127,6 @@ const networkColors: Record<string, { bgClass: string; textClass: string; border
 }
 
 const QUICK_AMOUNTS = [1, 2, 5, 10, 20, 50, 100]
-
-function MTNLogo() {
-    return (
-        <svg viewBox="0 0 60 60" className="w-full h-full" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="30" cy="30" r="30" fill="#FFCC00" />
-            <ellipse cx="30" cy="30" rx="26" ry="14" fill="#005b82" />
-            <text x="30.5" y="35.5" textAnchor="middle" fontSize="15" fontWeight="900" fill="#e20010" fontStyle="italic" fontFamily="Arial Black, Arial, sans-serif" letterSpacing="-0.5">MTN</text>
-            <text x="30" y="35" textAnchor="middle" fontSize="15" fontWeight="900" fill="white" fontStyle="italic" fontFamily="Arial Black, Arial, sans-serif" letterSpacing="-0.5">MTN</text>
-        </svg>
-    )
-}
-function TelecelLogo() {
-    return (
-        <svg viewBox="0 0 60 60" className="w-8 h-8" fill="none">
-            <circle cx="30" cy="30" r="30" fill="#e63946"/>
-            <text x="50%" y="55%" dominantBaseline="middle" textAnchor="middle" fontSize="11" fontWeight="bold" fill="white">Telecel</text>
-        </svg>
-    )
-}
-function ATLogo() {
-    return (
-        <svg viewBox="0 0 60 60" className="w-full h-full bg-white rounded-full shadow-sm" fill="none">
-            <text x="29" y="38" textAnchor="end" fontSize="26" fontWeight="bold" fill="#e60000" fontFamily="Arial, sans-serif">a</text>
-            <text x="30" y="38" textAnchor="start" fontSize="26" fontWeight="bold" fill="#0056B3" fontFamily="Arial, sans-serif">t</text>
-            <text x="30" y="48" textAnchor="middle" fontSize="6.5" fontWeight="bold" fill="#444" fontFamily="Arial, sans-serif" letterSpacing="0.2">life is simple</text>
-        </svg>
-    )
-}
-
-const NetworkLogo = ({ id }: { id: string }) => {
-    if (id === 'MTN') return <MTNLogo />
-    if (id === 'Telecel') return <TelecelLogo />
-    return <ATLogo />
-}
-
-// Payment (MoMo) networks — the wallet that gets charged, not the bundle's network.
-type PayNetwork = 'MTN' | 'Telecel' | 'AT'
-const PAY_NETWORK_PREFIXES: Record<PayNetwork, string[]> = {
-    MTN: ['024', '054', '055', '059', '025', '053', '098'],
-    Telecel: ['020', '050'],
-    AT: ['026', '027', '056', '028', '058', '057'],
-}
-
-const detectPayNetwork = (raw: string): PayNetwork | null => {
-    const prefix = raw.replace(/\s+/g, '').substring(0, 3)
-    if (prefix.length < 3) return null
-    for (const [net, prefixes] of Object.entries(PAY_NETWORK_PREFIXES)) {
-        if (prefixes.includes(prefix)) return net as PayNetwork
-    }
-    return null
-}
 
 const getNetworkCardStyle = (net: string) => {
     switch (net) {
@@ -321,7 +277,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
             if (n === 'MTN' && isStandardMtnHidden) return false
             return packages.some(p => p.network === n)
         })
-        const extra = [...new Set(packages.map(p => p.network))].filter(n => !NETWORK_ORDER.includes(n))
+        const extra = [...new Set(packages.map(p => p.network))].filter(n => !(NETWORK_ORDER as string[]).includes(n))
         return [...available, ...extra]
     }, [packages, isSpecialMtnMashupHidden, isExpressMtnHidden, isStandardMtnHidden])
 
@@ -930,7 +886,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
     }
 
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-[#0a0f1c] text-gray-900 dark:text-white theme-shop">
+        <div className="min-h-screen text-gray-900 dark:text-white theme-shop">
             <style dangerouslySetInnerHTML={{ __html: `.theme-shop { --brand-color: ${safeBrandColor}; }` }} />
             
             {/* Header / Nav */}
@@ -1597,8 +1553,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                                         </div>
                                     )}
                                     <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full flex items-center justify-center mt-1">
-                                        {net === 'MTN' || net === 'EXPRESS MTN' || net === 'Special MTN Mashup' ? <MTNLogo /> :
-                                         net === 'Telecel' ? <TelecelLogo /> : <ATLogo />}
+                                        <NetworkLogo id={net} />
                                     </div>
                                     <span className="text-[10px] sm:text-[13px] font-bold text-gray-700 dark:text-gray-200 text-center leading-tight">
                                         {net === 'Special MTN Mashup' ? 'Special Mashup' : net === 'EXPRESS MTN' ? 'Express MTN' : net === 'AT-iShare' ? 'AT iShare' : net === 'AT-BigTime' ? 'AT BigTime' : net}
@@ -1660,8 +1615,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                                         {/* Top Left Logo Circle */}
                                         <div className={cn("absolute top-3 left-3 w-10 h-10 rounded-full flex items-center justify-center backdrop-blur-sm", cardStyle.iconBg)}>
                                             <div className="w-6 h-6 rounded-full flex items-center justify-center bg-transparent">
-                                                {pkg.network === 'MTN' || pkg.network === 'EXPRESS MTN' || pkg.network === 'Special MTN Mashup' ? <MTNLogo /> :
-                                                 pkg.network === 'Telecel' ? <TelecelLogo /> : <ATLogo />}
+                                                <NetworkLogo id={pkg.network} />
                                             </div>
                                         </div>
                                         
@@ -1731,8 +1685,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                                     <div className="flex items-center gap-3 min-w-0">
                                         <div className={cn('w-10 h-10 rounded-full flex items-center justify-center shrink-0', sheetStyle.iconBg)}>
                                             <div className="w-6 h-6">
-                                                {selectedPackage.network === 'Telecel' ? <TelecelLogo /> :
-                                                    selectedPackage.network.startsWith('AT') ? <ATLogo /> : <MTNLogo />}
+                                                <NetworkLogo id={selectedPackage.network} />
                                             </div>
                                         </div>
                                         <p className="text-lg font-black tracking-tight truncate">

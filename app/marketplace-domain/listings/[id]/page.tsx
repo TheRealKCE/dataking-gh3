@@ -118,7 +118,7 @@ export default async function ListingPage({
     const thumbnails = images.slice(0, 5)
 
     return (
-        <div className="min-h-screen bg-background">
+        <div className="min-h-screen">
             <div className="container py-8">
                 {/* Back Link */}
                 <Link
