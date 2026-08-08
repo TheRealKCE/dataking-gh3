@@ -196,12 +196,11 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
     const [selectedPackage, setSelectedPackage] = useState<Package | null>(null)
     const [phone, setPhone] = useState('')
     const [email, setEmail] = useState('')
-    // The bundle goes to `phone`; the MoMo prompt goes to `payPhone`. The two fields
-    // are independent by default — starting ticked made the MoMo box echo every
-    // keystroke typed into the beneficiary box, which buyers read as the form typing
-    // for them. Ticking the box is now a deliberate act, and only then do they mirror.
+    // The bundle goes to `phone`; the MoMo prompt goes to `payPhone`. The two are typed
+    // separately — a "use the same number" tick used to mirror one into the other, but
+    // it echoed every keystroke from the beneficiary box and read as the form typing
+    // for the buyer.
     const [payPhone, setPayPhone] = useState('')
-    const [payWithSameNumber, setPayWithSameNumber] = useState(false)
     const [payNetwork, setPayNetwork] = useState<PayNetwork | null>(null)
     const [payNetworkManual, setPayNetworkManual] = useState(false)
 
@@ -510,7 +509,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
     }
 
     // The number that actually gets charged
-    const effectivePayPhone = (payWithSameNumber ? phone : payPhone).replace(/\s+/g, '')
+    const effectivePayPhone = payPhone.replace(/\s+/g, '')
 
     // Follow the paying number until the customer picks a network themselves
     useEffect(() => {
@@ -1756,39 +1755,16 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                                     />
                                 </div>
 
-                                {/* Same-number toggle */}
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        // Keep the mirrored number when the box is unticked again,
-                                        // so unticking edits it instead of blanking the field.
-                                        if (payWithSameNumber) setPayPhone(phone)
-                                        setPayWithSameNumber(!payWithSameNumber)
-                                    }}
-                                    className="flex items-center gap-3 w-full text-left"
-                                >
-                                    <span className={cn(
-                                        'w-6 h-6 rounded-md border-2 flex items-center justify-center shrink-0 transition-all',
-                                        payWithSameNumber ? 'bg-gray-900 dark:bg-white border-gray-900 dark:border-white text-white dark:text-gray-900' : 'border-gray-300 dark:border-gray-600'
-                                    )}>
-                                        {payWithSameNumber && <Check className="w-4 h-4 stroke-[3px]" />}
-                                    </span>
-                                    <span className="text-[15px] font-semibold text-gray-500 dark:text-gray-400">
-                                        Use this number for Mobile Money payment
-                                    </span>
-                                </button>
-
-                                {/* Payer — mirrors the beneficiary number while the box is ticked; typing here
-                                    unticks it so the buyer keeps what they typed. Any number on any network may
-                                    pay, so this is never locked to the beneficiary's number. */}
+                                {/* Payer — typed on its own. Any number on any network may pay, so this
+                                    is never locked to the beneficiary's number. */}
                                 <div className="space-y-2">
                                     <Label className="text-sm font-black text-gray-900 dark:text-gray-100">
                                         Mobile Money number <span className="font-semibold text-gray-400">(to pay)</span>
                                     </Label>
                                     <input
                                         type="tel" inputMode="numeric"
-                                        value={payWithSameNumber ? phone : payPhone}
-                                        onChange={(e) => { setPayWithSameNumber(false); setPayPhone(e.target.value) }}
+                                        value={payPhone}
+                                        onChange={(e) => setPayPhone(e.target.value)}
                                         placeholder="0241234567"
                                         className="w-full px-4 py-3.5 rounded-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-base font-semibold focus:outline-none focus:ring-2 ring-[var(--brand-color)] transition-all"
                                     />

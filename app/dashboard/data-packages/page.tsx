@@ -142,14 +142,11 @@ export default function DataPackagesPage() {
     const [paystackFeePercent, setPaystackFeePercent] = useState(1.95)
     const [momoPhone, setMomoPhone] = useState('')
     const [momoNetwork, setMomoNetwork] = useState('')
-    // Single checkout only: the bundle goes to `phoneNumber`, the MoMo prompt goes to
-    // `momoPhone`. The bulk checkout keeps using `momoPhone` on its own.
-    //
-    // Starts unticked so the two fields are independent. Ticked by default, the MoMo
-    // box echoed every keystroke typed into the beneficiary box, which buyers read as
-    // the form typing for them. Ticking is now a deliberate act, and only then do the
-    // two mirror.
-    const [payWithSameNumber, setPayWithSameNumber] = useState(false)
+    // Single checkout: the bundle goes to `phoneNumber`, the MoMo prompt goes to
+    // `momoPhone`, and the two are typed separately. A "use the same number" tick used
+    // to mirror one into the other, but it echoed every keystroke from the beneficiary
+    // box and read as the form typing for the buyer. The bulk checkout has always used
+    // `momoPhone` on its own.
     const [singleMomoNetwork, setSingleMomoNetwork] = useState('')
     const [momoNetworkManual, setMomoNetworkManual] = useState(false)
 
@@ -430,7 +427,7 @@ export default function DataPackagesPage() {
     const selectedTotal = selectedPrice + selectedFee
 
     // The number that actually gets charged in the single checkout
-    const effectiveMomoPhone = (payWithSameNumber ? phoneNumber : momoPhone).replace(/\s+/g, '')
+    const effectiveMomoPhone = momoPhone.replace(/\s+/g, '')
 
     // Follow the paying number until the buyer picks a network themselves.
     // detectNetwork returns the bundle-style name; the gateway wants 'AT' for AirtelTigo.
@@ -449,9 +446,7 @@ export default function DataPackagesPage() {
         setOtpRequired(false)
         setOtpCode('')
         setDirectPaymentRef(null)
-        // Fresh sheet: the two number fields start independent (see the state
-        // declaration) and the network is re-detected from whatever gets typed.
-        setPayWithSameNumber(false)
+        // Fresh sheet: blank paying number, network re-detected from whatever gets typed
         setMomoPhone('')
         setMomoNetworkManual(false)
         // Default to whichever method can actually complete right now
@@ -1768,30 +1763,8 @@ export default function DataPackagesPage() {
                             {/* MoMo details — direct payment only */}
                             {paymentMethod === 'direct' && needsMomoDetails && (
                                 <>
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            // Keep the mirrored number when the box is unticked again,
-                                            // so unticking edits it instead of blanking the field.
-                                            if (payWithSameNumber) setMomoPhone(phoneNumber)
-                                            setPayWithSameNumber(!payWithSameNumber)
-                                        }}
-                                        className="flex items-center gap-3 w-full text-left"
-                                    >
-                                        <span className={cn(
-                                            'w-6 h-6 rounded-md border-2 flex items-center justify-center shrink-0 transition-all',
-                                            payWithSameNumber ? 'bg-gray-900 dark:bg-white border-gray-900 dark:border-white text-white dark:text-gray-900' : 'border-gray-300 dark:border-gray-600'
-                                        )}>
-                                            {payWithSameNumber && <Check className="w-4 h-4 stroke-[3px]" />}
-                                        </span>
-                                        <span className="text-[15px] font-semibold text-gray-500 dark:text-gray-400">
-                                            Use this number for Mobile Money payment
-                                        </span>
-                                    </button>
-
-                                    {/* While the box is ticked this mirrors the beneficiary number; typing here
-                                        unticks it so the buyer keeps what they typed. Any number on any network
-                                        is allowed to pay — the gateway does not require the two to match. */}
+                                    {/* Typed on its own. Any number on any network is allowed to pay —
+                                        the gateway does not require the two to match. */}
                                     <div className="space-y-2">
                                         <Label htmlFor="momo-phone" className="text-sm font-black text-gray-900 dark:text-gray-100">
                                             Mobile Money number <span className="font-semibold text-gray-400">(to pay)</span>
@@ -1801,8 +1774,8 @@ export default function DataPackagesPage() {
                                             type="tel"
                                             inputMode="numeric"
                                             placeholder="0241234567"
-                                            value={payWithSameNumber ? phoneNumber : momoPhone}
-                                            onChange={(e) => { setPayWithSameNumber(false); setMomoPhone(e.target.value) }}
+                                            value={momoPhone}
+                                            onChange={(e) => setMomoPhone(e.target.value)}
                                             className="w-full px-4 py-3.5 rounded-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-base font-semibold focus:outline-none focus:ring-2 ring-primary transition-all"
                                         />
                                     </div>
