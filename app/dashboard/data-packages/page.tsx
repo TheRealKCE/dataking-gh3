@@ -143,9 +143,13 @@ export default function DataPackagesPage() {
     const [momoPhone, setMomoPhone] = useState('')
     const [momoNetwork, setMomoNetwork] = useState('')
     // Single checkout only: the bundle goes to `phoneNumber`, the MoMo prompt goes to
-    // `momoPhone`. They are the same number unless the buyer unticks the box (someone
-    // else is paying). The bulk checkout keeps using `momoPhone` on its own.
-    const [payWithSameNumber, setPayWithSameNumber] = useState(true)
+    // `momoPhone`. The bulk checkout keeps using `momoPhone` on its own.
+    //
+    // Starts unticked so the two fields are independent. Ticked by default, the MoMo
+    // box echoed every keystroke typed into the beneficiary box, which buyers read as
+    // the form typing for them. Ticking is now a deliberate act, and only then do the
+    // two mirror.
+    const [payWithSameNumber, setPayWithSameNumber] = useState(false)
     const [singleMomoNetwork, setSingleMomoNetwork] = useState('')
     const [momoNetworkManual, setMomoNetworkManual] = useState(false)
 
@@ -445,8 +449,10 @@ export default function DataPackagesPage() {
         setOtpRequired(false)
         setOtpCode('')
         setDirectPaymentRef(null)
-        // Fresh sheet: pay from the beneficiary's own number and re-detect the network
-        setPayWithSameNumber(true)
+        // Fresh sheet: the two number fields start independent (see the state
+        // declaration) and the network is re-detected from whatever gets typed.
+        setPayWithSameNumber(false)
+        setMomoPhone('')
         setMomoNetworkManual(false)
         // Default to whichever method can actually complete right now
         setPaymentMethod(walletBalance >= getEffectivePrice(pkg) ? 'wallet' : 'direct')
@@ -1764,7 +1770,12 @@ export default function DataPackagesPage() {
                                 <>
                                     <button
                                         type="button"
-                                        onClick={() => setPayWithSameNumber(!payWithSameNumber)}
+                                        onClick={() => {
+                                            // Keep the mirrored number when the box is unticked again,
+                                            // so unticking edits it instead of blanking the field.
+                                            if (payWithSameNumber) setMomoPhone(phoneNumber)
+                                            setPayWithSameNumber(!payWithSameNumber)
+                                        }}
                                         className="flex items-center gap-3 w-full text-left"
                                     >
                                         <span className={cn(

@@ -196,10 +196,12 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
     const [selectedPackage, setSelectedPackage] = useState<Package | null>(null)
     const [phone, setPhone] = useState('')
     const [email, setEmail] = useState('')
-    // The bundle goes to `phone`; the MoMo prompt goes to `payPhone`. They are the
-    // same number unless the customer unticks the box (someone else pays for them).
+    // The bundle goes to `phone`; the MoMo prompt goes to `payPhone`. The two fields
+    // are independent by default — starting ticked made the MoMo box echo every
+    // keystroke typed into the beneficiary box, which buyers read as the form typing
+    // for them. Ticking the box is now a deliberate act, and only then do they mirror.
     const [payPhone, setPayPhone] = useState('')
-    const [payWithSameNumber, setPayWithSameNumber] = useState(true)
+    const [payWithSameNumber, setPayWithSameNumber] = useState(false)
     const [payNetwork, setPayNetwork] = useState<PayNetwork | null>(null)
     const [payNetworkManual, setPayNetworkManual] = useState(false)
 
@@ -1757,7 +1759,12 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                                 {/* Same-number toggle */}
                                 <button
                                     type="button"
-                                    onClick={() => setPayWithSameNumber(!payWithSameNumber)}
+                                    onClick={() => {
+                                        // Keep the mirrored number when the box is unticked again,
+                                        // so unticking edits it instead of blanking the field.
+                                        if (payWithSameNumber) setPayPhone(phone)
+                                        setPayWithSameNumber(!payWithSameNumber)
+                                    }}
                                     className="flex items-center gap-3 w-full text-left"
                                 >
                                     <span className={cn(
