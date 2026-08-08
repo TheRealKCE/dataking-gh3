@@ -331,6 +331,10 @@ export async function fulfillOrder(
         let attempt = 0
         const maxAttempts = 3
         let lastError: Error | null = null
+        // Whole-call budget across all attempts. A stalled supplier would otherwise
+        // burn maxAttempts x the per-attempt timeout plus backoff, overrunning the
+        // caller's function limit and getting killed before it can report failure.
+        const fulfillDeadline = Date.now() + 25_000
 
         while (attempt < maxAttempts) {
             attempt++
@@ -343,6 +347,12 @@ export async function fulfillOrder(
                         'x-api-key': CODECRAFT_API_KEY,
                     },
                     body: JSON.stringify(requestBody),
+                    // Bound the call. Without this a supplier that accepts the TCP
+                    // connection and then stalls (never answering, never resetting) leaves
+                    // fetch pending forever: the retry loop below never runs and the whole
+                    // serverless function is killed mid-order, stranding the row in
+                    // 'processing'. A timeout turns that hang into a retriable failure.
+                    signal: AbortSignal.timeout(Math.max(2_000, fulfillDeadline - Date.now())),
                 })
 
                 // Rate limiting — do not retry, return so caller can queue
@@ -356,6 +366,10 @@ export async function fulfillOrder(
             } catch (err: any) {
                 lastError = err
                 console.error(`[CodeCraft] Fetch error on attempt ${attempt}:`, err.message)
+                if (Date.now() >= fulfillDeadline) {
+                    console.warn(`[codecraft] Fulfillment budget exhausted after attempt ${attempt} — giving up so the caller can report a failure.`)
+                    break
+                }
                 if (attempt < maxAttempts) {
                     const delay = 2000 * attempt // 2s, 4s
                     console.log(`[CodeCraft] Retrying in ${delay}ms...`)

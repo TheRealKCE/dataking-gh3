@@ -413,6 +413,12 @@ export async function fetchSupplierBalance(): Promise<{ success: boolean; balanc
                 const snippet = rawText.trim().startsWith('<') ? '[HTML Response Omitted]' : rawText.slice(0, 300)
                 console.error('[DataKazina Balance] Non-JSON response (HTTP', response.status, '):', snippet)
             }
+            if (response.status === 404) {
+                // The documented endpoint is gone upstream — the same key still works on
+                // other v1 routes (e.g. /fetch-data-packages), so this is a supplier-side
+                // rename, not an auth or config problem on our end.
+                return { success: false, error: 'DataKazina /check-console-balance no longer exists (HTTP 404) — endpoint changed upstream' }
+            }
             return { success: false, error: `Supplier returned unexpected response (HTTP ${response.status})` }
         }
 

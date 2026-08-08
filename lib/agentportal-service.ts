@@ -170,6 +170,10 @@ export async function fulfillOrder(
         let attempt = 0
         const maxAttempts = 3
         let lastError: Error | null = null
+        // Whole-call budget across all attempts. A stalled supplier would otherwise
+        // burn maxAttempts x the per-attempt timeout plus backoff, overrunning the
+        // caller's function limit and getting killed before it can report failure.
+        const fulfillDeadline = Date.now() + 25_000
 
         while (attempt < maxAttempts) {
             attempt++
@@ -182,6 +186,12 @@ export async function fulfillOrder(
                         'X-API-Key': AGENTPORTAL_API_KEY,
                     },
                     body: JSON.stringify(requestBody),
+                    // Bound the call. Without this a supplier that accepts the TCP
+                    // connection and then stalls (never answering, never resetting) leaves
+                    // fetch pending forever: the retry loop below never runs and the whole
+                    // serverless function is killed mid-order, stranding the row in
+                    // 'processing'. A timeout turns that hang into a retriable failure.
+                    signal: AbortSignal.timeout(Math.max(2_000, fulfillDeadline - Date.now())),
                 })
 
                 if (response.status === 429) {
@@ -194,6 +204,10 @@ export async function fulfillOrder(
             } catch (err: any) {
                 lastError = err
                 console.error(`[AgentPortal] Fetch error on attempt ${attempt}:`, err.message)
+                if (Date.now() >= fulfillDeadline) {
+                    console.warn(`[agentportal] Fulfillment budget exhausted after attempt ${attempt} — giving up so the caller can report a failure.`)
+                    break
+                }
                 if (attempt < maxAttempts) {
                     const delay = 2000 * attempt
                     console.log(`[AgentPortal] Retrying in ${delay}ms...`)
@@ -509,10 +523,43 @@ export async function fetchSupplierBalance(): Promise<{
     }
 
     try {
-        const response = await fetch(`${AGENTPORTAL_API_URL}/api/wallet`, {
-            method: 'GET',
-            headers: { 'Accept': 'application/json', 'X-API-Key': AGENTPORTAL_API_KEY },
-        })
+        // This host intermittently accepts the TCP connection and then never completes the
+        // TLS handshake — measured directly: a normal call is ~0.8s, but a run of requests
+        // will stall at tls=0.000 and hang. undici surfaces that as a bare "fetch failed",
+        // which is why fulfillOrder already retries network errors 3x. A single attempt
+        // here meant one blip blanked the admin card.
+        //
+        // Both endpoints below return `balance` (see the Agent Portal API reference:
+        // GET /api/wallet and GET /api/wallet/summary). The last attempt uses the summary
+        // route so a fault specific to one endpoint still yields a balance.
+        const endpoints = ['/api/wallet', '/api/wallet', '/api/wallet/summary']
+        let response: Response | null = null
+        let lastError: any = null
+
+        for (let attempt = 0; attempt < endpoints.length; attempt++) {
+            try {
+                response = await fetch(`${AGENTPORTAL_API_URL}${endpoints[attempt]}`, {
+                    method: 'GET',
+                    headers: { 'Accept': 'application/json', 'X-API-Key': AGENTPORTAL_API_KEY },
+                    // Bounded per attempt: a stalled handshake must fail fast enough to
+                    // leave room for the remaining attempts inside the route's budget.
+                    signal: AbortSignal.timeout(8_000),
+                })
+                break
+            } catch (err: any) {
+                lastError = err
+                console.warn(`[AgentPortal Balance] Attempt ${attempt + 1} (${endpoints[attempt]}) failed: ${err?.message} (${err?.cause?.code || err?.name || 'no cause'})`)
+                if (attempt < endpoints.length - 1) await new Promise(res => setTimeout(res, 500 * (attempt + 1)))
+            }
+        }
+
+        if (!response) {
+            const code = lastError?.cause?.code || lastError?.name
+            return {
+                success: false,
+                error: `Could not reach Agent Portal${code ? ` (${code})` : ''}`,
+            }
+        }
 
         const rawText = await response.text()
         let data: any
@@ -530,7 +577,11 @@ export async function fetchSupplierBalance(): Promise<{
             return { success: true, balance, currency: 'GHS' }
         }
 
-        return { success: false, error: data?.error || 'Failed to fetch balance' }
+        if (response.status === 401) {
+            return { success: false, error: 'Authentication failed — check AGENTPORTAL_API_KEY' }
+        }
+
+        return { success: false, error: `${data?.error || 'Failed to fetch balance'} (HTTP ${response.status})` }
 
     } catch (error: any) {
         console.error('[AgentPortal Balance] Error:', error)

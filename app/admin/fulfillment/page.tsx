@@ -630,7 +630,14 @@ export default function FulfillmentPage() {
             const data = await response.json()
             if (!response.ok) throw new Error(data.error || 'Refulfillment failed')
 
-            toast.success(`Refulfillment complete: ${data.fulfilled} processing, ${data.skipped} skipped, ${data.failed} failed/reverted`)
+            // `remaining` > 0 means the route ran out of time and deliberately stopped —
+            // say so, otherwise a partial run looks like it quietly ignored the rest.
+            const summary = `${data.fulfilled} processing, ${data.skipped} skipped, ${data.failed} failed/reverted`
+            if (data.remaining > 0) {
+                toast.warning(`Refulfillment partial: ${summary}. ${data.remaining} left — run it again.`)
+            } else {
+                toast.success(`Refulfillment complete: ${summary}`)
+            }
             if (useSelection) setSelectedOrders(new Set())
 
             // Re-fetch current view
