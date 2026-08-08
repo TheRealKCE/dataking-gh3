@@ -43,6 +43,15 @@ export async function POST(request: NextRequest) {
             raw: event,
         })
 
+        // An approved payment clears this number's prompt window: the ceiling is there
+        // to stop unsolicited prompts, and a prompt someone entered their PIN for was
+        // plainly solicited. Without this, a wallet buying several bundles in an hour
+        // locks itself out mid-purchase.
+        if (event.ResponseCode === '0000' && event.Data?.CustomerMobileNumber) {
+            const { clearHubtelPromptCount } = await import('@/lib/hubtel-prompt-limit')
+            await clearHubtelPromptCount(String(event.Data.CustomerMobileNumber))
+        }
+
         // Only process successful payments — ResponseCode '0000'
         if (event.ResponseCode !== '0000') {
             console.log(`[HubtelWebhook] Ignoring non-successful callback. ResponseCode: ${event.ResponseCode}, Message: ${event.Message}`)

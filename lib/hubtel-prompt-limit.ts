@@ -26,7 +26,12 @@ import { toHubtelMsisdn as normalizeMsisdn } from '@/lib/hubtel-payment-service'
 
 const redis = Redis.fromEnv()
 
-const MAX_PROMPTS_PER_WINDOW = 5
+// Every prompt counts, approved or not, so a buyer who mistypes a PIN or lets a
+// prompt time out burns quota exactly like an abuser does. Five was tight enough
+// that ordinary repeat buyers — an agent paying for several customers from one
+// wallet — were being turned away. Eight still stops a flood; the real relief is
+// clearHubtelPromptCount below.
+const MAX_PROMPTS_PER_WINDOW = 8
 const WINDOW_SECONDS = 60 * 60
 
 function keyFor(msisdn: string): string {
@@ -100,5 +105,25 @@ export async function recordHubtelPrompt(phone: string): Promise<void> {
         if (count === 1) await redis.expire(key, WINDOW_SECONDS)
     } catch (e) {
         console.error('[HubtelPromptLimit] could not record prompt (non-fatal):', e)
+    }
+}
+
+/**
+ * Call when a payment from this number has actually been APPROVED on the handset.
+ *
+ * The thing this limiter exists to stop is a stream of prompts nobody asked for —
+ * and an unwanted prompt is never approved. A number that just entered its PIN has
+ * proven the opposite, so holding its earlier prompts against it only punishes the
+ * customers who buy most. Clearing the window here is what keeps a busy wallet from
+ * hitting the ceiling in the middle of a normal afternoon's purchases.
+ */
+export async function clearHubtelPromptCount(phone: string): Promise<void> {
+    const msisdn = normalizeMsisdn(phone)
+    if (!msisdn) return
+
+    try {
+        await redis.del(keyFor(msisdn))
+    } catch (e) {
+        console.error('[HubtelPromptLimit] could not clear prompt count (non-fatal):', e)
     }
 }

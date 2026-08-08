@@ -19,6 +19,12 @@ const AIRTIME_SETTING_KEYS = [
     'airtime_enabled_at',
     'storefront_airtime_enabled',
     'storefront_mashup_enabled',
+    // Hubtel Commission Services auto-fulfilment. The master switch plus one per
+    // network, so a telco can be pulled without stopping the other two.
+    'airtime_auto_fulfillment_enabled',
+    'airtime_auto_mtn',
+    'airtime_auto_telecel',
+    'airtime_auto_at',
 ]
 
 async function verifyAdmin(supabaseUserClient: any) {

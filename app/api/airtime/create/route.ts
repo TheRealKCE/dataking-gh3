@@ -6,6 +6,8 @@ import { cookies } from 'next/headers'
 import { sendAirtimeBeneficiarySMS, sendAdminAirtimeAlertSMS } from '@/lib/sms-service'
 import { sendAdminAirtimeOrderEmail } from '@/lib/email-service'
 import { sendPushToUser, sendPushToAdmins } from '@/lib/web-push'
+import { waitUntil } from '@vercel/functions'
+import { triggerAirtimeFulfillment } from '@/lib/airtime-fulfillment-dispatcher'
 
 const NETWORK_KEY_MAP: Record<string, string> = {
     MTN: 'mtn',
@@ -209,6 +211,13 @@ export async function POST(request: NextRequest) {
                 .eq('id', walletId)
             return NextResponse.json({ error: 'Failed to create order' }, { status: 500 })
         }
+
+        // ── Auto-fulfilment ───────────────────────────────────────────────────
+        // Deferred rather than awaited: Hubtel can take several seconds per leg and
+        // the customer should not sit on a spinner for it. The order is already
+        // recorded as pending, the page polls for the change, and if the dispatcher
+        // is disabled or fails the order simply stays in the admin queue.
+        waitUntil(triggerAirtimeFulfillment((order as any).id))
 
         // ── Wallet transaction record (fire-and-forget) ───────────────────────
         ;(supabase.from('wallet_transactions') as any).insert({
