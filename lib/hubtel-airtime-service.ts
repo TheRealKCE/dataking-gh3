@@ -255,13 +255,27 @@ export async function topUpAirtime(params: AirtimeTopUpParams): Promise<AirtimeT
 
         const responseCode = String(data?.ResponseCode ?? '')
 
-        if (responseCode === '0001' || responseCode === '0000') {
+        // Codes that mean "Hubtel has taken this on", not "delivered".
+        //
+        // 0000 — delivered synchronously, no callback follows.
+        // 0001 — accepted, callback follows.
+        // 4075 — accepted, callback follows. Undocumented in the integration guide
+        //        but what the live API actually returns ("Transaction pending.
+        //        Expect callback request for final state."). Treating it as a
+        //        rejection told an admin to re-send airtime Hubtel was already
+        //        delivering, which is a double credit that cannot be recalled.
+        //
+        // Anything unrecognised stays a rejection: for irreversible value, guessing
+        // that an unknown code means success is the one mistake with no way back.
+        const ACCEPTED_PENDING = new Set(['0001', '4075'])
+
+        if (responseCode === '0000' || ACCEPTED_PENDING.has(responseCode)) {
             recordSuccess()
             const commissionRaw = data?.Data?.Meta?.Commission
             const commission = commissionRaw != null ? Number(commissionRaw) : undefined
             return {
                 success: true,
-                pending: responseCode === '0001',
+                pending: ACCEPTED_PENDING.has(responseCode),
                 transactionId: data?.Data?.TransactionId,
                 commission: Number.isFinite(commission) ? commission : undefined,
                 responseCode,

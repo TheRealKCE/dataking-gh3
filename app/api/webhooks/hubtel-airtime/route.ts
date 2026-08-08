@@ -67,10 +67,30 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ received: true })
         }
 
-        // Idempotent: a redelivered callback for a leg already resolved changes nothing.
-        if (leg.status === 'success' || leg.status === 'failed') {
-            console.log(`[HubtelAirtimeWebhook] Leg ${clientReference} is already '${leg.status}' — ignoring duplicate.`)
+        // Idempotent, but asymmetrically so.
+        //
+        // 'success' is terminal: we already credited the order, and a redelivered
+        // callback must not run finalizeAirtimeOrder a second time.
+        //
+        // 'failed' is NOT terminal, because we may have recorded it wrongly. Our
+        // status comes from the synchronous POST response, and an unrecognised
+        // acceptance code (this is exactly what 4075 did) marks a leg failed while
+        // Hubtel goes on to deliver it. Hubtel is the authority on whether value
+        // moved, so a success callback is allowed to correct us. Dropping it left
+        // the order telling an admin to re-send airtime that had already landed.
+        if (leg.status === 'success') {
+            console.log(`[HubtelAirtimeWebhook] Leg ${clientReference} is already 'success' — ignoring duplicate.`)
             return NextResponse.json({ received: true })
+        }
+        if (leg.status === 'failed' && !isSuccess) {
+            console.log(`[HubtelAirtimeWebhook] Leg ${clientReference} is already 'failed' — ignoring duplicate.`)
+            return NextResponse.json({ received: true })
+        }
+        if (leg.status === 'failed' && isSuccess) {
+            console.warn(
+                `[HubtelAirtimeWebhook] Leg ${clientReference} was recorded 'failed' but Hubtel reports delivery ` +
+                `(code ${responseCode}) — correcting to 'success'. The synchronous response was misread.`
+            )
         }
 
         await supabase
