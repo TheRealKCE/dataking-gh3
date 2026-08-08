@@ -28,16 +28,14 @@ const config = {
         'text-white/95', 'text-white/85', 'text-purple-200/80', 'text-purple-200/90',
         'border-white/5', 'border-white/10', 'border-white/30',
         'bg-black/25', 'bg-black/10',
-        // Agent
-        'from-blue-50/90', 'to-sky-100/50',
-        'dark:from-slate-950', 'dark:to-blue-950/20',
-        'border-r-blue-200/50', 'dark:border-r-blue-900/50',
-        'hover:text-blue-600', 'dark:hover:text-blue-400',
-        'hover:bg-blue-500/5',
-        'bg-blue-50/90', 'dark:bg-slate-900/80',
-        'border-blue-200/60', 'dark:border-b-blue-900/60',
-        'from-blue-600', 'to-indigo-700',
-        'bg-blue-500/10',
+        // Agent — deep navy (#0A2A4A base / #123A63 lift / #061C33 deep).
+        // These are arbitrary-value classes built at runtime in lib/roles.ts,
+        // so the production purge cannot see them without this list.
+        'from-[#123A63]', 'to-[#061C33]', 'from-[#0A2A4A]', 'to-[#0A2A4A]',
+        'bg-[#0A2A4A]/15', 'text-[#0A2A4A]', 'bg-[#070C14]',
+        'text-sky-100', 'text-sky-200', 'text-sky-200/80', 'text-sky-200/90',
+        'dark:text-sky-300',
+        'border-r-sky-900/40', 'border-sky-900/40',
         // Customer — white surfaces, gold-ink text, bright-gold fills
         'bg-white', 'bg-white/85', 'dark:bg-slate-950', 'dark:bg-slate-900/80',
         'border-r-slate-200', 'dark:border-r-slate-800',

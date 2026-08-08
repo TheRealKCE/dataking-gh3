@@ -73,26 +73,33 @@ export const roleConfig: Record<UserRole, RoleConfigItem> = {
         greetingText: "text-muted-foreground",
         greetingPill: "bg-emerald-500/15 text-emerald-500"
     },
+    // Agent runs on a deep navy. The three stops below are the whole palette:
+    // change them here and the sidebar, header, greeting card and badge all
+    // follow. Any hex used in a class string must also appear in the
+    // tailwind.config.ts safelist, or the production purge drops it.
+    //   base #0A2A4A  ·  lift #123A63  ·  deep #061C33
     'agent': {
         icon: BadgeCheck,
         label: 'Agent',
         rank: '#3',
-        color: '#0056B3',
-        bgColor: 'rgba(0, 86, 179, 0.1)',
-        textColor: '#0056B3',
+        color: '#0A2A4A',
+        bgColor: 'rgba(10, 42, 74, 0.1)',
+        textColor: '#0A2A4A',
         accentText: 'text-white',
-        gradient: 'from-blue-600 to-sky-700',
-        badgeClass: 'bg-blue-500/15 text-blue-600 dark:text-blue-400',
-        sidebarBg: "bg-gradient-to-b from-blue-50/90 to-sky-100/50 dark:from-slate-950 dark:to-blue-950/20 border-r border-r-blue-200/50 dark:border-r-blue-900/50 text-slate-800 dark:text-slate-100 backdrop-blur-xl",
-        sidebarNavHover: "text-slate-600 dark:text-slate-300 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-500/5",
-        sidebarNavActive: "bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold",
-        headerBg: "bg-blue-50/90 dark:bg-slate-900/80 border-b border-blue-200/60 dark:border-b-blue-900/60 text-slate-800 dark:text-slate-100 backdrop-blur-xl",
-        headerText: "text-slate-800 dark:text-slate-100",
-        headerSubText: "text-slate-500 dark:text-slate-400",
-        headerButton: "text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 hover:bg-blue-500/5",
-        greetingCard: "rounded-2xl sm:rounded-3xl p-4 sm:p-6 bg-gradient-to-br from-blue-600 to-indigo-700 text-white border-0 shadow-lg relative overflow-hidden",
-        greetingRow: "bg-black/10 text-white/95 border border-white/5",
-        greetingText: "text-white/85",
+        gradient: 'from-[#123A63] to-[#0A2A4A]',
+        badgeClass: 'bg-[#0A2A4A]/15 text-[#0A2A4A] dark:text-sky-300',
+        sidebarBg: "bg-gradient-to-b from-[#123A63] to-[#061C33] text-sky-100 border-r border-r-sky-900/40 backdrop-blur-xl shadow-premium",
+        sidebarNavHover: "text-sky-200/80 hover:text-white hover:bg-white/10",
+        // Active item is a near-black pill punched into the navy, not a
+        // lightened one — the selected row reads as recessed against the panel.
+        sidebarNavActive: "bg-[#070C14] text-white font-bold",
+        headerBg: "bg-gradient-to-r from-[#0A2A4A] to-[#061C33] text-white border-b border-sky-900/40 backdrop-blur-xl",
+        headerText: "text-white",
+        headerSubText: "text-sky-200/80",
+        headerButton: "text-sky-200 hover:text-white hover:bg-white/10",
+        greetingCard: "rounded-2xl sm:rounded-3xl p-4 sm:p-6 bg-gradient-to-br from-[#123A63] to-[#0A2A4A] text-white border-0 shadow-lg relative overflow-hidden",
+        greetingRow: "bg-black/25 text-white/95 border border-white/10",
+        greetingText: "text-sky-200/90",
         greetingPill: "bg-white/20 text-white border border-white/30"
     },
     'dealer': {
