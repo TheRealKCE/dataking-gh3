@@ -80,13 +80,14 @@ const config = {
                     DEFAULT: 'hsl(var(--primary))',
                     foreground: 'hsl(var(--primary-foreground))',
                 },
-                // Likewise the 50-900 purple ramp: zero usages. DEFAULT stays a
-                // literal for now and moves onto hsl(var(--secondary)) in Phase 1,
-                // which is a deliberate visual change (it currently paints every
-                // shadcn hover state bright purple).
+                // Now on the vars. These were hardcoded #7B68EE / #06B6D4, which
+                // meant every shadcn hover surface (dropdown, select, sheet) was
+                // painting bright purple or cyan instead of a neutral, and made
+                // the --secondary / --accent declarations in .theme-marketplace
+                // dead code. Both are fixed by the indirection.
                 secondary: {
-                    DEFAULT: '#7B68EE',
-                    foreground: '#ffffff',
+                    DEFAULT: "hsl(var(--secondary))",
+                    foreground: "hsl(var(--secondary-foreground))",
                 },
                 destructive: {
                     DEFAULT: "hsl(var(--destructive))",
@@ -96,10 +97,26 @@ const config = {
                     DEFAULT: "hsl(var(--muted))",
                     foreground: "hsl(var(--muted-foreground))",
                 },
+                // shadcn's `accent` stays the SOFT surface so the 25 components/ui
+                // files keep working. The accent channel proper is exposed
+                // separately below as bg-accent-solid / text-accent-contrast etc.
                 accent: {
-                    DEFAULT: '#06B6D4',
-                    foreground: '#ffffff',
+                    DEFAULT: "hsl(var(--accent))",
+                    foreground: "hsl(var(--accent-foreground))",
+                    solid: "hsl(var(--accent-solid))",
+                    strong: "hsl(var(--accent-strong))",
+                    soft: "hsl(var(--accent-soft))",
+                    softer: "hsl(var(--accent-softer))",
+                    contrast: "hsl(var(--accent-contrast))",
+                    ring: "hsl(var(--accent-ring))",
                 },
+                surface: {
+                    0: "hsl(var(--surface-0))",
+                    1: "hsl(var(--surface-1))",
+                    2: "hsl(var(--surface-2))",
+                    3: "hsl(var(--surface-3))",
+                },
+                "border-strong": "hsl(var(--border-strong))",
                 popover: {
                     DEFAULT: "hsl(var(--popover))",
                     foreground: "hsl(var(--popover-foreground))",
@@ -166,11 +183,12 @@ const config = {
                 heading: ['var(--font-heading)', ...defaultTheme.fontFamily.sans],
             },
             borderRadius: {
-                lg: "var(--radius)",
-                md: "calc(var(--radius) - 2px)",
-                sm: "calc(var(--radius) - 4px)",
-                xl: "1rem",
-                "2xl": "1.5rem",
+                xs: "var(--radius-xs)",   /* 6px  — dots, count badges */
+                sm: "var(--radius-sm)",   /* 10px — all text inputs */
+                md: "var(--radius-md)",   /* 14px — buttons, list rows */
+                lg: "var(--radius-lg)",   /* 20px — cards */
+                xl: "var(--radius-xl)",   /* 28px — sheets, modals */
+                "2xl": "var(--radius-xl)",
             },
             fontSize: {
                 xs: ['0.75rem', { lineHeight: '1rem' }],
@@ -185,25 +203,40 @@ const config = {
                 '6xl': ['3.75rem', { lineHeight: '1' }],
                 '7xl': ['4.5rem', { lineHeight: '1' }],
             },
+            // Elevation is semantic, not a size ramp: e1 resting card, e2
+            // hover/sticky header, e3 popover/sticky action bar, e4 modal+sheet.
+            // Because the page and cards are both pure white, e1 plus the border
+            // is what gives a card its edge.
             boxShadow: {
-                xs: '0 1px 2px 0 rgb(0 0 0 / 0.05)',
-                sm: '0 1px 3px 0 rgb(0 0 0 / 0.1)',
-                base: '0 4px 12px -2px rgb(0 0 0 / 0.15)',
-                md: '0 10px 28px -5px rgb(0 0 0 / 0.2)',
-                lg: '0 20px 40px -10px rgb(0 0 0 / 0.25)',
-                xl: '0 30px 50px -15px rgb(0 0 0 / 0.3)',
-                '2xl': '0 40px 60px -20px rgb(0 0 0 / 0.35)',
-                'gold': '0 10px 30px -5px rgb(212 175 55 / 0.2)',
-                'gold-lg': '0 20px 50px -10px rgb(212 175 55 / 0.25)',
-                // Two-layer elevation: a tight contact shadow to hold the card's
-                // edge against off-white, plus a wide soft one for depth. A single
-                // blurred shadow reads as a smudge on white-on-white.
-                'soft': '0 1px 2px rgb(16 24 40 / 0.04), 0 12px 32px -8px rgb(16 24 40 / 0.10)',
-                'soft-lg': '0 1px 2px rgb(16 24 40 / 0.04), 0 16px 40px -8px rgb(16 24 40 / 0.16)',
-                'nav': '0 -8px 24px -8px rgb(16 24 40 / 0.12)',
-                'gold-fab': '0 8px 20px -4px rgb(212 175 55 / 0.5)',
-                'inner-luxury': 'inset 0 2px 4px 0 rgb(255 255 255 / 0.1)',
-                'glass': '0 8px 32px 0 rgb(31 38 135 / 0.37)',
+                e1: 'var(--elev-1)',
+                e2: 'var(--elev-2)',
+                e3: 'var(--elev-3)',
+                e4: 'var(--elev-4)',
+                glow: 'var(--glow-accent)',
+                'glow-lg': 'var(--glow-accent-lg)',
+                'inset-top': 'inset 0 1px 0 hsl(0 0% 100% / 0.08)',
+                // Compatibility aliases so nothing silently loses its shadow
+                // mid-migration. `gold`/`gold-lg` are still referenced by three
+                // components/ui/button.tsx variants and go away in Phase 2 with
+                // the variant rewrite; the rest follow the role safelist in
+                // Phase 4 and are deleted in Phase 7.
+                soft: 'var(--elev-1)',
+                'soft-lg': 'var(--elev-2)',
+                nav: 'var(--elev-3)',
+                'gold-fab': 'var(--glow-accent)',
+                gold: 'var(--glow-accent)',
+                'gold-lg': 'var(--glow-accent-lg)',
+                glass: 'var(--elev-3)',
+            },
+            backgroundImage: {
+                'gradient-brand': 'var(--gradient-brand)',
+                'gradient-brand-soft': 'var(--gradient-brand-soft)',
+                'gradient-accent': 'var(--gradient-accent)',
+                'gradient-wash': 'var(--gradient-wash)',
+            },
+            // 300ms on every hover was a large part of why the UI felt sluggish.
+            transitionDuration: {
+                DEFAULT: '150ms',
             },
             backdropBlur: {
                 xs: '2px',
@@ -227,10 +260,6 @@ const config = {
                         transform: "translateX(100%)",
                     },
                 },
-                pulse: {
-                    "0%, 100%": { opacity: "1" },
-                    "50%": { opacity: ".5" },
-                },
                 fadeIn: {
                     from: { opacity: "0" },
                     to: { opacity: "1" },
@@ -239,35 +268,24 @@ const config = {
                     from: { transform: "translateY(-10px)", opacity: "0" },
                     to: { transform: "translateY(0)", opacity: "1" },
                 },
-                "glow-pulse": {
-                    "0%, 100%": { 
-                        boxShadow: "0 0 20px rgb(212 175 55 / 0.3)",
-                        opacity: "1"
-                    },
-                    "50%": { 
-                        boxShadow: "0 0 40px rgb(212 175 55 / 0.5)",
-                        opacity: "1"
-                    },
-                },
-                "float": {
-                    "0%, 100%": { transform: "translateY(0px)" },
-                    "50%": { transform: "translateY(-8px)" },
-                },
-                "shimmer-slow": {
-                    "0%": { backgroundPosition: "-1000px 0" },
-                    "100%": { backgroundPosition: "1000px 0" },
+                // One compositor-only transform. Replaces the stacked
+                // `animate-in slide-in-from-bottom duration-300` on the checkout
+                // sheet, which animated more properties than it needed to.
+                "sheet-up": {
+                    from: { transform: "translateY(100%)" },
+                    to: { transform: "translateY(0)" },
                 },
             },
             animation: {
                 "accordion-down": "accordion-down 0.2s ease-out",
                 "accordion-up": "accordion-up 0.2s ease-out",
                 shimmer: "shimmer 2s infinite",
-                pulse: "pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite",
+                // `pulse` is deliberately NOT redefined: the old override was
+                // identical to Tailwind's built-in, and shadowing it meant
+                // components/ui/skeleton.tsx depended on our copy.
                 fadeIn: "fadeIn 0.3s ease-out",
                 slideIn: "slideIn 0.3s ease-out",
-                "glow-pulse": "glow-pulse 3s ease-in-out infinite",
-                "float": "float 3s ease-in-out infinite",
-                "shimmer-slow": "shimmer-slow 8s linear infinite",
+                "sheet-up": "sheet-up 220ms cubic-bezier(.32,.72,0,1)",
             },
         },
     },

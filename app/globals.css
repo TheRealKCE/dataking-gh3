@@ -4,78 +4,161 @@
 
 @layer base {
   :root {
-    /* Professional Light Mode - Clean & Precise */
-    --background: 210 40% 98%;
-    --foreground: 222 47% 11%;
+    /* ── Signature gradient primitives ──────────────────────────────────────
+       L0-only. Sub-themes (.theme-marketplace, .theme-shop) may never override
+       these; they may only write the accent channel further down. */
+    --brand-1: 262 83% 58%;   /* #7C3AED violet */
+    --brand-2: 243 75% 59%;   /* #4F46E5 indigo */
+    --brand-3: 189 94% 43%;   /* #06B6D4 cyan   */
+
+    --gradient-brand:
+      linear-gradient(135deg, hsl(var(--brand-1)) 0%, hsl(var(--brand-2)) 52%, hsl(var(--brand-3)) 100%);
+    --gradient-brand-soft:
+      linear-gradient(135deg, hsl(var(--brand-1) / 0.14) 0%, hsl(var(--brand-2) / 0.10) 52%, hsl(var(--brand-3) / 0.12) 100%);
+    --gradient-wash:
+      radial-gradient(900px 520px at 12% -12%, hsl(var(--brand-1) / 0.16), transparent 62%),
+      radial-gradient(720px 440px at 88% 6%,   hsl(var(--brand-3) / 0.13), transparent 62%);
+
+    /* ── Surfaces ───────────────────────────────────────────────────────────
+       White is PURE white: the page and cards are both #FFFFFF, with no blue
+       or violet tint. Because those two are the same value, a card's edge is
+       carried entirely by --border plus --elev-1; do not rely on a fill
+       difference to separate a card from the page. Only recessed things
+       (wells, hovers, muted rows) step away from white. */
+    --background: 0 0% 100%;
+    --surface-0: 0 0% 100%;
+    --surface-1: 0 0% 100%;
+    --surface-2: 240 20% 97%;
+    --surface-3: 240 18% 94%;
+
+    --foreground: 233 38% 12%;
     --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card-foreground: 233 38% 12%;
     --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
-    --primary: 221 83% 53%; /* Professional Deep Blue */
-    --primary-foreground: 210 40% 98%;
-    --secondary: 215 25% 27%; /* Slate Blue/Grey */
-    --secondary-foreground: 210 40% 98%;
-    --muted: 210 40% 96.1%;
-    --muted-foreground: 215.4 16.3% 35%;
-    --accent: 217 91% 60%; /* Modern Electric Blue */
-    --accent-foreground: 210 40% 98%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 210 40% 98%;
-    /* Status tokens. Phase 0 deliberately keeps the exact hexes these replaced
-       (#10B981 / #F59E0B) so wiring Tailwind to vars is a no-op visually;
-       Phase 1 retunes them for contrast. */
-    --success: 160 84% 39%;
+    --popover-foreground: 233 38% 12%;
+    --muted: 240 20% 96.5%;
+    --muted-foreground: 232 13% 44%;   /* 5.9:1 on white */
+    --border: 240 14% 90%;
+    --border-strong: 236 12% 80%;
+    --input: 240 14% 90%;
+
+    /* ── Accent channel ─────────────────────────────────────────────────────
+       The ONLY group a sub-theme is allowed to redeclare. Enforced by
+       scripts/check-theme-scope.js. */
+    --accent-solid: 243 75% 59%;    /* #4F46E5 — 6.3:1 on white */
+    --accent-strong: 243 72% 50%;
+    --accent-soft: 243 80% 96%;
+    --accent-softer: 243 80% 98.5%;
+    --accent-contrast: 0 0% 100%;
+    --accent-ring: 243 75% 59%;
+    --gradient-accent: var(--gradient-brand);
+    --glow-accent: 0 6px 18px -6px hsl(var(--accent-solid) / 0.42);
+    --glow-accent-lg: 0 6px 18px -6px hsl(var(--accent-solid) / 0.42);
+
+    /* shadcn-facing aliases. These are indirections on purpose: every existing
+       bg-primary / ring-ring / bg-accent usage re-skins with the accent channel
+       and with any sub-theme, without a single class rename. */
+    --primary: var(--accent-solid);
+    --primary-foreground: var(--accent-contrast);
+    --ring: var(--accent-ring);
+    --secondary: 240 20% 96.5%;
+    --secondary-foreground: 233 30% 20%;
+    --accent: var(--accent-soft);
+    /* Derived, not literal: a sub-theme may only write the accent channel, so
+       deriving the foreground from it is what lets .theme-marketplace get
+       emerald-on-emerald without being allowed to declare this directly. */
+    --accent-foreground: var(--accent-strong);
+
+    /* ── Status. L0-only: never themed, so "paid" never turns into brand. ─── */
+    --destructive: 0 72% 47%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 158 72% 33%;
     --success-foreground: 0 0% 100%;
-    --warning: 38 92% 50%;
+    --warning: 33 92% 42%;
     --warning-foreground: 0 0% 100%;
     --info: 213 88% 47%;
     --info-foreground: 0 0% 100%;
-    --border: 214.3 31.8% 91.4%;
-    --input: 214.3 31.8% 91.4%;
-    --ring: 221 83% 53%;
-    --radius: 1rem;
+
+    /* ── Elevation. Tied to meaning: e1 resting card, e2 hover/sticky header,
+       e3 popover/sticky action bar, e4 modal & sheet. ─────────────────────── */
+    --elev-1: 0 1px 2px hsl(233 40% 12% / 0.05), 0 1px 3px hsl(233 40% 12% / 0.05);
+    --elev-2: 0 1px 2px hsl(233 40% 12% / 0.04), 0 8px 20px -6px hsl(233 40% 12% / 0.10);
+    --elev-3: 0 1px 2px hsl(233 40% 12% / 0.04), 0 18px 40px -12px hsl(233 40% 12% / 0.16);
+    --elev-4: 0 24px 64px -16px hsl(233 46% 8% / 0.28);
+
+    /* ── Radius. Pill is for avatars/dots/segmented thumbs only — never a text
+       input, never a full-width CTA. ─────────────────────────────────────── */
+    --radius-xs: 6px;
+    --radius-sm: 10px;
+    --radius-md: 14px;
+    --radius-lg: 20px;
+    --radius-xl: 28px;
+    --radius: var(--radius-lg);
     /* --font-heading / --font-body are NOT declared here. next/font sets them
        on <html> in app/layout.tsx; re-declaring them at :root is equal
        specificity and would shadow the optimised font depending on rule order. */
   }
 
+  /* The wide two-layer glow costs an extra composited layer, so it is only
+     handed out on screens big enough not to be a 512MB Android phone. */
+  @media (min-width: 640px) {
+    :root {
+      --glow-accent-lg:
+        0 10px 30px -8px hsl(var(--brand-1) / 0.38),
+        0 4px 14px -4px hsl(var(--brand-3) / 0.26);
+    }
+  }
+
   .dark {
-    /* Professional Dark Mode - True Black */
-    --background: 0 0% 0%;
-    --foreground: 210 40% 98%;
-    --card: 0 0% 4%;
-    --card-foreground: 210 40% 98%;
-    --popover: 0 0% 4%;
-    --popover-foreground: 210 40% 98%;
-    /* --- PRIMARY ACCENT (Modern Blue/Indigo) --- */
-    --primary: 221 83% 53%;
-    --primary-foreground: 0 0% 100%;
-    
-    /* --- SECONDARY & ACCENTS --- */
-    --secondary: 0 0% 10%;
-    --secondary-foreground: 210 40% 98%;
-    
-    --accent: 217 91% 60%;
-    --accent-foreground: 210 40% 98%;
+    /* Dark is no longer pure black. Each surface step is ~3-4% lightness, which
+       is what lets elevation read without drawing a border on everything. The
+       neutral carries a slight violet-blue cast so it belongs to the brand
+       rather than looking like a separate grey product.
+       Note: --primary, --ring, --gradient-accent and --glow-accent are declared
+       at :root as var() indirections on the accent channel, so redeclaring the
+       channel here is enough — they follow automatically. */
+    --background: 235 30% 6%;    /* #0B0C14 */
+    --surface-0: 235 28% 8%;
+    --surface-1: 235 26% 11%;
+    --surface-2: 234 24% 15%;
+    --surface-3: 234 22% 19%;
 
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 210 40% 98%;
+    --foreground: 0 0% 100%;
+    --card: 235 26% 11%;
+    --card-foreground: 0 0% 100%;
+    --popover: 234 22% 19%;
+    --popover-foreground: 0 0% 100%;
+    --muted: 235 22% 14%;
+    --muted-foreground: 232 16% 68%;   /* 6.8:1 on --background */
+    --border: 235 20% 20%;
+    --border-strong: 235 18% 30%;
+    --input: 235 20% 20%;
 
-    /* Same values as light for now: success/warning were single hardcoded hexes
-       with no dark variant, so matching them keeps Phase 0 visually inert. */
-    --success: 160 84% 39%;
-    --success-foreground: 0 0% 100%;
-    --warning: 38 92% 50%;
-    --warning-foreground: 0 0% 100%;
-    --info: 213 88% 47%;
-    --info-foreground: 0 0% 100%;
+    /* Accent channel, lifted: #4F46E5 is too dark to read on #0B0C14, so the
+       solid moves up in lightness and the contrast ink flips to near-black. */
+    --accent-solid: 246 84% 68%;
+    --accent-strong: 246 88% 74%;
+    --accent-soft: 243 40% 18%;
+    --accent-softer: 240 30% 13%;
+    --accent-contrast: 235 40% 8%;
+    --accent-ring: 246 84% 68%;
 
-    --border: 0 0% 14%;
-    --input: 0 0% 14%;
-    --ring: 221 83% 53%;
-    --muted-foreground: 210 40% 65%;
+    --secondary: 235 22% 14%;
+    --secondary-foreground: 0 0% 100%;
 
-    --radius: 1rem;
+    --destructive: 0 78% 62%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 158 64% 46%;
+    --success-foreground: 235 40% 8%;
+    --warning: 38 92% 56%;
+    --warning-foreground: 235 40% 8%;
+    --info: 213 92% 62%;
+    --info-foreground: 235 40% 8%;
+
+    --elev-1: 0 1px 2px hsl(0 0% 0% / 0.5), inset 0 1px 0 hsl(0 0% 100% / 0.04);
+    --elev-2: 0 2px 4px hsl(0 0% 0% / 0.5), 0 10px 26px -8px hsl(0 0% 0% / 0.6), inset 0 1px 0 hsl(0 0% 100% / 0.05);
+    --elev-3: 0 20px 44px -14px hsl(0 0% 0% / 0.7), inset 0 1px 0 hsl(0 0% 100% / 0.06);
+    --elev-4: 0 28px 72px -18px hsl(0 0% 0% / 0.8), inset 0 1px 0 hsl(0 0% 100% / 0.07);
   }
 }
 @layer base {
@@ -109,36 +192,70 @@
   h4 { @apply text-xl md:text-2xl; }
 
   /* Premium Design Utilities */
-  /* glass: solid fallback for browsers without backdrop-filter support
-     (Android WebView < 76 / Android 9 and older) */
+  /* glass: everyone gets the opaque version, which costs zero extra composited
+     layers. Real blur is handed out only where there is both support AND a
+     screen wide enough not to be a low-end phone — backdrop-filter is one of
+     the most expensive things you can ask a 512MB Android device to do. */
   .glass {
-    @apply bg-white/15 border border-white/10 shadow-xl;
+    background: hsl(var(--surface-1) / 0.96);
+    border: 1px solid hsl(var(--border) / 0.8);
+    box-shadow: var(--elev-2);
   }
-  @supports (backdrop-filter: blur(1px)) {
-    .glass {
-      @apply bg-white/5 backdrop-blur-xl;
+  @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    @media (min-width: 640px) {
+      .glass {
+        background: hsl(var(--surface-1) / 0.62);
+        backdrop-filter: blur(16px) saturate(140%);
+        -webkit-backdrop-filter: blur(16px) saturate(140%);
+      }
     }
   }
 
   .glass-dark {
-    @apply bg-black/40 border border-white/5 shadow-2xl;
+    background: hsl(var(--surface-0) / 0.94);
+    border: 1px solid hsl(var(--border) / 0.7);
+    box-shadow: var(--elev-3);
   }
-  @supports (backdrop-filter: blur(1px)) {
-    .glass-dark {
-      @apply bg-black/20 backdrop-blur-2xl;
+  @supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+    @media (min-width: 640px) {
+      .glass-dark {
+        background: hsl(var(--surface-0) / 0.6);
+        backdrop-filter: blur(20px) saturate(140%);
+        -webkit-backdrop-filter: blur(20px) saturate(140%);
+      }
     }
   }
 
-  .card-premium {
-    @apply rounded-2xl shadow-sm;
-    background: #ffffff;
-    border: 1px solid rgba(0,0,0,0.08);
-    box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+  /* The canonical resting card. Page and card are both pure white in light
+     mode, so the border plus e1 is what gives this an edge — not a fill
+     difference. The separate .dark override is gone: the tokens handle it. */
+  .surface {
+    border-radius: var(--radius-lg);
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    box-shadow: var(--elev-1);
   }
-  .dark .card-premium {
-    background: linear-gradient(145deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.015) 100%);
-    border: 1px solid rgba(255,255,255,0.08);
-    box-shadow: 0 1px 0 rgba(255,255,255,0.06) inset, 0 4px 24px rgba(0,0,0,0.4);
+  .surface-interactive {
+    border-radius: var(--radius-lg);
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    box-shadow: var(--elev-1);
+    transition: box-shadow 150ms ease, border-color 150ms ease, transform 150ms ease;
+  }
+  .surface-interactive:hover {
+    border-color: hsl(var(--border-strong));
+    box-shadow: var(--elev-2);
+  }
+  .surface-interactive:active {
+    transform: scale(0.995);
+  }
+
+  /* Alias kept so the existing .card-premium call sites keep working. */
+  .card-premium {
+    border-radius: var(--radius-lg);
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    box-shadow: var(--elev-1);
   }
 
   /* ── Hero carousel card skins (CSS-driven, no JS hydration needed) ── */
@@ -645,48 +762,121 @@
   }
 }
 
-/* Fix 6: Disable heavy continuous animations for low-end devices and
-   users who have enabled Reduce Motion in Android accessibility settings */
+/* Disable motion for users who have enabled Reduce Motion (Android
+   accessibility / iOS). This used to name three specific classes, which meant
+   the ~51 tailwindcss-animate `animate-in` usages and 239 `transition-all`
+   usages ignored the preference entirely. */
 @media (prefers-reduced-motion: reduce) {
-  .animate-elastic-ring,
-  .animate-slow-fade,
-  [class*="animate-[ring"] {
-    animation: none !important;
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ── Shared primitives for the modernized surfaces ───────────────────────── */
+@layer components {
+  /* Brand gradient as text. Falls back to the solid accent where
+     background-clip:text is unsupported. */
+  .gradient-text {
+    color: hsl(var(--accent-solid));
+  }
+  @supports ((-webkit-background-clip: text) or (background-clip: text)) {
+    .gradient-text {
+      background: var(--gradient-brand);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+    }
+  }
+
+  /* Gradient border via two backgrounds — no pseudo-element, so it does not
+     fight z-index or add a paint layer. */
+  .gradient-border {
+    border: 1px solid transparent;
+    border-radius: var(--radius-lg);
+    background:
+      linear-gradient(hsl(var(--card)), hsl(var(--card))) padding-box,
+      var(--gradient-brand) border-box;
+  }
+
+  /* Exactly one per screen, always the primary CTA. */
+  .glow-cta {
+    box-shadow: var(--glow-accent);
+  }
+
+  /* Press feedback that only touches transform, so it never reflows. */
+  .pressable {
+    transition: transform 150ms ease;
+  }
+  .pressable:active {
+    transform: scale(0.98);
+  }
+
+  .eyebrow {
+    font-size: 11px;
+    line-height: 1.2;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: hsl(var(--muted-foreground));
+  }
+
+  /* Money and any figure that updates in place. Without tabular figures the
+     digits are proportional and the column jitters as values change. */
+  .money {
+    font-family: var(--font-heading), system-ui, sans-serif;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+  }
+}
+
+@layer utilities {
+  .safe-b {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .tabular {
+    font-variant-numeric: tabular-nums;
   }
 }
 
 /* ============================================================
    MARKETPLACE THEME (KFG Market on marketplace.arhmsgh.com)
    ============================================================ */
+/* Accent channel only. The emerald-tinted neutrals that used to live here are
+   gone on purpose: marketplace surfaces, radii and elevation are now identical
+   to the rest of the app, and only the accent differs. Status colours are
+   L0-only, so the old --destructive override (which was amber, for "Sponsored"
+   labels) is dropped — .badge-sponsored already sets its own amber directly.
+
+   The emerald is also darkened from 39% to 30% lightness: 160 84% 39% is only
+   ~3.4:1 on white and failed WCAG AA for text and icons. */
 .theme-marketplace {
-  /* Light mode: Emerald/Market Green primary */
-  --primary: 160 84% 39%; /* Market Emerald */
-  --primary-foreground: 0 0% 100%;
-  --accent: 152 76% 94%; /* Soft emerald tint for hover/accent surfaces */
-  --accent-foreground: 160 84% 25%;
-  --destructive: 15 86% 67%; /* Amber for "Sponsored" labels */
-  --destructive-foreground: 0 0% 100%;
-  /* Emerald-tinted neutrals so the whole surface reads as one system */
-  --secondary: 160 30% 94%;
-  --secondary-foreground: 160 40% 20%;
-  --muted: 152 30% 96%;
-  --muted-foreground: 160 12% 40%;
-  --ring: 160 84% 39%; /* Emerald focus rings (was inheriting blue) */
+  --accent-solid: 160 84% 30%;
+  --accent-strong: 160 84% 24%;
+  --accent-soft: 152 60% 95%;
+  --accent-softer: 152 60% 98%;
+  --accent-contrast: 0 0% 100%;
+  --accent-ring: 160 84% 34%;
+  --gradient-accent:
+    linear-gradient(135deg, hsl(168 82% 34%) 0%, hsl(160 84% 32%) 50%, hsl(186 90% 40%) 100%);
+  --glow-accent: 0 6px 18px -6px hsl(160 84% 32% / 0.40);
 }
 
 .theme-marketplace.dark {
-  /* Dark mode: Keep emerald but adjust for dark background */
-  --primary: 160 84% 42%;
-  --primary-foreground: 0 0% 100%;
-  --accent: 160 30% 12%;
-  --accent-foreground: 152 76% 80%;
-  --destructive: 15 86% 67%;
-  --destructive-foreground: 0 0% 100%;
-  --secondary: 160 20% 12%;
-  --secondary-foreground: 152 40% 88%;
-  --muted: 160 18% 11%;
-  --muted-foreground: 152 12% 60%;
-  --ring: 160 84% 42%;
+  --accent-solid: 158 68% 48%;
+  --accent-strong: 158 72% 56%;
+  --accent-soft: 160 34% 15%;
+  --accent-softer: 160 28% 11%;
+  --accent-contrast: 160 60% 7%;
+  --accent-ring: 158 68% 52%;
+  --gradient-accent:
+    linear-gradient(135deg, hsl(166 70% 44%) 0%, hsl(158 68% 48%) 50%, hsl(186 84% 52%) 100%);
+  --glow-accent: 0 6px 18px -6px hsl(158 68% 48% / 0.42);
 }
 
 /* Sponsored/Featured label styling for marketplace */
