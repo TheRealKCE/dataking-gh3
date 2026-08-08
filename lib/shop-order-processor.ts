@@ -228,6 +228,7 @@ export async function processShopOrder(
 
         // 3. Create Order Records (only runs after amount validation passes)
         let orderId = existingOrder?.id
+        let airtimeOrderId: string | null = null
         const fulfillmentMode = shopProfile?.fulfillment_mode || metadata.fulfillment_mode || 'auto'
 
         if (!existingOrder) {
@@ -285,7 +286,7 @@ export async function processShopOrder(
                 // A4 — Read use_exact_amount from metadata instead of hardcoding false
                 const useExactAmountFlag = metadata.use_exact_amount === true || String(metadata.use_exact_amount) === 'true'
                 
-                await db.from('airtime_orders').insert({
+                const { data: mirroredAirtime } = await db.from('airtime_orders').insert({
                     user_id: shopProfile?.owner_id,
                     user_role: ownerRole,
                     beneficiary_phone: metadata.guest_phone,
@@ -302,7 +303,11 @@ export async function processShopOrder(
                     reference_code: `SHOP-${reference.slice(-10)}`,
                     shop_id: metadata.shop_id,
                     shop_name: shopProfile?.shop_name || slug
-                })
+                }).select('id').single()
+
+                // The mirrored row is what auto-fulfilment operates on, so its ID has
+                // to travel to triggerShopFulfillment below.
+                airtimeOrderId = mirroredAirtime?.id ?? null
             }
         }
 
@@ -326,7 +331,18 @@ export async function processShopOrder(
 
         // 4.3 Trigger Fulfillment
         try {
-            const fulfillmentPayload = metadata.order_type === 'airtime' 
+            // On a replay the mirror row was written by the first pass, so recover its
+            // ID rather than treating the order as un-fulfillable.
+            if (!airtimeOrderId && metadata.order_type === 'airtime') {
+                const { data: priorAirtime } = await db
+                    .from('airtime_orders')
+                    .select('id')
+                    .eq('reference_code', `SHOP-${reference.slice(-10)}`)
+                    .maybeSingle()
+                airtimeOrderId = priorAirtime?.id ?? null
+            }
+
+            const fulfillmentPayload = metadata.order_type === 'airtime'
                ? { amount: metadata.airtime_amount || verifiedSellingPrice }
                : { size: metadata.package_size }
             
@@ -339,6 +355,7 @@ export async function processShopOrder(
                 fulfillmentMode,
                 orderType: metadata.type || metadata.order_type || 'data',
                 bundlePreference: metadata.bundle_preference,
+                airtimeOrderId,
                 ...fulfillmentPayload
             })
         } catch (fulfillErr) {
@@ -372,6 +389,8 @@ async function triggerShopFulfillment(
         amount?: number
         size?: string
         bundlePreference?: string
+        /** The mirrored airtime_orders row, when this is an airtime order. */
+        airtimeOrderId?: string | null
     }
 ) {
     const { sendAdminNewOrderAlert } = await import('./email-service')
@@ -388,9 +407,26 @@ async function triggerShopFulfillment(
         shopName: extra.shopName
     }
 
+    // Airtime can now be delivered over Hubtel Commission Services, so try that before
+    // falling back to the admin email. Mashup is deliberately excluded — it is an MTN
+    // data/voice bundle, not airtime, and no API of ours can deliver it.
+    if (extra.orderType === 'airtime' && extra.airtimeOrderId) {
+        try {
+            const { triggerAirtimeFulfillment } = await import('./airtime-fulfillment-dispatcher')
+            const result = await triggerAirtimeFulfillment(extra.airtimeOrderId)
+            if (result.dispatched) {
+                console.log(`[Shop Order Processor] Airtime ${extra.referenceCode} auto-fulfilled via Hubtel`)
+                return
+            }
+            console.log(`[Shop Order Processor] Airtime auto-fulfilment declined (${result.reason}) — alerting admin`)
+        } catch (err) {
+            console.error('[Shop Order Processor] Airtime auto-fulfilment threw — alerting admin:', err)
+        }
+    }
+
     if (extra.fulfillmentMode !== 'auto' || extra.orderType === 'airtime' || extra.orderType === 'mashup') {
         console.log(`[Shop Order Processor] Manual fulfillment required - sending alert`)
-        
+
         if (extra.orderType === 'airtime' || extra.orderType === 'mashup') {
             const { sendAdminAirtimeOrderEmail } = await import('./email-service')
             await sendAdminAirtimeOrderEmail({

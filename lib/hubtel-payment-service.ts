@@ -107,16 +107,32 @@ export interface HubtelStatusResult {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
-function getAuthHeader(): string {
-    const clientId = process.env.HUBTEL_CLIENT_ID
-    const clientSecret = process.env.HUBTEL_CLIENT_SECRET
-
+/**
+ * Builds the Basic auth header from an explicit credential pair.
+ *
+ * Exported because Commission Services (airtime) may run on its own API key —
+ * see lib/hubtel-airtime-service.ts. Both callers share this so the encoding and
+ * the "not configured" failure look the same wherever the credentials come from.
+ */
+export function buildHubtelBasicAuth(
+    clientId: string | undefined,
+    clientSecret: string | undefined,
+    // Named so the thrown error tells an operator exactly which vars to set,
+    // rather than "a Hubtel credential" for one of two possible pairs.
+    varNames = 'HUBTEL_CLIENT_ID or HUBTEL_CLIENT_SECRET',
+    context = 'HubtelPayment'
+): string {
     if (!clientId || !clientSecret) {
-        throw new Error('[HubtelPayment] HUBTEL_CLIENT_ID or HUBTEL_CLIENT_SECRET is not configured.')
+        throw new Error(`[${context}] ${varNames} is not configured.`)
     }
 
     const encoded = Buffer.from(`${clientId}:${clientSecret}`).toString('base64')
     return `Basic ${encoded}`
+}
+
+/** Basic auth for the collection (Receive Money) API. */
+export function getHubtelAuthHeader(): string {
+    return buildHubtelBasicAuth(process.env.HUBTEL_CLIENT_ID, process.env.HUBTEL_CLIENT_SECRET)
 }
 
 function getCollectionAccount(): string {
@@ -185,13 +201,13 @@ export function toHubtelSafeText(value: string, fallback = ''): string {
  * passed straight through to the checkout, where it told the customer nothing and
  * told us nothing either. The underlying reason is on err.cause.
  */
-function describeNetworkFailure(err: any, context: string): string {
+export function describeHubtelNetworkFailure(err: any, context: string, label = 'HubtelPayment'): string {
     const cause = err?.cause
     const code = cause?.code || err?.code
     const usingProxy = !!(process.env.FIXIE_URL || process.env.QUOTAGUARDSTATIC_URL)
     const text = `${err?.message || ''} ${cause?.message || ''}`
 
-    console.error(`[HubtelPayment] ${context} failed to reach Hubtel:`, {
+    console.error(`[${label}] ${context} failed to reach Hubtel:`, {
         message: err?.message,
         code,
         cause: cause?.message,
@@ -255,7 +271,7 @@ export async function initiatePayment(params: HubtelInitiateParams): Promise<Hub
 
     try {
         const account = getCollectionAccount()
-        const authHeader = getAuthHeader()
+        const authHeader = getHubtelAuthHeader()
         const callbackUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/webhooks/hubtel`
 
         const payload = {
@@ -352,7 +368,7 @@ export async function initiatePayment(params: HubtelInitiateParams): Promise<Hub
             error: data.Message || `Hubtel error (HTTP ${response.status})`,
         }
     } catch (err: any) {
-        const error = describeNetworkFailure(err, 'initiatePayment')
+        const error = describeHubtelNetworkFailure(err, 'initiatePayment')
         // Nothing ever reached the customer's handset here, but the attempt still belongs
         // in the record — an admin looking at a customer's complaint needs to see it.
         await logInitiate({
@@ -388,7 +404,7 @@ export async function initiatePayment(params: HubtelInitiateParams): Promise<Hub
 export async function checkPaymentStatus(clientReference: string): Promise<HubtelStatusResult> {
     try {
         const account = getCollectionAccount()
-        const authHeader = getAuthHeader()
+        const authHeader = getHubtelAuthHeader()
 
         const url = `${HUBTEL_STATUS_BASE_URL}/${account}/status?clientReference=${encodeURIComponent(clientReference)}`
 
@@ -442,7 +458,7 @@ export async function checkPaymentStatus(clientReference: string): Promise<Hubte
             raw: data.data ?? null,
         }
     } catch (err: any) {
-        return { success: false, status: null, error: describeNetworkFailure(err, 'checkPaymentStatus') }
+        return { success: false, status: null, error: describeHubtelNetworkFailure(err, 'checkPaymentStatus') }
     }
 }
 

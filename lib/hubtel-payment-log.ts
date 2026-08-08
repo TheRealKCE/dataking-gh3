@@ -28,6 +28,11 @@ export function flowFromReference(reference: string): string {
     if (ref.startsWith('RC-')) return 'results_checker'
     if (ref.startsWith('DATA-')) return 'data'
     if (ref.startsWith('BOOST-')) return 'boost'
+    // Two distinct airtime flows: 'ATP-' is money coming IN for a direct-pay airtime
+    // purchase, 'AIR-' is one Commission Services top-up leg going OUT. Order matters
+    // only in that neither prefix may shadow the other — they deliberately differ.
+    if (ref.startsWith('ATP-')) return 'airtime_pay'
+    if (ref.startsWith('AIR-')) return 'airtime'
     if (ref.startsWith('agent_upgrade_')) return 'agent_upgrade'
     if (ref.startsWith('dealer_sub_')) return 'dealer_subscription'
     if (ref.startsWith('WAL-')) return 'wallet'
@@ -44,6 +49,8 @@ export const HUBTEL_LOG_FLOWS = [
     'agent_upgrade',
     'dealer_subscription',
     'ussd',
+    'airtime',
+    'airtime_pay',
     'unknown',
 ] as const
 

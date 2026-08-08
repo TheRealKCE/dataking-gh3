@@ -2,8 +2,7 @@
 import { createServerClient } from '@/lib/supabase'
 import { createRouteHandlerClient } from '@/lib/supabase-server'
 import { cookies } from 'next/headers'
-import { sendAirtimeBeneficiarySMS, sendAirtimeCompletedSMS } from '@/lib/sms-service'
-import { sendPushToUser } from '@/lib/web-push'
+import { finalizeAirtimeOrder } from '@/lib/airtime-order-completion'
 
 async function verifyAdmin(supabaseUserClient: any) {
     const { data: { user: authUser }, error: authError } = await supabaseUserClient.auth.getUser()
@@ -58,8 +57,25 @@ export async function GET(request: NextRequest) {
             return NextResponse.json({ error: error.message }, { status: 500 })
         }
 
+        // Attach the Hubtel top-up legs so the page can show "2/3 delivered" on a
+        // split order. Fetched in one query for the page rather than joined, because
+        // most orders have no legs at all and PostgREST would nest an empty array on
+        // every row regardless.
+        const orderIds = (orders || []).map((o: any) => o.id)
+        const legsByOrder: Record<string, any[]> = {}
+        if (orderIds.length > 0) {
+            const { data: legs } = await (supabase.from('airtime_fulfillment_legs') as any)
+                .select('order_id, leg_index, amount, status, transaction_id, message')
+                .in('order_id', orderIds)
+                .order('leg_index', { ascending: true })
+
+            for (const leg of (legs || [])) {
+                (legsByOrder[leg.order_id] ||= []).push(leg)
+            }
+        }
+
         return NextResponse.json({
-            orders: orders || [],
+            orders: (orders || []).map((o: any) => ({ ...o, fulfillment_legs: legsByOrder[o.id] || [] })),
             total: count || 0,
             page,
             limit,
@@ -99,75 +115,19 @@ export async function PATCH(request: NextRequest) {
 
         if (fetchError || !existing) return NextResponse.json({ error: 'Order not found' }, { status: 404 })
 
-        const updatePayload: any = {
+        // The row update, the storefront sync and every notification live in
+        // lib/airtime-order-completion.ts so a manual completion and a provider
+        // completion do exactly the same thing.
+        const result = await finalizeAirtimeOrder({
+            orderId,
             status,
-            fulfilled_by: admin.userId,
-            fulfilled_at: new Date().toISOString(),
-            updated_at: new Date().toISOString(),
-        }
-        if (fulfillmentNote) updatePayload.fulfillment_note = fulfillmentNote
+            note: fulfillmentNote,
+            actorId: admin.userId,
+            existingOrder: existing,
+        })
 
-        const { error: updateError } = await (supabase.from('airtime_orders') as any)
-            .update(updatePayload).eq('id', orderId)
-
-        if (updateError) {
-            console.error('[Admin Airtime] Update error:', updateError)
-            return NextResponse.json({ error: updateError.message }, { status: 500 })
-        }
-
-        // SYNC: If this is a shop order, sync the status downward.
-        if (existing.reference_code && existing.reference_code.startsWith('SHOP-')) {
-            const refSuffix = existing.reference_code.replace('SHOP-', '')
-            
-            // 1. Update orders table (which uses the 10-char truncated reference)
-            await (supabase.from('orders') as any).update({ status }).eq('reference_code', existing.reference_code)
-            
-            // 2. Update shop_orders (which uses the full paystack reference)
-            const { data: sOrder } = await (supabase.from('shop_orders') as any)
-                .select('id')
-                .ilike('paystack_reference', `%${refSuffix}`)
-                .single()
-                
-            if (sOrder?.id) {
-                await (supabase.from('shop_orders') as any)
-                    .update({ status, updated_at: new Date().toISOString() })
-                    .eq('id', sOrder.id)
-            }
-        }
-
-        // Update the user's in-app notification (Mashup-aware titles)
-        const isMashup = existing.type === 'mashup'
-        ;(supabase.from('notifications') as any).insert({
-            user_id: existing.user_id,
-            title: status === 'completed'
-                ? (isMashup ? 'Mashup Bundle Sent ✅' : 'Airtime Sent ✅')
-                : (isMashup ? 'Mashup Order Failed' : 'Airtime Order Failed'),
-            message: status === 'completed'
-                ? (isMashup
-                    ? `Your MTN Mashup bundle for ${existing.beneficiary_phone} has been activated. Ref: ${existing.reference_code}`
-                    : `GHS ${existing.airtime_amount.toFixed(2)} airtime for ${existing.beneficiary_phone} has been sent successfully. Ref: ${existing.reference_code}`)
-                : `Your ${isMashup ? 'Mashup' : 'airtime'} order ${existing.reference_code} could not be completed. Please contact support.`,
-            type: 'order_update',
-            action_url: '/dashboard/airtime',
-        }).then(() => {}).catch((e: any) => console.error('[Admin Airtime] Notification error:', e))
-
-        // Push notification to order owner
-        await sendPushToUser(existing.user_id, {
-            title: status === 'completed'
-                ? (isMashup ? 'Mashup Bundle Sent' : 'Airtime Sent')
-                : (isMashup ? 'Mashup Order Failed' : 'Airtime Order Failed'),
-            body: status === 'completed'
-                ? (isMashup
-                    ? `Your MTN Mashup bundle for ${existing.beneficiary_phone} has been activated.`
-                    : `GHS ${existing.airtime_amount.toFixed(2)} airtime for ${existing.beneficiary_phone} sent successfully.`)
-                : `Your ${isMashup ? 'Mashup' : 'airtime'} order ${existing.reference_code} could not be completed. Contact support.`,
-            url: '/dashboard/airtime',
-        }).catch(() => {})
-
-        // Trigger the completed SMS alert
-        if (status === 'completed') {
-            sendAirtimeCompletedSMS(existing.beneficiary_phone, existing.airtime_amount)
-                .catch(err => console.error('[Admin Airtime] Completed SMS failed:', err))
+        if (!result.success) {
+            return NextResponse.json({ error: result.error || 'Failed to update order' }, { status: 500 })
         }
 
         return NextResponse.json({ success: true, status })

@@ -121,6 +121,12 @@ interface Order {
     fulfillment_note?: string; fulfilled_at?: string
     shop_id?: string; shop_name?: string
     type?: string; bundle_preference?: string
+    provider?: string | null
+    fulfillment_legs?: {
+        leg_index: number; amount: number
+        status: 'submitting' | 'pending' | 'success' | 'failed'
+        transaction_id?: string | null; message?: string | null
+    }[]
 }
 
 interface AirtimeSettings {
@@ -131,6 +137,8 @@ interface AirtimeSettings {
     airtime_enabled_mtn: string; airtime_enabled_telecel: string; airtime_enabled_at: string
     storefront_airtime_enabled: string
     storefront_mashup_enabled: string
+    airtime_auto_fulfillment_enabled: string
+    airtime_auto_mtn: string; airtime_auto_telecel: string; airtime_auto_at: string
 }
 
 // ─── Status Action Modal ───────────────────────────────────────────────────────
@@ -280,6 +288,10 @@ export default function AdminAirtimePage() {
         airtime_enabled_mtn: 'true', airtime_enabled_telecel: 'true', airtime_enabled_at: 'true',
         storefront_airtime_enabled: 'false',
         storefront_mashup_enabled: 'false',
+        // Defaults match the migration: auto-fulfilment is off until a human turns
+        // it on after a live test, because a mis-sent top-up cannot be recalled.
+        airtime_auto_fulfillment_enabled: 'false',
+        airtime_auto_mtn: 'false', airtime_auto_telecel: 'false', airtime_auto_at: 'false',
     })
     const [settingsLoading, setSettingsLoading] = useState(true)
     const [savingSettings, setSavingSettings] = useState(false)
@@ -685,6 +697,56 @@ export default function AdminAirtimePage() {
                                             </div>
                                         </div>
 
+                                        {/* Hubtel delivery legs — an order over GHS 100 goes out in
+                                            several top-ups, and an admin finishing one by hand needs
+                                            to know exactly how much already landed. */}
+                                        {(order.fulfillment_legs?.length ?? 0) > 0 && (() => {
+                                            const legs = order.fulfillment_legs!
+                                            const done = legs.filter(l => l.status === 'success')
+                                            const deliveredValue = done.reduce((sum, l) => sum + Number(l.amount), 0)
+                                            const anyFailed = legs.some(l => l.status === 'failed')
+                                            return (
+                                                <div className={cn(
+                                                    "rounded-3xl p-4 mb-5 border",
+                                                    anyFailed
+                                                        ? "bg-rose-50 dark:bg-rose-950/20 border-rose-100 dark:border-rose-900/30"
+                                                        : "bg-sky-50 dark:bg-sky-950/20 border-sky-100 dark:border-sky-900/30"
+                                                )}>
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em]">
+                                                            Hubtel Delivery · {done.length}/{legs.length} legs
+                                                        </p>
+                                                        <p className="text-[10px] font-black text-slate-700 dark:text-slate-300 uppercase tracking-tight">
+                                                            GHS {deliveredValue.toFixed(2)} sent
+                                                        </p>
+                                                    </div>
+                                                    <div className="flex flex-wrap gap-1.5">
+                                                        {legs.map(leg => (
+                                                            <span
+                                                                key={leg.leg_index}
+                                                                title={leg.message || leg.transaction_id || ''}
+                                                                className={cn(
+                                                                    "px-2 py-1 rounded-lg text-[9px] font-black uppercase tracking-widest",
+                                                                    leg.status === 'success' && "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400",
+                                                                    leg.status === 'failed' && "bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400",
+                                                                    (leg.status === 'pending' || leg.status === 'submitting') && "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400"
+                                                                )}
+                                                            >
+                                                                {leg.leg_index}. GHS {Number(leg.amount).toFixed(2)} · {leg.status}
+                                                            </span>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            )
+                                        })()}
+
+                                        {order.fulfillment_note && (
+                                            <div className="bg-amber-50 dark:bg-amber-950/20 rounded-3xl p-4 mb-5 border border-amber-100 dark:border-amber-900/30">
+                                                <p className="text-[9px] font-black text-amber-600/70 uppercase tracking-[0.2em] mb-1">Fulfilment Note</p>
+                                                <p className="text-[11px] font-bold text-amber-700 dark:text-amber-400 leading-relaxed">{order.fulfillment_note}</p>
+                                            </div>
+                                        )}
+
                                         {/* Footer: Date and Actions */}
                                         <div className="flex items-center justify-between pt-4 border-t border-slate-100 dark:border-slate-800/50">
                                             <div className="flex items-center gap-2">
@@ -815,6 +877,61 @@ export default function AdminAirtimePage() {
                                 </div>
 
                                 <div className="space-y-6">
+                                    {/* Auto-Fulfilment (Hubtel Commission Services) */}
+                                    <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 border border-slate-100 dark:border-slate-800 shadow-sm space-y-8">
+                                        <div className="space-y-2">
+                                            <h2 className="text-xl font-black text-slate-900 dark:text-white uppercase tracking-tighter">Auto-Fulfilment</h2>
+                                            <p className="text-xs text-slate-500 font-bold uppercase tracking-widest opacity-70">Send Airtime Automatically Via Hubtel</p>
+                                        </div>
+
+                                        <div className="bg-rose-50 dark:bg-rose-950/20 rounded-2xl p-4 border border-rose-100 dark:border-rose-950 flex gap-3">
+                                            <AlertTriangle className="w-5 h-5 text-rose-500 shrink-0" />
+                                            <p className="text-[10px] font-bold text-rose-600 dark:text-rose-400 uppercase leading-relaxed">
+                                                Airtime cannot be recalled once sent. Test each network with a GHS 1 order before switching it on. The Hubtel prepaid account must be funded.
+                                            </p>
+                                        </div>
+
+                                        <div className="space-y-6">
+                                            <div className="flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-800">
+                                                <div>
+                                                    <Label className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-widest">⚡ Auto-Fulfil Master Switch</Label>
+                                                    <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tight mt-1">Off = every airtime order waits for an admin, exactly as before.</p>
+                                                </div>
+                                                <Switch
+                                                    checked={settings.airtime_auto_fulfillment_enabled === 'true'}
+                                                    onCheckedChange={v => setSettings(s => ({ ...s, airtime_auto_fulfillment_enabled: v ? 'true' : 'false' }))}
+                                                />
+                                            </div>
+
+                                            {(['MTN', 'Telecel', 'AT'] as const).map(net => {
+                                                const key = `airtime_auto_${net.toLowerCase()}` as keyof AirtimeSettings
+                                                const masterOff = settings.airtime_auto_fulfillment_enabled !== 'true'
+                                                return (
+                                                    <div
+                                                        key={net}
+                                                        className={`flex items-center justify-between p-4 rounded-2xl border border-slate-100 dark:border-slate-800 transition-opacity ${masterOff ? 'opacity-40' : ''}`}
+                                                    >
+                                                        <div>
+                                                            <Label className="text-xs font-black text-slate-900 dark:text-white uppercase tracking-widest">{net} Auto-Fulfil</Label>
+                                                            <p className="text-[10px] text-slate-500 font-bold uppercase tracking-tight mt-1">
+                                                                Orders over GHS 100 are split into multiple top-ups automatically.
+                                                            </p>
+                                                        </div>
+                                                        <Switch
+                                                            checked={settings[key] === 'true'}
+                                                            disabled={masterOff}
+                                                            onCheckedChange={v => setSettings(s => ({ ...s, [key]: v ? 'true' : 'false' }))}
+                                                        />
+                                                    </div>
+                                                )
+                                            })}
+
+                                            <p className="text-[10px] text-slate-400 font-bold uppercase tracking-tight leading-relaxed">
+                                                Mashup orders are never auto-fulfilled — they are MTN bundles, not airtime, and stay manual.
+                                            </p>
+                                        </div>
+                                    </div>
+
                                     {/* System Limits */}
                                     <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] p-8 border border-slate-100 dark:border-slate-800 shadow-sm space-y-8">
                                         <div className="space-y-2">
