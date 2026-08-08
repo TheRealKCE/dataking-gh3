@@ -64,3 +64,5 @@ scratch/
 /public/workbox-*.js.map
 /public/fallback-*.js
 /public/fallback-*.js.map
+/public/worker-*.js
+/public/swe-worker-*.js
