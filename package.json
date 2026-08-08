@@ -7,7 +7,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "next lint && npm run lint:theme",
+    "lint:theme": "node scripts/check-theme-scope.js",
     "audit:security": "npm audit",
     "audit:all": "npm run lint && npm run audit:security"
   },

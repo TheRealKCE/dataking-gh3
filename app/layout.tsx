@@ -25,15 +25,17 @@ import { SystemAnnouncementModal } from '@/components/system-announcement-modal'
 import { getActiveAnnouncement } from '@/lib/get-active-announcement'
 import { OfflineModal } from '@/components/offline-modal'
 
+// Both families are variable fonts, so omitting `weight` ships one file carrying
+// the whole axis instead of a separate file per static weight. That is what makes
+// font-medium/-bold/-black real rather than browser-synthesised: the previous
+// static list stopped at 700, so every `font-black` (900) was faux-emboldened.
 const outfit = Outfit({
-    weight: ['400', '600', '700'],
     subsets: ['latin'],
     display: 'optional', // 'optional' prevents FOFT double-render on slow CPUs
     variable: '--font-heading',
 })
 
 const inter = Inter({
-    weight: ['400', '500', '600'],
     subsets: ['latin'],
     display: 'optional', // 'optional' prevents FOFT double-render on slow CPUs
     variable: '--font-body',
@@ -83,7 +85,7 @@ export default async function RootLayout({
                     }}
                 />
             </head>
-            <body className={inter.className}>
+            <body className="font-body">
                 <ThemeProvider
                     attribute="class"
                     defaultTheme="system"

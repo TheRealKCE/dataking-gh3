@@ -1,4 +1,5 @@
 import type { Config } from "tailwindcss"
+import defaultTheme from "tailwindcss/defaultTheme"
 
 const config = {
     darkMode: ["class"],
@@ -73,33 +74,19 @@ const config = {
                 ring: "hsl(var(--ring))",
                 background: "hsl(var(--background))",
                 foreground: "hsl(var(--foreground))",
+                // The 50-900 gold ramp that used to live here contradicted
+                // --primary (blue) and had zero usages across the codebase.
                 primary: {
                     DEFAULT: 'hsl(var(--primary))',
                     foreground: 'hsl(var(--primary-foreground))',
-                    50: '#FFF8E7',
-                    100: '#FFEED0',
-                    200: '#FFD9A0',
-                    300: '#FFC470',
-                    400: '#FFAF40',
-                    500: '#F5A623',
-                    600: '#D4AF37',
-                    700: '#B89D2E',
-                    800: '#8B6F2B',
-                    900: '#5C4820',
                 },
+                // Likewise the 50-900 purple ramp: zero usages. DEFAULT stays a
+                // literal for now and moves onto hsl(var(--secondary)) in Phase 1,
+                // which is a deliberate visual change (it currently paints every
+                // shadcn hover state bright purple).
                 secondary: {
                     DEFAULT: '#7B68EE',
                     foreground: '#ffffff',
-                    50: '#F3EFFF',
-                    100: '#E6DEFF',
-                    200: '#CCBDFF',
-                    300: '#B39CFF',
-                    400: '#9A7BFF',
-                    500: '#8B5AFF',
-                    600: '#7B68EE',
-                    700: '#6B57D9',
-                    800: '#5B47C4',
-                    900: '#4B37AF',
                 },
                 destructive: {
                     DEFAULT: "hsl(var(--destructive))",
@@ -157,17 +144,26 @@ const config = {
                     dark: "#D41920",
                 },
                 success: {
-                    DEFAULT: "#10B981",
-                    foreground: "#FFFFFF",
+                    DEFAULT: "hsl(var(--success))",
+                    foreground: "hsl(var(--success-foreground))",
                 },
                 warning: {
-                    DEFAULT: "#F59E0B",
-                    foreground: "#FFFFFF",
+                    DEFAULT: "hsl(var(--warning))",
+                    foreground: "hsl(var(--warning-foreground))",
+                },
+                info: {
+                    DEFAULT: "hsl(var(--info))",
+                    foreground: "hsl(var(--info-foreground))",
                 },
             },
+            // These must point at next/font's generated CSS vars, not the raw
+            // family names. Naming the family directly bypassed next/font
+            // entirely, so `font-heading`/`font-body` fell back to whatever
+            // "Outfit"/"Inter" the device happened to have installed.
             fontFamily: {
-                heading: ['Outfit', 'sans-serif'],
-                body: ['Inter', 'sans-serif'],
+                sans: ['var(--font-body)', ...defaultTheme.fontFamily.sans],
+                body: ['var(--font-body)', ...defaultTheme.fontFamily.sans],
+                heading: ['var(--font-heading)', ...defaultTheme.fontFamily.sans],
             },
             borderRadius: {
                 lg: "var(--radius)",

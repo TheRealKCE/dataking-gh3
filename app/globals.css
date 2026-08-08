@@ -21,12 +21,22 @@
     --accent-foreground: 210 40% 98%;
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
+    /* Status tokens. Phase 0 deliberately keeps the exact hexes these replaced
+       (#10B981 / #F59E0B) so wiring Tailwind to vars is a no-op visually;
+       Phase 1 retunes them for contrast. */
+    --success: 160 84% 39%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+    --info: 213 88% 47%;
+    --info-foreground: 0 0% 100%;
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
     --ring: 221 83% 53%;
     --radius: 1rem;
-    --font-heading: 'Outfit', sans-serif;
-    --font-body: 'Inter', sans-serif;
+    /* --font-heading / --font-body are NOT declared here. next/font sets them
+       on <html> in app/layout.tsx; re-declaring them at :root is equal
+       specificity and would shadow the optimised font depending on rule order. */
   }
 
   .dark {
@@ -50,6 +60,15 @@
 
     --destructive: 0 84% 60%;
     --destructive-foreground: 210 40% 98%;
+
+    /* Same values as light for now: success/warning were single hardcoded hexes
+       with no dark variant, so matching them keeps Phase 0 visually inert. */
+    --success: 160 84% 39%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 50%;
+    --warning-foreground: 0 0% 100%;
+    --info: 213 88% 47%;
+    --info-foreground: 0 0% 100%;
 
     --border: 0 0% 14%;
     --input: 0 0% 14%;
