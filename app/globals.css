@@ -226,8 +226,20 @@
       radial-gradient(circle 110px at 88% 72%, hsl(218 82% 62% / 0.16) 0 88%, transparent 92%),
       radial-gradient(circle 170px at 24% 86%, hsl(220 78% 60% / 0.17) 0 88%, transparent 92%),
       radial-gradient(circle  88px at 58% 94%, hsl(221 76% 58% / 0.14) 0 88%, transparent 92%);
-    background-repeat: no-repeat;
-    background-attachment: fixed;
+    /* A repeating tile of a FIXED height, not a single viewport-sized layer.
+       `background-attachment: fixed` is unreliable on mobile — Chrome on Android
+       and iOS Safari fall back to `scroll`, and once they do the painting area
+       becomes the entire page instead of the viewport. On a long landing page
+       that pushes the percentage positions (12%, 86%, 94%) hundreds or
+       thousands of pixels down, so the first screen renders empty — which is
+       exactly what happened.
+
+       Sizing the tile at 100% x 1100px makes every disc's position resolve
+       against 1100px no matter how tall the page is, and repeating it means the
+       field carries all the way down. No dependence on `fixed`, so it behaves
+       identically on every browser. */
+    background-repeat: repeat;
+    background-size: 100% 1100px;
   }
 
   /* On black glass the discs stop being bubbles and become reflections: two
