@@ -2,19 +2,32 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
-const Card = React.forwardRef<
-    HTMLDivElement,
-    React.HTMLAttributes<HTMLDivElement>
->(({ className, ...props }, ref) => (
-    <div
-        ref={ref}
-        className={cn(
-            "rounded-2xl border border-border/50 bg-card text-card-foreground shadow-md hover:shadow-lg transition-all duration-300 hover:border-primary/50",
-            className
-        )}
-        {...props}
-    />
-))
+export interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
+    /**
+     * Opt in to hover feedback. Previously every Card lifted its shadow and
+     * tinted its border on hover, including the many that are not clickable —
+     * which both cost paint work and told the user something was interactive
+     * when it wasn't. Set this only on cards that are actually a link/button.
+     */
+    interactive?: boolean
+}
+
+const Card = React.forwardRef<HTMLDivElement, CardProps>(
+    ({ className, interactive = false, ...props }, ref) => (
+        <div
+            ref={ref}
+            className={cn(
+                // Light mode is pure white, so the page and this card are the
+                // same fill: the border plus e1 is what gives the card its edge.
+                "rounded-lg border border-border bg-card text-card-foreground shadow-e1",
+                interactive &&
+                    "transition-[box-shadow,border-color] hover:shadow-e2 hover:border-border-strong",
+                className
+            )}
+            {...props}
+        />
+    )
+)
 Card.displayName = "Card"
 
 const CardHeader = React.forwardRef<

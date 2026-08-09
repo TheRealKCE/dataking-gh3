@@ -62,7 +62,7 @@ export default async function JoinPage({ params }: Props) {
 
   if (invite.revoked_at) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+      <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-red-600">Invite Revoked</h1>
           <p className="text-gray-600 mt-2">
@@ -75,7 +75,7 @@ export default async function JoinPage({ params }: Props) {
 
   if (invite.expires_at && new Date(invite.expires_at) < now) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+      <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-red-600">Invite Expired</h1>
           <p className="text-gray-600 mt-2">
@@ -88,7 +88,7 @@ export default async function JoinPage({ params }: Props) {
 
   if (invite.max_uses && invite.used_count >= invite.max_uses) {
     return (
-      <div className="flex items-center justify-center min-h-screen bg-gray-50">
+      <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <h1 className="text-2xl font-bold text-red-600">Invite Limit Reached</h1>
           <p className="text-gray-600 mt-2">

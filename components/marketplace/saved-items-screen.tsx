@@ -30,7 +30,7 @@ export function SavedItemsScreen() {
 
     if (count === 0) {
         return (
-            <div className="mx-auto flex min-h-screen max-w-[480px] flex-col bg-white dark:bg-[#0a0f1c]">
+            <div className="mx-auto flex min-h-screen max-w-[480px] flex-col">
                 <Header count={0} view={view} setView={setView} onClearAll={clearAll} />
                 <div className="flex flex-1 flex-col items-center justify-center px-8 py-20 text-center">
                     <span className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 dark:bg-white/5">
@@ -55,7 +55,7 @@ export function SavedItemsScreen() {
     }
 
     return (
-        <div className="mx-auto min-h-screen max-w-[480px] bg-white dark:bg-[#0a0f1c]">
+        <div className="mx-auto min-h-screen max-w-[480px]">
             <Header count={count} view={view} setView={setView} onClearAll={clearAll} />
             <div className="px-4 py-4">
                 {view === 'grid' ? (

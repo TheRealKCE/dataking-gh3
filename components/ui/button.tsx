@@ -4,29 +4,33 @@ import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@/lib/utils"
 
+// Base notes:
+// - `hover:scale-105` is gone. It was on EVERY button in the app and is the
+//   single biggest source of jank on the low-end Android devices this targets:
+//   a hover-triggered scale promotes a layer and repaints the label on each
+//   frame. Colour/shadow hover plus a small active press reads the same and is
+//   effectively free.
+// - transition is scoped to the properties that actually change rather than
+//   `transition-all`, and runs at the 150ms default instead of 300ms.
+// - rounded-md (14px) is the button step of the radius scale; rounded-lg is
+//   now 20px and belongs to cards.
 const buttonVariants = cva(
-    "inline-flex items-center justify-center whitespace-nowrap rounded-lg text-sm font-semibold ring-offset-background transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 active:scale-[0.96] hover:scale-105",
+    "inline-flex items-center justify-center whitespace-nowrap rounded-md text-sm font-semibold ring-offset-background transition-[color,background-color,border-color,box-shadow,opacity] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 active:scale-[0.98]",
     {
         variants: {
             variant: {
-                default: "bg-gradient-to-r from-primary to-primary/90 text-primary-foreground hover:shadow-gold shadow-lg",
-                destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90 shadow-lg shadow-destructive/25",
-                outline: "border-2 border-primary/30 bg-background text-foreground hover:border-primary/60 hover:bg-primary/5 transition-all",
-                secondary: "bg-gradient-to-r from-secondary to-secondary/80 text-secondary-foreground hover:shadow-lg shadow-lg",
-                ghost: "hover:bg-primary/10 hover:text-primary transition-colors",
-                link: "text-primary underline-offset-4 hover:underline font-semibold",
-                success: "bg-emerald-600 text-white hover:bg-emerald-700 shadow-lg shadow-emerald-600/25",
-                warning: "bg-amber-500 text-white hover:bg-amber-600 shadow-lg shadow-amber-500/25",
-                mtn: "bg-yellow-500 text-black hover:bg-yellow-600 shadow-lg shadow-yellow-500/25",
-                telecel: "bg-red-600 text-white hover:bg-red-700 shadow-lg shadow-red-600/25",
-                gradient: "bg-gradient-to-r from-primary via-secondary to-accent text-white hover:shadow-gold-lg shadow-lg",
-                luxury: "bg-gradient-to-r from-primary to-primary/80 text-primary-foreground hover:shadow-gold-lg shadow-gold hover:scale-110 font-bold",
+                default: "bg-gradient-accent text-accent-contrast shadow-e1 hover:shadow-glow hover:brightness-110",
+                destructive: "bg-destructive text-destructive-foreground hover:brightness-110 shadow-e1",
+                outline: "border border-border-strong bg-card text-foreground hover:bg-muted hover:border-accent-solid/40",
+                secondary: "bg-secondary text-secondary-foreground hover:bg-surface-2",
+                ghost: "hover:bg-accent hover:text-accent-foreground",
+                link: "text-accent-solid underline-offset-4 hover:underline font-semibold",
             },
             size: {
                 default: "h-10 px-4 py-2",
-                sm: "h-9 rounded-md px-3 text-xs",
-                lg: "h-12 rounded-lg px-8 text-base",
-                xl: "h-14 rounded-xl px-10 text-lg",
+                sm: "h-9 rounded-sm px-3 text-xs",
+                lg: "h-12 px-8 text-base",
+                xl: "h-14 rounded-lg px-10 text-lg",
                 icon: "h-10 w-10",
             },
         },

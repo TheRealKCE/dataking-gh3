@@ -12,7 +12,7 @@ export default function ClassifiedsLayout({
     children: React.ReactNode
 }) {
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-[#0a0f1c]">
+        <div className="min-h-screen">
             {/* pb clears the fixed mobile bottom nav (+ iOS safe area); removed on md+ */}
             <div className="pb-20 md:pb-0">{children}</div>
             <MarketplaceBottomNav />

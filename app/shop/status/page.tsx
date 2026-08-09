@@ -19,7 +19,7 @@ function StatusLoading() {
 
 export default function ShopStatusPage() {
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-gray-950 py-12">
+        <div className="min-h-screen py-12">
             <Suspense fallback={<StatusLoading />}>
                 <ShopStatusTracker />
             </Suspense>

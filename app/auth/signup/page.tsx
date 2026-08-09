@@ -151,7 +151,7 @@ export default function SignupPage() {
     }
 
     return (
-        <div className="relative min-h-screen w-full flex flex-col items-center justify-center px-4 py-12 overflow-y-auto bg-background">
+        <div className="relative min-h-screen w-full flex flex-col items-center justify-center px-4 py-12 overflow-y-auto">
             <BackgroundBubbles scrollable />
 
             <div className="w-full max-w-[480px] relative z-10 flex flex-col items-center animate-slow-fade">

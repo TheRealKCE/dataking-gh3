@@ -35,7 +35,7 @@ export default async function MyListingsPage() {
     }
 
     return (
-        <div className="min-h-screen bg-background">
+        <div className="min-h-screen">
             <div className="container py-8">
                 <div className="flex items-center justify-between mb-8">
                     <div>

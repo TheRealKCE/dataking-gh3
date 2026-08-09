@@ -20,7 +20,7 @@ function MarketplaceLoginInner() {
     const hasError = searchParams.get('error') === 'oauth_failed'
 
     return (
-        <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 px-4 py-12 dark:bg-[#0a0f1c]">
+        <div className="flex min-h-screen flex-col items-center justify-center px-4 py-12 dark:bg-[#0a0f1c]">
             <div className="w-full max-w-[420px]">
                 {/* Branding */}
                 <div className="mb-8 text-center">
@@ -76,7 +76,7 @@ function MarketplaceLoginInner() {
 
 export default function MarketplaceLoginPage() {
     return (
-        <Suspense fallback={<div className="min-h-screen bg-gray-50 dark:bg-[#0a0f1c]" />}>
+        <Suspense fallback={<div className="min-h-screen" />}>
             <MarketplaceLoginInner />
         </Suspense>
     )

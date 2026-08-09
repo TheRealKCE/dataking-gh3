@@ -6,7 +6,7 @@ import { Button } from '@/components/ui/button'
 
 export default function BuyerDashboardPage() {
     return (
-        <div className="min-h-screen bg-gray-50 dark:bg-[#0a0f1c] flex">
+        <div className="min-h-screen flex">
             <ClassifiedsBuyerSidebar />
 
             <div className="flex-1">

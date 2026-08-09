@@ -105,7 +105,7 @@ export default function DashboardLayout({
 
     if (isLoading) {
         return (
-            <div className="min-h-screen bg-background flex items-center justify-center">
+            <div className="min-h-screen flex items-center justify-center">
                 <div className="space-y-4 w-full max-w-md p-8">
                     <Skeleton className="h-12 w-full" />
                     <Skeleton className="h-8 w-3/4" />
@@ -123,7 +123,7 @@ export default function DashboardLayout({
     // the error screen, which the retry may clear on its own.
     if (user && !dbUser && !profileRetryDone) {
         return (
-            <div className="min-h-screen bg-background flex items-center justify-center">
+            <div className="min-h-screen flex items-center justify-center">
                 <div className="space-y-4 w-full max-w-md p-8">
                     <Skeleton className="h-12 w-full" />
                     <Skeleton className="h-8 w-3/4" />
@@ -135,7 +135,7 @@ export default function DashboardLayout({
 
     if (user && !dbUser) {
         return (
-            <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4">
+            <div className="min-h-screen flex flex-col items-center justify-center p-4">
                 <div className="text-center max-w-md animate-in fade-in zoom-in duration-500">
                     <div className="bg-red-100 dark:bg-red-900/20 p-4 rounded-full inline-flex mb-6">
                         <svg className="w-10 h-10 text-red-600 dark:text-red-500" xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>
@@ -165,7 +165,7 @@ export default function DashboardLayout({
 
     if (isSuspended) {
         return (
-            <div className="min-h-screen bg-background relative">
+            <div className="min-h-screen relative">
                 <DashboardSidebar />
                 <div className={cn(
                     "relative transition-all duration-300 ease-in-out min-h-screen flex flex-col w-full max-w-[100vw] overflow-x-hidden",
@@ -187,14 +187,14 @@ export default function DashboardLayout({
     // redirect above lands, so no restricted page content flashes.
     if (rcRestricted && !rcPathAllowed) {
         return (
-            <div className="min-h-screen bg-background flex items-center justify-center">
+            <div className="min-h-screen flex items-center justify-center">
                 <Skeleton className="h-10 w-40" />
             </div>
         )
     }
 
     return (
-        <div className="min-h-screen bg-background relative">
+        <div className="min-h-screen relative">
             <PushNotificationManager />
             <SystemAnnouncementModal userRole={dbUser?.role} />
             <AgentExpiryModal />

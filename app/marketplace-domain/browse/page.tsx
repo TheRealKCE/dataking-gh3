@@ -34,7 +34,7 @@ export default async function BrowsePage({
     const [categories, params] = await Promise.all([getCategories(), searchParams])
 
     return (
-        <div className="min-h-screen bg-background">
+        <div className="min-h-screen">
             {/* Header banner */}
             <div className="mkt-hero border-b">
                 <div className="container py-10">

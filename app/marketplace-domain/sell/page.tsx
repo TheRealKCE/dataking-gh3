@@ -42,7 +42,7 @@ export default async function SellPage() {
     const sellerProfile = await getSellerProfile(user.id)
 
     return (
-        <div className="min-h-screen bg-background">
+        <div className="min-h-screen">
             <div className="container py-8">
                 <div className="max-w-2xl">
                     <h1 className="text-3xl font-bold mb-2">Create a Listing</h1>
