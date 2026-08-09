@@ -923,6 +923,20 @@
   .safe-b {
     padding-bottom: env(safe-area-inset-bottom);
   }
+
+  /* Bottom-sheet height. dvh tracks the *visible* viewport, so when the Android
+     keyboard opens the sheet shrinks instead of pushing its action bar under the
+     IME. Written as a @supports pair rather than two Tailwind arbitrary classes,
+     because those emit two max-height rules whose winner depends on CSS source
+     order rather than the order you wrote them in. */
+  .sheet-maxh {
+    max-height: 92vh;
+  }
+  @supports (height: 100dvh) {
+    .sheet-maxh {
+      max-height: 92dvh;
+    }
+  }
   .tabular {
     font-variant-numeric: tabular-nums;
   }

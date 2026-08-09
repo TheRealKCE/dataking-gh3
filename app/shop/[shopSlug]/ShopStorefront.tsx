@@ -1667,7 +1667,10 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                             className="absolute inset-0 bg-black/50 backdrop-blur-[2px] animate-in fade-in duration-200"
                             onClick={() => !loading && closeDataCheckout()}
                         />
-                        <div className="relative w-full sm:max-w-lg bg-white dark:bg-gray-900 rounded-t-[28px] sm:rounded-b-[28px] sm:mb-6 shadow-2xl max-h-[92vh] overflow-y-auto animate-in slide-in-from-bottom duration-300">
+                        {/* max-h uses dvh so the sheet shrinks to the *visible* viewport when
+                            the Android keyboard opens; with vh the sticky action bar was pushed
+                            under the IME. The vh value stays as a fallback for older WebViews. */}
+                        <div className="relative w-full sm:max-w-lg bg-white dark:bg-gray-900 rounded-t-xl sm:rounded-b-xl sm:mb-6 shadow-e4 sheet-maxh overflow-y-auto animate-sheet-up">
                             <div className="sticky top-0 z-10 bg-white dark:bg-gray-900 pt-3 pb-1 rounded-t-[28px]">
                                 <div className="mx-auto w-10 h-1.5 rounded-full bg-gray-200 dark:bg-gray-700" />
                                 <button
@@ -1704,7 +1707,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                                         type="tel" inputMode="numeric" value={phone}
                                         onChange={(e) => setPhone(e.target.value)}
                                         placeholder="0241234567"
-                                        className="w-full px-4 py-3.5 rounded-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-base font-semibold focus:outline-none focus:ring-2 ring-[var(--brand-color)] transition-all"
+                                        className="w-full px-4 py-3.5 rounded-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-base font-semibold outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-[var(--brand-color)] focus:border-transparent transition-colors"
                                     />
                                 </div>
 
@@ -1719,7 +1722,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                                         value={payPhone}
                                         onChange={(e) => setPayPhone(e.target.value)}
                                         placeholder="0241234567"
-                                        className="w-full px-4 py-3.5 rounded-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-base font-semibold focus:outline-none focus:ring-2 ring-[var(--brand-color)] transition-all"
+                                        className="w-full px-4 py-3.5 rounded-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-base font-semibold outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-[var(--brand-color)] focus:border-transparent transition-colors"
                                     />
                                 </div>
 
@@ -1756,29 +1759,56 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                                         type="email" value={email}
                                         onChange={(e) => setEmail(e.target.value)}
                                         placeholder="you@example.com"
-                                        className="w-full px-4 py-3.5 rounded-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-base font-semibold focus:outline-none focus:ring-2 ring-[var(--brand-color)] transition-all"
+                                        className="w-full px-4 py-3.5 rounded-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-base font-semibold outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-[var(--brand-color)] focus:border-transparent transition-colors"
                                     />
                                 </div>
 
                                 {/* The page-level banner sits behind this sheet, so repeat it here */}
                                 {errorMsg && (
-                                    <div className="flex items-start gap-2 p-3 rounded-2xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
+                                    <div className="flex items-start gap-2 p-3 rounded-md bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800">
                                         <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
                                         <p className="text-xs font-bold text-red-800 dark:text-red-300">{errorMsg}</p>
                                     </div>
                                 )}
+                            </div>
+
+                            {/* Cost summary + action, pinned to the bottom of the sheet.
+                                The fee disclosure used to be grey fine print BELOW the button,
+                                which is the worst place for it in a mobile-money flow: the
+                                payer commits, then discovers the amount differs on their
+                                handset. It now sits above the CTA as a labelled line.
+
+                                We deliberately do NOT show a computed total. The fee percent
+                                lives in HUBTEL_FEE_PERCENT on the server and is never sent to
+                                the browser, so any total rendered here would be a guess — and
+                                a wrong number on a payment screen is worse than no number. */}
+                            <div className="sticky bottom-0 border-t border-gray-100 dark:border-gray-800 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm px-5 pt-3 pb-4 safe-b space-y-3">
+                                <dl className="space-y-1.5">
+                                    <div className="flex items-center justify-between text-sm">
+                                        <dt className="font-semibold text-gray-500 dark:text-gray-400">Bundle</dt>
+                                        <dd className="font-bold tabular text-gray-900 dark:text-gray-100">
+                                            {formatCurrency(selectedPackage.selling_price)}
+                                        </dd>
+                                    </div>
+                                    <div className="flex items-center justify-between text-sm">
+                                        <dt className="font-semibold text-gray-500 dark:text-gray-400">Payment fee</dt>
+                                        <dd className="font-semibold text-gray-500 dark:text-gray-400">
+                                            added by Mobile Money
+                                        </dd>
+                                    </div>
+                                </dl>
 
                                 <button
                                     onClick={handleBuyData} disabled={loading}
-                                    className="w-full py-4 rounded-full bg-[var(--brand-color)] text-white font-black text-lg flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-70"
+                                    className="w-full py-4 rounded-md bg-[var(--brand-color)] text-white font-black text-lg flex items-center justify-center gap-2 active:scale-[0.98] transition-transform disabled:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--brand-color)]"
                                 >
                                     {loading
                                         ? <><Loader2 className="w-5 h-5 animate-spin" /> {pollingRef ? 'Waiting for approval...' : 'Processing...'}</>
                                         : <><Smartphone className="w-5 h-5" /> Pay {formatCurrency(selectedPackage.selling_price)}</>}
                                 </button>
 
-                                <p className="text-[13px] text-center font-semibold text-gray-400 leading-snug">
-                                    A small payment fee applies. Confirm the exact total on your phone.
+                                <p className="text-[12px] text-center font-semibold text-gray-400 leading-snug">
+                                    Your phone will show the exact total to approve.
                                 </p>
                             </div>
                         </div>
