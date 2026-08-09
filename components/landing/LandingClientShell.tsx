@@ -219,7 +219,12 @@ export function LandingClientShell({
             : 'opacity-0 translate-x-5 pointer-events-none'
 
     return (
-        <div className="min-h-screen text-foreground overflow-x-hidden dark:bg-[linear-gradient(160deg,#020617_0%,#070c1f_40%,#020617_100%)]">
+        // bg-bubbles is applied here rather than inherited from <body>: this
+        // wrapper is its own full-height surface, and in dark mode it paints a
+        // gradient over the page, so the body's field never showed through. The
+        // dark: utility still wins in dark mode, which is intended — the discs
+        // belong to the light surface.
+        <div className="min-h-screen text-foreground overflow-x-hidden bg-bubbles dark:bg-[linear-gradient(160deg,#020617_0%,#070c1f_40%,#020617_100%)]">
 
             {/* ══ NAV ══════════════════════════════════════════════════════════════ */}
             <nav className={cn(

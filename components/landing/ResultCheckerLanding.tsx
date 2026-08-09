@@ -107,7 +107,7 @@ export function ResultCheckerLanding({
 
     return (
         <div
-            className={cn('min-h-screen text-foreground overflow-x-hidden', !isDark && '')}
+            className={cn('min-h-screen text-foreground overflow-x-hidden', !isDark && 'bg-bubbles')}
             style={isDark ? { background: 'linear-gradient(160deg, #020617 0%, #070c1f 40%, #020617 100%)' } : undefined}
         >
             {/* ══ NAV ══════════════════════════════════════════════════════════════ */}
