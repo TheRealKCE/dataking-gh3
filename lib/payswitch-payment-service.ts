@@ -20,7 +20,33 @@
  * numeric transaction_id is stored alongside it in wallet_payments.provider_reference.
  */
 import { getDispatcher, isUsingStaticProxy } from '@/lib/http-dispatcher'
+import { Agent } from 'undici'
 import { randomInt } from 'crypto'
+
+/**
+ * PaySwitch traffic goes direct by default, NOT through the Fixie static proxy.
+ *
+ * Fixie is metered. Hubtel exhausted its monthly quota once and every payment
+ * then failed with a 407 — routing a second gateway through the same pool doubles
+ * the burn for no proven benefit, because we have no evidence PaySwitch whitelists
+ * us by IP at all (the sandbox answers fine either way).
+ *
+ * Set PAYSWITCH_USE_PROXY=true if PaySwitch does require a whitelisted IP; then
+ * register Fixie's whole egress pool with them, not a single address — it hands
+ * out a different IP per request.
+ */
+function payswitchDispatcher() {
+    if (process.env.PAYSWITCH_USE_PROXY === 'true') return getDispatcher()
+    return sharedDirectAgent()
+}
+
+let directAgent: Agent | null = null
+function sharedDirectAgent(): Agent {
+    // One pooled agent per process — see the note in lib/http-dispatcher.ts about
+    // why constructing these per request leaks sockets.
+    if (!directAgent) directAgent = new Agent()
+    return directAgent
+}
 
 const DEFAULT_BASE_URL = 'https://prod.theteller.net'
 
@@ -89,6 +115,25 @@ function getMerchantId(): string {
     const id = process.env.PAYSWITCH_MERCHANT_ID
     if (!id) throw new Error('[PayswitchPayment] PAYSWITCH_MERCHANT_ID is not configured.')
     return id
+}
+
+/**
+ * Names the credentials that are missing, or null when all are present.
+ *
+ * Checked BEFORE the request rather than letting the getters throw mid-flight.
+ * They used to throw into initiatePayment's catch, which hands everything to
+ * describePayswitchNetworkFailure — so an unset Vercel env var surfaced to the
+ * customer as "Could not reach the payment provider", and to us as a network
+ * problem that no amount of proxy debugging would ever explain.
+ */
+export function getPayswitchConfigError(): string | null {
+    const missing = [
+        !process.env.PAYSWITCH_MERCHANT_ID && 'PAYSWITCH_MERCHANT_ID',
+        !process.env.PAYSWITCH_API_USER && 'PAYSWITCH_API_USER',
+        !process.env.PAYSWITCH_API_KEY && 'PAYSWITCH_API_KEY',
+    ].filter(Boolean)
+
+    return missing.length > 0 ? `Missing env var(s): ${missing.join(', ')}` : null
 }
 
 /** Basic auth header for the PaySwitch API. */
@@ -224,15 +269,37 @@ export function toPayswitchSafeText(value: string, fallback = ''): string {
 export function describePayswitchNetworkFailure(err: any, context: string): string {
     const cause = err?.cause
     const code = cause?.code || err?.code
-    const usingProxy = isUsingStaticProxy()
+    // Whether PaySwitch is *actually* proxied, not merely whether a proxy exists —
+    // otherwise the 407 advice below fires for a gateway going out direct.
+    const usingProxy = process.env.PAYSWITCH_USE_PROXY === 'true' && isUsingStaticProxy()
     const text = `${err?.message || ''} ${cause?.message || ''}`
 
-    console.error(`[PayswitchPayment] ${context} failed to reach PaySwitch:`, {
+    console.error(`[PayswitchPayment] ${context} failed:`, {
         message: err?.message,
         code,
         cause: cause?.message,
         usingProxy,
+        baseUrl: getBaseUrl(),
     })
+
+    // Not every throw is a network problem, and calling one a network problem
+    // sends whoever is debugging it to the wrong place entirely. undici's
+    // connection failures always carry either a cause.code, a TimeoutError name,
+    // or the literal "fetch failed" — anything else came from our own code
+    // (bad config, a bad amount, a programming error) and is reported as such.
+    const isNetworkShaped =
+        !!code ||
+        err?.name === 'TimeoutError' ||
+        /fetch failed|terminated|socket|ECONN|ENOTFOUND|proxy/i.test(text)
+
+    if (!isNetworkShaped) {
+        console.error(
+            `[PayswitchPayment] ${context}: this is NOT a connectivity failure — it was thrown by our own code. ` +
+            'Check the message above before investigating the proxy or PaySwitch.',
+            err?.stack?.split('\n').slice(0, 3).join(' | ')
+        )
+        return 'Payment could not be started. Please contact support if this continues.'
+    }
 
     if (/407|proxy auth|Proxy response/i.test(text) || (usingProxy && /cancelled/i.test(text))) {
         console.error(
@@ -311,6 +378,12 @@ export async function initiatePayment(params: PayswitchInitiateParams): Promise<
     let payloadForLog: Record<string, unknown> | null = null
 
     try {
+        const configError = getPayswitchConfigError()
+        if (configError) {
+            console.error(`[PayswitchPayment] NOT CONFIGURED — ${configError}. Set these in the Vercel project (all environments) and redeploy.`)
+            return { success: false, error: 'Payment gateway is not configured on this server. Please contact support.' }
+        }
+
         const rSwitch = PAYSWITCH_CHANNEL_MAP[params.network]
         if (!rSwitch) {
             return { success: false, error: `Unsupported network for PaySwitch: ${params.network}` }
@@ -349,7 +422,7 @@ export async function initiatePayment(params: PayswitchInitiateParams): Promise<
             // kills the function, and the customer just watches a spinner.
             signal: AbortSignal.timeout(20_000),
             // @ts-ignore — undici dispatcher for static IP routing
-            dispatcher: getDispatcher(),
+            dispatcher: payswitchDispatcher(),
         })
 
         const responseText = await response.text()
@@ -397,6 +470,12 @@ export async function initiatePayment(params: PayswitchInitiateParams): Promise<
  */
 export async function checkPaymentStatus(transactionId: string): Promise<PayswitchStatusResult> {
     try {
+        const configError = getPayswitchConfigError()
+        if (configError) {
+            console.error(`[PayswitchPayment] NOT CONFIGURED — ${configError}. Status checks cannot run, so nothing will settle.`)
+            return { success: false, outcome: null, error: 'PaySwitch is not configured on this server.' }
+        }
+
         if (!/^\d{12}$/.test(transactionId || '')) {
             return { success: false, outcome: null, error: 'Invalid PaySwitch transaction id' }
         }
@@ -406,7 +485,7 @@ export async function checkPaymentStatus(transactionId: string): Promise<Payswit
             headers: getHeaders(),
             signal: AbortSignal.timeout(20_000),
             // @ts-ignore — undici dispatcher for static IP routing
-            dispatcher: getDispatcher(),
+            dispatcher: payswitchDispatcher(),
         })
 
         const responseText = await response.text()

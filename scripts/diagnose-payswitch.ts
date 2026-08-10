@@ -36,7 +36,10 @@ for (const file of ['.env.local', '.env']) {
 
 const sep = '─'.repeat(64)
 const BASE = (process.env.PAYSWITCH_BASE_URL || 'https://prod.theteller.net').replace(/\/+$/, '')
-const proxyUrl = process.env.FIXIE_URL || process.env.QUOTAGUARDSTATIC_URL
+// Mirror production: PaySwitch goes direct unless PAYSWITCH_USE_PROXY=true, so
+// that a diagnostic PASS actually means the live path works.
+const useProxy = process.env.PAYSWITCH_USE_PROXY === 'true'
+const proxyUrl = useProxy ? (process.env.FIXIE_URL || process.env.QUOTAGUARDSTATIC_URL) : null
 const dispatcher = proxyUrl ? new ProxyAgent(proxyUrl) : new Agent()
 
 const SWITCH_MAP = { MTN: 'MTN', Telecel: 'VDF', AT: process.env.PAYSWITCH_AT_SWITCH || 'ATL' }
