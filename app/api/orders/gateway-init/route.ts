@@ -6,6 +6,9 @@ import { initiatePayment, MOOLRE_PAYMENT_CHANNEL_MAP } from '@/lib/moolre-paymen
 import { initiatePayment as hubtelInitiatePayment, HUBTEL_CHANNEL_MAP, calculateHubtelFee, toHubtelMsisdn } from '@/lib/hubtel-payment-service'
 import { checkHubtelPromptLimit, recordHubtelPrompt } from '@/lib/hubtel-prompt-limit'
 import { resolveDataPrice } from '@/lib/data-order-pricing'
+import { initiatePayment as payswitchInitiatePayment, PAYSWITCH_CHANNEL_MAP } from '@/lib/payswitch-payment-service'
+import { assignPayswitchTransactionId } from '@/lib/payswitch-reference'
+import { resolveProviderForScope, type PaymentProvider } from '@/lib/payment-provider'
 
 /**
  * Direct Pay for data bundles.
@@ -134,10 +137,7 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Bulk orders are only available to agents and admins' }, { status: 403 })
         }
 
-        const gateway: 'moolre' | 'hubtel' | 'paystack' =
-            String(settingsMap.active_payment_provider_web || 'moolre') === 'paystack' ? 'paystack'
-            : String(settingsMap.active_payment_provider_web || 'moolre') === 'hubtel' ? 'hubtel'
-            : 'moolre'
+        const gateway: PaymentProvider = resolveProviderForScope(settingsMap.active_payment_provider_web, 'web')
 
         // ── Blacklist check ───────────────────────────────────────────────────
         const { data: blacklisted } = await supabase
@@ -201,7 +201,10 @@ export async function POST(request: NextRequest) {
             const hubtelFees = calculateHubtelFee(subtotal)
             fee = hubtelFees.fee
             totalAmount = hubtelFees.total
-        } else if (gateway === 'paystack') {
+        } else if (gateway === 'paystack' || gateway === 'payswitch') {
+            // PaySwitch bills the merchant, not the payer, so it needs the same
+            // percentage added on our side that Paystack does. (Moolre, below,
+            // charges the payer directly — hence its zero fee.)
             const feeKey = userRole === 'agent' ? 'agent_paystack_fee_percent' : 'paystack_fee_percent'
             const feeSetting = settingsMap[feeKey] ?? settingsMap['paystack_fee_percent']
             let feePercent = 1.95
@@ -403,6 +406,44 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({
                 success: true,
                 gateway: 'hubtel',
+                otpRequired: false,
+                reference,
+                amount: totalAmount,
+                fee,
+                message: 'Payment prompt sent to your phone. Please approve to complete your purchase.',
+            })
+        }
+
+        // ── PAYSWITCH ─────────────────────────────────────────────────────────
+        if (gateway === 'payswitch') {
+            if (!momoPhone || !momoNetwork || !PAYSWITCH_CHANNEL_MAP[momoNetwork]) {
+                return NextResponse.json({ error: 'Valid Mobile Money phone number and network are required' }, { status: 400 })
+            }
+
+            const { transactionId, error: txIdError } = await assignPayswitchTransactionId(supabase, { id: paymentId! })
+            if (!transactionId) {
+                console.error('[DataGatewayInit] PaySwitch transaction id error:', txIdError)
+                await supabase.from('wallet_payments').update({ status: 'failed' }).eq('id', paymentId)
+                return NextResponse.json({ error: 'Could not start the payment. Please try again.' }, { status: 500 })
+            }
+
+            const payswitchResponse = await payswitchInitiatePayment({
+                amount: totalAmount,
+                payerPhone: momoPhone,
+                network: momoNetwork,
+                transactionId,
+                description,
+            })
+
+            if (!payswitchResponse.success) {
+                console.error('[DataGatewayInit] PaySwitch error:', payswitchResponse.error)
+                await supabase.from('wallet_payments').update({ status: 'failed' }).eq('id', paymentId)
+                return NextResponse.json({ error: payswitchResponse.error || 'Failed to initialize PaySwitch payment' }, { status: 500 })
+            }
+
+            return NextResponse.json({
+                success: true,
+                gateway: 'payswitch',
                 otpRequired: false,
                 reference,
                 amount: totalAmount,

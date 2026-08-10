@@ -64,6 +64,8 @@ export async function GET(request: Request) {
             'results_checker_only_mode',
             'active_payment_provider_classifieds',
             'active_payment_provider_web',
+            // Read client-side by the storefront checkout, which serves guests.
+            'active_payment_provider_shop',
             'active_sms_provider',
             'rc_wallet_payment_enabled',
             'storefront_rc_enabled',

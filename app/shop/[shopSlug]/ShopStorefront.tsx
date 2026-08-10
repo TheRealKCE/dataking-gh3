@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { formatCurrency } from '@/lib/utils'
 import { cn } from '@/lib/utils'
+import { resolveProvider, SCOPE_PROVIDERS, PROVIDER_LABEL, type PaymentProvider } from '@/lib/payment-provider'
 import { NETWORK_ORDER, NetworkLogo, detectPayNetwork, type PayNetwork } from '@/lib/networks'
 import {
     Phone, Mail, MessageCircle, ShoppingCart, Loader2,
@@ -246,7 +247,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
     const [isExpressMtnHidden, setIsExpressMtnHidden] = useState(adminSettings['express_mtn_hidden'] === 'true')
     const [isStandardMtnHidden, setIsStandardMtnHidden] = useState(adminSettings['standard_mtn_hidden'] === 'true')
 
-    const [webPaymentProvider, setWebPaymentProvider] = useState<'moolre' | 'hubtel' | 'paystack'>('moolre')
+    const [webPaymentProvider, setWebPaymentProvider] = useState<PaymentProvider>('moolre')
 
     useEffect(() => {
         // Bypass ISR cache to get the very latest toggle status
@@ -263,8 +264,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                     setIsStandardMtnHidden(String(data.standard_mtn_hidden) === 'true')
                 }
                 if (data && data.active_payment_provider_web) {
-                    const val = String(data.active_payment_provider_web)
-                    setWebPaymentProvider(val === 'paystack' ? 'paystack' : val === 'hubtel' ? 'hubtel' : 'moolre')
+                    setWebPaymentProvider(resolveProvider(data.active_payment_provider_web))
                 }
             })
             .catch(() => {})
@@ -1368,11 +1368,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                                     <div className="space-y-2 pb-2">
                                         <Label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 block">Pay via</Label>
                                         <div className="flex gap-1 p-1 rounded-xl bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 w-full">
-                                            {([
-                                                { id: 'moolre', label: 'Moolre' },
-                                                { id: 'hubtel', label: 'Hubtel' },
-                                                { id: 'paystack', label: 'Paystack' },
-                                            ] as const).map(({ id, label }) => (
+                                            {SCOPE_PROVIDERS.web.map((id) => (
                                                 <button
                                                     key={id}
                                                     type="button"
@@ -1384,7 +1380,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                                                             : 'text-gray-500 hover:text-gray-700'
                                                     )}
                                                 >
-                                                    {label}
+                                                    {PROVIDER_LABEL[id]}
                                                 </button>
                                             ))}
                                         </div>

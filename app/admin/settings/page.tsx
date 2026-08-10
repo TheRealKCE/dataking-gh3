@@ -12,6 +12,12 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Loader2, Save } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import {
+    resolveProviderForScope,
+    SCOPE_PROVIDERS,
+    PROVIDER_LABEL,
+    type PaymentProvider,
+} from '@/lib/payment-provider'
 
 export default function AdminSettingsPage() {
     const [settings, setSettings] = useState<any>({})
@@ -38,9 +44,9 @@ export default function AdminSettingsPage() {
     const [footerBrandingText, setFooterBrandingText] = useState('')
     const [autoFulfillment, setAutoFulfillment] = useState(true)
     const [smsProvider, setSmsProvider] = useState<'moolre' | 'hubtel'>('moolre')
-    const [webPaymentProvider, setWebPaymentProvider] = useState<'moolre' | 'hubtel' | 'paystack'>('moolre')
-    const [shopPaymentProvider, setShopPaymentProvider] = useState<'moolre' | 'hubtel' | 'paystack'>('moolre')
-    const [classifiedsPaymentProvider, setClassifiedsPaymentProvider] = useState<'moolre' | 'hubtel' | 'paystack'>('moolre')
+    const [webPaymentProvider, setWebPaymentProvider] = useState<PaymentProvider>('moolre')
+    const [shopPaymentProvider, setShopPaymentProvider] = useState<PaymentProvider>('moolre')
+    const [classifiedsPaymentProvider, setClassifiedsPaymentProvider] = useState<PaymentProvider>('moolre')
     const [rcWalletPaymentEnabled, setRcWalletPaymentEnabled] = useState(true)
     const [skipGoogleOauthOtp, setSkipGoogleOauthOtp] = useState(false)
 
@@ -100,12 +106,9 @@ export default function AdminSettingsPage() {
             setFooterBrandingText(settingsMap.footer_branding_text || 'ARHMS')
             setAutoFulfillment(String(settingsMap.auto_fulfillment_enabled) !== 'false')
             setSmsProvider(settingsMap.active_sms_provider === 'hubtel' ? 'hubtel' : 'moolre')
-            const webProvider = String(settingsMap.active_payment_provider_web || 'moolre')
-            const shopProvider = String(settingsMap.active_payment_provider_shop || 'moolre')
-            const classifiedsProvider = String(settingsMap.active_payment_provider_classifieds || 'moolre')
-            setWebPaymentProvider(webProvider === 'paystack' ? 'paystack' : webProvider === 'hubtel' ? 'hubtel' : 'moolre')
-            setShopPaymentProvider(shopProvider === 'paystack' ? 'paystack' : shopProvider === 'hubtel' ? 'hubtel' : 'moolre')
-            setClassifiedsPaymentProvider(classifiedsProvider === 'paystack' ? 'paystack' : classifiedsProvider === 'hubtel' ? 'hubtel' : 'moolre')
+            setWebPaymentProvider(resolveProviderForScope(settingsMap.active_payment_provider_web, 'web'))
+            setShopPaymentProvider(resolveProviderForScope(settingsMap.active_payment_provider_shop, 'shop'))
+            setClassifiedsPaymentProvider(resolveProviderForScope(settingsMap.active_payment_provider_classifieds, 'classifieds'))
             setSkipGoogleOauthOtp(settingsMap.skip_google_oauth_otp === 'true')
             setRcWalletPaymentEnabled(settingsMap.rc_wallet_payment_enabled !== 'false')
 
@@ -409,43 +412,26 @@ export default function AdminSettingsPage() {
                                     <Label className="text-base">Main Site Payments</Label>
                                     <p className="text-sm text-muted-foreground">Wallet top-ups, agent upgrades &amp; RC vouchers</p>
                                 </div>
+                                {/* Rendered from SCOPE_PROVIDERS so adding a gateway needs no
+                                    change here — and so a scope can never offer a provider it
+                                    has no branch for. */}
                                 <div className="flex rounded-lg border overflow-hidden">
-                                    <button
-                                        type="button"
-                                        onClick={() => setWebPaymentProvider('moolre')}
-                                        className={cn(
-                                            'px-4 py-2 text-sm font-medium transition-colors',
-                                            webPaymentProvider === 'moolre'
-                                                ? 'bg-primary text-primary-foreground'
-                                                : 'bg-background hover:bg-muted text-foreground'
-                                        )}
-                                    >
-                                        Moolre
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setWebPaymentProvider('hubtel')}
-                                        className={cn(
-                                            'px-4 py-2 text-sm font-medium transition-colors border-l',
-                                            webPaymentProvider === 'hubtel'
-                                                ? 'bg-primary text-primary-foreground'
-                                                : 'bg-background hover:bg-muted text-foreground'
-                                        )}
-                                    >
-                                        Hubtel
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setWebPaymentProvider('paystack')}
-                                        className={cn(
-                                            'px-4 py-2 text-sm font-medium transition-colors border-l',
-                                            webPaymentProvider === 'paystack'
-                                                ? 'bg-primary text-primary-foreground'
-                                                : 'bg-background hover:bg-muted text-foreground'
-                                        )}
-                                    >
-                                        Paystack
-                                    </button>
+                                    {SCOPE_PROVIDERS.web.map((id, index) => (
+                                        <button
+                                            key={id}
+                                            type="button"
+                                            onClick={() => setWebPaymentProvider(id)}
+                                            className={cn(
+                                                'px-4 py-2 text-sm font-medium transition-colors',
+                                                index > 0 && 'border-l',
+                                                webPaymentProvider === id
+                                                    ? 'bg-primary text-primary-foreground'
+                                                    : 'bg-background hover:bg-muted text-foreground'
+                                            )}
+                                        >
+                                            {PROVIDER_LABEL[id]}
+                                        </button>
+                                    ))}
                                 </div>
                             </div>
 
@@ -463,42 +449,22 @@ export default function AdminSettingsPage() {
                                     <p className="text-sm text-muted-foreground">Public storefront guest checkout orders</p>
                                 </div>
                                 <div className="flex rounded-lg border overflow-hidden">
-                                    <button
-                                        type="button"
-                                        onClick={() => setShopPaymentProvider('moolre')}
-                                        className={cn(
-                                            'px-4 py-2 text-sm font-medium transition-colors',
-                                            shopPaymentProvider === 'moolre'
-                                                ? 'bg-primary text-primary-foreground'
-                                                : 'bg-background hover:bg-muted text-foreground'
-                                        )}
-                                    >
-                                        Moolre
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setShopPaymentProvider('hubtel')}
-                                        className={cn(
-                                            'px-4 py-2 text-sm font-medium transition-colors border-l',
-                                            shopPaymentProvider === 'hubtel'
-                                                ? 'bg-primary text-primary-foreground'
-                                                : 'bg-background hover:bg-muted text-foreground'
-                                        )}
-                                    >
-                                        Hubtel
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setShopPaymentProvider('paystack')}
-                                        className={cn(
-                                            'px-4 py-2 text-sm font-medium transition-colors border-l',
-                                            shopPaymentProvider === 'paystack'
-                                                ? 'bg-primary text-primary-foreground'
-                                                : 'bg-background hover:bg-muted text-foreground'
-                                        )}
-                                    >
-                                        Paystack
-                                    </button>
+                                    {SCOPE_PROVIDERS.shop.map((id, index) => (
+                                        <button
+                                            key={id}
+                                            type="button"
+                                            onClick={() => setShopPaymentProvider(id)}
+                                            className={cn(
+                                                'px-4 py-2 text-sm font-medium transition-colors',
+                                                index > 0 && 'border-l',
+                                                shopPaymentProvider === id
+                                                    ? 'bg-primary text-primary-foreground'
+                                                    : 'bg-background hover:bg-muted text-foreground'
+                                            )}
+                                        >
+                                            {PROVIDER_LABEL[id]}
+                                        </button>
+                                    ))}
                                 </div>
                             </div>
                         </CardContent>
@@ -570,43 +536,26 @@ export default function AdminSettingsPage() {
                                     <Label className="text-base">Classifieds Boost Payments</Label>
                                     <p className="text-sm text-muted-foreground">Gateway used when sellers pay to boost their listings</p>
                                 </div>
+                                {/* Hubtel is absent by design: the boost flow has no Hubtel
+                                    branch, so selecting it here used to silently fall back to
+                                    Moolre. SCOPE_PROVIDERS is what keeps that honest. */}
                                 <div className="flex rounded-lg border overflow-hidden">
-                                    <button
-                                        type="button"
-                                        onClick={() => setClassifiedsPaymentProvider('moolre')}
-                                        className={cn(
-                                            'px-4 py-2 text-sm font-medium transition-colors',
-                                            classifiedsPaymentProvider === 'moolre'
-                                                ? 'bg-primary text-primary-foreground'
-                                                : 'bg-background hover:bg-muted text-foreground'
-                                        )}
-                                    >
-                                        Moolre
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setClassifiedsPaymentProvider('hubtel')}
-                                        className={cn(
-                                            'px-4 py-2 text-sm font-medium transition-colors border-l',
-                                            classifiedsPaymentProvider === 'hubtel'
-                                                ? 'bg-primary text-primary-foreground'
-                                                : 'bg-background hover:bg-muted text-foreground'
-                                        )}
-                                    >
-                                        Hubtel
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => setClassifiedsPaymentProvider('paystack')}
-                                        className={cn(
-                                            'px-4 py-2 text-sm font-medium transition-colors border-l',
-                                            classifiedsPaymentProvider === 'paystack'
-                                                ? 'bg-primary text-primary-foreground'
-                                                : 'bg-background hover:bg-muted text-foreground'
-                                        )}
-                                    >
-                                        Paystack
-                                    </button>
+                                    {SCOPE_PROVIDERS.classifieds.map((id, index) => (
+                                        <button
+                                            key={id}
+                                            type="button"
+                                            onClick={() => setClassifiedsPaymentProvider(id)}
+                                            className={cn(
+                                                'px-4 py-2 text-sm font-medium transition-colors',
+                                                index > 0 && 'border-l',
+                                                classifiedsPaymentProvider === id
+                                                    ? 'bg-primary text-primary-foreground'
+                                                    : 'bg-background hover:bg-muted text-foreground'
+                                            )}
+                                        >
+                                            {PROVIDER_LABEL[id]}
+                                        </button>
+                                    ))}
                                 </div>
                             </div>
                         </CardContent>

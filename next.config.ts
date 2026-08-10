@@ -1,5 +1,6 @@
 import type { NextConfig } from 'next'
 import withPWA from '@ducanh2912/next-pwa'
+import withBundleAnalyzer from '@next/bundle-analyzer'
 import path from 'path'
 
 const supabaseImageHost = (() => {
@@ -29,11 +30,30 @@ const nextConfig: NextConfig = {
                 hostname: supabaseImageHost,
             }]
             : [],
+        // AVIF first, WebP second. Both are safe at our floor (Android 8+/Chrome 80+)
+        // and AVIF is typically 20-30% smaller again than WebP at the same quality —
+        // which is the difference between one and two round trips on a 2G link.
+        formats: ['image/avif', 'image/webp'],
+        // Next's defaults run to 3840px for desktop retina. Almost nothing here is
+        // viewed on such a screen, and every extra entry is another variant the
+        // optimizer may generate and cache. Trimmed to the widths phones actually
+        // report: 320 (the cheap-Android floor) through 1920 for the odd desktop.
+        deviceSizes: [320, 420, 640, 750, 828, 1080, 1200, 1920],
+        // Icon- and thumbnail-scale widths, for `sizes` values below one viewport.
+        imageSizes: [16, 24, 32, 48, 64, 96, 128, 256],
+        // A month. These are content-hashed by the optimizer, so a longer TTL costs
+        // nothing on change and saves a revalidation round trip on every repeat view.
+        minimumCacheTTL: 2678400,
     },
     experimental: {
         serverActions: {
             bodySizeLimit: '2mb',
         },
+        // NOTE: all three are already in Next 15's *default* optimizePackageImports
+        // list, so listing them here changed the measured bundle by 0 KB. Kept only
+        // to pin the behaviour if that default ever shifts -- do not expect a win
+        // from it. The barrel-import cost it would address is already handled.
+        optimizePackageImports: ['lucide-react', 'date-fns', 'recharts'],
     },
     async headers() {
         const securityHeaders = [
@@ -149,4 +169,11 @@ const withPWAConfig = withPWA({
     },
 })
 
-export default withPWAConfig(nextConfig)
+// Opt-in only: `ANALYZE=true npm run build` writes the treemap reports. A normal
+// build is byte-for-byte unaffected, so this is safe to leave wired up permanently.
+const withAnalyzer = withBundleAnalyzer({
+    enabled: process.env.ANALYZE === 'true',
+    openAnalyzer: false,
+})
+
+export default withAnalyzer(withPWAConfig(nextConfig))

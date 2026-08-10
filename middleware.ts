@@ -373,7 +373,10 @@ export async function middleware(request: NextRequest) {
         } else if (pathname === '/api/shop/initialize') {
             limiter = rateLimiters?.shopInitialize
             identifier = ip
-        } else if (pathname === '/api/webhooks/paystack') {
+        } else if (pathname === '/api/webhooks/paystack' || pathname === '/api/webhooks/payswitch') {
+            // PaySwitch callbacks carry no signature, so the route re-queries the
+            // gateway before crediting. Rate limiting keeps a flood of forged
+            // callbacks from turning into a flood of outbound status checks.
             limiter = rateLimiters?.webhook
             identifier = ip
         } else if (pathname === '/api/airtime/create') {

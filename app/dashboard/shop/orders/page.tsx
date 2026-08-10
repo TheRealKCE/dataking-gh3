@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/auth-context'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency, cn } from '@/lib/utils'
+import { getOrderDisplayStatus, getOrderStatusLabel, getOrderStatusBadgeClass } from '@/lib/order-status-display'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -40,8 +41,22 @@ interface ShopOrder {
     package_id?: string | null
     orders?: {
         id: string
+        supplier_status?: string | null
         complaints: any[]
     }[]
+}
+
+/**
+ * A shop order's own `status` says nothing about a supplier hold — that lives on
+ * `supplier_status` of the mirrored `orders` row. Resolving it here means shop
+ * owners see the same "On Hold — Verifying" an admin sees, instead of a plain
+ * "Processing" that hides why an order is sitting still.
+ */
+function shopOrderDisplayStatus(order: ShopOrder): string {
+    return getOrderDisplayStatus({
+        status: order.status,
+        supplier_status: order.orders?.[0]?.supplier_status ?? null,
+    })
 }
 
 interface ShopFees {
@@ -50,12 +65,15 @@ interface ShopFees {
     at: number
 }
 
-const statusConfig: Record<string, { label: string; color: string; icon: any }> = {
-    pending: { label: 'Pending', color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400', icon: Clock },
-    processing: { label: 'Processing', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400', icon: Clock },
-    completed: { label: 'Completed', color: 'bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400', icon: CheckCircle2 },
-    failed: { label: 'Failed', color: 'bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400', icon: XCircle },
-    refunded: { label: 'Refunded', color: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400', icon: AlertCircle },
+// Labels and colours come from lib/order-status-display so every surface words a
+// status identically; only the icon is local to this page.
+const statusIcons: Record<string, any> = {
+    pending: Clock,
+    processing: Clock,
+    verifying: AlertCircle,
+    completed: CheckCircle2,
+    failed: XCircle,
+    refunded: AlertCircle,
 }
 
 export default function ShopOrdersPage() {
@@ -108,7 +126,10 @@ export default function ShopOrdersPage() {
             // Build the orders query — all statuses, filtered by date
             let query = (supabase as any)
                 .from('shop_orders')
-                .select('*, orders:orders!shop_order_id(id, complaints(*))')
+                // supplier_status comes from the mirrored `orders` row, not shop_orders —
+                // it is what distinguishes an order held for review from one merely
+                // in flight, and shop owners were never shown the difference.
+                .select('*, orders:orders!shop_order_id(id, supplier_status, complaints(*))')
                 .eq('shop_id', shopData.id)
 
             const now = new Date()
@@ -451,7 +472,8 @@ export default function ShopOrdersPage() {
                                     </tr>
                                 ) : (
                                     filteredOrders.map((order) => {
-                                        const StatusIcon = statusConfig[order.status]?.icon || Clock
+                                        const displayStatus = shopOrderDisplayStatus(order)
+                                        const StatusIcon = statusIcons[displayStatus] || Clock
                                         return (
                                             <tr key={order.id} className="border-b last:border-0 hover:bg-muted/30 transition-colors">
                                                 <td className="px-4 py-3 whitespace-nowrap text-xs text-muted-foreground">
@@ -478,10 +500,10 @@ export default function ShopOrdersPage() {
                                                     <div className="flex flex-col items-center gap-2">
                                                         <span className={cn(
                                                             'inline-flex items-center gap-1 text-[10px] uppercase font-bold px-2 py-0.5 rounded-full',
-                                                            statusConfig[order.status]?.color || 'bg-gray-100 text-gray-600'
+                                                            getOrderStatusBadgeClass(displayStatus)
                                                         )}>
                                                             <StatusIcon className="w-3 h-3" />
-                                                            {statusConfig[order.status]?.label || order.status}
+                                                            {getOrderStatusLabel(displayStatus)}
                                                         </span>
 
                                                         {/* Complaint Status or Button */}
@@ -534,7 +556,8 @@ export default function ShopOrdersPage() {
                             </div>
                         ) : (
                             filteredOrders.map((order) => {
-                                const StatusIcon = statusConfig[order.status]?.icon || Clock
+                                const displayStatus = shopOrderDisplayStatus(order)
+                                const StatusIcon = statusIcons[displayStatus] || Clock
                                 return (
                                     <div key={order.id} className="p-4 space-y-4 hover:bg-muted/30 transition-colors">
                                         <div className="flex justify-between items-start">
@@ -548,10 +571,10 @@ export default function ShopOrdersPage() {
                                             <div className="flex flex-col items-end gap-2">
                                                 <span className={cn(
                                                     'inline-flex items-center gap-1 text-[10px] uppercase font-bold px-2 py-0.5 rounded-full',
-                                                    statusConfig[order.status]?.color || 'bg-gray-100 text-gray-600'
+                                                    getOrderStatusBadgeClass(displayStatus)
                                                 )}>
                                                     <StatusIcon className="w-3 h-3" />
-                                                    {statusConfig[order.status]?.label || order.status}
+                                                    {getOrderStatusLabel(displayStatus)}
                                                 </span>
                                             </div>
                                         </div>

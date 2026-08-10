@@ -9,7 +9,14 @@ import {
     checkPaymentStatus as hubtelCheckPaymentStatus,
     HUBTEL_CHANNEL_MAP,
 } from '@/lib/hubtel-payment-service'
-import { claimHubtelStatusCheck } from '@/lib/hubtel-status-throttle'
+import {
+    initiatePayment as payswitchInitiatePayment,
+    checkPaymentStatus as payswitchCheckPaymentStatus,
+    PAYSWITCH_CHANNEL_MAP,
+} from '@/lib/payswitch-payment-service'
+import { assignPayswitchTransactionId } from '@/lib/payswitch-reference'
+import { resolveProvider, isPaymentProvider, type PaymentProvider } from '@/lib/payment-provider'
+import { claimHubtelStatusCheck, PAYSWITCH_CLIENT_THROTTLE_KEYS } from '@/lib/hubtel-status-throttle'
 import { processCompletedDealerSubscription } from '@/lib/payments'
 
 export async function POST(request: NextRequest) {
@@ -53,14 +60,9 @@ export async function POST(request: NextRequest) {
         for (const row of (settings || [])) settingsMap[row.key] = row.value
 
         // Provider resolution: body takes priority (frontend toggle), fall back to admin setting
-        const adminDefault = String(settingsMap.active_payment_provider_web || 'moolre')
-        const provider: 'moolre' | 'hubtel' | 'paystack' =
-            bodyProvider === 'hubtel' ? 'hubtel'
-            : bodyProvider === 'paystack' ? 'paystack'
-            : bodyProvider === 'moolre' ? 'moolre'
-            : adminDefault === 'paystack' ? 'paystack'
-            : adminDefault === 'hubtel' ? 'hubtel'
-            : 'moolre'
+        const provider: PaymentProvider = isPaymentProvider(bodyProvider)
+            ? bodyProvider
+            : resolveProvider(settingsMap.active_payment_provider_web)
 
         const priceKey = planType === 'dealer_3m' ? 'dealer_subscription_price_3m' : 'dealer_subscription_price_6m'
         const subscriptionPrice = parseFloat(settingsMap[priceKey] || '0')
@@ -79,6 +81,12 @@ export async function POST(request: NextRequest) {
         if (provider === 'hubtel') {
             if (!phone || !network || !HUBTEL_CHANNEL_MAP[network]) {
                 return NextResponse.json({ error: 'Phone number and network are required for Hubtel payment' }, { status: 400 })
+            }
+        }
+
+        if (provider === 'payswitch') {
+            if (!phone || !network || !PAYSWITCH_CHANNEL_MAP[network]) {
+                return NextResponse.json({ error: 'Phone number and network are required for PaySwitch payment' }, { status: 400 })
             }
         }
 
@@ -187,6 +195,36 @@ export async function POST(request: NextRequest) {
             })
         }
 
+        // ── PAYSWITCH BRANCH ────────────────────────────────────────────────────
+        if (provider === 'payswitch') {
+            const { transactionId, error: txIdError } = await assignPayswitchTransactionId(supabaseAdmin, { reference })
+            if (!transactionId) {
+                console.error('[DealerSubscribe] PaySwitch transaction id error:', txIdError)
+                await (supabaseAdmin.from('wallet_payments') as any).update({ status: 'failed' }).eq('reference', reference)
+                throw new Error('Could not start the payment. Please try again.')
+            }
+
+            const payswitchResponse = await payswitchInitiatePayment({
+                amount: subscriptionPrice,
+                payerPhone: phone,
+                network,
+                transactionId,
+                description: `ARHMS Dealer Subscription - ${planLabel}`,
+            })
+
+            if (!payswitchResponse.success) {
+                await (supabaseAdmin.from('wallet_payments') as any).update({ status: 'failed' }).eq('reference', reference)
+                throw new Error(payswitchResponse.error || 'Failed to initialize PaySwitch payment')
+            }
+
+            return NextResponse.json({
+                success: true,
+                gateway: 'payswitch',
+                reference,
+                message: 'Payment prompt sent to your phone. Please approve to continue.',
+            })
+        }
+
         // ── MOOLRE BRANCH ───────────────────────────────────────────────────────
         const channelId = MOOLRE_PAYMENT_CHANNEL_MAP[network]
 
@@ -262,7 +300,7 @@ export async function GET(request: NextRequest) {
 
         const { data: payment } = await supabaseAdmin
             .from('wallet_payments')
-            .select('id, status, user_id, provider, total_amount, metadata, created_at')
+            .select('id, status, user_id, provider, provider_reference, total_amount, metadata, created_at')
             .eq('reference', reference)
             .single()
 
@@ -308,6 +346,30 @@ export async function GET(request: NextRequest) {
             }
             if (hubtelStatus.status !== 'Paid') {
                 return NextResponse.json({ success: true, status: 'pending' })
+            }
+        } else if (paymentProvider === 'payswitch') {
+            // Same budget reasoning as Hubtel above: the callback settles this in the
+            // normal case and the DB fast-path returns the moment it does, so the
+            // status API only needs a small bounded fallback allowance.
+            const decision = await claimHubtelStatusCheck(supabaseAdmin, payment as any, {
+                graceMs: 45_000,
+                interval: 20_000,
+                maxChecks: 5,
+                keys: PAYSWITCH_CLIENT_THROTTLE_KEYS,
+            })
+
+            if (!decision.allowed) {
+                return NextResponse.json({ success: true, status: 'pending' })
+            }
+
+            const txId = String((payment as any).provider_reference || '')
+            const payswitchStatus = await payswitchCheckPaymentStatus(txId)
+
+            if (!payswitchStatus.success || payswitchStatus.outcome === null || payswitchStatus.outcome === 'pending') {
+                return NextResponse.json({ success: true, status: 'pending' })
+            }
+            if (payswitchStatus.outcome === 'failed') {
+                return NextResponse.json({ success: false, status: 'failed' })
             }
         } else if (paymentProvider === 'paystack') {
             const verifyRes = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, {

@@ -8,6 +8,7 @@ import { useUI } from '@/contexts/ui-context'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { formatCurrency } from '@/lib/utils'
+import { resolveProvider, SCOPE_PROVIDERS, PROVIDER_LABEL, type PaymentProvider } from '@/lib/payment-provider'
 import {
     LayoutDashboard,
     Package,
@@ -112,8 +113,8 @@ export function DashboardSidebar() {
     const { counts: adminCounts } = useAdminCounts()
 
     // Payment gateway toggle state (admin only)
-    const [webProvider, setWebProvider] = useState<'moolre' | 'paystack'>('moolre')
-    const [shopProvider, setShopProvider] = useState<'moolre' | 'paystack'>('moolre')
+    const [webProvider, setWebProvider] = useState<PaymentProvider>('moolre')
+    const [shopProvider, setShopProvider] = useState<PaymentProvider>('moolre')
     const [providerSaving, setProviderSaving] = useState<'web' | 'shop' | null>(null)
     const [hideMashup, setHideMashup] = useState(false)
     const [hideExpressMtn, setHideExpressMtn] = useState(false)
@@ -148,13 +149,15 @@ export function DashboardSidebar() {
             .then(r => r.ok ? r.json() : null)
             .then(data => {
                 if (!data) return
-                if (String(data.active_payment_provider_web) === 'paystack') setWebProvider('paystack')
-                if (String(data.active_payment_provider_shop) === 'paystack') setShopProvider('paystack')
+                // Reflect the real value, not just "is it Paystack" — otherwise the
+                // toggle shows Moolre while Hubtel or PaySwitch is actually live.
+                setWebProvider(resolveProvider(data.active_payment_provider_web))
+                setShopProvider(resolveProvider(data.active_payment_provider_shop))
             })
             .catch(() => {})
     }, [isAdmin])
 
-    const toggleProvider = async (context: 'web' | 'shop', value: 'moolre' | 'paystack') => {
+    const toggleProvider = async (context: 'web' | 'shop', value: PaymentProvider) => {
         setProviderSaving(context)
         const key = context === 'web' ? 'active_payment_provider_web' : 'active_payment_provider_shop'
         try {
@@ -687,67 +690,36 @@ export function DashboardSidebar() {
                                         Payment Gateway
                                     </p>
 
-                                    {/* Web toggle */}
-                                    <div className="space-y-1">
-                                        <p className="text-[10px] text-muted-foreground font-medium">Web</p>
-                                        <div className="flex rounded-lg border border-border/60 overflow-hidden h-7 text-[11px] font-semibold">
-                                            <button
-                                                onClick={() => webProvider !== 'moolre' && toggleProvider('web', 'moolre')}
-                                                disabled={providerSaving === 'web'}
-                                                className={cn(
-                                                    "flex-1 flex items-center justify-center transition-colors",
-                                                    webProvider === 'moolre'
-                                                        ? "bg-primary text-primary-foreground"
-                                                        : "bg-background text-muted-foreground hover:bg-muted"
-                                                )}
-                                            >
-                                                {providerSaving === 'web' && webProvider !== 'moolre' ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Moolre'}
-                                            </button>
-                                            <button
-                                                onClick={() => webProvider !== 'paystack' && toggleProvider('web', 'paystack')}
-                                                disabled={providerSaving === 'web'}
-                                                className={cn(
-                                                    "flex-1 flex items-center justify-center transition-colors border-l border-border/60",
-                                                    webProvider === 'paystack'
-                                                        ? "bg-primary text-primary-foreground"
-                                                        : "bg-background text-muted-foreground hover:bg-muted"
-                                                )}
-                                            >
-                                                {providerSaving === 'web' && webProvider !== 'paystack' ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Paystack'}
-                                            </button>
+                                    {/* One row per scope, rendered from SCOPE_PROVIDERS so a new
+                                        gateway shows up here without touching this markup. */}
+                                    {([
+                                        { scope: 'web' as const, label: 'Web', active: webProvider },
+                                        { scope: 'shop' as const, label: 'Shop', active: shopProvider },
+                                    ]).map(({ scope, label, active }) => (
+                                        <div key={scope} className="space-y-1">
+                                            <p className="text-[10px] text-muted-foreground font-medium">{label}</p>
+                                            <div className="flex rounded-lg border border-border/60 overflow-hidden h-7 text-[10px] font-semibold">
+                                                {SCOPE_PROVIDERS[scope].map((id, index) => (
+                                                    <button
+                                                        key={id}
+                                                        onClick={() => active !== id && toggleProvider(scope, id)}
+                                                        disabled={providerSaving === scope}
+                                                        className={cn(
+                                                            "flex-1 flex items-center justify-center transition-colors",
+                                                            index > 0 && "border-l border-border/60",
+                                                            active === id
+                                                                ? "bg-primary text-primary-foreground"
+                                                                : "bg-background text-muted-foreground hover:bg-muted"
+                                                        )}
+                                                    >
+                                                        {providerSaving === scope && active !== id
+                                                            ? <Loader2 className="w-3 h-3 animate-spin" />
+                                                            : PROVIDER_LABEL[id]}
+                                                    </button>
+                                                ))}
+                                            </div>
                                         </div>
-                                    </div>
-
-                                    {/* Shop toggle */}
-                                    <div className="space-y-1">
-                                        <p className="text-[10px] text-muted-foreground font-medium">Shop</p>
-                                        <div className="flex rounded-lg border border-border/60 overflow-hidden h-7 text-[11px] font-semibold">
-                                            <button
-                                                onClick={() => shopProvider !== 'moolre' && toggleProvider('shop', 'moolre')}
-                                                disabled={providerSaving === 'shop'}
-                                                className={cn(
-                                                    "flex-1 flex items-center justify-center transition-colors",
-                                                    shopProvider === 'moolre'
-                                                        ? "bg-primary text-primary-foreground"
-                                                        : "bg-background text-muted-foreground hover:bg-muted"
-                                                )}
-                                            >
-                                                {providerSaving === 'shop' && shopProvider !== 'moolre' ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Moolre'}
-                                            </button>
-                                            <button
-                                                onClick={() => shopProvider !== 'paystack' && toggleProvider('shop', 'paystack')}
-                                                disabled={providerSaving === 'shop'}
-                                                className={cn(
-                                                    "flex-1 flex items-center justify-center transition-colors border-l border-border/60",
-                                                    shopProvider === 'paystack'
-                                                        ? "bg-primary text-primary-foreground"
-                                                        : "bg-background text-muted-foreground hover:bg-muted"
-                                                )}
-                                            >
-                                                {providerSaving === 'shop' && shopProvider !== 'paystack' ? <Loader2 className="w-3 h-3 animate-spin" /> : 'Paystack'}
-                                            </button>
-                                        </div>
-                                    </div>
+                                    ))}
                                 </div>
                             )}
                         </div>

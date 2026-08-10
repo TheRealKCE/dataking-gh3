@@ -4,6 +4,14 @@ import { Redis } from '@upstash/redis'
 import { initiatePayment, MOOLRE_PAYMENT_CHANNEL_MAP } from '@/lib/moolre-payment-service'
 import { initiatePayment as hubtelInitiatePayment, HUBTEL_CHANNEL_MAP, toHubtelMsisdn } from '@/lib/hubtel-payment-service'
 import { checkHubtelPromptLimit, recordHubtelPrompt } from '@/lib/hubtel-prompt-limit'
+import {
+    initiatePayment as payswitchInitiatePayment,
+    PAYSWITCH_CHANNEL_MAP,
+    generatePayswitchTransactionId,
+    toPayswitchMsisdn,
+} from '@/lib/payswitch-payment-service'
+import { mapPayswitchTransaction } from '@/lib/payswitch-reference'
+import { resolveProviderForScope, type PaymentProvider } from '@/lib/payment-provider'
 
 // Redis client for distributed idempotency across all serverless instances.
 // In-memory Maps were removed — they reset on every Vercel cold start.
@@ -263,11 +271,7 @@ export async function POST(request: NextRequest) {
             else paymentNetwork = 'MTN' // Fallback
         }
 
-        const configuredShopProvider = String(settings.active_payment_provider_shop || 'moolre')
-        const shopProvider: 'paystack' | 'hubtel' | 'moolre' =
-            configuredShopProvider === 'paystack' ? 'paystack'
-                : configuredShopProvider === 'hubtel' ? 'hubtel'
-                    : 'moolre'
+        const shopProvider: PaymentProvider = resolveProviderForScope(settings.active_payment_provider_shop, 'shop')
         const shopRef = existingRef || `SHOP-${shop.id.slice(0, 8)}-${Date.now()}`
 
         // Full metadata used by both webhook paths
@@ -363,6 +367,50 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({
                 success: true,
                 gateway: 'hubtel',
+                reference: shopRef,
+                message: 'Payment prompt sent to your phone. Please approve to complete your purchase.',
+            })
+        }
+
+        // ── PAYSWITCH BRANCH ─────────────────────────────────────────────────────
+        if (shopProvider === 'payswitch') {
+            if (!PAYSWITCH_CHANNEL_MAP[paymentNetwork]) {
+                return NextResponse.json({ error: 'Unsupported payment network' }, { status: 400 })
+            }
+
+            const transactionId = generatePayswitchTransactionId()
+
+            // Both writes must land BEFORE the prompt — the callback reads the
+            // metadata and resolves the reference from the id, and a fast approval
+            // can otherwise beat either write.
+            if (!existingRef) {
+                await redis.set(
+                    `shop:meta:${shopRef}`,
+                    JSON.stringify({ ...fullMetadata, payer_msisdn: toPayswitchMsisdn(payerClean) }),
+                    { ex: 86400 }
+                )
+            }
+            await mapPayswitchTransaction(transactionId, shopRef)
+
+            const payswitchResponse = await payswitchInitiatePayment({
+                amount: totalAmount / 100,   // stored in pesewas, the service takes GHS
+                payerPhone: payerClean,
+                network: paymentNetwork,
+                transactionId,
+                description: `${shop.shop_name} - ${orderType === 'airtime' ? 'Airtime' : 'Data Bundle'}`,
+            })
+
+            if (!payswitchResponse.success) {
+                console.error('[ShopInit] PaySwitch error:', payswitchResponse.error)
+                return NextResponse.json(
+                    { error: payswitchResponse.error || 'Failed to initialize PaySwitch payment' },
+                    { status: 500 }
+                )
+            }
+
+            return NextResponse.json({
+                success: true,
+                gateway: 'payswitch',
                 reference: shopRef,
                 message: 'Payment prompt sent to your phone. Please approve to complete your purchase.',
             })

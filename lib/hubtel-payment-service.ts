@@ -16,40 +16,16 @@
  *
  * Auth: Basic Auth (base64(CLIENT_ID:CLIENT_SECRET))
  */
-import { ProxyAgent, Agent } from 'undici'
 import { logInitiate } from '@/lib/hubtel-payment-log'
+import { getDispatcher } from '@/lib/http-dispatcher'
 
 const HUBTEL_RECEIVE_BASE_URL = 'https://rmp.hubtel.com/merchantaccount/merchants'
 const HUBTEL_STATUS_BASE_URL = 'https://api-txnstatus.hubtel.com/transactions'
 
-/**
- * Returns an undici dispatcher that routes all Hubtel API traffic through
- * a static proxy IP (required because Hubtel mandates IP whitelisting and
- * Vercel uses dynamic/rotating IPs).
- *
- * Priority: FIXIE_URL → QUOTAGUARDSTATIC_URL → no proxy (will fail on Vercel)
- */
-let cachedDispatcher: ProxyAgent | Agent | null = null
-
-export function getDispatcher(): ProxyAgent | Agent {
-    // Built once per process, not once per request. Every ProxyAgent owns a
-    // connection pool; constructing one per call meant no keep-alive reuse and a
-    // steady leak of sockets that were never destroyed — each payment paid for a
-    // fresh TCP + TLS handshake through the proxy, and a busy instance eventually
-    // ran out of descriptors. Env is fixed for the life of the process, so a
-    // single instance is safe to share.
-    if (cachedDispatcher) return cachedDispatcher
-
-    const proxyUrl = process.env.FIXIE_URL || process.env.QUOTAGUARDSTATIC_URL
-    if (proxyUrl) {
-        console.log('[HubtelPayment] Routing through static proxy:', proxyUrl.split('@')[1] ?? 'proxy')
-        cachedDispatcher = new ProxyAgent(proxyUrl)
-    } else {
-        console.warn('[HubtelPayment] No static proxy configured (FIXIE_URL). Hubtel will likely return 403 on Vercel.')
-        cachedDispatcher = new Agent()
-    }
-    return cachedDispatcher
-}
+// The dispatcher moved to lib/http-dispatcher.ts so PaySwitch can share the same
+// proxy connection pool. Re-exported because lib/hubtel-airtime-service.ts and
+// app/api/hubtel/fulfill/route.ts already import it from here.
+export { getDispatcher }
 
 /** Maps the internal network label to Hubtel's channel name */
 export const HUBTEL_CHANNEL_MAP: Record<string, string> = {

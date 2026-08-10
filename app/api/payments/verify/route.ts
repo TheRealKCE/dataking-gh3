@@ -4,7 +4,8 @@ import { createRouteHandlerClient } from '@/lib/supabase-server'
 import { cookies } from 'next/headers'
 import { checkPaymentStatus } from '@/lib/moolre-payment-service'
 import { checkPaymentStatus as hubtelCheckPaymentStatus } from '@/lib/hubtel-payment-service'
-import { claimHubtelStatusCheck } from '@/lib/hubtel-status-throttle'
+import { checkPaymentStatus as payswitchCheckPaymentStatus } from '@/lib/payswitch-payment-service'
+import { claimHubtelStatusCheck, PAYSWITCH_CLIENT_THROTTLE_KEYS } from '@/lib/hubtel-status-throttle'
 
 export async function GET(request: NextRequest) {
     try {
@@ -46,7 +47,7 @@ export async function GET(request: NextRequest) {
 
         const { data: paymentRecord, error: paymentLookupError } = await (supabase
             .from('wallet_payments') as any)
-            .select('id, user_id, amount, total_amount, status, provider, metadata, created_at')
+            .select('id, user_id, amount, total_amount, status, provider, provider_reference, metadata, created_at')
             .eq('reference', reference)
             .single()
 
@@ -153,6 +154,88 @@ export async function GET(request: NextRequest) {
             }
 
             // fall through to process payment below
+        }
+
+        // ── PaySwitch status check ────────────────────────────────────────────
+        if ((paymentRecord as any).provider === 'payswitch') {
+            // Same budget reasoning as Hubtel above — the callback settles this in
+            // the normal case and the DB fast-path returns as soon as it does, so
+            // the status API only needs a small bounded fallback allowance. Past the
+            // cap, the callback and /api/cron/verify-payswitch-payments still settle
+            // it without anyone keeping a tab open.
+            const decision = await claimHubtelStatusCheck(supabase, paymentRecord as any, {
+                graceMs: 45_000,
+                interval: 20_000,
+                maxChecks: 5,
+                keys: PAYSWITCH_CLIENT_THROTTLE_KEYS,
+            })
+
+            if (!decision.allowed) {
+                if (isInline) return NextResponse.json({ success: true, status: 'pending', message: 'Waiting for payment confirmation...' })
+                return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/wallet`)
+            }
+
+            const psResponse = await payswitchCheckPaymentStatus(String((paymentRecord as any).provider_reference || ''))
+
+            if (!psResponse.success || psResponse.outcome === null) {
+                console.error('[PaymentVerify] PaySwitch verification failed:', psResponse.error)
+                if (isInline) return NextResponse.json({ success: false, status: 'pending', error: 'Payment verification pending' })
+                return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/wallet`)
+            }
+
+            if (psResponse.outcome === 'pending') {
+                if (isInline) return NextResponse.json({ success: true, status: 'pending', message: 'Payment pending' })
+                return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/wallet`)
+            }
+
+            if (psResponse.outcome === 'failed') {
+                await (supabase.from('wallet_payments') as any).update({ status: 'failed' }).eq('id', paymentRecord.id)
+                if (isInline) return NextResponse.json({ success: false, status: 'failed', message: 'Payment failed' })
+                return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/wallet?error=payment_failed`)
+            }
+
+            // Paid — settle direct-pay data orders here. The generic tail below
+            // queries MOOLRE, which cannot verify a PaySwitch reference, so a DATA-
+            // order must be settled before we reach it.
+            if (reference.startsWith('DATA-')) {
+                const { processDataDirectOrder } = await import('@/lib/data-order-payments')
+                const result = await processDataDirectOrder(reference, user.id)
+                if (!result.success) {
+                    if (isInline) return NextResponse.json({ success: false, status: 'failed', error: result.error || 'Order processing failed' }, { status: 500 })
+                    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/data-packages?error=order_failed`)
+                }
+                if (isInline) return NextResponse.json({ success: true, status: 'completed', message: 'Payment successful', orders: result.orders || [] })
+                return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/data-packages?success=true`)
+            }
+
+            // BOOST- has the same problem: the Moolre tail below would reject it.
+            if (reference.startsWith('BOOST-')) {
+                const { processBoostPayment } = await import('@/lib/classifieds-payments')
+                const result = await processBoostPayment(reference)
+                if (!result.success && !result.alreadyProcessed) {
+                    if (isInline) return NextResponse.json({ success: false, status: 'failed', error: result.error || 'Boost processing failed' }, { status: 500 })
+                    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/classifieds/seller/dashboard?boost_error=true`)
+                }
+                if (isInline) return NextResponse.json({ success: true, status: 'completed', message: 'Boost activated!' })
+                return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/classifieds/seller/dashboard?boost_success=true`)
+            }
+
+            // Wallet top-ups and upgrades fall through to the shared settle path,
+            // but must skip the Moolre query — hence the early jump below.
+            const expectedAmountPesewas = Math.round(Number(paymentRecord.total_amount || paymentRecord.amount) * 100)
+            const result = await processCompletedWalletPayment(
+                reference,
+                { reference, amount: expectedAmountPesewas, metadata: (paymentRecord as any).metadata || {} },
+                user.id
+            )
+
+            if (!result.success) {
+                if (isInline) return NextResponse.json({ success: false, status: 'failed', error: result.error || 'Processing failed' }, { status: 500 })
+                return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/wallet?error=${result.error || 'processing_failed'}`)
+            }
+
+            if (isInline) return NextResponse.json({ success: true, status: 'completed', message: 'Payment successful' })
+            return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/wallet?success=true`)
         }
 
         // Verify with Moolre

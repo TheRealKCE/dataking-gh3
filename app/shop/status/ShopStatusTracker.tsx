@@ -10,6 +10,7 @@ import {
     Mail, MessageCircle
 } from 'lucide-react'
 import { formatCurrency, cn } from '@/lib/utils'
+import { getOrderDisplayStatus, getOrderStatusLabel, getOrderStatusBadgeClass } from '@/lib/order-status-display'
 import { toast } from 'sonner'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
@@ -23,28 +24,35 @@ interface Order {
     package_size: string
     selling_price: number
     status: 'pending' | 'processing' | 'completed' | 'failed' | 'refunded'
+    // Carried through by get_shop_order_by_phone_reference so a supplier hold is
+    // visible to the customer waiting on the bundle, not just to admins.
+    supplier_status?: string | null
     created_at: string
     shop_name: string // Flattened from RPC
     shop_slug: string // Flattened from RPC
 }
 
-const statusConfig = {
-    pending: { label: 'Pending', color: 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400', icon: Clock },
-    processing: { label: 'Processing', color: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400', icon: Loader2 },
-    completed: { label: 'Completed', color: 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400', icon: CheckCircle2 },
-    failed: { label: 'Failed', color: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400', icon: XCircle },
-    refunded: { label: 'Refunded', color: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400', icon: XCircle },
+// Labels and colours come from lib/order-status-display so this tracker words a
+// status exactly as every other surface does; only the icon is chosen here.
+const statusIcons: Record<string, any> = {
+    pending: Clock,
+    processing: Loader2,
+    verifying: Clock,
+    completed: CheckCircle2,
+    failed: XCircle,
+    refunded: XCircle,
 }
 
 function OrderCard({ order }: { order: Order }) {
-    // Determine status config with fallback
-    const cfg = statusConfig[order.status] || statusConfig.pending
-    const Icon = cfg.icon
+    const displayStatus = getOrderDisplayStatus(order)
+    const badgeClass = getOrderStatusBadgeClass(displayStatus)
+    const label = getOrderStatusLabel(displayStatus)
+    const Icon = statusIcons[displayStatus] || Clock
 
     return (
         <Card className="overflow-hidden border border-gray-100 dark:border-gray-800 shadow-sm hover:shadow-md transition-shadow">
             <div className="p-4 flex items-center gap-4">
-                <div className={cn('w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0', cfg.color)}>
+                <div className={cn('w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0', badgeClass)}>
                     <Icon className="w-5 h-5" />
                 </div>
                 <div className="flex-1 min-w-0">
@@ -62,8 +70,8 @@ function OrderCard({ order }: { order: Order }) {
                             <Clock className="w-3 h-3" />
                             {new Date(order.created_at).toLocaleDateString()} {new Date(order.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </p>
-                        <span className={cn('text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full', cfg.color)}>
-                            {cfg.label}
+                        <span className={cn('text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full', badgeClass)}>
+                            {label}
                         </span>
                     </div>
                 </div>
