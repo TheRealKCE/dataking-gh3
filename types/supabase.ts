@@ -122,9 +122,11 @@ export interface Database {
                     fee: number
                     total_amount: number
                     reference: string
-                    // Keep in sync with PaymentProvider in lib/payment-provider.ts.
-                    // Inlined rather than imported so this types file stays dependency-free.
-                    provider: 'moolre' | 'hubtel' | 'paystack' | 'payswitch'
+                    // The gateways from PaymentProvider (lib/payment-provider.ts), plus
+                    // 'wallet' for purchases settled from the ARHMS balance with no
+                    // gateway involved. Inlined rather than imported so this types file
+                    // stays dependency-free.
+                    provider: 'moolre' | 'hubtel' | 'paystack' | 'payswitch' | 'wallet'
                     status: 'pending' | 'completed' | 'failed'
                     provider_reference: string | null
                     metadata: Json | null
@@ -139,7 +141,7 @@ export interface Database {
                     fee: number
                     total_amount: number
                     reference: string
-                    provider?: 'moolre' | 'hubtel' | 'paystack' | 'payswitch'
+                    provider?: 'moolre' | 'hubtel' | 'paystack' | 'payswitch' | 'wallet'
                     status?: 'pending' | 'completed' | 'failed'
                     provider_reference?: string | null
                     metadata?: Json | null

@@ -18,7 +18,20 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        const { plan = '30d', phone, network, otpCode, reference: existingRef, provider: bodyProvider } = await request.json().catch(() => ({}));
+        const {
+            plan = '30d',
+            phone,
+            network,
+            otpCode,
+            reference: existingRef,
+            provider: bodyProvider,
+            paymentMethod,
+        } = await request.json().catch(() => ({}));
+
+        // Paying from the ARHMS wallet settles server-side, so there is no handset
+        // prompt to approve and the role flips immediately. The gateway validation
+        // below asks for a phone + network that this path never needs.
+        const isWalletPayment = paymentMethod === 'wallet'
 
         const { data: dbUser } = await supabase
             .from('users')
@@ -63,7 +76,7 @@ export async function POST(request: Request) {
                 : resolveProvider(settingsMap.active_payment_provider_web)
 
         // For Moolre: phone + network are required
-        if (provider === 'moolre') {
+        if (!isWalletPayment && provider === 'moolre') {
             const channelId = phone && MOOLRE_PAYMENT_CHANNEL_MAP[network]
             if (!phone || !network || !channelId) {
                 return NextResponse.json({ error: 'Phone number and network are required' }, { status: 400 })
@@ -71,14 +84,14 @@ export async function POST(request: Request) {
         }
 
         // For Hubtel: phone + network are required
-        if (provider === 'hubtel') {
+        if (!isWalletPayment && provider === 'hubtel') {
             if (!phone || !network || !HUBTEL_CHANNEL_MAP[network]) {
                 return NextResponse.json({ error: 'Phone number and network are required for Hubtel payment' }, { status: 400 })
             }
         }
 
         // For PaySwitch: phone + network are required
-        if (provider === 'payswitch') {
+        if (!isWalletPayment && provider === 'payswitch') {
             if (!phone || !network || !PAYSWITCH_CHANNEL_MAP[network]) {
                 return NextResponse.json({ error: 'Phone number and network are required for PaySwitch payment' }, { status: 400 })
             }
@@ -109,6 +122,117 @@ export async function POST(request: Request) {
         const totalAmount = upgradePrice
         const reference = existingRef || `agent_upgrade_${generateReferenceCode()}`
         const planDays = plan === 'permanent' ? null : (plan === '3d' ? 3 : (plan === '14d' ? 14 : 30))
+
+        // ── WALLET BRANCH ────────────────────────────────────────────────────────
+        // Settles entirely server-side: no gateway call, no handset prompt, no
+        // polling. Returns with the role already changed.
+        if (isWalletPayment) {
+            const upgradeMetadata = {
+                user_id: authUser.id,
+                upgrade_type: 'agent',
+                plan_type: plan,
+                plan_days: planDays,
+                plan_label: planLabel,
+                base_amount: upgradePrice,
+                fee: 0,
+                paid_from: 'wallet',
+            }
+
+            // Atomic: the RPC only deducts when the balance covers it, so two
+            // concurrent upgrade attempts cannot both succeed on one balance.
+            const { data: deductResult, error: deductError } = await (supabaseAdmin as any)
+                .rpc('deduct_wallet_balance', { p_user_id: authUser.id, p_amount: upgradePrice })
+
+            if (deductError) {
+                if (deductError.message?.includes('INSUFFICIENT_BALANCE')) {
+                    return NextResponse.json(
+                        { error: `Insufficient wallet balance. You need GHS ${upgradePrice.toFixed(2)} to upgrade.` },
+                        { status: 400 }
+                    )
+                }
+                console.error('[UpgradeInit] Wallet deduction error:', deductError)
+                return NextResponse.json({ error: 'Failed to process wallet payment' }, { status: 500 })
+            }
+
+            const walletRow = deductResult?.[0] || deductResult
+            const walletId = walletRow?.wallet_id
+            if (!walletId) {
+                return NextResponse.json({ error: 'Wallet not found' }, { status: 404 })
+            }
+
+            // Refunds the debit whenever anything after it fails — the money has
+            // already left the balance by this point.
+            const refund = async (why: string) => {
+                console.error(`[UpgradeInit] Refunding wallet upgrade (${why}):`, reference)
+                const { error: refundError } = await (supabaseAdmin as any)
+                    .rpc('credit_wallet_balance', { p_user_id: authUser.id, p_amount: upgradePrice })
+                if (refundError) {
+                    console.error('CRITICAL: upgrade refund RPC failed for', reference, refundError)
+                }
+            }
+
+            // processCompletedUpgradePayment is driven off a wallet_payments row —
+            // reused rather than reimplemented so the expiry maths, the extend-vs-new
+            // distinction, the notification and the SMS stay in exactly one place.
+            const { error: paymentInsertError } = await (supabaseAdmin.from('wallet_payments') as any)
+                .insert({
+                    user_id: authUser.id,
+                    wallet_id: walletId,
+                    amount: upgradePrice,
+                    fee: 0,
+                    total_amount: upgradePrice,
+                    reference,
+                    provider: 'wallet',
+                    status: 'pending',
+                    metadata: upgradeMetadata,
+                })
+
+            if (paymentInsertError) {
+                console.error('[UpgradeInit] wallet_payments insert failed:', paymentInsertError)
+                await refund('payment record insert failed')
+                return NextResponse.json({ error: 'Failed to record upgrade payment' }, { status: 500 })
+            }
+
+            ;(supabaseAdmin.from('wallet_transactions') as any).insert({
+                wallet_id: walletId,
+                user_id: authUser.id,
+                type: 'debit',
+                amount: upgradePrice,
+                description: `Agent upgrade: ${planLabel}`,
+                reference,
+                source: 'purchase',
+                status: 'completed',
+            }).then(({ error }: any) => {
+                if (error) console.error('[UpgradeInit] wallet_transactions insert failed:', error)
+            })
+
+            const { processCompletedUpgradePayment } = await import('@/lib/payments')
+            const result = await processCompletedUpgradePayment(reference, {
+                reference,
+                amount: Math.round(upgradePrice * 100),
+                metadata: upgradeMetadata,
+            })
+
+            if (!result?.success) {
+                console.error('[UpgradeInit] Upgrade processing failed:', result?.error)
+                await (supabaseAdmin.from('wallet_payments') as any)
+                    .update({ status: 'failed' })
+                    .eq('reference', reference)
+                await refund('upgrade processing failed')
+                return NextResponse.json(
+                    { error: result?.error || 'Failed to activate upgrade. Your wallet has been refunded.' },
+                    { status: 500 }
+                )
+            }
+
+            return NextResponse.json({
+                success: true,
+                gateway: 'wallet',
+                activated: true,
+                reference,
+                message: `${planLabel} activated. Welcome aboard!`,
+            })
+        }
 
         const { data: wallet } = await supabaseAdmin
             .from('wallets')

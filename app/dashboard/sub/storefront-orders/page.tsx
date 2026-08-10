@@ -23,6 +23,7 @@ import {
   Search,
   Loader2,
 } from 'lucide-react'
+import { getOrderDisplayStatus, getOrderStatusLabel, getOrderStatusBadgeClass } from '@/lib/order-status-display'
 
 interface ShopOrder {
   id: string
@@ -34,23 +35,29 @@ interface ShopOrder {
   status: string
   created_at: string
   package_id?: string | null
-  orders?: { id: string; complaints: any[] }[]
+  orders?: { id: string; supplier_status?: string | null; complaints: any[] }[]
 }
 
-const statusStyles: Record<string, string> = {
-  pending: 'bg-yellow-100 text-yellow-700',
-  processing: 'bg-blue-100 text-blue-700',
-  completed: 'bg-green-100 text-green-700',
-  failed: 'bg-red-100 text-red-700',
-  refunded: 'bg-gray-100 text-gray-600',
-}
-
+// Labels and colours come from lib/order-status-display; only the icon is local.
 const statusIcon: Record<string, any> = {
   pending: Clock,
   processing: Clock,
+  verifying: AlertCircle,
   completed: CheckCircle2,
   failed: XCircle,
   refunded: AlertCircle,
+}
+
+/**
+ * A supplier hold lives on the mirrored `orders` row, not on shop_orders, so it
+ * has to be resolved from the join — otherwise a held order reads as plain
+ * "Processing" to the sub-agent chasing it.
+ */
+function displayStatusOf(o: ShopOrder): string {
+  return getOrderDisplayStatus({
+    status: o.status,
+    supplier_status: o.orders?.[0]?.supplier_status ?? null,
+  })
 }
 
 const hoursSince = (iso: string) => (Date.now() - new Date(iso).getTime()) / 36e5
@@ -89,7 +96,7 @@ export default function SubStorefrontOrdersPage() {
 
     let query = (supabase as any)
       .from('shop_orders')
-      .select('*, orders:orders!shop_order_id(id, complaints(*))')
+      .select('*, orders:orders!shop_order_id(id, supplier_status, complaints(*))')
       .eq('shop_id', shop.id)
 
     const now = new Date()
@@ -303,7 +310,8 @@ export default function SubStorefrontOrdersPage() {
       ) : (
         <div className="space-y-2">
           {filtered.map((o) => {
-            const Icon = statusIcon[o.status] || Clock
+            const displayStatus = displayStatusOf(o)
+            const Icon = statusIcon[displayStatus] || Clock
             const existing = o.orders?.[0]?.complaints || []
             const canComplain = o.status === 'completed' && hoursSince(o.created_at) < 48
             return (
@@ -329,12 +337,10 @@ export default function SubStorefrontOrdersPage() {
                 </div>
                 <div className="flex items-center justify-between gap-2 mt-3">
                   <span
-                    className={`inline-flex items-center gap-1 text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${
-                      statusStyles[o.status] || 'bg-gray-100 text-gray-600'
-                    }`}
+                    className={`inline-flex items-center gap-1 text-[10px] uppercase font-bold px-2 py-0.5 rounded-full ${getOrderStatusBadgeClass(displayStatus)}`}
                   >
                     <Icon className="w-3 h-3" />
-                    {o.status}
+                    {getOrderStatusLabel(displayStatus)}
                   </span>
 
                   {existing.length > 0 ? (

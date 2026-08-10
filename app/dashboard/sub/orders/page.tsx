@@ -8,11 +8,15 @@
 import { useEffect, useState } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 import { supabase } from '@/lib/supabase'
+import { getOrderDisplayStatus, getOrderStatusLabel, getOrderStatusBadgeClass } from '@/lib/order-status-display'
 
 interface OrderRow {
   id: string
   network?: string
   status?: string
+  // Already present via select('*'); a supplier hold is only visible if it is read.
+  payment_status?: string | null
+  supplier_status?: string | null
   created_at?: string
   amount?: number
   total_amount?: number
@@ -21,13 +25,6 @@ interface OrderRow {
   bundle?: string
   package_size?: string
   size?: string
-}
-
-const statusStyles: Record<string, string> = {
-  completed: 'bg-green-100 text-green-700',
-  pending: 'bg-yellow-100 text-yellow-700',
-  processing: 'bg-blue-100 text-blue-700',
-  failed: 'bg-red-100 text-red-700',
 }
 
 export default function SubOrdersPage() {
@@ -85,11 +82,9 @@ export default function SubOrdersPage() {
               <div className="text-right shrink-0">
                 <p className="font-bold text-gray-900 dark:text-gray-100">₵{amountOf(o).toFixed(2)}</p>
                 <span
-                  className={`inline-block mt-1 text-xs font-semibold px-2 py-0.5 rounded-full ${
-                    statusStyles[o.status || ''] || 'bg-gray-100 text-gray-600 dark:bg-gray-800 dark:text-gray-300'
-                  }`}
+                  className={`inline-block mt-1 text-xs font-semibold px-2 py-0.5 rounded-full ${getOrderStatusBadgeClass(getOrderDisplayStatus(o))}`}
                 >
-                  {o.status || 'unknown'}
+                  {getOrderStatusLabel(getOrderDisplayStatus(o))}
                 </span>
               </div>
             </div>

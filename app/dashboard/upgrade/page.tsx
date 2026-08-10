@@ -20,7 +20,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Loader2, Phone, Smartphone } from 'lucide-react'
+import { Loader2, Phone, Smartphone, Wallet } from 'lucide-react'
+import { supabase } from '@/lib/supabase'
 export default function UpgradePage() {
     const { dbUser, refreshUser } = useAuth()
     const router = useRouter()
@@ -40,6 +41,11 @@ export default function UpgradePage() {
     const [otpCode, setOtpCode] = useState('')
     const [paymentReference, setPaymentReference] = useState<string | null>(null)
     const [webPaymentProvider, setWebPaymentProvider] = useState<PaymentProvider>('moolre')
+
+    // Paying from the wallet settles server-side: no handset prompt, no polling,
+    // the role is already changed when the request returns.
+    const [walletBalance, setWalletBalance] = useState(0)
+    const [payWithWallet, setPayWithWallet] = useState(false)
 
     // Prices for tiers
     const [prices, setPrices] = useState({
@@ -71,6 +77,16 @@ export default function UpgradePage() {
             setInitialExpiry(dbUser.agent_expires_at)
         }
     }, [dbUser, initialExpiry])
+
+    useEffect(() => {
+        if (!dbUser?.id) return
+        let cancelled = false
+        ;(async () => {
+            const { data } = await (supabase.from('wallets').select('balance').eq('user_id', dbUser.id).single() as any)
+            if (!cancelled && data) setWalletBalance(Number(data.balance) || 0)
+        })()
+        return () => { cancelled = true }
+    }, [dbUser?.id])
 
     useEffect(() => {
         const fetchPrices = async () => {
@@ -159,6 +175,19 @@ export default function UpgradePage() {
         return () => clearInterval(interval)
     }, [pollingRef, refreshUser])
 
+    const selectedPlanPrice = prices[selectedPlan as keyof typeof prices] ?? 0
+    const canAffordUpgradeWithWallet = walletBalance >= selectedPlanPrice && selectedPlanPrice > 0
+
+    // Default to the wallet whenever it covers the plan — it is the only path that
+    // activates without the customer approving a prompt on their handset. Falls
+    // back the moment the balance stops covering the selected plan, so switching
+    // to a pricier tier cannot leave a wallet option selected that would 400.
+    useEffect(() => {
+        if (!canAffordUpgradeWithWallet && payWithWallet) setPayWithWallet(false)
+        else if (canAffordUpgradeWithWallet && showPaymentModal && !isDealerPaymentFlow) setPayWithWallet(true)
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [canAffordUpgradeWithWallet, showPaymentModal, isDealerPaymentFlow])
+
     const handleUpgradeSelect = (plan: string) => {
         setSelectedPlan(plan)
         setIsDealerPaymentFlow(false)
@@ -241,6 +270,7 @@ export default function UpgradePage() {
                     phone: paymentPhone.replace(/\s/g, ''),
                     network: paymentNetwork,
                     provider: webPaymentProvider,
+                    ...(payWithWallet && { paymentMethod: 'wallet' }),
                 })
             })
 
@@ -250,12 +280,28 @@ export default function UpgradePage() {
                 throw new Error(data.error || 'Failed to initialize upgrade')
             }
 
+            // Wallet: already settled and the role is already changed. No prompt to
+            // approve and nothing to poll — go straight to the success state.
+            if (data.gateway === 'wallet') {
+                setShowPaymentModal(false)
+                setIsProcessing(null)
+                setWalletBalance(b => Math.max(0, b - prices[selectedPlan as keyof typeof prices]))
+                await refreshUser()
+                setShowCongrats(true)
+                toast.success(data.message || 'Upgrade activated!')
+                return
+            }
+
             if (data.gateway === 'paystack') {
                 window.location.href = data.authorization_url
                 return
             }
 
-            if (data.gateway === 'hubtel') {
+            // Hubtel and PaySwitch both push a prompt to the handset and confirm by
+            // callback — neither has an OTP step, so they must not fall through to
+            // the Moolre branch below (PaySwitch previously did, showing an OTP box
+            // for a code that never arrives).
+            if (data.gateway === 'hubtel' || data.gateway === 'payswitch') {
                 toast.success(data.message || 'Payment prompt sent! Please approve on your phone.')
                 setPollingRef(data.reference)
                 setIsProcessing(null)
@@ -1045,28 +1091,73 @@ export default function UpgradePage() {
                         </DialogHeader>
 
                         <div className="space-y-4 py-4">
+                            {/* Wallet vs gateway. Wallet is instant — no prompt to approve
+                                — so it is offered first whenever the balance covers it. */}
                             <div className="space-y-2">
-                                <Label className="text-sm text-muted-foreground block">Pay via</Label>
+                                <Label className="text-sm text-muted-foreground block">Payment method</Label>
                                 <div className="flex gap-1 p-1 rounded-xl bg-muted w-full">
-                                    {SCOPE_PROVIDERS.web.map((id) => (
-                                        <button
-                                            key={id}
-                                            type="button"
-                                            onClick={() => setWebPaymentProvider(id)}
-                                            className={cn(
-                                                'flex-1 py-1.5 px-2 rounded-lg text-sm font-medium transition-all',
-                                                webPaymentProvider === id
-                                                    ? 'bg-white shadow text-foreground'
-                                                    : 'text-muted-foreground hover:text-foreground'
-                                            )}
-                                        >
-                                            {PROVIDER_LABEL[id]}
-                                        </button>
-                                    ))}
+                                    <button
+                                        type="button"
+                                        onClick={() => setPayWithWallet(true)}
+                                        disabled={!canAffordUpgradeWithWallet}
+                                        className={cn(
+                                            'flex-1 py-2 px-2 rounded-lg text-sm font-medium transition-all',
+                                            payWithWallet
+                                                ? 'bg-white shadow text-foreground'
+                                                : 'text-muted-foreground hover:text-foreground',
+                                            !canAffordUpgradeWithWallet && 'opacity-50 cursor-not-allowed'
+                                        )}
+                                    >
+                                        <Wallet className="w-4 h-4 inline mr-1.5 -mt-0.5" />
+                                        Wallet
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => setPayWithWallet(false)}
+                                        className={cn(
+                                            'flex-1 py-2 px-2 rounded-lg text-sm font-medium transition-all',
+                                            !payWithWallet
+                                                ? 'bg-white shadow text-foreground'
+                                                : 'text-muted-foreground hover:text-foreground'
+                                        )}
+                                    >
+                                        <Smartphone className="w-4 h-4 inline mr-1.5 -mt-0.5" />
+                                        MoMo / Card
+                                    </button>
                                 </div>
+                                <p className="text-xs text-muted-foreground">
+                                    {payWithWallet
+                                        ? `Balance GHS ${walletBalance.toFixed(2)} — activates instantly, no phone approval needed.`
+                                        : canAffordUpgradeWithWallet
+                                            ? `Wallet balance GHS ${walletBalance.toFixed(2)} available.`
+                                            : `Wallet balance GHS ${walletBalance.toFixed(2)} — not enough for this plan.`}
+                                </p>
                             </div>
 
-                            {isMomoPromptProvider(webPaymentProvider) && (
+                            {!payWithWallet && (
+                                <div className="space-y-2">
+                                    <Label className="text-sm text-muted-foreground block">Pay via</Label>
+                                    <div className="flex gap-1 p-1 rounded-xl bg-muted w-full">
+                                        {SCOPE_PROVIDERS.web.map((id) => (
+                                            <button
+                                                key={id}
+                                                type="button"
+                                                onClick={() => setWebPaymentProvider(id)}
+                                                className={cn(
+                                                    'flex-1 py-1.5 px-2 rounded-lg text-sm font-medium transition-all',
+                                                    webPaymentProvider === id
+                                                        ? 'bg-white shadow text-foreground'
+                                                        : 'text-muted-foreground hover:text-foreground'
+                                                )}
+                                            >
+                                                {PROVIDER_LABEL[id]}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
+
+                            {!payWithWallet && isMomoPromptProvider(webPaymentProvider) && (
                                 <>
                                     <div className="space-y-2">
                                         <Label htmlFor="network">Network</Label>
@@ -1103,13 +1194,15 @@ export default function UpgradePage() {
                             <Button variant="outline" onClick={() => setShowPaymentModal(false)}>
                                 Cancel
                             </Button>
-                            <Button 
-                                onClick={handleUpgradeSubmit} 
-                                disabled={isProcessing !== null || (isMomoPromptProvider(webPaymentProvider) && !paymentPhone)} 
+                            <Button
+                                onClick={handleUpgradeSubmit}
+                                disabled={isProcessing !== null || (!payWithWallet && isMomoPromptProvider(webPaymentProvider) && !paymentPhone)}
                                 className="bg-black text-[#FFCE00] hover:bg-black/90"
                             >
                                 {isProcessing !== null ? (
                                     <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing</>
+                                ) : payWithWallet ? (
+                                    `Pay GHS ${selectedPlanPrice.toFixed(2)} from Wallet`
                                 ) : webPaymentProvider === 'paystack' ? (
                                     'Pay with Paystack'
                                 ) : (
