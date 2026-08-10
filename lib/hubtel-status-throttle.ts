@@ -47,6 +47,24 @@ export const CRON_THROTTLE_KEYS: HubtelThrottleKeys = {
     count: 'cron_hubtel_check_count',
 }
 
+/**
+ * PaySwitch budgets. The mechanism here is gateway-agnostic (only the name says
+ * Hubtel); PaySwitch needs it for the same reason — it is confirmed by callback,
+ * its status API may share the same metered static proxy, and a browser tab left
+ * open on an unapproved prompt would otherwise poll forever. Separate keys so the
+ * two gateways cannot spend each other's budget on a payment that switched
+ * providers on a retry.
+ */
+export const PAYSWITCH_CLIENT_THROTTLE_KEYS: HubtelThrottleKeys = {
+    lastCheck: 'last_payswitch_check',
+    count: 'payswitch_check_count',
+}
+
+export const PAYSWITCH_CRON_THROTTLE_KEYS: HubtelThrottleKeys = {
+    lastCheck: 'last_cron_payswitch_check',
+    count: 'cron_payswitch_check_count',
+}
+
 export interface HubtelThrottleOptions {
     /** Silence window after the payment was created, letting the webhook land first. */
     graceMs: number

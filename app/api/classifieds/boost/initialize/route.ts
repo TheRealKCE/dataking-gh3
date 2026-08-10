@@ -4,6 +4,9 @@ import { verifyAuth } from '@/lib/classifieds-auth'
 import { getListingById } from '@/lib/classifieds-queries'
 import { generateReferenceCode } from '@/lib/utils'
 import { initiatePayment, MOOLRE_PAYMENT_CHANNEL_MAP } from '@/lib/moolre-payment-service'
+import { initiatePayment as payswitchInitiatePayment, PAYSWITCH_CHANNEL_MAP } from '@/lib/payswitch-payment-service'
+import { assignPayswitchTransactionId } from '@/lib/payswitch-reference'
+import { resolveProviderForScope, type PaymentProvider } from '@/lib/payment-provider'
 import type { Database } from '@/types/supabase'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
@@ -72,13 +75,27 @@ export async function POST(request: NextRequest) {
             )
         }
 
-        const provider = settingsMap['active_payment_provider_classifieds'] === 'paystack' ? 'paystack' : 'moolre'
+        // Hubtel is deliberately not offered here — this flow has no Hubtel branch,
+        // so SCOPE_PROVIDERS['classifieds'] excludes it and it resolves to the fallback.
+        const provider: PaymentProvider = resolveProviderForScope(
+            settingsMap['active_payment_provider_classifieds'],
+            'classifieds'
+        )
 
         // Validate provider-specific inputs
         if (provider === 'moolre' && !existingRef) {
             if (!phone || !network || !MOOLRE_PAYMENT_CHANNEL_MAP[network]) {
                 return NextResponse.json(
                     { error: 'Valid phone number and network are required for Moolre payments' },
+                    { status: 400 }
+                )
+            }
+        }
+
+        if (provider === 'payswitch') {
+            if (!phone || !network || !PAYSWITCH_CHANNEL_MAP[network]) {
+                return NextResponse.json(
+                    { error: 'Valid phone number and network are required for PaySwitch payments' },
                     { status: 400 }
                 )
             }
@@ -245,6 +262,41 @@ export async function POST(request: NextRequest) {
                 gateway: 'paystack',
                 authorization_url: paystackData.data.authorization_url,
                 reference,
+            })
+        }
+
+        // ── PAYSWITCH ─────────────────────────────────────────────────────────
+        if (provider === 'payswitch') {
+            const { transactionId, error: txIdError } = await assignPayswitchTransactionId(supabase, { id: paymentId! })
+            if (!transactionId) {
+                console.error('[BoostInit] PaySwitch transaction id error:', txIdError)
+                if (!existingRef) {
+                    await supabase.from('wallet_payments' as any).update({ status: 'failed' }).eq('id', paymentId)
+                }
+                return NextResponse.json({ error: 'Could not start the payment. Please try again.' }, { status: 500 })
+            }
+
+            const payswitchResponse = await payswitchInitiatePayment({
+                amount: boostFee,
+                payerPhone: phone,
+                network,
+                transactionId,
+                description: `ARHMS Listing Boost - ${tier}`,
+            })
+
+            if (!payswitchResponse.success) {
+                console.error('[BoostInit] PaySwitch error:', payswitchResponse.error)
+                if (!existingRef) {
+                    await supabase.from('wallet_payments' as any).update({ status: 'failed' }).eq('id', paymentId)
+                }
+                return NextResponse.json({ error: payswitchResponse.error || 'Failed to initialize payment' }, { status: 500 })
+            }
+
+            return NextResponse.json({
+                success: true,
+                gateway: 'payswitch',
+                reference,
+                message: 'Payment prompt sent to your phone. Please approve to complete the boost.',
             })
         }
 

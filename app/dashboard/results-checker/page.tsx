@@ -5,6 +5,7 @@ import { useAuth } from '@/contexts/auth-context'
 import { useSearchParams, useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency, cn, calculatePaystackFee } from '@/lib/utils'
+import { resolveProvider, isMomoPromptProvider, type PaymentProvider } from '@/lib/payment-provider'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -43,7 +44,7 @@ function ResultsCheckerContent() {
     
     // Settings state
     const [rcWalletPaymentEnabled, setRcWalletPaymentEnabled] = useState(false)
-    const [webPaymentProvider, setWebPaymentProvider] = useState<'moolre' | 'hubtel' | 'paystack'>('moolre')
+    const [webPaymentProvider, setWebPaymentProvider] = useState<PaymentProvider>('moolre')
     const [paystackFeePercent, setPaystackFeePercent] = useState(1.95)
     const [paymentMethod, setPaymentMethod] = useState<'wallet' | 'direct'>('direct')
     const [paymentNetwork, setPaymentNetwork] = useState('')
@@ -86,8 +87,7 @@ function ResultsCheckerContent() {
                 setPaymentMethod(walletEnabled ? 'wallet' : 'direct')
             }
 
-            const provider = String(settings.active_payment_provider_web || 'moolre')
-            setWebPaymentProvider(provider === 'paystack' ? 'paystack' : provider === 'hubtel' ? 'hubtel' : 'moolre')
+            setWebPaymentProvider(resolveProvider(settings.active_payment_provider_web))
 
             const feeKey = dbUser?.role === 'agent' ? 'agent_paystack_fee_percent' : 'paystack_fee_percent'
             const feeVal = parseFloat(settings[feeKey] || settings.paystack_fee_percent || '1.95')
@@ -224,7 +224,7 @@ function ResultsCheckerContent() {
     const gatewayFee = paymentMethod === 'direct' 
         ? webPaymentProvider === 'hubtel' 
             ? parseFloat((subtotal * (HUBTEL_FEE_PERCENT / 100)).toFixed(2))
-            : webPaymentProvider === 'paystack'
+            : (webPaymentProvider === 'paystack' || webPaymentProvider === 'payswitch')
                 ? calculatePaystackFee(subtotal, paystackFeePercent)
                 : 0
         : 0
@@ -274,7 +274,7 @@ function ResultsCheckerContent() {
             }
         } else {
             // DIRECT PAYMENT
-            if ((webPaymentProvider === 'moolre' || webPaymentProvider === 'hubtel') && !paymentNetwork) {
+            if (isMomoPromptProvider(webPaymentProvider) && !paymentNetwork) {
                 toast.error('Please select a Mobile Money network')
                 return
             }
@@ -514,7 +514,7 @@ function ResultsCheckerContent() {
                             )}
 
                             {/* MoMo Network Selector (if Direct and Moolre/Hubtel) */}
-                            {paymentMethod === 'direct' && (webPaymentProvider === 'moolre' || webPaymentProvider === 'hubtel') && (
+                            {paymentMethod === 'direct' && isMomoPromptProvider(webPaymentProvider) && (
                                 <div className="space-y-2 pt-2 animate-in fade-in slide-in-from-top-2">
                                     <Label>Mobile Money Network</Label>
                                     <Select value={paymentNetwork} onValueChange={setPaymentNetwork} required>

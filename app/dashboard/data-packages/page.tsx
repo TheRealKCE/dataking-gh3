@@ -7,6 +7,7 @@ import { supabase } from '@/lib/supabase'
 import Link from 'next/link'
 import { formatCurrency, getNetworkGradient, cn } from '@/lib/utils'
 import { generateReferenceCode, calculatePaystackFee } from '@/lib/utils'
+import { resolveProvider, isMomoPromptProvider, type PaymentProvider } from '@/lib/payment-provider'
 import { validateGhanaianPhone, detectNetwork } from '@/lib/phone-validation'
 import { NetworkIcon } from '@/components/network-icon'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -138,7 +139,7 @@ export default function DataPackagesPage() {
     // Payment method: wallet (instant debit) or direct (MoMo / card via gateway)
     const [paymentMethod, setPaymentMethod] = useState<'wallet' | 'direct'>('wallet')
     const [bulkPaymentMethod, setBulkPaymentMethod] = useState<'wallet' | 'direct'>('wallet')
-    const [webPaymentProvider, setWebPaymentProvider] = useState<'moolre' | 'hubtel' | 'paystack'>('moolre')
+    const [webPaymentProvider, setWebPaymentProvider] = useState<PaymentProvider>('moolre')
     const [paystackFeePercent, setPaystackFeePercent] = useState(1.95)
     const [momoPhone, setMomoPhone] = useState('')
     const [momoNetwork, setMomoNetwork] = useState('')
@@ -319,8 +320,7 @@ export default function DataPackagesPage() {
             if (!res.ok) return
             const settings = await res.json()
 
-            const provider = String(settings.active_payment_provider_web || 'moolre')
-            setWebPaymentProvider(provider === 'paystack' ? 'paystack' : provider === 'hubtel' ? 'hubtel' : 'moolre')
+            setWebPaymentProvider(resolveProvider(settings.active_payment_provider_web))
 
             const feeKey = dbUser?.role === 'agent' ? 'agent_paystack_fee_percent' : 'paystack_fee_percent'
             const feeVal = parseFloat(settings[feeKey] || settings.paystack_fee_percent || '1.95')
@@ -414,13 +414,15 @@ export default function DataPackagesPage() {
         if (webPaymentProvider === 'hubtel') {
             return parseFloat((subtotal * (HUBTEL_FEE_PERCENT / 100)).toFixed(2))
         }
-        if (webPaymentProvider === 'paystack') {
+        // PaySwitch bills us, not the payer, so it carries the same percentage
+        // Paystack does — matching the server's fee block in /api/orders/gateway-init.
+        if (webPaymentProvider === 'paystack' || webPaymentProvider === 'payswitch') {
             return calculatePaystackFee(subtotal, paystackFeePercent)
         }
         return 0
     }
 
-    const needsMomoDetails = webPaymentProvider === 'moolre' || webPaymentProvider === 'hubtel'
+    const needsMomoDetails = isMomoPromptProvider(webPaymentProvider)
 
     const selectedPrice = selectedPackage ? getEffectivePrice(selectedPackage) : 0
     const selectedFee = paymentMethod === 'direct' ? computeGatewayFee(selectedPrice) : 0

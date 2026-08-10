@@ -5,6 +5,9 @@ import { calculatePaystackFee, generateReferenceCode } from '@/lib/utils'
 import { initiatePayment, MOOLRE_PAYMENT_CHANNEL_MAP } from '@/lib/moolre-payment-service'
 import { initiatePayment as hubtelInitiatePayment, HUBTEL_CHANNEL_MAP, calculateHubtelFee, toHubtelMsisdn } from '@/lib/hubtel-payment-service'
 import { checkHubtelPromptLimit, recordHubtelPrompt } from '@/lib/hubtel-prompt-limit'
+import { initiatePayment as payswitchInitiatePayment, PAYSWITCH_CHANNEL_MAP } from '@/lib/payswitch-payment-service'
+import { assignPayswitchTransactionId } from '@/lib/payswitch-reference'
+import { resolveProviderForScope, type PaymentProvider } from '@/lib/payment-provider'
 
 // Build admin client safely — returns null with an error string if env vars are missing
 function buildAdminClient(): { client: ReturnType<typeof createClient> | null; error: string | null } {
@@ -46,7 +49,8 @@ export async function POST(request: NextRequest) {
         } catch {
             return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
         }
-        // provider can be 'moolre' | 'hubtel' | 'paystack'; frontend toggle sends it in body
+        // bodyProvider is any PaymentProvider a stale tab may still be sending; it is
+        // logged and ignored — see the provider resolution below.
         const { amount, phone, network, otpCode, reference: existingRef, provider: bodyProvider } = body
 
         // ── Step 3: Validate amount ───────────────────────────────────────────
@@ -92,11 +96,7 @@ export async function POST(request: NextRequest) {
         //
         // Matches how /api/vouchers/gateway-init and /api/orders/gateway-init already
         // resolve the gateway.
-        const adminDefault = String(settingsMap.active_payment_provider_web || 'moolre')
-        const provider: 'moolre' | 'hubtel' | 'paystack' =
-            adminDefault === 'paystack' ? 'paystack'
-            : adminDefault === 'hubtel' ? 'hubtel'
-            : 'moolre'
+        const provider: PaymentProvider = resolveProviderForScope(settingsMap.active_payment_provider_web, 'web')
 
         if (bodyProvider && bodyProvider !== provider) {
             console.warn(
@@ -113,6 +113,10 @@ export async function POST(request: NextRequest) {
 
         if (provider === 'hubtel' && (!phone || !network || !HUBTEL_CHANNEL_MAP[network])) {
             return NextResponse.json({ error: 'Valid phone number and network are required for Hubtel payment' }, { status: 400 })
+        }
+
+        if (provider === 'payswitch' && (!phone || !network || !PAYSWITCH_CHANNEL_MAP[network])) {
+            return NextResponse.json({ error: 'Valid phone number and network are required for PaySwitch payment' }, { status: 400 })
         }
 
         if (provider === 'paystack') {
@@ -323,7 +327,66 @@ export async function POST(request: NextRequest) {
             })
         }
 
-        // ── Step 10c: MOOLRE ──────────────────────────────────────────────────
+        // ── Step 10c: PAYSWITCH ───────────────────────────────────────────────
+        if (provider === 'payswitch') {
+            // TheTeller identifies the payment by a 12-digit numeric id, not by our
+            // reference. Claim one on the payment row first: the unique index makes
+            // the write itself the guarantee that no two payments share a gateway id.
+            const { transactionId, error: txIdError } = await assignPayswitchTransactionId(supabaseAdmin, { id: paymentId! })
+            if (!transactionId) {
+                console.error('[WalletInit] PaySwitch transaction id error:', txIdError)
+                if (!existingRef) {
+                    await (supabaseAdmin.from('wallet_payments' as any)).update({ status: 'failed' }).eq('id', paymentId)
+                }
+                return NextResponse.json({ error: 'Could not start the payment. Please try again.' }, { status: 500 })
+            }
+
+            const payswitchResponse = await payswitchInitiatePayment({
+                amount: totalAmount,
+                payerPhone: phone,
+                network,
+                transactionId,
+                description: 'ARHMS Wallet Top-up',
+            })
+
+            // Kept for support triage — the gateway's own words about this attempt.
+            // Read-modify-write, not a replace: on the existingRef retry path this
+            // metadata already carries the status-check throttle counters, and
+            // clobbering them would hand the payment a fresh polling budget.
+            const { data: currentPayment } = await (supabaseAdmin.from('wallet_payments' as any))
+                .select('metadata')
+                .eq('id', paymentId)
+                .single()
+
+            await (supabaseAdmin.from('wallet_payments' as any))
+                .update({
+                    metadata: {
+                        ...(((currentPayment as any)?.metadata) || {}),
+                        user_id: userId,
+                        amount,
+                        fee,
+                        payswitch: { transaction_id: transactionId, initiate: payswitchResponse.raw ?? null },
+                    },
+                })
+                .eq('id', paymentId)
+
+            if (!payswitchResponse.success) {
+                console.error('[WalletInit] PaySwitch error:', payswitchResponse.error)
+                if (!existingRef) {
+                    await (supabaseAdmin.from('wallet_payments' as any)).update({ status: 'failed' }).eq('id', paymentId)
+                }
+                return NextResponse.json({ error: payswitchResponse.error || 'Failed to initialize PaySwitch payment' }, { status: 500 })
+            }
+
+            return NextResponse.json({
+                success: true,
+                gateway: 'payswitch',
+                reference,
+                message: 'Payment prompt sent to your phone. Please approve to complete top-up.',
+            })
+        }
+
+        // ── Step 10d: MOOLRE ──────────────────────────────────────────────────
         const channelId = MOOLRE_PAYMENT_CHANNEL_MAP[network]
         let moolreResponse = await initiatePayment({
             amount: totalAmount,

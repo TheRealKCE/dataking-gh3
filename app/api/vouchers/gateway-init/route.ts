@@ -4,6 +4,13 @@ import { calculateRCPrice, getRCTypeById } from '@/lib/vouchers/pricing'
 import { initiatePayment, MOOLRE_PAYMENT_CHANNEL_MAP } from '@/lib/moolre-payment-service'
 import { initiatePayment as hubtelInitiatePayment, HUBTEL_CHANNEL_MAP, toHubtelMsisdn } from '@/lib/hubtel-payment-service'
 import { checkHubtelPromptLimit, recordHubtelPrompt } from '@/lib/hubtel-prompt-limit'
+import {
+    initiatePayment as payswitchInitiatePayment,
+    PAYSWITCH_CHANNEL_MAP,
+    generatePayswitchTransactionId,
+} from '@/lib/payswitch-payment-service'
+import { mapPayswitchTransaction } from '@/lib/payswitch-reference'
+import { resolveProviderForScope, type PaymentProvider } from '@/lib/payment-provider'
 
 export async function POST(request: NextRequest) {
     try {
@@ -45,10 +52,7 @@ export async function POST(request: NextRequest) {
             .select('value')
             .eq('key', 'active_payment_provider_web')
             .single()
-        const gateway: 'paystack' | 'moolre' | 'hubtel' =
-            String(providerRow?.value || 'moolre') === 'paystack' ? 'paystack'
-            : String(providerRow?.value || 'moolre') === 'hubtel' ? 'hubtel'
-            : 'moolre'
+        const gateway: PaymentProvider = resolveProviderForScope(providerRow?.value, 'web')
 
         if (!typeId || !quantity || quantity <= 0 || !customerEmail) {
             return NextResponse.json({ error: 'Invalid request payload. Email and quantity are required.' }, { status: 400 })
@@ -60,12 +64,13 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Product not available' }, { status: 400 })
         }
 
-        // Calculate price — include gateway fee for Paystack, not for Moolre/Hubtel (their fees are charged by Hubtel/Moolre separately)
+        // Calculate price — include the gateway fee for the providers that bill us
+        // (Paystack, PaySwitch). Moolre and Hubtel charge the payer separately.
         const breakdown = await calculateRCPrice({
             type,
             quantity,
             userRole,
-            includePaystackFee: gateway === 'paystack',
+            includePaystackFee: gateway === 'paystack' || gateway === 'payswitch',
         })
 
         // Generate unique reference
@@ -237,6 +242,41 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({
                 success: true,
                 gateway: 'hubtel',
+                otpRequired: false,
+                reference: referenceCode,
+                message: 'Payment prompt sent to your phone. Please approve to complete your purchase.',
+            })
+        }
+
+        // ── PAYSWITCH BRANCH ────────────────────────────────────────────────
+        if (gateway === 'payswitch') {
+            if (!momoPhone || !momoNetwork || !PAYSWITCH_CHANNEL_MAP[momoNetwork]) {
+                return NextResponse.json({ error: 'Valid MoMo phone and network are required for PaySwitch payments' }, { status: 400 })
+            }
+
+            // RC orders live in results_checker_orders, not wallet_payments, so the
+            // transaction_id -> reference mapping goes to Redis. It must be written
+            // BEFORE the prompt: a fast approval can otherwise reach the callback
+            // before the mapping exists.
+            const transactionId = generatePayswitchTransactionId()
+            await mapPayswitchTransaction(transactionId, referenceCode)
+
+            const payswitchResponse = await payswitchInitiatePayment({
+                amount: breakdown.total,
+                payerPhone: momoPhone,
+                network: momoNetwork,
+                transactionId,
+                description: `ARHMS Results Checker - ${type.name} x${quantity}`,
+            })
+
+            if (!payswitchResponse.success) {
+                console.error('[GatewayInit] PaySwitch error:', payswitchResponse.error)
+                return NextResponse.json({ error: payswitchResponse.error || 'Failed to initialize PaySwitch payment' }, { status: 500 })
+            }
+
+            return NextResponse.json({
+                success: true,
+                gateway: 'payswitch',
                 otpRequired: false,
                 reference: referenceCode,
                 message: 'Payment prompt sent to your phone. Please approve to complete your purchase.',

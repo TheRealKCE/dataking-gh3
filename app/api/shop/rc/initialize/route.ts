@@ -4,6 +4,13 @@ import { Redis } from '@upstash/redis'
 import { initiatePayment, MOOLRE_PAYMENT_CHANNEL_MAP } from '@/lib/moolre-payment-service'
 import { initiatePayment as hubtelInitiatePayment, HUBTEL_CHANNEL_MAP } from '@/lib/hubtel-payment-service'
 import { checkHubtelPromptLimit, recordHubtelPrompt } from '@/lib/hubtel-prompt-limit'
+import {
+    initiatePayment as payswitchInitiatePayment,
+    PAYSWITCH_CHANNEL_MAP,
+    generatePayswitchTransactionId,
+} from '@/lib/payswitch-payment-service'
+import { mapPayswitchTransaction } from '@/lib/payswitch-reference'
+import { resolveProviderForScope, type PaymentProvider } from '@/lib/payment-provider'
 
 let redis: Redis | null = null
 try { redis = Redis.fromEnv() } catch (_) {}
@@ -60,11 +67,13 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Results Checker is not available on storefronts' }, { status: 503 })
         }
 
-        const configuredProvider = String(adminSettings['active_payment_provider_shop'] || 'paystack')
-        const provider: 'paystack' | 'hubtel' | 'moolre' =
-            configuredProvider === 'paystack' ? 'paystack'
-                : configuredProvider === 'hubtel' ? 'hubtel'
-                    : 'moolre'
+        // Note: this scope has always defaulted to Paystack when unset, unlike the
+        // rest of the app — kept as-is so an unset setting does not change behaviour.
+        const provider: PaymentProvider = resolveProviderForScope(
+            adminSettings['active_payment_provider_shop'],
+            'shop',
+            'paystack'
+        )
 
         // No SMS verification on the storefront: guests are prompted straight away.
         // The per-number prompt limit is the only throttle, and it is checked up front —
@@ -282,6 +291,46 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({
                     success: true,
                     gateway: 'hubtel',
+                    otpRequired: false,
+                    reference: referenceCode,
+                    message: 'Payment prompt sent to your phone. Please approve to complete your purchase.',
+                })
+            }
+
+            // ── PAYSWITCH BRANCH ──────────────────────────────────────────────────
+            if (provider === 'payswitch') {
+                const psPrefix = cleanPhone.substring(0, 3)
+                let psNetwork = 'MTN'
+                if (['020', '050'].includes(psPrefix)) psNetwork = 'Telecel'
+                else if (['026', '027', '056', '028', '058', '057'].includes(psPrefix)) psNetwork = 'AT'
+
+                if (!PAYSWITCH_CHANNEL_MAP[psNetwork]) {
+                    return NextResponse.json({ error: 'Unsupported payment network' }, { status: 400 })
+                }
+
+                // Written before the prompt — the callback only carries the numeric id.
+                const transactionId = generatePayswitchTransactionId()
+                await mapPayswitchTransaction(transactionId, referenceCode)
+
+                const payswitchResponse = await payswitchInitiatePayment({
+                    amount: totalAmount,
+                    payerPhone: cleanPhone,
+                    network: psNetwork,
+                    transactionId,
+                    description: `${shop.shop_name} - ${rcType.name} x${qty}`,
+                })
+
+                if (!payswitchResponse.success) {
+                    console.error('[shop/rc/initialize] PaySwitch error:', payswitchResponse.error)
+                    return NextResponse.json(
+                        { error: payswitchResponse.error || 'Failed to initialize PaySwitch payment' },
+                        { status: 500 }
+                    )
+                }
+
+                return NextResponse.json({
+                    success: true,
+                    gateway: 'payswitch',
                     otpRequired: false,
                     reference: referenceCode,
                     message: 'Payment prompt sent to your phone. Please approve to complete your purchase.',

@@ -9,6 +9,13 @@ import { Crown, Sparkles, Zap, CheckCircle, Store, Calendar } from 'lucide-react
 import { toast } from 'sonner'
 import CongratsModal from '@/components/upgrade/CongratsModal'
 import { cn } from '@/lib/utils'
+import {
+    resolveProvider,
+    isMomoPromptProvider,
+    SCOPE_PROVIDERS,
+    PROVIDER_LABEL,
+    type PaymentProvider,
+} from '@/lib/payment-provider'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -32,7 +39,7 @@ export default function UpgradePage() {
     const [otpRequired, setOtpRequired] = useState(false)
     const [otpCode, setOtpCode] = useState('')
     const [paymentReference, setPaymentReference] = useState<string | null>(null)
-    const [webPaymentProvider, setWebPaymentProvider] = useState<'moolre' | 'hubtel' | 'paystack'>('moolre')
+    const [webPaymentProvider, setWebPaymentProvider] = useState<PaymentProvider>('moolre')
 
     // Prices for tiers
     const [prices, setPrices] = useState({
@@ -96,12 +103,7 @@ export default function UpgradePage() {
             .then(r => r.ok ? r.json() : null)
             .then(d => {
                 if (d) {
-                    const val = String(d.value || 'moolre')
-                    setWebPaymentProvider(
-                        val === 'paystack' ? 'paystack'
-                        : val === 'hubtel' ? 'hubtel'
-                        : 'moolre'
-                    )
+                    setWebPaymentProvider(resolveProvider(d.value))
                 }
             })
             .catch(() => {})
@@ -514,11 +516,7 @@ export default function UpgradePage() {
                             <div className="space-y-2">
                                 <Label className="text-sm text-muted-foreground block">Pay via</Label>
                                 <div className="flex gap-1 p-1 rounded-xl bg-muted w-full">
-                                    {([
-                                        { id: 'moolre', label: 'Moolre' },
-                                        { id: 'hubtel', label: 'Hubtel' },
-                                        { id: 'paystack', label: 'Paystack' },
-                                    ] as const).map(({ id, label }) => (
+                                    {SCOPE_PROVIDERS.web.map((id) => (
                                         <button
                                             key={id}
                                             type="button"
@@ -530,13 +528,13 @@ export default function UpgradePage() {
                                                     : 'text-muted-foreground hover:text-foreground'
                                             )}
                                         >
-                                            {label}
+                                            {PROVIDER_LABEL[id]}
                                         </button>
                                     ))}
                                 </div>
                             </div>
                             
-                            {(webPaymentProvider === 'moolre' || webPaymentProvider === 'hubtel') && (
+                            {isMomoPromptProvider(webPaymentProvider) && (
                                 <>
                                     <div className="space-y-2">
                                         <Label htmlFor="network-d">Network</Label>
@@ -572,7 +570,7 @@ export default function UpgradePage() {
                             <Button variant="outline" onClick={() => setShowPaymentModal(false)}>Cancel</Button>
                             <Button 
                                 onClick={handleUpgradeSubmit} 
-                                disabled={isProcessing !== null || ((webPaymentProvider === 'moolre' || webPaymentProvider === 'hubtel') && !paymentPhone)} 
+                                disabled={isProcessing !== null || (isMomoPromptProvider(webPaymentProvider) && !paymentPhone)} 
                                 className="bg-violet-700 text-white hover:bg-violet-800"
                             >
                                 {isProcessing !== null ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Processing</> : webPaymentProvider === 'paystack' ? 'Pay with Paystack' : 'Send Prompt'}
@@ -1050,11 +1048,7 @@ export default function UpgradePage() {
                             <div className="space-y-2">
                                 <Label className="text-sm text-muted-foreground block">Pay via</Label>
                                 <div className="flex gap-1 p-1 rounded-xl bg-muted w-full">
-                                    {([
-                                        { id: 'moolre', label: 'Moolre' },
-                                        { id: 'hubtel', label: 'Hubtel' },
-                                        { id: 'paystack', label: 'Paystack' },
-                                    ] as const).map(({ id, label }) => (
+                                    {SCOPE_PROVIDERS.web.map((id) => (
                                         <button
                                             key={id}
                                             type="button"
@@ -1066,13 +1060,13 @@ export default function UpgradePage() {
                                                     : 'text-muted-foreground hover:text-foreground'
                                             )}
                                         >
-                                            {label}
+                                            {PROVIDER_LABEL[id]}
                                         </button>
                                     ))}
                                 </div>
                             </div>
 
-                            {(webPaymentProvider === 'moolre' || webPaymentProvider === 'hubtel') && (
+                            {isMomoPromptProvider(webPaymentProvider) && (
                                 <>
                                     <div className="space-y-2">
                                         <Label htmlFor="network">Network</Label>
@@ -1111,7 +1105,7 @@ export default function UpgradePage() {
                             </Button>
                             <Button 
                                 onClick={handleUpgradeSubmit} 
-                                disabled={isProcessing !== null || ((webPaymentProvider === 'moolre' || webPaymentProvider === 'hubtel') && !paymentPhone)} 
+                                disabled={isProcessing !== null || (isMomoPromptProvider(webPaymentProvider) && !paymentPhone)} 
                                 className="bg-black text-[#FFCE00] hover:bg-black/90"
                             >
                                 {isProcessing !== null ? (

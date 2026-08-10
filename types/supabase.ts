@@ -122,7 +122,9 @@ export interface Database {
                     fee: number
                     total_amount: number
                     reference: string
-                    provider: 'paystack'
+                    // Keep in sync with PaymentProvider in lib/payment-provider.ts.
+                    // Inlined rather than imported so this types file stays dependency-free.
+                    provider: 'moolre' | 'hubtel' | 'paystack' | 'payswitch'
                     status: 'pending' | 'completed' | 'failed'
                     provider_reference: string | null
                     metadata: Json | null
@@ -137,7 +139,7 @@ export interface Database {
                     fee: number
                     total_amount: number
                     reference: string
-                    provider?: 'paystack'
+                    provider?: 'moolre' | 'hubtel' | 'paystack' | 'payswitch'
                     status?: 'pending' | 'completed' | 'failed'
                     provider_reference?: string | null
                     metadata?: Json | null

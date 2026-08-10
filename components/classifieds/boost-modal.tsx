@@ -17,6 +17,12 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Loader2, Zap, CreditCard, Smartphone } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import {
+    resolveProviderForScope,
+    isMomoPromptProvider,
+    PROVIDER_LABEL,
+    type PaymentProvider,
+} from '@/lib/payment-provider'
 import { supabase } from '@/lib/supabase'
 
 interface BoostModalProps {
@@ -39,7 +45,7 @@ export function BoostModal({ open, onOpenChange, listingId, onSuccess }: BoostMo
     const router = useRouter()
     const [selectedTier, setSelectedTier] = useState<string>('7d')
     const [fees, setFees] = useState<Record<string, number>>({})
-    const [provider, setProvider] = useState<'moolre' | 'paystack'>('moolre')
+    const [provider, setProvider] = useState<PaymentProvider>('moolre')
     const [isLoadingFees, setIsLoadingFees] = useState(true)
 
     // Moolre-specific inputs
@@ -74,8 +80,7 @@ export function BoostModal({ open, onOpenChange, listingId, onSuccess }: BoostMo
                         parsedFees[tier.id] = parseFloat(data[key] || '0')
                     })
                     setFees(parsedFees)
-                    const p = String(data['active_payment_provider_classifieds'] || 'moolre')
-                    setProvider(p === 'paystack' ? 'paystack' : 'moolre')
+                    setProvider(resolveProviderForScope(data['active_payment_provider_classifieds'], 'classifieds'))
                 }
             } catch (error) {
                 console.error('Error fetching boost settings:', error)
@@ -155,7 +160,7 @@ export function BoostModal({ open, onOpenChange, listingId, onSuccess }: BoostMo
     }
 
     const handleConfirm = async () => {
-        if (provider === 'moolre' && (!phone || !network)) {
+        if (isMomoPromptProvider(provider) && (!phone || !network)) {
             toast.error('Please enter your Mobile Money number and select a network')
             return
         }
@@ -275,7 +280,7 @@ export function BoostModal({ open, onOpenChange, listingId, onSuccess }: BoostMo
                             {provider === 'paystack'
                                 ? <CreditCard className="w-4 h-4" />
                                 : <Smartphone className="w-4 h-4" />}
-                            Pay via {provider === 'paystack' ? 'Paystack' : 'Moolre (Mobile Money)'}
+                            Pay via {PROVIDER_LABEL[provider]}{isMomoPromptProvider(provider) ? ' (Mobile Money)' : ''}
                         </div>
 
                         {/* Tier selection grid */}
@@ -313,8 +318,8 @@ export function BoostModal({ open, onOpenChange, listingId, onSuccess }: BoostMo
                             </div>
                         </div>
 
-                        {/* Moolre MoMo inputs */}
-                        {provider === 'moolre' && (
+                        {/* MoMo inputs — every gateway except Paystack prompts the handset */}
+                        {isMomoPromptProvider(provider) && (
                             <div className="space-y-3">
                                 <p className="text-xs font-bold text-gray-500 dark:text-gray-400 uppercase tracking-widest">
                                     Mobile Money Details

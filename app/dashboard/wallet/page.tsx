@@ -6,6 +6,7 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/lib/supabase'
 import { formatCurrency, formatDate, calculatePaystackFee, cn } from '@/lib/utils'
+import { resolveProvider, isMomoPromptProvider, type PaymentProvider } from '@/lib/payment-provider'
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -50,7 +51,7 @@ function WalletContent() {
     const [otpRequired, setOtpRequired] = useState(false)
     const [otpCode, setOtpCode] = useState('')
     const [paymentReference, setPaymentReference] = useState<string | null>(null)
-    const [webPaymentProvider, setWebPaymentProvider] = useState<'moolre' | 'hubtel' | 'paystack'>('moolre')
+    const [webPaymentProvider, setWebPaymentProvider] = useState<PaymentProvider>('moolre')
     const searchParams = useSearchParams()
 
     useEffect(() => {
@@ -185,12 +186,7 @@ function WalletContent() {
 
                 const providerRow = settings.find(s => s.key === 'active_payment_provider_web')
                 if (providerRow) {
-                    const val = String(providerRow.value || 'moolre')
-                    setWebPaymentProvider(
-                        val === 'paystack' ? 'paystack'
-                        : val === 'hubtel' ? 'hubtel'
-                        : 'moolre'
-                    )
+                    setWebPaymentProvider(resolveProvider(providerRow.value))
                 }
 
                 let targetKey = 'paystack_fee_percent'
@@ -228,7 +224,7 @@ function WalletContent() {
             return
         }
 
-        if ((webPaymentProvider === 'moolre' || webPaymentProvider === 'hubtel') && (!paymentPhone || !paymentNetwork)) {
+        if (isMomoPromptProvider(webPaymentProvider) && (!paymentPhone || !paymentNetwork)) {
             toast.error('Please provide a valid Mobile Money number and select a network')
             return
         }
@@ -518,7 +514,7 @@ function WalletContent() {
                                 )}
 
                                 {/* Payment Details — MoMo fields for Moolre and Hubtel */}
-                                {(webPaymentProvider === 'moolre' || webPaymentProvider === 'hubtel') && (
+                                {isMomoPromptProvider(webPaymentProvider) && (
                                     <div>
                                         <Label className="text-sm text-muted-foreground mb-3 block">Payment Details</Label>
                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -583,7 +579,7 @@ function WalletContent() {
                                         isProcessing ||
                                         !topUpAmount ||
                                         parseFloat(topUpAmount) < MIN_AMOUNT ||
-                                        ((webPaymentProvider === 'moolre' || webPaymentProvider === 'hubtel') && (!paymentPhone || !paymentNetwork))
+                                        (isMomoPromptProvider(webPaymentProvider) && (!paymentPhone || !paymentNetwork))
                                     }
                                 >
                                     {isProcessing ? (

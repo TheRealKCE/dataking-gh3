@@ -4,6 +4,9 @@ import { NextResponse } from 'next/server'
 import { generateReferenceCode } from '@/lib/utils'
 import { initiatePayment, MOOLRE_PAYMENT_CHANNEL_MAP } from '@/lib/moolre-payment-service'
 import { initiatePayment as hubtelInitiatePayment, HUBTEL_CHANNEL_MAP } from '@/lib/hubtel-payment-service'
+import { initiatePayment as payswitchInitiatePayment, PAYSWITCH_CHANNEL_MAP } from '@/lib/payswitch-payment-service'
+import { assignPayswitchTransactionId } from '@/lib/payswitch-reference'
+import { resolveProvider, isPaymentProvider, type PaymentProvider } from '@/lib/payment-provider'
 
 export async function POST(request: Request) {
     try {
@@ -51,14 +54,13 @@ export async function POST(request: Request) {
         const settingsMap: Record<string, any> = {}
         for (const row of (settings || [])) settingsMap[row.key] = row.value
 
-        // Provider resolution: body takes priority (frontend toggle), fall back to admin setting
-        const adminDefault = String(settingsMap.active_payment_provider_web || 'moolre')
-        const provider: 'moolre' | 'hubtel' | 'paystack' =
-            bodyProvider === 'hubtel' ? 'hubtel'
-            : bodyProvider === 'paystack' ? 'paystack'
-            : adminDefault === 'paystack' ? 'paystack'
-            : adminDefault === 'hubtel' ? 'hubtel'
-            : 'moolre'
+        // Provider resolution: body takes priority (frontend toggle), fall back to admin setting.
+        // 'moolre' is excluded from the body override to preserve the original behaviour —
+        // it was the fallback arm of the ternary this replaced, never an override.
+        const provider: PaymentProvider =
+            isPaymentProvider(bodyProvider) && bodyProvider !== 'moolre'
+                ? bodyProvider
+                : resolveProvider(settingsMap.active_payment_provider_web)
 
         // For Moolre: phone + network are required
         if (provider === 'moolre') {
@@ -72,6 +74,13 @@ export async function POST(request: Request) {
         if (provider === 'hubtel') {
             if (!phone || !network || !HUBTEL_CHANNEL_MAP[network]) {
                 return NextResponse.json({ error: 'Phone number and network are required for Hubtel payment' }, { status: 400 })
+            }
+        }
+
+        // For PaySwitch: phone + network are required
+        if (provider === 'payswitch') {
+            if (!phone || !network || !PAYSWITCH_CHANNEL_MAP[network]) {
+                return NextResponse.json({ error: 'Phone number and network are required for PaySwitch payment' }, { status: 400 })
             }
         }
 
@@ -198,6 +207,36 @@ export async function POST(request: Request) {
             return NextResponse.json({
                 success: true,
                 gateway: 'hubtel',
+                reference,
+                message: 'Payment prompt sent to your phone. Please approve to continue.',
+            })
+        }
+
+        // ── PAYSWITCH BRANCH ───────────────────────────────────────────────
+        if (provider === 'payswitch') {
+            const { transactionId, error: txIdError } = await assignPayswitchTransactionId(supabaseAdmin, { reference })
+            if (!transactionId) {
+                console.error('[UpgradeInit] PaySwitch transaction id error:', txIdError)
+                await (supabaseAdmin.from('wallet_payments') as any).update({ status: 'failed' }).eq('reference', reference)
+                throw new Error('Could not start the payment. Please try again.')
+            }
+
+            const payswitchResponse = await payswitchInitiatePayment({
+                amount: totalAmount,
+                payerPhone: phone,
+                network,
+                transactionId,
+                description: `ARHMS Agent Upgrade - ${planLabel}`,
+            })
+
+            if (!payswitchResponse.success) {
+                await (supabaseAdmin.from('wallet_payments') as any).update({ status: 'failed' }).eq('reference', reference)
+                throw new Error(payswitchResponse.error || 'Failed to initialize PaySwitch payment')
+            }
+
+            return NextResponse.json({
+                success: true,
+                gateway: 'payswitch',
                 reference,
                 message: 'Payment prompt sent to your phone. Please approve to continue.',
             })
