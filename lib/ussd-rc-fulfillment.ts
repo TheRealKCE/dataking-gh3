@@ -108,16 +108,20 @@ export async function fulfillUSSDRCBySession(params: {
     // 3. Create a pending order record (upsert to handle retries)
     const orderId = existingOrder?.id || crypto.randomUUID()
 
-    // The shop's margin over the platform's own customer price. Resolved before the
-    // insert so the order row records what the shop earned on this sale.
+    // What the shop earned: its own selling price less what the platform pays for
+    // the voucher. The cost basis is `cost_price`, matching the web storefront
+    // (app/api/shop/rc/initialize) exactly — using `customer_price` here would
+    // measure the margin against main-site retail instead, which shops price at or
+    // below, so USSD sales would have earned the owner little or nothing.
     let shopMarkup = 0
+    let platformCost = 0
     if (shopId) {
         const { data: checkerType } = await supabaseAdmin
             .from('results_checker_types')
-            .select('customer_price')
+            .select('cost_price')
             .eq('id', selectedCheckerId)
             .maybeSingle()
-        const platformCost = parseFloat(String(checkerType?.customer_price ?? 0))
+        platformCost = parseFloat(String(checkerType?.cost_price ?? 0))
         shopMarkup = Math.max(0, expectedPrice - platformCost)
     }
 
@@ -130,6 +134,8 @@ export async function fulfillUSSDRCBySession(params: {
                 shop_id: shopId,
                 shop_name: shopName,
                 shop_markup: shopMarkup,
+                merchant_commission: shopMarkup,
+                cost_price_at_time: platformCost,
                 customer_phone: recipientMobile || payerMobile,
                 type_id: selectedCheckerId,
                 type_name: selectedCheckerName,

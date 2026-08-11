@@ -528,7 +528,7 @@ async function getHouseCode(): Promise<string | null> {
  * The checker list for this session: a shop's own selling prices when a shop is
  * resolved, otherwise the platform's `ussd_price ?? customer_price`.
  */
-async function loadCheckers(sessionData: any): Promise<Array<{ id: string; name: string; price: number; cost: number }>> {
+async function loadCheckers(sessionData: any): Promise<Array<{ id: string; name: string; price: number }>> {
     try {
         const typesPromise = getSupabaseAdmin()
             .from('results_checker_types')
@@ -539,12 +539,14 @@ async function loadCheckers(sessionData: any): Promise<Array<{ id: string; name:
         const types = typesResult.data || [];
         if (!types.length) return [];
 
+        // Price only — the shop's margin is derived at fulfilment from the DB, so
+        // carrying a cost figure through the session would just be a second,
+        // staler source of truth.
         if (sessionData.mode !== 'shop') {
             return types.map((t: any) => ({
                 id: t.id,
                 name: t.name,
                 price: Number(t.ussd_price ?? t.customer_price ?? 0),
-                cost: Number(t.customer_price ?? 0),
             }));
         }
 
@@ -567,7 +569,6 @@ async function loadCheckers(sessionData: any): Promise<Array<{ id: string; name:
                 id: t.id,
                 name: t.name,
                 price: priceByType[t.id],
-                cost: Number(t.customer_price ?? 0),
             }));
     } catch (e: any) {
         console.error('[Hubtel Interact] loadCheckers failed:', e?.message);
