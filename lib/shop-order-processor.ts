@@ -1,6 +1,5 @@
 import { createServerClient } from './supabase'
 import { creditShopProfit } from './shop-service'
-import { sendOrderSuccessSMS } from './sms-service'
 
 // In-memory lock to prevent race conditions between frontend verification and Paystack webhooks
 const processingLocks = new Set<string>();
@@ -318,16 +317,9 @@ export async function processShopOrder(
             }
         }
 
-        // 4. Process Valid Order — SMS, Profit Credit, Fulfillment
-        if (metadata.guest_phone) {
-            sendOrderSuccessSMS(metadata.guest_phone, {
-                network: metadata.network,
-                size: metadata.package_size || `${metadata.airtime_amount} Airtime`,
-                price: verifiedSellingPrice,
-                recipientNumber: metadata.guest_phone,
-                currentBalance: 0
-            }).catch((err: Error) => console.error('[Shop Order Processor] SMS error:', err))
-        }
+        // 4. Process Valid Order — Profit Credit, Fulfillment
+        // No "order received" SMS: the payment provider already texts a receipt, and
+        // the customer hears from us again when the bundle actually lands.
 
         // 4.2 Credit Profit
         try {

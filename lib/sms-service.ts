@@ -142,15 +142,9 @@ async function sendMoolreSMS(options: SMSOptions): Promise<SMSResult> {
 // SPECIFIC SMS TEMPLATES
 // ============================================================
 
-export async function sendOrderSuccessSMS(
-    recipientNumber: string,
-    details: { size: string; network: string; price: number; recipientNumber: string; currentBalance: number }
-) {
-    return sendSMS({
-        recipient: details.recipientNumber,
-        message: `Your order for ${details.size} has been received and is being processed. You will receive your data within 2 hours thank you.\n\nARHMSGh`,
-    })
-}
+// sendOrderSuccessSMS (the "order received / within 2 hours" text) was retired:
+// the payment provider already sends its own receipt, and customers now only hear
+// from us when the data actually lands.
 
 export async function sendStatusUpdateSMS(
     phoneNumber: string,
