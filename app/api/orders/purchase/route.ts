@@ -4,7 +4,7 @@ import { generateReferenceCode } from '@/lib/utils'
 import { createRouteHandlerClient } from '@/lib/supabase-server'
 import { cookies } from 'next/headers'
 import { sendOrderSuccessEmail, sendAdminNewOrderAlert } from '@/lib/email-service'
-import { sendOrderSuccessSMS, sendAdminAgentOrderAlert } from '@/lib/sms-service'
+import { sendAdminAgentOrderAlert } from '@/lib/sms-service'
 import { sendPushToUser, sendPushToAdmins } from '@/lib/web-push'
 import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
@@ -243,17 +243,8 @@ export async function POST(request: NextRequest) {
                 //       .catch((err: Error) => console.error('[Purchase] Confirmation email failed:', err))
                 // }
 
-                // 2. Send User SMS Confirmation (To data recipient as requested)
-                if (accountHolderPhone) {
-                    await sendOrderSuccessSMS(accountHolderPhone, {
-                        network: (pkg as any).network,
-                        size: (pkg as any).size,
-                        price: priceToCharge,
-                        recipientNumber: phoneNumber,
-                        currentBalance: newBalance
-                    }).then(() => console.log('[Purchase] Confirmation SMS sent successfully'))
-                      .catch((err: Error) => console.error('[Purchase] Confirmation SMS failed:', err))
-                }
+                // 2. No "order received" SMS — the customer only hears from us once
+                // the data actually lands.
 
                 // 3. Send Admin Agent Alert
                 if (isAgent) {

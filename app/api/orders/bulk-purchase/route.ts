@@ -303,24 +303,15 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * Handle per-order notifications: SMS to beneficiary first, then fulfillment.
+ * Trigger fulfillment for one order.
  * Returns outcome so caller can aggregate for admin alert.
  */
 async function processOrderNotifications(
     order: { id: string; reference_code: string; network: string; phone_number: string; size: string },
     user: { email: string; name: string }
 ): Promise<FulfillmentOutcome> {
-    // Step 1: SMS to beneficiary (non-blocking — errors don't prevent fulfillment)
-    const { sendOrderSuccessSMS } = await import('@/lib/sms-service')
-    await sendOrderSuccessSMS(order.phone_number, {
-        recipientNumber: order.phone_number,
-        network: order.network,
-        size: order.size,
-        price: 0,
-        currentBalance: 0,
-    }).catch(err => console.error(`[BulkOrder] SMS error for ${order.phone_number}:`, err))
-
-    // Step 2: Trigger fulfillment and return the outcome
+    // No "order received" SMS — beneficiaries only hear from us on delivery.
+    // On a bulk run this also stops one text per line item landing at once.
     return triggerFulfillment(order, user)
 }
 
