@@ -83,6 +83,10 @@ const SUPPLIER_KEYS = {
 
 type SupplierId = keyof typeof SUPPLIER_KEYS
 const PAGE_SIZE = 10
+// Per-request page size, and the safety ceiling on how many orders one filter
+// will pull into the browser before we stop and say so on screen.
+const FETCH_CHUNK = 500
+const MAX_ORDERS_LOADED = 5000
 
 export default function FulfillmentPage() {
     const { dbUser } = useAuth()
@@ -102,8 +106,10 @@ export default function FulfillmentPage() {
     const [customDate, setCustomDate] = useState<string>('') // Changed to string for input date
     const [searchQuery, setSearchQuery] = useState('')
 
-    // Pagination State (Disabled for total load)
+    // Total matching the current filter (from the server), plus a flag for when
+    // the range is so large we stopped short of loading all of it.
     const [ordersCount, setOrdersCount] = useState(0)
+    const [isTruncated, setIsTruncated] = useState(false)
 
     // Settings state — defaults all networks to false until loaded from DB
     const [settings, setSettings] = useState<FulfillmentSettings>({
@@ -198,6 +204,15 @@ export default function FulfillmentPage() {
         }
 
         return { start, end }
+    }
+
+    const dateRangeLabel = () => {
+        if (dateFilter === 'today') return "Today"
+        if (dateFilter === 'yesterday') return "Yesterday"
+        if (dateFilter === 'week') return "This Week"
+        if (dateFilter === 'month') return "This Month"
+        if (dateFilter === 'custom') return customDate || "Custom"
+        return "All Time"
     }
 
     const fetchSettings = async () => {
@@ -391,21 +406,49 @@ export default function FulfillmentPage() {
         try {
             const { start, end } = getDateRange()
 
-            let url = `/api/admin/fulfillment?network=${networkFilter}&status=${statusFilter}&limit=500`
+            let url = `/api/admin/fulfillment?network=${networkFilter}&status=${statusFilter}&limit=${FETCH_CHUNK}`
             if (start) url += `&startDate=${start.toISOString()}`
             if (end) url += `&endDate=${end.toISOString()}`
             if (searchQuery) url += `&search=${encodeURIComponent(searchQuery)}`
 
-            const response = await fetch(url)
-            if (!response.ok) {
-                const errorData = await response.json()
-                throw new Error(errorData.error || 'Failed to fetch orders')
+            // The API returns one page at a time. Walk every page of the range so
+            // the stat tiles and the Total Cost cover the whole day rather than
+            // whatever happened to fit in the first batch.
+            const collected: Order[] = []
+            const seen = new Set<string>()
+            let total = 0
+            let truncated = false
+            let fetched = 0
+
+            while (true) {
+                const response = await fetch(`${url}&offset=${fetched}`)
+                if (!response.ok) {
+                    const errorData = await response.json()
+                    throw new Error(errorData.error || 'Failed to fetch orders')
+                }
+
+                const data = await response.json()
+                const batch: Order[] = data.orders || []
+                fetched += batch.length
+                // Newest-first paging shifts rows down when an order lands mid-walk,
+                // so the same id can come back on the next page.
+                for (const order of batch) {
+                    if (seen.has(order.id)) continue
+                    seen.add(order.id)
+                    collected.push(order)
+                }
+                total = typeof data.total === 'number' ? data.total : collected.length
+
+                if (batch.length === 0 || !data.hasMore) break
+                if (fetched >= MAX_ORDERS_LOADED) {
+                    truncated = true
+                    break
+                }
             }
 
-            const data = await response.json()
-            const fetchedOrders = data.orders || []
-            setOrders(fetchedOrders)
-            setOrdersCount(fetchedOrders.length)
+            setOrders(collected)
+            setOrdersCount(total || collected.length)
+            setIsTruncated(truncated)
         } catch (error: any) {
             console.error('Fetch orders error:', error)
             toast.error('Failed to fetch orders: ' + error.message)
@@ -1415,6 +1458,23 @@ export default function FulfillmentPage() {
                             <div className="pt-4 border-t">
                                 <div className="grid grid-cols-2 gap-2">
 
+                                    <div className="col-span-2 p-2.5 md:p-3 bg-primary/5 dark:bg-primary/10 rounded-lg border border-primary/20">
+                                        <div className="flex items-baseline justify-between gap-2">
+                                            <p className="text-[9px] md:text-[10px] text-primary font-bold uppercase">{dateRangeLabel()}&apos;s Orders</p>
+                                            {isLoadingOrders && <span className="text-[9px] text-muted-foreground">loading…</span>}
+                                        </div>
+                                        <p className="text-2xl md:text-3xl font-black text-primary leading-tight">{ordersCount}</p>
+                                        {isTruncated ? (
+                                            <p className="text-[9px] text-amber-600 dark:text-amber-500 font-bold">
+                                                Showing first {orders.length} of {ordersCount} — narrow the filters to see the rest
+                                            </p>
+                                        ) : (
+                                            <p className="text-[9px] text-muted-foreground">
+                                                All {orders.length} order{orders.length === 1 ? '' : 's'} loaded below
+                                            </p>
+                                        )}
+                                    </div>
+
                                     <div className="p-2 md:p-2.5 bg-amber-50 dark:bg-amber-900/10 rounded-lg border border-amber-100 dark:border-amber-900/20 italic">
                                         <p className="text-[9px] md:text-[10px] text-amber-700 dark:text-amber-400 font-bold uppercase">Pending</p>
                                         <p className="text-lg md:text-xl font-black text-amber-600 dark:text-amber-500">{orders.filter(o => o.status === 'pending').length}</p>
@@ -1510,7 +1570,12 @@ export default function FulfillmentPage() {
 
                     <Card className="shadow-md">
                         <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                            <CardTitle className="text-lg font-bold">Order History</CardTitle>
+                            <CardTitle className="text-lg font-bold flex items-center gap-2">
+                                Order History
+                                <Badge variant="secondary" className="rounded-full px-2 text-[10px] font-bold">
+                                    {dateRangeLabel()} · {orders.length}{isTruncated ? `/${ordersCount}` : ''}
+                                </Badge>
+                            </CardTitle>
                             <div className="flex gap-2">
                                 <Button variant="ghost" size="sm" className="h-7 text-[10px]" onClick={() => setSelectedOrders(new Set())} disabled={selectedOrders.size === 0}>
                                     Clear

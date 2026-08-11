@@ -16,7 +16,11 @@ export async function GET(request: NextRequest) {
         const startDate = searchParams.get('startDate')
         const endDate = searchParams.get('endDate')
         const search = searchParams.get('search')
-        const { limit } = parsePagination(searchParams, { defaultLimit: 100, maxLimit: 200 })
+        // A busy day runs well past a couple hundred orders, and the fulfillment
+        // centre's stat tiles are computed from whatever this returns — a silent
+        // cap made the admin's "today" totals under-report the day. The page walks
+        // pages via `offset` and adds them up, so keep the ceiling generous.
+        const { limit, offset } = parsePagination(searchParams, { defaultLimit: 500, maxLimit: 1000 })
 
         // Use service role client to bypass RLS
         const supabase = createServerClient()
@@ -45,7 +49,7 @@ export async function GET(request: NextRequest) {
                         api_response,
                         retry_count
                     )
-                `)
+                `, { count: 'exact' })
 
             // Filter by pertinent statuses for fulfillment center
             if (withSupplierStatus && status === 'verifying') {
@@ -80,15 +84,15 @@ export async function GET(request: NextRequest) {
                 q = q.ilike('phone_number', `%${search}%`)
             }
 
-            return q.order('created_at', { ascending: false }).limit(limit)
+            return q.order('created_at', { ascending: false }).range(offset, offset + limit - 1)
         }
 
-        let { data: rawOrders, error: fetchError } = await buildQuery(true)
+        let { data: rawOrders, error: fetchError, count } = await buildQuery(true)
 
         // 42703 = undefined_column: the migration has not been applied here.
         if (fetchError?.code === '42703') {
             console.warn('[FulfillmentFetch] supplier_status missing — retrying without it')
-            ;({ data: rawOrders, error: fetchError } = await buildQuery(false))
+            ;({ data: rawOrders, error: fetchError, count } = await buildQuery(false))
         }
 
         if (fetchError) {
@@ -127,8 +131,14 @@ export async function GET(request: NextRequest) {
             }
         })
 
+        const total = typeof count === 'number' ? count : offset + orders.length
+
         return NextResponse.json({
-            orders: orders
+            orders: orders,
+            total,
+            limit,
+            offset,
+            hasMore: offset + orders.length < total
         })
     } catch (error: any) {
         console.error('Fulfillment Orders Fetch Error:', error)

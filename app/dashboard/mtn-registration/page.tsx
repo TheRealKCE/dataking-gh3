@@ -16,7 +16,7 @@ import {
     Copy,
     Download,
     CheckCircle2,
-    Clock,
+    AlertCircle,
     XCircle,
     Info,
 } from 'lucide-react'
@@ -48,9 +48,9 @@ const STATUS_META: Record<CheckStatus, { label: string; className: string; icon:
         icon: CheckCircle2,
     },
     submitted: {
-        label: 'Sent to MTN',
+        label: 'Not Registered',
         className: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 border-transparent',
-        icon: Clock,
+        icon: AlertCircle,
     },
     invalid: {
         label: 'Invalid',
@@ -118,7 +118,7 @@ export default function MtnRegistrationPage() {
             setSummary(data.summary)
 
             if (data.summary.submitted > 0) {
-                toast.success(`${data.summary.registered} registered · ${data.summary.submitted} sent to MTN`)
+                toast.success(`${data.summary.registered} registered · ${data.summary.submitted} NOT registered (sent to MTN)`)
             } else {
                 toast.success(`All ${data.summary.registered} MTN numbers are registered`)
             }
@@ -182,7 +182,7 @@ export default function MtnRegistrationPage() {
     const copySubmitted = async () => {
         const numbers = (results || []).filter(r => r.status === 'submitted').map(r => r.normalized)
         if (numbers.length === 0) {
-            toast.error('No numbers were sent to MTN')
+            toast.error('Every number is already registered')
             return
         }
         await navigator.clipboard.writeText(numbers.join('\n'))
@@ -209,8 +209,8 @@ export default function MtnRegistrationPage() {
         <div className="space-y-6">
             {/* Header */}
             <div className="text-center">
-                <h1 className="text-2xl font-bold">Check MTN Number Registration</h1>
-                <p className="text-sm text-muted-foreground mt-1">
+                <h1 className="text-2xl sm:text-3xl font-bold">Check MTN Number Registration</h1>
+                <p className="text-base text-muted-foreground mt-1">
                     See which MTN numbers are registered for data before you order
                 </p>
             </div>
@@ -221,7 +221,7 @@ export default function MtnRegistrationPage() {
                     <div className="bg-amber-100 dark:bg-amber-900/30 p-2 rounded-xl shrink-0">
                         <ShieldCheck className="w-5 h-5 text-amber-600 dark:text-amber-500" />
                     </div>
-                    <p className="text-sm text-amber-900 dark:text-amber-200 text-left leading-relaxed">
+                    <p className="text-base text-amber-900 dark:text-amber-200 text-left leading-relaxed">
                         Numbers that are <strong>not registered</strong> are sent to MTN automatically and are usually
                         ready within 24 hours — just try the order again tomorrow. You can check up to{' '}
                         <strong>{MAX_NUMBERS.toLocaleString()}</strong> numbers at once.
@@ -261,9 +261,9 @@ export default function MtnRegistrationPage() {
                                     value={text}
                                     onChange={(e) => setText(e.target.value)}
                                     placeholder={'0551234567\n0244000000\n0591112222'}
-                                    className="min-h-[200px] font-mono text-sm rounded-xl"
+                                    className="min-h-[200px] font-mono text-base rounded-xl"
                                 />
-                                <div className="flex items-center justify-between text-xs">
+                                <div className="flex items-center justify-between text-sm">
                                     <span className={cn('font-medium', overLimit ? 'text-red-600' : 'text-muted-foreground')}>
                                         {pastedNumbers.length.toLocaleString()} / {MAX_NUMBERS.toLocaleString()} numbers
                                     </span>
@@ -343,7 +343,7 @@ export default function MtnRegistrationPage() {
                 {results && summary && !isChecking && (
                     <Card className="rounded-3xl">
                         <CardHeader>
-                            <CardTitle className="text-lg">Results</CardTitle>
+                            <CardTitle className="text-xl">Results</CardTitle>
                         </CardHeader>
                         <CardContent className="space-y-4">
                             {/* Summary chips double as filters */}
@@ -352,7 +352,7 @@ export default function MtnRegistrationPage() {
                                     type="button"
                                     onClick={() => setFilter('all')}
                                     className={cn(
-                                        'px-3 py-1.5 rounded-full text-xs font-bold border transition-colors',
+                                        'px-4 py-2 rounded-full text-sm font-bold border transition-colors',
                                         filter === 'all' ? 'bg-foreground text-background border-transparent' : 'hover:bg-muted'
                                     )}
                                 >
@@ -368,7 +368,7 @@ export default function MtnRegistrationPage() {
                                             type="button"
                                             onClick={() => setFilter(status)}
                                             className={cn(
-                                                'px-3 py-1.5 rounded-full text-xs font-bold transition-all',
+                                                'px-4 py-2 rounded-full text-sm font-bold transition-all',
                                                 meta.className,
                                                 filter === status && 'ring-2 ring-offset-1 ring-current'
                                             )}
@@ -380,19 +380,19 @@ export default function MtnRegistrationPage() {
                             </div>
 
                             {summary.duplicates > 0 && (
-                                <p className="text-xs text-muted-foreground">
+                                <p className="text-sm text-muted-foreground">
                                     {summary.duplicates} duplicate {summary.duplicates === 1 ? 'number was' : 'numbers were'} checked only once.
                                 </p>
                             )}
 
                             {/* Table */}
-                            <div className="overflow-x-auto max-h-[480px] overflow-y-auto rounded-xl border">
-                                <table className="w-full text-sm">
+                            <div className="overflow-x-auto max-h-[560px] overflow-y-auto rounded-xl border">
+                                <table className="w-full text-base">
                                     <thead className="bg-muted/50 sticky top-0">
                                         <tr>
-                                            <th className="text-left font-semibold px-4 py-2">Number</th>
-                                            <th className="text-left font-semibold px-4 py-2">Status</th>
-                                            <th className="text-left font-semibold px-4 py-2 hidden sm:table-cell">Note</th>
+                                            <th className="text-left font-semibold px-4 py-3">Number</th>
+                                            <th className="text-left font-semibold px-4 py-3">Status</th>
+                                            <th className="text-left font-semibold px-4 py-3 hidden sm:table-cell">Note</th>
                                         </tr>
                                     </thead>
                                     <tbody>
@@ -401,17 +401,23 @@ export default function MtnRegistrationPage() {
                                             const Icon = meta.icon
                                             return (
                                                 <tr key={`${result.input}-${index}`} className="border-t">
-                                                    <td className="px-4 py-2 font-mono whitespace-nowrap">
+                                                    <td className="px-4 py-3.5 font-mono font-semibold text-lg whitespace-nowrap">
                                                         {result.normalized || result.input}
                                                     </td>
-                                                    <td className="px-4 py-2">
-                                                        <Badge className={cn('gap-1 font-semibold', meta.className)}>
-                                                            <Icon className="w-3 h-3" />
+                                                    <td className="px-4 py-3.5">
+                                                        <Badge className={cn('gap-1.5 font-semibold text-sm px-3 py-1', meta.className)}>
+                                                            <Icon className="w-4 h-4" />
                                                             {meta.label}
                                                         </Badge>
+                                                        {/* The Note column is hidden on phones, so repeat it here */}
+                                                        {(result.reason || result.status === 'submitted') && (
+                                                            <p className="sm:hidden text-xs text-muted-foreground mt-1">
+                                                                {result.reason || 'Sent to MTN · try again in ~24h'}
+                                                            </p>
+                                                        )}
                                                     </td>
-                                                    <td className="px-4 py-2 text-muted-foreground hidden sm:table-cell">
-                                                        {result.reason || (result.status === 'submitted' ? 'Sent to MTN · ready in ~24h' : '')}
+                                                    <td className="px-4 py-3.5 text-sm text-muted-foreground hidden sm:table-cell">
+                                                        {result.reason || (result.status === 'submitted' ? 'Sent to MTN · try again in ~24h' : '')}
                                                     </td>
                                                 </tr>
                                             )
@@ -421,11 +427,11 @@ export default function MtnRegistrationPage() {
                             </div>
 
                             <div className="flex flex-wrap gap-3">
-                                <Button variant="outline" className="rounded-xl" onClick={copySubmitted}>
+                                <Button variant="outline" className="h-11 rounded-xl text-base" onClick={copySubmitted}>
                                     <Copy className="w-4 h-4 mr-2" />
-                                    Copy numbers sent to MTN
+                                    Copy not-registered numbers
                                 </Button>
-                                <Button variant="outline" className="rounded-xl" onClick={downloadCsv}>
+                                <Button variant="outline" className="h-11 rounded-xl text-base" onClick={downloadCsv}>
                                     <Download className="w-4 h-4 mr-2" />
                                     Download CSV
                                 </Button>

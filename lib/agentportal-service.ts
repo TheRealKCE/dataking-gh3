@@ -19,6 +19,14 @@ const AGENTPORTAL_API_URL = process.env.AGENTPORTAL_API_URL || 'https://api.agen
 export const AGENTPORTAL_SCAN_DAYS = 3
 // Safety stop for the paginated order-list walk, so a broken paginator can't spin.
 const AGENTPORTAL_MAX_PAGES = 20
+// Both list endpoints default to 20 rows a page and honour `page_size` (measured:
+// `per_page`/`limit`/`pageSize` are ignored, `page_size` is not). Reading the default
+// page is what silently truncated the scan — a 19-order group returned 19 'uploaded'
+// rows and only ONE delivery row, so 18 orders looked unresolved.
+const AGENTPORTAL_PAGE_SIZE = 100
+// The order list is slow (~13s a page regardless of size); the items endpoint is fast
+// (~0.8s) and parallelises cleanly, so items are fetched with a worker pool.
+const AGENTPORTAL_ITEMS_CONCURRENCY = 12
 
 // ─── Circuit Breaker ───────────────────────────────────────────────────────────
 let circuitState: 'closed' | 'open' | 'half-open' = 'closed'
@@ -290,217 +298,249 @@ export async function fulfillOrder(
     }
 }
 
-// ─── Order Status Check (fallback reconciliation only) ──────────────────────────
+// ─── Paginated JSON GET ────────────────────────────────────────────────────────
 /**
- * Best-effort status lookup for the fallback cron. Agent Portal has no
- * status-by-reference endpoint, so we scan today's (and yesterday's) orders and
- * match the item whose `reference` equals ours.
- * `reference` is the Arhms orderId we sent at fulfillment time.
+ * GET a JSON endpoint. `reached` reports whether the supplier answered with JSON at
+ * all, so callers can tell "supplier unreachable" (bail) from "nothing to report".
  */
-export async function checkOrderStatus(reference: string): Promise<StatusResponse> {
-
-    if (!checkCircuit()) return { success: false, status: 'pending', message: 'Service unavailable (circuit open)' }
-    if (!AGENTPORTAL_API_KEY) return { success: false, status: 'pending', message: 'API key not configured' }
-
+async function apiGet(path: string, timeoutMs = 20_000): Promise<{ reached: boolean; json: any }> {
     try {
-        // Look back over the last 2 days of orders to find the group containing our item.
-        const dates: string[] = []
-        for (let i = 0; i < 2; i++) {
-            const d = new Date(Date.now() - i * 86400000)
-            dates.push(d.toISOString().slice(0, 10)) // YYYY-MM-DD
+        const resp = await fetch(`${AGENTPORTAL_API_URL}${path}`, {
+            method: 'GET',
+            headers: { 'Accept': 'application/json', 'X-API-Key': AGENTPORTAL_API_KEY },
+            signal: AbortSignal.timeout(timeoutMs),
+        })
+        const text = await resp.text()
+        try {
+            return { reached: true, json: JSON.parse(text) }
+        } catch {
+            return { reached: false, json: null } // non-JSON (WAF/HTML/gateway error)
         }
-
-        for (const date of dates) {
-            const listResp = await fetch(`${AGENTPORTAL_API_URL}/api/beneficiaries/orders?date=${date}`, {
-                method: 'GET',
-                headers: { 'Accept': 'application/json', 'X-API-Key': AGENTPORTAL_API_KEY },
-            })
-
-            const listText = await listResp.text()
-            let listData: any
-            try {
-                listData = JSON.parse(listText)
-            } catch {
-                continue
-            }
-
-            const orders: any[] = Array.isArray(listData) ? listData : (listData?.data || [])
-            for (const grp of orders) {
-                const orderId = grp?.id || grp?.order_id
-                if (!orderId) continue
-
-                const itemsResp = await fetch(
-                    `${AGENTPORTAL_API_URL}/api/beneficiaries/orders/${encodeURIComponent(orderId)}/items`,
-                    { method: 'GET', headers: { 'Accept': 'application/json', 'X-API-Key': AGENTPORTAL_API_KEY } }
-                )
-                const itemsText = await itemsResp.text()
-                let itemsData: any
-                try {
-                    itemsData = JSON.parse(itemsText)
-                } catch {
-                    continue
-                }
-
-                const items: any[] = Array.isArray(itemsData) ? itemsData : (itemsData?.data || itemsData?.items || [])
-                const match = items.find((it: any) => it?.reference === reference)
-                if (match) {
-                    recordSuccess()
-                    return {
-                        success: true,
-                        status: mapAgentPortalStatus(match.status),
-                        message: match.status,
-                        data: match,
-                    }
-                }
-            }
-        }
-
-        // Not found yet — still in flight.
-        return { success: false, status: 'pending', message: 'Order item not found in recent orders' }
-
-    } catch (error) {
-        recordFailure()
-        return { success: false, status: 'pending', message: 'Connection error during status check' }
+    } catch {
+        return { reached: false, json: null }
     }
 }
 
-// Agent Portal per-item statuses: 'success' | 'failed' (terminal). Anything else → processing.
-function mapAgentPortalStatus(status: string): 'pending' | 'processing' | 'completed' | 'failed' {
-    const s = (status || '').toLowerCase()
-    if (s === 'success' || s === 'done' || s === 'completed' || s === 'delivered') return 'completed'
-    if (s === 'failed' || s === 'cancelled' || s === 'reversed') return 'failed'
-    return 'processing'
+// Envelope is { data: [...], total: n } — `total` is the only paging hint the API gives
+// (no last_page / next_page_url), so page counts must be derived from it.
+function rowsOf(json: any): any[] {
+    return Array.isArray(json) ? json : (json?.data || json?.items || [])
+}
+
+/**
+ * Read EVERY page of a paginated list endpoint. Page 1 is fetched first for its `total`,
+ * then the remaining pages are fetched in parallel.
+ *
+ * `stopOnceOlderThan` (epoch ms) short-circuits the walk for the order list, which is
+ * returned strictly newest-first: once a page reaches back past the oldest order we're
+ * waiting on, no later page can hold anything we need. That keeps a routine run to a
+ * single call on the endpoint that costs ~13s a page.
+ */
+async function fetchAllPages(
+    basePath: string,
+    timeoutMs = 20_000,
+    stopOnceOlderThan?: number
+): Promise<{ reached: boolean; rows: any[] }> {
+    const sep = basePath.includes('?') ? '&' : '?'
+    const first = await apiGet(`${basePath}${sep}page=1&page_size=${AGENTPORTAL_PAGE_SIZE}`, timeoutMs)
+    if (!first.reached) return { reached: false, rows: [] }
+
+    const rows = rowsOf(first.json)
+    const total = Number(first.json?.total ?? 0)
+    if (rows.length === 0 || total <= rows.length) return { reached: true, rows }
+
+    const oldestOnPage = rows[rows.length - 1]?.created_at
+    if (stopOnceOlderThan && oldestOnPage && new Date(oldestOnPage).getTime() < stopOnceOlderThan) {
+        return { reached: true, rows }
+    }
+
+    const pages = Math.min(Math.ceil(total / AGENTPORTAL_PAGE_SIZE), AGENTPORTAL_MAX_PAGES)
+    const rest = await Promise.all(
+        Array.from({ length: pages - 1 }, (_, i) =>
+            apiGet(`${basePath}${sep}page=${i + 2}&page_size=${AGENTPORTAL_PAGE_SIZE}`, timeoutMs))
+    )
+    for (const r of rest) rows.push(...rowsOf(r.json))
+    return { reached: true, rows }
+}
+
+/** Every item row of one Agent Portal order group (all pages). */
+export async function fetchOrderItems(groupId: string): Promise<any[]> {
+    const { rows } = await fetchAllPages(
+        `/api/beneficiaries/orders/${encodeURIComponent(groupId)}/items`, 15_000)
+    return rows
+}
+
+// ─── Item rows → per-reference outcome ─────────────────────────────────────────
+/**
+ * Resolve the delivery outcome of EACH of our orders inside one Agent Portal order group.
+ *
+ * Shape of the items feed (measured):
+ *   • A group is a BATCH — it can hold many of our orders (up to ~19 seen in production),
+ *     each contributing one 'uploaded' row that carries OUR `reference` plus its own
+ *     `batch_id` and `msisdn`.
+ *   • When an item is delivered, Agent Portal appends a SEPARATE row with the terminal
+ *     status ('success' / 'failed'), `reference: null`, and the SAME `batch_id`.
+ *   • Small/instant orders sometimes appear as a single row that is both terminal and
+ *     carries the reference.
+ *
+ * So the outcome of a given order is the terminal row sharing its `batch_id` — NOT
+ * "did anything in this group succeed", which would resolve one order per group and
+ * strand every other order in the batch.
+ */
+export function mapItemsToOutcomes(items: any[]): Map<string, 'completed' | 'failed'> {
+    const outcomes = new Map<string, 'completed' | 'failed'>()
+    if (!Array.isArray(items) || items.length === 0) return outcomes
+
+    const statusOf = (it: any) => String(it?.status || '').toLowerCase()
+    const terminalRows = items.filter(it => statusOf(it) === 'success' || statusOf(it) === 'failed')
+    if (terminalRows.length === 0) return outcomes
+
+    for (const row of items) {
+        const ref = row?.reference
+        if (!ref) continue
+
+        // A retried item is delivered under a replacement batch, so follow that too.
+        const batchIds = new Set([row?.batch_id, row?.replaced_by_batch_id].filter(Boolean))
+        let mates = terminalRows.filter(t => t?.batch_id && batchIds.has(t.batch_id))
+
+        if (mates.length === 0) {
+            // No batch_id to join on — fall back to the recipient + volume, but only when
+            // those rows agree. Two orders for the same number and size in one batch would
+            // otherwise let a success mask the other one's failure.
+            const sameRecipient = terminalRows.filter(t => t?.msisdn === row?.msisdn && t?.data_mb === row?.data_mb)
+            const unanimous = sameRecipient.length > 0
+                && sameRecipient.every(t => statusOf(t) === statusOf(sameRecipient[0]))
+            if (unanimous) mates = sameRecipient
+        }
+
+        // Single-row form: the row carrying the reference IS the delivery row.
+        if (mates.length === 0 && (statusOf(row) === 'success' || statusOf(row) === 'failed')) {
+            mates = [row]
+        }
+
+        if (mates.length === 0) continue // still in flight — leave it processing
+
+        // success is always terminal. A failure is only FINAL once auto-refunded
+        // (refunded_at); before that Agent Portal may still retry it, so we wait rather
+        // than mark the order failed inside the supplier's retry window.
+        if (mates.some(m => statusOf(m) === 'success')) {
+            outcomes.set(String(ref), 'completed')
+        } else if (mates.some(m => statusOf(m) === 'failed' && m?.refunded_at)) {
+            outcomes.set(String(ref), 'failed')
+        }
+    }
+
+    return outcomes
+}
+
+// ─── Order Status Check (single reference, admin/debug use) ─────────────────────
+/**
+ * Best-effort status lookup for one reference. Agent Portal has no status-by-reference
+ * endpoint, so this scans the recent order groups for the item we submitted. Prefer
+ * fetchRecentItemStatuses() for anything that checks more than one order.
+ */
+export async function checkOrderStatus(reference: string): Promise<StatusResponse> {
+    const { success, statuses, error } = await fetchRecentItemStatuses({
+        wantedRefs: new Set([String(reference)]),
+    })
+    if (!success) return { success: false, status: 'pending', message: error || 'Status check failed' }
+
+    const found = statuses.get(String(reference))
+    if (!found) return { success: false, status: 'pending', message: 'Order item not found in recent orders' }
+    return { success: true, status: found, message: found }
 }
 
 // ─── Batch Status Fetch (for the reconciliation cron) ───────────────────────────
+export interface RecentStatusOptions {
+    /** Ignore groups created before this instant (a group is never created before the
+     *  order that went into it). Bounds a routine run to the orders still outstanding. */
+    since?: Date | null
+    /** The references we're waiting on. The scan stops as soon as all are resolved. */
+    wantedRefs?: Set<string>
+    /** Wall-clock budget. On expiry the scan returns what it has (partial: true). */
+    budgetMs?: number
+}
+
 /**
- * Fetch the status of every item across the last 2 days of Agent Portal orders in a
- * SINGLE pass, returning a Map keyed by the `reference` we submitted (the Arhms order
- * id) → mapped status. The reconciliation cron calls this ONCE per run and then looks
- * up each of its processing orders locally — far cheaper than scanning per order.
+ * Fetch the delivery outcome of every recent Agent Portal item in ONE pass, returning a
+ * Map keyed by the `reference` we submitted (the Arhms order id) → status. The
+ * reconciliation cron calls this once per run and then looks up each of its processing
+ * orders locally — far cheaper than scanning per order.
  *
  * `success` is false only when we couldn't reach the supplier at all (so the cron can
  * bail without mistakenly treating an empty map as "everything still pending").
  */
-export async function fetchRecentItemStatuses(): Promise<{
+export async function fetchRecentItemStatuses(options: RecentStatusOptions = {}): Promise<{
     success: boolean
     statuses: Map<string, 'pending' | 'processing' | 'completed' | 'failed'>
     error?: string
+    scannedGroups?: number
+    partial?: boolean
 }> {
     const statuses = new Map<string, 'pending' | 'processing' | 'completed' | 'failed'>()
 
     if (!checkCircuit()) return { success: false, statuses, error: 'Service unavailable (circuit open)' }
     if (!AGENTPORTAL_API_KEY) return { success: false, statuses, error: 'API key not configured' }
 
-    // Scan window. Anything older than this can never be resolved by the cron, which is
-    // why the caller must bound its DB query to the SAME window (AGENTPORTAL_SCAN_DAYS) —
+    const deadline = Date.now() + (options.budgetMs ?? 45_000)
+    const remaining = options.wantedRefs ? new Set(options.wantedRefs) : null
+
+    // Scan window. Anything older than this can never be resolved here, which is why the
+    // caller must bound its DB query to the SAME window (AGENTPORTAL_SCAN_DAYS) —
     // otherwise unresolvable old orders sit at the head of an oldest-first query forever
     // and starve the orders that this scan could actually have resolved.
+    const oldestWanted = options.since ? options.since.getTime() : 0
     const dates: string[] = []
     for (let i = 0; i < AGENTPORTAL_SCAN_DAYS; i++) {
-        dates.push(new Date(Date.now() - i * 86400000).toISOString().slice(0, 10))
+        const day = new Date(Date.now() - i * 86400000)
+        dates.push(day.toISOString().slice(0, 10))
+        // No outstanding order older than this day — no reason to read further back.
+        if (oldestWanted && day.setUTCHours(0, 0, 0, 0) <= oldestWanted) break
     }
 
-    let reachedSupplier = false
+    let partial = false
 
     try {
-        for (const date of dates) {
-          // The list endpoint is paginated — reading only page 1 silently drops the
-          // older groups of a busy day, which is exactly how orders got stranded in
-          // 'processing'. Follow the pages until the supplier says there are no more.
-          for (let page = 1; page <= AGENTPORTAL_MAX_PAGES; page++) {
-            const listResp = await fetch(`${AGENTPORTAL_API_URL}/api/beneficiaries/orders?date=${date}&page=${page}`, {
-                method: 'GET',
-                headers: { 'Accept': 'application/json', 'X-API-Key': AGENTPORTAL_API_KEY },
-                signal: AbortSignal.timeout(15_000),
-            })
+        // ── 1. Order groups for each scanned date (dates and pages in parallel) ──
+        const lists = await Promise.all(dates.map(d =>
+            fetchAllPages(`/api/beneficiaries/orders?date=${d}`, 20_000, oldestWanted || undefined)))
 
-            const listText = await listResp.text()
-            let listData: any
-            try {
-                listData = JSON.parse(listText)
-            } catch {
-                break // non-JSON (WAF/HTML) — abandon this date
-            }
-            reachedSupplier = true
-
-            const orders: any[] = Array.isArray(listData) ? listData : (listData?.data || [])
-            if (orders.length === 0) break
-
-            // Stop when the paginator says this was the last page. Shapes vary between
-            // envelopes, so accept any of them; if none are present, the `orders.length
-            // === 0` check above terminates us on the following (empty) page instead.
-            const meta = listData?.meta || listData
-            const lastPage = Number(meta?.last_page ?? meta?.lastPage ?? 0)
-            const hasNext = meta?.next_page_url != null
-                || (lastPage > 0 && page < lastPage)
-
-            for (const grp of orders) {
-                const orderId = grp?.id || grp?.order_id
-                if (!orderId) continue
-
-                // Light pre-filter: skip groups that haven't done anything terminal yet
-                // (still uploading, nothing succeeded or failed) to save an items call.
-                const ps = String(grp?.processing_status || '').toUpperCase()
-                const success = Number(grp?.success_count) || 0
-                const failure = Number(grp?.failure_count) || 0
-                if (ps !== 'DONE' && success === 0 && failure === 0) continue
-
-                // Fetch the group's items. Agent Portal splits each order into rows: the
-                // "uploaded" row carries OUR `reference`; the delivered row has the terminal
-                // status (success/failed) but a null reference. So take the reference from
-                // whichever row has it, and the outcome from the terminal rows.
-                const itemsResp = await fetch(
-                    `${AGENTPORTAL_API_URL}/api/beneficiaries/orders/${encodeURIComponent(orderId)}/items`,
-                    {
-                        method: 'GET',
-                        headers: { 'Accept': 'application/json', 'X-API-Key': AGENTPORTAL_API_KEY },
-                        signal: AbortSignal.timeout(15_000),
-                    }
-                )
-                const itemsText = await itemsResp.text()
-                let itemsData: any
-                try {
-                    itemsData = JSON.parse(itemsText)
-                } catch {
-                    continue
-                }
-
-                const items: any[] = Array.isArray(itemsData) ? itemsData : (itemsData?.data || itemsData?.items || [])
-
-                // The reference we submitted (lives on the row that still has it).
-                const ourRef = items.find((it: any) => it?.reference)?.reference
-                if (!ourRef) continue
-
-                // Terminal outcome:
-                //  • success is always terminal → completed.
-                //  • a failed row is only FINAL when non-retriable — i.e. auto-refunded
-                //    (refunded_at set). A failed row without refunded_at may still be
-                //    retried, so we WAIT (leave the order processing) rather than mark it
-                //    failed prematurely during Agent Portal's retry window.
-                const hasSuccess = items.some((it: any) => String(it?.status || '').toLowerCase() === 'success')
-                const hasTerminalFailure = items.some((it: any) =>
-                    String(it?.status || '').toLowerCase() === 'failed' && it?.refunded_at)
-
-                if (hasSuccess) {
-                    statuses.set(String(ourRef), 'completed')
-                } else if (hasTerminalFailure) {
-                    statuses.set(String(ourRef), 'failed')
-                }
-                // else: still in-flight / retriable — leave as processing.
-            }
-
-            if (!hasNext) break
-          }
-        }
-
-        if (!reachedSupplier) {
+        if (!lists.some(l => l.reached)) {
             recordFailure()
             return { success: false, statuses, error: 'Could not reach Agent Portal' }
         }
 
+        const groups = lists.flatMap(l => l.rows).filter(grp => {
+            if (!(grp?.id || grp?.order_id)) return false
+            // A group created before the oldest order we're waiting on cannot contain it.
+            if (oldestWanted && grp?.created_at && new Date(grp.created_at).getTime() < oldestWanted) return false
+            // Skip groups that haven't done anything terminal yet (still uploading) —
+            // saves an items call and they have nothing to report.
+            const ps = String(grp?.processing_status || '').toUpperCase()
+            return ps === 'DONE' || (Number(grp?.success_count) || 0) > 0 || (Number(grp?.failure_count) || 0) > 0
+        })
+
+        // ── 2. Items for each group, in parallel, newest first ───────────────────
+        let next = 0
+        let scanned = 0
+        const worker = async () => {
+            while (next < groups.length) {
+                if (Date.now() >= deadline) { partial = true; return }
+                if (remaining && remaining.size === 0) return // everything we wanted is resolved
+                const grp = groups[next++]
+                const items = await fetchOrderItems(grp.id || grp.order_id)
+                scanned++
+                for (const [ref, outcome] of mapItemsToOutcomes(items)) {
+                    statuses.set(ref, outcome)
+                    remaining?.delete(ref)
+                }
+            }
+        }
+        await Promise.all(Array.from(
+            { length: Math.min(AGENTPORTAL_ITEMS_CONCURRENCY, Math.max(groups.length, 1)) }, worker))
+
         recordSuccess()
-        return { success: true, statuses }
+        return { success: true, statuses, scannedGroups: scanned, partial }
     } catch (error: any) {
         recordFailure()
         return { success: false, statuses, error: error?.message || 'Connection error during batch status fetch' }

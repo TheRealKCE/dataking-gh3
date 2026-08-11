@@ -1,16 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { syncShopOrderStatus } from '@/lib/shop-service'
+import { fetchOrderItems, mapItemsToOutcomes } from '@/lib/agentportal-service'
 import crypto from 'crypto'
 
 // Agent Portal GH completion webhook.
 // Docs: POST <our-url> with header `X-Webhook-Signature: sha256=<hex>` where the
 // signature is an HMAC-SHA256 of the RAW request body keyed with our webhook secret.
-// Payload (event: "order.completed") carries an `items[]` array; each item echoes
-// the `reference` we sent at /api/queue/add (the Arhms order id) plus a terminal
-// `status` of 'success' | 'failed'.
-
-const AGENTPORTAL_API_URL = process.env.AGENTPORTAL_API_URL || 'https://api.agentportalgh.com'
+// Payload (event: "order.completed") carries an `items[]` array echoing the same rows
+// as the items feed — the row carrying the `reference` we sent at /api/queue/add is the
+// 'uploaded' row, and the delivery outcome lives on a separate row sharing its
+// `batch_id`. mapItemsToOutcomes() does that join (see lib/agentportal-service.ts) and
+// also handles the single-row form where the reference row is itself terminal.
 
 function verifySignature(rawBody: string, header: string | null, secret: string): boolean {
     if (!header) return false
@@ -18,24 +19,6 @@ function verifySignature(rawBody: string, header: string | null, secret: string)
     const a = Buffer.from(expected)
     const b = Buffer.from(header)
     return a.length === b.length && crypto.timingSafeEqual(a, b)
-}
-
-// Fetch the full item list when the webhook payload was truncated (>500 items).
-async function fetchAllItems(orderId: string): Promise<any[]> {
-    const key = process.env.AGENTPORTAL_API_KEY || ''
-    if (!key || !orderId) return []
-    try {
-        const resp = await fetch(
-            `${AGENTPORTAL_API_URL}/api/beneficiaries/orders/${encodeURIComponent(orderId)}/items`,
-            { method: 'GET', headers: { 'Accept': 'application/json', 'X-API-Key': key } }
-        )
-        const text = await resp.text()
-        const data = JSON.parse(text)
-        return Array.isArray(data) ? data : (data?.data || data?.items || [])
-    } catch (e) {
-        console.error('[AgentPortalWebhook] Failed to fetch full item list:', e)
-        return []
-    }
 }
 
 export async function POST(request: NextRequest) {
@@ -69,8 +52,13 @@ export async function POST(request: NextRequest) {
         }
 
         let items: any[] = Array.isArray(payload?.items) ? payload.items : []
-        if (payload?.items_truncated && payload?.order_id) {
-            const full = await fetchAllItems(payload.order_id)
+        // Re-read the group whenever the payload was truncated (>500 items) OR when the
+        // rows we were sent carry no terminal outcome — a payload of nothing but
+        // 'uploaded' rows tells us which orders were in the batch but not how they went.
+        const needsFullList = payload?.items_truncated
+            || (items.length > 0 && mapItemsToOutcomes(items).size === 0)
+        if (needsFullList && payload?.order_id) {
+            const full = await fetchOrderItems(payload.order_id)
             if (full.length > 0) items = full
         }
 
@@ -81,19 +69,18 @@ export async function POST(request: NextRequest) {
         const supabase = createServerClient()
         let updated = 0
 
-        for (const item of items) {
-            const reference = item?.reference
-            if (!reference) continue
+        // One webhook covers a whole batch, which can hold many of our orders — resolve
+        // each reference to its OWN outcome rather than the batch's.
+        const outcomes = mapItemsToOutcomes(items)
 
-            const itemStatus = (item?.status || '').toLowerCase()
-            const newStatus = itemStatus === 'success' ? 'completed' : itemStatus === 'failed' ? 'failed' : null
-            if (!newStatus) continue // only act on terminal items
-
-            // Match back to the Arhms order by the reference we submitted (orders.id).
+        for (const [reference, newStatus] of outcomes) {
+            // Match back by the reference we submitted. Direct orders send orders.id;
+            // storefront orders send the shop_order id — both are stamped on
+            // orders.agentportal_reference, so that column matches either.
             const { data: order } = await (supabase
                 .from('orders') as any)
                 .select('id, status, shop_order_id, fulfillment_method')
-                .eq('id', reference)
+                .eq('agentportal_reference', reference)
                 .maybeSingle()
 
             if (!order) {
@@ -120,6 +107,7 @@ export async function POST(request: NextRequest) {
                 await (supabase.from('shop_orders') as any)
                     .update({ status: newStatus, updated_at: new Date().toISOString() })
                     .eq('id', order.shop_order_id)
+                    .eq('status', 'processing')
             }
 
             await syncShopOrderStatus(order.id, newStatus).catch(err =>
