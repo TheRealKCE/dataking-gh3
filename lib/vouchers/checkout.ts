@@ -7,6 +7,7 @@
 
 import { createServerClient } from '@/lib/supabase'
 import { calculateRCPrice, getRCTypeById } from '@/lib/vouchers/pricing'
+import { creditShopRcProfit } from '@/lib/shop-service'
 
 export interface RCVoucher {
     id: string
@@ -222,6 +223,34 @@ export async function finalizeRCGatewayOrder(params: {
             updated_at: new Date().toISOString(),
         })
         .eq('id', order.id)
+
+    // 4b. Credit the shop's markup on storefront sales.
+    //
+    // Storefront RC orders use an `RC-SHOP-` reference, which also matches the
+    // `RC-` branch every payment webhook dispatches on — so settlement usually
+    // lands here, not in /api/shop/rc/verify. That route holds the only other
+    // copy of this credit and skips it once the order is already `completed`,
+    // so without this the shop owner silently lost their entire markup whenever
+    // the webhook beat the browser poll (i.e. nearly always).
+    //
+    // creditShopRcProfit is idempotent on the reference, so the two paths racing
+    // each other still credits exactly once.
+    if (order.shop_id && Number(order.shop_markup) > 0) {
+        const { data: shop } = await (supabase.from('shop_profiles') as any)
+            .select('owner_id')
+            .eq('id', order.shop_id)
+            .maybeSingle()
+
+        if (shop?.owner_id) {
+            await creditShopRcProfit({
+                ownerId: shop.owner_id,
+                amount: Number(order.shop_markup),
+                description: `RC Voucher sale: ${order.type_name} x${order.quantity}`,
+                reference,
+            })
+        }
+    }
+
     // 5. Deliver vouchers asynchronously (await to prevent serverless function cutoff)
     try {
         const { deliverVouchers } = await import('@/lib/vouchers/notifications')

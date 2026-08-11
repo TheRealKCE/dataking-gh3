@@ -85,6 +85,8 @@ interface ShopData {
     banner_pos_x?: number
     banner_pos_y?: number
     banner_zoom?: number
+    ussd_code?: string | null
+    ussd_status?: string | null
 }
 
 interface Package {
@@ -230,6 +232,15 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
     const isGlobalMashupEnabled = adminSettings['storefront_mashup_enabled'] === 'true'
     const isGlobalRcEnabled = adminSettings['storefront_rc_enabled'] === 'true'
 
+    // USSD short code — shown only once this shop has actually bought one, and
+    // only while the admin leaves the card switched on globally.
+    const ussdDialCode = adminSettings['ussd_dial_code'] || ''
+    const isUssdCardEnabled =
+        adminSettings['storefront_ussd_card_enabled'] !== 'false' &&
+        shop.ussd_status === 'active' &&
+        !!shop.ussd_code &&
+        !!ussdDialCode
+
     // Marketplace ad — defaults ON unless an admin explicitly disables it
     const isMarketplaceAdEnabled = adminSettings['storefront_marketplace_ad_enabled'] !== 'false'
     const marketplaceUrl = process.env.NEXT_PUBLIC_MARKETPLACE_URL || 'https://marketplace.arhmsgh.com'
@@ -242,6 +253,8 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
 
     const isShopAirtimeEnabled = isGlobalAirtimeEnabled && airtimeNetworks.length > 0
     const isShopRcEnabled = isGlobalRcEnabled && rcTypes.length > 0
+
+    const [ussdCopied, setUssdCopied] = useState(false)
 
     const [isSpecialMtnMashupHidden, setIsSpecialMtnMashupHidden] = useState(adminSettings['special_mtn_mashup_hidden'] === 'true')
     const [isExpressMtnHidden, setIsExpressMtnHidden] = useState(adminSettings['express_mtn_hidden'] === 'true')
@@ -1100,6 +1113,56 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                         </a>
                     )}
                 </div>
+
+                {/* USSD Short Code — buying without internet */}
+                {isUssdCardEnabled && (
+                    <div className="bg-white dark:bg-[#151c2c] rounded-2xl border border-gray-100 dark:border-gray-800 p-5 mb-8 shadow-sm w-full">
+                        <div className="flex items-start gap-3">
+                            <div className="shrink-0 w-9 h-9 rounded-xl border border-gray-200 dark:border-gray-700 flex items-center justify-center">
+                                <Smartphone className="w-4 h-4 text-[var(--brand-color)]" />
+                            </div>
+                            <div className="min-w-0">
+                                <p className="text-base font-black text-gray-900 dark:text-white leading-tight">No internet? Shop on USSD</p>
+                                <p className="text-sm text-gray-500 dark:text-gray-400 leading-snug mt-0.5">
+                                    Buy from {shop.shop_name} on any phone — no app, no data.
+                                </p>
+                            </div>
+                        </div>
+
+                        <ol className="mt-4 space-y-3">
+                            {[
+                                <>Dial <span className="font-black text-gray-900 dark:text-white">{ussdDialCode}</span> on any phone</>,
+                                <>Enter short code <span className="font-black tracking-widest text-[var(--brand-color)]">{shop.ussd_code}</span></>,
+                                <>Choose <span className="font-bold text-gray-900 dark:text-white">Data Bundles</span> or <span className="font-bold text-gray-900 dark:text-white">Result Checker</span></>,
+                                <>Pay with <span className="font-bold text-gray-900 dark:text-white">Mobile Money</span> — instant delivery</>,
+                            ].map((step, i) => (
+                                <li key={i} className="flex items-center gap-3">
+                                    <span className="shrink-0 w-6 h-6 rounded-full bg-[var(--brand-color)] text-white text-xs font-black flex items-center justify-center">
+                                        {i + 1}
+                                    </span>
+                                    <span className="text-sm text-gray-700 dark:text-gray-300 leading-snug">{step}</span>
+                                </li>
+                            ))}
+                        </ol>
+
+                        <button
+                            type="button"
+                            onClick={() => {
+                                navigator.clipboard.writeText(`Dial ${ussdDialCode} and enter short code ${shop.ussd_code}`)
+                                setUssdCopied(true)
+                                setTimeout(() => setUssdCopied(false), 2000)
+                            }}
+                            className="mt-4 w-full flex items-center justify-center gap-3 rounded-xl bg-gray-50 dark:bg-[#0a0f1c] border border-gray-100 dark:border-gray-800 px-4 py-3 transition-colors hover:border-[var(--brand-color)]"
+                        >
+                            <span className="font-black text-gray-900 dark:text-white">{ussdDialCode}</span>
+                            <ArrowRight className="w-4 h-4 text-gray-400" />
+                            <span className="font-black tracking-widest text-[var(--brand-color)]">{shop.ussd_code}</span>
+                            {ussdCopied
+                                ? <Check className="w-4 h-4 text-emerald-500" />
+                                : <Copy className="w-4 h-4 text-gray-400" />}
+                        </button>
+                    </div>
+                )}
 
                 <div className="flex items-center justify-center mb-6">
                     <h2 className="text-xs font-black tracking-[0.2em] text-gray-500 dark:text-gray-400 bg-gray-50 dark:bg-[#0a0f1c] px-4 uppercase">CHOOSE A SERVICE</h2>

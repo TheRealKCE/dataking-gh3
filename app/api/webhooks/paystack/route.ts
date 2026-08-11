@@ -100,6 +100,10 @@ export async function POST(request: NextRequest) {
                 // Agent membership upgrades
                 const { processCompletedUpgradePayment } = await import('@/lib/payments')
                 await processCompletedUpgradePayment(reference, event.data)
+            } else if (reference.startsWith('ussd_activation_') || metadata?.upgrade_type === 'ussd_activation') {
+                // USSD short code activation
+                const { processCompletedUssdActivation } = await import('@/lib/payments')
+                await processCompletedUssdActivation(reference, event.data)
             } else if (reference.startsWith('dealer_sub_') || metadata?.upgrade_type === 'dealer_subscription') {
                 // Dealer subscriptions
                 const { processCompletedDealerSubscription } = await import('@/lib/payments')

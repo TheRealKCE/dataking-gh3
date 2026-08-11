@@ -204,6 +204,94 @@ export async function creditShopProfit(shopOrderId: string) {
 }
 
 /**
+ * Credits a shop's markup on a Results Checker sale.
+ *
+ * RC sales don't produce a `shop_orders` row, so they can't go through
+ * credit_shop_profit(). Every RC path calls this instead of hand-rolling the
+ * wallet update: the storefront verify poll, finalizeRCGatewayOrder (the webhook
+ * settlement), and USSD fulfilment.
+ *
+ * Idempotent on `reference`. The ledger insert — guarded by the unique index on
+ * (reference, type) — is what claims the credit, and the balance only moves
+ * after that insert succeeds. Checking for an existing row first and crediting
+ * afterwards would let two concurrent settlements both pass the check and both
+ * add to the balance, with only the loser's insert failing.
+ */
+export async function creditShopRcProfit(params: {
+    ownerId: string
+    amount: number
+    description: string
+    reference: string
+}): Promise<{ credited: boolean; reason?: string }> {
+    const { ownerId, amount, description, reference } = params
+    const db = createServerClient() as any
+
+    if (!ownerId || !(amount > 0)) return { credited: false, reason: 'nothing to credit' }
+
+    try {
+        let { data: wallet } = await db
+            .from('shop_wallets')
+            .select('id')
+            .eq('owner_id', ownerId)
+            .maybeSingle()
+
+        if (!wallet) {
+            const { data: newWallet } = await db
+                .from('shop_wallets')
+                .insert({ owner_id: ownerId, balance: 0, total_earned: 0 })
+                .select('id')
+                .single()
+            wallet = newWallet
+        }
+
+        if (!wallet) return { credited: false, reason: 'wallet not found' }
+
+        // Claim the credit. A duplicate reference trips the unique index, which is
+        // how a replay or a concurrent settlement is rejected.
+        const { error: txError } = await db.from('shop_wallet_transactions').insert({
+            shop_wallet_id: wallet.id,
+            type: 'profit',
+            amount,
+            net_amount: amount,
+            description,
+            reference,
+            status: 'completed',
+        })
+
+        if (txError) {
+            if (txError.code === '23505') return { credited: false, reason: 'already credited' }
+            console.error('[RC Profit] Ledger insert failed:', txError)
+            return { credited: false, reason: 'ledger insert failed' }
+        }
+
+        // Single-statement increment, so a concurrent credit on the same wallet
+        // (a data order settling at the same moment) can't lose this one.
+        const { error: rpcError } = await db.rpc('credit_shop_wallet_earning', {
+            p_owner_id: ownerId,
+            p_amount: amount,
+        })
+
+        if (rpcError) {
+            // The ledger row is already committed, so leaving it would overstate
+            // what was paid. Roll it back and let the caller's retry try again.
+            console.error('[RC Profit] Balance credit failed, reverting ledger row:', rpcError)
+            await db.from('shop_wallet_transactions')
+                .delete()
+                .eq('reference', reference)
+                .eq('type', 'profit')
+            return { credited: false, reason: 'balance credit failed' }
+        }
+
+        return { credited: true }
+    } catch (err) {
+        // Never block voucher delivery on a wallet write — the customer has paid
+        // and the PIN matters more than the ledger, which can be reconciled.
+        console.error('[RC Profit] Credit error:', err)
+        return { credited: false, reason: 'error' }
+    }
+}
+
+/**
  * Fallback to manually credit profit if the RPC function is missing from the database.
  */
 async function creditShopProfitFallback(shopOrderId: string, db: any) {

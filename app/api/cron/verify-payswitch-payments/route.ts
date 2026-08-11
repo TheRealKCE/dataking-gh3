@@ -122,6 +122,11 @@ export async function GET(request: NextRequest) {
                         await processCompletedUpgradePayment(payment.reference, eventData)
                         results.walletCredited++
                         console.log(`[CronPayswitch] Agent upgrade ${payment.reference} credited`)
+                    } else if (payment.reference.startsWith('ussd_activation_') || metadata.upgrade_type === 'ussd_activation') {
+                        const { processCompletedUssdActivation } = await import('@/lib/payments')
+                        await processCompletedUssdActivation(payment.reference, eventData)
+                        results.walletCredited++
+                        console.log(`[CronPayswitch] USSD activation ${payment.reference} activated`)
                     } else if (payment.reference.startsWith('dealer_sub_') || metadata.upgrade_type === 'dealer_subscription') {
                         await processCompletedDealerSubscription(payment.reference, eventData)
                         results.walletCredited++

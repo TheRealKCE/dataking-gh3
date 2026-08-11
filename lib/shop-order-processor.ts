@@ -27,6 +27,8 @@ export async function processShopOrder(
         profit?: number;
         use_exact_amount?: boolean;
         original_amount?: number;
+        /** 'ussd' when the sale came through the USSD short code rather than a web gateway. */
+        channel?: string;
     },
     paidAmountPesewas: number,
     slug?: string
@@ -157,7 +159,12 @@ export async function processShopOrder(
             if (!shopPrice || !pkg) return { success: false, error: 'Price configuration missing' }
 
             const dbSellingPrice = parseFloat(shopPrice.selling_price)
-            const paystackFee = Math.round(dbSellingPrice * (paystackFeePercent / 100) * 100) / 100
+            // USSD carries no gateway fee: Hubtel charges the shelf price and takes
+            // its commission on its own side, so adding one here would make every
+            // USSD order fail the amount check below.
+            const paystackFee = metadata.channel === 'ussd'
+                ? 0
+                : Math.round(dbSellingPrice * (paystackFeePercent / 100) * 100) / 100
             expectedTotalPesewas = Math.round((dbSellingPrice + paystackFee) * 100)
             
             const isDealerOwner = ownerRole === 'dealer' && parseFloat(pkg?.dealer_price) > 0

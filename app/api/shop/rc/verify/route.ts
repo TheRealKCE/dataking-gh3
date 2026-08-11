@@ -3,6 +3,7 @@ import { createServerClient } from '@/lib/supabase'
 import { Redis } from '@upstash/redis'
 import { checkPaymentStatus } from '@/lib/moolre-payment-service'
 import { sendPushToAdmins } from '@/lib/web-push'
+import { creditShopRcProfit } from '@/lib/shop-service'
 
 const redis = Redis.fromEnv()
 
@@ -148,42 +149,19 @@ export async function GET(request: NextRequest) {
             })
             .eq('id', meta.order_id)
 
-        // 7. Credit shop wallet profit
-        const shopProfit = meta.shop_markup || 0
-        if (shopProfit > 0) {
-            try {
-                // Upsert shop wallet
-                const { data: wallet } = await db
-                    .from('shop_wallets')
-                    .select('id, balance, total_earned')
-                    .eq('owner_id', meta.owner_id)
-                    .maybeSingle()
-
-                if (wallet) {
-                    await db
-                        .from('shop_wallets')
-                        .update({
-                            balance: wallet.balance + shopProfit,
-                            total_earned: wallet.total_earned + shopProfit,
-                            updated_at: new Date().toISOString(),
-                        })
-                        .eq('owner_id', meta.owner_id)
-
-                    await db
-                        .from('shop_wallet_transactions')
-                        .insert({
-                            shop_wallet_id: wallet.id,
-                            type: 'profit',
-                            amount: shopProfit,
-                            net_amount: shopProfit,
-                            description: `RC Voucher sale: ${meta.rc_type_name} × ${meta.quantity}`,
-                            status: 'completed',
-                        })
-                }
-            } catch (profitErr) {
-                // Non-fatal — log but don't block voucher delivery
-                console.error('[shop/rc/verify] Profit credit error:', profitErr)
-            }
+        // 7. Credit shop wallet profit.
+        // Shares creditShopRcProfit with finalizeRCGatewayOrder, which settles the
+        // same order when a payment webhook beats this poll. The helper is
+        // idempotent on the reference, so whichever path arrives second is a no-op
+        // instead of a second credit.
+        const shopProfit = Number(meta.shop_markup) || 0
+        if (shopProfit > 0 && meta.owner_id) {
+            await creditShopRcProfit({
+                ownerId: meta.owner_id,
+                amount: shopProfit,
+                description: `RC Voucher sale: ${meta.rc_type_name} x${meta.quantity}`,
+                reference: ref,
+            })
         }
 
         // 8. Notify admin of RC sale

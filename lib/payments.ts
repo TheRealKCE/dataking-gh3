@@ -1,6 +1,6 @@
 import { createServerClient } from './supabase'
 import { sendWalletTopupSuccessEmail, sendPermanentAgentUpgradeSuccessEmail } from './email-service'
-import { sendWalletTopupSuccessSMS, sendAgentUpgradeSuccessSMS, sendAgentExtensionSuccessSMS, sendPermanentAgentUpgradeSuccessSMS, sendDealerUpgradeSuccessSMS } from './sms-service'
+import { sendWalletTopupSuccessSMS, sendAgentUpgradeSuccessSMS, sendAgentExtensionSuccessSMS, sendPermanentAgentUpgradeSuccessSMS, sendDealerUpgradeSuccessSMS, sendUssdActivationSMS } from './sms-service'
 import { sendPushToUser, sendPushToAdmins } from './web-push'
 
 /**
@@ -315,6 +315,126 @@ export async function processCompletedUpgradePayment(reference: string, provider
     }
 
     return { success: true }
+}
+
+/**
+ * Settles a USSD short-code activation: marks the payment completed, mints the
+ * shop's 4-character short code, and flips the shop to `active`.
+ *
+ * Idempotent on two levels — the conditional wallet_payments update below, and
+ * assign_shop_ussd_code() itself, which returns the existing code rather than
+ * minting a second one. A replayed webhook is therefore a no-op.
+ */
+export async function processCompletedUssdActivation(reference: string, providerMetadata?: any) {
+    const supabase = createServerClient()
+
+    const { data: paymentData, error: paymentError } = await supabase
+        .from('wallet_payments')
+        .select('*')
+        .eq('reference', reference)
+        .single()
+
+    const payment = paymentData as any
+
+    if (paymentError || !payment) {
+        console.error('[UssdActivation] Payment not found:', reference)
+        return { success: false, error: 'Payment not found' }
+    }
+
+    const originalMetadata = typeof payment.metadata === 'string'
+        ? JSON.parse(payment.metadata)
+        : (payment.metadata || {})
+
+    const shopId = originalMetadata?.shop_id
+    if (!shopId) {
+        console.error('[UssdActivation] Payment has no shop_id in metadata:', reference)
+        return { success: false, error: 'Activation is missing its shop reference' }
+    }
+
+    // Atomic idempotency check: only the transition out of `pending` wins.
+    const { data: updatedPayment, error: updatePaymentError } = await (supabase
+        .from('wallet_payments') as any)
+        .update({
+            status: 'completed',
+            metadata: { ...originalMetadata, provider_data: providerMetadata },
+            updated_at: new Date().toISOString(),
+        })
+        .eq('id', payment.id)
+        .eq('status', 'pending')
+        .select()
+        .single()
+
+    if (updatePaymentError) {
+        if (updatePaymentError.code === 'PGRST116') {
+            return { success: true, alreadyProcessed: true }
+        }
+        console.error('[UssdActivation] Update payment error:', updatePaymentError)
+        return { success: false, error: 'Failed to update payment status' }
+    }
+
+    if (!updatedPayment) return { success: true, alreadyProcessed: true }
+
+    const { data: shortCode, error: codeError } = await (supabase as any)
+        .rpc('assign_shop_ussd_code', { p_shop_id: shopId })
+
+    if (codeError || !shortCode) {
+        console.error('[UssdActivation] Code assignment failed for shop', shopId, codeError)
+        // Put the payment back so a retry (or the caller's refund path) can act on it.
+        await (supabase.from('wallet_payments') as any)
+            .update({ status: 'pending' })
+            .eq('id', payment.id)
+        return { success: false, error: 'Could not assign a short code' }
+    }
+
+    const { error: shopUpdateError } = await (supabase.from('shop_profiles') as any)
+        .update({
+            ussd_status: 'active',
+            ussd_activated_at: new Date().toISOString(),
+            ussd_activation_reference: reference,
+            ussd_activation_amount: payment.total_amount,
+            updated_at: new Date().toISOString(),
+        })
+        .eq('id', shopId)
+
+    if (shopUpdateError) {
+        console.error('[UssdActivation] Shop update error:', shopUpdateError)
+        return { success: false, error: 'Failed to activate the short code' }
+    }
+
+    const { data: settingRow } = await supabase
+        .from('admin_settings')
+        .select('value')
+        .eq('key', 'ussd_dial_code')
+        .maybeSingle()
+    const dialCode = (settingRow as any)?.value || ''
+
+    await (supabase.from('notifications') as any).insert({
+        user_id: payment.user_id,
+        title: 'USSD Short Code Active 📱',
+        message: `Your short code is ${shortCode}. Customers can dial ${dialCode} and enter ${shortCode} to buy from your shop without internet.`,
+        type: 'system',
+        action_url: '/dashboard/shop',
+    })
+
+    try {
+        const { data: userData } = await supabase
+            .from('users')
+            .select('phone_number')
+            .eq('id', payment.user_id)
+            .single()
+        const phone = (userData as any)?.phone_number
+        if (phone) await sendUssdActivationSMS(phone, shortCode, dialCode)
+    } catch (smsError) {
+        console.error('[UssdActivation] SMS error:', smsError)
+    }
+
+    await sendPushToAdmins({
+        title: 'USSD Short Code Activated',
+        body: `${originalMetadata.shop_name || 'A shop'} activated short code ${shortCode}.`,
+        url: '/admin/shops',
+    }).catch(() => {})
+
+    return { success: true, shortCode }
 }
 
 /**

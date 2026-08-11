@@ -186,6 +186,11 @@ export async function POST(request: NextRequest) {
             // ── AGENT UPGRADE ─────────────────────────────────────────────────────
             console.log('[HubtelWebhook] Routing agent upgrade payment:', ClientReference)
             await processCompletedUpgradePayment(ClientReference, mappedEventData)
+        } else if (ClientReference.startsWith('ussd_activation_') || metadata.upgrade_type === 'ussd_activation') {
+            // ── USSD SHORT CODE ACTIVATION ────────────────────────────────────────
+            console.log('[HubtelWebhook] Routing USSD activation payment:', ClientReference)
+            const { processCompletedUssdActivation } = await import('@/lib/payments')
+            await processCompletedUssdActivation(ClientReference, mappedEventData)
         } else if (ClientReference.startsWith('dealer_sub_') || metadata.upgrade_type === 'dealer_subscription') {
             // ── DEALER SUBSCRIPTION ───────────────────────────────────────────────
             console.log('[HubtelWebhook] Routing dealer subscription payment:', ClientReference)

@@ -120,6 +120,14 @@ export async function POST(request: NextRequest) {
                     metadata: metadata,
                 }
                 await processCompletedUpgradePayment(externalref, mappedEventData)
+            } else if (externalref.startsWith('ussd_activation_') || metadata.upgrade_type === 'ussd_activation') {
+                // USSD short code activation
+                const { processCompletedUssdActivation } = await import('@/lib/payments')
+                await processCompletedUssdActivation(externalref, {
+                    reference: externalref,
+                    amount: paidAmountKobo,
+                    metadata: metadata,
+                })
             } else if (externalref.startsWith('dealer_sub_') || metadata.upgrade_type === 'dealer_subscription') {
                 // Dealer subscriptions
                 const mappedEventData = {

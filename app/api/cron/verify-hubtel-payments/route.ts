@@ -161,6 +161,13 @@ export async function GET(request: NextRequest) {
                             await processCompletedUpgradePayment(payment.reference, mappedEventData)
                             console.log(`[CronHubtel] ✅ Agent upgrade ${payment.reference} credited`)
                         } else if (
+                            payment.reference.startsWith('ussd_activation_') ||
+                            metadata.upgrade_type === 'ussd_activation'
+                        ) {
+                            const { processCompletedUssdActivation } = await import('@/lib/payments')
+                            await processCompletedUssdActivation(payment.reference, mappedEventData)
+                            console.log(`[CronHubtel] ✅ USSD activation ${payment.reference} activated`)
+                        } else if (
                             payment.reference.startsWith('dealer_sub_') ||
                             metadata.upgrade_type === 'dealer_subscription'
                         ) {
