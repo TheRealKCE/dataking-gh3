@@ -330,6 +330,17 @@ export async function sendShopProfileRejectedSMS(phoneNumber: string, firstName:
     })
 }
 
+export async function sendUssdActivationSMS(
+    phoneNumber: string,
+    shortCode: string,
+    dialCode: string
+) {
+    return sendSMS({
+        recipient: phoneNumber,
+        message: `Your USSD short code is ${shortCode}. Customers with no internet can dial ${dialCode} and enter ${shortCode} to buy from your shop.\n\nARHMSGh`,
+    })
+}
+
 export async function sendShopWithdrawalProcessedSMS(
     phoneNumber: string,
     firstName: string,

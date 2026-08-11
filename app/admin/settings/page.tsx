@@ -49,6 +49,11 @@ export default function AdminSettingsPage() {
     const [classifiedsPaymentProvider, setClassifiedsPaymentProvider] = useState<PaymentProvider>('moolre')
     const [rcWalletPaymentEnabled, setRcWalletPaymentEnabled] = useState(true)
     const [skipGoogleOauthOtp, setSkipGoogleOauthOtp] = useState(false)
+    const [ussdDialCode, setUssdDialCode] = useState('')
+    const [ussdActivationPriceCustomer, setUssdActivationPriceCustomer] = useState('50')
+    const [ussdActivationPriceAgent, setUssdActivationPriceAgent] = useState('40')
+    const [ussdActivationPriceDealer, setUssdActivationPriceDealer] = useState('30')
+    const [storefrontUssdCard, setStorefrontUssdCard] = useState(true)
 
     // Page access states
     const [pageAccessDashboard, setPageAccessDashboard] = useState(true)
@@ -94,6 +99,11 @@ export default function AdminSettingsPage() {
             setAfaPriceCustomer(settingsMap.afa_price_customer || '15')
             setAfaPriceAgent(settingsMap.afa_price_agent || '15')
             setAfaPriceDealer(settingsMap.afa_price_dealer || '15')
+            setUssdDialCode(settingsMap.ussd_dial_code || '')
+            setUssdActivationPriceCustomer(settingsMap.ussd_activation_price_customer || '50')
+            setUssdActivationPriceAgent(settingsMap.ussd_activation_price_agent || '40')
+            setUssdActivationPriceDealer(settingsMap.ussd_activation_price_dealer || '30')
+            setStorefrontUssdCard(settingsMap.storefront_ussd_card_enabled !== 'false')
             setDealerPromoEnabled(settingsMap.dealer_promo_enabled === 'true')
             setLandingRcOnlyEnabled(settingsMap.landing_rc_only_enabled === 'true')
             setSupportEmail(settingsMap.support_email || '')
@@ -181,6 +191,12 @@ export default function AdminSettingsPage() {
                 { key: 'standard_mtn_hidden', value: String(hideStandardMtn) },
                 { key: 'results_checker_only_mode', value: String(resultsCheckerOnly) },
                 { key: 'storefront_marketplace_ad_enabled', value: String(storefrontMarketplaceAd) },
+                // USSD short codes
+                { key: 'ussd_dial_code', value: ussdDialCode },
+                { key: 'ussd_activation_price_customer', value: ussdActivationPriceCustomer },
+                { key: 'ussd_activation_price_agent', value: ussdActivationPriceAgent },
+                { key: 'ussd_activation_price_dealer', value: ussdActivationPriceDealer },
+                { key: 'storefront_ussd_card_enabled', value: String(storefrontUssdCard) },
                 // Classifieds boost fees
                 { key: 'classifieds_boost_fee_7d', value: settings['classifieds_boost_fee_7d'] || '' },
                 { key: 'classifieds_boost_fee_14d', value: settings['classifieds_boost_fee_14d'] || '' },
@@ -397,6 +413,61 @@ export default function AdminSettingsPage() {
                                     step="0.01"
                                 />
                                 <p className="text-xs text-muted-foreground">Additional markup fee for all MTN packages</p>
+                            </div>
+                        </CardContent>
+                    </Card>
+
+                    <Card>
+                        <CardHeader>
+                            <CardTitle>USSD Short Codes</CardTitle>
+                            <CardDescription>
+                                Shops buy a one-time short code so customers can shop their storefront over USSD with no internet.
+                                Prices are charged once, per role, and the code is theirs for life.
+                            </CardDescription>
+                        </CardHeader>
+                        <CardContent className="space-y-4">
+                            <div className="space-y-2">
+                                <Label>USSD Dial Code</Label>
+                                <Input
+                                    value={ussdDialCode}
+                                    onChange={(e) => setUssdDialCode(e.target.value)}
+                                    placeholder="*713*9863#"
+                                />
+                                <p className="text-xs text-muted-foreground">The number customers dial. Shown on every activated storefront.</p>
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Activation Price — Customer (GHS)</Label>
+                                <Input
+                                    type="number"
+                                    value={ussdActivationPriceCustomer}
+                                    onChange={(e) => setUssdActivationPriceCustomer(e.target.value)}
+                                    step="0.01"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Activation Price — Agent (GHS)</Label>
+                                <Input
+                                    type="number"
+                                    value={ussdActivationPriceAgent}
+                                    onChange={(e) => setUssdActivationPriceAgent(e.target.value)}
+                                    step="0.01"
+                                />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Activation Price — Dealer (GHS)</Label>
+                                <Input
+                                    type="number"
+                                    value={ussdActivationPriceDealer}
+                                    onChange={(e) => setUssdActivationPriceDealer(e.target.value)}
+                                    step="0.01"
+                                />
+                            </div>
+                            <div className="flex items-center justify-between rounded-lg border p-3">
+                                <div className="space-y-0.5">
+                                    <Label>Show USSD card on storefronts</Label>
+                                    <p className="text-xs text-muted-foreground">Hides the card everywhere without deactivating any shop&apos;s short code.</p>
+                                </div>
+                                <Switch checked={storefrontUssdCard} onCheckedChange={setStorefrontUssdCard} />
                             </div>
                         </CardContent>
                     </Card>

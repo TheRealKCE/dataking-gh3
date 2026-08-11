@@ -194,6 +194,9 @@ export async function POST(request: NextRequest) {
 
         if (reference.startsWith('agent_upgrade_') || metadata.upgrade_type === 'agent') {
             await processCompletedUpgradePayment(reference, eventData)
+        } else if (reference.startsWith('ussd_activation_') || metadata.upgrade_type === 'ussd_activation') {
+            const { processCompletedUssdActivation } = await import('@/lib/payments')
+            await processCompletedUssdActivation(reference, eventData)
         } else if (reference.startsWith('dealer_sub_') || metadata.upgrade_type === 'dealer_subscription') {
             await processCompletedDealerSubscription(reference, eventData)
         } else {

@@ -9,6 +9,7 @@
 import { createClient } from '@supabase/supabase-js'
 import { sendHubtelSMS } from '@/lib/hubtel-sms-service'
 import { sendPushToAdmins } from '@/lib/web-push'
+import { creditShopRcProfit } from '@/lib/shop-service'
 
 const supabaseAdmin = createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -62,6 +63,11 @@ export async function fulfillUSSDRCBySession(params: {
     const { selectedCheckerId, selectedCheckerName, selectedCheckerPrice, recipientMobile } = sessionData
     const payerMobile = session.mobile
 
+    // Set when the caller entered a shop's short code. Null for the house code,
+    // which is ARHMS selling direct exactly as it did before short codes existed.
+    const shopId: string | null = sessionData.shopId || null
+    const shopName: string | null = sessionData.shopName || null
+
     if (!selectedCheckerId || !selectedCheckerName) {
         console.error('[USSD-RC Fulfill] Incomplete session data:', sessionData)
         return { success: false, error: 'Incomplete session data' }
@@ -102,12 +108,28 @@ export async function fulfillUSSDRCBySession(params: {
     // 3. Create a pending order record (upsert to handle retries)
     const orderId = existingOrder?.id || crypto.randomUUID()
 
+    // The shop's margin over the platform's own customer price. Resolved before the
+    // insert so the order row records what the shop earned on this sale.
+    let shopMarkup = 0
+    if (shopId) {
+        const { data: checkerType } = await supabaseAdmin
+            .from('results_checker_types')
+            .select('customer_price')
+            .eq('id', selectedCheckerId)
+            .maybeSingle()
+        const platformCost = parseFloat(String(checkerType?.customer_price ?? 0))
+        shopMarkup = Math.max(0, expectedPrice - platformCost)
+    }
+
     if (!existingOrder) {
         const { error: insertErr } = await supabaseAdmin
             .from('results_checker_orders')
             .insert({
                 id: orderId,
                 user_id: null,
+                shop_id: shopId,
+                shop_name: shopName,
+                shop_markup: shopMarkup,
                 customer_phone: recipientMobile || payerMobile,
                 type_id: selectedCheckerId,
                 type_name: selectedCheckerName,
@@ -175,6 +197,26 @@ export async function fulfillUSSDRCBySession(params: {
         })
         .eq('id', orderId)
 
+    // 6b. Credit the shop's markup. Runs before the SMS so a crash in delivery
+    // still leaves the shop paid for a voucher that was genuinely sold; the
+    // helper is idempotent on the reference, so a retry cannot double-credit.
+    if (shopId && shopMarkup > 0) {
+        const { data: shopRow } = await supabaseAdmin
+            .from('shop_profiles')
+            .select('owner_id')
+            .eq('id', shopId)
+            .maybeSingle()
+
+        if (shopRow?.owner_id) {
+            await creditShopRcProfit({
+                ownerId: shopRow.owner_id,
+                amount: shopMarkup,
+                description: `USSD RC sale: ${selectedCheckerName}`,
+                reference: clientReference,
+            })
+        }
+    }
+
     // 7. Send PIN & Serial via Hubtel SMS
     const recipientPhone = recipientMobile || payerMobile
     const smsResult = await sendHubtelSMS({
@@ -199,11 +241,11 @@ export async function fulfillUSSDRCBySession(params: {
         }).catch(() => {})
 
         // 9. Clean up session
-        await supabaseAdmin
-            .from('hubtel_sessions')
-            .delete()
-            .eq('session_id', sessionId)
-            .catch(() => {})
+        try {
+            await supabaseAdmin.from('hubtel_sessions').delete().eq('session_id', sessionId)
+        } catch {
+            // Best effort — a stale session row is harmless.
+        }
     })
 
     console.log('[USSD-RC Fulfill] Successfully fulfilled order:', orderId)

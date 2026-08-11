@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server';
 import { waitUntil } from '@vercel/functions';
 import { fulfillUSSDRCBySession } from '@/lib/ussd-rc-fulfillment';
+import { fulfillUSSDDataBySession } from '@/lib/ussd-data-fulfillment';
+import { createClient } from '@supabase/supabase-js';
 import { getDispatcher } from '@/lib/hubtel-payment-service';
 import { logFulfillment } from '@/lib/hubtel-payment-log';
 
@@ -71,15 +73,32 @@ export async function POST(req: Request) {
             String(payment.AmountAfterCharges ?? payment.AmountPaid ?? orderInfo.Subtotal ?? 0)
         );
 
-        // Fulfil: assign voucher, send SMS (idempotent on OrderId).
+        // The data path validates against the shelf price, so it needs the GROSS
+        // amount. AmountAfterCharges is net of Hubtel's commission and would fail
+        // processShopOrder's ±5 pesewa check on every single order.
+        const grossPaid = parseFloat(
+            String(payment.AmountPaid ?? orderInfo.Subtotal ?? payment.AmountAfterCharges ?? 0)
+        );
+
+        // Which product this session bought decides who fulfils it.
+        const orderType = await getSessionOrderType(sessionId);
+
+        // Fulfil (idempotent on OrderId).
         // Pass a callback for non-critical tasks to defer (admin push, session cleanup).
         const deferredWork: Array<() => Promise<void>> = [];
-        const result = await fulfillUSSDRCBySession({
-            sessionId,
-            referenceCode: orderId,
-            amountPaid,
-            deferredWork,
-        });
+        const result = orderType === 'data'
+            ? await fulfillUSSDDataBySession({
+                sessionId,
+                referenceCode: orderId,
+                amountPaid: grossPaid,
+                deferredWork,
+            })
+            : await fulfillUSSDRCBySession({
+                sessionId,
+                referenceCode: orderId,
+                amountPaid,
+                deferredWork,
+            });
 
         // The money is in either way; `status` here reflects whether we rendered the value.
         await logFulfillment({
@@ -112,6 +131,28 @@ export async function POST(req: Request) {
             await sendServiceCallback(sessionId, orderId, 'failed').catch(() => {});
         }
         return NextResponse.json({ message: 'Internal error. Order logged for manual review.' });
+    }
+}
+
+/**
+ * Reads `orderType` off the session. Defaults to 'rc': every session written
+ * before short codes existed sold a result checker and has no orderType at all.
+ */
+async function getSessionOrderType(sessionId: string): Promise<'data' | 'rc'> {
+    try {
+        const supabaseAdmin = createClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.SUPABASE_SERVICE_ROLE_KEY!
+        );
+        const { data } = await supabaseAdmin
+            .from('hubtel_sessions')
+            .select('data')
+            .eq('session_id', sessionId)
+            .maybeSingle();
+        return (data as any)?.data?.orderType === 'data' ? 'data' : 'rc';
+    } catch (err) {
+        console.error('[Hubtel Fulfill] Order type lookup failed, defaulting to rc:', err);
+        return 'rc';
     }
 }
 

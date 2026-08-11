@@ -99,6 +99,20 @@ export async function GET(request: NextRequest) {
                             results.walletCredited++
                             console.log(`[CronMoolre] ✅ Agent upgrade payment ${payment.reference} credited`)
                         } else if (
+                            payment.reference.startsWith('ussd_activation_') ||
+                            metadata.upgrade_type === 'ussd_activation'
+                        ) {
+                            // Process USSD short code activations
+                            results.walletChecked++
+                            const { processCompletedUssdActivation } = await import('@/lib/payments')
+                            await processCompletedUssdActivation(payment.reference, {
+                                reference: payment.reference,
+                                amount: paidAmountPesewas,
+                                metadata,
+                            })
+                            results.walletCredited++
+                            console.log(`[CronMoolre] ✅ USSD activation ${payment.reference} activated`)
+                        } else if (
                             payment.reference.startsWith('dealer_sub_') ||
                             metadata.upgrade_type === 'dealer_subscription'
                         ) {

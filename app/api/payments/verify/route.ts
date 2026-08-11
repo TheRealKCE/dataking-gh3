@@ -290,6 +290,23 @@ export async function GET(request: NextRequest) {
             return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/classifieds/seller/dashboard?boost_success=true`)
         }
 
+        // For ussd_activation_ references, mint the short code. Without this the
+        // payment falls through below and CREDITS THE WALLET instead of activating.
+        if (reference.startsWith('ussd_activation_')) {
+            const { processCompletedUssdActivation } = await import('@/lib/payments')
+            const result = await processCompletedUssdActivation(reference, {
+                reference,
+                amount: Math.round(Number(paymentRecord.total_amount || paymentRecord.amount) * 100),
+                metadata: (paymentRecord as any).metadata || {},
+            })
+            if (!result.success) {
+                if (isInline) return NextResponse.json({ success: false, status: 'failed', error: result.error || 'Activation failed' }, { status: 500 })
+                return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/shop/ussd?error=activation_failed`)
+            }
+            if (isInline) return NextResponse.json({ success: true, status: 'completed', message: 'Short code activated!', shortCode: (result as any).shortCode })
+            return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/shop/ussd?success=true`)
+        }
+
         // Note: processCompletedWalletPayment expects Paystack-like payload format `amount` in kobo/pesewas
         const expectedAmountPesewas = Math.round(Number(paymentRecord.total_amount || paymentRecord.amount) * 100)
         

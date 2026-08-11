@@ -204,6 +204,82 @@ export async function creditShopProfit(shopOrderId: string) {
 }
 
 /**
+ * Credits a shop's markup on a Results Checker sale.
+ *
+ * RC sales don't produce a `shop_orders` row, so they can't go through
+ * credit_shop_profit(). Both RC paths — the web storefront verify poll and the
+ * USSD fulfilment — call this instead of hand-rolling the wallet update.
+ *
+ * Idempotent on `reference`: a replayed webhook finds the existing transaction
+ * and credits nothing.
+ */
+export async function creditShopRcProfit(params: {
+    ownerId: string
+    amount: number
+    description: string
+    reference: string
+}): Promise<{ credited: boolean; reason?: string }> {
+    const { ownerId, amount, description, reference } = params
+    const db = createServerClient() as any
+
+    if (!ownerId || !(amount > 0)) return { credited: false, reason: 'nothing to credit' }
+
+    try {
+        const { data: existingTx } = await db
+            .from('shop_wallet_transactions')
+            .select('id')
+            .eq('reference', reference)
+            .eq('type', 'profit')
+            .maybeSingle()
+
+        if (existingTx) return { credited: false, reason: 'already credited' }
+
+        let { data: wallet } = await db
+            .from('shop_wallets')
+            .select('id, balance, total_earned')
+            .eq('owner_id', ownerId)
+            .maybeSingle()
+
+        if (!wallet) {
+            const { data: newWallet } = await db
+                .from('shop_wallets')
+                .insert({ owner_id: ownerId, balance: 0, total_earned: 0 })
+                .select('id, balance, total_earned')
+                .single()
+            wallet = newWallet
+        }
+
+        if (!wallet) return { credited: false, reason: 'wallet not found' }
+
+        await db
+            .from('shop_wallets')
+            .update({
+                balance: parseFloat(String(wallet.balance || 0)) + amount,
+                total_earned: parseFloat(String(wallet.total_earned || 0)) + amount,
+                updated_at: new Date().toISOString(),
+            })
+            .eq('id', wallet.id)
+
+        await db.from('shop_wallet_transactions').insert({
+            shop_wallet_id: wallet.id,
+            type: 'profit',
+            amount,
+            net_amount: amount,
+            description,
+            reference,
+            status: 'completed',
+        })
+
+        return { credited: true }
+    } catch (err) {
+        // Never block voucher delivery on a wallet write — the customer has paid
+        // and the PIN matters more than the ledger, which can be reconciled.
+        console.error('[RC Profit] Credit error:', err)
+        return { credited: false, reason: 'error' }
+    }
+}
+
+/**
  * Fallback to manually credit profit if the RPC function is missing from the database.
  */
 async function creditShopProfitFallback(shopOrderId: string, db: any) {

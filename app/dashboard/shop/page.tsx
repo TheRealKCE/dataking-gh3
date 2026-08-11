@@ -14,7 +14,7 @@ import {
     Store, Wallet, TrendingUp, ShoppingCart, ArrowRight,
     Settings, Tag, Banknote, Clock, CheckCircle2, XCircle,
     AlertCircle, ExternalLink, Copy, Check, Lightbulb, Filter, RefreshCcw, Crown,
-    MessageCircle, Loader2, X
+    MessageCircle, Loader2, X, Smartphone
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -32,6 +32,8 @@ interface ShopProfile {
     logo_url: string | null
     brand_color: string
     pricing_status: 'not_submitted' | 'pending_review' | 'approved' | 'rejected'
+    ussd_status: 'inactive' | 'active' | null
+    ussd_code: string | null
 }
 
 interface ShopWallet {
@@ -90,6 +92,11 @@ export default function ShopOverviewPage() {
     const [isRefreshing, setIsRefreshing] = useState(false)
     const [copied, setCopied] = useState(false)
 
+    // USSD short code: price and dial code come from the activation route so the
+    // per-role price never has to be exposed as a public setting.
+    const [ussd, setUssd] = useState<{ status: string; shortCode: string | null; dialCode: string; price: number } | null>(null)
+    const [ussdCopied, setUssdCopied] = useState(false)
+
     // Announcement state
     const [shopAnnouncement, setShopAnnouncement] = useState<{ id: string; message: string; is_active: boolean } | null>(null)
     const [annMsg, setAnnMsg] = useState('')
@@ -122,6 +129,14 @@ export default function ShopOverviewPage() {
 
         // --- Stage 2: Shop found — render it immediately ---
         setShop(shopData)
+
+        // Non-blocking: the hero renders without it and fills in when it lands.
+        fetch('/api/shop/ussd/activate', { cache: 'no-store' })
+            .then((r) => r.json())
+            .then((d) => {
+                if (d?.success) setUssd({ status: d.status, shortCode: d.shortCode, dialCode: d.dialCode, price: d.price })
+            })
+            .catch(() => { })
 
         // --- Stage 3: Fetch secondary data (wallet, orders) with allSettled ---
         // Failures here never hide the shop dashboard.
@@ -228,6 +243,14 @@ export default function ShopOverviewPage() {
         setCopied(true)
         toast.success('Shop link copied!')
         setTimeout(() => setCopied(false), 2000)
+    }
+
+    const copyUssd = async () => {
+        if (!ussd?.shortCode) return
+        await navigator.clipboard.writeText(`Dial ${ussd.dialCode} and enter short code ${ussd.shortCode}`)
+        setUssdCopied(true)
+        toast.success('Short code copied!')
+        setTimeout(() => setUssdCopied(false), 2000)
     }
 
     const handleSaveAnnouncement = async () => {
@@ -402,6 +425,40 @@ export default function ShopOverviewPage() {
                                 <a href={shopUrl} target="_blank" rel="noopener noreferrer" aria-label="Go to live storefront"><Button className="w-full sm:w-auto h-10 sm:h-9 px-4 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl gap-2 font-bold"><ExternalLink className="w-4 h-4" /> Go to Live</Button></a>
                             </div>
                         </div>
+                    )}
+
+                    {/* --- USSD SHORT CODE --- */}
+                    {shop.approval_status === 'approved' && ussd && (
+                        ussd.status === 'active' && ussd.shortCode ? (
+                            <div className="mt-3 flex flex-col sm:flex-row items-center gap-3 w-full max-w-2xl bg-slate-900 dark:bg-black p-2 sm:pl-4 rounded-2xl border border-slate-800">
+                                <div className="flex items-center gap-2 w-full px-2 justify-center sm:justify-start">
+                                    <Smartphone className="w-4 h-4 text-yellow-400 flex-shrink-0" />
+                                    <span className="text-sm font-mono text-white truncate">{ussd.dialCode}</span>
+                                    <ArrowRight className="w-3.5 h-3.5 text-slate-500 flex-shrink-0" />
+                                    <span className="text-sm font-black tracking-widest text-yellow-400">{ussd.shortCode}</span>
+                                    <span className="hidden sm:inline text-[10px] font-black text-slate-400 border border-slate-700 rounded-full px-2 py-0.5 ml-1">LIFETIME</span>
+                                </div>
+                                <Button onClick={copyUssd} variant="secondary" className="w-full sm:w-auto h-10 sm:h-9 bg-white dark:bg-zinc-900 text-slate-900 dark:text-white gap-2 rounded-xl font-bold">
+                                    {ussdCopied ? <Check className="w-4 h-4 text-green-500" /> : <Copy className="w-4 h-4" />} {ussdCopied ? 'Copied!' : 'Copy'}
+                                </Button>
+                            </div>
+                        ) : (
+                            <div className="mt-3 flex flex-col sm:flex-row sm:items-center gap-3 w-full max-w-2xl bg-gradient-to-r from-slate-900 to-slate-800 dark:from-black dark:to-zinc-900 p-4 rounded-2xl border border-slate-700">
+                                <Smartphone className="w-8 h-8 text-yellow-400 flex-shrink-0 mx-auto sm:mx-0" />
+                                <div className="flex-1 text-center sm:text-left">
+                                    <p className="text-sm font-black text-white">Activate your USSD Short Code</p>
+                                    <p className="text-xs text-slate-300 mt-0.5">
+                                        One-time payment of <span className="font-bold text-yellow-400">GHS {Number(ussd.price).toFixed(2)}</span> — yours for life.
+                                        Sell to customers with no internet.
+                                    </p>
+                                </div>
+                                <Link href="/dashboard/shop/ussd" className="w-full sm:w-auto">
+                                    <Button className="w-full sm:w-auto h-10 px-5 bg-yellow-400 hover:bg-yellow-500 text-slate-900 rounded-xl font-black">
+                                        Activate Now
+                                    </Button>
+                                </Link>
+                            </div>
+                        )
                     )}
                 </div>
             </div>
