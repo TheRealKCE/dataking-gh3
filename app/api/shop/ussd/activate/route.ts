@@ -1,18 +1,16 @@
 import { createRouteHandlerClient } from '@/lib/supabase-server'
 import { NextResponse } from 'next/server'
 import { generateReferenceCode } from '@/lib/utils'
-import { initiatePayment, MOOLRE_PAYMENT_CHANNEL_MAP } from '@/lib/moolre-payment-service'
 import { initiatePayment as hubtelInitiatePayment, HUBTEL_CHANNEL_MAP } from '@/lib/hubtel-payment-service'
-import { initiatePayment as payswitchInitiatePayment, PAYSWITCH_CHANNEL_MAP } from '@/lib/payswitch-payment-service'
-import { assignPayswitchTransactionId } from '@/lib/payswitch-reference'
-import { resolveProvider, isPaymentProvider, type PaymentProvider } from '@/lib/payment-provider'
 
 /**
  * USSD short-code activation — a one-time, lifetime purchase.
  *
  * Modelled on /api/user/upgrade/initialize: the wallet branch settles entirely
- * server-side, while the gateway branches leave a pending `wallet_payments` row
- * that the provider webhook settles through processCompletedUssdActivation.
+ * server-side, while the Hubtel branch leaves a pending `wallet_payments` row
+ * that the Hubtel webhook settles through processCompletedUssdActivation.
+ *
+ * Mobile money always goes through Hubtel, matching the rest of the USSD stack.
  *
  * The reference is prefixed `ussd_activation_` (not `SHOPUSSD-`) so it routes
  * through the webhooks' existing wallet_payments lookup, which already does the
@@ -64,7 +62,7 @@ async function loadContext() {
     const { data: settings } = await supabaseAdmin
         .from('admin_settings')
         .select('key, value')
-        .in('key', [...PRICE_KEYS, 'ussd_dial_code', 'active_payment_provider_web'])
+        .in('key', [...PRICE_KEYS, 'ussd_dial_code'])
 
     const settingsMap: Record<string, any> = {}
     for (const row of (settings || [])) settingsMap[row.key] = row.value
@@ -121,34 +119,18 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'Activation is not available right now. Please contact support.' }, { status: 503 })
         }
 
-        const {
-            phone,
-            network,
-            otpCode,
-            reference: existingRef,
-            provider: bodyProvider,
-            paymentMethod,
-        } = await request.json().catch(() => ({}))
+        const { phone, network, paymentMethod } = await request.json().catch(() => ({}))
 
         const isWalletPayment = paymentMethod === 'wallet'
 
-        const provider: PaymentProvider =
-            isPaymentProvider(bodyProvider) && bodyProvider !== 'moolre'
-                ? bodyProvider
-                : resolveProvider(settingsMap.active_payment_provider_web)
-
-        if (!isWalletPayment) {
-            const channelMap =
-                provider === 'moolre' ? MOOLRE_PAYMENT_CHANNEL_MAP
-                    : provider === 'hubtel' ? HUBTEL_CHANNEL_MAP
-                        : provider === 'payswitch' ? PAYSWITCH_CHANNEL_MAP
-                            : null
-            if (channelMap && (!phone || !network || !channelMap[network])) {
-                return NextResponse.json({ error: 'Phone number and network are required' }, { status: 400 })
-            }
+        if (!isWalletPayment && (!phone || !network || !HUBTEL_CHANNEL_MAP[network])) {
+            return NextResponse.json({ error: 'Phone number and network are required' }, { status: 400 })
         }
 
-        const reference = existingRef || `ussd_activation_${generateReferenceCode()}`
+        // Always minted server-side. The upgrade route this was modelled on accepts
+        // a client reference to resubmit after a Moolre OTP step; Hubtel has no OTP,
+        // so honouring one here would only let a caller collide with a payment row.
+        const reference = `ussd_activation_${generateReferenceCode()}`
 
         const activationMetadata = {
             user_id: authUser.id,
@@ -256,7 +238,11 @@ export async function POST(request: Request) {
             })
         }
 
-        // ── GATEWAY BRANCHES ─────────────────────────────────────────────────────
+        // ── HUBTEL BRANCH ────────────────────────────────────────────────────────
+        // Activation always prompts through Hubtel, matching the rest of the USSD
+        // stack. It deliberately ignores active_payment_provider_web: this purchase
+        // only ever collects a phone + network, so routing it to a card gateway
+        // would strand the caller on a checkout page they never asked for.
         const { data: wallet } = await supabaseAdmin
             .from('wallets')
             .select('id')
@@ -273,144 +259,36 @@ export async function POST(request: Request) {
                 fee: 0,
                 total_amount: price,
                 reference,
-                provider,
+                provider: 'hubtel',
                 status: 'pending',
                 metadata: activationMetadata,
             })
 
-        if (!existingRef && paymentError) {
+        if (paymentError) {
             console.error('[UssdActivate] Database error:', paymentError)
             throw new Error('Failed to record payment attempt')
         }
 
-        if (provider === 'paystack') {
-            const { data: userProfile } = await supabaseAdmin
-                .from('users')
-                .select('email')
-                .eq('id', authUser.id)
-                .single()
-
-            const paystackRes = await fetch('https://api.paystack.co/transaction/initialize', {
-                method: 'POST',
-                headers: {
-                    Authorization: `Bearer ${process.env.PAYSTACK_SECRET_KEY}`,
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({
-                    email: (userProfile as any)?.email,
-                    amount: Math.round(price * 100),
-                    reference,
-                    callback_url: `${process.env.NEXT_PUBLIC_APP_URL}/dashboard/shop/ussd?reference=${reference}`,
-                    metadata: { upgrade_type: 'ussd_activation', shop_id: shop.id },
-                }),
-            })
-
-            const paystackData = await paystackRes.json()
-
-            if (!paystackData.status) {
-                console.error('[UssdActivate] Paystack init failed:', paystackData)
-                await (supabaseAdmin.from('wallet_payments') as any).update({ status: 'failed' }).eq('reference', reference)
-                return NextResponse.json({ error: 'Payment gateway error' }, { status: 500 })
-            }
-
-            return NextResponse.json({
-                success: true,
-                gateway: 'paystack',
-                authorization_url: paystackData.data.authorization_url,
-                reference,
-            })
-        }
-
-        if (provider === 'hubtel') {
-            const hubtelResponse = await hubtelInitiatePayment({
-                amount: price,
-                payerPhone: phone,
-                channel: HUBTEL_CHANNEL_MAP[network],
-                clientReference: reference,
-                // ASCII only: non-ASCII in Description makes the Hubtel call throw
-                // `terminated` after the payment has already gone live.
-                description: 'ARHMS USSD Short Code Activation',
-                userId: authUser.id,
-            })
-
-            if (!hubtelResponse.success) {
-                throw new Error(hubtelResponse.error || 'Failed to initialize Hubtel payment')
-            }
-
-            return NextResponse.json({
-                success: true,
-                gateway: 'hubtel',
-                reference,
-                message: 'Payment prompt sent to your phone. Please approve to continue.',
-            })
-        }
-
-        if (provider === 'payswitch') {
-            const { transactionId, error: txIdError } = await assignPayswitchTransactionId(supabaseAdmin, { reference })
-            if (!transactionId) {
-                console.error('[UssdActivate] PaySwitch transaction id error:', txIdError)
-                await (supabaseAdmin.from('wallet_payments') as any).update({ status: 'failed' }).eq('reference', reference)
-                throw new Error('Could not start the payment. Please try again.')
-            }
-
-            const payswitchResponse = await payswitchInitiatePayment({
-                amount: price,
-                payerPhone: phone,
-                network,
-                transactionId,
-                description: 'ARHMS USSD Short Code Activation',
-            })
-
-            if (!payswitchResponse.success) {
-                await (supabaseAdmin.from('wallet_payments') as any).update({ status: 'failed' }).eq('reference', reference)
-                throw new Error(payswitchResponse.error || 'Failed to initialize PaySwitch payment')
-            }
-
-            return NextResponse.json({
-                success: true,
-                gateway: 'payswitch',
-                reference,
-                message: 'Payment prompt sent to your phone. Please approve to continue.',
-            })
-        }
-
-        // ── MOOLRE ───────────────────────────────────────────────────────────────
-        const channelId = MOOLRE_PAYMENT_CHANNEL_MAP[network]
-
-        let moolreResponse = await initiatePayment({
+        const hubtelResponse = await hubtelInitiatePayment({
             amount: price,
             payerPhone: phone,
-            channel: channelId,
-            externalRef: reference,
-            otpCode,
+            channel: HUBTEL_CHANNEL_MAP[network],
+            clientReference: reference,
+            // toHubtelSafeText sanitises this, but keeping it ASCII at the source
+            // avoids the failure mode where a bad Description makes the call throw
+            // `terminated` after the payment has already gone live.
+            description: 'ARHMS USSD Short Code Activation',
+            userId: authUser.id,
         })
 
-        if (moolreResponse.success && String(moolreResponse.status) === '1' && otpCode) {
-            moolreResponse = await initiatePayment({
-                amount: price,
-                payerPhone: phone,
-                channel: channelId,
-                externalRef: reference,
-            })
-        }
-
-        if (!moolreResponse.success) {
-            throw new Error(moolreResponse.error || 'Failed to initialize payment')
-        }
-
-        if (moolreResponse.status === '200_OTP_REQ') {
-            return NextResponse.json({
-                success: true,
-                gateway: 'moolre',
-                otpRequired: true,
-                reference,
-                message: 'OTP is required to complete this payment. Please enter the code sent to your phone.',
-            })
+        if (!hubtelResponse.success) {
+            await (supabaseAdmin.from('wallet_payments') as any).update({ status: 'failed' }).eq('reference', reference)
+            throw new Error(hubtelResponse.error || 'Failed to initialize Hubtel payment')
         }
 
         return NextResponse.json({
             success: true,
-            gateway: 'moolre',
+            gateway: 'hubtel',
             reference,
             message: 'Payment prompt sent to your phone. Please approve to continue.',
         })

@@ -37,8 +37,6 @@ export default function UssdActivationPage() {
     const [method, setMethod] = useState<'wallet' | 'momo'>('wallet')
     const [phone, setPhone] = useState('')
     const [network, setNetwork] = useState('MTN')
-    const [otpCode, setOtpCode] = useState('')
-    const [otpRequired, setOtpRequired] = useState(false)
     const [reference, setReference] = useState<string | null>(null)
     const [submitting, setSubmitting] = useState(false)
     const [polling, setPolling] = useState(false)
@@ -101,8 +99,6 @@ export default function UssdActivationPage() {
                     paymentMethod: method === 'wallet' ? 'wallet' : undefined,
                     phone: phone.trim(),
                     network,
-                    otpCode: otpCode.trim() || undefined,
-                    reference: otpRequired ? reference : undefined,
                 }),
             })
             const data = await res.json()
@@ -118,21 +114,9 @@ export default function UssdActivationPage() {
                 return
             }
 
+            // Hubtel confirms on a webhook, so the prompt landing on the handset
+            // is only the start — poll until the short code actually exists.
             setReference(data.reference)
-
-            if (data.otpRequired) {
-                setOtpRequired(true)
-                toast.info('Enter the OTP sent to your phone')
-                return
-            }
-
-            if (data.authorization_url) {
-                window.location.href = data.authorization_url
-                return
-            }
-
-            setOtpRequired(false)
-            setOtpCode('')
             setPolling(true)
             toast.success(data.message || 'Approve the prompt on your phone')
         } catch {
@@ -313,17 +297,9 @@ export default function UssdActivationPage() {
                                         inputMode="tel"
                                     />
                                 </div>
-                                {otpRequired && (
-                                    <div className="space-y-2">
-                                        <Label>OTP code</Label>
-                                        <Input
-                                            value={otpCode}
-                                            onChange={(e) => setOtpCode(e.target.value)}
-                                            placeholder="Enter the code sent to your phone"
-                                            inputMode="numeric"
-                                        />
-                                    </div>
-                                )}
+                                <p className="text-xs text-muted-foreground">
+                                    You&apos;ll get a prompt on this number to approve the payment.
+                                </p>
                             </div>
                         )}
 
