@@ -2,12 +2,7 @@ import { createRouteHandlerClient } from '@/lib/supabase-server'
 import { NextResponse } from 'next/server'
 import { generateReferenceCode } from '@/lib/utils'
 import { initiatePayment as hubtelInitiatePayment, HUBTEL_CHANNEL_MAP } from '@/lib/hubtel-payment-service'
-import {
-    resolveSubAgentContext,
-    SUB_INACTIVE_ERROR,
-    UPLINE_INELIGIBLE_ERROR,
-    type SubAgentContext,
-} from '@/lib/sub-agents'
+import { resolveSubAgentContext, type SubAgentContext } from '@/lib/sub-agents'
 
 /**
  * USSD short-code activation — a one-time, lifetime purchase.
@@ -92,16 +87,23 @@ async function loadContext() {
     return { authUser, supabaseAdmin, shop: shop as any, role, price, settingsMap, sub }
 }
 
-/** The reason a caller cannot activate right now, or null when they can. */
+/**
+ * The reason a caller cannot activate right now, or null when they can.
+ *
+ * A sub is gated on their OWN membership only. Deliberately NOT gated on the
+ * upline's canOwnSubNetwork() eligibility: almost every live Lead is role
+ * 'customer' with no dealer subscription, yet their networks sell every day —
+ * the sub's storefront applies no such check either, so enforcing it at the
+ * short-code till would block paying subs for a state they cannot fix.
+ */
 function activationBlockReason(shop: any, sub: SubAgentContext): string | null {
     if (!shop) return 'You need a shop before you can activate a short code'
     if (shop.approval_status !== 'approved') return 'Your shop must be approved before activating a short code'
     if (sub.isSub && sub.status !== 'active') {
         return sub.status === 'suspended'
-            ? SUB_INACTIVE_ERROR
+            ? 'Your sub-agent account is suspended. Contact your Lead to be reinstated.'
             : 'Your account is still awaiting approval from your Lead'
     }
-    if (sub.isSub && !sub.uplineEligible) return UPLINE_INELIGIBLE_ERROR
     return null
 }
 
