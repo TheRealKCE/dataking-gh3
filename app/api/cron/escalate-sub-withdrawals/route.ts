@@ -4,14 +4,19 @@ import { createServerClient } from '@/lib/supabase'
 /**
  * Escalation Cron: Sweep sub withdrawals stuck in shop_owner_pending
  *
- * Triggers every hour (configure on cronjob.org).
- * Moves withdrawals to admin payout queue if:
- *   1. escalate_after < now() (48h window passed), OR
- *   2. The Lead is ineligible (role not agent/dealer, or expired)
+ * Runs hourly (registered in vercel.json; Vercel supplies the CRON_SECRET
+ * Authorization header the check below expects).
  *
- * Transition:
+ * A withdrawal escalates when its 48h window has lapsed:
  *   status: 'shop_owner_pending' → 'pending' (enters admin queue)
  *   auto_escalated: true (flags for admin extra verification)
+ *
+ * It deliberately does NOT escalate on "the Lead is ineligible". That rule
+ * (lifetime agent OR unexpired dealer) is one almost no live Lead satisfies —
+ * they are role 'customer' and selling every day — so applying it here would
+ * forward practically every request straight past the Lead and make their
+ * approval meaningless. The 48h timer already stops a Lead sitting on a
+ * request, which is the abuse the escalation exists to prevent.
  *
  * Security: Uses service_role client (bypasses RLS), validates time conditions.
  */
@@ -33,29 +38,15 @@ export async function GET(request: NextRequest) {
     console.log(`[Escalate Cron] Starting escalation sweep at ${now.toISOString()}`)
 
     // 1. Find all shop_owner_pending withdrawals eligible for escalation
+    // Only the timer decides, so this needs nothing beyond the row itself —
+    // the previous nested embed pulled the whole upline chain for a check that
+    // no longer runs, and had two aliases resolving to the same relationship.
     const { data: pendingWithdrawals, error: fetchError } = await supabase
       .from('shop_wallet_transactions')
-      .select(
-        `
-        id,
-        shop_wallet_id,
-        amount,
-        status,
-        escalate_after,
-        shop_wallets(
-          owner_id
-        ),
-        sub_agents:shop_wallets(
-          sub_agents(
-            upline_shop_id,
-            sub_agents_upline:upline_shop_id(
-              owner_id
-            )
-          )
-        )
-        `
-      )
+      .select('id, shop_wallet_id, amount, status, escalate_after')
       .eq('status', 'shop_owner_pending')
+      .not('escalate_after', 'is', null)
+      .lt('escalate_after', now.toISOString())
 
     if (fetchError) {
       console.error('[Escalate Cron] Fetch error:', fetchError)
@@ -80,84 +71,34 @@ export async function GET(request: NextRequest) {
 
     for (const withdrawal of pendingWithdrawals) {
       try {
-        // Determine if this withdrawal should escalate
-        let shouldEscalate = false
-        let reason = ''
+        // The query already selected only rows whose 48h window has lapsed.
+        // Re-assert the status in the UPDATE so a Lead who approves in the same
+        // instant wins the race instead of both writes landing.
+        const { data: escalated, error: updateError } = await supabase
+          .from('shop_wallet_transactions')
+          .update({
+            status: 'pending',
+            auto_escalated: true,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('id', withdrawal.id)
+          .eq('status', 'shop_owner_pending')
+          .select('id')
 
-        // Reason 1: 48h window passed
-        if (withdrawal.escalate_after) {
-          const escalateTime = new Date(withdrawal.escalate_after)
-          if (escalateTime < now) {
-            shouldEscalate = true
-            reason = '48h window passed'
-          }
-        }
-
-        // Reason 2: Lead is ineligible (only check if not already escalated due to time)
-        if (!shouldEscalate) {
-          // Get the sub's upline Lead
-          const { data: subAgent } = await supabase
-            .from('sub_agents')
-            .select(`
-              upline_shop_id,
-              shop_profiles!upline_shop_id(
-                owner_id,
-                users!owner_id(
-                  role,
-                  agent_expires_at,
-                  dealer_expires_at
-                )
-              )
-            `)
-            .eq('user_id', (withdrawal.shop_wallets as any)?.owner_id)
-            .single()
-
-          if (subAgent?.shop_profiles) {
-            const leadUser = (subAgent.shop_profiles as any)?.users
-            if (leadUser) {
-              const leadRole = leadUser.role
-              const agentExpiresAt = leadUser.agent_expires_at
-              const dealerExpiresAt = leadUser.dealer_expires_at
-
-              // Check eligibility: (role='agent' AND agent_expires_at IS NULL) OR (role='dealer' AND dealer_expires_at > now())
-              const isEligible =
-                (leadRole === 'agent' && !agentExpiresAt) ||
-                (leadRole === 'dealer' && dealerExpiresAt && new Date(dealerExpiresAt) > now)
-
-              if (!isEligible) {
-                shouldEscalate = true
-                reason = `Lead ineligible (role=${leadRole})`
-              }
-            }
-          }
-        }
-
-        // 3. Escalate if conditions met
-        if (shouldEscalate) {
-          const { error: updateError } = await supabase
-            .from('shop_wallet_transactions')
-            .update({
-              status: 'pending',
-              auto_escalated: true,
-              updated_at: new Date().toISOString(),
-            })
-            .eq('id', withdrawal.id)
-
-          if (updateError) {
-            console.error(
-              `[Escalate Cron] Failed to escalate withdrawal ${withdrawal.id}:`,
-              updateError
-            )
-            errors.push({
-              withdrawalId: withdrawal.id,
-              error: updateError.message,
-            })
-          } else {
-            escalatedCount++
-            console.log(
-              `[Escalate Cron] Escalated withdrawal ${withdrawal.id} (reason: ${reason})`
-            )
-          }
+        if (updateError) {
+          console.error(
+            `[Escalate Cron] Failed to escalate withdrawal ${withdrawal.id}:`,
+            updateError
+          )
+          errors.push({
+            withdrawalId: withdrawal.id,
+            error: updateError.message,
+          })
+        } else if (escalated?.length) {
+          escalatedCount++
+          console.log(
+            `[Escalate Cron] Escalated withdrawal ${withdrawal.id} (48h window passed)`
+          )
         }
       } catch (err: any) {
         console.error(`[Escalate Cron] Unexpected error for withdrawal:`, err)
