@@ -397,7 +397,7 @@ function mapStatus(status: string): 'pending' | 'processing' | 'completed' | 'fa
     return 'processing'
 }
 
-export async function fetchSupplierBalance(): Promise<{ success: boolean; balance?: number; currency?: string; error?: string }> {
+export async function fetchSupplierBalance(): Promise<{ success: boolean; balance?: number; currency?: string; error?: string; unsupported?: boolean }> {
     try {
         // Note: API key is required even though the docs example shows empty headers
         const response = await fetch(`${DATAKAZINA_API_BASE_URL}/check-console-balance`, {
@@ -416,8 +416,14 @@ export async function fetchSupplierBalance(): Promise<{ success: boolean; balanc
             if (response.status === 404) {
                 // The documented endpoint is gone upstream — the same key still works on
                 // other v1 routes (e.g. /fetch-data-packages), so this is a supplier-side
-                // rename, not an auth or config problem on our end.
-                return { success: false, error: 'DataKazina /check-console-balance no longer exists (HTTP 404) — endpoint changed upstream' }
+                // rename, not an auth or config problem on our end. `unsupported` marks it
+                // as a standing condition rather than an outage: callers that retry or
+                // cache on "everything answered" must not treat this as recoverable.
+                return {
+                    success: false,
+                    unsupported: true,
+                    error: 'DataKazina /check-console-balance no longer exists (HTTP 404) — endpoint changed upstream',
+                }
             }
             return { success: false, error: `Supplier returned unexpected response (HTTP ${response.status})` }
         }

@@ -11,7 +11,10 @@ export const maxDuration = 60
 
 const CACHE_DURATION = 300000 // 5 minutes in milliseconds
 
-type SupplierResult = { success: boolean; balance?: number; currency?: string; error?: string }
+// `unsupported` means the supplier has no working balance endpoint at all (DataKazina
+// removed /check-console-balance upstream), as opposed to a transient failure. It still
+// renders as "Unavailable", but it must not be treated as something a retry can fix.
+type SupplierResult = { success: boolean; balance?: number; currency?: string; error?: string; unsupported?: boolean }
 
 // Response payload, built once and reused for the cached replay so the two can't drift.
 type BalancePayload = Record<string, number | string | boolean | undefined>
@@ -94,8 +97,14 @@ export async function GET() {
         ]
 
         for (const [prefix, result] of results) {
-            if (!result.success) {
-                console.error(`[Fulfillment Balance] ${prefix || 'dakazina'} balance fetch failed: ${result.error}`)
+            if (result.success) continue
+            const name = prefix || 'dakazina'
+            // A supplier with no balance endpoint is expected, not an incident — logging it
+            // at error level every poll just buries the real failures.
+            if (result.unsupported) {
+                console.warn(`[Fulfillment Balance] ${name} balance unsupported: ${result.error}`)
+            } else {
+                console.error(`[Fulfillment Balance] ${name} balance fetch failed: ${result.error}`)
             }
         }
 
@@ -105,10 +114,13 @@ export async function GET() {
 
         const payload: BalancePayload = Object.assign({}, ...results.map(([prefix, result]) => flatten(prefix, result)))
 
-        // 5. Update Cache — only when every supplier answered. Caching a partial read
-        // would keep an outage (or a missing API key) on screen for a further 5 minutes
-        // even after it is fixed, and Refresh would appear to do nothing.
-        if (results.every(([, result]) => result.success)) {
+        // 5. Update Cache — only when every supplier that *can* answer did. Caching a
+        // partial read would keep an outage (or a missing API key) on screen for a further
+        // 5 minutes even after it is fixed, and Refresh would appear to do nothing.
+        // Suppliers with no balance endpoint are exempt: they fail on every single poll, so
+        // counting them would disable the cache permanently and make each admin load re-poll
+        // all six suppliers live — worst case ~25s on the Agent Portal's TLS retries alone.
+        if (results.every(([, result]) => result.success || result.unsupported)) {
             balanceCache = { payload, timestamp: now }
         } else {
             balanceCache = null
