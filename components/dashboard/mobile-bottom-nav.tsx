@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
@@ -33,36 +33,62 @@ import { shopNavItems, type NavItem } from '@/lib/dashboard-nav'
  * Floating pill bottom navigation for the mobile dashboard.
  *
  * The pill and the detached hamburger carry the signed-in role's colour, so the
- * bar matches the sidebar and header chrome the user is already looking at.
- * Text on the pill is a literal white in both themes: every role surface here
- * is a saturated mid-to-dark gradient, so white is the right pairing whether
- * the app is in light or dark mode.
+ * bar matches the badge and chrome the user already sees elsewhere.
  *
  * The active tab expands into a white chip carrying a toggle for that section's
  * sub-pages.
  */
 
+interface NavTheme {
+    /** Tailwind gradient stops for the pill and hamburger. */
+    gradient: string
+    /** Active chip's text colour — it sits on white. */
+    ink: string
+    /** Inactive tab text colour — it sits on the gradient. */
+    onSurface: string
+    /**
+     * False for surfaces light enough to need dark text. Gold is the only one:
+     * white on #D4AF37 is about 2.1:1 and unreadable, so the customer bar is
+     * the mirror image of the others — dark text, gentler specular bloom.
+     */
+    darkSurface: boolean
+}
+
 /**
- * Nav chrome per role. The gradients mirror `roleConfig[role].gradient` except
- * for customer: that role's chrome is gold, which is far too light to carry
- * white text, so the customer bar runs on teal instead. The override lives here
- * rather than in lib/roles.ts on purpose — it restyles the nav, not the role.
+ * Nav chrome per role, matching each role's badge colour in lib/roles.ts.
  *
- * `ink` is the active chip's text colour, taken from the gradient's dark stop.
- * It is applied inline because an arbitrary text-[#hex] class would need a
- * tailwind.config.ts safelist entry to survive the production purge.
+ * Colours are applied inline rather than as text-[#hex] classes, which would
+ * each need a tailwind.config.ts safelist entry to survive the production
+ * purge. The gradient stops are class names, so they do need to be safelisted
+ * when they are arbitrary hexes.
  */
-const NAV_THEME: Record<UserRole, { gradient: string; ink: string }> = {
-    'admin': { gradient: 'from-rose-600 via-rose-700 to-red-900', ink: '#9F1239' },
-    'sub-admin': { gradient: 'from-emerald-500 via-teal-600 to-teal-800', ink: '#0F766E' },
-    'agent': { gradient: 'from-[#123A63] via-[#0E3255] to-[#0A2A4A]', ink: '#0A2A4A' },
-    'dealer': { gradient: 'from-purple-600 via-violet-700 to-indigo-800', ink: '#5B21B6' },
-    'customer': { gradient: 'from-[#1E6E67] via-[#2F8A80] to-[#5FAAA1]', ink: '#1E6E67' },
+const NAV_THEME: Record<UserRole, NavTheme> = {
+    'admin': {
+        gradient: 'from-rose-600 via-rose-700 to-red-900',
+        ink: '#9F1239', onSurface: 'rgba(255,255,255,0.92)', darkSurface: true,
+    },
+    'sub-admin': {
+        gradient: 'from-emerald-500 via-teal-600 to-teal-800',
+        ink: '#0F766E', onSurface: 'rgba(255,255,255,0.92)', darkSurface: true,
+    },
+    'agent': {
+        gradient: 'from-[#123A63] via-[#0E3255] to-[#0A2A4A]',
+        ink: '#0A2A4A', onSurface: 'rgba(255,255,255,0.92)', darkSurface: true,
+    },
+    'dealer': {
+        gradient: 'from-purple-600 via-violet-700 to-indigo-800',
+        ink: '#5B21B6', onSurface: 'rgba(255,255,255,0.92)', darkSurface: true,
+    },
+    // Gold, to match the customer badge. #4A3810 on the mid-gold reads ~5:1.
+    'customer': {
+        gradient: 'from-brand-gold-light via-brand-gold to-brand-gold-dark',
+        ink: '#7A5F22', onSurface: '#4A3810', darkSurface: false,
+    },
 }
 
 /** Depth shared by the pill and the hamburger: rim light plus a cast shadow. */
 const SURFACE_DEPTH =
-    'ring-1 ring-inset ring-white/25 shadow-[0_16px_34px_-14px_rgba(0,0,0,0.55)]'
+    'ring-1 ring-inset ring-white/30 shadow-[0_18px_38px_-14px_rgba(0,0,0,0.55)]'
 
 /**
  * The mirrored finish. A bright specular bloom off the top-left plus a darker
@@ -71,12 +97,16 @@ const SURFACE_DEPTH =
  * that should sit above them need their own `relative`, since an absolutely
  * positioned element otherwise paints over static content.
  */
-function Sheen() {
+function Sheen({ dark }: { dark: boolean }) {
     return (
         <>
             <span
                 aria-hidden="true"
-                className="pointer-events-none absolute inset-0 bg-[radial-gradient(125%_170%_at_12%_-45%,rgba(255,255,255,0.42),rgba(255,255,255,0.12)_36%,rgba(255,255,255,0)_62%)]"
+                className={
+                    dark
+                        ? 'pointer-events-none absolute inset-0 bg-[radial-gradient(125%_170%_at_12%_-45%,rgba(255,255,255,0.42),rgba(255,255,255,0.12)_36%,rgba(255,255,255,0)_62%)]'
+                        : 'pointer-events-none absolute inset-0 bg-[radial-gradient(125%_170%_at_12%_-45%,rgba(255,255,255,0.55),rgba(255,255,255,0.16)_34%,rgba(255,255,255,0)_60%)]'
+                }
             />
             <span
                 aria-hidden="true"
@@ -174,6 +204,8 @@ export function MobileBottomNav() {
     const openItems = openSection ? visibleSubItems(openSection) : []
 
     return (
+        <>
+        <RefreshFab />
         <div className="fixed inset-x-0 bottom-0 z-40 md:hidden px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
             {/* Backdrop — a tap anywhere outside dismisses the sub-menu. */}
             {openSection && (
@@ -185,17 +217,7 @@ export function MobileBottomNav() {
                 />
             )}
 
-            <div className="relative mx-auto max-w-md">
-                {/* Floating refresh button */}
-                <button
-                    type="button"
-                    onClick={() => window.location.reload()}
-                    className="absolute -top-16 right-2 h-10 w-10 rounded-full bg-white dark:bg-zinc-800 border border-slate-200 dark:border-zinc-700 flex items-center justify-center shadow-soft text-slate-600 dark:text-white active:scale-95 transition-transform"
-                    aria-label="Refresh page"
-                >
-                    <RefreshCw className="h-4 w-4" />
-                </button>
-
+            <div className="relative mx-auto max-w-lg">
                 {/* Sub-menu for the active section */}
                 {openSection && openItems.length > 0 && (
                     <div
@@ -225,16 +247,17 @@ export function MobileBottomNav() {
                         type="button"
                         onClick={toggleSidebar}
                         aria-label="Open menu"
-                        className={`flex h-16 w-16 shrink-0 items-center justify-center rounded-full text-white transition-transform active:scale-95 ${surface}`}
+                        className={`flex h-[4.5rem] w-[4.5rem] shrink-0 items-center justify-center rounded-full transition-transform active:scale-95 ${surface}`}
+                        style={{ color: theme.onSurface }}
                     >
-                        <Sheen />
-                        <Menu className="relative h-7 w-7" />
+                        <Sheen dark={theme.darkSurface} />
+                        <Menu className="relative h-8 w-8" />
                     </button>
 
                     <nav
-                        className={`flex min-w-0 flex-1 items-center gap-1.5 rounded-full p-2.5 ${surface}`}
+                        className={`flex min-w-0 flex-1 items-center gap-2 rounded-full p-3 ${surface}`}
                     >
-                        <Sheen />
+                        <Sheen dark={theme.darkSurface} />
                         {tabs.map((tab) => {
                             const Icon = tab.icon
 
@@ -244,16 +267,16 @@ export function MobileBottomNav() {
                                 return (
                                     <div
                                         key={tab.id}
-                                        className="relative flex min-w-0 items-center gap-2 rounded-full bg-white px-4 py-2.5 shadow-[0_2px_6px_rgba(0,0,0,0.18)]"
+                                        className="relative flex min-w-0 items-center gap-2.5 rounded-full bg-white px-5 py-3.5 shadow-[0_2px_6px_rgba(0,0,0,0.18)]"
                                         style={{ color: theme.ink }}
                                     >
                                         <Link
                                             href={tab.href}
                                             aria-current={pathname === tab.href ? 'page' : undefined}
-                                            className="flex min-w-0 items-center gap-2"
+                                            className="flex min-w-0 items-center gap-2.5"
                                         >
-                                            <Icon className="h-6 w-6 shrink-0" />
-                                            <span className="truncate text-base font-bold">{tab.label}</span>
+                                            <Icon className="h-7 w-7 shrink-0" />
+                                            <span className="truncate text-lg font-bold">{tab.label}</span>
                                         </Link>
                                         {subItems.length > 0 && (
                                             <button
@@ -265,8 +288,8 @@ export function MobileBottomNav() {
                                                 className="-mr-1 shrink-0 rounded-full p-0.5 active:scale-95"
                                             >
                                                 {expanded
-                                                    ? <X className="h-5 w-5" />
-                                                    : <Menu className="h-5 w-5" />}
+                                                    ? <X className="h-6 w-6" />
+                                                    : <Menu className="h-6 w-6" />}
                                             </button>
                                         )}
                                     </div>
@@ -277,10 +300,13 @@ export function MobileBottomNav() {
                                 <Link
                                     key={tab.id}
                                     href={tab.href}
-                                    className="relative flex min-w-0 flex-1 flex-col items-center gap-1.5 py-1 text-white/90 drop-shadow-[0_1px_1px_rgba(0,0,0,0.25)] transition-transform active:scale-95"
+                                    className={`relative flex min-w-0 flex-1 flex-col items-center gap-2 py-1.5 transition-transform active:scale-95 ${
+                                        theme.darkSurface ? 'drop-shadow-[0_1px_1px_rgba(0,0,0,0.25)]' : ''
+                                    }`}
+                                    style={{ color: theme.onSurface }}
                                 >
-                                    <Icon className="h-6 w-6" />
-                                    <span className="truncate text-[11px] font-semibold leading-none">
+                                    <Icon className="h-7 w-7" />
+                                    <span className="truncate text-xs font-semibold leading-none">
                                         {tab.label}
                                     </span>
                                 </Link>
@@ -290,5 +316,114 @@ export function MobileBottomNav() {
                 </div>
             </div>
         </div>
+        </>
+    )
+}
+
+const FAB_SIZE = 48
+const FAB_MARGIN = 12
+const FAB_STORAGE_KEY = 'arhms:refresh-fab'
+/** Below this much travel the gesture is a tap, not a drag. */
+const DRAG_THRESHOLD = 6
+
+/**
+ * Draggable refresh button.
+ *
+ * Position is viewport-relative and therefore client-only — the button renders
+ * nothing until the first effect resolves it, which also keeps it out of the
+ * SSR markup and away from a hydration mismatch. On release it snaps to
+ * whichever side it is nearest so it can never be abandoned mid-screen, and the
+ * resting place is remembered across loads.
+ */
+function RefreshFab() {
+    const [pos, setPos] = useState<{ x: number; y: number } | null>(null)
+    const [dragging, setDragging] = useState(false)
+    const drag = useRef<{ dx: number; dy: number; startX: number; startY: number; moved: boolean } | null>(null)
+
+    const clamp = (p: { x: number; y: number }) => ({
+        x: Math.min(Math.max(p.x, FAB_MARGIN), window.innerWidth - FAB_SIZE - FAB_MARGIN),
+        y: Math.min(Math.max(p.y, FAB_MARGIN), window.innerHeight - FAB_SIZE - FAB_MARGIN),
+    })
+
+    useEffect(() => {
+        // Default rest position: right-hand side, clear of the nav pill.
+        const fallback = {
+            x: window.innerWidth - FAB_SIZE - FAB_MARGIN,
+            y: window.innerHeight - FAB_SIZE - 150,
+        }
+        let start = fallback
+        try {
+            const raw = window.localStorage.getItem(FAB_STORAGE_KEY)
+            const saved = raw ? JSON.parse(raw) : null
+            if (saved && typeof saved.x === 'number' && typeof saved.y === 'number') start = saved
+        } catch {
+            /* unreadable or disabled storage — fall back */
+        }
+        setPos(clamp(start))
+
+        // A rotate or keyboard can shrink the viewport out from under a saved
+        // position, stranding the button off-screen.
+        const onResize = () => setPos((p) => (p ? clamp(p) : p))
+        window.addEventListener('resize', onResize)
+        return () => window.removeEventListener('resize', onResize)
+    }, [])
+
+    if (!pos) return null
+
+    const onPointerDown = (e: React.PointerEvent<HTMLButtonElement>) => {
+        e.currentTarget.setPointerCapture(e.pointerId)
+        drag.current = { dx: e.clientX - pos.x, dy: e.clientY - pos.y, startX: e.clientX, startY: e.clientY, moved: false }
+        setDragging(true)
+    }
+
+    const onPointerMove = (e: React.PointerEvent<HTMLButtonElement>) => {
+        const d = drag.current
+        if (!d) return
+        if (!d.moved && Math.hypot(e.clientX - d.startX, e.clientY - d.startY) > DRAG_THRESHOLD) {
+            d.moved = true
+        }
+        setPos(clamp({ x: e.clientX - d.dx, y: e.clientY - d.dy }))
+    }
+
+    const onPointerUp = () => {
+        const d = drag.current
+        drag.current = null
+        setDragging(false)
+        if (!d) return
+        if (!d.moved) {
+            window.location.reload()
+            return
+        }
+        setPos((prev) => {
+            if (!prev) return prev
+            const toLeft = prev.x + FAB_SIZE / 2 < window.innerWidth / 2
+            const snapped = {
+                x: toLeft ? FAB_MARGIN : window.innerWidth - FAB_SIZE - FAB_MARGIN,
+                y: prev.y,
+            }
+            try {
+                window.localStorage.setItem(FAB_STORAGE_KEY, JSON.stringify(snapped))
+            } catch {
+                /* storage disabled — position simply will not persist */
+            }
+            return snapped
+        })
+    }
+
+    return (
+        <button
+            type="button"
+            aria-label="Refresh page"
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onPointerCancel={onPointerUp}
+            style={{ left: pos.x, top: pos.y, width: FAB_SIZE, height: FAB_SIZE, touchAction: 'none' }}
+            className={`fixed z-50 flex items-center justify-center rounded-full border border-slate-200 bg-white text-slate-600 shadow-soft dark:border-zinc-700 dark:bg-zinc-800 dark:text-white md:hidden ${
+                dragging ? 'scale-110 cursor-grabbing shadow-nav' : 'transition-[left,top,transform] duration-200 active:scale-95'
+            }`}
+        >
+            <RefreshCw className="h-5 w-5" />
+        </button>
     )
 }
