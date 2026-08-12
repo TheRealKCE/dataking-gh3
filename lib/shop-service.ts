@@ -170,20 +170,33 @@ export async function syncShopOrderStatus(mainOrderId: string, status: string) {
 
 /**
  * Credits profit to the shop wallet if not already credited.
+ *
+ * Sub-agent orders (`hasUpline`) pay two wallets — the sub's markup and the
+ * Lead's margin — so they route to credit_shop_order_profits(), which does both
+ * legs in one transaction off shop_orders.profit / .parent_profit. Everything
+ * else keeps the single-wallet credit_shop_profit() path unchanged, including
+ * its JS fallback for databases where the RPC was never deployed.
  */
-export async function creditShopProfit(shopOrderId: string) {
+export async function creditShopProfit(
+    shopOrderId: string,
+    options?: { hasUpline?: boolean }
+) {
     const supabase = createServerClient()
     const db = supabase as any
+    const rpcName = options?.hasUpline ? 'credit_shop_order_profits' : 'credit_shop_profit'
 
     try {
-        console.log(`[Profit] Attempting to credit profit for shop order ${shopOrderId}...`)
+        console.log(`[Profit] Attempting to credit profit for shop order ${shopOrderId} via ${rpcName}...`)
 
-        const { data, error } = await db.rpc('credit_shop_profit', {
+        const { data, error } = await db.rpc(rpcName, {
             p_shop_order_id: shopOrderId
         })
 
         if (error) {
             console.error(`[Profit] RPC Error for order ${shopOrderId}:`, error)
+            // A sub order has no single-wallet equivalent — falling back would
+            // pay the sub the Lead's margin as well. Surface it instead.
+            if (options?.hasUpline) return
             // PGRST202 means function not found
             if (error.code === 'PGRST202' || error.message?.includes('Could not find the function')) {
                 console.log(`[Profit] Falling back to manual JS credit for order ${shopOrderId}...`)

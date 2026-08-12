@@ -182,8 +182,15 @@ async function runTest() {
     console.log('\nSetting up pricing...')
 
     const ownerCost = pkg.agent_price || pkg.price
-    const subPrice = ownerCost + 1.0 // wholesale price = owner_cost + margin
-    const retailPrice = subPrice + 2.0 // sub's retail = sub_price + markup
+    // The Lead's RETAIL price is the sub's cost basis: no UI writes sub_price,
+    // and /api/dashboard/sub/pricing already forces a sub's price above the
+    // parent's retail. sub_price is left null here on purpose so the test
+    // exercises the COALESCE(sub_price, selling_price) fallback that
+    // lib/shop-order-processor.ts relies on.
+    const subPrice = ownerCost + 1.0
+    // Both legs are deliberately EQUAL (₵1.00 each): that is the case the old
+    // amount-keyed idempotency check collapsed, silently never paying the Lead.
+    const retailPrice = subPrice + 1.0
 
     // Lead's pricing
     const { error: leadPricingError } = await supabase
@@ -191,8 +198,7 @@ async function runTest() {
       .insert({
         shop_id: leadShopId,
         package_id: pkg.id,
-        selling_price: ownerCost,
-        sub_price: subPrice,
+        selling_price: subPrice,
       })
 
     if (leadPricingError && !leadPricingError.message.includes('duplicate')) {
@@ -212,7 +218,7 @@ async function runTest() {
       throw subPricingError
     }
 
-    console.log(`Lead pricing: selling=${ownerCost}, sub_price=${subPrice}`)
+    console.log(`Lead pricing: selling=${subPrice} (owner cost ${ownerCost})`)
     console.log(`Sub retail: selling=${retailPrice}`)
 
     // 4. Simulate guest payment → create shop_orders
@@ -228,7 +234,7 @@ async function runTest() {
         network: 'MTN',
         package_size: `${pkg.price}GB`,
         selling_price: retailPrice,
-        cost_price: subPrice, // Sub's cost = upline's sub_price
+        cost_price: subPrice, // Sub's cost = upline's price
         profit: retailPrice - subPrice, // Sub's profit
         parent_shop_id: leadShopId,
         parent_profit: subPrice - ownerCost, // Lead's profit
@@ -315,6 +321,29 @@ async function runTest() {
       name: 'Profit Floors',
       status: subProfit > 0 && leadProfit > 0 ? 'pass' : 'fail',
       message: `Sub: ₵${subProfit.toFixed(2)} ${subProfit > 0 ? '✓' : '✗'}, Lead: ₵${leadProfit.toFixed(2)} ${leadProfit > 0 ? '✓' : '✗'}`,
+    })
+
+    // 8. Replay safety — a webhook retry must not pay anyone twice
+    console.log('\nReplaying credit_shop_order_profits (idempotency)...')
+    const { error: replayError } = await supabase.rpc('credit_shop_order_profits', {
+      p_shop_order_id: orderId,
+    })
+    if (replayError) throw replayError
+
+    const [{ data: subWalletAfter }, { data: leadWalletAfter }] = await Promise.all([
+      supabase.from('shop_wallets').select('balance').eq('owner_id', subUserId).single(),
+      supabase.from('shop_wallets').select('balance').eq('owner_id', leadUserId).single(),
+    ])
+
+    const subUnchanged = Math.abs((subWalletAfter?.balance ?? -1) - (subWallet?.balance ?? 0)) < 0.001
+    const leadUnchanged = Math.abs((leadWalletAfter?.balance ?? -1) - (leadWallet?.balance ?? 0)) < 0.001
+
+    results.push({
+      name: 'Replay Idempotency',
+      status: subUnchanged && leadUnchanged ? 'pass' : 'fail',
+      message: subUnchanged && leadUnchanged
+        ? 'Second credit call moved no balances'
+        : `Balances moved on replay — sub ₵${subWalletAfter?.balance}, lead ₵${leadWalletAfter?.balance}`,
     })
 
     console.log('\nProfit split successful!')
