@@ -75,6 +75,7 @@ export default function ShopPricingPage() {
     const [rcTypes, setRcTypes] = useState<RCType[]>([])
     const [rcPricing, setRcPricing] = useState<Record<string, string>>({})
     const [storefrontRcEnabled, setStorefrontRcEnabled] = useState(false)
+    const [rcLoadError, setRcLoadError] = useState<string | null>(null)
     
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
@@ -116,7 +117,9 @@ export default function ShopPricingPage() {
             const [pkgRes, priceRes, adminRes, rcTypesRes, rcPricingRes, rcSettingRes] = await Promise.all([
                 (supabase.from('data_packages').select('*').eq('is_available', true).order('sort_order') as any),
                 ((supabase as any).from('shop_pricing').select('*').eq('shop_id', shopData.id)),
-                fetch('/api/shop/pricing').then(res => res.json()),
+                // Airtime caps only — a failure here must not take the whole page
+                // (data grid included) down with it.
+                fetch('/api/shop/pricing').then(res => res.json()).catch(() => ({})),
                 (supabase.from('results_checker_types').select('id, name, cost_price, agent_price, dealer_price, customer_price').eq('is_active', true).order('display_order') as any),
                 fetch(`/api/shop/rc-pricing?shopId=${shopData.id}`).then(res => res.json()).catch(() => ({ pricing: [] })),
                 fetch('/api/admin-settings?keys=storefront_rc_enabled').then(r => r.json()).catch(() => ({}))
@@ -124,6 +127,8 @@ export default function ShopPricingPage() {
 
             setPackages(pkgRes.data || [])
             setRcTypes(rcTypesRes.data || [])
+            // Surface a failed type lookup instead of letting the section render empty.
+            setRcLoadError(rcTypesRes.error?.message || null)
             setStorefrontRcEnabled(String(rcSettingRes?.storefront_rc_enabled) === 'true')
 
             const adminFlags: Record<string, number> = {}
@@ -162,18 +167,22 @@ export default function ShopPricingPage() {
         return selling - getCostPrice(pkg)
     }
 
+    // Mirrors the server rule in /api/shop/pricing and /api/shop/rc-pricing —
+    // agents get GHS 10, everyone else GHS 5. Keeping one source of truth here
+    // stops the grid painting a price green that the API then rejects.
+    const maxProfit = shop?.owner_role === 'agent' ? 10 : 5
+
     const isValidPrice = (pkg: Package, sellingStr: string) => {
         const profit = getProfit(pkg, sellingStr)
         if (profit === null) return null
-        const maxProfit = shop?.owner_role === 'agent' ? 10 : shop?.owner_role === 'dealer' ? 10 : 5
         return profit > 0 && profit <= maxProfit
     }
 
-    const getRcCostPrice = (type: RCType) => {
-        if (shop?.owner_role === 'agent' && type.agent_price > 0) return type.agent_price
-        if (shop?.owner_role === 'dealer' && (type as any).dealer_price > 0) return (type as any).dealer_price
-        return type.customer_price || type.cost_price
-    }
+    // Vouchers settle against results_checker_types.cost_price: that is what
+    // /api/shop/rc-pricing validates and what the storefront pays the shop
+    // (selling_price - cost_price). Showing the role price here would advertise
+    // a profit the owner never earns.
+    const getRcCostPrice = (type: RCType) => type.cost_price
 
     const getRcProfit = (type: RCType, sellingStr: string) => {
         const selling = parseFloat(sellingStr)
@@ -184,7 +193,6 @@ export default function ShopPricingPage() {
     const isValidRcPrice = (type: RCType, sellingStr: string) => {
         const profit = getRcProfit(type, sellingStr)
         if (profit === null) return null
-        const maxProfit = shop?.owner_role === 'agent' ? 10 : shop?.owner_role === 'dealer' ? 10 : 5
         return profit > 0 && profit <= maxProfit
     }
 
@@ -246,7 +254,7 @@ export default function ShopPricingPage() {
     const handleSubmit = async () => {
         if (!shop) return
 
-        const maxDataProfit = shop.owner_role === 'agent' ? 10 : 5
+        const maxDataProfit = maxProfit
         let invalidReason = ''
         const invalid = packages.filter(pkg => {
             const val = pricing[pkg.id]
@@ -417,6 +425,10 @@ export default function ShopPricingPage() {
 
     const filteredPackages = packages.filter(p => p.network === activeNetwork)
     const setPricedCount = Object.values(pricing).filter(v => v && parseFloat(v) > 0).length
+    const setRcPricedCount = rcTypes.filter(t => {
+        const v = rcPricing[t.id]
+        return v && parseFloat(v) > 0
+    }).length
     const isResubmission = shop?.pricing_status === 'approved'
 
     const handleApplyManualMargin = () => {
@@ -425,7 +437,6 @@ export default function ShopPricingPage() {
             toast.error('Profit must be more than 0')
             return
         }
-        const maxProfit = shop?.owner_role === 'agent' ? 10 : 5
         if (margin > maxProfit) {
             toast.error(`Profit cannot exceed GHS ${maxProfit.toFixed(2)}`)
             return
@@ -553,6 +564,105 @@ export default function ShopPricingPage() {
                     })}
                 </div>
             </div>
+
+            {/* Results Checker Section — sits above the data grid so shop owners
+                actually find it. Rendered on the admin toggle alone: when the toggle
+                is on but no types load, we say so instead of silently vanishing. */}
+            {storefrontRcEnabled && (
+                <div className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 rounded-[2.5rem] p-6 md:p-8 border border-amber-100 dark:border-amber-900 shadow-sm relative overflow-hidden">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8 relative z-10">
+                        <div>
+                            <h2 className="text-xl font-black uppercase tracking-tighter text-amber-900 dark:text-amber-300 flex items-center gap-2">
+                                <GraduationCap className="w-6 h-6" /> Results Checker Vouchers
+                            </h2>
+                            <p className="text-xs font-bold text-amber-700/70 dark:text-amber-400/70 uppercase tracking-widest mt-1 max-w-xl">
+                                Set your selling prices for WAEC and other results checker vouchers.
+                                They only appear on your storefront once you price them here.
+                            </p>
+                        </div>
+                        {rcTypes.length > 0 && (
+                            <Badge variant="outline" className="px-4 py-1.5 uppercase font-black tracking-widest bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400 shrink-0">
+                                {setRcPricedCount} / {rcTypes.length} priced
+                            </Badge>
+                        )}
+                    </div>
+
+                    {rcTypes.length === 0 ? (
+                        <div className="relative z-10 flex flex-col items-center text-center gap-2 py-10 px-4 rounded-[2rem] bg-white/70 dark:bg-slate-900/50 border border-amber-100 dark:border-amber-900">
+                            <AlertCircle className="w-8 h-8 text-amber-500" />
+                            <p className="font-black uppercase tracking-tight text-amber-900 dark:text-amber-300">
+                                No voucher types available yet
+                            </p>
+                            <p className="text-sm text-amber-700/80 dark:text-amber-400/80 max-w-md">
+                                {rcLoadError
+                                    ? `We could not load the voucher list (${rcLoadError}). Please refresh, and contact support if it keeps happening.`
+                                    : 'An admin has not published any active results checker types yet. Once they do, they will show up here for you to price.'}
+                            </p>
+                        </div>
+                    ) : (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-4">
+                            {rcTypes.map((type) => {
+                                const valStr = rcPricing[type.id] || ''
+                                const cost = getRcCostPrice(type)
+                                const finalSelling = parseFloat(valStr) || 0
+                                const profitStr = finalSelling > 0 ? (finalSelling - cost).toFixed(2) : ''
+                                const valid = isValidRcPrice(type, valStr)
+
+                                return (
+                                    <div key={type.id} className={cn(
+                                        "flex flex-col p-6 rounded-[2rem] border-2 transition-all duration-300",
+                                        valStr && valid === false ? "border-red-400 bg-red-50/50 dark:border-red-900/30" :
+                                        valStr && valid === true ? "border-emerald-300 shadow-md bg-white dark:bg-slate-900" : "border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50"
+                                    )}>
+                                        <div className="mb-6 space-y-2">
+                                            <h3 className="font-black text-xl tracking-tighter text-foreground">{type.name}</h3>
+                                            <span className="inline-block text-[10px] font-black uppercase tracking-widest text-slate-500 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-lg">
+                                                Cost: {formatCurrency(cost)}
+                                            </span>
+                                        </div>
+
+                                        <div className="mt-auto space-y-5">
+                                            <div>
+                                                <div className="flex justify-between mb-2">
+                                                    <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Selling Price</Label>
+                                                    {valStr && valid === false && <span className="text-[10px] text-red-600 font-bold uppercase tracking-tight">Max Profit: {maxProfit}</span>}
+                                                </div>
+                                                <div className="relative">
+                                                    <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-sm text-slate-400">GHS</span>
+                                                    <Input
+                                                        type="number" inputMode="decimal" value={valStr}
+                                                        onChange={(e) => setRcPricing(prev => ({ ...prev, [type.id]: e.target.value }))}
+                                                        placeholder={cost.toFixed(2)}
+                                                        className={cn(
+                                                            'h-14 rounded-2xl pl-14 text-xl font-black shadow-inner transition-colors',
+                                                            valStr && valid === false ? 'border-red-500 bg-red-50 text-red-900 focus:ring-red-400' :
+                                                            valStr && valid === true ? 'border-emerald-500 bg-emerald-50 text-emerald-900 dark:bg-emerald-900/20 dark:text-emerald-100' : 'bg-slate-50 dark:bg-slate-800 border-transparent'
+                                                        )}
+                                                    />
+                                                </div>
+                                            </div>
+
+                                            <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-4 space-y-3 border border-slate-100 dark:border-slate-800">
+                                                <div className="flex items-center justify-between">
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Price tag</span>
+                                                    <span className="font-black text-lg">{valStr && valid !== null ? formatCurrency(finalSelling) : '—'}</span>
+                                                </div>
+                                                <div className="h-px bg-slate-200 dark:bg-slate-700" />
+                                                <div className="flex items-center justify-between">
+                                                    <span className={cn("text-[10px] font-black uppercase tracking-widest", valid ? "text-emerald-600" : "text-slate-400")}>Profit</span>
+                                                    <span className={cn("font-black text-base", valid ? "text-emerald-500" : valid === false ? "text-red-500" : "text-slate-400")}>
+                                                        {valStr && valid !== null ? `${parseFloat(profitStr) > 0 ? '+' : ''} ${formatCurrency(parseFloat(profitStr) || 0)}` : '—'}
+                                                    </span>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                )
+                            })}
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Existing Data Package Section */}
             <div className="space-y-6">
@@ -688,83 +798,6 @@ export default function ShopPricingPage() {
                     })}
                 </div>
             </div>
-
-            {/* Results Checker Section — only shown when admin enables storefront RC */}
-            {storefrontRcEnabled && rcTypes.length > 0 && (
-                <div className="bg-gradient-to-br from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 rounded-[2.5rem] p-6 md:p-8 border border-amber-100 dark:border-amber-900 shadow-sm relative overflow-hidden mt-8">
-                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8 relative z-10">
-                        <div>
-                            <h2 className="text-xl font-black uppercase tracking-tighter text-amber-900 dark:text-amber-300 flex items-center gap-2">
-                                <GraduationCap className="w-6 h-6" /> Results Checker Vouchers
-                            </h2>
-                            <p className="text-xs font-bold text-amber-700/70 dark:text-amber-400/70 uppercase tracking-widest mt-1 max-w-xl">
-                                Set your selling prices for WAEC and other results checker vouchers.
-                            </p>
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-4">
-                        {rcTypes.map((type) => {
-                            const valStr = rcPricing[type.id] || ''
-                            const cost = getRcCostPrice(type)
-                            const finalSelling = parseFloat(valStr) || 0
-                            const profitStr = finalSelling > 0 ? (finalSelling - cost).toFixed(2) : ''
-                            const valid = isValidRcPrice(type, valStr)
-
-                            return (
-                                <div key={type.id} className={cn(
-                                    "flex flex-col p-6 rounded-[2rem] border-2 transition-all duration-300",
-                                    valStr && valid === false ? "border-red-400 bg-red-50/50 dark:border-red-900/30" : 
-                                    valStr && valid === true ? "border-emerald-300 shadow-md bg-white dark:bg-slate-900" : "border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50"
-                                )}>
-                                    <div className="mb-6 space-y-2">
-                                        <h3 className="font-black text-xl tracking-tighter text-foreground">{type.name}</h3>
-                                        <span className="inline-block text-[10px] font-black uppercase tracking-widest text-slate-500 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-lg">
-                                            Cost: {formatCurrency(cost)}
-                                        </span>
-                                    </div>
-
-                                    <div className="mt-auto space-y-5">
-                                        <div>
-                                            <div className="flex justify-between mb-2">
-                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Selling Price</Label>
-                                                {valStr && valid === false && <span className="text-[10px] text-red-600 font-bold uppercase tracking-tight">Max Profit: {shop?.owner_role === 'agent' ? '10' : '5'}</span>}
-                                            </div>
-                                            <div className="relative">
-                                                <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-sm text-slate-400">GHS</span>
-                                                <Input
-                                                    type="number" inputMode="decimal" value={valStr}
-                                                    onChange={(e) => setRcPricing(prev => ({ ...prev, [type.id]: e.target.value }))}
-                                                    placeholder={cost.toFixed(2)}
-                                                    className={cn(
-                                                        'h-14 rounded-2xl pl-14 text-xl font-black shadow-inner transition-colors',
-                                                        valStr && valid === false ? 'border-red-500 bg-red-50 text-red-900 focus:ring-red-400' : 
-                                                        valStr && valid === true ? 'border-emerald-500 bg-emerald-50 text-emerald-900 dark:bg-emerald-900/20 dark:text-emerald-100' : 'bg-slate-50 dark:bg-slate-800 border-transparent'
-                                                    )}
-                                                />
-                                            </div>
-                                        </div>
-
-                                        <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-4 space-y-3 border border-slate-100 dark:border-slate-800">
-                                            <div className="flex items-center justify-between">
-                                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Price tag</span>
-                                                <span className="font-black text-lg">{valStr && valid !== null ? formatCurrency(finalSelling) : '—'}</span>
-                                            </div>
-                                            <div className="h-px bg-slate-200 dark:bg-slate-700" />
-                                            <div className="flex items-center justify-between">
-                                                <span className={cn("text-[10px] font-black uppercase tracking-widest", valid ? "text-emerald-600" : "text-slate-400")}>Profit</span>
-                                                <span className={cn("font-black text-base", valid ? "text-emerald-500" : valid === false ? "text-red-500" : "text-slate-400")}>
-                                                    {valStr && valid !== null ? `${parseFloat(profitStr) > 0 ? '+' : ''} ${formatCurrency(parseFloat(profitStr) || 0)}` : '—'}
-                                                </span>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            )
-                        })}
-                    </div>
-                </div>
-            )}
 
             <div className="fixed bottom-6 left-4 right-4 md:left-auto md:right-8 z-50 pointer-events-none">
                 <Button
