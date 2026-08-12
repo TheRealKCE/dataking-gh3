@@ -36,11 +36,8 @@ const config = {
         'text-sky-100', 'text-sky-200', 'text-sky-200/80', 'text-sky-200/90',
         'dark:text-sky-300',
         'border-r-sky-900/40', 'border-sky-900/40',
-        // Customer bottom nav — teal. Gold has too little contrast to carry the
-        // nav's white text, so that one surface departs from the role palette.
-        'from-[#1E6E67]', 'via-[#2F8A80]', 'to-[#5FAAA1]',
-        // Agent bottom nav mid-stop (base/deep are already listed above).
-        'via-[#0E3255]',
+        // Bottom nav gradient mid-stops (the from/to ends are listed elsewhere).
+        'from-brand-gold-light', 'via-brand-gold', 'via-[#0E3255]',
         // Customer — white surfaces, gold-ink text, bright-gold fills
         'bg-white', 'bg-white/85', 'dark:bg-slate-950', 'dark:bg-slate-900/80',
         'border-r-slate-200', 'dark:border-r-slate-800',
