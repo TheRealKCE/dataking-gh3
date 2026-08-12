@@ -35,7 +35,6 @@ import {
     Store,
     Tag,
     Phone,
-    Smartphone,
     Zap,
     Download,
     Code2,
@@ -47,6 +46,7 @@ import { supabase } from '@/lib/supabase'
 import { usePageAccess } from '@/hooks/use-page-access'
 import { useAdminCounts } from '@/hooks/use-admin-counts'
 import { roleConfig } from '@/lib/roles'
+import { shopNavItems } from '@/lib/dashboard-nav'
 import { BrandLogo } from '@/components/BrandLogo'
 
 const userNavItems = [
@@ -94,15 +94,6 @@ const adminNavItems = [
     { href: '/admin/api-keys', label: 'API Keys', icon: Code2 },
     { href: '/admin/settings', label: 'Settings', icon: Settings },
     { href: '/admin/vouchers', label: 'Results Checker', icon: Tag },
-]
-
-const shopNavItems = [
-    { href: '/dashboard/shop', label: 'Overview', icon: LayoutDashboard },
-    { href: '/dashboard/shop/setup', label: 'Shop Setup', icon: Settings },
-    { href: '/dashboard/shop/pricing', label: 'Pricing', icon: Tag },
-    { href: '/dashboard/shop/orders', label: 'Orders', icon: ShoppingCart },
-    { href: '/dashboard/shop/ussd', label: 'USSD Code', icon: Smartphone },
-    { href: '/dashboard/shop/withdraw', label: 'Withdraw', icon: Banknote },
 ]
 
 export function DashboardSidebar() {
