@@ -53,7 +53,7 @@ export async function GET() {
     return NextResponse.json({ ok: true, warm: true, ts: Date.now() });
 }
 
-const WELCOME_MESSAGE = 'Welcome to ARHMS\nEnter short code to continue:';
+const WELCOME_MESSAGE = 'Enter short code to continue:';
 
 export async function POST(req: Request) {
     const requestStartTime = Date.now();
