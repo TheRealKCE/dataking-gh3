@@ -3,8 +3,30 @@ import { createServerClient } from '@/lib/supabase'
 import { createRouteHandlerClient } from '@/lib/supabase-server'
 
 /**
+ * Mirrors a membership change onto the sub's own storefront.
+ *
+ * `shop_profiles.is_active` is already in the storefront query AND in the USSD
+ * short-code lookup (app/api/hubtel/interact/route.ts), so flipping it here is
+ * what actually stops a suspended sub from selling — on both channels, and with
+ * no extra query on the USSD hot path, where every millisecond counts against
+ * Hubtel's session timeout.
+ */
+async function setSubStorefrontActive(supabase: any, subUserId: string, isActive: boolean) {
+  const { error } = await supabase
+    .from('shop_profiles')
+    .update({ is_active: isActive, updated_at: new Date().toISOString() })
+    .eq('owner_id', subUserId)
+
+  if (error) {
+    // Non-fatal: the membership change itself already landed and is what every
+    // other gate reads. Log loudly so a stuck storefront is traceable.
+    console.error('[Sub-Agent Action] Failed to sync storefront is_active:', error)
+  }
+}
+
+/**
  * PATCH /api/shop/sub-agents/[id]
- * Lead approves or suspends a sub-agent
+ * Lead approves (or reinstates) or suspends a sub-agent
  *
  * Authorization: User must be the upline Lead OR an admin
  * Body: { action: 'approve' | 'suspend', note?: string }
@@ -74,11 +96,12 @@ export async function PATCH(
       )
     }
 
-    // Handle approval action
+    // Handle approval action — also the way a suspended sub is reinstated,
+    // otherwise suspension would be a one-way door with no route back.
     if (action === 'approve') {
-      if (subAgent.status !== 'pending') {
+      if (subAgent.status === 'active') {
         return NextResponse.json(
-          { error: `Cannot approve sub with status "${subAgent.status}"` },
+          { error: 'Sub is already active' },
           { status: 400 }
         )
       }
@@ -102,6 +125,8 @@ export async function PATCH(
           { status: 500 }
         )
       }
+
+      await setSubStorefrontActive(supabase, subAgent.user_id, true)
 
       // TODO: Send SMS/email to sub: "You've been approved!"
 
@@ -138,6 +163,9 @@ export async function PATCH(
           { status: 500 }
         )
       }
+
+      // Takes their storefront AND their USSD short code offline immediately.
+      await setSubStorefrontActive(supabase, subAgent.user_id, false)
 
       // TODO: Send SMS to sub: "Your account has been suspended"
 

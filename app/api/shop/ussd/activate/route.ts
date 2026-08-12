@@ -2,6 +2,7 @@ import { createRouteHandlerClient } from '@/lib/supabase-server'
 import { NextResponse } from 'next/server'
 import { generateReferenceCode } from '@/lib/utils'
 import { initiatePayment as hubtelInitiatePayment, HUBTEL_CHANNEL_MAP } from '@/lib/hubtel-payment-service'
+import { resolveSubAgentContext, type SubAgentContext } from '@/lib/sub-agents'
 
 /**
  * USSD short-code activation — a one-time, lifetime purchase.
@@ -21,9 +22,15 @@ const PRICE_KEYS = [
     'ussd_activation_price_customer',
     'ussd_activation_price_agent',
     'ussd_activation_price_dealer',
+    'ussd_activation_price_sub',
 ] as const
 
-function priceKeyForRole(role: string): string {
+/**
+ * Sub-agents are priced on their membership, not their role: a sub's users.role
+ * is 'customer', so without this they would pay the most expensive tier.
+ */
+function priceKeyForRole(role: string, isSub: boolean): string {
+    if (isSub) return 'ussd_activation_price_sub'
     if (role === 'dealer' || role === 'dealership') return 'ussd_activation_price_dealer'
     if (role === 'agent') return 'ussd_activation_price_agent'
     return 'ussd_activation_price_customer'
@@ -33,6 +40,7 @@ const DEFAULT_PRICE: Record<string, number> = {
     ussd_activation_price_customer: 50,
     ussd_activation_price_agent: 40,
     ussd_activation_price_dealer: 30,
+    ussd_activation_price_sub: 40,
 }
 
 async function loadContext() {
@@ -67,12 +75,36 @@ async function loadContext() {
     const settingsMap: Record<string, any> = {}
     for (const row of (settings || [])) settingsMap[row.key] = row.value
 
+    // Membership + the upline's live eligibility. A sub whose Lead has lapsed
+    // could not sell through the code, so they must not be sold one.
+    const sub = await resolveSubAgentContext(supabaseAdmin, authUser.id)
+
     const role = (dbUser as any)?.role || 'customer'
-    const priceKey = priceKeyForRole(role)
+    const priceKey = priceKeyForRole(role, sub.isSub)
     const raw = settingsMap[priceKey]
     const price = raw !== undefined && raw !== '' ? Number(raw) : DEFAULT_PRICE[priceKey]
 
-    return { authUser, supabaseAdmin, shop: shop as any, role, price, settingsMap }
+    return { authUser, supabaseAdmin, shop: shop as any, role, price, settingsMap, sub }
+}
+
+/**
+ * The reason a caller cannot activate right now, or null when they can.
+ *
+ * A sub is gated on their OWN membership only. Deliberately NOT gated on the
+ * upline's canOwnSubNetwork() eligibility: almost every live Lead is role
+ * 'customer' with no dealer subscription, yet their networks sell every day —
+ * the sub's storefront applies no such check either, so enforcing it at the
+ * short-code till would block paying subs for a state they cannot fix.
+ */
+function activationBlockReason(shop: any, sub: SubAgentContext): string | null {
+    if (!shop) return 'You need a shop before you can activate a short code'
+    if (shop.approval_status !== 'approved') return 'Your shop must be approved before activating a short code'
+    if (sub.isSub && sub.status !== 'active') {
+        return sub.status === 'suspended'
+            ? 'Your sub-agent account is suspended. Contact your Lead to be reinstated.'
+            : 'Your account is still awaiting approval from your Lead'
+    }
+    return null
 }
 
 /** Lets the dashboard show the caller's price and activation state without exposing prices publicly. */
@@ -81,12 +113,17 @@ export async function GET() {
         const ctx = await loadContext()
         if ('error' in ctx) return NextResponse.json({ error: ctx.error }, { status: ctx.status })
 
-        const { shop, role, price, settingsMap } = ctx
+        const { shop, role, price, settingsMap, sub } = ctx
+        const blockedReason = activationBlockReason(shop, sub)
 
         return NextResponse.json({
             success: true,
             hasShop: !!shop,
-            eligible: !!shop && shop.approval_status === 'approved',
+            eligible: !blockedReason,
+            // Lets the portal explain the block instead of guessing at
+            // "awaiting approval", which is only one of several reasons.
+            reason: blockedReason,
+            isSub: sub.isSub,
             status: shop?.ussd_status || 'inactive',
             shortCode: shop?.ussd_code || null,
             dialCode: settingsMap.ussd_dial_code || '',
@@ -104,13 +141,14 @@ export async function POST(request: Request) {
         const ctx = await loadContext()
         if ('error' in ctx) return NextResponse.json({ error: ctx.error }, { status: ctx.status })
 
-        const { authUser, supabaseAdmin, shop, price, settingsMap } = ctx
+        const { authUser, supabaseAdmin, shop, price, settingsMap, sub } = ctx
 
-        if (!shop) {
-            return NextResponse.json({ error: 'You need a shop before you can activate a short code' }, { status: 400 })
-        }
-        if (shop.approval_status !== 'approved') {
-            return NextResponse.json({ error: 'Your shop must be approved before activating a short code' }, { status: 400 })
+        const blockedReason = activationBlockReason(shop, sub)
+        if (blockedReason) {
+            // A sub blocked on membership is a 403 (they may not trade at all);
+            // a missing/unapproved shop is a 400 (fix the shop and come back).
+            const status = sub.isSub && shop && shop.approval_status === 'approved' ? 403 : 400
+            return NextResponse.json({ error: blockedReason }, { status })
         }
         if (shop.ussd_status === 'active') {
             return NextResponse.json({ error: 'Your short code is already active' }, { status: 400 })

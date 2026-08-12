@@ -6,6 +6,12 @@
  * amount. Never trust a client-supplied price — always resolve here.
  */
 
+import {
+    resolveSubAgentContext,
+    SUB_INACTIVE_ERROR,
+    UPLINE_INELIGIBLE_ERROR,
+} from './sub-agents'
+
 export interface ResolvedDataPrice {
     price: number
     role: string
@@ -47,52 +53,20 @@ export async function resolveDataPrice(
     const isAgent = userRole === 'agent'
     const isDealer = userRole === 'dealer'
 
-    // Check if user is a sub-agent
-    const { data: subAgentData } = await supabase
-        .from('sub_agents')
-        .select('id, status, upline_shop_id')
-        .eq('user_id', userId)
-        .single()
+    // Check if user is a sub-agent. Membership, upline and the upline's live
+    // eligibility all come from the shared resolver — see lib/sub-agents.ts.
+    const subContext = await resolveSubAgentContext(supabase, userId)
 
-    if (subAgentData) {
-        const uplineShopId = subAgentData.upline_shop_id
+    if (subContext.isSub) {
+        const uplineShopId = subContext.uplineShopId
 
         // Eligibility gate: sub must be active + upline must be eligible
-        if (subAgentData.status !== 'active') {
-            return { ok: false, error: 'Your sub-agent account is not active', status: 403 }
+        if (subContext.status !== 'active') {
+            return { ok: false, error: SUB_INACTIVE_ERROR, status: 403 }
         }
 
-        // Check upline eligibility (live evaluation, never cached)
-        const { data: uplineOwner } = await supabase
-            .from('shop_profiles')
-            .select('owner_id')
-            .eq('id', uplineShopId)
-            .single()
-
-        if (uplineOwner) {
-            const { data: uplineUserData } = await supabase
-                .from('users')
-                .select('role, agent_expires_at, dealer_expires_at')
-                .eq('id', uplineOwner.owner_id)
-                .single()
-
-            const uplineRole = (uplineUserData as any)?.role
-            const uplineAgentExpiresAt = (uplineUserData as any)?.agent_expires_at
-            const uplineDealerExpiresAt = (uplineUserData as any)?.dealer_expires_at
-            const now = new Date()
-
-            // Eligibility: (role='agent' AND agent_expires_at IS NULL) OR (role='dealer' AND dealer_expires_at > now())
-            const isUplineEligible =
-                (uplineRole === 'agent' && !uplineAgentExpiresAt) ||
-                (uplineRole === 'dealer' && uplineDealerExpiresAt && new Date(uplineDealerExpiresAt) > now)
-
-            if (!isUplineEligible) {
-                return {
-                    ok: false,
-                    error: 'Your upline Lead is no longer eligible to operate. Please contact support.',
-                    status: 403,
-                }
-            }
+        if (!subContext.uplineEligible) {
+            return { ok: false, error: UPLINE_INELIGIBLE_ERROR, status: 403 }
         }
 
         // Get sub_price from upline's pricing for this package

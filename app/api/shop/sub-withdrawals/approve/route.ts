@@ -86,12 +86,15 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Call RPC to approve
+    // Call RPC to approve. The caller is passed explicitly: this is a
+    // service-role client, so auth.uid() inside the RPC is NULL and it would
+    // refuse every approval. Ownership is verified above and again in the RPC.
     const { data: rpcResult, error: rpcError } = await supabase.rpc(
       'approve_sub_withdrawal',
       {
         p_withdrawal_id: withdrawalId,
         p_approval_note: note || null,
+        p_caller_id: user.id,
       }
     )
 
@@ -100,6 +103,16 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: rpcError.message || 'Failed to approve withdrawal' },
         { status: 500 }
+      )
+    }
+
+    // The RPC reports refusals in its payload, not as a Postgres error. Without
+    // this the route answered "approved" for a withdrawal it had not moved.
+    if (!rpcResult?.success) {
+      console.error('[Approve Withdrawal] RPC refused:', rpcResult)
+      return NextResponse.json(
+        { error: rpcResult?.message || 'Failed to approve withdrawal' },
+        { status: 400 }
       )
     }
 

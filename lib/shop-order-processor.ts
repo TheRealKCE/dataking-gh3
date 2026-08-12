@@ -1,5 +1,10 @@
 import { createServerClient } from './supabase'
 import { creditShopProfit } from './shop-service'
+import { resolveSubAgentContext } from './sub-agents'
+import { resolveOwnerCost } from './pricing/cost-basis'
+
+/** Money rounded to pesewas — every profit leg written to the ledger uses this. */
+const toPesewaPrecision = (value: number) => Math.round(value * 100) / 100
 
 // In-memory lock to prevent race conditions between frontend verification and Paystack webhooks
 const processingLocks = new Set<string>();
@@ -77,6 +82,18 @@ export async function processShopOrder(
         let verifiedCostPrice = 0
         let verifiedProfit = 0
         let adminCostAtTime = 0
+
+        // Sub-agent attribution. Stays null for every ordinary shop, which is
+        // what keeps this change inert for the vast majority of orders.
+        let parentShopId: string | null = null
+        let parentProfit: number | null = null
+        /**
+         * Total margin on a sub order (selling − the LEAD's cost). The profit
+         * floor tests this instead of the sub's own leg: a zero sub leg is a
+         * legitimate outcome when the Lead raises their price after the sub set
+         * theirs, and rejecting there would fail an order already paid for.
+         */
+        let subTotalMargin: number | null = null
 
         const { data: ownerProfile } = await db
             .from('users')
@@ -181,6 +198,66 @@ export async function processShopOrder(
             
             verifiedProfit = dbSellingPrice - verifiedCostPrice
             adminCostAtTime = parseFloat(pkg?.cost_price) || 0
+
+            // ── SUB-AGENT SPLIT ──────────────────────────────────────────────
+            // A sub prices their storefront strictly above their Lead's retail
+            // price (enforced in /api/dashboard/sub/pricing), so the Lead's
+            // price — not the base package price — is the sub's cost basis.
+            // Without this the sub banks the entire margin and the Lead earns
+            // nothing on their own network's sales.
+            const subContext = await resolveSubAgentContext(db, shopProfile.owner_id)
+
+            if (subContext.isSub && subContext.uplineShopId) {
+                const { data: uplinePricing } = await db
+                    .from('shop_pricing')
+                    .select('selling_price, sub_price')
+                    .eq('shop_id', subContext.uplineShopId)
+                    .eq('package_id', metadata.package_id)
+                    .maybeSingle()
+
+                // sub_price is the Lead's explicit wholesale price when they set
+                // one; until then their retail price is the wholesale price.
+                const uplineCostRaw = uplinePricing?.sub_price ?? uplinePricing?.selling_price
+                const uplineCost = uplineCostRaw != null ? parseFloat(uplineCostRaw) : NaN
+
+                if (!Number.isFinite(uplineCost)) {
+                    // The Lead dropped this package after the sub priced it. Never
+                    // fail an order the customer has already paid for — fall back
+                    // to owner-role pricing with no upline attribution.
+                    console.warn(
+                        `[Shop Order Processor] Sub order with no upline price. Ref: ${reference}, shop: ${metadata.shop_id}, package: ${metadata.package_id}`
+                    )
+                } else {
+                    const { data: uplineOwner } = await db
+                        .from('users')
+                        .select('role, agent_expires_at, dealer_expires_at')
+                        .eq('id', subContext.uplineOwnerId)
+                        .maybeSingle()
+
+                    const uplineOwnerCost = resolveOwnerCost(
+                        {
+                            price: parseFloat(pkg?.price) || 0,
+                            agentPrice: pkg?.agent_price != null ? parseFloat(pkg.agent_price) : null,
+                            dealerPrice: pkg?.dealer_price != null ? parseFloat(pkg.dealer_price) : null,
+                        },
+                        {
+                            role: (uplineOwner as any)?.role || 'customer',
+                            agentExpiresAt: (uplineOwner as any)?.agent_expires_at ?? null,
+                            dealerExpiresAt: (uplineOwner as any)?.dealer_expires_at ?? null,
+                        }
+                    )
+
+                    // Clamped so neither leg can go negative if the Lead's price
+                    // has moved past the sub's since the sub last priced.
+                    const splitPoint = Math.min(uplineCost, dbSellingPrice)
+
+                    parentShopId = subContext.uplineShopId
+                    verifiedCostPrice = uplineCost
+                    verifiedProfit = toPesewaPrecision(dbSellingPrice - splitPoint)
+                    parentProfit = toPesewaPrecision(Math.max(0, splitPoint - uplineOwnerCost))
+                    subTotalMargin = toPesewaPrecision(dbSellingPrice - uplineOwnerCost)
+                }
+            }
         }
 
         const amountDifference = Math.abs(paidAmountPesewas - expectedTotalPesewas)
@@ -220,17 +297,14 @@ export async function processShopOrder(
         }
 
         // 3. SECURITY: Validate profit floors (§7.5 — prevents underwater orders)
-        // Ensure profit > 0 to prevent negative margins persisting through downgrade races
-        if (verifiedProfit <= 0) {
-            console.error(`[Shop Order Processor] 🚨 PROFIT FLOOR VIOLATION: Ref: ${reference}, Profit: ${verifiedProfit}`)
+        // Ensure profit > 0 to prevent negative margins persisting through downgrade races.
+        // On a sub order the two legs (sub markup + Lead margin) are tested together:
+        // either one may legitimately be zero, but their total may not be.
+        const floorMargin = subTotalMargin !== null ? subTotalMargin : verifiedProfit
+        if (floorMargin <= 0) {
+            console.error(`[Shop Order Processor] 🚨 PROFIT FLOOR VIOLATION: Ref: ${reference}, Margin: ${floorMargin}`)
             return { success: false, error: 'Order profit would be non-positive; order rejected' }
         }
-
-        // For sub orders (when parent_shop_id is set), also validate sub_profit > 0
-        // This is computed as: selling_price - sub_price
-        // Currently: verifiedProfit is already (selling_price - cost_price), which includes sub margin
-        // When storefront mode: sub_profit = (selling_price - sub_price), parent_profit = (sub_price - owner_cost)
-        // TODO: wire parent_profit calculation once parent_shop_id is set by checkout
 
         // 3. Create Order Records (only runs after amount validation passes)
         let orderId = existingOrder?.id
@@ -250,7 +324,10 @@ export async function processShopOrder(
                 admin_cost_at_time: adminCostAtTime,
                 owner_role_at_time: ownerRole,
                 paystack_reference: reference,
-                status: 'pending'
+                status: 'pending',
+                // Only sent for sub orders, so an ordinary shop's insert is
+                // byte-for-byte what it was before this feature.
+                ...(parentShopId ? { parent_shop_id: parentShopId, parent_profit: parentProfit } : {}),
             }
             
             const { data: newOrder, error: createError } = await db
@@ -321,9 +398,9 @@ export async function processShopOrder(
         // No "order received" SMS: the payment provider already texts a receipt, and
         // the customer hears from us again when the bundle actually lands.
 
-        // 4.2 Credit Profit
+        // 4.2 Credit Profit — sub orders pay two wallets (sub + Lead)
         try {
-            await creditShopProfit(orderId!)
+            await creditShopProfit(orderId!, { hasUpline: !!parentShopId })
         } catch (profitErr) {
             console.error('[Shop Order Processor] Profit credit error:', profitErr)
         }

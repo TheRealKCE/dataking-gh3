@@ -53,6 +53,7 @@ export default function AdminSettingsPage() {
     const [ussdActivationPriceCustomer, setUssdActivationPriceCustomer] = useState('50')
     const [ussdActivationPriceAgent, setUssdActivationPriceAgent] = useState('40')
     const [ussdActivationPriceDealer, setUssdActivationPriceDealer] = useState('30')
+    const [ussdActivationPriceSub, setUssdActivationPriceSub] = useState('40')
     const [storefrontUssdCard, setStorefrontUssdCard] = useState(true)
 
     // Page access states
@@ -103,6 +104,7 @@ export default function AdminSettingsPage() {
             setUssdActivationPriceCustomer(settingsMap.ussd_activation_price_customer || '50')
             setUssdActivationPriceAgent(settingsMap.ussd_activation_price_agent || '40')
             setUssdActivationPriceDealer(settingsMap.ussd_activation_price_dealer || '30')
+            setUssdActivationPriceSub(settingsMap.ussd_activation_price_sub || '40')
             setStorefrontUssdCard(settingsMap.storefront_ussd_card_enabled !== 'false')
             setDealerPromoEnabled(settingsMap.dealer_promo_enabled === 'true')
             setLandingRcOnlyEnabled(settingsMap.landing_rc_only_enabled === 'true')
@@ -196,6 +198,7 @@ export default function AdminSettingsPage() {
                 { key: 'ussd_activation_price_customer', value: ussdActivationPriceCustomer },
                 { key: 'ussd_activation_price_agent', value: ussdActivationPriceAgent },
                 { key: 'ussd_activation_price_dealer', value: ussdActivationPriceDealer },
+                { key: 'ussd_activation_price_sub', value: ussdActivationPriceSub },
                 { key: 'storefront_ussd_card_enabled', value: String(storefrontUssdCard) },
                 // Classifieds boost fees
                 { key: 'classifieds_boost_fee_7d', value: settings['classifieds_boost_fee_7d'] || '' },
@@ -461,6 +464,19 @@ export default function AdminSettingsPage() {
                                     onChange={(e) => setUssdActivationPriceDealer(e.target.value)}
                                     step="0.01"
                                 />
+                            </div>
+                            <div className="space-y-2">
+                                <Label>Activation Price — Sub-Agent (GHS)</Label>
+                                <Input
+                                    type="number"
+                                    value={ussdActivationPriceSub}
+                                    onChange={(e) => setUssdActivationPriceSub(e.target.value)}
+                                    step="0.01"
+                                />
+                                <p className="text-xs text-muted-foreground">
+                                    Charged to sub-agents instead of the customer price — a sub&apos;s account role is
+                                    &quot;customer&quot;, so without this they would pay the top tier.
+                                </p>
                             </div>
                             <div className="flex items-center justify-between rounded-lg border p-3">
                                 <div className="space-y-0.5">

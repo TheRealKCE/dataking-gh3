@@ -408,12 +408,20 @@ export async function processCompletedUssdActivation(reference: string, provider
         .maybeSingle()
     const dialCode = (settingRow as any)?.value || ''
 
+    // Sub-agents live in the de-branded portal — sending them to /dashboard/shop
+    // would drop them into the platform-branded dashboard they never use.
+    const { data: subRow } = await supabase
+        .from('sub_agents')
+        .select('id')
+        .eq('user_id', payment.user_id)
+        .maybeSingle()
+
     await (supabase.from('notifications') as any).insert({
         user_id: payment.user_id,
         title: 'USSD Short Code Active 📱',
         message: `Your short code is ${shortCode}. Customers can dial ${dialCode} and enter ${shortCode} to buy from your shop without internet.`,
         type: 'system',
-        action_url: '/dashboard/shop',
+        action_url: subRow ? '/dashboard/sub/ussd' : '/dashboard/shop',
     })
 
     try {

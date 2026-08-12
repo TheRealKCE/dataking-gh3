@@ -223,12 +223,14 @@ function SubAgentRow({ sub, onSelect, onUpdated }: {
       </div>
 
       <div className="grid grid-cols-2 gap-2 sm:flex sm:ml-4 sm:shrink-0">
-        {sub.status === 'pending' && (
+        {sub.status !== 'active' && (
           <button
             onClick={() => handleQuickAction('approve')}
             className="px-3 py-2 sm:py-1 bg-green-600 text-white text-sm font-semibold rounded hover:bg-green-700"
           >
-            Approve
+            {/* Same action either way — approving a suspended sub reinstates
+                them and brings their storefront back online. */}
+            {sub.status === 'suspended' ? 'Reinstate' : 'Approve'}
           </button>
         )}
         {sub.status !== 'suspended' && (

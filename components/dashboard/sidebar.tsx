@@ -35,6 +35,7 @@ import {
     Store,
     Tag,
     Phone,
+    Smartphone,
     Zap,
     Download,
     Code2,
@@ -100,6 +101,7 @@ const shopNavItems = [
     { href: '/dashboard/shop/setup', label: 'Shop Setup', icon: Settings },
     { href: '/dashboard/shop/pricing', label: 'Pricing', icon: Tag },
     { href: '/dashboard/shop/orders', label: 'Orders', icon: ShoppingCart },
+    { href: '/dashboard/shop/ussd', label: 'USSD Code', icon: Smartphone },
     { href: '/dashboard/shop/withdraw', label: 'Withdraw', icon: Banknote },
 ]
 
