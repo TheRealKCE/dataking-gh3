@@ -91,6 +91,35 @@ const SURFACE_DEPTH =
     'ring-1 ring-inset ring-white/30 shadow-[0_18px_38px_-14px_rgba(0,0,0,0.55)]'
 
 /**
+ * Fluid metrics for the bar.
+ *
+ * Phones in the wild are 320–430px wide and the bar has to hold a hamburger,
+ * an expanded chip and up to four more tabs at every one of them. Fixed sizes
+ * fit only the wide end: below roughly 390px the row's min-content exceeds the
+ * viewport, flex shrinks each tab box past its icon, and the icons — which have
+ * no flex axis to shrink along — spill out and overlap their neighbours.
+ *
+ * clamp() ties each metric to the viewport instead, so the bar keeps the same
+ * proportions on a 320px phone as on a 430px one and can never outgrow it. The
+ * upper bounds are the sizes the bar used to have, so nothing here grows past
+ * the original design — a small tablet still gets the full-size bar.
+ *
+ * These have to be viewport-relative rather than responsive variants: every
+ * width that matters is below Tailwind's smallest breakpoint (`sm`, 640px), so
+ * no variant can tell a 320px phone from a 430px one.
+ */
+const NAV_METRICS = {
+    '--nav-fab': 'clamp(2.75rem, 12.5vw, 4.5rem)',
+    '--nav-fab-icon': 'clamp(1.25rem, 5.5vw, 2rem)',
+    '--nav-icon': 'clamp(1.15rem, 5.2vw, 1.75rem)',
+    '--nav-chip-text': 'clamp(0.8125rem, 3.6vw, 1.125rem)',
+    '--nav-tab-text': 'clamp(0.5625rem, 2.6vw, 0.75rem)',
+} as React.CSSProperties
+
+/** Icons are sized off the vars above, so they scale with the bar. */
+const NAV_ICON = { width: 'var(--nav-icon)', height: 'var(--nav-icon)' }
+
+/**
  * The mirrored finish. A bright specular bloom off the top-left plus a darker
  * pool along the bottom edge reads as a convex, polished surface — the same
  * trick a glass button uses. Both layers are decorative and inert; siblings
@@ -206,7 +235,10 @@ export function MobileBottomNav() {
     return (
         <>
         <RefreshFab />
-        <div className="fixed inset-x-0 bottom-0 z-40 md:hidden px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+        <div
+            style={NAV_METRICS}
+            className="fixed inset-x-0 bottom-0 z-40 md:hidden px-[clamp(0.5rem,2.5vw,0.75rem)] pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
+        >
             {/* Backdrop — a tap anywhere outside dismisses the sub-menu. */}
             {openSection && (
                 <button
@@ -241,21 +273,28 @@ export function MobileBottomNav() {
                     </div>
                 )}
 
-                <div className="relative flex items-center gap-3">
+                <div className="relative flex items-center gap-[clamp(0.375rem,2vw,0.75rem)]">
                     {/* Sidebar drawer trigger — the same panel the header button opens */}
                     <button
                         type="button"
                         onClick={toggleSidebar}
                         aria-label="Open menu"
-                        className={`flex h-[4.5rem] w-[4.5rem] shrink-0 items-center justify-center rounded-full transition-transform active:scale-95 ${surface}`}
-                        style={{ color: theme.onSurface }}
+                        className={`flex shrink-0 items-center justify-center rounded-full transition-transform active:scale-95 ${surface}`}
+                        style={{
+                            color: theme.onSurface,
+                            width: 'var(--nav-fab)',
+                            height: 'var(--nav-fab)',
+                        }}
                     >
                         <Sheen dark={theme.darkSurface} />
-                        <Menu className="relative h-8 w-8" />
+                        <Menu
+                            className="relative"
+                            style={{ width: 'var(--nav-fab-icon)', height: 'var(--nav-fab-icon)' }}
+                        />
                     </button>
 
                     <nav
-                        className={`flex min-w-0 flex-1 items-center gap-2 rounded-full p-3 ${surface}`}
+                        className={`flex min-w-0 flex-1 items-center gap-[clamp(0.125rem,1.2vw,0.5rem)] rounded-full p-[clamp(0.375rem,2vw,0.75rem)] ${surface}`}
                     >
                         <Sheen dark={theme.darkSurface} />
                         {tabs.map((tab) => {
@@ -267,16 +306,21 @@ export function MobileBottomNav() {
                                 return (
                                     <div
                                         key={tab.id}
-                                        className="relative flex min-w-0 items-center gap-2.5 rounded-full bg-white px-5 py-3.5 shadow-[0_2px_6px_rgba(0,0,0,0.18)]"
+                                        className="relative flex min-w-0 items-center gap-[clamp(0.25rem,1.8vw,0.625rem)] rounded-full bg-white px-[clamp(0.625rem,3.5vw,1.25rem)] py-[clamp(0.5rem,2.5vw,0.875rem)] shadow-[0_2px_6px_rgba(0,0,0,0.18)]"
                                         style={{ color: theme.ink }}
                                     >
                                         <Link
                                             href={tab.href}
                                             aria-current={pathname === tab.href ? 'page' : undefined}
-                                            className="flex min-w-0 items-center gap-2.5"
+                                            className="flex min-w-0 items-center gap-[clamp(0.25rem,1.8vw,0.625rem)]"
                                         >
-                                            <Icon className="h-7 w-7 shrink-0" />
-                                            <span className="truncate text-lg font-bold">{tab.label}</span>
+                                            <Icon className="shrink-0" style={NAV_ICON} />
+                                            <span
+                                                className="truncate font-bold"
+                                                style={{ fontSize: 'var(--nav-chip-text)' }}
+                                            >
+                                                {tab.label}
+                                            </span>
                                         </Link>
                                         {subItems.length > 0 && (
                                             <button
@@ -288,8 +332,8 @@ export function MobileBottomNav() {
                                                 className="-mr-1 shrink-0 rounded-full p-0.5 active:scale-95"
                                             >
                                                 {expanded
-                                                    ? <X className="h-6 w-6" />
-                                                    : <Menu className="h-6 w-6" />}
+                                                    ? <X style={NAV_ICON} />
+                                                    : <Menu style={NAV_ICON} />}
                                             </button>
                                         )}
                                     </div>
@@ -297,16 +341,24 @@ export function MobileBottomNav() {
                             }
 
                             return (
+                                // basis-0 keeps the four inactive tabs equal
+                                // regardless of label width, and overflow-hidden
+                                // is the backstop: if a tab is ever squeezed
+                                // below its icon, it clips instead of painting
+                                // over its neighbour.
                                 <Link
                                     key={tab.id}
                                     href={tab.href}
-                                    className={`relative flex min-w-0 flex-1 flex-col items-center gap-2 py-1.5 transition-transform active:scale-95 ${
+                                    className={`relative flex min-w-0 flex-1 basis-0 flex-col items-center gap-[clamp(0.25rem,1.5vw,0.5rem)] overflow-hidden py-1.5 transition-transform active:scale-95 ${
                                         theme.darkSurface ? 'drop-shadow-[0_1px_1px_rgba(0,0,0,0.25)]' : ''
                                     }`}
                                     style={{ color: theme.onSurface }}
                                 >
-                                    <Icon className="h-7 w-7" />
-                                    <span className="truncate text-xs font-semibold leading-none">
+                                    <Icon className="shrink-0" style={NAV_ICON} />
+                                    <span
+                                        className="max-w-full truncate font-semibold leading-none"
+                                        style={{ fontSize: 'var(--nav-tab-text)' }}
+                                    >
                                         {tab.label}
                                     </span>
                                 </Link>
@@ -320,7 +372,13 @@ export function MobileBottomNav() {
     )
 }
 
-const FAB_SIZE = 48
+/**
+ * Size drives layout as well as looks: the drag clamp, the edge snap and the
+ * saved resting position are all expressed against it, so changing this number
+ * moves the button correctly everywhere. A stored position from an older size
+ * is re-clamped on mount, so it can't be left hanging off-screen.
+ */
+const FAB_SIZE = 60
 const FAB_MARGIN = 12
 const FAB_STORAGE_KEY = 'arhms:refresh-fab'
 /** Below this much travel the gesture is a tap, not a drag. */
@@ -423,7 +481,7 @@ function RefreshFab() {
                 dragging ? 'scale-110 cursor-grabbing shadow-nav' : 'transition-[left,top,transform] duration-200 active:scale-95'
             }`}
         >
-            <RefreshCw className="h-5 w-5" />
+            <RefreshCw className="h-7 w-7" />
         </button>
     )
 }
