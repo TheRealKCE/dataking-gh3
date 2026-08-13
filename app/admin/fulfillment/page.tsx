@@ -26,7 +26,8 @@ import {
     ChevronRight,
     MoreHorizontal,
     Loader2,
-    PauseCircle
+    PauseCircle,
+    ShieldCheck
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { ADMIN_VERIFYING_LABEL, getOrderDisplayStatus } from '@/lib/order-status-display'
@@ -163,6 +164,11 @@ export default function FulfillmentPage() {
     const [cronAutoCompleteDelay, setCronAutoCompleteDelay] = useState('30')
     const [isSavingCronSettings, setIsSavingCronSettings] = useState(false)
 
+    // MTN registration gate — blocks orders to unregistered MTN numbers until the
+    // buyer accepts the wait. Off unless the DB says otherwise.
+    const [mtnGateEnabled, setMtnGateEnabled] = useState(false)
+    const [isSavingMtnGate, setIsSavingMtnGate] = useState(false)
+
     useEffect(() => {
         if (dbUser?.role === 'admin') {
             fetchSettings()
@@ -227,6 +233,7 @@ export default function FulfillmentPage() {
                     'cron_auto_refulfill_delay_minutes',
                     'cron_auto_complete_enabled',
                     'cron_auto_complete_delay_minutes',
+                    'mtn_registration_gate_enabled',
                 ])
 
             const map = (data || []).reduce((acc: any, curr: any) => {
@@ -278,6 +285,7 @@ export default function FulfillmentPage() {
             setCronRefulfillDelay(map.cron_auto_refulfill_delay_minutes || '5')
             setCronAutoCompleteEnabled(map.cron_auto_complete_enabled === 'true')
             setCronAutoCompleteDelay(map.cron_auto_complete_delay_minutes || '30')
+            setMtnGateEnabled(map.mtn_registration_gate_enabled === 'true')
         } catch (error) {
             console.error('Failed to fetch settings:', error)
         }
@@ -301,6 +309,27 @@ export default function FulfillmentPage() {
             toast.error('Failed to save cron settings: ' + error.message)
         } finally {
             setIsSavingCronSettings(false)
+        }
+    }
+
+    // Saves immediately on toggle. Optimistic, with a rollback on failure — an admin
+    // must never be left believing this switch is off when the DB still says on.
+    const saveMtnGateSetting = async (enabled: boolean) => {
+        const previous = mtnGateEnabled
+        setMtnGateEnabled(enabled)
+        setIsSavingMtnGate(true)
+        try {
+            const { error } = await (supabase.from('admin_settings') as any)
+                .upsert([{ key: 'mtn_registration_gate_enabled', value: String(enabled) }])
+            if (error) throw error
+            toast.success(enabled
+                ? 'Unregistered MTN numbers will now be blocked before payment'
+                : 'MTN registration check turned off')
+        } catch (error: any) {
+            setMtnGateEnabled(previous)
+            toast.error('Failed to save setting: ' + error.message)
+        } finally {
+            setIsSavingMtnGate(false)
         }
     }
 
@@ -1355,6 +1384,40 @@ export default function FulfillmentPage() {
                     >
                         {isSavingCronSettings ? <><RefreshCw className="w-3.5 h-3.5 mr-2 animate-spin" />Saving...</> : 'Save Cron Settings'}
                     </Button>
+                </CardContent>
+            </Card>
+
+            {/* MTN Registration Gate — saves on toggle, like the supplier switches above.
+                This is a safety switch; it must not depend on remembering to hit Save. */}
+            <Card className="border-2 border-dashed border-amber-300 dark:border-amber-800 bg-amber-50/50 dark:bg-amber-900/10">
+                <CardHeader className="pb-3 pt-4 px-4">
+                    <CardTitle className="text-sm font-bold flex items-center gap-2 text-amber-700 dark:text-amber-400">
+                        <ShieldCheck className="w-4 h-4" /> MTN Number Registration
+                    </CardTitle>
+                </CardHeader>
+                <CardContent className="px-4 pb-4">
+                    <div className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 bg-background rounded-xl border">
+                        <div className="flex-1">
+                            <p className="text-sm font-bold">🔒 Block Orders To Unregistered MTN Numbers</p>
+                            <p className="text-xs text-muted-foreground mt-0.5">
+                                When ON, buyers are warned before paying if the recipient&apos;s MTN number isn&apos;t registered
+                                yet, and must confirm they accept the up-to-2-week wait. When OFF, those orders go through
+                                silently and sit pending until MTN enables the number. Only takes effect while Agent Portal is
+                                the active MTN supplier. Changes apply within a minute.
+                            </p>
+                        </div>
+                        <div className="flex items-center gap-3 shrink-0">
+                            <Switch
+                                checked={mtnGateEnabled}
+                                onCheckedChange={saveMtnGateSetting}
+                                disabled={isSavingMtnGate}
+                                id="mtn-reg-gate-toggle"
+                            />
+                            <label htmlFor="mtn-reg-gate-toggle" className="text-xs font-bold">
+                                {isSavingMtnGate ? '...' : mtnGateEnabled ? 'ON' : 'OFF'}
+                            </label>
+                        </div>
+                    </div>
                 </CardContent>
             </Card>
 

@@ -224,7 +224,7 @@ export async function triggerFulfillment(orderId: string, network: string, user:
             console.warn(`[Fulfillment] Supplier ${supplierLabel} failed for order ${orderId}: ${result.error}`)
 
             // MTN whitelist gate (Agent Portal): the number is auto-submitted to MTN
-            // for verification (~24h) and the auto-refulfill cron delivers once it
+            // for verification (up to 2 weeks) and the auto-refulfill cron delivers once it
             // clears. No SMS is sent to the recipient while the order is pending.
 
             await sendAdminNewOrderAlert({ ...alertDetails, reason: `Auto-fulfillment API error (${supplierLabel}): ${result.error || 'Unknown error'}` })

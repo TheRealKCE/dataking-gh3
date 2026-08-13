@@ -12,6 +12,7 @@ import {
 } from '@/lib/payswitch-payment-service'
 import { mapPayswitchTransaction } from '@/lib/payswitch-reference'
 import { resolveProviderForScope, type PaymentProvider } from '@/lib/payment-provider'
+import { checkMtnRegistration, registrationRequiredBody } from '@/lib/mtn-registration-gate'
 
 // Redis client for distributed idempotency across all serverless instances.
 // In-memory Maps were removed — they reset on every Vercel cold start.
@@ -20,7 +21,7 @@ const redis = Redis.fromEnv()
 export async function POST(request: NextRequest) {
     try {
         const body = await request.json()
-        const { shopSlug, packageId, guestPhone, guestEmail, payerPhone, payerNetwork, orderType, network, amount, useExactAmount, isMashup, bundlePreference, otpCode, reference: existingRef } = body
+        const { shopSlug, packageId, guestPhone, guestEmail, payerPhone, payerNetwork, orderType, network, amount, useExactAmount, isMashup, bundlePreference, otpCode, reference: existingRef, acknowledgeRegistration } = body
 
         if (!shopSlug || !guestPhone) {
             return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
@@ -271,6 +272,19 @@ export async function POST(request: NextRequest) {
             else paymentNetwork = 'MTN' // Fallback
         }
 
+        // ── MTN REGISTRATION GATE ────────────────────────────────────────────────
+        // Guests pay before fulfillment here, so this must run before the prompt is
+        // sent — otherwise we take money for data that cannot be delivered yet.
+        // Airtime is exempt: it has no whitelist.
+        let awaitingRegistration = false
+        if (orderType !== 'airtime') {
+            const gate = await checkMtnRegistration(db, cleanPhone, pkgNetwork)
+            if (gate.gated && !acknowledgeRegistration) {
+                return NextResponse.json(registrationRequiredBody([gate.normalizedNumber]), { status: 409 })
+            }
+            awaitingRegistration = gate.gated
+        }
+
         const shopProvider: PaymentProvider = resolveProviderForScope(settings.active_payment_provider_shop, 'shop')
         const shopRef = existingRef || `SHOP-${shop.id.slice(0, 8)}-${Date.now()}`
 
@@ -284,6 +298,7 @@ export async function POST(request: NextRequest) {
             payer_phone: payerClean,
             guest_email: validatedGuestEmail,
             fulfillment_mode: shop.fulfillment_mode,
+            awaiting_registration: awaitingRegistration,
             ...metadataPayload,
         }
 

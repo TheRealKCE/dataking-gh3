@@ -15,6 +15,8 @@ export interface AdminCounts {
     expiringAgents: number
     pendingDebts: number
     pendingMashupOrders: number
+    /** Pending orders held because the recipient's MTN number isn't registered yet. */
+    pendingAwaitingRegistration: number
 }
 
 const initialCounts: AdminCounts = {
@@ -27,7 +29,8 @@ const initialCounts: AdminCounts = {
     pendingComplaints: 0,
     expiringAgents: 0,
     pendingDebts: 0,
-    pendingMashupOrders: 0
+    pendingMashupOrders: 0,
+    pendingAwaitingRegistration: 0
 }
 
 export function useAdminCounts() {
@@ -50,10 +53,19 @@ export function useAdminCounts() {
             .in('status', ['pending', 'processing'])
             .gte('created_at', today.toISOString()) as any)
 
+        // Held on purpose — the buyer accepted the MTN registration wait. Counted
+        // separately so these don't read as a growing backlog of stuck orders.
+        const { count: awaitingRegistrationCount } = await (supabase
+            .from('orders')
+            .select('*', { count: 'exact', head: true })
+            .eq('status', 'pending')
+            .eq('awaiting_registration', true) as any)
+
         setCounts(prev => ({
             ...prev,
             pendingOrders: count || 0,
-            pendingFulfillment: fulfillmentCount || 0
+            pendingFulfillment: fulfillmentCount || 0,
+            pendingAwaitingRegistration: awaitingRegistrationCount || 0
         }))
     }, [])
 

@@ -29,6 +29,7 @@ import {
 import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
+import { MtnRegistrationDialog } from '@/components/dashboard/mtn-registration-dialog'
 
 const ShopPwaInstallPrompt = dynamic(() => import('@/components/ShopPwaInstallPrompt'), { ssr: false })
 
@@ -188,6 +189,11 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
     const [scrolled, setScrolled] = useState(false)
     // Moolre per-transaction OTP. Hubtel checkouts never ask for a code on the storefront.
     const [otpRequired, setOtpRequired] = useState(false)
+
+    // Set when the beneficiary's MTN number isn't registered yet. Nothing has been
+    // charged at this point — the guest either accepts the wait or backs out.
+    const [registrationPrompt, setRegistrationPrompt] = useState<{ numbers: string[] } | null>(null)
+    const [isConfirmingRegistration, setIsConfirmingRegistration] = useState(false)
     const [otpCode, setOtpCode] = useState('')
     const [otpReference, setOtpReference] = useState<string | null>(null)
     const [otpOrderType, setOtpOrderType] = useState<'data' | 'airtime' | 'mashup' | 'results_checker'>('data')
@@ -502,7 +508,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
             : 'Too many payment attempts right now. Please wait a moment and try again.'
     }
 
-    const handleBuyData = async () => {
+    const handleBuyData = async (opts?: { acknowledgeRegistration?: boolean }) => {
         if (!selectedPackage) { toast.error('Select a package first'); return }
         if (!phone.trim()) { toast.error('Enter the beneficiary number'); return }
 
@@ -533,9 +539,21 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                     payerNetwork: payNetwork,
                     guestEmail: email.trim() || undefined,
                     provider: webPaymentProvider,
+                    ...(opts?.acknowledgeRegistration ? { acknowledgeRegistration: true } : {}),
                 }),
             })
             const data = await res.json()
+
+            // The beneficiary's MTN number isn't registered. Caught before the payment
+            // prompt was sent, so the guest has not been charged anything.
+            if (res.status === 409 && data?.code === 'MTN_NOT_REGISTERED') {
+                setLoading(false)
+                setRegistrationPrompt({
+                    numbers: data?.registration?.phoneNumbers
+                        || (data?.registration?.phoneNumber ? [data.registration.phoneNumber] : []),
+                })
+                return
+            }
 
             if (!res.ok || !data.reference) {
                 setErrorMsg(rateLimitMessage(res) || data.error || 'Failed to initialize payment')
@@ -1858,7 +1876,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                                 </dl>
 
                                 <button
-                                    onClick={handleBuyData} disabled={loading}
+                                    onClick={() => handleBuyData()} disabled={loading}
                                     className="w-full py-4 rounded-md bg-[var(--brand-color)] text-white font-black text-lg flex items-center justify-center gap-2 active:scale-[0.98] transition-transform disabled:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--brand-color)]"
                                 >
                                     {loading
@@ -2161,6 +2179,22 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 </div>
             </div>
 
+            {/* Beneficiary's MTN number is not registered — asked before any charge. */}
+            <MtnRegistrationDialog
+                open={!!registrationPrompt}
+                numbers={registrationPrompt?.numbers}
+                isSubmitting={isConfirmingRegistration}
+                onConfirm={async () => {
+                    setIsConfirmingRegistration(true)
+                    try {
+                        setRegistrationPrompt(null)
+                        await handleBuyData({ acknowledgeRegistration: true })
+                    } finally {
+                        setIsConfirmingRegistration(false)
+                    }
+                }}
+                onCancel={() => setRegistrationPrompt(null)}
+            />
         </div>
     )
 }

@@ -10,7 +10,7 @@ import { syncShopOrderStatus } from '@/lib/shop-service'
 // gate (added: 0) and left pending. This cron:
 //   1. Finds pending MTN orders.
 //   2. Checks their numbers against the MTN whitelist — which ALSO auto-submits any that
-//      aren't enabled yet (so the ~24h enablement clock keeps running).
+//      aren't enabled yet (so the enablement clock, up to 2 weeks, keeps running).
 //   3. For numbers that have BECOME enabled, refulfills the order automatically
 //      (queue/add → processing), so you never have to manually refulfill.
 // Numbers still not enabled are left pending (re-submitted on the next run).

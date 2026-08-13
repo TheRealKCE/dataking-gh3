@@ -251,7 +251,7 @@ export async function sendOrderRefundSMS(
 
 // Sent ONCE at order time when an MTN number must be verified/enabled first
 // (Agent Portal whitelist gate). The order stays pending and auto-delivers after
-// verification (~24h). Do NOT call this from the retry cron — it would spam the
+// verification (up to 2 weeks). Do NOT call this from the retry cron — it would spam the
 // customer every few minutes.
 export async function sendMtnVerificationPendingSMS(
     recipientNumber: string,
@@ -261,7 +261,7 @@ export async function sendMtnVerificationPendingSMS(
 
     return sendSMS({
         recipient: recipientNumber,
-        message: `Your ${details.network} number ${displayNumber} is being verified for the first time. This takes up to 24 hours, after which your ${details.size} data will be delivered automatically. Once your number is verified, future orders are delivered within 5 minutes. Thank you.\n\nARHMSGh`,
+        message: `Your ${details.network} number ${displayNumber} is being registered for the first time. This can take up to 2 weeks, after which your ${details.size} data will be delivered automatically. Once your number is registered, future orders are delivered within 5 minutes. Thank you.\n\nARHMSGh`,
     })
 }
 

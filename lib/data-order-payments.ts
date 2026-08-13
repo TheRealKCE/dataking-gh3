@@ -120,6 +120,10 @@ export async function processDataDirectOrder(
         reference_code: generateReferenceCode(),
         fulfillment_method: 'auto',
         source: 'web',
+        // Set at gateway-init time: the buyer was told this MTN number is not
+        // registered yet and paid anyway. Held pending, delivered by the self-heal cron.
+        awaiting_registration: item.awaiting_registration === true,
+        registration_submitted_at: item.awaiting_registration === true ? new Date().toISOString() : null,
     }))
 
     const { data: createdOrders, error: orderError } = await supabase
@@ -223,6 +227,18 @@ export async function processDataDirectOrder(
         }).catch(() => {})
 
         for (const order of createdOrders) {
+            // Held for MTN registration — the whitelist would reject a supplier call, so
+            // skip it. One SMS now; agentportal-mtn-verify delivers it once MTN enables
+            // the number (and must not re-send this on every retry).
+            if ((order as any).awaiting_registration === true) {
+                const { sendMtnVerificationPendingSMS } = await import('./sms-service')
+                await sendMtnVerificationPendingSMS((order as any).phone_number, {
+                    network: (order as any).network,
+                    size: (order as any).size,
+                }).catch((err: Error) => console.error('[DataOrderSettle] Verification-pending SMS failed:', err))
+                continue
+            }
+
             // EXPRESS MTN is always manual — alert admin instead of auto-fulfilling
             if ((order as any).network === 'EXPRESS MTN') {
                 const { sendAdminNewOrderAlert } = await import('./email-service')
