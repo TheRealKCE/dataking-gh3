@@ -22,6 +22,13 @@ import {
     Tag,
     BadgeCheck,
     MessageSquare,
+    Shield,
+    ShoppingCart,
+    Banknote,
+    Users,
+    Send,
+    Code2,
+    Settings,
 } from 'lucide-react'
 import { usePageAccess } from '@/hooks/use-page-access'
 import { useUI } from '@/contexts/ui-context'
@@ -149,44 +156,117 @@ interface Tab extends NavItem {
     id: string
 }
 
-/** Home is the fallback tab, so it is matched last and by prefix. */
-const TABS: Tab[] = [
-    { id: 'home', label: 'Home', href: '/dashboard', icon: LayoutGrid },
-    { id: 'wallet', label: 'Wallet', href: '/dashboard/wallet', icon: Wallet },
-    { id: 'data', label: 'Data', href: '/dashboard/data-packages', icon: Package },
-    { id: 'orders', label: 'Orders', href: '/dashboard/my-orders', icon: ClipboardList },
-    { id: 'shop', label: 'Shop', href: '/dashboard/shop', icon: Store },
-]
-
-/** Sub-pages surfaced from the active tab. Mirrors the sidebar's link set. */
-const SUB_ITEMS: Record<string, NavItem[]> = {
-    home: [
-        { href: '/dashboard/profile', label: 'Profile', icon: User },
-        { href: '/dashboard/transactions', label: 'Transactions', icon: Activity },
-        { href: '/dashboard/notifications', label: 'Notifications', icon: Bell },
-        { href: '/dashboard/upgrade', label: 'Role Upgrade', icon: Crown },
-        { href: '/dashboard/install', label: 'Download App', icon: Download },
-    ],
-    wallet: [
-        { href: '/dashboard/wallet', label: 'Top Up', icon: Wallet },
-        { href: '/dashboard/transactions', label: 'Transactions', icon: Activity },
-    ],
-    data: [
-        { href: '/dashboard/data-packages', label: 'Data Packages', icon: Package },
-        { href: '/dashboard/airtime', label: 'Buy Airtime', icon: Phone },
-        { href: '/dashboard/data-packages?network=Special%20MTN%20Mashup', label: 'Special MTN Mashup', icon: Zap },
-        { href: '/dashboard/data-packages?network=EXPRESS%20MTN', label: 'EXPRESS MTN', icon: Zap },
-        { href: '/dashboard/results-checker', label: 'Results Checker', icon: Tag },
-        { href: '/dashboard/afa-orders', label: 'AFA Application', icon: BadgeCheck },
-    ],
-    orders: [
-        { href: '/dashboard/my-orders', label: 'My Orders', icon: ClipboardList },
-        { href: '/dashboard/complaints', label: 'Complaints', icon: MessageSquare },
-    ],
-    shop: shopNavItems,
+interface NavVariant {
+    /**
+     * The section this bar belongs to. The `home` tab claims every route under
+     * it that no other tab matches, which is what keeps a chip (and with it the
+     * sub-menu) on screen for the long tail of pages that have no tab of their
+     * own.
+     */
+    root: string
+    tabs: Tab[]
+    /** Sub-pages surfaced from the active tab. Mirrors the sidebar's link set. */
+    subItems: Record<string, NavItem[]>
 }
 
-export function MobileBottomNav() {
+/**
+ * The dashboard and the admin panel run the same bar over different link sets.
+ * Both keep `home` as the first tab, since that is the id the fallback match
+ * looks for.
+ */
+const NAV_VARIANTS = {
+    dashboard: {
+        root: '/dashboard',
+        tabs: [
+            { id: 'home', label: 'Home', href: '/dashboard', icon: LayoutGrid },
+            { id: 'wallet', label: 'Wallet', href: '/dashboard/wallet', icon: Wallet },
+            { id: 'data', label: 'Data', href: '/dashboard/data-packages', icon: Package },
+            { id: 'orders', label: 'Orders', href: '/dashboard/my-orders', icon: ClipboardList },
+            { id: 'shop', label: 'Shop', href: '/dashboard/shop', icon: Store },
+        ],
+        subItems: {
+            home: [
+                { href: '/dashboard/profile', label: 'Profile', icon: User },
+                { href: '/dashboard/transactions', label: 'Transactions', icon: Activity },
+                { href: '/dashboard/notifications', label: 'Notifications', icon: Bell },
+                { href: '/dashboard/upgrade', label: 'Role Upgrade', icon: Crown },
+                { href: '/dashboard/install', label: 'Download App', icon: Download },
+            ],
+            wallet: [
+                { href: '/dashboard/wallet', label: 'Top Up', icon: Wallet },
+                { href: '/dashboard/transactions', label: 'Transactions', icon: Activity },
+            ],
+            data: [
+                { href: '/dashboard/data-packages', label: 'Data Packages', icon: Package },
+                { href: '/dashboard/airtime', label: 'Buy Airtime', icon: Phone },
+                { href: '/dashboard/data-packages?network=Special%20MTN%20Mashup', label: 'Special MTN Mashup', icon: Zap },
+                { href: '/dashboard/data-packages?network=EXPRESS%20MTN', label: 'EXPRESS MTN', icon: Zap },
+                { href: '/dashboard/results-checker', label: 'Results Checker', icon: Tag },
+                { href: '/dashboard/afa-orders', label: 'AFA Application', icon: BadgeCheck },
+            ],
+            orders: [
+                { href: '/dashboard/my-orders', label: 'My Orders', icon: ClipboardList },
+                { href: '/dashboard/complaints', label: 'Complaints', icon: MessageSquare },
+            ],
+            shop: shopNavItems,
+        },
+    },
+    // Five tabs for twenty-five admin pages, so the sub-menus carry the rest —
+    // between them they cover every link in the sidebar's admin list. Tab hrefs
+    // are matched by prefix, so /admin/shops also owns /admin/shops/withdrawals.
+    admin: {
+        root: '/admin',
+        tabs: [
+            { id: 'home', label: 'Home', href: '/admin', icon: Shield },
+            { id: 'orders', label: 'Orders', href: '/admin/orders', icon: ShoppingCart },
+            { id: 'finance', label: 'Finance', href: '/admin/finance', icon: Banknote },
+            { id: 'shops', label: 'Shops', href: '/admin/shops', icon: Store },
+            { id: 'users', label: 'Users', href: '/admin/users', icon: Users },
+        ],
+        subItems: {
+            home: [
+                { href: '/admin', label: 'Overview', icon: Shield },
+                { href: '/admin/packages', label: 'Packages', icon: Package },
+                { href: '/admin/announcements', label: 'Announce', icon: Bell },
+                { href: '/admin/sms-broadcast', label: 'SMS', icon: MessageSquare },
+                { href: '/admin/email-broadcast', label: 'Email', icon: Send },
+                { href: '/admin/api-keys', label: 'API Keys', icon: Code2 },
+                { href: '/admin/settings', label: 'Settings', icon: Settings },
+            ],
+            orders: [
+                { href: '/admin/orders', label: 'Orders', icon: ShoppingCart },
+                { href: '/admin/fulfillment', label: 'Fulfillment', icon: Activity },
+                { href: '/admin/datagod', label: 'DataGod Console', icon: Activity },
+                { href: '/admin/airtime', label: 'Airtime', icon: Phone },
+                { href: '/admin/mashup-orders', label: 'Special MTN Mashup', icon: Zap },
+                { href: '/admin/express-orders', label: 'EXPRESS MTN', icon: Zap },
+                { href: '/admin/afa-management', label: 'AFA Management', icon: BadgeCheck },
+                { href: '/admin/vouchers', label: 'Results Checker', icon: Tag },
+                { href: '/admin/complaints', label: 'Complaints', icon: MessageSquare },
+            ],
+            finance: [
+                { href: '/admin/finance', label: 'Finance', icon: Banknote },
+                { href: '/admin/top-up', label: 'Top-Up', icon: Wallet },
+                { href: '/admin/hubtel-payments', label: 'Hubtel Payments', icon: Banknote },
+                { href: '/admin/profits-history', label: 'Profits', icon: Wallet },
+                { href: '/admin/shops/withdrawals', label: 'Shop Withdrawals', icon: Banknote },
+            ],
+            shops: [
+                { href: '/admin/shops', label: 'Shops', icon: Store },
+                { href: '/admin/shops/withdrawals', label: 'Shop Withdrawals', icon: Banknote },
+                { href: '/classifieds/admin/dashboard', label: 'Classifieds', icon: Store },
+            ],
+            users: [
+                { href: '/admin/users', label: 'Users', icon: Users },
+                { href: '/admin/memberships', label: 'Agent Members', icon: Crown },
+            ],
+        },
+    },
+} satisfies Record<string, NavVariant>
+
+export type NavVariantName = keyof typeof NAV_VARIANTS
+
+export function MobileBottomNav({ variant = 'dashboard' }: { variant?: NavVariantName } = {}) {
     const pathname = usePathname() ?? ''
     const { isPageAccessible } = usePageAccess()
     const { toggleSidebar } = useUI()
@@ -217,18 +297,31 @@ export function MobileBottomNav() {
         return () => window.removeEventListener('keydown', onKey)
     }, [openSection])
 
-    const tabs = TABS.filter((tab) => isPageAccessible(tab.href))
+    const nav: NavVariant = NAV_VARIANTS[variant]
 
-    // Home owns every dashboard route no other tab claims — without the
-    // fallback the chip (and with it the sub-menu) would vanish on pages like
-    // /dashboard/profile, stranding the user on a route they reached from it.
+    /**
+     * Sub-admins are bounced back to /admin/orders by the admin layout the
+     * moment they land anywhere else, so every other admin link would be a
+     * round trip to nowhere. Their own dashboard is unrestricted.
+     */
+    const permitted = (href: string) =>
+        !(variant === 'admin' && isSubAdmin) || href.startsWith('/admin/orders')
+
+    const tabs = nav.tabs.filter((tab) => permitted(tab.href) && isPageAccessible(tab.href))
+
+    // Home owns every route in the section that no other tab claims — without
+    // the fallback the chip (and with it the sub-menu) would vanish on pages
+    // like /dashboard/profile, stranding the user on a route they reached
+    // from it.
     const activeId =
         tabs.find((tab) => tab.id !== 'home' && pathname.startsWith(tab.href))?.id ??
-        (pathname.startsWith('/dashboard') ? 'home' : null)
+        (pathname.startsWith(nav.root) ? 'home' : null)
 
     // Query-string entries share a base route, so gate on the path only.
     const visibleSubItems = (id: string) =>
-        (SUB_ITEMS[id] ?? []).filter((item) => isPageAccessible(item.href.split('?')[0]))
+        (nav.subItems[id] ?? []).filter(
+            (item) => permitted(item.href) && isPageAccessible(item.href.split('?')[0])
+        )
 
     const openItems = openSection ? visibleSubItems(openSection) : []
 
@@ -301,7 +394,12 @@ export function MobileBottomNav() {
                             const Icon = tab.icon
 
                             if (tab.id === activeId) {
+                                // A menu whose only entry is the page you are
+                                // already on is noise. It happens whenever the
+                                // access filters strip a section back to its
+                                // own landing page.
                                 const subItems = visibleSubItems(tab.id)
+                                const goesElsewhere = subItems.some((item) => item.href !== tab.href)
                                 const expanded = openSection === tab.id
                                 return (
                                     <div
@@ -322,7 +420,7 @@ export function MobileBottomNav() {
                                                 {tab.label}
                                             </span>
                                         </Link>
-                                        {subItems.length > 0 && (
+                                        {goesElsewhere && (
                                             <button
                                                 type="button"
                                                 onClick={() => setOpenSection(expanded ? null : tab.id)}

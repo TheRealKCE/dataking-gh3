@@ -8,6 +8,7 @@ import { cn } from '@/lib/utils'
 import { useUI } from '@/contexts/ui-context'
 import { DashboardSidebar } from '@/components/dashboard/sidebar'
 import { DashboardHeader } from '@/components/dashboard/header'
+import { MobileBottomNav } from '@/components/dashboard/mobile-bottom-nav'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert'
 import { CopyrightFooter } from '@/components/CopyrightFooter'
@@ -74,11 +75,13 @@ export default function AdminLayout({
             )}>
                 <DashboardHeader />
                 <div className="h-16 flex-shrink-0" />
-                <main className="p-4 lg:p-6 flex-1">
+                {/* pb clears the fixed bottom bar, which is mobile-only. */}
+                <main className="p-4 pb-44 md:pb-4 lg:p-6 flex-1">
                     {children}
                 </main>
                 <CopyrightFooter className="bg-[#E5E7EB]/50 dark:bg-[#000000]/50" />
             </div>
+            <MobileBottomNav variant="admin" />
         </div>
     )
 }
