@@ -131,6 +131,9 @@ export async function finalizeAirtimeOrder(
                 : `GHS ${amount.toFixed(2)} airtime for ${existing.beneficiary_phone} sent successfully.`)
             : `Your ${isMashup ? 'Mashup' : 'airtime'} order ${existing.reference_code} could not be completed. Contact support.`,
         url: '/dashboard/airtime',
+        // Later updates to this same order replace the earlier alert rather
+        // than leaving a trail of stale ones in the notification shade.
+        tag: `airtime-${existing.reference_code}`,
     }).catch(() => {})
 
     if (status === 'completed') {
