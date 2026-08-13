@@ -22,6 +22,13 @@ import {
     Tag,
     BadgeCheck,
     MessageSquare,
+    Shield,
+    ShoppingCart,
+    Banknote,
+    Users,
+    Send,
+    Code2,
+    Settings,
 } from 'lucide-react'
 import { usePageAccess } from '@/hooks/use-page-access'
 import { useUI } from '@/contexts/ui-context'
@@ -91,6 +98,35 @@ const SURFACE_DEPTH =
     'ring-1 ring-inset ring-white/30 shadow-[0_18px_38px_-14px_rgba(0,0,0,0.55)]'
 
 /**
+ * Fluid metrics for the bar.
+ *
+ * Phones in the wild are 320–430px wide and the bar has to hold a hamburger,
+ * an expanded chip and up to four more tabs at every one of them. Fixed sizes
+ * fit only the wide end: below roughly 390px the row's min-content exceeds the
+ * viewport, flex shrinks each tab box past its icon, and the icons — which have
+ * no flex axis to shrink along — spill out and overlap their neighbours.
+ *
+ * clamp() ties each metric to the viewport instead, so the bar keeps the same
+ * proportions on a 320px phone as on a 430px one and can never outgrow it. The
+ * upper bounds are the sizes the bar used to have, so nothing here grows past
+ * the original design — a small tablet still gets the full-size bar.
+ *
+ * These have to be viewport-relative rather than responsive variants: every
+ * width that matters is below Tailwind's smallest breakpoint (`sm`, 640px), so
+ * no variant can tell a 320px phone from a 430px one.
+ */
+const NAV_METRICS = {
+    '--nav-fab': 'clamp(2.75rem, 12.5vw, 4.5rem)',
+    '--nav-fab-icon': 'clamp(1.25rem, 5.5vw, 2rem)',
+    '--nav-icon': 'clamp(1.15rem, 5.2vw, 1.75rem)',
+    '--nav-chip-text': 'clamp(0.8125rem, 3.6vw, 1.125rem)',
+    '--nav-tab-text': 'clamp(0.5625rem, 2.6vw, 0.75rem)',
+} as React.CSSProperties
+
+/** Icons are sized off the vars above, so they scale with the bar. */
+const NAV_ICON = { width: 'var(--nav-icon)', height: 'var(--nav-icon)' }
+
+/**
  * The mirrored finish. A bright specular bloom off the top-left plus a darker
  * pool along the bottom edge reads as a convex, polished surface — the same
  * trick a glass button uses. Both layers are decorative and inert; siblings
@@ -120,44 +156,117 @@ interface Tab extends NavItem {
     id: string
 }
 
-/** Home is the fallback tab, so it is matched last and by prefix. */
-const TABS: Tab[] = [
-    { id: 'home', label: 'Home', href: '/dashboard', icon: LayoutGrid },
-    { id: 'wallet', label: 'Wallet', href: '/dashboard/wallet', icon: Wallet },
-    { id: 'data', label: 'Data', href: '/dashboard/data-packages', icon: Package },
-    { id: 'orders', label: 'Orders', href: '/dashboard/my-orders', icon: ClipboardList },
-    { id: 'shop', label: 'Shop', href: '/dashboard/shop', icon: Store },
-]
-
-/** Sub-pages surfaced from the active tab. Mirrors the sidebar's link set. */
-const SUB_ITEMS: Record<string, NavItem[]> = {
-    home: [
-        { href: '/dashboard/profile', label: 'Profile', icon: User },
-        { href: '/dashboard/transactions', label: 'Transactions', icon: Activity },
-        { href: '/dashboard/notifications', label: 'Notifications', icon: Bell },
-        { href: '/dashboard/upgrade', label: 'Role Upgrade', icon: Crown },
-        { href: '/dashboard/install', label: 'Download App', icon: Download },
-    ],
-    wallet: [
-        { href: '/dashboard/wallet', label: 'Top Up', icon: Wallet },
-        { href: '/dashboard/transactions', label: 'Transactions', icon: Activity },
-    ],
-    data: [
-        { href: '/dashboard/data-packages', label: 'Data Packages', icon: Package },
-        { href: '/dashboard/airtime', label: 'Buy Airtime', icon: Phone },
-        { href: '/dashboard/data-packages?network=Special%20MTN%20Mashup', label: 'Special MTN Mashup', icon: Zap },
-        { href: '/dashboard/data-packages?network=EXPRESS%20MTN', label: 'EXPRESS MTN', icon: Zap },
-        { href: '/dashboard/results-checker', label: 'Results Checker', icon: Tag },
-        { href: '/dashboard/afa-orders', label: 'AFA Application', icon: BadgeCheck },
-    ],
-    orders: [
-        { href: '/dashboard/my-orders', label: 'My Orders', icon: ClipboardList },
-        { href: '/dashboard/complaints', label: 'Complaints', icon: MessageSquare },
-    ],
-    shop: shopNavItems,
+interface NavVariant {
+    /**
+     * The section this bar belongs to. The `home` tab claims every route under
+     * it that no other tab matches, which is what keeps a chip (and with it the
+     * sub-menu) on screen for the long tail of pages that have no tab of their
+     * own.
+     */
+    root: string
+    tabs: Tab[]
+    /** Sub-pages surfaced from the active tab. Mirrors the sidebar's link set. */
+    subItems: Record<string, NavItem[]>
 }
 
-export function MobileBottomNav() {
+/**
+ * The dashboard and the admin panel run the same bar over different link sets.
+ * Both keep `home` as the first tab, since that is the id the fallback match
+ * looks for.
+ */
+const NAV_VARIANTS = {
+    dashboard: {
+        root: '/dashboard',
+        tabs: [
+            { id: 'home', label: 'Home', href: '/dashboard', icon: LayoutGrid },
+            { id: 'wallet', label: 'Wallet', href: '/dashboard/wallet', icon: Wallet },
+            { id: 'data', label: 'Data', href: '/dashboard/data-packages', icon: Package },
+            { id: 'orders', label: 'Orders', href: '/dashboard/my-orders', icon: ClipboardList },
+            { id: 'shop', label: 'Shop', href: '/dashboard/shop', icon: Store },
+        ],
+        subItems: {
+            home: [
+                { href: '/dashboard/profile', label: 'Profile', icon: User },
+                { href: '/dashboard/transactions', label: 'Transactions', icon: Activity },
+                { href: '/dashboard/notifications', label: 'Notifications', icon: Bell },
+                { href: '/dashboard/upgrade', label: 'Role Upgrade', icon: Crown },
+                { href: '/dashboard/install', label: 'Download App', icon: Download },
+            ],
+            wallet: [
+                { href: '/dashboard/wallet', label: 'Top Up', icon: Wallet },
+                { href: '/dashboard/transactions', label: 'Transactions', icon: Activity },
+            ],
+            data: [
+                { href: '/dashboard/data-packages', label: 'Data Packages', icon: Package },
+                { href: '/dashboard/airtime', label: 'Buy Airtime', icon: Phone },
+                { href: '/dashboard/data-packages?network=Special%20MTN%20Mashup', label: 'Special MTN Mashup', icon: Zap },
+                { href: '/dashboard/data-packages?network=EXPRESS%20MTN', label: 'EXPRESS MTN', icon: Zap },
+                { href: '/dashboard/results-checker', label: 'Results Checker', icon: Tag },
+                { href: '/dashboard/afa-orders', label: 'AFA Application', icon: BadgeCheck },
+            ],
+            orders: [
+                { href: '/dashboard/my-orders', label: 'My Orders', icon: ClipboardList },
+                { href: '/dashboard/complaints', label: 'Complaints', icon: MessageSquare },
+            ],
+            shop: shopNavItems,
+        },
+    },
+    // Five tabs for twenty-five admin pages, so the sub-menus carry the rest —
+    // between them they cover every link in the sidebar's admin list. Tab hrefs
+    // are matched by prefix, so /admin/shops also owns /admin/shops/withdrawals.
+    admin: {
+        root: '/admin',
+        tabs: [
+            { id: 'home', label: 'Home', href: '/admin', icon: Shield },
+            { id: 'orders', label: 'Orders', href: '/admin/orders', icon: ShoppingCart },
+            { id: 'finance', label: 'Finance', href: '/admin/finance', icon: Banknote },
+            { id: 'shops', label: 'Shops', href: '/admin/shops', icon: Store },
+            { id: 'users', label: 'Users', href: '/admin/users', icon: Users },
+        ],
+        subItems: {
+            home: [
+                { href: '/admin', label: 'Overview', icon: Shield },
+                { href: '/admin/packages', label: 'Packages', icon: Package },
+                { href: '/admin/announcements', label: 'Announce', icon: Bell },
+                { href: '/admin/sms-broadcast', label: 'SMS', icon: MessageSquare },
+                { href: '/admin/email-broadcast', label: 'Email', icon: Send },
+                { href: '/admin/api-keys', label: 'API Keys', icon: Code2 },
+                { href: '/admin/settings', label: 'Settings', icon: Settings },
+            ],
+            orders: [
+                { href: '/admin/orders', label: 'Orders', icon: ShoppingCart },
+                { href: '/admin/fulfillment', label: 'Fulfillment', icon: Activity },
+                { href: '/admin/datagod', label: 'DataGod Console', icon: Activity },
+                { href: '/admin/airtime', label: 'Airtime', icon: Phone },
+                { href: '/admin/mashup-orders', label: 'Special MTN Mashup', icon: Zap },
+                { href: '/admin/express-orders', label: 'EXPRESS MTN', icon: Zap },
+                { href: '/admin/afa-management', label: 'AFA Management', icon: BadgeCheck },
+                { href: '/admin/vouchers', label: 'Results Checker', icon: Tag },
+                { href: '/admin/complaints', label: 'Complaints', icon: MessageSquare },
+            ],
+            finance: [
+                { href: '/admin/finance', label: 'Finance', icon: Banknote },
+                { href: '/admin/top-up', label: 'Top-Up', icon: Wallet },
+                { href: '/admin/hubtel-payments', label: 'Hubtel Payments', icon: Banknote },
+                { href: '/admin/profits-history', label: 'Profits', icon: Wallet },
+                { href: '/admin/shops/withdrawals', label: 'Shop Withdrawals', icon: Banknote },
+            ],
+            shops: [
+                { href: '/admin/shops', label: 'Shops', icon: Store },
+                { href: '/admin/shops/withdrawals', label: 'Shop Withdrawals', icon: Banknote },
+                { href: '/classifieds/admin/dashboard', label: 'Classifieds', icon: Store },
+            ],
+            users: [
+                { href: '/admin/users', label: 'Users', icon: Users },
+                { href: '/admin/memberships', label: 'Agent Members', icon: Crown },
+            ],
+        },
+    },
+} satisfies Record<string, NavVariant>
+
+export type NavVariantName = keyof typeof NAV_VARIANTS
+
+export function MobileBottomNav({ variant = 'dashboard' }: { variant?: NavVariantName } = {}) {
     const pathname = usePathname() ?? ''
     const { isPageAccessible } = usePageAccess()
     const { toggleSidebar } = useUI()
@@ -188,25 +297,41 @@ export function MobileBottomNav() {
         return () => window.removeEventListener('keydown', onKey)
     }, [openSection])
 
-    const tabs = TABS.filter((tab) => isPageAccessible(tab.href))
+    const nav: NavVariant = NAV_VARIANTS[variant]
 
-    // Home owns every dashboard route no other tab claims — without the
-    // fallback the chip (and with it the sub-menu) would vanish on pages like
-    // /dashboard/profile, stranding the user on a route they reached from it.
+    /**
+     * Sub-admins are bounced back to /admin/orders by the admin layout the
+     * moment they land anywhere else, so every other admin link would be a
+     * round trip to nowhere. Their own dashboard is unrestricted.
+     */
+    const permitted = (href: string) =>
+        !(variant === 'admin' && isSubAdmin) || href.startsWith('/admin/orders')
+
+    const tabs = nav.tabs.filter((tab) => permitted(tab.href) && isPageAccessible(tab.href))
+
+    // Home owns every route in the section that no other tab claims — without
+    // the fallback the chip (and with it the sub-menu) would vanish on pages
+    // like /dashboard/profile, stranding the user on a route they reached
+    // from it.
     const activeId =
         tabs.find((tab) => tab.id !== 'home' && pathname.startsWith(tab.href))?.id ??
-        (pathname.startsWith('/dashboard') ? 'home' : null)
+        (pathname.startsWith(nav.root) ? 'home' : null)
 
     // Query-string entries share a base route, so gate on the path only.
     const visibleSubItems = (id: string) =>
-        (SUB_ITEMS[id] ?? []).filter((item) => isPageAccessible(item.href.split('?')[0]))
+        (nav.subItems[id] ?? []).filter(
+            (item) => permitted(item.href) && isPageAccessible(item.href.split('?')[0])
+        )
 
     const openItems = openSection ? visibleSubItems(openSection) : []
 
     return (
         <>
         <RefreshFab />
-        <div className="fixed inset-x-0 bottom-0 z-40 md:hidden px-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+        <div
+            style={NAV_METRICS}
+            className="fixed inset-x-0 bottom-0 z-40 md:hidden px-[clamp(0.5rem,2.5vw,0.75rem)] pb-[calc(0.75rem+env(safe-area-inset-bottom))]"
+        >
             {/* Backdrop — a tap anywhere outside dismisses the sub-menu. */}
             {openSection && (
                 <button
@@ -241,44 +366,61 @@ export function MobileBottomNav() {
                     </div>
                 )}
 
-                <div className="relative flex items-center gap-3">
+                <div className="relative flex items-center gap-[clamp(0.375rem,2vw,0.75rem)]">
                     {/* Sidebar drawer trigger — the same panel the header button opens */}
                     <button
                         type="button"
                         onClick={toggleSidebar}
                         aria-label="Open menu"
-                        className={`flex h-[4.5rem] w-[4.5rem] shrink-0 items-center justify-center rounded-full transition-transform active:scale-95 ${surface}`}
-                        style={{ color: theme.onSurface }}
+                        className={`flex shrink-0 items-center justify-center rounded-full transition-transform active:scale-95 ${surface}`}
+                        style={{
+                            color: theme.onSurface,
+                            width: 'var(--nav-fab)',
+                            height: 'var(--nav-fab)',
+                        }}
                     >
                         <Sheen dark={theme.darkSurface} />
-                        <Menu className="relative h-8 w-8" />
+                        <Menu
+                            className="relative"
+                            style={{ width: 'var(--nav-fab-icon)', height: 'var(--nav-fab-icon)' }}
+                        />
                     </button>
 
                     <nav
-                        className={`flex min-w-0 flex-1 items-center gap-2 rounded-full p-3 ${surface}`}
+                        className={`flex min-w-0 flex-1 items-center gap-[clamp(0.125rem,1.2vw,0.5rem)] rounded-full p-[clamp(0.375rem,2vw,0.75rem)] ${surface}`}
                     >
                         <Sheen dark={theme.darkSurface} />
                         {tabs.map((tab) => {
                             const Icon = tab.icon
 
                             if (tab.id === activeId) {
+                                // A menu whose only entry is the page you are
+                                // already on is noise. It happens whenever the
+                                // access filters strip a section back to its
+                                // own landing page.
                                 const subItems = visibleSubItems(tab.id)
+                                const goesElsewhere = subItems.some((item) => item.href !== tab.href)
                                 const expanded = openSection === tab.id
                                 return (
                                     <div
                                         key={tab.id}
-                                        className="relative flex min-w-0 items-center gap-2.5 rounded-full bg-white px-5 py-3.5 shadow-[0_2px_6px_rgba(0,0,0,0.18)]"
+                                        className="relative flex min-w-0 items-center gap-[clamp(0.25rem,1.8vw,0.625rem)] rounded-full bg-white px-[clamp(0.625rem,3.5vw,1.25rem)] py-[clamp(0.5rem,2.5vw,0.875rem)] shadow-[0_2px_6px_rgba(0,0,0,0.18)]"
                                         style={{ color: theme.ink }}
                                     >
                                         <Link
                                             href={tab.href}
                                             aria-current={pathname === tab.href ? 'page' : undefined}
-                                            className="flex min-w-0 items-center gap-2.5"
+                                            className="flex min-w-0 items-center gap-[clamp(0.25rem,1.8vw,0.625rem)]"
                                         >
-                                            <Icon className="h-7 w-7 shrink-0" />
-                                            <span className="truncate text-lg font-bold">{tab.label}</span>
+                                            <Icon className="shrink-0" style={NAV_ICON} />
+                                            <span
+                                                className="truncate font-bold"
+                                                style={{ fontSize: 'var(--nav-chip-text)' }}
+                                            >
+                                                {tab.label}
+                                            </span>
                                         </Link>
-                                        {subItems.length > 0 && (
+                                        {goesElsewhere && (
                                             <button
                                                 type="button"
                                                 onClick={() => setOpenSection(expanded ? null : tab.id)}
@@ -288,8 +430,8 @@ export function MobileBottomNav() {
                                                 className="-mr-1 shrink-0 rounded-full p-0.5 active:scale-95"
                                             >
                                                 {expanded
-                                                    ? <X className="h-6 w-6" />
-                                                    : <Menu className="h-6 w-6" />}
+                                                    ? <X style={NAV_ICON} />
+                                                    : <Menu style={NAV_ICON} />}
                                             </button>
                                         )}
                                     </div>
@@ -297,16 +439,24 @@ export function MobileBottomNav() {
                             }
 
                             return (
+                                // basis-0 keeps the four inactive tabs equal
+                                // regardless of label width, and overflow-hidden
+                                // is the backstop: if a tab is ever squeezed
+                                // below its icon, it clips instead of painting
+                                // over its neighbour.
                                 <Link
                                     key={tab.id}
                                     href={tab.href}
-                                    className={`relative flex min-w-0 flex-1 flex-col items-center gap-2 py-1.5 transition-transform active:scale-95 ${
+                                    className={`relative flex min-w-0 flex-1 basis-0 flex-col items-center gap-[clamp(0.25rem,1.5vw,0.5rem)] overflow-hidden py-1.5 transition-transform active:scale-95 ${
                                         theme.darkSurface ? 'drop-shadow-[0_1px_1px_rgba(0,0,0,0.25)]' : ''
                                     }`}
                                     style={{ color: theme.onSurface }}
                                 >
-                                    <Icon className="h-7 w-7" />
-                                    <span className="truncate text-xs font-semibold leading-none">
+                                    <Icon className="shrink-0" style={NAV_ICON} />
+                                    <span
+                                        className="max-w-full truncate font-semibold leading-none"
+                                        style={{ fontSize: 'var(--nav-tab-text)' }}
+                                    >
                                         {tab.label}
                                     </span>
                                 </Link>
@@ -320,7 +470,13 @@ export function MobileBottomNav() {
     )
 }
 
-const FAB_SIZE = 48
+/**
+ * Size drives layout as well as looks: the drag clamp, the edge snap and the
+ * saved resting position are all expressed against it, so changing this number
+ * moves the button correctly everywhere. A stored position from an older size
+ * is re-clamped on mount, so it can't be left hanging off-screen.
+ */
+const FAB_SIZE = 60
 const FAB_MARGIN = 12
 const FAB_STORAGE_KEY = 'arhms:refresh-fab'
 /** Below this much travel the gesture is a tap, not a drag. */
@@ -423,7 +579,7 @@ function RefreshFab() {
                 dragging ? 'scale-110 cursor-grabbing shadow-nav' : 'transition-[left,top,transform] duration-200 active:scale-95'
             }`}
         >
-            <RefreshCw className="h-5 w-5" />
+            <RefreshCw className="h-7 w-7" />
         </button>
     )
 }

@@ -16,9 +16,15 @@ export async function POST(req: Request) {
 
         // 1. Send Push Notification to Device
         await sendPushToUser(userId, {
-            title: 'Test Notification 🚀',
-            body: 'If you are seeing this, push notifications are working perfectly on this device!',
-            url: '/dashboard/notifications'
+            title: 'ARHMS',
+            body: 'Push is working on this device. Orders, payments and wallet alerts will arrive here.',
+            url: '/dashboard/notifications',
+            // Repeated tests replace each other instead of filling the shade.
+            tag: 'arhms-test',
+            actions: [
+                { action: 'open', title: 'Open app' },
+                { action: 'dismiss', title: 'Dismiss' },
+            ],
         })
 
         // 2. Save In-App Notification to Database

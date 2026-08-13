@@ -14,11 +14,35 @@ try {
   console.error('[SubAgentSignup] Redis init failed:', e)
 }
 
-/** A Postgres/GoTrue error caused by the users.phone_number unique index. */
+/**
+ * A Postgres/GoTrue error caused by the users.phone_number unique index.
+ *
+ * The index is enforced inside the `on_auth_user_created` trigger, and GoTrue
+ * does not pass the Postgres detail through — it reports any trigger failure as
+ * a flat "Database error creating new user". So the opaque form counts too: by
+ * the time we test it we have already ruled out the other failure modes.
+ */
 function isDuplicatePhoneError(message?: string | null): boolean {
   if (!message) return false
   const m = message.toLowerCase()
-  return m.includes('users_phone_number_unique') || m.includes('duplicate key')
+  return (
+    m.includes('users_phone_number_unique') ||
+    m.includes('duplicate key') ||
+    m.includes('database error creating new user')
+  )
+}
+
+/**
+ * silasbaffoe@icloud.com -> s***e@icloud.com
+ *
+ * Enough for someone to recognise their own account (a typo'd domain reads at a
+ * glance) without handing an anonymous signer-upper the address on the phone.
+ */
+function maskEmail(address?: string | null): string {
+  if (!address || !address.includes('@')) return 'another account'
+  const [local, domain] = address.split('@')
+  const shown = local.length <= 2 ? '' : `${local[0]}***${local[local.length - 1]}`
+  return `${shown || '***'}@${domain}`
 }
 
 /** A GoTrue error raised when the email is already registered. */
@@ -135,6 +159,28 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // 1b. Is this phone already spoken for? The unique index would fire inside
+    //     the signup trigger, where GoTrue flattens it into an unactionable
+    //     "Database error creating new user". Checking first lets us name the
+    //     real problem — most often someone re-signing up because they mistyped
+    //     their email the first time, whose original account is already live.
+    const { data: phoneOwner } = await supabase
+      .from('users')
+      .select('id, email')
+      .eq('phone_number', cleanPhone)
+      .maybeSingle()
+
+    if (phoneOwner && String(phoneOwner.email || '').toLowerCase() !== email) {
+      return NextResponse.json(
+        {
+          error:
+            `This phone number is already registered to ${maskEmail(phoneOwner.email)}. ` +
+            `Log in with that account, or sign up with a different phone number.`,
+        },
+        { status: 409 }
+      )
+    }
+
     // 2. Create (or resolve) the auth user. The `on_auth_user_created` trigger
     //    (supabase/triggers.sql -> handle_new_user) reads `phone_number` from the
     //    metadata below and inserts the public.users row for us — so there is no
@@ -153,16 +199,22 @@ export async function POST(request: NextRequest) {
     if (createErr || !created?.user) {
       const message = createErr?.message || ''
 
-      // The phone belongs to a DIFFERENT account (trigger's NOT NULL UNIQUE fired).
+      // Backstop for the check above: the phone can be claimed between our
+      // lookup and this insert, and the trigger's unique index is the only
+      // thing enforcing it.
       if (isDuplicatePhoneError(message)) {
-        const { data: phoneOwner } = await supabase
+        const { data: raceOwner } = await supabase
           .from('users')
           .select('email')
           .eq('phone_number', cleanPhone)
           .maybeSingle()
-        if (phoneOwner && phoneOwner.email !== email) {
+        if (raceOwner && String(raceOwner.email || '').toLowerCase() !== email) {
           return NextResponse.json(
-            { error: 'This phone number is already registered. Please log in instead.' },
+            {
+              error:
+                `This phone number is already registered to ${maskEmail(raceOwner.email)}. ` +
+                `Log in with that account, or sign up with a different phone number.`,
+            },
             { status: 409 }
           )
         }
@@ -187,9 +239,18 @@ export async function POST(request: NextRequest) {
       }
 
       if (!userId) {
-        console.error('[SubAgentSignup] createUser error:', message)
+        console.error('[SubAgentSignup] createUser error:', {
+          message,
+          email,
+          phone: cleanPhone,
+          shopId,
+        })
         return NextResponse.json(
-          { error: 'Failed to create account' },
+          {
+            error:
+              'We could not create your account. Please try again — if it keeps failing, ' +
+              'contact your Lead, as this phone or email may already be in use.',
+          },
           { status: 500 }
         )
       }
