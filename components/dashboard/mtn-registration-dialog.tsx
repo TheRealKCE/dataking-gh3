@@ -48,7 +48,10 @@ export function MtnRegistrationDialog({
 
     return (
         <Dialog open={open} onOpenChange={(o) => !o && !isSubmitting && onCancel()}>
-            <DialogContent className="w-[95%] max-w-sm rounded-2xl">
+            {/* z-[110] beats the hand-rolled purchase sheets (z-[70]) and the storefront
+                sidebar (z-[100]). Those callers also hide themselves while this is open —
+                this is the backstop so the prompt is never buried by a new overlay. */}
+            <DialogContent className="w-[95%] max-w-sm rounded-2xl z-[110]">
                 <DialogHeader>
                     <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 dark:bg-amber-900/30">
                         <ShieldAlert className="h-6 w-6 text-amber-600 dark:text-amber-400" />

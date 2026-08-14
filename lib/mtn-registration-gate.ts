@@ -19,8 +19,10 @@
  *      answer confidently resolves to "not gated" and the order proceeds as pending —
  *      the whitelistPending path in fulfillOrder() is still the backstop it always was.
  *
- *   3. It is off by default. Nothing happens until an admin turns on
- *      admin_settings.mtn_registration_gate_enabled.
+ *   3. It is off by default, and that toggle is the ONLY thing controlling it.
+ *      admin_settings.mtn_registration_gate_enabled runs the check regardless of which
+ *      supplier currently fulfils MTN — see loadGateSettings for why that is a
+ *      deliberate choice with a real cost attached.
  *
  * USSD is deliberately NOT gated — it reaches processShopOrder by a different path
  * and keeps the old behaviour. Do not wire this into app/api/hubtel/*.
@@ -97,46 +99,44 @@ export function registrationRequiredBody(phoneNumbers: string[], total?: number)
 // ─── Admin settings (memoized) ──────────────────────────────────────────────────
 
 interface GateSettings {
-    /** The master switch. Everything below is irrelevant when this is false. */
+    /** The one and only switch. Nothing else gates this. */
     enabled: boolean
-    /** Agent Portal must actually be the live MTN supplier for its whitelist to matter. */
-    agentPortalHandlesMtn: boolean
 }
 
 let settingsCache: { value: GateSettings; expiresAt: number } | null = null
 
+/**
+ * Deliberately independent of which supplier currently fulfils MTN.
+ *
+ * An earlier version also required agentportal_networks.MTN === true, on the
+ * reasoning that Agent Portal's whitelist is a list of numbers enabled on OUR Agent
+ * Portal account — so while a different supplier (e.g. DataKazina) delivers MTN, a
+ * number missing from that list may still receive data perfectly well.
+ *
+ * That guard was removed by explicit request: the check is now treated as a general
+ * "has this MTN number ever been registered with us" signal and runs whenever the
+ * admin toggle is on, whoever is fulfilling. The accepted cost is that some orders
+ * the active supplier could have delivered will be held pending instead.
+ *
+ * If held orders start piling up on numbers that would have delivered fine, this is
+ * the first thing to reconsider — not a bug.
+ */
 async function loadGateSettings(supabase: any): Promise<GateSettings> {
     if (settingsCache && settingsCache.expiresAt > Date.now()) return settingsCache.value
 
-    const disabled: GateSettings = { enabled: false, agentPortalHandlesMtn: false }
+    const disabled: GateSettings = { enabled: false }
 
     try {
         const { data } = await supabase
             .from('admin_settings')
             .select('key, value')
-            .in('key', ['mtn_registration_gate_enabled', 'fulfillment_settings', 'auto_fulfillment_enabled'])
+            .eq('key', 'mtn_registration_gate_enabled')
 
-        const map = (data || []).reduce((acc: any, row: any) => {
-            acc[row.key] = row.value
-            return acc
-        }, {})
+        const row = (data || [])[0]
 
         // Absent row means off. Deploying this must not change buyer-facing behaviour.
-        const enabled = String(map.mtn_registration_gate_enabled) === 'true'
-        const autoFulfillmentOn = String(map.auto_fulfillment_enabled) !== 'false'
+        const value: GateSettings = { enabled: String(row?.value) === 'true' }
 
-        let agentPortalHandlesMtn = false
-        try {
-            const parsed = typeof map.fulfillment_settings === 'string'
-                ? JSON.parse(map.fulfillment_settings)
-                : map.fulfillment_settings || {}
-            agentPortalHandlesMtn = parsed?.agentportal_networks?.MTN === true
-        } catch { /* malformed JSON — treat as not configured */ }
-
-        const value: GateSettings = {
-            enabled,
-            agentPortalHandlesMtn: agentPortalHandlesMtn && autoFulfillmentOn,
-        }
         settingsCache = { value, expiresAt: Date.now() + SETTINGS_TTL_MS }
         return value
     } catch (error: any) {
@@ -235,7 +235,7 @@ export async function checkMtnRegistrationBatch(
     const empty: BatchGateResult = { unregistered: [], statusByNumber: new Map() }
 
     const settings = await loadGateSettings(supabase)
-    if (!settings.enabled || !settings.agentPortalHandlesMtn) return empty
+    if (!settings.enabled) return empty
 
     // Reduce to the distinct, valid, MTN numbers worth asking about. Both conditions
     // matter: the PACKAGE must be plain MTN, and the NUMBER must be an MTN prefix.

@@ -1402,8 +1402,9 @@ export default function FulfillmentPage() {
                             <p className="text-xs text-muted-foreground mt-0.5">
                                 When ON, buyers are warned before paying if the recipient&apos;s MTN number isn&apos;t registered
                                 yet, and must confirm they accept the up-to-2-week wait. When OFF, those orders go through
-                                silently and sit pending until MTN enables the number. Only takes effect while Agent Portal is
-                                the active MTN supplier. Changes apply within a minute.
+                                silently. Runs the Agent Portal registration check whichever supplier is currently
+                                fulfilling MTN — so some orders your active supplier could have delivered will be held
+                                instead. Changes apply within a minute.
                             </p>
                         </div>
                         <div className="flex items-center gap-3 shrink-0">
