@@ -29,6 +29,7 @@ import {
     Send,
     Code2,
     Settings,
+    Gift,
 } from 'lucide-react'
 import { usePageAccess } from '@/hooks/use-page-access'
 import { useUI } from '@/contexts/ui-context'
@@ -187,6 +188,7 @@ const NAV_VARIANTS = {
         subItems: {
             home: [
                 { href: '/dashboard/profile', label: 'Profile', icon: User },
+                { href: '/dashboard/refer', label: 'Refer & Earn', icon: Gift },
                 { href: '/dashboard/transactions', label: 'Transactions', icon: Activity },
                 { href: '/dashboard/notifications', label: 'Notifications', icon: Bell },
                 { href: '/dashboard/upgrade', label: 'Role Upgrade', icon: Crown },
@@ -231,6 +233,7 @@ const NAV_VARIANTS = {
                 { href: '/admin/sms-broadcast', label: 'SMS', icon: MessageSquare },
                 { href: '/admin/email-broadcast', label: 'Email', icon: Send },
                 { href: '/admin/api-keys', label: 'API Keys', icon: Code2 },
+                { href: '/admin/referrals', label: 'Referrals', icon: Gift },
                 { href: '/admin/settings', label: 'Settings', icon: Settings },
             ],
             orders: [
