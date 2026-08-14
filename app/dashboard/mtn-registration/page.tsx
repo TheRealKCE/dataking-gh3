@@ -222,8 +222,9 @@ export default function MtnRegistrationPage() {
                         <ShieldCheck className="w-5 h-5 text-amber-600 dark:text-amber-500" />
                     </div>
                     <p className="text-base text-amber-900 dark:text-amber-200 text-left leading-relaxed">
-                        Numbers that are <strong>not registered</strong> are sent to MTN automatically and are usually
-                        ready within 24 hours — just try the order again tomorrow. You can check up to{' '}
+                        Numbers that are <strong>not registered</strong> are sent to MTN automatically. Registration can
+                        take <strong>up to 2 weeks</strong> — orders placed for them are held and delivered
+                        automatically once it completes. You can check up to{' '}
                         <strong>{MAX_NUMBERS.toLocaleString()}</strong> numbers at once.
                     </p>
                 </div>
@@ -412,12 +413,12 @@ export default function MtnRegistrationPage() {
                                                         {/* The Note column is hidden on phones, so repeat it here */}
                                                         {(result.reason || result.status === 'submitted') && (
                                                             <p className="sm:hidden text-xs text-muted-foreground mt-1">
-                                                                {result.reason || 'Sent to MTN · try again in ~24h'}
+                                                                {result.reason || 'Sent to MTN · up to 2 weeks'}
                                                             </p>
                                                         )}
                                                     </td>
                                                     <td className="px-4 py-3.5 text-sm text-muted-foreground hidden sm:table-cell">
-                                                        {result.reason || (result.status === 'submitted' ? 'Sent to MTN · try again in ~24h' : '')}
+                                                        {result.reason || (result.status === 'submitted' ? 'Sent to MTN · up to 2 weeks' : '')}
                                                     </td>
                                                 </tr>
                                             )

@@ -54,6 +54,7 @@ import { toast } from 'sonner'
 import { DataPackage } from '@/types/supabase'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Trash2, Upload } from 'lucide-react'
+import { MtnRegistrationDialog } from '@/components/dashboard/mtn-registration-dialog'
 // Colours for the checkout sheet's package banner, matching the storefront sheet.
 const getNetworkSheetStyle = (net: string) => {
     switch (net) {
@@ -88,6 +89,12 @@ interface ValidationResult {
     errorMessage?: string
     packageId?: string
     packageName?: string
+    /**
+     * MTN whitelist status, filled in by the Validate step so the buyer can see which
+     * numbers will be delayed BEFORE paying. 'unknown' means the check could not be
+     * completed (or the gate is off) — those lines are treated as fine.
+     */
+    registrationStatus?: 'registered' | 'unregistered' | 'unknown'
 }
 
 
@@ -175,6 +182,16 @@ export default function DataPackagesPage() {
     const [bulkText, setBulkText] = useState('')
     const [bulkNetwork, setBulkNetwork] = useState<string>('')
     const [validationResults, setValidationResults] = useState<ValidationResult[]>([])
+
+    // Set when a purchase is blocked because the recipient's MTN number isn't
+    // registered. `retry` re-runs the exact request that was refused, acknowledged.
+    const [registrationPrompt, setRegistrationPrompt] = useState<{
+        numbers: string[]
+        total?: number
+        retry: () => Promise<void>
+        onRemove?: () => void
+    } | null>(null)
+    const [isConfirmingRegistration, setIsConfirmingRegistration] = useState(false)
     const [isValidating, setIsValidating] = useState(false)
     const [isSubmittingBulk, setIsSubmittingBulk] = useState(false)
     const [bulkFile, setBulkFile] = useState<File | null>(null)
@@ -479,7 +496,20 @@ export default function DataPackagesPage() {
         }
     }
 
-    const handlePurchase = async () => {
+    // The recipient's MTN number is not registered yet. Park the details, show the
+    // dialog, and re-run the exact same request once the buyer accepts the wait.
+    const promptForRegistration = (data: any, retry: () => Promise<void>, onRemove?: () => void) => {
+        const numbers: string[] = data?.registration?.phoneNumbers
+            || (data?.registration?.phoneNumber ? [data.registration.phoneNumber] : [])
+        setRegistrationPrompt({
+            numbers,
+            total: data?.registration?.total,
+            retry,
+            onRemove,
+        })
+    }
+
+    const handlePurchase = async (opts?: { acknowledgeRegistration?: boolean }) => {
         if (!selectedPackage || !dbUser) return
 
         // The recipient field sits at the top of a scrollable dialog, so on a short
@@ -504,7 +534,7 @@ export default function DataPackagesPage() {
         const effectivePrice = getEffectivePrice(selectedPackage)
 
         if (paymentMethod === 'direct') {
-            await handleDirectPurchase(validation.normalizedNumber!)
+            await handleDirectPurchase(validation.normalizedNumber!, opts)
             return
         }
 
@@ -526,10 +556,18 @@ export default function DataPackagesPage() {
                     packageId: selectedPackage.id,
                     phoneNumber: validation.normalizedNumber,
                     referenceCode: currentReferenceCode, // idempotency key
+                    ...(opts?.acknowledgeRegistration ? { acknowledgeRegistration: true } : {}),
                 }),
             })
 
             const data = await response.json()
+
+            // Blocked on registration — nothing was charged. Ask, then retry with the
+            // SAME reference code: regenerating it here could double-order on a retry.
+            if (response.status === 409 && data?.code === 'MTN_NOT_REGISTERED') {
+                promptForRegistration(data, () => handlePurchase({ acknowledgeRegistration: true }))
+                return
+            }
 
             if (!response.ok) {
                 throw new Error(data.error || 'Purchase failed')
@@ -556,7 +594,7 @@ export default function DataPackagesPage() {
 
 
     // creates and fulfils the order on confirmation.
-    const handleDirectPurchase = async (recipientNumber: string) => {
+    const handleDirectPurchase = async (recipientNumber: string, opts?: { acknowledgeRegistration?: boolean }) => {
         if (!selectedPackage) return
 
         if (needsMomoDetails && !singleMomoNetwork) {
@@ -580,11 +618,19 @@ export default function DataPackagesPage() {
                     phoneNumber: recipientNumber,
                     momoPhone: effectiveMomoPhone,
                     momoNetwork: singleMomoNetwork,
+                    ...(opts?.acknowledgeRegistration ? { acknowledgeRegistration: true } : {}),
                 }),
             })
 
             const data = await res.json()
 
+            // Caught before the gateway was called, so no debit prompt has been sent.
+            if (res.status === 409 && data?.code === 'MTN_NOT_REGISTERED') {
+                setIsPurchasing(false)
+                promptForRegistration(data, () =>
+                    handleDirectPurchase(recipientNumber, { acknowledgeRegistration: true }))
+                return
+            }
 
             if (!res.ok) throw new Error(data.error || 'Payment could not be started')
 
@@ -741,6 +787,39 @@ export default function DataPackagesPage() {
         })
     }
 
+    /**
+     * Annotate validated lines with MTN registration status — one batched call for the
+     * whole paste, not one per line. Advisory only: /api/orders/bulk-purchase enforces
+     * this again server-side. On any failure the lines are returned untouched, so a
+     * supplier outage never blocks the Validate button.
+     */
+    const annotateRegistration = async (results: ValidationResult[]): Promise<ValidationResult[]> => {
+        const numbers = results.filter(r => r.isValid).map(r => r.phoneNumber)
+        if (numbers.length === 0) return results
+
+        try {
+            const res = await fetch('/api/mtn/verify-batch', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${session?.access_token}`,
+                },
+                body: JSON.stringify({ numbers, network: bulkNetwork }),
+            })
+            if (!res.ok) return results
+
+            const data = await res.json()
+            if (!data?.gateActive) return results
+
+            return results.map(r => ({
+                ...r,
+                registrationStatus: data.statuses?.[r.phoneNumber] || undefined,
+            }))
+        } catch {
+            return results
+        }
+    }
+
     const handleValidateBulk = async () => {
         if (!bulkNetwork) {
             toast.error('Please select a network first')
@@ -753,12 +832,16 @@ export default function DataPackagesPage() {
 
         setIsValidating(true)
         const parsedLines = parseTextInput(bulkText)
-        const results = validateLines(parsedLines)
+        const results = await annotateRegistration(validateLines(parsedLines))
 
         setValidationResults(results)
         setIsValidating(false)
         if (results.length > 0) {
+            const unregistered = results.filter(r => r.registrationStatus === 'unregistered').length
             toast.success(`Validated ${results.length} entries`)
+            if (unregistered > 0) {
+                toast.warning(`${unregistered} number${unregistered === 1 ? ' is' : 's are'} not registered on MTN yet — delivery can take up to 2 weeks`)
+            }
         } else {
             toast.error('No valid lines found')
         }
@@ -819,9 +902,13 @@ export default function DataPackagesPage() {
                     }
                 }).filter(Boolean)
 
-                const results = validateLines(parsedLines)
+                const results = await annotateRegistration(validateLines(parsedLines))
                 setValidationResults(results)
                 toast.success(`Validated ${results.length} entries from Excel`)
+                const unregistered = results.filter(r => r.registrationStatus === 'unregistered').length
+                if (unregistered > 0) {
+                    toast.warning(`${unregistered} number${unregistered === 1 ? ' is' : 's are'} not registered on MTN yet — delivery can take up to 2 weeks`)
+                }
             } catch (error) {
                 toast.error('Error parsing Excel file')
             } finally {
@@ -845,8 +932,21 @@ export default function DataPackagesPage() {
         setValidationResults(prev => prev.filter((_, i) => i !== index))
     }
 
+    /** Drop the lines whose numbers the server flagged as unregistered. */
+    const removeUnregisteredLines = (numbers: string[]) => {
+        const blocked = new Set(numbers)
+        setValidationResults(prev => prev.filter(r => {
+            const validation = validateGhanaianPhone(r.phoneNumber)
+            return !(validation.isValid && blocked.has(validation.normalizedNumber))
+        }))
+        toast.info(`Removed ${numbers.length} unregistered number${numbers.length === 1 ? '' : 's'}`)
+    }
+
     // Direct Pay for a whole basket — one payment settles into N orders
-    const handleBulkDirectPurchase = async (validOrders: ValidationResult[]) => {
+    const handleBulkDirectPurchase = async (
+        validOrders: ValidationResult[],
+        opts?: { acknowledgeRegistration?: boolean }
+    ) => {
         if (needsMomoDetails && (!momoNetwork || !momoPhone)) {
             toast.error('Enter the Mobile Money number and network to pay from')
             return
@@ -866,11 +966,23 @@ export default function DataPackagesPage() {
                     })),
                     momoPhone,
                     momoNetwork,
+                    ...(opts?.acknowledgeRegistration ? { acknowledgeRegistration: true } : {}),
                 }),
             })
 
             const data = await res.json()
 
+            // Caught before the gateway was called — no debit prompt has been sent.
+            if (res.status === 409 && data?.code === 'MTN_NOT_REGISTERED') {
+                setIsSubmittingBulk(false)
+                const blocked: string[] = data?.registration?.phoneNumbers || []
+                promptForRegistration(
+                    data,
+                    () => handleBulkDirectPurchase(validOrders, { acknowledgeRegistration: true }),
+                    () => removeUnregisteredLines(blocked)
+                )
+                return
+            }
 
             if (!res.ok) throw new Error(data.error || 'Payment could not be started')
 
@@ -895,14 +1007,14 @@ export default function DataPackagesPage() {
         }
     }
 
-    const handleSubmitBulkOrder = async () => {
+    const handleSubmitBulkOrder = async (opts?: { acknowledgeRegistration?: boolean }) => {
         const validOrders = validationResults.filter(r => r.isValid)
         if (validOrders.length === 0) return
 
         const totalCost = validOrders.reduce((sum, order) => sum + order.packagePrice, 0)
 
         if (bulkPaymentMethod === 'direct') {
-            await handleBulkDirectPurchase(validOrders)
+            await handleBulkDirectPurchase(validOrders, opts)
             return
         }
 
@@ -925,11 +1037,24 @@ export default function DataPackagesPage() {
                         packageId: order.packageId,
                         phoneNumber: validateGhanaianPhone(order.phoneNumber).normalizedNumber,
                         packagePrice: order.packagePrice,
-                    }))
+                    })),
+                    ...(opts?.acknowledgeRegistration ? { acknowledgeRegistration: true } : {}),
                 }),
             })
 
             const data = await response.json()
+
+            // Nothing deducted yet — offer to drop the flagged lines or take them all.
+            if (response.status === 409 && data?.code === 'MTN_NOT_REGISTERED') {
+                setIsSubmittingBulk(false)
+                const blocked: string[] = data?.registration?.phoneNumbers || []
+                promptForRegistration(
+                    data,
+                    () => handleSubmitBulkOrder({ acknowledgeRegistration: true }),
+                    () => removeUnregisteredLines(blocked)
+                )
+                return
+            }
 
             if (!response.ok) {
                 throw new Error(data.error || 'Bulk order failed')
@@ -1245,7 +1370,17 @@ export default function DataPackagesPage() {
                                                                             res.isValid ? "bg-[#25D366]" : "bg-[#E60000]"
                                                                         )} />
                                                                     </td>
-                                                                    <td className="px-6 py-4 font-bold text-black dark:text-white">{res.phoneNumber}</td>
+                                                                    <td className="px-6 py-4 font-bold text-black dark:text-white">
+                                                                        {res.phoneNumber}
+                                                                        {res.registrationStatus === 'unregistered' && (
+                                                                            <span
+                                                                                className="ml-2 inline-block rounded-md bg-amber-100 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-amber-700 dark:bg-amber-900/40 dark:text-amber-400"
+                                                                                title="Not registered on MTN yet — delivery can take up to 2 weeks"
+                                                                            >
+                                                                                Not registered
+                                                                            </span>
+                                                                        )}
+                                                                    </td>
                                                                     <td className="px-6 py-4 font-bold text-gray-500">{res.volume} GB</td>
                                                                     <td className="px-6 py-4 font-black text-black dark:text-white">
                                                                         {res.packagePrice > 0 ? formatCurrency(res.packagePrice) : '-'}
@@ -1386,7 +1521,7 @@ export default function DataPackagesPage() {
                                                 ) : (
                                                     <Button
                                                         className="w-full bg-black text-[#FFCE00] hover:bg-black/90 font-black py-5 rounded-2xl shadow-xl shadow-black/10 text-sm h-auto flex flex-col items-center gap-1"
-                                                        onClick={handleSubmitBulkOrder}
+                                                        onClick={() => handleSubmitBulkOrder()}
                                                         disabled={isSubmittingBulk || !!pollingRef || validationResults.filter(r => r.isValid).length === 0}
                                                     >
                                                         {isSubmittingBulk || pollingRef ? (
@@ -1617,7 +1752,17 @@ export default function DataPackagesPage() {
                 const sheetStyle = getNetworkSheetStyle(selectedPackage.network)
                 const closeSheet = () => { if (!pollingRef) setSelectedPackage(null) }
                 return (
-                <div className="fixed inset-0 z-[70] flex items-end justify-center">
+                // Hidden — not unmounted — while the registration prompt is up. This
+                // sheet sits at z-[70], above the Radix dialog's z-50 overlay, so
+                // leaving it visible buries the prompt. Keeping it mounted preserves
+                // the entered number and payment choice for a Cancel.
+                <div
+                    className={cn(
+                        "fixed inset-0 z-[70] flex items-end justify-center",
+                        registrationPrompt && "hidden"
+                    )}
+                    aria-hidden={!!registrationPrompt}
+                >
                     <div
                         className="absolute inset-0 bg-black/50 backdrop-blur-[2px] animate-in fade-in duration-200"
                         onClick={closeSheet}
@@ -1862,7 +2007,7 @@ export default function DataPackagesPage() {
                             })()}
 
                             <button
-                                onClick={handlePurchase}
+                                onClick={() => handlePurchase()}
                                 // Deliberately NOT disabled on a missing beneficiary
                                 // number — handlePurchase scrolls to the field and
                                 // explains instead, so the click always does something.
@@ -2011,6 +2156,31 @@ export default function DataPackagesPage() {
                     </div>
                 </DialogContent>
             </Dialog>
+
+            {/* Shown when a purchase is refused because the recipient's MTN number is
+                not registered. Nothing has been charged at this point. */}
+            <MtnRegistrationDialog
+                open={!!registrationPrompt}
+                numbers={registrationPrompt?.numbers}
+                total={registrationPrompt?.total}
+                isSubmitting={isConfirmingRegistration}
+                onConfirm={async () => {
+                    const prompt = registrationPrompt
+                    if (!prompt) return
+                    setIsConfirmingRegistration(true)
+                    try {
+                        setRegistrationPrompt(null)
+                        await prompt.retry()
+                    } finally {
+                        setIsConfirmingRegistration(false)
+                    }
+                }}
+                onRemove={registrationPrompt?.onRemove && (() => {
+                    registrationPrompt.onRemove?.()
+                    setRegistrationPrompt(null)
+                })}
+                onCancel={() => setRegistrationPrompt(null)}
+            />
         </div>
     )
 }

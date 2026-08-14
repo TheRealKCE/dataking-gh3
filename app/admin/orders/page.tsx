@@ -1030,7 +1030,20 @@ export default function AdminOrdersPage() {
                                         <div className="font-mono text-sm text-muted-foreground">
                                             {order.reference_code}
                                         </div>
-                                        {getStatusBadge(displayStatus(order))}
+                                        <div className="flex items-center gap-1.5">
+                                            {/* Held on purpose: the buyer accepted the MTN registration wait.
+                                                Without this it looks like an ordinary stuck pending order. */}
+                                            {order.awaiting_registration && (
+                                                <Badge
+                                                    variant="secondary"
+                                                    className="text-[9px] h-5 px-1.5 bg-amber-100 text-amber-700 hover:bg-amber-100 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400"
+                                                    title="Waiting for MTN to register this number — delivers automatically"
+                                                >
+                                                    Awaiting registration
+                                                </Badge>
+                                            )}
+                                            {getStatusBadge(displayStatus(order))}
+                                        </div>
                                     </CardHeader>
                                     <CardContent className="space-y-4 pt-4">
                                         <div className="flex items-start gap-3">

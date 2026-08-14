@@ -40,6 +40,7 @@ import {
     Code2,
     CreditCard,
     Loader2,
+    Gift,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -61,6 +62,7 @@ const userNavItems = [
     { href: '/dashboard/my-orders', label: 'Orders', icon: ShoppingCart },
     { href: process.env.NEXT_PUBLIC_MARKETPLACE_URL || 'https://marketplace.arhmsgh.com', label: 'Marketplace', icon: Store, external: true },
     { href: '/dashboard/wallet', label: 'Wallet', icon: Wallet },
+    { href: '/dashboard/refer', label: 'Refer & Earn', icon: Gift },
     { href: '/dashboard/transactions', label: 'Transactions', icon: Activity },
     { href: '/dashboard/complaints', label: 'Complaints', icon: MessageSquare },
     { href: '/dashboard/profile', label: 'Profile', icon: User },
@@ -75,6 +77,7 @@ const adminNavItems = [
     { href: '/admin/fulfillment', label: 'Fulfillment', icon: Activity },
     { href: '/admin/datagod', label: 'DataGod Console', icon: Activity },
     { href: '/admin/airtime', label: 'Airtime', icon: Phone },
+    { href: '/admin/referrals', label: 'Referrals', icon: Gift },
     { href: '/admin/mashup-orders', label: 'Special MTN Mashup', icon: Zap },
     { href: '/admin/express-orders', label: 'EXPRESS MTN', icon: Zap },
     { href: '/admin/shops', label: 'Shops', icon: Store },

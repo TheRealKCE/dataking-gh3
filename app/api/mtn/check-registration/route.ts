@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@/lib/supabase-server'
+import { createServerClient } from '@/lib/supabase'
 import { verifyMtnWhitelist } from '@/lib/agentportal-service'
 import { validateGhanaianPhone } from '@/lib/phone-validation'
+import { recordRegistrationResults } from '@/lib/mtn-registration-gate'
 
 const MAX_NUMBERS = 1000
 
@@ -17,7 +19,7 @@ interface CheckResult {
 /**
  * Check whether MTN numbers are enabled ("whitelisted") for data on the Agent Portal
  * supplier account. Numbers that are not yet enabled are auto-submitted to MTN by the
- * same upstream call and are usually ready within ~24h.
+ * same upstream call and are usually ready within 2 weeks.
  */
 export async function POST(request: NextRequest) {
     try {
@@ -119,6 +121,22 @@ export async function POST(request: NextRequest) {
         for (const result of results) {
             if (result.status !== 'submitted') continue
             result.status = allowed.has(result.normalized) ? 'registered' : 'submitted'
+        }
+
+        // Feed the same cache the purchase gate reads, so checking numbers here makes
+        // the subsequent order cost no extra upstream call. Best-effort: a failed
+        // cache write must not fail the check the user actually asked for.
+        try {
+            const admin = createServerClient()
+            await recordRegistrationResults(
+                admin,
+                Array.from(uniqueMtn).map(number => ({
+                    phoneNumber: number,
+                    isRegistered: allowed.has(number),
+                }))
+            )
+        } catch (cacheErr: any) {
+            console.error('[MTN CheckRegistration] Cache warm failed:', cacheErr?.message)
         }
 
         return NextResponse.json({

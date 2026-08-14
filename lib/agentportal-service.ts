@@ -46,7 +46,7 @@ interface FulfillmentResponse {
     alreadySubmitted?: boolean
     // True when the order was rejected because the MTN number isn't enabled on the
     // account yet (whitelist gate). Agent Portal auto-submits it to MTN for enabling
-    // (~24h); the order is kept pending and the auto-refulfill cron retries it later.
+    // (up to 2 weeks); the order is kept pending and the auto-refulfill cron retries it later.
     whitelistPending?: boolean
 }
 
@@ -262,7 +262,7 @@ export async function fulfillOrder(
             // The whitelist/verification gate is MTN-only — only flag whitelistPending
             // (which triggers the customer verification SMS) for MTN orders.
             const isMtn = svc.service === 'mtn'
-            console.warn(`[AgentPortal] Order ${orderId} not enqueued (added: 0): ${reason}.${isMtn ? ' Number auto-submitted to MTN for verification (~24h).' : ''} Kept pending.`)
+            console.warn(`[AgentPortal] Order ${orderId} not enqueued (added: 0): ${reason}.${isMtn ? ' Number auto-submitted to MTN for verification (up to 2 weeks).' : ''} Kept pending.`)
             return { success: false, error: reason, whitelistPending: isMtn, apiResponse: sanitizeForLog(data) }
         }
 
@@ -632,12 +632,12 @@ export async function fetchSupplierBalance(): Promise<{
 // ─── MTN Whitelist Verify / Submit ──────────────────────────────────────────────
 /**
  * Check which MTN numbers are enabled ("whitelisted") on the account, and — as a side
- * effect of the same endpoint — auto-submit any that aren't yet for enabling (~24h).
+ * effect of the same endpoint — auto-submit any that aren't yet for enabling (up to 2 weeks).
  * POST /api/mtn-whitelist/verify { msisdns: [...] } → { results: [{ input, normalized, allowed }] }.
  * Returns the set of ENABLED numbers (both input and normalized forms) so callers can
  * match regardless of phone format. Up to 1000 numbers per call.
  */
-export async function verifyMtnWhitelist(msisdns: string[]): Promise<{
+export async function verifyMtnWhitelist(msisdns: string[], options?: { timeoutMs?: number }): Promise<{
     success: boolean
     allowed: Set<string>
     error?: string
@@ -655,6 +655,10 @@ export async function verifyMtnWhitelist(msisdns: string[]): Promise<{
                 'X-API-Key': AGENTPORTAL_API_KEY,
             },
             body: JSON.stringify({ msisdns: msisdns.slice(0, 1000) }),
+            // Callers on the purchase path bound this — a slow supplier must not
+            // sit between the buyer tapping Pay and the payment prompt. Omitted
+            // by the bulk checker page and the cron, which can afford to wait.
+            ...(options?.timeoutMs ? { signal: AbortSignal.timeout(options.timeoutMs) } : {}),
         })
 
         const rawText = await response.text()

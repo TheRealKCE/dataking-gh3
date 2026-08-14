@@ -33,6 +33,14 @@ export async function processShopOrder(
         original_amount?: number;
         /** 'ussd' when the sale came through the USSD short code rather than a web gateway. */
         channel?: string;
+        /**
+         * Set by /api/shop/initialize when the buyer was warned the recipient's MTN
+         * number is not registered yet and chose to pay anyway. The order is created
+         * but held — no supplier call — and the agentportal-mtn-verify cron delivers
+         * it once MTN enables the number. USSD never sets this, so USSD sales keep
+         * their existing behaviour.
+         */
+        awaiting_registration?: boolean;
     },
     paidAmountPesewas: number,
     slug?: string
@@ -311,6 +319,10 @@ export async function processShopOrder(
         let airtimeOrderId: string | null = null
         const fulfillmentMode = shopProfile?.fulfillment_mode || metadata.fulfillment_mode || 'auto'
 
+        // Set at /api/shop/initialize: the buyer was warned this MTN number is not
+        // registered and paid anyway. USSD never sets it, so USSD orders behave as before.
+        const awaitingRegistration = metadata.awaiting_registration === true
+
         if (!existingOrder) {
             const payload = {
                 shop_id: metadata.shop_id,
@@ -325,6 +337,7 @@ export async function processShopOrder(
                 owner_role_at_time: ownerRole,
                 paystack_reference: reference,
                 status: 'pending',
+                awaiting_registration: awaitingRegistration,
                 // Only sent for sub orders, so an ordinary shop's insert is
                 // byte-for-byte what it was before this feature.
                 ...(parentShopId ? { parent_shop_id: parentShopId, parent_profit: parentProfit } : {}),
@@ -355,7 +368,9 @@ export async function processShopOrder(
                 reference_code: `SHOP-${reference.slice(-10)}`,
                 fulfillment_method: 'auto',
                 shop_name: shopProfile?.shop_name || slug,
-                shop_order_id: orderId
+                shop_order_id: orderId,
+                awaiting_registration: awaitingRegistration,
+                registration_submitted_at: awaitingRegistration ? new Date().toISOString() : null,
             })
 
             // Mirror airtime orders to the primary airtime_orders ledger
@@ -418,10 +433,24 @@ export async function processShopOrder(
                 airtimeOrderId = priorAirtime?.id ?? null
             }
 
+            // Held for MTN registration — the whitelist would reject the supplier call.
+            // Tell the recipient once here; agentportal-mtn-verify delivers it later.
+            if (awaitingRegistration) {
+                const { sendMtnVerificationPendingSMS } = await import('./sms-service')
+                await sendMtnVerificationPendingSMS(metadata.guest_phone, {
+                    network: metadata.network,
+                    size: metadata.package_size,
+                }).catch((err: Error) =>
+                    console.error('[Shop Order Processor] Verification-pending SMS failed:', err))
+
+                console.log(`[Shop Order Processor] Order ${orderId} held — MTN number awaiting registration`)
+                return { success: true, orderId }
+            }
+
             const fulfillmentPayload = metadata.order_type === 'airtime'
                ? { amount: metadata.airtime_amount || verifiedSellingPrice }
                : { size: metadata.package_size }
-            
+
             await triggerShopFulfillment(orderId!, metadata.network, metadata.guest_phone, db, {
                 referenceCode: `SHOP-${reference.slice(-10)}`,
                 price: verifiedSellingPrice,
@@ -732,7 +761,7 @@ async function triggerShopFulfillment(
             console.warn(`[Shop Order Processor] Order ${orderId} kept as PENDING for manual review.`)
 
             // MTN whitelist gate (Agent Portal): number auto-submitted to MTN for
-            // verification (~24h) and the auto-refulfill cron delivers once it clears.
+            // verification (up to 2 weeks) and the auto-refulfill cron delivers once it clears.
             // No SMS is sent to the recipient while the order is pending.
 
             await sendAdminNewOrderAlert({
