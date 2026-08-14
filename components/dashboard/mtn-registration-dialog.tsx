@@ -92,7 +92,7 @@ export function MtnRegistrationDialog({
                         className="flex w-full items-center justify-center gap-2 rounded-xl bg-amber-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-amber-700 disabled:opacity-60"
                     >
                         {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
-                        {isBatch ? 'Continue with all' : 'Yes, continue'}
+                        {isBatch ? 'I agree, continue with all' : 'I agree to the terms'}
                     </button>
 
                     {onRemove && (
