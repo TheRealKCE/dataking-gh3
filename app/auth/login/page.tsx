@@ -14,6 +14,7 @@ import { Eye, EyeOff, Loader2, LogIn, Mail, Lock, Store, ExternalLink, AlertCirc
 import { toast } from 'sonner'
 import { BackgroundBubbles } from '@/components/background-bubbles'
 import { GoogleSignInButton } from '@/components/google-sign-in-button'
+import { showWelcomeToast } from '@/components/welcome-toast'
 
 export default function LoginPage() {
     const [email, setEmail] = useState('')
@@ -55,7 +56,7 @@ export default function LoginPage() {
                 return
             }
 
-            toast.success('Welcome back!')
+            showWelcomeToast()
             // Keep the spinner up: the browser is still loading /dashboard.
             // Clearing it here would snap the button back to "Login" mid-redirect
             // and make a successful sign-in look like it did nothing.

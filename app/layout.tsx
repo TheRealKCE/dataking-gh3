@@ -101,7 +101,9 @@ export default async function RootLayout({
                             <SystemAnnouncementModal initialAnnouncement={systemAnnouncement as any} />
                             <PwaInstallPrompt />
                             <OfflineModal />
-                            <Toaster position="top-center" richColors expand />
+                            {/* richColors dropped: components/ui/sonner.tsx now
+                                colours each kind of message itself. */}
+                            <Toaster position="top-center" expand />
                         </UIProvider>
                     </AuthProvider>
                 </ThemeProvider>
