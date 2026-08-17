@@ -30,6 +30,7 @@ import { Input } from '@/components/ui/input'
 import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { MtnRegistrationDialog } from '@/components/dashboard/mtn-registration-dialog'
+import { AnnouncementModal } from '@/components/announcements/announcement-modal'
 
 const ShopPwaInstallPrompt = dynamic(() => import('@/components/ShopPwaInstallPrompt'), { ssr: false })
 
@@ -2013,42 +2014,16 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 </div>
             </div>
 
-            {/* ── Announcement Modal ── */}
-            {announcement && showAnnouncementModal && (
-                <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in" onClick={() => setShowAnnouncementModal(false)} />
-                    <div className="relative w-full max-w-sm bg-white dark:bg-gray-900 rounded-[2rem] shadow-2xl overflow-hidden animate-in zoom-in-95 fade-in duration-200 border border-gray-100 dark:border-gray-800">
-                        <div className={cn(
-                            "p-6 flex flex-col items-center text-center",
-                            announcement.type === 'admin' ? "bg-amber-50 dark:bg-amber-950/20" : "bg-blue-50 dark:bg-blue-950/20"
-                        )}>
-                            <div className={cn(
-                                "w-16 h-16 rounded-full flex items-center justify-center mb-4 shadow-inner border-4 border-white dark:border-gray-800",
-                                announcement.type === 'admin' ? "bg-amber-500" : "bg-blue-500"
-                            )}>
-                                <Bell className="w-8 h-8 text-white" />
-                            </div>
-                            <span className={cn(
-                                "text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full mb-2 bg-white dark:bg-gray-800 shadow-sm border",
-                                announcement.type === 'admin' ? "text-amber-600 border-amber-200" : "text-blue-600 border-blue-200"
-                            )}>
-                                {announcement.type === 'admin' ? 'Official Platform Notice' : 'Shop Announcement'}
-                            </span>
-                            <h3 className="text-xl font-black text-gray-900 dark:text-white capitalize">{announcement.title || 'Important Update'}</h3>
-                        </div>
-                        <div className="p-6 pt-5 bg-white dark:bg-gray-900">
-                            <p className="text-sm font-semibold text-gray-600 dark:text-gray-300 leading-relaxed text-center mb-6">
-                                {announcement.message}
-                            </p>
-                            <button 
-                                onClick={() => setShowAnnouncementModal(false)}
-                                className="w-full py-3.5 rounded-xl bg-gray-900 dark:bg-white text-white dark:text-gray-900 font-bold text-sm hover:scale-[1.02] active:scale-95 transition-transform"
-                            >
-                                Got it, thanks!
-                            </button>
-                        </div>
-                    </div>
-                </div>
+            {/* ── Announcement Modal — colours come from the badge (admin = amber, shop = blue) ── */}
+            {announcement && (
+                <AnnouncementModal
+                    open={showAnnouncementModal}
+                    onOpenChange={setShowAnnouncementModal}
+                    tone={announcement.type === 'admin' ? 'official' : 'shop'}
+                    title={announcement.title}
+                    message={announcement.message}
+                    communityLink={shop.community_link}
+                />
             )}
 
             <CopyrightFooter 

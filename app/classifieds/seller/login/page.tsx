@@ -11,6 +11,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Eye, EyeOff, Loader2, Phone, Lock, Store, AlertCircle, ShoppingBag } from 'lucide-react'
 import { toast } from 'sonner'
 import { validateGhanaianPhone } from '@/lib/phone-validation'
+import { showWelcomeToast } from '@/components/welcome-toast'
 
 export default function SellerLoginPage() {
     const [phone, setPhone] = useState('')
@@ -86,7 +87,10 @@ export default function SellerLoginPage() {
             }
 
             if (userData.is_seller) {
-                toast.success('Welcome back! Redirecting to your dashboard...')
+                showWelcomeToast({
+                    brand: 'ARHMS MARKETPLACE',
+                    subtitle: 'Taking you to your seller dashboard',
+                })
                 router.push('/classifieds/seller/dashboard')
             } else {
                 toast.info('You are not a seller yet. Let\'s set you up!')
