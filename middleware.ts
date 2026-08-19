@@ -483,6 +483,17 @@ export async function middleware(request: NextRequest) {
         } else if (pathname === '/api/users/delete-account') {
             limiter = rateLimiters?.deleteAccount
             identifier = authUser?.id ? `${authUser.id}-${ip}` : ip
+        } else if (pathname === '/api/dashboard/sub/rc') {
+            // Buying vouchers is ordinary repeat work for a sub, so this takes
+            // the general shop ceiling rather than the hourly AFA one.
+            limiter = rateLimiters?.shopPricing
+            identifier = authUser?.id ?? ip
+        } else if (pathname === '/api/dashboard/sub/afa') {
+            // Same ceiling as the dashboard form, but keyed on the user: a sub
+            // registering several walk-ins from one shop is normal traffic, and
+            // the IP-only key would throttle their whole shop.
+            limiter = rateLimiters?.afaRegistration
+            identifier = authUser?.id ?? ip
         } else if (pathname === '/api/user/afa-registration') {
             limiter = rateLimiters?.afaRegistration
             identifier = ip

@@ -423,7 +423,7 @@ export interface Database {
                     shop_markup: number | null
                     cost_price: number | null
                     customer_email: string | null
-                    source: 'dashboard' | 'storefront' | null
+                    source: 'dashboard' | 'storefront' | 'sub' | null
                     payment_status: 'pending_payment' | 'completed' | 'failed' | null
                     created_at: string
                     updated_at: string
@@ -450,7 +450,7 @@ export interface Database {
                     shop_markup?: number | null
                     cost_price?: number | null
                     customer_email?: string | null
-                    source?: 'dashboard' | 'storefront' | null
+                    source?: 'dashboard' | 'storefront' | 'sub' | null
                     payment_status?: 'pending_payment' | 'completed' | 'failed' | null
                     created_at?: string
                     updated_at?: string
