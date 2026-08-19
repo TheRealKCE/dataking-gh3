@@ -82,6 +82,14 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({ received: true })
             }
 
+            // o. UTILITY BILLS: References starting with UTIL- are direct-pay bill payments
+            if (reference && reference.startsWith('UTIL-')) {
+                const { processUtilityDirectOrder } = await import('@/lib/utility-order-payments')
+                console.log('[PaystackWebhook] Routing direct-pay utility bill:', reference)
+                await processUtilityDirectOrder(reference)
+                return NextResponse.json({ received: true })
+            }
+
             // o. BOOST PAYMENTS: References starting with BOOST- are classified listing boosts
             if (reference && reference.startsWith('BOOST-')) {
                 const { processBoostPayment } = await import('@/lib/classifieds-payments')

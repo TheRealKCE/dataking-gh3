@@ -180,6 +180,13 @@ export async function POST(request: NextRequest) {
             return ack()
         }
 
+        if (reference.startsWith('UTIL-')) {
+            const { processUtilityDirectOrder } = await import('@/lib/utility-order-payments')
+            console.log('[PayswitchWebhook] Routing direct-pay utility bill:', reference)
+            await processUtilityDirectOrder(reference)
+            return ack()
+        }
+
         if (reference.startsWith('BOOST-')) {
             const { processBoostPayment } = await import('@/lib/classifieds-payments')
             console.log('[PayswitchWebhook] Routing listing boost payment:', reference)

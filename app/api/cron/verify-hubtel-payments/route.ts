@@ -147,6 +147,13 @@ export async function GET(request: NextRequest) {
                                 throw new Error(dataResult.error || 'Data order processing failed')
                             }
                             console.log(`[CronHubtel] ✅ Data order ${payment.reference} settled`)
+                        } else if (payment.reference.startsWith('UTIL-')) {
+                            const { processUtilityDirectOrder } = await import('@/lib/utility-order-payments')
+                            const utilResult = await processUtilityDirectOrder(payment.reference)
+                            if (!utilResult.success && !utilResult.alreadyProcessed) {
+                                throw new Error(utilResult.error || 'Utility bill processing failed')
+                            }
+                            console.log(`[CronHubtel] ✅ Utility bill ${payment.reference} settled`)
                         } else if (payment.reference.startsWith('BOOST-')) {
                             const { processBoostPayment } = await import('@/lib/classifieds-payments')
                             const boostResult = await processBoostPayment(payment.reference, mappedEventData)

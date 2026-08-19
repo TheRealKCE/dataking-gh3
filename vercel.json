@@ -18,6 +18,10 @@
       "schedule": "*/5 * * * *"
     },
     {
+      "path": "/api/cron/sync-hubtel-utility",
+      "schedule": "*/5 * * * *"
+    },
+    {
       "path": "/api/cron/verify-payswitch-payments",
       "schedule": "*/5 * * * *"
     },

@@ -67,6 +67,7 @@ export default function AdminSettingsPage() {
     const [pageAccessShop, setPageAccessShop] = useState(true)
     const [pageAccessStorefront, setPageAccessStorefront] = useState(true)
     const [pageAccessAirtime, setPageAccessAirtime] = useState(true)
+    const [pageAccessUtilities, setPageAccessUtilities] = useState(true)
     const [hideMashup, setHideMashup] = useState(false)
     const [hideExpressMtn, setHideExpressMtn] = useState(false)
     const [hideStandardMtn, setHideStandardMtn] = useState(false)
@@ -135,6 +136,7 @@ export default function AdminSettingsPage() {
             setPageAccessShop(settingsMap.page_access_shop !== 'false')
             setPageAccessStorefront(settingsMap.page_access_storefront !== 'false')
             setPageAccessAirtime(settingsMap.page_access_airtime !== 'false')
+            setPageAccessUtilities(settingsMap.page_access_utilities !== 'false')
             setHideMashup(settingsMap.special_mtn_mashup_hidden === 'true')
             setHideExpressMtn(settingsMap.express_mtn_hidden === 'true')
             setHideStandardMtn(settingsMap.standard_mtn_hidden === 'true')
@@ -188,6 +190,7 @@ export default function AdminSettingsPage() {
                 { key: 'page_access_shop', value: String(pageAccessShop) },
                 { key: 'page_access_storefront', value: String(pageAccessStorefront) },
                 { key: 'page_access_airtime', value: String(pageAccessAirtime) },
+                { key: 'page_access_utilities', value: String(pageAccessUtilities) },
                 { key: 'special_mtn_mashup_hidden', value: String(hideMashup) },
                 { key: 'express_mtn_hidden', value: String(hideExpressMtn) },
                 { key: 'standard_mtn_hidden', value: String(hideStandardMtn) },
@@ -924,6 +927,22 @@ export default function AdminSettingsPage() {
                                 <Switch
                                     checked={pageAccessAirtime}
                                     onCheckedChange={setPageAccessAirtime}
+                                />
+                            </div>
+
+                            <div className="flex items-center justify-between p-4 border rounded-lg">
+                                <div className="space-y-0.5">
+                                    <Label className="text-base flex items-center gap-2">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M4 2v20l2-1 2 1 2-1 2 1 2-1 2 1 2-1 2 1V2l-2 1-2-1-2 1-2-1-2 1-2-1-2 1Z"/><path d="M16 8h-6a2 2 0 1 0 0 4h4a2 2 0 1 1 0 4H8"/><path d="M12 17.5v-11"/></svg>
+                                        Pay Bills (Utilities)
+                                    </Label>
+                                    <p className="text-sm text-muted-foreground">
+                                        Allow users to pay DSTV, GOtv, StarTimes, ECG and Ghana Water bills
+                                    </p>
+                                </div>
+                                <Switch
+                                    checked={pageAccessUtilities}
+                                    onCheckedChange={setPageAccessUtilities}
                                 />
                             </div>
 

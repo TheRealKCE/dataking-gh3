@@ -1,0 +1,110 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createRouteHandlerClient } from '@/lib/supabase-server'
+import { Ratelimit } from '@upstash/ratelimit'
+import { Redis } from '@upstash/redis'
+import {
+    queryUtilityAccount,
+    UTILITY_SERVICES,
+    isUtilityService,
+} from '@/lib/hubtel-utility-service'
+
+/**
+ * Resolves a utility account number to the customer's name before they pay.
+ *
+ * The whole point of the utilities flow: a DSTV smartcard or an ECG meter is a bare
+ * string of digits with no check digit, and a mistyped one belongs to somebody else.
+ * The form will not enable its Pay button until this returns a name.
+ *
+ * Rate-limited per user because it is an unauthenticated-feeling free lookup against
+ * a third party that bills us for the relationship, and because scanning it over a
+ * range of account numbers would enumerate other people's names.
+ *
+ * Nothing this returns is trusted on the way back in — /api/utilities/create and
+ * /api/utilities/gateway-init both re-run the same query server-side before they
+ * charge anything. This endpoint exists so the customer can SEE the name, not so the
+ * server can learn it.
+ */
+let lookupRateLimit: Ratelimit | null = null
+try {
+    lookupRateLimit = new Ratelimit({
+        redis: Redis.fromEnv(),
+        limiter: Ratelimit.slidingWindow(20, '1 m'),
+        prefix: 'rl:utility-query',
+    })
+} catch (e) {
+    console.error('[UtilityQuery] Redis init failed — lookup rate limit disabled:', e)
+}
+
+export async function POST(request: NextRequest) {
+    try {
+        const supabaseUserClient = await createRouteHandlerClient()
+        const { data: { user: authUser }, error: authError } = await supabaseUserClient.auth.getUser()
+
+        if (authError || !authUser) {
+            return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+
+        if (lookupRateLimit) {
+            const { success } = await lookupRateLimit.limit(authUser.id)
+            if (!success) {
+                return NextResponse.json(
+                    { error: 'Too many lookups. Please wait a moment and try again.' },
+                    { status: 429 }
+                )
+            }
+        }
+
+        let body: any
+        try {
+            body = await request.json()
+        } catch {
+            return NextResponse.json({ error: 'Invalid request body' }, { status: 400 })
+        }
+
+        const { service, accountNumber, phone } = body
+
+        if (!isUtilityService(service)) {
+            return NextResponse.json({ error: 'Unknown utility service' }, { status: 400 })
+        }
+
+        const def = UTILITY_SERVICES[service]
+        const cleanAccount = String(accountNumber ?? '').replace(/\s+/g, '')
+        const cleanPhone = String(phone ?? '').replace(/\s+/g, '')
+
+        // ECG looks up by phone and returns the meters, so it is the one service that
+        // does not need an account number to ask its question.
+        if (def.kind !== 'meter-by-phone' && !def.accountPattern.test(cleanAccount)) {
+            return NextResponse.json({ error: `Enter a valid ${def.accountLabel}.` }, { status: 400 })
+        }
+        if (def.requiresPhone && !/^0\d{9}$/.test(cleanPhone)) {
+            return NextResponse.json(
+                { error: 'Enter a valid Ghana phone number: 0XXXXXXXXX (10 digits starting with 0)' },
+                { status: 400 }
+            )
+        }
+
+        const result = await queryUtilityAccount({
+            service,
+            accountNumber: cleanAccount || undefined,
+            phone: def.requiresPhone ? cleanPhone : undefined,
+        })
+
+        if (!result.success) {
+            return NextResponse.json({ error: result.error || 'Account could not be verified' }, { status: 400 })
+        }
+
+        // sessionId is deliberately NOT returned. It is single-use, the browser has no
+        // use for it, and the charge paths fetch their own moments before paying.
+        return NextResponse.json({
+            success: true,
+            service,
+            accountName: result.accountName ?? null,
+            amountDue: result.amountDue ?? null,
+            meters: result.meters ?? null,
+            details: result.details ?? [],
+        })
+    } catch (error) {
+        console.error('[UtilityQuery] Unexpected error:', error)
+        return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    }
+}

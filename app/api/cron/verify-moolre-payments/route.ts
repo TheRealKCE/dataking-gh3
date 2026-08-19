@@ -72,6 +72,16 @@ export async function GET(request: NextRequest) {
                             } else {
                                 console.error(`[CronMoolre] ❌ Data order ${payment.reference} failed:`, dataResult.error)
                             }
+                        } else if (payment.reference.startsWith('UTIL-')) {
+                            // Direct-pay utility bill payments
+                            const { processUtilityDirectOrder } = await import('@/lib/utility-order-payments')
+                            const utilResult = await processUtilityDirectOrder(payment.reference)
+                            if (utilResult.success || utilResult.alreadyProcessed) {
+                                results.walletCredited++
+                                console.log(`[CronMoolre] ✅ Utility bill ${payment.reference} settled`)
+                            } else {
+                                console.error(`[CronMoolre] ❌ Utility bill ${payment.reference} failed:`, utilResult.error)
+                            }
                         } else if (payment.reference.startsWith('BOOST-')) {
                             // Process boost payments
                             results.boostChecked++

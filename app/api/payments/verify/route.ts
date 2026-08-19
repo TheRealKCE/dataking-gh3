@@ -153,6 +153,20 @@ export async function GET(request: NextRequest) {
                 return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/data-packages?success=true`)
             }
 
+            // UTIL- has the same problem: the Moolre tail below cannot verify a
+            // Hubtel reference, and falling through would credit the wallet instead
+            // of paying the customer's bill.
+            if (reference.startsWith('UTIL-')) {
+                const { processUtilityDirectOrder } = await import('@/lib/utility-order-payments')
+                const result = await processUtilityDirectOrder(reference, user.id)
+                if (!result.success) {
+                    if (isInline) return NextResponse.json({ success: false, status: 'failed', error: result.error || 'Bill payment failed' }, { status: 500 })
+                    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/utilities?error=order_failed`)
+                }
+                if (isInline) return NextResponse.json({ success: true, status: 'completed', message: 'Payment successful', order: result.order })
+                return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/utilities?success=true`)
+            }
+
             // fall through to process payment below
         }
 
@@ -206,6 +220,18 @@ export async function GET(request: NextRequest) {
                 }
                 if (isInline) return NextResponse.json({ success: true, status: 'completed', message: 'Payment successful', orders: result.orders || [] })
                 return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/data-packages?success=true`)
+            }
+
+            // UTIL- has the same problem.
+            if (reference.startsWith('UTIL-')) {
+                const { processUtilityDirectOrder } = await import('@/lib/utility-order-payments')
+                const result = await processUtilityDirectOrder(reference, user.id)
+                if (!result.success) {
+                    if (isInline) return NextResponse.json({ success: false, status: 'failed', error: result.error || 'Bill payment failed' }, { status: 500 })
+                    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/utilities?error=order_failed`)
+                }
+                if (isInline) return NextResponse.json({ success: true, status: 'completed', message: 'Payment successful', order: result.order })
+                return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/utilities?success=true`)
             }
 
             // BOOST- has the same problem: the Moolre tail below would reject it.
@@ -276,6 +302,20 @@ export async function GET(request: NextRequest) {
             }
             if (isInline) return NextResponse.json({ success: true, status: 'completed', message: 'Payment successful', orders: (result as any).orders })
             return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/data-packages?success=true`)
+        }
+
+        // For UTIL- references, delegate to the utility bill processor. Without this
+        // the payment would fall through below and CREDIT THE WALLET instead of
+        // paying the customer's bill.
+        if (reference.startsWith('UTIL-')) {
+            const { processUtilityDirectOrder } = await import('@/lib/utility-order-payments')
+            const result = await processUtilityDirectOrder(reference, user.id)
+            if (!result.success) {
+                if (isInline) return NextResponse.json({ success: false, status: 'failed', error: result.error || 'Bill payment failed' }, { status: 500 })
+                return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/utilities?error=order_failed`)
+            }
+            if (isInline) return NextResponse.json({ success: true, status: 'completed', message: 'Payment successful', order: result.order })
+            return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/utilities?success=true`)
         }
 
         // For BOOST- references, delegate to the boost processor

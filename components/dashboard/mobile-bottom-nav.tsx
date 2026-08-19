@@ -29,6 +29,7 @@ import {
     Send,
     Code2,
     Settings,
+    Receipt,
 } from 'lucide-react'
 import { usePageAccess } from '@/hooks/use-page-access'
 import { useUI } from '@/contexts/ui-context'
@@ -199,6 +200,7 @@ const NAV_VARIANTS = {
             data: [
                 { href: '/dashboard/data-packages', label: 'Data Packages', icon: Package },
                 { href: '/dashboard/airtime', label: 'Buy Airtime', icon: Phone },
+                { href: '/dashboard/utilities', label: 'Pay Bills', icon: Receipt },
                 { href: '/dashboard/data-packages?network=Special%20MTN%20Mashup', label: 'Special MTN Mashup', icon: Zap },
                 { href: '/dashboard/data-packages?network=EXPRESS%20MTN', label: 'EXPRESS MTN', icon: Zap },
                 { href: '/dashboard/results-checker', label: 'Results Checker', icon: Tag },
@@ -238,6 +240,7 @@ const NAV_VARIANTS = {
                 { href: '/admin/fulfillment', label: 'Fulfillment', icon: Activity },
                 { href: '/admin/datagod', label: 'DataGod Console', icon: Activity },
                 { href: '/admin/airtime', label: 'Airtime', icon: Phone },
+                { href: '/admin/utilities', label: 'Utility Bills', icon: Receipt },
                 { href: '/admin/mashup-orders', label: 'Special MTN Mashup', icon: Zap },
                 { href: '/admin/express-orders', label: 'EXPRESS MTN', icon: Zap },
                 { href: '/admin/afa-management', label: 'AFA Management', icon: BadgeCheck },
