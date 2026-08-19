@@ -11,8 +11,12 @@ import { NETWORK_ORDER, NetworkLogo, detectPayNetwork, type PayNetwork } from '@
 import {
     Phone, Mail, MessageCircle, ShoppingCart, Loader2,
     CheckCircle2, AlertCircle, X, Search, Zap, Smartphone, ChevronDown, Check, Menu, Bell,
-    History, TrendingUp, Coins, Calendar, CalendarRange, RefreshCw, Info, Clock, Copy, ArrowRight, AlertTriangle, Users, Target, Sparkles, Download, Share2, GraduationCap, Store
+    History, TrendingUp, Coins, Calendar, CalendarRange, RefreshCw, Info, Clock, Copy, ArrowRight, AlertTriangle, Users, Target, Sparkles, Download, Share2, GraduationCap, Store, BadgeCheck
 } from 'lucide-react'
+import {
+    ID_TYPES, REGIONS, AFA_REQUIRED_FIELDS, MIN_AFA_AGE,
+    validateId, maskIdNumber, ageFromDob, maxDobInputValue,
+} from '@/lib/afa-validation'
 import { toast } from 'sonner'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { CopyrightFooter } from '@/components/CopyrightFooter'
@@ -138,6 +142,13 @@ const networkColors: Record<string, { bgClass: string; textClass: string; border
 
 const QUICK_AMOUNTS = [1, 2, 5, 10, 20, 50, 100]
 
+// ─── Checkout field styling ───────────────────────────────────────────────────
+// Lifted out of the data checkout sheet so the AFA registration form renders in
+// the same clothes. Kept as constants rather than copied strings: the two flows
+// drifted apart once already, and a customer meets both under one shop.
+const SHEET_FIELD_CLASS = 'w-full px-4 py-3.5 rounded-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-base font-semibold outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-[var(--brand-color)] focus:border-transparent transition-colors'
+const SHEET_LABEL_CLASS = 'text-sm font-black text-gray-900 dark:text-gray-100'
+
 const getNetworkCardStyle = (net: string) => {
     switch (net) {
         case 'Telecel':
@@ -183,7 +194,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
     
     // Global State
     const [isSidebarOpen, setIsSidebarOpen] = useState(false)
-    const [activeTab, setActiveTab] = useState<'data' | 'airtime' | 'mashup' | 'results_checker'>('data')
+    const [activeTab, setActiveTab] = useState<'data' | 'airtime' | 'mashup' | 'results_checker' | 'afa'>('data')
     const [showAnnouncementModal, setShowAnnouncementModal] = useState(false)
     const [loading, setLoading] = useState(false)
     const [pageLoading, setPageLoading] = useState(true)
@@ -202,7 +213,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
     const [isConfirmingRegistration, setIsConfirmingRegistration] = useState(false)
     const [otpCode, setOtpCode] = useState('')
     const [otpReference, setOtpReference] = useState<string | null>(null)
-    const [otpOrderType, setOtpOrderType] = useState<'data' | 'airtime' | 'mashup' | 'results_checker'>('data')
+    const [otpOrderType, setOtpOrderType] = useState<'data' | 'airtime' | 'mashup' | 'results_checker' | 'afa'>('data')
 
     // Results Checker State
     const [rcTypes, setRcTypes] = useState<any[]>([])
@@ -210,6 +221,15 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
     const [rcEmail, setRcEmail] = useState('')
     const [selectedRc, setSelectedRc] = useState<any | null>(null)
     const [rcQuantity, setRcQuantity] = useState(1)
+
+    // AFA Registration State
+    const [afaConfig, setAfaConfig] = useState<{ enabled: boolean; selling_price: number } | null>(null)
+    const [afaForm, setAfaForm] = useState({
+        full_name: '', phone: '', id_type: 'Ghana Card', id_number: '',
+        date_of_birth: '', location: '', region: 'Greater Accra', notes: '',
+    })
+    const [afaEmail, setAfaEmail] = useState('')
+    const [afaIdError, setAfaIdError] = useState<string | null>(null)
 
     const { isInstallable, isInstalled, isIOS, installPwa } = usePwa()
 
@@ -243,6 +263,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
     const isGlobalAirtimeEnabled = adminSettings['storefront_airtime_enabled'] === 'true'
     const isGlobalMashupEnabled = adminSettings['storefront_mashup_enabled'] === 'true'
     const isGlobalRcEnabled = adminSettings['storefront_rc_enabled'] === 'true'
+    const isGlobalAfaEnabled = adminSettings['storefront_afa_enabled'] === 'true'
 
     // USSD short code — shown only once this shop has actually bought one, and
     // only while the admin leaves the card switched on globally.
@@ -265,6 +286,8 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
 
     const isShopAirtimeEnabled = isGlobalAirtimeEnabled && airtimeNetworks.length > 0
     const isShopRcEnabled = isGlobalRcEnabled && rcTypes.length > 0
+    // The owner must have priced AFA; /api/shop/afa/config returns enabled:false otherwise.
+    const isShopAfaEnabled = isGlobalAfaEnabled && !!afaConfig?.selling_price
 
     const [ussdCopied, setUssdCopied] = useState(false)
 
@@ -339,6 +362,15 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
     }, [shop.shop_slug, isGlobalRcEnabled])
 
     useEffect(() => {
+        if (isGlobalAfaEnabled) {
+            fetch(`/api/shop/afa/config?shopSlug=${shop.shop_slug}`)
+                .then(r => r.json())
+                .then(data => { if (data.enabled && data.selling_price > 0) setAfaConfig(data) })
+                .catch(() => {})
+        }
+    }, [shop.shop_slug, isGlobalAfaEnabled])
+
+    useEffect(() => {
         if (!announcement) return
 
         const seenKey = `announcement_seen_${shop.id}`
@@ -373,9 +405,12 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
             interval = setInterval(async () => {
                 try {
                     const isRcOrder = pollingRef.startsWith('RC-SHOP-')
+                    const isAfaOrder = pollingRef.startsWith('AFA-SHOP-')
                     const endpoint = isRcOrder
                         ? `/api/shop/rc/verify?ref=${pollingRef}&slug=${shop.shop_slug}`
-                        : `/api/shop/verify?ref=${pollingRef}&slug=${shop.shop_slug}`
+                        : isAfaOrder
+                            ? `/api/shop/afa/verify?ref=${pollingRef}&slug=${shop.shop_slug}`
+                            : `/api/shop/verify?ref=${pollingRef}&slug=${shop.shop_slug}`
                     const res = await fetch(endpoint, { headers: { 'Accept': 'application/json' } })
                     const data = await res.json()
 
@@ -803,6 +838,78 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
         }
     }
 
+    /** Client-side gate before paying — the server re-validates all of this. */
+    const afaValidationError = (): string | null => {
+        if (!afaConfig?.selling_price) return 'AFA registration is not available right now'
+        for (const field of AFA_REQUIRED_FIELDS) {
+            if (!String((afaForm as any)[field] || '').trim()) {
+                return 'Please fill in all required fields'
+            }
+        }
+        if (!/^(0\d{9}|233\d{9})$/.test(afaForm.phone.replace(/\s+/g, ''))) {
+            return 'Enter a valid phone number (0XXXXXXXXX)'
+        }
+        const idErr = validateId(afaForm.id_type, afaForm.id_number)
+        if (idErr) return idErr
+        const age = ageFromDob(afaForm.date_of_birth)
+        if (age === null) return 'Enter a valid date of birth'
+        if (age < MIN_AFA_AGE) return `Applicant must be at least ${MIN_AFA_AGE} years old`
+        return null
+    }
+
+    const handleBuyAfa = async () => {
+        const validationError = afaValidationError()
+        if (validationError) { toast.error(validationError); return }
+
+        const cleanPhone = afaForm.phone.replace(/\s+/g, '')
+
+        setLoading(true)
+        try {
+            const res = await fetch('/api/shop/afa/initialize', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    shopSlug: shop.shop_slug,
+                    formData: { ...afaForm, phone: cleanPhone },
+                    customerEmail: afaEmail.trim() || undefined,
+                    provider: webPaymentProvider,
+                })
+            })
+            const data = await res.json()
+            if (!res.ok || !data.success) {
+                setErrorMsg(rateLimitMessage(res) || data.error || 'Failed to initialize payment')
+                setLoading(false)
+                return
+            }
+
+            if (data.gateway === 'paystack') {
+                window.location.href = data.authorization_url
+                return
+            }
+
+            if (data.gateway === 'hubtel') {
+                toast.success(data.message || 'Payment prompt sent! Please approve on your phone.')
+                setPollingRef(data.reference)
+                setLoading(false)
+                return
+            }
+
+            try { localStorage.setItem('shop_last_phone', cleanPhone) } catch (_) { }
+            if (data.otpRequired) {
+                setOtpReference(data.reference)
+                setOtpOrderType('afa')
+                setOtpRequired(true)
+                setLoading(false)
+            } else {
+                toast.success(data.message || 'Payment prompt sent! Please approve on your phone.')
+                setPollingRef(data.reference)
+            }
+        } catch (err) {
+            toast.error('Network error. Please try again.')
+            setLoading(false)
+        }
+    }
+
     const handleVerifyOtp = async () => {
         if (!otpCode || otpCode.trim().length < 1) {
             toast.error('Please enter the OTP sent to your phone')
@@ -833,6 +940,13 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 otpCode: otpCode.trim(),
                 reference: otpReference,
                 provider: webPaymentProvider
+            } : otpOrderType === 'afa' ? {
+                shopSlug: shop.shop_slug,
+                formData: { ...afaForm, phone: afaForm.phone.replace(/\s+/g, '') },
+                customerEmail: afaEmail.trim() || undefined,
+                otpCode: otpCode.trim(),
+                reference: otpReference,
+                provider: webPaymentProvider
             } : {
                 shopSlug: shop.shop_slug,
                 packageId: selectedPackage?.id,
@@ -845,7 +959,11 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 provider: webPaymentProvider
             }
 
-            const endpoint = otpOrderType === 'results_checker' ? '/api/shop/rc/initialize' : '/api/shop/initialize'
+            const endpoint = otpOrderType === 'results_checker'
+                ? '/api/shop/rc/initialize'
+                : otpOrderType === 'afa'
+                    ? '/api/shop/afa/initialize'
+                    : '/api/shop/initialize'
             const res = await fetch(endpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1194,8 +1312,15 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 {/* Services Grid */}
                 <div className={cn(
                     "grid gap-3 mb-8 w-full",
-                    [true, isShopAirtimeEnabled, isShopRcEnabled].filter(Boolean).length === 3 ? "grid-cols-3" : 
-                    [true, isShopAirtimeEnabled, isShopRcEnabled].filter(Boolean).length === 2 ? "grid-cols-2" : "grid-cols-1"
+                    // Four services wrap to a 2x2 rather than squeezing into one row —
+                    // the tiles get unreadably narrow on a phone otherwise.
+                    (() => {
+                        const count = [true, isShopAirtimeEnabled, isShopRcEnabled, isShopAfaEnabled].filter(Boolean).length
+                        if (count >= 4) return "grid-cols-2"
+                        if (count === 3) return "grid-cols-3"
+                        if (count === 2) return "grid-cols-2"
+                        return "grid-cols-1"
+                    })()
                 )}>
                     {/* DATA Button */}
                     <button 
@@ -1246,6 +1371,24 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                                 <GraduationCap className={cn("w-6 h-6", activeTab === 'results_checker' ? "text-white" : "text-gray-400")} />
                             </div>
                             <span className="text-[10px] sm:text-[11px] font-black tracking-widest uppercase text-center">RESULTS CHECKER</span>
+                        </button>
+                    )}
+
+                    {/* AFA REGISTRATION Button */}
+                    {isShopAfaEnabled && (
+                        <button
+                            onClick={() => { setActiveTab('afa'); setIsAirtimeOpen(false) }}
+                            className={cn(
+                                "relative flex flex-col items-center justify-center gap-3 py-6 px-2 rounded-xl border-2 transition-all",
+                                activeTab === 'afa'
+                                    ? "bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-400 text-emerald-700 dark:text-emerald-400"
+                                    : "bg-white dark:bg-[#151c2c] border-gray-100 dark:border-gray-800 hover:border-gray-200 text-gray-500"
+                            )}
+                        >
+                            <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center transition-colors", activeTab === 'afa' ? "bg-emerald-500 shadow-sm" : "bg-gray-100 dark:bg-gray-800")}>
+                                <BadgeCheck className={cn("w-6 h-6", activeTab === 'afa' ? "text-white" : "text-gray-400")} />
+                            </div>
+                            <span className="text-[10px] sm:text-[11px] font-black tracking-widest uppercase text-center">AFA REGISTRATION</span>
                         </button>
                     )}
                 </div>
@@ -1608,6 +1751,204 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                     </div>
                 )}
 
+                {/* ── AFA Registration Tab Content ── */}
+                {/* Dressed as the data checkout sheet below: a coloured banner naming what
+                    is being bought and its price, black label + grey hint over full-width
+                    fields, and one large action pinned above the fold. To a customer this
+                    is the same purchase as a bundle, so it must not look like a different
+                    app — the old micro-caps labels and squeezed fee card did. */}
+                {isShopAfaEnabled && activeTab === 'afa' && (
+                    <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-5">
+                        <div className="rounded-2xl px-4 py-4 flex items-center justify-between gap-3 bg-[var(--brand-color)] text-white">
+                            <div className="flex items-center gap-3 min-w-0">
+                                <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+                                    <BadgeCheck className="w-6 h-6" />
+                                </div>
+                                <p className="text-lg font-black tracking-tight truncate">AFA Membership</p>
+                            </div>
+                            <p className="text-lg font-black tracking-tight shrink-0">{formatCurrency(afaConfig!.selling_price)}</p>
+                        </div>
+
+                        <p className="text-[13px] font-semibold text-gray-500 dark:text-gray-400 leading-snug">
+                            Enter the applicant&apos;s details exactly as they appear on their ID.
+                            Registration is processed manually — you will be contacted once it is complete.
+                        </p>
+
+                        <div className="space-y-5">
+                            <div className="space-y-2">
+                                <Label className={SHEET_LABEL_CLASS}>
+                                    Full name <span className="font-semibold text-gray-400">(as shown on the ID)</span>
+                                </Label>
+                                <input
+                                    value={afaForm.full_name}
+                                    onChange={(e) => setAfaForm(prev => ({ ...prev, full_name: e.target.value }))}
+                                    placeholder="Kwame Mensah"
+                                    className={SHEET_FIELD_CLASS}
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label className={SHEET_LABEL_CLASS}>
+                                    Phone number <span className="font-semibold text-gray-400">(gets the payment prompt)</span>
+                                </Label>
+                                <input
+                                    type="tel" inputMode="tel"
+                                    value={afaForm.phone}
+                                    onChange={(e) => setAfaForm(prev => ({ ...prev, phone: e.target.value }))}
+                                    placeholder="0244123456"
+                                    className={SHEET_FIELD_CLASS}
+                                />
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label className={SHEET_LABEL_CLASS}>ID type</Label>
+                                    <select
+                                        value={afaForm.id_type}
+                                        onChange={(e) => {
+                                            // Re-mask under the new type so a part-typed number is not left
+                                            // in the previous type's format.
+                                            const nextType = e.target.value
+                                            const remasked = maskIdNumber(nextType, afaForm.id_number)
+                                            setAfaForm(prev => ({ ...prev, id_type: nextType, id_number: remasked }))
+                                            setAfaIdError(remasked ? validateId(nextType, remasked) : null)
+                                        }}
+                                        className={SHEET_FIELD_CLASS}
+                                    >
+                                        {ID_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                                    </select>
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label className={SHEET_LABEL_CLASS}>ID number</Label>
+                                    <input
+                                        value={afaForm.id_number}
+                                        onChange={(e) => {
+                                            const masked = maskIdNumber(afaForm.id_type, e.target.value)
+                                            setAfaForm(prev => ({ ...prev, id_number: masked }))
+                                            setAfaIdError(masked ? validateId(afaForm.id_type, masked) : null)
+                                        }}
+                                        placeholder={ID_TYPES.find(t => t.value === afaForm.id_type)?.placeholder}
+                                        className={cn(SHEET_FIELD_CLASS, afaIdError && 'border-red-500')}
+                                    />
+                                    {afaIdError && <p className="text-xs font-bold text-red-600">{afaIdError}</p>}
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label className={SHEET_LABEL_CLASS}>
+                                        Date of birth <span className="font-semibold text-gray-400">({MIN_AFA_AGE}+ only)</span>
+                                    </Label>
+                                    <input
+                                        type="date"
+                                        value={afaForm.date_of_birth}
+                                        max={maxDobInputValue()}
+                                        onChange={(e) => setAfaForm(prev => ({ ...prev, date_of_birth: e.target.value }))}
+                                        className={SHEET_FIELD_CLASS}
+                                    />
+                                </div>
+
+                                <div className="space-y-2">
+                                    <Label className={SHEET_LABEL_CLASS}>Region</Label>
+                                    <select
+                                        value={afaForm.region}
+                                        onChange={(e) => setAfaForm(prev => ({ ...prev, region: e.target.value }))}
+                                        className={SHEET_FIELD_CLASS}
+                                    >
+                                        {REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label className={SHEET_LABEL_CLASS}>Town / location</Label>
+                                <input
+                                    value={afaForm.location}
+                                    onChange={(e) => setAfaForm(prev => ({ ...prev, location: e.target.value }))}
+                                    placeholder="e.g. Madina"
+                                    className={SHEET_FIELD_CLASS}
+                                />
+                            </div>
+
+                            <div className="space-y-2">
+                                <Label className={SHEET_LABEL_CLASS}>
+                                    Email <span className="font-semibold text-gray-400">(for receipt — optional)</span>
+                                </Label>
+                                <input
+                                    type="email"
+                                    value={afaEmail}
+                                    onChange={(e) => setAfaEmail(e.target.value)}
+                                    placeholder="you@example.com"
+                                    className={SHEET_FIELD_CLASS}
+                                />
+                            </div>
+
+                            {/* Gateway picker, in the chip row the sheet uses for the paying
+                                network. The dot stays neutral until picked — these are
+                                gateways, not networks, so there is no brand colour to show. */}
+                            <div className="space-y-2">
+                                <Label className={SHEET_LABEL_CLASS}>Pay with</Label>
+                                <div className="grid grid-cols-3 gap-2">
+                                    {([
+                                        { id: 'moolre', label: 'Moolre' },
+                                        { id: 'hubtel', label: 'Hubtel' },
+                                        { id: 'paystack', label: 'Paystack' },
+                                    ] as const).map(({ id, label }) => (
+                                        <button
+                                            key={id}
+                                            type="button"
+                                            onClick={() => setWebPaymentProvider(id)}
+                                            className={cn(
+                                                'flex items-center justify-center gap-2 py-3 rounded-2xl border text-sm font-bold transition-all',
+                                                webPaymentProvider === id
+                                                    ? 'border-gray-900 dark:border-white bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
+                                                    : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-gray-300'
+                                            )}
+                                        >
+                                            <span className={cn(
+                                                'w-2.5 h-2.5 rounded-full shrink-0',
+                                                webPaymentProvider === id ? 'bg-[var(--brand-color)]' : 'bg-gray-300 dark:bg-gray-600'
+                                            )} />
+                                            {label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+
+                        {/* Cost + action, pinned like the sheet's action bar. Unlike a bundle
+                            there is no gateway fee to disclose here — afa/initialize charges
+                            the selling price and nothing more — so the line states the fee as
+                            the whole of it rather than hinting at an extra that never lands. */}
+                        <div className="sticky bottom-4 rounded-2xl border border-gray-100 dark:border-gray-800 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm shadow-e3 px-4 pt-3 pb-4 space-y-3">
+                            <dl className="space-y-1.5">
+                                <div className="flex items-center justify-between text-sm">
+                                    <dt className="font-semibold text-gray-500 dark:text-gray-400">Registration fee</dt>
+                                    <dd className="font-bold tabular text-gray-900 dark:text-gray-100">
+                                        {formatCurrency(afaConfig!.selling_price)}
+                                    </dd>
+                                </div>
+                            </dl>
+
+                            <button
+                                onClick={handleBuyAfa} disabled={loading}
+                                className="w-full py-4 rounded-md bg-[var(--brand-color)] text-white font-black text-lg flex items-center justify-center gap-2 active:scale-[0.98] transition-transform disabled:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--brand-color)]"
+                            >
+                                {loading
+                                    ? <><Loader2 className="w-5 h-5 animate-spin" /> {pollingRef ? 'Waiting for approval...' : 'Processing...'}</>
+                                    : <><BadgeCheck className="w-5 h-5" /> Pay {formatCurrency(afaConfig!.selling_price)}</>}
+                            </button>
+
+                            <p className="text-[12px] text-center font-semibold text-gray-400 leading-snug">
+                                {webPaymentProvider === 'paystack'
+                                    ? 'You will be taken to a secure checkout page.'
+                                    : 'Approve the prompt on your phone to complete registration.'}
+                            </p>
+                        </div>
+                    </div>
+                )}
+
 
                 {/* ── Data Packages Tab Content ── */}
                 {(activeTab === 'data' || activeTab === 'mashup') && (
@@ -1745,7 +2086,17 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                     { id: 'AT', label: 'AirtelTigo', dot: 'bg-[#2463eb]' },
                 ]
                 return (
-                    <div className="fixed inset-0 z-[70] flex items-end justify-center">
+                    // Hidden — not unmounted — while the registration prompt is up. This
+                    // sheet sits at z-[70], above the Radix dialog's z-50 overlay, so
+                    // leaving it visible buries the prompt. Keeping it mounted preserves
+                    // the entered numbers and payment choice for a Cancel.
+                    <div
+                        className={cn(
+                            "fixed inset-0 z-[70] flex items-end justify-center",
+                            registrationPrompt && "hidden"
+                        )}
+                        aria-hidden={!!registrationPrompt}
+                    >
                         <div
                             className="absolute inset-0 bg-black/50 backdrop-blur-[2px] animate-in fade-in duration-200"
                             onClick={() => !loading && closeDataCheckout()}
@@ -1783,21 +2134,21 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
 
                                 {/* Beneficiary */}
                                 <div className="space-y-2">
-                                    <Label className="text-sm font-black text-gray-900 dark:text-gray-100">
+                                    <Label className={SHEET_LABEL_CLASS}>
                                         Beneficiary number <span className="font-semibold text-gray-400">(gets the data)</span>
                                     </Label>
                                     <input
                                         type="tel" inputMode="numeric" value={phone}
                                         onChange={(e) => setPhone(e.target.value)}
                                         placeholder="0241234567"
-                                        className="w-full px-4 py-3.5 rounded-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-base font-semibold outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-[var(--brand-color)] focus:border-transparent transition-colors"
+                                        className={SHEET_FIELD_CLASS}
                                     />
                                 </div>
 
                                 {/* Payer — typed on its own. Any number on any network may pay, so this
                                     is never locked to the beneficiary's number. */}
                                 <div className="space-y-2">
-                                    <Label className="text-sm font-black text-gray-900 dark:text-gray-100">
+                                    <Label className={SHEET_LABEL_CLASS}>
                                         Mobile Money number <span className="font-semibold text-gray-400">(to pay)</span>
                                     </Label>
                                     <input
@@ -1805,14 +2156,14 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                                         value={payPhone}
                                         onChange={(e) => setPayPhone(e.target.value)}
                                         placeholder="0241234567"
-                                        className="w-full px-4 py-3.5 rounded-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-base font-semibold outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-[var(--brand-color)] focus:border-transparent transition-colors"
+                                        className={SHEET_FIELD_CLASS}
                                     />
                                 </div>
 
 
                                 {/* Payment network */}
                                 <div className="space-y-2">
-                                    <Label className="text-sm font-black text-gray-900 dark:text-gray-100">Network</Label>
+                                    <Label className={SHEET_LABEL_CLASS}>Network</Label>
                                     <div className="grid grid-cols-3 gap-2">
                                         {payNetworks.map(({ id, label, dot }) => (
                                             <button
@@ -1835,14 +2186,14 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
 
                                 {/* Email */}
                                 <div className="space-y-2">
-                                    <Label className="text-sm font-black text-gray-900 dark:text-gray-100">
+                                    <Label className={SHEET_LABEL_CLASS}>
                                         Email <span className="font-semibold text-gray-400">(for receipt — optional)</span>
                                     </Label>
                                     <input
                                         type="email" value={email}
                                         onChange={(e) => setEmail(e.target.value)}
                                         placeholder="you@example.com"
-                                        className="w-full px-4 py-3.5 rounded-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-base font-semibold outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-[var(--brand-color)] focus:border-transparent transition-colors"
+                                        className={SHEET_FIELD_CLASS}
                                     />
                                 </div>
 
@@ -1978,6 +2329,12 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                             <button onClick={() => { setIsSidebarOpen(false); setActiveTab('results_checker'); }} className={cn("mt-2 w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all shadow-sm border", activeTab === 'results_checker' ? "bg-blue-600 text-white border-blue-700" : "hover:bg-gray-100 dark:hover:bg-gray-900 text-gray-600 dark:text-gray-400 border-transparent")}>
                                 <GraduationCap className={cn("w-5 h-5", activeTab === 'results_checker' ? "text-white" : "text-blue-500")} /> <span className="font-bold flex-1 text-left">Result Checker</span>
                                 {activeTab === 'results_checker' && <Check className="w-4 h-4 text-white" />}
+                            </button>
+                        )}
+                        {isShopAfaEnabled && (
+                            <button onClick={() => { setIsSidebarOpen(false); setActiveTab('afa'); }} className={cn("mt-2 w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all shadow-sm border", activeTab === 'afa' ? "bg-sky-600 text-white border-sky-700" : "hover:bg-gray-100 dark:hover:bg-gray-900 text-gray-600 dark:text-gray-400 border-transparent")}>
+                                <BadgeCheck className={cn("w-5 h-5", activeTab === 'afa' ? "text-white" : "text-sky-500")} /> <span className="font-bold flex-1 text-left">AFA Registration</span>
+                                {activeTab === 'afa' && <Check className="w-4 h-4 text-white" />}
                             </button>
                         )}
                         <div className="my-4 border-t border-gray-200 dark:border-gray-800" />

@@ -47,7 +47,10 @@ export function TodaysOrdersSummary() {
 
                 const { data: afaOrders } = await supabase
                     .from('afa_orders')
-                    .select('status, amount')
+                    // The column is payment_amount — selecting a non-existent
+                    // `amount` made the whole query error, so AFA spend always
+                    // rendered as 0.
+                    .select('status, payment_amount')
                     .eq('user_id', dbUser.id)
                     .gte('created_at', startOfToday)
                     .lte('created_at', endOfToday)
@@ -90,7 +93,7 @@ export function TodaysOrdersSummary() {
                 if (afaOrders) {
                     currentStats.totalCount += afaOrders.length
                     afaOrders.forEach((order: any) => {
-                        const amount = order.amount || 0
+                        const amount = Number(order.payment_amount) || 0
                         currentStats.afa.count++
                         currentStats.afa.amount += amount
 

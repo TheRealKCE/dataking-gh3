@@ -13,19 +13,46 @@ import { useRouter } from 'next/navigation'
 import { useAuth } from '@/contexts/auth-context'
 
 export default function PortalLoginPage() {
-  const { signIn, user, isLoading } = useAuth()
+  const { signIn, signOut, user, dbUser, isLoading } = useAuth()
   const router = useRouter()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  // A session that is signed in but is NOT a sub-agent — almost always the Lead
+  // still logged in on the phone they just handed to a new recruit.
+  const [otherAccount, setOtherAccount] = useState(false)
+  const [checkingSession, setCheckingSession] = useState(true)
 
-  // Already signed in → straight to the portal.
+  // Already signed in → only an actual sub-agent belongs in the portal. Sending
+  // everyone to /dashboard/sub was how a Lead's own storefront ended up on the
+  // recruit's "My Shop" page, so the recruit believed a shop already existed for
+  // them and could never create their own.
   useEffect(() => {
-    if (!isLoading && user) {
-      window.location.href = '/dashboard/sub'
+    if (isLoading) return
+    if (!user) {
+      setOtherAccount(false)
+      setCheckingSession(false)
+      return
     }
+    let active = true
+    // 200 → sub-agent; 403 → some other account. Any other failure falls through
+    // to the portal as before, so a network blip never strands a real sub-agent.
+    fetch('/api/dashboard/sub/data')
+      .then((r) => {
+        if (!active) return
+        if (r.status === 403) {
+          setOtherAccount(true)
+          setCheckingSession(false)
+          return
+        }
+        window.location.href = '/dashboard/sub'
+      })
+      .catch(() => {
+        if (active) window.location.href = '/dashboard/sub'
+      })
+    return () => { active = false }
   }, [user, isLoading])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -49,6 +76,55 @@ export default function PortalLoginPage() {
       setError('An unexpected error occurred')
       setLoading(false)
     }
+  }
+
+  // Signed in as somebody who is not a sub-agent. Say so plainly instead of
+  // dropping them into a portal that would show them their own shop.
+  if (user && otherAccount) {
+    const name = [dbUser?.first_name, dbUser?.last_name].filter(Boolean).join(' ').trim()
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4 py-12">
+        <div className="w-full max-w-md">
+          <div className="bg-white rounded-lg shadow-lg p-8 text-center">
+            <h1 className="text-xl font-bold text-gray-900">You are already signed in</h1>
+            <p className="text-gray-600 mt-2">
+              This phone is signed in as <strong>{name || dbUser?.email || 'another account'}</strong>,
+              which is not a sub-agent account.
+            </p>
+            <p className="text-gray-600 mt-2 text-sm">
+              Signing up a new sub-agent? Sign out first, then log in with their details.
+            </p>
+            <button
+              onClick={async () => {
+                await signOut()
+                // signOut() pushes to the main ARHMS login; the portal must stay
+                // de-branded, so land back on this page instead.
+                window.location.href = '/portal/login'
+              }}
+              className="mt-6 w-full px-4 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700"
+            >
+              Sign out
+            </button>
+            <button
+              onClick={() => (window.location.href = '/dashboard')}
+              className="mt-3 w-full px-4 py-2 rounded-lg border border-gray-300 font-semibold text-gray-700 hover:bg-gray-50"
+            >
+              Go to my dashboard
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  // Hold the form back while an existing session is being classified, so a
+  // real sub-agent never sees a login form they do not need.
+  if (isLoading || (user && checkingSession)) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-4 py-12">
+        <p className="text-gray-500 text-sm">Loading…</p>
+      </div>
+    )
   }
 
   return (

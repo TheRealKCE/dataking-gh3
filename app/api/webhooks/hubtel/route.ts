@@ -106,6 +106,14 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ received: true })
         }
 
+        // ── AFA REGISTRATION (storefront) ────────────────────────────────────
+        if (ClientReference.startsWith('AFA-SHOP-')) {
+            const { finalizeAfaShopOrder } = await import('@/lib/afa/checkout')
+            console.log('[HubtelWebhook] Routing AFA registration payment:', ClientReference)
+            await finalizeAfaShopOrder({ reference: ClientReference, paidAmountKobo })
+            return NextResponse.json({ received: true })
+        }
+
         // NOTE: USSD result-checker payments are NOT handled here. They run on
         // Hubtel's Programmable Services API, which delivers payment via the
         // Service Fulfilment callback at /api/hubtel/fulfill — not this

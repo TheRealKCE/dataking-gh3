@@ -11,6 +11,7 @@ import { MobileBottomNav } from '@/components/dashboard/mobile-bottom-nav'
 import { PageAccessGuard } from '@/components/dashboard/page-access-guard'
 import { Skeleton } from '@/components/ui/skeleton'
 import { PushNotificationManager } from '@/components/PushNotificationManager'
+import { ReferralClaimOnMount } from '@/components/dashboard/ReferralClaimOnMount'
 import { cn } from '@/lib/utils'
 import { useUI } from '@/contexts/ui-context'
 // import { SupportChatWidget } from '@/components/dashboard/support-chat-widget'
@@ -85,15 +86,30 @@ export default function DashboardLayout({
     // route a sub-agent visits — not just /dashboard/sub — so tapping any link
     // (e.g. Shop Setup) never bounces them into the main-branded site.
     const [isSubAgent, setIsSubAgent] = useState(false)
+    const [notSubAgent, setNotSubAgent] = useState(false)
     useEffect(() => {
         let active = true
-        // 200 → the caller is a sub-agent; 403 → not one. Fail-open (stay false)
-        // so a hiccup never wrongly de-brands a regular user's dashboard.
+        // 200 → the caller is a sub-agent; 403 → not one. Fail-open (both false)
+        // so a hiccup never wrongly de-brands a regular user's dashboard, nor
+        // bounces a real sub-agent out of their portal.
         fetch('/api/dashboard/sub/data')
-            .then((r) => { if (active && r.ok) setIsSubAgent(true) })
+            .then((r) => {
+                if (!active) return
+                if (r.ok) setIsSubAgent(true)
+                else if (r.status === 403) setNotSubAgent(true)
+            })
             .catch(() => {})
         return () => { active = false }
     }, [])
+
+    // Anyone who is not a sub-agent has no business on a /dashboard/sub page —
+    // most often a Lead still signed in on a recruit's phone, who would
+    // otherwise see their own storefront presented as the recruit's.
+    useEffect(() => {
+        if (notSubAgent && pathname?.startsWith('/dashboard/sub')) {
+            router.replace('/dashboard')
+        }
+    }, [notSubAgent, pathname, router])
 
     const isSubPortal = (pathname?.startsWith('/dashboard/sub') ?? false) || isSubAgent
 
@@ -196,6 +212,7 @@ export default function DashboardLayout({
     return (
         <div className="min-h-screen relative">
             <PushNotificationManager />
+            <ReferralClaimOnMount />
             <SystemAnnouncementModal userRole={dbUser?.role} />
             <AgentExpiryModal />
             <DashboardSidebar />

@@ -10,6 +10,10 @@
       "schedule": "*/5 * * * *"
     },
     {
+      "path": "/api/cron/sync-eazydata-status",
+      "schedule": "*/5 * * * *"
+    },
+    {
       "path": "/api/cron/verify-hubtel-payments",
       "schedule": "*/5 * * * *"
     },

@@ -1,4 +1,5 @@
 import { sanitizeForLog } from '@/lib/safe-log'
+import { normaliseSupplierStatus } from '@/lib/order-status-display'
 
 // Eazy Data Fulfillment Service — mirrors lib/kingflexy-service.ts architecture
 // API Docs: https://www.ghdata.xyz/api/agent/v1
@@ -315,11 +316,21 @@ export async function checkOrderStatus(orderId: string): Promise<StatusResponse>
 }
 
 // Eazy Data statuses
+//
+// Matched on synonym sets rather than the single literal 'completed'. Their
+// dashboard (eazyghdata.com/orders) renders delivered orders as "SUCCESS", so a
+// literal 'completed' test fell through to the 'pending' fallback and the
+// reconciliation cron never moved those orders off 'processing' — the same bug
+// NetPulse hit with "on_hold"/"On Hold". Punctuation is normalised so
+// "on_hold", "on-hold" and "On Hold" all compare equal.
 function mapEazyDataStatus(status: string): 'pending' | 'processing' | 'completed' | 'failed' {
-    const s = (status || '').toLowerCase()
-    if (s === 'completed') return 'completed'
-    if (s === 'failed' || s === 'cancelled' || s === 'reversed') return 'failed'
-    if (s === 'processing') return 'processing'
+    const s = normaliseSupplierStatus(status)
+    const COMPLETED = ['completed', 'complete', 'success', 'successful', 'delivered', 'credited']
+    const FAILED = ['failed', 'failure', 'cancelled', 'canceled', 'reversed', 'refunded', 'rejected']
+    const IN_FLIGHT = ['processing', 'queued', 'verifying', 'on hold', 'onhold', 'awaiting verification', 'pending verification', 'under review']
+    if (COMPLETED.includes(s)) return 'completed'
+    if (FAILED.includes(s)) return 'failed'
+    if (IN_FLIGHT.includes(s)) return 'processing'
     return 'pending'
 }
 

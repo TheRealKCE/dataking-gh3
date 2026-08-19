@@ -139,6 +139,31 @@ export async function POST(request: NextRequest) {
             return ack()
         }
 
+        // ── AFA REGISTRATION (storefront) ─────────────────────────────────
+        if (reference.startsWith('AFA-SHOP-')) {
+            // Same reasoning as the RC branch above: finalizeAfaShopOrder throws on
+            // an amount mismatch, and a throw becomes a 500 PaySwitch retries
+            // forever. When PaySwitch reports no amount, settle against the order's
+            // own total rather than passing 0.
+            let paidKobo = paidAmountPesewas
+            if (paidKobo === null) {
+                const { data: afaOrder } = await (supabase.from('afa_orders') as any)
+                    .select('payment_amount')
+                    .eq('reference_code', reference)
+                    .maybeSingle()
+                if (!afaOrder) {
+                    console.error('[PayswitchWebhook] AFA order not found:', reference)
+                    return ack()
+                }
+                paidKobo = Math.round(Number((afaOrder as any).payment_amount) * 100)
+            }
+
+            const { finalizeAfaShopOrder } = await import('@/lib/afa/checkout')
+            console.log('[PayswitchWebhook] Routing AFA registration payment:', reference)
+            await finalizeAfaShopOrder({ reference, paidAmountKobo: paidKobo })
+            return ack()
+        }
+
         // ── wallet_payments-backed flows ──────────────────────────────────────
         const { data: payment } = await supabase
             .from('wallet_payments')

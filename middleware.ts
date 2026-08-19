@@ -242,6 +242,53 @@ export async function middleware(request: NextRequest) {
         })
     }
 
+    // === REFERRAL LINK CAPTURE ===
+    // ?ref=CODE is stashed into a cookie and stripped from the URL, ABOVE every
+    // guard below. This is the ONLY place in the app that writes this cookie.
+    //
+    // It has to run first, for three reasons:
+    //   * An already-signed-in visitor tapping a friend's link is bounced to
+    //     /dashboard by the /auth/* guard further down. Capturing here means the
+    //     code survives that bounce instead of being silently eaten.
+    //   * Google OAuth loses query params entirely — Supabase matches redirectTo
+    //     against an allow-list, so a query string breaks the exact match (see the
+    //     mkt_oauth_next cookie in components/google-sign-in-button.tsx). A
+    //     first-party cookie is the established workaround in this codebase.
+    //   * /auth/signup is statically prerendered, so the page reads this cookie via
+    //     document.cookie rather than useSearchParams — which would force a
+    //     Suspense boundary and change the build output.
+    //
+    // Redirecting to the same URL minus ?ref also stops a user who re-shares the
+    // page they landed on from leaking someone else's code.
+    //
+    // Not httpOnly: the signup page reads it to render "Referred by X". A user can
+    // therefore forge it, but all that does is attribute THEMSELVES to a referrer
+    // of their choosing — identical to typing a code into the form. Zero privilege.
+    //
+    // The name is duplicated from REFERRAL_COOKIE in lib/referrals.ts rather than
+    // imported: that module pulls in node:crypto for IP hashing, which must not be
+    // dragged into the edge middleware bundle.
+    const refParam = request.nextUrl.searchParams.get('ref')
+    if (refParam && !pathname.startsWith('/api') && /^[A-Z0-9]{5,24}$/i.test(refParam)) {
+        const cleanUrl = new URL(request.url)
+        cleanUrl.searchParams.delete('ref')
+        const stash = NextResponse.redirect(cleanUrl)
+        stash.cookies.set('arhms_ref', refParam.toUpperCase(), {
+            path: '/',
+            maxAge: 60 * 60 * 24 * 30,
+            sameSite: 'lax',
+            httpOnly: false,
+            secure: process.env.NODE_ENV === 'production',
+            // Shared across subdomains in prod, mirroring the auth cookie domain in
+            // lib/supabase.ts, so a link opened on marketplace.arhmsgh.com still
+            // attributes when the user signs up on www.arhmsgh.com.
+            ...(request.nextUrl.hostname.endsWith('arhmsgh.com')
+                ? { domain: '.arhmsgh.com' }
+                : {}),
+        })
+        return addNoCacheHeaders(stash)
+    }
+
     // === CORS PREFLIGHT HANDLER ===
     // /api/v1/* is excluded from the middleware matcher — CORS handled via next.config.ts headers.
     if (request.method === 'OPTIONS') {
@@ -373,6 +420,12 @@ export async function middleware(request: NextRequest) {
         } else if (pathname === '/api/shop/initialize') {
             limiter = rateLimiters?.shopInitialize
             identifier = ip
+        } else if (pathname === '/api/shop/afa/initialize') {
+            // Guest AFA checkout writes applicant PII (name, ID number, DOB)
+            // on every call, before any payment is taken, so it needs the
+            // same per-IP ceiling as the data-bundle checkout.
+            limiter = rateLimiters?.shopInitialize
+            identifier = ip
         } else if (pathname === '/api/webhooks/paystack' || pathname === '/api/webhooks/payswitch') {
             // PaySwitch callbacks carry no signature, so the route re-queries the
             // gateway before crediting. Rate limiting keeps a flood of forged
@@ -400,6 +453,9 @@ export async function middleware(request: NextRequest) {
         } else if (pathname === '/api/shop/verify') {
             limiter = rateLimiters?.shopVerifyOrder
             identifier = ip
+        } else if (pathname === '/api/shop/afa/verify') {
+            limiter = rateLimiters?.shopVerifyOrder
+            identifier = ip
         } else if (pathname === '/api/user/upgrade/initialize') {
             limiter = rateLimiters?.userUpgrade
             identifier = authUser?.id ? `${authUser.id}-${ip}` : ip
@@ -407,6 +463,9 @@ export async function middleware(request: NextRequest) {
             limiter = rateLimiters?.userUpgrade
             identifier = authUser?.id ? `${authUser.id}-${ip}` : ip
         } else if (pathname === '/api/shop/pricing') {
+            limiter = rateLimiters?.shopPricing
+            identifier = authUser?.id ? `${authUser.id}-${ip}` : ip
+        } else if (pathname === '/api/shop/afa-pricing') {
             limiter = rateLimiters?.shopPricing
             identifier = authUser?.id ? `${authUser.id}-${ip}` : ip
         } else if (pathname === '/api/shop/withdraw') {

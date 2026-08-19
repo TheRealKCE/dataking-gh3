@@ -56,6 +56,13 @@ export async function POST(request: NextRequest) {
             }
 
             // o. RC VOUCHERS: References starting with RC- are Results Checker purchases via Moolre
+            if (externalref.startsWith('AFA-SHOP-')) {
+                const { finalizeAfaShopOrder } = await import('@/lib/afa/checkout')
+                console.log('[MoolreWebhook] Routing AFA registration payment:', externalref)
+                await finalizeAfaShopOrder({ reference: externalref, paidAmountKobo })
+                return NextResponse.json({ received: true })
+            }
+
             if (externalref.startsWith('RC-')) {
                 const { finalizeRCGatewayOrder } = await import('@/lib/vouchers/checkout')
                 console.log('[MoolreWebhook] Routing RC Voucher order payment:', externalref)

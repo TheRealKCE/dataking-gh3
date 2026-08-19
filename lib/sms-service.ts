@@ -261,7 +261,22 @@ export async function sendMtnVerificationPendingSMS(
 
     return sendSMS({
         recipient: recipientNumber,
-        message: `Your ${details.network} number ${displayNumber} is being registered for the first time. This can take up to 2 weeks, after which your ${details.size} data will be delivered automatically. Once your number is registered, future orders are delivered within 5 minutes. Thank you.\n\nARHMSGh`,
+        message: `Your ${details.network} number ${displayNumber} is being registered for the first time. This can take up to 2 weeks, after which your ${details.size} data will be delivered automatically. Once your number is registered, future orders are delivered within 24 hours. Thank you.\n\nARHMSGh`,
+    })
+}
+
+// Sent ONCE at order time for MTN orders that were handed to a supplier. MTN
+// bundles are not instant, so the recipient is told the 24-hour delivery window
+// up front. Do NOT call this from the retry cron — it would spam the customer.
+export async function sendMtnDeliveryWindowSMS(
+    recipientNumber: string,
+    details: { network: string; size: string }
+) {
+    const displayNumber = recipientNumber.replace(/^233/, '0')
+
+    return sendSMS({
+        recipient: recipientNumber,
+        message: `Your ${details.network} ${details.size} data order for ${displayNumber} has been received and will be delivered within 24 hours. Thank you.\n\nARHMSGh`,
     })
 }
 

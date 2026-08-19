@@ -41,6 +41,7 @@ import {
     CreditCard,
     Loader2,
     Receipt,
+    Gift,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { supabase } from '@/lib/supabase'
@@ -55,7 +56,7 @@ const userNavItems = [
     { href: '/dashboard/upgrade', label: 'Role Upgrade', icon: Crown },
     { href: '/dashboard/data-packages', label: 'Data Packages', icon: Package },
     { href: '/dashboard/results-checker', label: 'Results Checker', icon: Tag },
-    { href: '/dashboard/afa-orders', label: 'AFA Application', icon: BadgeCheck },
+    { href: '/dashboard/afa-orders', label: 'AFA Registration', icon: BadgeCheck },
     { href: '/dashboard/airtime', label: 'Buy Airtime', icon: Phone },
     { href: '/dashboard/utilities', label: 'Pay Bills', icon: Receipt },
     { href: '/dashboard/data-packages?network=Special%20MTN%20Mashup', label: 'Special MTN Mashup', icon: Zap },
@@ -63,6 +64,7 @@ const userNavItems = [
     { href: '/dashboard/my-orders', label: 'Orders', icon: ShoppingCart },
     { href: process.env.NEXT_PUBLIC_MARKETPLACE_URL || 'https://marketplace.arhmsgh.com', label: 'Marketplace', icon: Store, external: true },
     { href: '/dashboard/wallet', label: 'Wallet', icon: Wallet },
+    { href: '/dashboard/refer', label: 'Refer & Earn', icon: Gift },
     { href: '/dashboard/transactions', label: 'Transactions', icon: Activity },
     { href: '/dashboard/complaints', label: 'Complaints', icon: MessageSquare },
     { href: '/dashboard/profile', label: 'Profile', icon: User },
@@ -78,6 +80,7 @@ const adminNavItems = [
     { href: '/admin/datagod', label: 'DataGod Console', icon: Activity },
     { href: '/admin/airtime', label: 'Airtime', icon: Phone },
     { href: '/admin/utilities', label: 'Utility Bills', icon: Receipt },
+    { href: '/admin/referrals', label: 'Referrals', icon: Gift },
     { href: '/admin/mashup-orders', label: 'Special MTN Mashup', icon: Zap },
     { href: '/admin/express-orders', label: 'EXPRESS MTN', icon: Zap },
     { href: '/admin/shops', label: 'Shops', icon: Store },

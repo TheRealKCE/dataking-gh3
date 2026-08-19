@@ -47,6 +47,16 @@ export async function POST(request: NextRequest) {
                 return NextResponse.json({ received: true })
             }
 
+            // o. AFA REGISTRATION: AFA-SHOP- references are storefront AFA
+            // applications. Checked after SHOP-/RC- but the prefixes cannot
+            // collide — startsWith is anchored.
+            if (reference && reference.startsWith('AFA-SHOP-')) {
+                const { finalizeAfaShopOrder } = await import('@/lib/afa/checkout')
+                console.log('[PaystackWebhook] Routing AFA registration payment')
+                await finalizeAfaShopOrder({ reference, paidAmountKobo })
+                return NextResponse.json({ received: true })
+            }
+
             // Get payment record for verification
             const { data: payment } = await supabase
                 .from('wallet_payments')
