@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useCallback, useMemo, Suspense } from 'react'
 import {
-    Tv, Zap, Droplets, CheckCircle2, Loader2, Wallet, Smartphone, AlertTriangle,
+    Tv, Zap, Droplets, CheckCircle2, Loader2, Wallet, AlertTriangle,
     Search, ArrowRight, History, Copy, RefreshCw, Info,
 } from 'lucide-react'
 import { useAuth } from '@/contexts/auth-context'
@@ -165,7 +165,6 @@ function UtilitiesPageInner() {
     const [lookupError, setLookupError] = useState<string | null>(null)
 
     // Payment
-    const [paymentMethod, setPaymentMethod] = useState<'wallet' | 'direct'>('wallet')
     const [webPaymentProvider, setWebPaymentProvider] = useState<PaymentProvider>('moolre')
     const [momoPhone, setMomoPhone] = useState('')
     const [momoNetwork, setMomoNetwork] = useState('')
@@ -376,15 +375,12 @@ function UtilitiesPageInner() {
     const parsedAmount = parseFloat(amount) || 0
     const feeAmount = service ? parseFloat((parsedAmount * (service.feeRate / 100)).toFixed(2)) : 0
     const totalPayable = parseFloat((parsedAmount + feeAmount).toFixed(2))
-    const insufficientWallet = paymentMethod === 'wallet' && walletBalance !== null && totalPayable > walletBalance
-
     const canSubmit = !!service
         && !!lookup?.accountName
         && parsedAmount >= (service?.minAmount ?? 1)
         && parsedAmount <= (service?.maxAmount ?? 2000)
         && (!service?.requiresEmail || !!email.trim())
-        && !insufficientWallet
-        && (paymentMethod === 'wallet' || !needsMomoDetails || (!!momoPhone && !!momoNetwork))
+        && (!needsMomoDetails || (!!momoPhone && !!momoNetwork))
 
     const resetForm = () => {
         setAccountNumber('')
@@ -402,33 +398,6 @@ function UtilitiesPageInner() {
         phone: phone.replace(/\s+/g, ''),
         email: email.trim(),
     })
-
-    const payFromWallet = async () => {
-        setIsSubmitting(true)
-        try {
-            const res = await fetch('/api/utilities/create', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify(requestBody()),
-            })
-            const data = await res.json()
-
-            if (!res.ok) {
-                toast.error(data.error || 'Payment could not be placed')
-                return
-            }
-
-            if (data.order?.new_balance !== undefined) setWalletBalance(data.order.new_balance)
-            setSuccessOrder(data.order)
-            resetForm()
-        } catch {
-            toast.error('An unexpected error occurred. Please try again.')
-        } finally {
-            setIsSubmitting(false)
-            setShowConfirm(false)
-        }
-    }
 
     const payFromGateway = async (opts?: { otpCode?: string; reference?: string }) => {
         setIsSubmitting(true)
@@ -475,10 +444,7 @@ function UtilitiesPageInner() {
         }
     }
 
-    const handleConfirm = () => {
-        if (paymentMethod === 'wallet') return payFromWallet()
-        return payFromGateway()
-    }
+    const handleConfirm = () => payFromGateway()
 
     const filteredOrders = useMemo(() => {
         const q = searchQuery.toLowerCase()
@@ -719,36 +685,7 @@ function UtilitiesPageInner() {
                                     </p>
                                 </div>
 
-                                {/* Payment method */}
-                                <div>
-                                    <Label className="text-sm font-semibold text-slate-700 mb-2 block">Pay with</Label>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <button
-                                            onClick={() => setPaymentMethod('wallet')}
-                                            className={cn(
-                                                'rounded-xl border-2 p-3 text-left transition',
-                                                paymentMethod === 'wallet' ? 'border-slate-900 bg-slate-50' : 'border-slate-200'
-                                            )}
-                                        >
-                                            <Wallet className="w-4 h-4 mb-1.5 text-slate-700" />
-                                            <p className="text-sm font-bold text-slate-900">Wallet</p>
-                                            <p className="text-[11px] text-slate-500">Instant, no extra charge</p>
-                                        </button>
-                                        <button
-                                            onClick={() => setPaymentMethod('direct')}
-                                            className={cn(
-                                                'rounded-xl border-2 p-3 text-left transition',
-                                                paymentMethod === 'direct' ? 'border-slate-900 bg-slate-50' : 'border-slate-200'
-                                            )}
-                                        >
-                                            <Smartphone className="w-4 h-4 mb-1.5 text-slate-700" />
-                                            <p className="text-sm font-bold text-slate-900">Mobile Money</p>
-                                            <p className="text-[11px] text-slate-500">Approve a prompt on your phone</p>
-                                        </button>
-                                    </div>
-                                </div>
-
-                                {paymentMethod === 'direct' && needsMomoDetails && (
+                                {needsMomoDetails && (
                                     <div className="grid sm:grid-cols-2 gap-3">
                                         <div>
                                             <Label className="text-sm font-semibold text-slate-700">MoMo number</Label>
@@ -792,19 +729,10 @@ function UtilitiesPageInner() {
                                             <span className="font-bold text-slate-800">Total</span>
                                             <span className="font-black text-slate-900">GHS {totalPayable.toFixed(2)}</span>
                                         </div>
-                                        {paymentMethod === 'direct' && (
-                                            <p className="text-[11px] text-slate-400 flex items-start gap-1.5 pt-1">
-                                                <Info className="w-3 h-3 mt-0.5 shrink-0" />
-                                                A gateway charge may be added at checkout, depending on the provider.
-                                            </p>
-                                        )}
-                                    </div>
-                                )}
-
-                                {insufficientWallet && (
-                                    <div className="flex items-start gap-2 text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-3">
-                                        <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-                                        <span>Not enough in your wallet. Top up, or pay by Mobile Money instead.</span>
+                                        <p className="text-[11px] text-slate-400 flex items-start gap-1.5 pt-1">
+                                            <Info className="w-3 h-3 mt-0.5 shrink-0" />
+                                            A gateway charge may be added at checkout, depending on the provider.
+                                        </p>
                                     </div>
                                 )}
 
