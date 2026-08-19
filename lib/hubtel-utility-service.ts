@@ -106,7 +106,7 @@ export const UTILITY_SERVICES = {
         accountLabel: 'Meter Number',
         // ECG meters are digits, sometimes with a leading letter (G131099826).
         accountPattern: /^[A-Za-z]?\d{6,15}$/,
-        accountHint: 'Pick the meter linked to your ECG Power App phone number.',
+        accountHint: 'Type it, or pick one of the meters on your ECG Power App number.',
         requiresPhone: true,
         requiresEmail: false,
     },

@@ -312,6 +312,18 @@ function UtilitiesPageInner() {
 
     const [lookedUpKey, setLookedUpKey] = useState<string | null>(null)
 
+    // Hubtel cannot verify an ECG meter on its own — the only question it answers is
+    // "which meters sit on this phone number" — so a typed meter is confirmed against
+    // that answer rather than by another round trip. Once the list is in hand the
+    // check is instant and costs nothing, which is why typing a meter does not spend
+    // a lookup.
+    const meterMismatch = useMemo(() => {
+        if (!service || service.kind !== 'meter-by-phone') return false
+        const typed = accountNumber.replace(/\s+/g, '')
+        if (!typed || !lookup?.meters?.length) return false
+        return !lookup.meters.some(m => m.meterNumber === typed)
+    }, [service, accountNumber, lookup])
+
     // Whether the inputs can produce an answer yet. The account patterns are open
     // ranges — a DSTV number is already "valid" at 8 digits on the way to 10 — so
     // this says "worth asking", not "definitely finished". The debounce below
@@ -378,10 +390,15 @@ function UtilitiesPageInner() {
             })
             setLookedUpKey(lookupKey)
 
-            // ECG returns the meter list; preselect the first so the form is usable
-            // in one tap for the common case of a single meter.
-            if (data.meters?.length && !accountNumber) {
-                setAccountNumber(data.meters[0].meterNumber)
+            // ECG returns the meter list. A meter the customer already typed wins —
+            // they told us which one they meant, and overwriting it with the first
+            // in the list would silently pay a different meter. Anything they typed
+            // that is NOT on the list is left alone so meterMismatch can say so.
+            if (data.meters?.length) {
+                const typed = accountNumber.replace(/\s+/g, '')
+                const match = data.meters.find((m: any) => m.meterNumber === typed)
+                if (match) setAccountNumber(match.meterNumber)
+                else if (!typed) setAccountNumber(data.meters[0].meterNumber)
             }
         } catch {
             setLookupError('Could not reach the provider. Please try again.')
@@ -433,6 +450,7 @@ function UtilitiesPageInner() {
         && parsedAmount >= (service?.minAmount ?? 1)
         && parsedAmount <= (service?.maxAmount ?? 2000)
         && (!service?.requiresEmail || !!email.trim())
+        && !meterMismatch
         && (!needsMomoDetails || (!!momoPhone && !!momoNetwork))
 
     const resetForm = () => {
@@ -614,19 +632,20 @@ function UtilitiesPageInner() {
                                     </div>
                                 )}
 
-                                {/* ECG picks its meter from the lookup; everything else types one. */}
-                                {!(service.kind === 'meter-by-phone' && lookup?.meters?.length) && (
-                                    <div>
-                                        <Label className="text-sm font-semibold text-slate-700">{service.accountLabel}</Label>
-                                        <Input
-                                            value={accountNumber}
-                                            onChange={e => setAccountNumber(e.target.value)}
-                                            placeholder={service.accountLabel}
-                                            className="mt-1.5 h-12 rounded-xl"
-                                        />
-                                        <p className="text-[11px] text-slate-400 mt-1">{service.accountHint}</p>
-                                    </div>
-                                )}
+                                <div>
+                                    <Label className="text-sm font-semibold text-slate-700">{service.accountLabel}</Label>
+                                    <Input
+                                        value={accountNumber}
+                                        onChange={e => setAccountNumber(e.target.value)}
+                                        placeholder={service.accountLabel}
+                                        className="mt-1.5 h-12 rounded-xl"
+                                    />
+                                    {meterMismatch
+                                        ? <p className="text-[11px] text-red-600 mt-1">
+                                            That meter is not linked to this phone number. Check it, or pick one from the list below.
+                                        </p>
+                                        : <p className="text-[11px] text-slate-400 mt-1">{service.accountHint}</p>}
+                                </div>
 
                                 {lookupLoading && (
                                     <div className="flex items-center gap-2 text-sm text-slate-500">
