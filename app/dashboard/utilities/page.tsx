@@ -1,6 +1,6 @@
 'use client'
 
-import React, { useState, useEffect, useCallback, useMemo, Suspense } from 'react'
+import React, { useState, useEffect, useCallback, useMemo, useRef, Suspense } from 'react'
 import {
     Tv, Zap, Droplets, CheckCircle2, Loader2, Wallet, AlertTriangle,
     Search, ArrowRight, History, Copy, RefreshCw, Info,
@@ -30,6 +30,7 @@ interface ServiceConfig {
     kind: 'tv' | 'meter-by-phone' | 'meter-with-session'
     accountLabel: string
     accountHint: string
+    accountPattern: string
     requiresPhone: boolean
     requiresEmail: boolean
     enabled: boolean
@@ -311,6 +312,24 @@ function UtilitiesPageInner() {
 
     const [lookedUpKey, setLookedUpKey] = useState<string | null>(null)
 
+    // Whether the inputs can produce an answer yet. The account patterns are open
+    // ranges — a DSTV number is already "valid" at 8 digits on the way to 10 — so
+    // this says "worth asking", not "definitely finished". The debounce below
+    // supplies the rest of that judgement.
+    const autoLookupReady = useMemo(() => {
+        if (!service) return false
+        if (service.requiresPhone && !/^0\d{9}$/.test(phone.replace(/\s+/g, ''))) return false
+        // ECG asks by phone alone; its meter is chosen from the answer.
+        if (service.kind === 'meter-by-phone') return true
+        const account = accountNumber.replace(/\s+/g, '')
+        if (!account) return false
+        try {
+            return new RegExp(service.accountPattern).test(account)
+        } catch {
+            return account.length >= 8
+        }
+    }, [service, accountNumber, phone])
+
     useEffect(() => {
         if (lookedUpKey !== null && lookedUpKey !== lookupKey) {
             setLookup(null)
@@ -369,6 +388,40 @@ function UtilitiesPageInner() {
         } finally {
             setLookupLoading(false)
         }
+    }
+
+    // The lookup gates everything below it — no name, no Pay button — so making the
+    // customer press a button for it was ceremony. It runs itself once the inputs
+    // can answer, and for ECG that is immediately, since the phone comes from their
+    // profile and the meter is picked from the result.
+    //
+    // Debounced rather than fired on validity: the account number arrives one
+    // keystroke at a time and the patterns accept a range of lengths, so verifying
+    // the moment a number becomes "valid" would query a stranger's account partway
+    // through typing, show their name, and spend a lookup doing it. A pause is what
+    // separates a finished number from a passing one.
+    //
+    // One attempt per distinct set of inputs, recorded before the request rather
+    // than after so a failure cannot loop. A wrong number stays wrong until the
+    // customer changes it or asks again — otherwise it would retry against the
+    // rate limit forever.
+    const attemptedKeyRef = useRef<string | null>(null)
+
+    useEffect(() => {
+        if (!lookupKey || !autoLookupReady) return
+        if (attemptedKeyRef.current === lookupKey) return
+
+        const timer = setTimeout(() => {
+            attemptedKeyRef.current = lookupKey
+            runLookup()
+        }, 700)
+        return () => clearTimeout(timer)
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [lookupKey, autoLookupReady])
+
+    const retryLookup = () => {
+        attemptedKeyRef.current = lookupKey
+        runLookup()
     }
 
     // ── Money ────────────────────────────────────────────────────────────────
@@ -575,21 +628,25 @@ function UtilitiesPageInner() {
                                     </div>
                                 )}
 
-                                <Button
-                                    onClick={runLookup}
-                                    disabled={lookupLoading}
-                                    variant="outline"
-                                    className="w-full h-11 rounded-xl font-bold"
-                                >
-                                    {lookupLoading
-                                        ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Checking…</>
-                                        : <><Search className="w-4 h-4 mr-2" />{lookup ? 'Check again' : 'Verify account'}</>}
-                                </Button>
+                                {lookupLoading && (
+                                    <div className="flex items-center gap-2 text-sm text-slate-500">
+                                        <Loader2 className="w-4 h-4 animate-spin" />
+                                        <span>Checking account…</span>
+                                    </div>
+                                )}
 
-                                {lookupError && (
+                                {/* A failed lookup is not retried on its own, so this
+                                    is the way back from a provider blip. */}
+                                {lookupError && !lookupLoading && (
                                     <div className="flex items-start gap-2 text-sm text-red-600 bg-red-50 border border-red-100 rounded-xl p-3">
                                         <AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />
-                                        <span>{lookupError}</span>
+                                        <span className="flex-1">{lookupError}</span>
+                                        <button
+                                            onClick={retryLookup}
+                                            className="font-bold underline underline-offset-2 shrink-0"
+                                        >
+                                            Try again
+                                        </button>
                                     </div>
                                 )}
 

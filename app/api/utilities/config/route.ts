@@ -55,6 +55,11 @@ export async function GET() {
                 kind: def.kind,
                 accountLabel: def.accountLabel,
                 accountHint: def.accountHint,
+                // Sent as a source string so the form can tell a finished account
+                // number from a half-typed one and verify without a button press.
+                // Serialised from the same regex the server validates with, so the
+                // two cannot drift apart.
+                accountPattern: def.accountPattern.source,
                 requiresPhone: def.requiresPhone,
                 requiresEmail: def.requiresEmail,
                 enabled: settings[`utility_enabled_${service}`] !== 'false',
