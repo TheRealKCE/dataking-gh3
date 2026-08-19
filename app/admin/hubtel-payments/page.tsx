@@ -1,8 +1,9 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
+import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
@@ -34,14 +35,51 @@ const FLOW_LABELS: Record<string, string> = {
     agent_upgrade: 'Agent Upgrade',
     dealer_subscription: 'Dealer Subscription',
     ussd: 'USSD',
+    // Commission Services split money IN from money OUT, and the difference matters
+    // when reading this table: 'airtime_pay'/'utility_pay' are the customer paying us,
+    // 'airtime'/'utility' are us paying the provider. Only the latter two can strand.
+    airtime_pay: 'Airtime (payment in)',
+    airtime: 'Airtime top-up (out)',
+    utility_pay: 'Bill payment (payment in)',
+    utility: 'Utility bill (out)',
     unknown: 'Other',
 }
 
 /**
- * The only two flows worth filtering on today. The label map above stays complete so a
- * wallet or storefront row still renders a readable Type under "All types".
+ * Flows worth filtering on. The outgoing Commission Services legs earn their place
+ * because they are the ones that go quiet — Hubtel accepts them with '0001' and the
+ * callback may never arrive — and they are what the checker above exists to resolve.
+ * The label map stays complete so a wallet or storefront row still renders a readable
+ * Type under "All types".
  */
-const FILTERABLE_FLOWS = ['ussd', 'results_checker'] as const
+const FILTERABLE_FLOWS = ['ussd', 'results_checker', 'utility', 'airtime'] as const
+
+interface CheckResult {
+    clientReference: string
+    hubtel: {
+        answered: boolean
+        status: string | null
+        accountUsed: 'prepaid' | 'collection' | null
+        transactionId: string | null
+        externalTransactionId: string | null
+        amount: number | null
+        charges: number | null
+        date: string | null
+        error: string | null
+        attempts: Array<{ account: string; success: boolean; status: string | null; error?: string }>
+        raw: unknown
+    }
+    linkedOrder: {
+        kind: 'utility' | 'airtime'
+        id: string
+        reference: string
+        status: string
+        amount: number
+        createdAt: string
+        description: string
+    } | null
+    suggestion: { action: string; label: string; tone: 'success' | 'danger' } | null
+}
 
 interface HubtelPaymentRecord {
     id: string
@@ -78,6 +116,83 @@ export default function HubtelPaymentsPage() {
     const [endDate, setEndDate] = useState('')
     const [currentPage, setCurrentPage] = useState(1)
 
+    // ── Status checker ───────────────────────────────────────────────────────
+    // Held in a ref so applying a fix can refresh the table without the checker
+    // callbacks having to depend on load(), which is declared below them.
+    const loadRef = useRef<(() => void) | null>(null)
+    const [checkRef, setCheckRef] = useState('')
+    const [checking, setChecking] = useState(false)
+    const [checkResult, setCheckResult] = useState<CheckResult | null>(null)
+    const [applying, setApplying] = useState(false)
+    const [showRaw, setShowRaw] = useState(false)
+
+    const runCheck = useCallback(async (reference: string) => {
+        const ref = reference.trim()
+        if (!ref) return
+        setChecking(true)
+        setShowRaw(false)
+        setCheckResult(null)
+        try {
+            const res = await fetch('/api/admin/hubtel-payments/check', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ clientReference: ref }),
+            })
+            const data = await res.json()
+            if (!res.ok) {
+                toast.error(data.error || 'Could not check that reference')
+                return
+            }
+            setCheckResult(data)
+        } catch {
+            toast.error('Network error while checking with Hubtel')
+        } finally {
+            setChecking(false)
+        }
+    }, [])
+
+    /**
+     * Applies Hubtel's answer through the EXISTING resolve endpoints, which own the
+     * refund and completion logic and the customer notification. Nothing about the
+     * money is re-implemented here.
+     */
+    const applySuggestion = useCallback(async () => {
+        if (!checkResult?.linkedOrder || !checkResult.suggestion) return
+        const { linkedOrder, suggestion, hubtel } = checkResult
+        const note = `Hubtel status check (${hubtel.accountUsed} account): ${hubtel.status}`
+            + (hubtel.transactionId ? ` · txn ${hubtel.transactionId}` : '')
+
+        setApplying(true)
+        try {
+            const res = linkedOrder.kind === 'utility'
+                ? await fetch('/api/admin/utilities/orders', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ orderId: linkedOrder.id, action: suggestion.action, note }),
+                })
+                : await fetch('/api/admin/airtime/orders', {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ orderId: linkedOrder.id, status: suggestion.action, fulfillmentNote: note }),
+                })
+
+            const data = await res.json()
+            if (!res.ok) {
+                toast.error(data.error || 'Could not update the order')
+                return
+            }
+            toast.success('Order updated')
+            // Re-check so the panel shows the order's new status rather than the one
+            // that prompted the fix, and refresh the table underneath it.
+            await runCheck(checkResult.clientReference)
+            loadRef.current?.()
+        } catch {
+            toast.error('Network error while updating the order')
+        } finally {
+            setApplying(false)
+        }
+    }, [checkResult, runCheck])
+
     const load = useCallback(async () => {
         setLoading(true)
         try {
@@ -105,6 +220,8 @@ export default function HubtelPaymentsPage() {
             setLoading(false)
         }
     }, [currentPage, search, status, flow, startDate, endDate])
+
+    loadRef.current = load
 
     useEffect(() => {
         const t = setTimeout(load, 300)
@@ -179,10 +296,118 @@ export default function HubtelPaymentsPage() {
             <div>
                 <h1 className="text-2xl font-bold">Hubtel Payments</h1>
                 <p className="text-sm text-muted-foreground mt-1">
-                    Every Hubtel payment attempt across USSD and results checker — including the
-                    ones that failed.
+                    Every Hubtel payment attempt — wallet, storefront, data, results checker,
+                    USSD, airtime and utility bills — including the ones that failed.
                 </p>
             </div>
+
+            <Card>
+                <CardHeader className="space-y-1 pb-3">
+                    <CardTitle className="text-base">Check a transaction</CardTitle>
+                    <p className="text-sm text-muted-foreground">
+                        Ask Hubtel what became of one reference. Airtime top-ups and utility
+                        bills go out on the prepaid account and have no callback guarantee, so
+                        this is how an order that went quiet gets an answer instead of a guess.
+                    </p>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                    <div className="flex flex-col sm:flex-row gap-2">
+                        <Input
+                            value={checkRef}
+                            onChange={(e) => setCheckRef(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === 'Enter') runCheck(checkRef) }}
+                            placeholder="UTLB-…, AIR-…, UTIL-… or any Hubtel reference"
+                            className="font-mono text-xs"
+                        />
+                        <Button onClick={() => runCheck(checkRef)} disabled={checking || !checkRef.trim()}>
+                            {checking ? 'Checking…' : 'Check'}
+                        </Button>
+                    </div>
+
+                    {checkResult && (
+                        <div className="rounded-lg border p-4 space-y-3">
+                            <div className="flex flex-wrap items-center gap-2">
+                                <span className="font-mono text-xs">{checkResult.clientReference}</span>
+                                {checkResult.hubtel.answered ? (
+                                    <>
+                                        <Badge className="bg-green-600 hover:bg-green-600 text-white">
+                                            Hubtel says: {checkResult.hubtel.status}
+                                        </Badge>
+                                        <span className="text-xs text-muted-foreground">
+                                            via the {checkResult.hubtel.accountUsed} account
+                                        </span>
+                                    </>
+                                ) : (
+                                    <Badge variant="secondary">Hubtel would not say</Badge>
+                                )}
+                            </div>
+
+                            {checkResult.hubtel.answered ? (
+                                <div className="grid gap-x-6 gap-y-1 text-sm sm:grid-cols-2">
+                                    <div><span className="text-muted-foreground">Txn ID: </span><span className="font-mono text-xs">{checkResult.hubtel.transactionId || '—'}</span></div>
+                                    <div><span className="text-muted-foreground">Amount: </span>{fmtAmount(checkResult.hubtel.amount)}</div>
+                                    <div><span className="text-muted-foreground">Charges: </span>{fmtAmount(checkResult.hubtel.charges)}</div>
+                                    <div><span className="text-muted-foreground">Date: </span>{checkResult.hubtel.date ? fmtDate(checkResult.hubtel.date) : '—'}</div>
+                                </div>
+                            ) : (
+                                <p className="text-sm text-muted-foreground">
+                                    Neither account recognised this reference, so nothing here is proof
+                                    either way. Resolve it from the Hubtel portal rather than assuming
+                                    it failed — {checkResult.hubtel.error}
+                                </p>
+                            )}
+
+                            {checkResult.linkedOrder ? (
+                                <div className="rounded-md bg-muted/50 p-3 space-y-2">
+                                    <p className="text-sm">
+                                        <span className="text-muted-foreground">Linked order: </span>
+                                        {checkResult.linkedOrder.description}
+                                    </p>
+                                    <p className="text-sm">
+                                        <span className="text-muted-foreground">Current status: </span>
+                                        <span className="font-medium">{checkResult.linkedOrder.status}</span>
+                                        <span className="text-muted-foreground"> · {checkResult.linkedOrder.reference}</span>
+                                    </p>
+
+                                    {checkResult.suggestion ? (
+                                        <Button
+                                            size="sm"
+                                            variant={checkResult.suggestion.tone === 'danger' ? 'destructive' : 'default'}
+                                            onClick={applySuggestion}
+                                            disabled={applying}
+                                        >
+                                            {applying ? 'Applying…' : checkResult.suggestion.label}
+                                        </Button>
+                                    ) : (
+                                        <p className="text-xs text-muted-foreground">
+                                            No action suggested — the answer is not definite enough to
+                                            move money on. Resolve it by hand if you are sure.
+                                        </p>
+                                    )}
+                                </div>
+                            ) : (
+                                <p className="text-sm text-muted-foreground">
+                                    No airtime or utility order is linked to this reference — it is a
+                                    collection payment, or predates the fulfilment tables.
+                                </p>
+                            )}
+
+                            <button
+                                type="button"
+                                className="text-xs text-muted-foreground underline underline-offset-2"
+                                onClick={() => setShowRaw((v) => !v)}
+                            >
+                                {showRaw ? 'Hide' : 'Show'} raw response
+                            </button>
+                            {showRaw && (
+                                <pre className="overflow-x-auto rounded bg-muted p-3 text-[11px]">
+                                    {JSON.stringify({ attempts: checkResult.hubtel.attempts, raw: checkResult.hubtel.raw }, null, 2)}
+                                </pre>
+                            )}
+                        </div>
+                    )}
+                </CardContent>
+            </Card>
 
             <Card>
                 <CardHeader className="space-y-3">
@@ -253,7 +478,8 @@ export default function HubtelPaymentsPage() {
                                         <th className="py-2 pr-4 font-medium">Amount</th>
                                         <th className="py-2 pr-4 font-medium">Status</th>
                                         <th className="py-2 pr-4 font-medium">Hubtel Txn ID</th>
-                                        <th className="py-2 font-medium">Details</th>
+                                        <th className="py-2 pr-4 font-medium">Details</th>
+                                        <th className="py-2 font-medium sr-only">Check</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -269,10 +495,24 @@ export default function HubtelPaymentsPage() {
                                             <td className="py-2 pr-4">{statusBadge(r.status)}</td>
                                             <td className="py-2 pr-4 font-mono text-xs">{r.transaction_id || '—'}</td>
                                             <td
-                                                className="py-2 max-w-[22rem] truncate text-muted-foreground"
+                                                className="py-2 pr-4 max-w-[22rem] truncate text-muted-foreground"
                                                 title={r.message || ''}
                                             >
                                                 {r.message || '—'}
+                                            </td>
+                                            <td className="py-2 whitespace-nowrap">
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    disabled={checking}
+                                                    onClick={() => {
+                                                        setCheckRef(r.client_reference)
+                                                        runCheck(r.client_reference)
+                                                        window.scrollTo({ top: 0, behavior: 'smooth' })
+                                                    }}
+                                                >
+                                                    Check
+                                                </Button>
                                             </td>
                                         </tr>
                                     ))}
