@@ -33,6 +33,10 @@ export function flowFromReference(reference: string): string {
     // only in that neither prefix may shadow the other — they deliberately differ.
     if (ref.startsWith('ATP-')) return 'airtime_pay'
     if (ref.startsWith('AIR-')) return 'airtime'
+    // Utilities split the same way: 'UTIL-' is money coming IN for a bill payment,
+    // 'UTLB-' is the Commission Services bill payment going OUT.
+    if (ref.startsWith('UTIL-')) return 'utility_pay'
+    if (ref.startsWith('UTLB-')) return 'utility'
     if (ref.startsWith('agent_upgrade_')) return 'agent_upgrade'
     if (ref.startsWith('dealer_sub_')) return 'dealer_subscription'
     if (ref.startsWith('WAL-')) return 'wallet'
@@ -51,6 +55,8 @@ export const HUBTEL_LOG_FLOWS = [
     'ussd',
     'airtime',
     'airtime_pay',
+    'utility',
+    'utility_pay',
     'unknown',
 ] as const
 

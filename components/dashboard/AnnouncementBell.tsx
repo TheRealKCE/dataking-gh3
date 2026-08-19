@@ -1,9 +1,19 @@
 'use client'
 
 import React, { useState, useEffect, useRef } from 'react'
-import { Bell, Info, Megaphone, CheckCircle2 } from 'lucide-react'
+import { AlertTriangle, Bell, Info, Megaphone, CheckCircle2, Sparkles, Store } from 'lucide-react'
 import { cn, formatDate } from '@/lib/utils'
 import { supabase } from '@/lib/supabase'
+import { getTone, type AnnouncementTone } from '@/lib/announcement-tones'
+
+// Same icon-per-tone mapping the modal uses, so an announcement is recognisable
+// by the same mark whether it arrives as a modal or as a row in this list.
+const TONE_ICONS: Record<AnnouncementTone, React.ComponentType<{ className?: string }>> = {
+    official: Megaphone,
+    shop: Store,
+    success: Sparkles,
+    alert: AlertTriangle,
+}
 
 // Types
 interface Announcement {
@@ -11,6 +21,8 @@ interface Announcement {
     title: string
     message: string
     created_at: string
+    tone: AnnouncementTone | null
+    badge_label: string | null
 }
 
 const STORAGE_KEY = 'ARHMS_last_viewed_announcements'
@@ -32,7 +44,7 @@ export function AnnouncementBell({ inline = false }: AnnouncementBellProps) {
         try {
             const { data, error } = await supabase
                 .from('system_announcements')
-                .select('id, title, message, created_at')
+                .select('id, title, message, created_at, tone, badge_label')
                 .eq('is_active', true)
                 .in('visible_on', ['main_site', 'both'])
                 .order('created_at', { ascending: false })
@@ -186,24 +198,63 @@ export function AnnouncementBell({ inline = false }: AnnouncementBellProps) {
                     {announcements.length > 0 ? (
                         announcements.map((announcement) => {
                             const isNew = !lastViewed || new Date(announcement.created_at) > new Date(lastViewed);
+                            // Colour comes from the announcement's own tone, the same
+                            // source the modal reads, so a red service alert reads as
+                            // red here too instead of the old blanket amber.
+                            const t = getTone(announcement.tone)
+                            const ToneIcon = TONE_ICONS[announcement.tone ?? 'official'] ?? Megaphone
                             return (
                                 <div
                                     key={announcement.id}
                                     className={cn(
-                                        "p-5 rounded-3xl transition-all duration-300 relative group border overflow-hidden",
+                                        "pl-5 pr-5 py-5 rounded-3xl transition-all duration-300 relative group border overflow-hidden",
                                         isNew
-                                            ? "bg-amber-50 dark:bg-amber-900/40 border-amber-200 dark:border-amber-800/60 shadow-sm"
-                                            : "bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800"
+                                            ? cn(t.panel, "border-transparent shadow-sm")
+                                            : "bg-gray-50 dark:bg-gray-900 border-gray-200 dark:border-gray-800",
+                                        // Read items drop to greyscale so the unread
+                                        // ones still stand out in a long list.
+                                        !isNew && "opacity-80"
                                     )}
                                 >
+                                    {/* Tone spine — the modal's left rule, carried over */}
+                                    <span
+                                        aria-hidden
+                                        className={cn(
+                                            "absolute left-0 inset-y-3 w-1 rounded-full",
+                                            isNew ? t.spine : "bg-gray-300 dark:bg-gray-700"
+                                        )}
+                                    />
+
                                     <div className="flex flex-col gap-2 mb-3">
                                         <div className="flex items-start justify-between gap-3">
-                                            <h3 className={cn(
-                                                "text-[14px] font-extrabold leading-tight break-words",
-                                                isNew ? "text-gray-900 dark:text-gray-100" : "text-gray-600 dark:text-gray-400"
-                                            )}>
-                                                {announcement.title}
-                                            </h3>
+                                            <div className="flex items-start gap-2.5 min-w-0">
+                                                <span className={cn(
+                                                    "w-7 h-7 rounded-xl flex items-center justify-center shrink-0 mt-0.5",
+                                                    isNew ? t.tile : "bg-gray-200 dark:bg-gray-800"
+                                                )}>
+                                                    <ToneIcon className={cn(
+                                                        "w-3.5 h-3.5",
+                                                        isNew ? "text-white" : "text-gray-500 dark:text-gray-400"
+                                                    )} />
+                                                </span>
+                                                <div className="min-w-0">
+                                                    <h3 className={cn(
+                                                        "text-[14px] font-extrabold leading-tight break-words",
+                                                        isNew ? "text-gray-900 dark:text-gray-100" : "text-gray-600 dark:text-gray-400"
+                                                    )}>
+                                                        {announcement.title}
+                                                    </h3>
+                                                    {isNew && (
+                                                        <span className={cn(
+                                                            "mt-1.5 inline-flex items-center gap-1.5 text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full",
+                                                            t.badge
+                                                        )}>
+                                                            <span className={cn("w-1 h-1 rounded-full", t.dot)} />
+                                                            {announcement.badge_label || t.label}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
                                             <span className="text-[10px] bg-gray-100 dark:bg-gray-800 px-2 py-0.5 rounded-full font-bold whitespace-nowrap shrink-0">
                                                 {formatDate(announcement.created_at)}
                                             </span>

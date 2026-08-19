@@ -120,6 +120,22 @@ function getCollectionAccount(): string {
 }
 
 /**
+ * The disbursement account Commission Services runs on — a DIFFERENT number from the
+ * collection account above.
+ *
+ * Deliberately duplicated from lib/hubtel-airtime-service.ts and
+ * lib/hubtel-utility-service.ts rather than imported: both of those import FROM this
+ * module, so reaching back into either would make the cycle real.
+ */
+function getPrepaidAccount(): string {
+    const account = process.env.HUBTEL_PREPAID_ACCOUNT_NUMBER
+    if (!account) {
+        throw new Error('[HubtelPayment] HUBTEL_PREPAID_ACCOUNT_NUMBER is not configured.')
+    }
+    return account
+}
+
+/**
  * Normalizes a Ghanaian phone number to Hubtel's required international format:
  * a bare "233XXXXXXXXX" (12 digits, NO leading "+"), per the Direct Receive Money spec
  * (e.g. "233249111411"). Accepts local "0XXXXXXXXX" and "+233XXXXXXXXX" inputs.
@@ -373,18 +389,22 @@ export async function initiatePayment(params: HubtelInitiateParams): Promise<Hub
 // ─── Status Check ─────────────────────────────────────────────────────────────
 
 /**
- * Checks the final status of a Hubtel transaction.
- * Should only be called if a callback was not received within 5 minutes.
- * Returns status: 'Paid' | 'Unpaid' | 'Refunded' | null
+ * One status lookup, against ONE Hubtel account.
+ *
+ * The account is a parameter because the same endpoint is the only lead we have on
+ * Commission Services transactions, which live on the prepaid account rather than
+ * the collection one. See checkCommissionStatus below.
  */
-export async function checkPaymentStatus(clientReference: string): Promise<HubtelStatusResult> {
+async function statusForAccount(
+    account: string,
+    authHeader: string,
+    clientReference: string,
+    label: string
+): Promise<HubtelStatusResult> {
     try {
-        const account = getCollectionAccount()
-        const authHeader = getHubtelAuthHeader()
-
         const url = `${HUBTEL_STATUS_BASE_URL}/${account}/status?clientReference=${encodeURIComponent(clientReference)}`
 
-        console.log('[HubtelPayment] Checking payment status for ref:', clientReference)
+        console.log(`[HubtelPayment] Checking ${label} status for ref:`, clientReference)
 
         const response = await fetch(url, {
             method: 'GET',
@@ -435,6 +455,109 @@ export async function checkPaymentStatus(clientReference: string): Promise<Hubte
         }
     } catch (err: any) {
         return { success: false, status: null, error: describeHubtelNetworkFailure(err, 'checkPaymentStatus') }
+    }
+}
+
+/**
+ * Checks the final status of a Hubtel COLLECTION transaction — money coming in.
+ * Should only be called if a callback was not received within 5 minutes.
+ * Returns status: 'Paid' | 'Unpaid' | 'Refunded' | null
+ */
+export async function checkPaymentStatus(clientReference: string): Promise<HubtelStatusResult> {
+    try {
+        return await statusForAccount(
+            getCollectionAccount(),
+            getHubtelAuthHeader(),
+            clientReference,
+            'collection'
+        )
+    } catch (err: any) {
+        // getCollectionAccount / getHubtelAuthHeader throw when unconfigured.
+        return { success: false, status: null, error: describeHubtelNetworkFailure(err, 'checkPaymentStatus') }
+    }
+}
+
+export type HubtelStatusAccount = 'prepaid' | 'collection'
+
+export interface HubtelCommissionStatusResult extends HubtelStatusResult {
+    /** Which account actually answered, or null when neither did. */
+    accountUsed: HubtelStatusAccount | null
+    /** Every attempt, so an admin can see exactly what Hubtel said and to whom. */
+    attempts: Array<{ account: HubtelStatusAccount; success: boolean; status: string | null; error?: string }>
+}
+
+/**
+ * Asks Hubtel what became of a transaction, trying the prepaid account first.
+ *
+ * Commission Services — airtime top-ups (AIR-) and utility bill payments (UTLB-) —
+ * publish no status endpoint of their own, so when a callback never arrives the
+ * order strands and an admin has to resolve it from the Hubtel portal by hand. The
+ * transaction-status API is the only lead available, and this repo has always
+ * pointed it at the COLLECTION account, which is why the sweeps in
+ * /api/cron/sync-hubtel-{airtime,utility} say no status check exists and settle for
+ * flagging a human.
+ *
+ * Whether that endpoint answers for the PREPAID account has never actually been
+ * tried. So try it, then fall back to collection, and report which one replied —
+ * the caller must be able to tell "Hubtel says it failed" from "Hubtel would not
+ * say", because on an irreversible bill payment those are not the same answer and
+ * guessing between them either refunds a paid bill or closes an unpaid one.
+ */
+export async function checkCommissionStatus(clientReference: string): Promise<HubtelCommissionStatusResult> {
+    const attempts: HubtelCommissionStatusResult['attempts'] = []
+
+    const targets: Array<{ account: HubtelStatusAccount; resolve: () => { account: string; auth: string } }> = [
+        {
+            account: 'prepaid',
+            resolve: () => ({
+                account: getPrepaidAccount(),
+                // Commission Services is one product; utilities and airtime share the
+                // airtime key, falling back to the main one. Same resolution as
+                // getUtilityAuthHeader() in lib/hubtel-utility-service.ts.
+                auth: buildHubtelBasicAuth(
+                    process.env.HUBTEL_AIRTIME_CLIENT_ID || process.env.HUBTEL_CLIENT_ID,
+                    process.env.HUBTEL_AIRTIME_CLIENT_SECRET || process.env.HUBTEL_CLIENT_SECRET,
+                    'HUBTEL_AIRTIME_CLIENT_ID/SECRET (or HUBTEL_CLIENT_ID/SECRET)',
+                    'HubtelPayment'
+                ),
+            }),
+        },
+        {
+            account: 'collection',
+            resolve: () => ({ account: getCollectionAccount(), auth: getHubtelAuthHeader() }),
+        },
+    ]
+
+    for (const target of targets) {
+        let resolved: { account: string; auth: string }
+        try {
+            resolved = target.resolve()
+        } catch (err: any) {
+            // Unconfigured env var — record it and try the other account rather than
+            // failing the whole lookup.
+            attempts.push({ account: target.account, success: false, status: null, error: String(err?.message || err) })
+            continue
+        }
+
+        const result = await statusForAccount(resolved.account, resolved.auth, clientReference, target.account)
+        attempts.push({
+            account: target.account,
+            success: result.success,
+            status: result.status,
+            error: result.error,
+        })
+
+        if (result.success) {
+            return { ...result, accountUsed: target.account, attempts }
+        }
+    }
+
+    return {
+        success: false,
+        status: null,
+        error: attempts.map(a => `${a.account}: ${a.error || 'no answer'}`).join(' · ') || 'No account could be queried',
+        accountUsed: null,
+        attempts,
     }
 }
 

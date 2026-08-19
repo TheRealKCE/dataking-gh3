@@ -230,29 +230,36 @@ export default async function ShopPage({ params }: Props) {
 
     const { data: adminAnnouncement } = await (supabaseAdmin as any)
         .from('system_announcements')
-        .select('title, message')
+        .select('title, message, tone, badge_label')
         .eq('is_active', true)
         .in('visible_on', ['storefronts', 'both'])
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle()
 
+    // `tone` now carries the colour instead of it being inferred from `type`, so
+    // an admin can post a red service alert and a shop owner a green one. `type`
+    // stays because it still decides the default tone and the modal's fallback.
     let initialAnnouncement: {
         type: 'admin' | 'shop'
         title?: string
         message: string
+        tone?: string
+        badgeLabel?: string
     } | null = adminAnnouncement
         ? {
             type: 'admin' as const,
             title: (adminAnnouncement as any).title,
             message: (adminAnnouncement as any).message,
+            tone: (adminAnnouncement as any).tone || 'official',
+            badgeLabel: (adminAnnouncement as any).badge_label || undefined,
         }
         : null
 
     if (!initialAnnouncement) {
         const { data: shopAnnouncement } = await (supabaseAdmin as any)
             .from('shop_announcements')
-            .select('message')
+            .select('title, message, tone')
             .eq('shop_id', shop.id)
             .eq('is_active', true)
             .order('created_at', { ascending: false })
@@ -262,7 +269,9 @@ export default async function ShopPage({ params }: Props) {
         if (shopAnnouncement) {
             initialAnnouncement = {
                 type: 'shop' as const,
+                title: (shopAnnouncement as any).title || undefined,
                 message: (shopAnnouncement as any).message,
+                tone: (shopAnnouncement as any).tone || 'shop',
             }
         }
     }

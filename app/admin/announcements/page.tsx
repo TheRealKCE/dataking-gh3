@@ -22,6 +22,14 @@ import { toast } from 'sonner'
 import { formatDate } from '@/lib/utils'
 import { SystemAnnouncement } from '@/types/supabase'
 import { revalidatePublicConfig } from './actions'
+import { cn } from '@/lib/utils'
+import { getTone, ANNOUNCEMENT_TONES, type AnnouncementTone } from '@/lib/announcement-tones'
+
+/** Every tone is offered here — the platform's own voice may use any of them. */
+const TONE_OPTIONS = (Object.keys(ANNOUNCEMENT_TONES) as AnnouncementTone[]).map(value => ({
+    value,
+    label: ANNOUNCEMENT_TONES[value].label,
+}))
 
 export default function AdminAnnouncementsPage() {
     const [announcements, setAnnouncements] = useState<SystemAnnouncement[]>([])
@@ -29,6 +37,8 @@ export default function AdminAnnouncementsPage() {
     const [title, setTitle] = useState('')
     const [message, setMessage] = useState('')
     const [visibleOn, setVisibleOn] = useState<'main_site' | 'storefronts' | 'both'>('main_site')
+    const [tone, setTone] = useState<AnnouncementTone>('official')
+    const [badgeLabel, setBadgeLabel] = useState('')
     const [isSubmitting, setIsSubmitting] = useState(false)
 
     // Edit state
@@ -75,6 +85,8 @@ export default function AdminAnnouncementsPage() {
                     title,
                     message,
                     visible_on: visibleOn,
+                    tone,
+                    badge_label: badgeLabel.trim() || null,
                     is_active: true
                 })
                 .select()
@@ -99,6 +111,8 @@ export default function AdminAnnouncementsPage() {
             setAnnouncements([data, ...announcements])
             setTitle('')
             setMessage('')
+            setTone('official')
+            setBadgeLabel('')
             toast.success('Announcement posted successfully')
         } catch (error: any) {
             console.error('Error creating announcement:', error)
@@ -301,6 +315,46 @@ export default function AdminAnnouncementsPage() {
                                         Both
                                     </Button>
                                 </div>
+                            </div>
+                            <div className="space-y-1.5 sm:space-y-2">
+                                <Label className="text-sm text-gray-700 dark:text-gray-300">Tone</Label>
+                                <div className="grid grid-cols-4 gap-2">
+                                    {TONE_OPTIONS.map(({ value }) => {
+                                        const ot = getTone(value)
+                                        const active = tone === value
+                                        return (
+                                            <button
+                                                key={value}
+                                                type="button"
+                                                onClick={() => setTone(value)}
+                                                title={ot.label}
+                                                className={cn(
+                                                    'h-8 rounded-md border-2 transition-all active:scale-95 flex items-center justify-center',
+                                                    active ? 'border-gray-900 dark:border-white' : 'border-transparent'
+                                                )}
+                                            >
+                                                {/* The tone's own gradient is the swatch — no
+                                                    second colour list to keep in sync. */}
+                                                <span className={cn('w-full h-full rounded-[3px]', ot.bar)} />
+                                            </button>
+                                        )
+                                    })}
+                                </div>
+                                <p className="text-[11px] text-muted-foreground">
+                                    {getTone(tone).label} — sets the colour of the popup, badge and button.
+                                </p>
+                            </div>
+                            <div className="space-y-1.5 sm:space-y-2">
+                                <Label htmlFor="badgeLabel" className="text-sm text-gray-700 dark:text-gray-300">
+                                    Badge text <span className="text-muted-foreground font-normal">(optional)</span>
+                                </Label>
+                                <Input
+                                    id="badgeLabel"
+                                    placeholder={getTone(tone).label}
+                                    value={badgeLabel}
+                                    onChange={(e) => setBadgeLabel(e.target.value)}
+                                    className="text-sm"
+                                />
                             </div>
                             <Button type="submit" className="w-full text-sm" disabled={isSubmitting}>
                                 {isSubmitting ? (

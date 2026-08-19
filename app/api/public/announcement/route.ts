@@ -24,7 +24,7 @@ export async function GET() {
 
         const { data, error } = await supabase
             .from('system_announcements')
-            .select('id, title, message, visible_on')
+            .select('id, title, message, visible_on, tone, badge_label')
             .eq('is_active', true)
             .in('visible_on', ['main_site', 'both'])
             .order('created_at', { ascending: false })

@@ -21,6 +21,7 @@ import {
     Store,
     Phone,
     Zap,
+    Receipt,
     Gift,
 } from 'lucide-react'
 import { RoleGreetingBox } from '@/components/dashboard/RoleGreetingBox'
@@ -372,6 +373,7 @@ export default function DashboardPage() {
                         <CardContent className="space-y-2">
                             {[
                                 { href: '/dashboard/airtime', label: 'Buy Airtime', icon: Phone },
+                                { href: '/dashboard/utilities', label: 'Pay Bills', icon: Receipt },
                                 { href: '/dashboard/data-packages', label: 'Buy Data Bundles', icon: Package },
                                 { href: '/dashboard/wallet', label: 'Wallet History', icon: Wallet },
                                 { href: '/dashboard/refer', label: 'Refer & Earn', icon: Gift },

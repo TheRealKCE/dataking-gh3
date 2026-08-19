@@ -35,6 +35,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { MtnRegistrationDialog } from '@/components/dashboard/mtn-registration-dialog'
 import { AnnouncementModal } from '@/components/announcements/announcement-modal'
+import type { AnnouncementTone } from '@/lib/announcement-tones'
 
 const ShopPwaInstallPrompt = dynamic(() => import('@/components/ShopPwaInstallPrompt'), { ssr: false })
 
@@ -114,6 +115,10 @@ interface StorefrontAnnouncement {
     type: 'admin' | 'shop'
     message: string
     title?: string
+    /** Author's chosen colour. Absent on rows written before tones existed. */
+    tone?: string
+    /** Overrides the tone's default badge copy. */
+    badgeLabel?: string
 }
 
 // Order, logo marks and MoMo-prefix detection now come from lib/networks.tsx,
@@ -136,6 +141,13 @@ const networkColors: Record<string, { bgClass: string; textClass: string; border
 }
 
 const QUICK_AMOUNTS = [1, 2, 5, 10, 20, 50, 100]
+
+// ─── Checkout field styling ───────────────────────────────────────────────────
+// Lifted out of the data checkout sheet so the AFA registration form renders in
+// the same clothes. Kept as constants rather than copied strings: the two flows
+// drifted apart once already, and a customer meets both under one shop.
+const SHEET_FIELD_CLASS = 'w-full px-4 py-3.5 rounded-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-base font-semibold outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-[var(--brand-color)] focus:border-transparent transition-colors'
+const SHEET_LABEL_CLASS = 'text-sm font-black text-gray-900 dark:text-gray-100'
 
 const getNetworkCardStyle = (net: string) => {
     switch (net) {
@@ -1740,47 +1752,57 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 )}
 
                 {/* ── AFA Registration Tab Content ── */}
+                {/* Dressed as the data checkout sheet below: a coloured banner naming what
+                    is being bought and its price, black label + grey hint over full-width
+                    fields, and one large action pinned above the fold. To a customer this
+                    is the same purchase as a bundle, so it must not look like a different
+                    app — the old micro-caps labels and squeezed fee card did. */}
                 {isShopAfaEnabled && activeTab === 'afa' && (
-                    <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-4">
-                        <div className="p-4 rounded-2xl bg-sky-50 dark:bg-sky-950/20 border border-sky-100 dark:border-sky-900">
-                            <div className="flex items-start gap-3">
-                                <BadgeCheck className="w-5 h-5 text-sky-600 shrink-0 mt-0.5" />
-                                <div>
-                                    <p className="font-bold text-sm text-sky-900 dark:text-sky-300">AFA Membership Registration</p>
-                                    <p className="text-xs text-sky-700/80 dark:text-sky-400/80 mt-1">
-                                        Fill in the applicant&apos;s details exactly as they appear on their ID.
-                                        Registration is processed manually — you will be contacted once it is complete.
-                                    </p>
+                    <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-5">
+                        <div className="rounded-2xl px-4 py-4 flex items-center justify-between gap-3 bg-[var(--brand-color)] text-white">
+                            <div className="flex items-center gap-3 min-w-0">
+                                <div className="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center shrink-0">
+                                    <BadgeCheck className="w-6 h-6" />
                                 </div>
+                                <p className="text-lg font-black tracking-tight truncate">AFA Membership</p>
                             </div>
+                            <p className="text-lg font-black tracking-tight shrink-0">{formatCurrency(afaConfig!.selling_price)}</p>
                         </div>
 
-                        <div className="space-y-3 bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 p-4">
-                            <div>
-                                <Label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 block mb-1.5">Full Name</Label>
-                                <Input
+                        <p className="text-[13px] font-semibold text-gray-500 dark:text-gray-400 leading-snug">
+                            Enter the applicant&apos;s details exactly as they appear on their ID.
+                            Registration is processed manually — you will be contacted once it is complete.
+                        </p>
+
+                        <div className="space-y-5">
+                            <div className="space-y-2">
+                                <Label className={SHEET_LABEL_CLASS}>
+                                    Full name <span className="font-semibold text-gray-400">(as shown on the ID)</span>
+                                </Label>
+                                <input
                                     value={afaForm.full_name}
                                     onChange={(e) => setAfaForm(prev => ({ ...prev, full_name: e.target.value }))}
-                                    placeholder="As shown on the ID"
-                                    className="rounded-xl"
+                                    placeholder="Kwame Mensah"
+                                    className={SHEET_FIELD_CLASS}
                                 />
                             </div>
 
-                            <div>
-                                <Label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 block mb-1.5">Phone Number</Label>
-                                <Input
+                            <div className="space-y-2">
+                                <Label className={SHEET_LABEL_CLASS}>
+                                    Phone number <span className="font-semibold text-gray-400">(gets the payment prompt)</span>
+                                </Label>
+                                <input
                                     type="tel" inputMode="tel"
                                     value={afaForm.phone}
                                     onChange={(e) => setAfaForm(prev => ({ ...prev, phone: e.target.value }))}
                                     placeholder="0244123456"
-                                    className="rounded-xl"
+                                    className={SHEET_FIELD_CLASS}
                                 />
-                                <p className="text-[10px] text-muted-foreground mt-1 ml-1">The MoMo prompt is sent to this number.</p>
                             </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <div>
-                                    <Label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 block mb-1.5">ID Type</Label>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label className={SHEET_LABEL_CLASS}>ID type</Label>
                                     <select
                                         value={afaForm.id_type}
                                         onChange={(e) => {
@@ -1791,15 +1813,15 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                                             setAfaForm(prev => ({ ...prev, id_type: nextType, id_number: remasked }))
                                             setAfaIdError(remasked ? validateId(nextType, remasked) : null)
                                         }}
-                                        className="w-full h-10 px-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm"
+                                        className={SHEET_FIELD_CLASS}
                                     >
                                         {ID_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
                                     </select>
                                 </div>
 
-                                <div>
-                                    <Label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 block mb-1.5">ID Number</Label>
-                                    <Input
+                                <div className="space-y-2">
+                                    <Label className={SHEET_LABEL_CLASS}>ID number</Label>
+                                    <input
                                         value={afaForm.id_number}
                                         onChange={(e) => {
                                             const masked = maskIdNumber(afaForm.id_type, e.target.value)
@@ -1807,76 +1829,67 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                                             setAfaIdError(masked ? validateId(afaForm.id_type, masked) : null)
                                         }}
                                         placeholder={ID_TYPES.find(t => t.value === afaForm.id_type)?.placeholder}
-                                        className={cn('rounded-xl', afaIdError && 'border-red-500')}
+                                        className={cn(SHEET_FIELD_CLASS, afaIdError && 'border-red-500')}
                                     />
-                                    {afaIdError && <p className="text-[10px] text-red-600 mt-1 ml-1">{afaIdError}</p>}
+                                    {afaIdError && <p className="text-xs font-bold text-red-600">{afaIdError}</p>}
                                 </div>
                             </div>
 
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <div>
-                                    <Label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 block mb-1.5">Date of Birth</Label>
-                                    <Input
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div className="space-y-2">
+                                    <Label className={SHEET_LABEL_CLASS}>
+                                        Date of birth <span className="font-semibold text-gray-400">({MIN_AFA_AGE}+ only)</span>
+                                    </Label>
+                                    <input
                                         type="date"
                                         value={afaForm.date_of_birth}
                                         max={maxDobInputValue()}
                                         onChange={(e) => setAfaForm(prev => ({ ...prev, date_of_birth: e.target.value }))}
-                                        className="rounded-xl"
+                                        className={SHEET_FIELD_CLASS}
                                     />
-                                    <p className="text-[10px] text-muted-foreground mt-1 ml-1">Applicant must be {MIN_AFA_AGE} or older.</p>
                                 </div>
 
-                                <div>
-                                    <Label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 block mb-1.5">Region</Label>
+                                <div className="space-y-2">
+                                    <Label className={SHEET_LABEL_CLASS}>Region</Label>
                                     <select
                                         value={afaForm.region}
                                         onChange={(e) => setAfaForm(prev => ({ ...prev, region: e.target.value }))}
-                                        className="w-full h-10 px-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm"
+                                        className={SHEET_FIELD_CLASS}
                                     >
                                         {REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
                                     </select>
                                 </div>
                             </div>
 
-                            <div>
-                                <Label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 block mb-1.5">Town / Location</Label>
-                                <Input
+                            <div className="space-y-2">
+                                <Label className={SHEET_LABEL_CLASS}>Town / location</Label>
+                                <input
                                     value={afaForm.location}
                                     onChange={(e) => setAfaForm(prev => ({ ...prev, location: e.target.value }))}
                                     placeholder="e.g. Madina"
-                                    className="rounded-xl"
+                                    className={SHEET_FIELD_CLASS}
                                 />
                             </div>
 
-                            <div>
-                                <Label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 block mb-1.5">Email (optional)</Label>
-                                <Input
+                            <div className="space-y-2">
+                                <Label className={SHEET_LABEL_CLASS}>
+                                    Email <span className="font-semibold text-gray-400">(for receipt — optional)</span>
+                                </Label>
+                                <input
                                     type="email"
                                     value={afaEmail}
                                     onChange={(e) => setAfaEmail(e.target.value)}
                                     placeholder="you@example.com"
-                                    className="rounded-xl"
+                                    className={SHEET_FIELD_CLASS}
                                 />
                             </div>
-                        </div>
 
-                        <div className="sticky bottom-4 bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 p-4 space-y-3">
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-xs text-muted-foreground">Registration Fee</p>
-                                    <p className="font-bold text-sm">AFA Membership</p>
-                                </div>
-                                <div className="text-right">
-                                    <p className="text-xs text-muted-foreground">Total</p>
-                                    <p className="font-black text-lg text-[var(--brand-color)]">
-                                        {formatCurrency(afaConfig!.selling_price)}
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="space-y-1.5">
-                                <Label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 block">Pay via</Label>
-                                <div className="flex gap-1 p-1 rounded-xl bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 w-full">
+                            {/* Gateway picker, in the chip row the sheet uses for the paying
+                                network. The dot stays neutral until picked — these are
+                                gateways, not networks, so there is no brand colour to show. */}
+                            <div className="space-y-2">
+                                <Label className={SHEET_LABEL_CLASS}>Pay with</Label>
+                                <div className="grid grid-cols-3 gap-2">
                                     {([
                                         { id: 'moolre', label: 'Moolre' },
                                         { id: 'hubtel', label: 'Hubtel' },
@@ -1887,27 +1900,51 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                                             type="button"
                                             onClick={() => setWebPaymentProvider(id)}
                                             className={cn(
-                                                'flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all',
+                                                'flex items-center justify-center gap-2 py-3 rounded-2xl border text-sm font-bold transition-all',
                                                 webPaymentProvider === id
-                                                    ? 'bg-white shadow text-gray-900'
-                                                    : 'text-gray-500 hover:text-gray-700'
+                                                    ? 'border-gray-900 dark:border-white bg-gray-50 dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
+                                                    : 'border-gray-200 dark:border-gray-700 text-gray-600 dark:text-gray-300 hover:border-gray-300'
                                             )}
                                         >
+                                            <span className={cn(
+                                                'w-2.5 h-2.5 rounded-full shrink-0',
+                                                webPaymentProvider === id ? 'bg-[var(--brand-color)]' : 'bg-gray-300 dark:bg-gray-600'
+                                            )} />
                                             {label}
                                         </button>
                                     ))}
                                 </div>
                             </div>
+                        </div>
+
+                        {/* Cost + action, pinned like the sheet's action bar. Unlike a bundle
+                            there is no gateway fee to disclose here — afa/initialize charges
+                            the selling price and nothing more — so the line states the fee as
+                            the whole of it rather than hinting at an extra that never lands. */}
+                        <div className="sticky bottom-4 rounded-2xl border border-gray-100 dark:border-gray-800 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm shadow-e3 px-4 pt-3 pb-4 space-y-3">
+                            <dl className="space-y-1.5">
+                                <div className="flex items-center justify-between text-sm">
+                                    <dt className="font-semibold text-gray-500 dark:text-gray-400">Registration fee</dt>
+                                    <dd className="font-bold tabular text-gray-900 dark:text-gray-100">
+                                        {formatCurrency(afaConfig!.selling_price)}
+                                    </dd>
+                                </div>
+                            </dl>
 
                             <button
                                 onClick={handleBuyAfa} disabled={loading}
-                                className="w-full py-3.5 rounded-xl text-white font-bold text-base flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-70 bg-[var(--brand-color)]"
+                                className="w-full py-4 rounded-md bg-[var(--brand-color)] text-white font-black text-lg flex items-center justify-center gap-2 active:scale-[0.98] transition-transform disabled:opacity-70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-[var(--brand-color)]"
                             >
                                 {loading
-                                    ? <><Loader2 className="w-5 h-5 animate-spin" /> {pollingRef ? 'Waiting for Approval...' : 'Processing...'}</>
+                                    ? <><Loader2 className="w-5 h-5 animate-spin" /> {pollingRef ? 'Waiting for approval...' : 'Processing...'}</>
                                     : <><BadgeCheck className="w-5 h-5" /> Pay {formatCurrency(afaConfig!.selling_price)}</>}
                             </button>
-                            <p className="text-[10px] text-center text-muted-foreground">Direct MoMo Prompt</p>
+
+                            <p className="text-[12px] text-center font-semibold text-gray-400 leading-snug">
+                                {webPaymentProvider === 'paystack'
+                                    ? 'You will be taken to a secure checkout page.'
+                                    : 'Approve the prompt on your phone to complete registration.'}
+                            </p>
                         </div>
                     </div>
                 )}
@@ -2097,21 +2134,21 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
 
                                 {/* Beneficiary */}
                                 <div className="space-y-2">
-                                    <Label className="text-sm font-black text-gray-900 dark:text-gray-100">
+                                    <Label className={SHEET_LABEL_CLASS}>
                                         Beneficiary number <span className="font-semibold text-gray-400">(gets the data)</span>
                                     </Label>
                                     <input
                                         type="tel" inputMode="numeric" value={phone}
                                         onChange={(e) => setPhone(e.target.value)}
                                         placeholder="0241234567"
-                                        className="w-full px-4 py-3.5 rounded-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-base font-semibold outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-[var(--brand-color)] focus:border-transparent transition-colors"
+                                        className={SHEET_FIELD_CLASS}
                                     />
                                 </div>
 
                                 {/* Payer — typed on its own. Any number on any network may pay, so this
                                     is never locked to the beneficiary's number. */}
                                 <div className="space-y-2">
-                                    <Label className="text-sm font-black text-gray-900 dark:text-gray-100">
+                                    <Label className={SHEET_LABEL_CLASS}>
                                         Mobile Money number <span className="font-semibold text-gray-400">(to pay)</span>
                                     </Label>
                                     <input
@@ -2119,14 +2156,14 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                                         value={payPhone}
                                         onChange={(e) => setPayPhone(e.target.value)}
                                         placeholder="0241234567"
-                                        className="w-full px-4 py-3.5 rounded-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-base font-semibold outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-[var(--brand-color)] focus:border-transparent transition-colors"
+                                        className={SHEET_FIELD_CLASS}
                                     />
                                 </div>
 
 
                                 {/* Payment network */}
                                 <div className="space-y-2">
-                                    <Label className="text-sm font-black text-gray-900 dark:text-gray-100">Network</Label>
+                                    <Label className={SHEET_LABEL_CLASS}>Network</Label>
                                     <div className="grid grid-cols-3 gap-2">
                                         {payNetworks.map(({ id, label, dot }) => (
                                             <button
@@ -2149,14 +2186,14 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
 
                                 {/* Email */}
                                 <div className="space-y-2">
-                                    <Label className="text-sm font-black text-gray-900 dark:text-gray-100">
+                                    <Label className={SHEET_LABEL_CLASS}>
                                         Email <span className="font-semibold text-gray-400">(for receipt — optional)</span>
                                     </Label>
                                     <input
                                         type="email" value={email}
                                         onChange={(e) => setEmail(e.target.value)}
                                         placeholder="you@example.com"
-                                        className="w-full px-4 py-3.5 rounded-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-base font-semibold outline-none focus-visible:ring-2 focus-visible:ring-offset-1 focus-visible:ring-[var(--brand-color)] focus:border-transparent transition-colors"
+                                        className={SHEET_FIELD_CLASS}
                                     />
                                 </div>
 
@@ -2329,12 +2366,15 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 </div>
             </div>
 
-            {/* ── Announcement Modal — colours come from the badge (admin = amber, shop = blue) ── */}
+            {/* ── Announcement Modal — the author picks the tone; type is only the
+                 fallback for rows written before tones existed ── */}
             {announcement && (
                 <AnnouncementModal
                     open={showAnnouncementModal}
                     onOpenChange={setShowAnnouncementModal}
-                    tone={announcement.type === 'admin' ? 'official' : 'shop'}
+                    tone={(announcement.tone as AnnouncementTone | undefined)
+                        ?? (announcement.type === 'admin' ? 'official' : 'shop')}
+                    badgeLabel={announcement.badgeLabel}
                     title={announcement.title}
                     message={announcement.message}
                     communityLink={shop.community_link}

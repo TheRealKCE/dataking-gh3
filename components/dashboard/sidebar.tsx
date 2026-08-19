@@ -40,6 +40,7 @@ import {
     Code2,
     CreditCard,
     Loader2,
+    Receipt,
     Gift,
 } from 'lucide-react'
 import { useState, useEffect } from 'react'
@@ -57,6 +58,7 @@ const userNavItems = [
     { href: '/dashboard/results-checker', label: 'Results Checker', icon: Tag },
     { href: '/dashboard/afa-orders', label: 'AFA Registration', icon: BadgeCheck },
     { href: '/dashboard/airtime', label: 'Buy Airtime', icon: Phone },
+    { href: '/dashboard/utilities', label: 'Pay Bills', icon: Receipt },
     { href: '/dashboard/data-packages?network=Special%20MTN%20Mashup', label: 'Special MTN Mashup', icon: Zap },
     { href: '/dashboard/data-packages?network=EXPRESS%20MTN', label: 'EXPRESS MTN', icon: Zap },
     { href: '/dashboard/my-orders', label: 'Orders', icon: ShoppingCart },
@@ -77,6 +79,7 @@ const adminNavItems = [
     { href: '/admin/fulfillment', label: 'Fulfillment', icon: Activity },
     { href: '/admin/datagod', label: 'DataGod Console', icon: Activity },
     { href: '/admin/airtime', label: 'Airtime', icon: Phone },
+    { href: '/admin/utilities', label: 'Utility Bills', icon: Receipt },
     { href: '/admin/referrals', label: 'Referrals', icon: Gift },
     { href: '/admin/mashup-orders', label: 'Special MTN Mashup', icon: Zap },
     { href: '/admin/express-orders', label: 'EXPRESS MTN', icon: Zap },

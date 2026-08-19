@@ -63,6 +63,7 @@ const PUBLIC_SETTING_KEYS = [
     'page_access_shop',
     'page_access_storefront',
     'page_access_airtime',
+    'page_access_utilities',
     'storefront_airtime_enabled',
     'storefront_mashup_enabled',
     'airtime_fee_mtn_customer',

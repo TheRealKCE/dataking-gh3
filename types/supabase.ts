@@ -423,7 +423,7 @@ export interface Database {
                     shop_markup: number | null
                     cost_price: number | null
                     customer_email: string | null
-                    source: 'dashboard' | 'storefront' | null
+                    source: 'dashboard' | 'storefront' | 'sub' | null
                     payment_status: 'pending_payment' | 'completed' | 'failed' | null
                     created_at: string
                     updated_at: string
@@ -450,7 +450,7 @@ export interface Database {
                     shop_markup?: number | null
                     cost_price?: number | null
                     customer_email?: string | null
-                    source?: 'dashboard' | 'storefront' | null
+                    source?: 'dashboard' | 'storefront' | 'sub' | null
                     payment_status?: 'pending_payment' | 'completed' | 'failed' | null
                     created_at?: string
                     updated_at?: string
@@ -515,6 +515,10 @@ export interface Database {
                     message: string
                     is_active: boolean
                     visible_on: 'main_site' | 'storefronts' | 'both'
+                    /** Drives every colour in the modal. See lib/announcement-tones.ts. */
+                    tone: 'official' | 'shop' | 'success' | 'alert' | null
+                    /** Overrides the tone's default badge copy. */
+                    badge_label: string | null
                     created_at: string
                     updated_at: string
                 }
@@ -524,6 +528,8 @@ export interface Database {
                     message: string
                     is_active?: boolean
                     visible_on?: 'main_site' | 'storefronts' | 'both'
+                    tone?: 'official' | 'shop' | 'success' | 'alert' | null
+                    badge_label?: string | null
                     created_at?: string
                     updated_at?: string
                 }
@@ -532,6 +538,8 @@ export interface Database {
                     message?: string
                     is_active?: boolean
                     visible_on?: 'main_site' | 'storefronts' | 'both'
+                    tone?: 'official' | 'shop' | 'success' | 'alert' | null
+                    badge_label?: string | null
                     updated_at?: string
                 }
             }
@@ -539,19 +547,27 @@ export interface Database {
                 Row: {
                     id: string
                     shop_id: string
+                    /** Optional headline. Null on rows written before titles existed. */
+                    title: string | null
                     message: string
+                    /** Owner-chosen colour; 'official' is reserved for the platform. */
+                    tone: 'official' | 'shop' | 'success' | 'alert' | null
                     is_active: boolean
                     created_at: string
                 }
                 Insert: {
                     id?: string
                     shop_id: string
+                    title?: string | null
                     message: string
+                    tone?: 'official' | 'shop' | 'success' | 'alert' | null
                     is_active?: boolean
                     created_at?: string
                 }
                 Update: {
+                    title?: string | null
                     message?: string
+                    tone?: 'official' | 'shop' | 'success' | 'alert' | null
                     is_active?: boolean
                 }
             }

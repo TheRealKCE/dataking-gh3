@@ -109,6 +109,15 @@ export async function GET(request: NextRequest) {
                         } else {
                             console.error(`[CronPayswitch] Data order ${payment.reference} failed:`, dataResult.error)
                         }
+                    } else if (payment.reference.startsWith('UTIL-')) {
+                        const { processUtilityDirectOrder } = await import('@/lib/utility-order-payments')
+                        const utilResult = await processUtilityDirectOrder(payment.reference)
+                        if (utilResult.success || utilResult.alreadyProcessed) {
+                            results.walletCredited++
+                            console.log(`[CronPayswitch] Utility bill ${payment.reference} settled`)
+                        } else {
+                            console.error(`[CronPayswitch] Utility bill ${payment.reference} failed:`, utilResult.error)
+                        }
                     } else if (payment.reference.startsWith('BOOST-')) {
                         const { processBoostPayment } = await import('@/lib/classifieds-payments')
                         const boostResult = await processBoostPayment(payment.reference)
