@@ -44,14 +44,24 @@ export async function POST(request: NextRequest) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
         }
 
-        if (lookupRateLimit) {
-            const { success } = await lookupRateLimit.limit(authUser.id)
-            if (!success) {
-                return NextResponse.json(
-                    { error: 'Too many lookups. Please wait a moment and try again.' },
-                    { status: 429 }
-                )
+        // Fail open, the same way /api/orders/purchase and the broadcast routes do.
+        // Upstash's quota runs out long before Hubtel's does, and when it did, this
+        // was the only route that turned that into a 500: every other caller catches
+        // here, so a lookup that costs us nothing must not be the one thing that
+        // breaks. A throw from .limit() means the limiter is unavailable, not that
+        // the user is over their limit.
+        try {
+            if (lookupRateLimit) {
+                const { success } = await lookupRateLimit.limit(authUser.id)
+                if (!success) {
+                    return NextResponse.json(
+                        { error: 'Too many lookups. Please wait a moment and try again.' },
+                        { status: 429 }
+                    )
+                }
             }
+        } catch (rlErr) {
+            console.error('[UtilityQuery] Rate limit check failed (Redis exhausted?), proceeding:', rlErr)
         }
 
         let body: any
