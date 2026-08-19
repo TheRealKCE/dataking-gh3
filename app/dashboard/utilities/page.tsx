@@ -149,6 +149,9 @@ function UtilitiesPageInner() {
 
     const [activeTab, setActiveTab] = useState<'pay' | 'history'>('pay')
     const [configLoading, setConfigLoading] = useState(true)
+    // Live in production before it is open to customers — the server decides this,
+    // not the client, and enforces it again on every route that costs money.
+    const [comingSoon, setComingSoon] = useState(false)
     const [services, setServices] = useState<ServiceConfig[]>([])
     const [walletBalance, setWalletBalance] = useState<number | null>(null)
     const [defaultEmail, setDefaultEmail] = useState('')
@@ -199,6 +202,7 @@ function UtilitiesPageInner() {
 
                 if (configRes.ok) {
                     const cfg = await configRes.json()
+                    setComingSoon(!!cfg.comingSoon)
                     setServices(cfg.services || [])
                     if (cfg.defaultPhone) { setPhone(cfg.defaultPhone); setMomoPhone(cfg.defaultPhone) }
                     if (cfg.defaultEmail) { setDefaultEmail(cfg.defaultEmail); setEmail(cfg.defaultEmail) }
@@ -538,13 +542,31 @@ function UtilitiesPageInner() {
         )
     }
 
+    if (comingSoon) {
+        return (
+            <div className="max-w-lg mx-auto pb-24 pt-10 text-center">
+                <div className="flex items-center justify-center gap-3 text-slate-300 mb-6">
+                    <Tv className="w-7 h-7" />
+                    <Zap className="w-7 h-7" />
+                    <Droplets className="w-7 h-7" />
+                </div>
+                <h1 className="text-2xl font-black text-slate-900">Pay Bills — coming soon</h1>
+                <p className="text-sm text-slate-500 mt-3 leading-relaxed">
+                    You will soon be able to pay DSTV, GOtv, StarTimes, ECG and Ghana Water bills
+                    straight from here, with Mobile Money. We are putting it through its final
+                    checks — it will open shortly.
+                </p>
+            </div>
+        )
+    }
+
     return (
         <div className="max-w-3xl mx-auto pb-24">
             {/* Header */}
             <div className="mb-6">
                 <h1 className="text-2xl font-black text-slate-900">Pay Bills</h1>
                 <p className="text-sm text-slate-500 mt-1">
-                    DSTV, GOtv, StarTimes, ECG and Ghana Water — paid instantly from your wallet or by Mobile Money.
+                    DSTV, GOtv, StarTimes, ECG and Ghana Water — paid instantly by Mobile Money.
                 </p>
             </div>
 

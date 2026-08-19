@@ -1,3 +1,30 @@
+/** Admin setting that opens utilities to everyone. Absent or anything but 'true' keeps it shut. */
+export const UTILITY_LAUNCH_KEY = 'utility_public_launch'
+
+/**
+ * Who may use utilities right now.
+ *
+ * The feature has to be DEPLOYED to production before it can work at all: a
+ * direct-MoMo bill payment tells Hubtel to call back to NEXT_PUBLIC_APP_URL, which
+ * is the production domain whatever deployment started the payment. A build that
+ * lives only on preview therefore watches its own callback land on production,
+ * where an unrecognised UTIL- reference falls through to the wallet top-up path and
+ * quietly credits the customer instead of paying their bill. That is not a bug the
+ * preview build can fix — it never runs.
+ *
+ * So the code ships live and this gate, not the deploy, decides who sees it.
+ * Everyone but an admin gets Coming Soon until the flag is flipped in
+ * /admin/utilities, which needs no deploy. Enforced on the server as well as in the
+ * UI, because a hidden page is not a closed one and real money is on the far side.
+ */
+export function isUtilityVisibleTo(
+    role: string | null | undefined,
+    settings: Record<string, string>
+): boolean {
+    if (settings[UTILITY_LAUNCH_KEY] === 'true') return true
+    return ['admin', 'sub-admin'].includes(String(role || ''))
+}
+
 /**
  * Validates and prices one utility bill purchase.
  *

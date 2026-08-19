@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createRouteHandlerClient } from '@/lib/supabase-server'
+import { createServerClient } from '@/lib/supabase'
+import { isUtilityVisibleTo, UTILITY_LAUNCH_KEY } from '@/lib/utility-order-intent'
 import { Ratelimit } from '@upstash/ratelimit'
 import { Redis } from '@upstash/redis'
 import {
@@ -42,6 +44,20 @@ export async function POST(request: NextRequest) {
 
         if (authError || !authUser) {
             return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+        }
+
+        // Live in production ahead of the public launch — see isUtilityVisibleTo.
+        // Verifying somebody's account is a third-party call we pay for, so it is
+        // gated too, not just the payment.
+        const db = createServerClient()
+        const [{ data: gateProfile }, { data: gateRows }] = await Promise.all([
+            db.from('users').select('role').eq('id', authUser.id).single(),
+            db.from('admin_settings').select('key, value').eq('key', UTILITY_LAUNCH_KEY),
+        ])
+        const gateSettings: Record<string, string> = {}
+        for (const row of ((gateRows || []) as any[])) gateSettings[row.key] = row.value
+        if (!isUtilityVisibleTo((gateProfile as any)?.role, gateSettings)) {
+            return NextResponse.json({ error: 'Bill payments are not available yet.' }, { status: 403 })
         }
 
         // Fail open, the same way /api/orders/purchase and the broadcast routes do.

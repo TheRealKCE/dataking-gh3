@@ -14,6 +14,7 @@ import { UTILITY_SERVICE_KEYS } from '@/lib/hubtel-utility-service'
  */
 const UTILITY_SETTING_KEYS: string[] = [
     'utility_auto_fulfillment_enabled',
+    'utility_public_launch',
     'page_access_utilities',
     ...UTILITY_SERVICE_KEYS.flatMap(service => [
         `utility_enabled_${service}`,

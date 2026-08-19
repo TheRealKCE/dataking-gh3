@@ -4,7 +4,7 @@ import { createRouteHandlerClient } from '@/lib/supabase-server'
 import { generateReferenceCode } from '@/lib/utils'
 import { waitUntil } from '@vercel/functions'
 import { sendPushToUser, sendPushToAdmins } from '@/lib/web-push'
-import { buildUtilityIntent, utilitySettingKeys } from '@/lib/utility-order-intent'
+import { buildUtilityIntent, utilitySettingKeys, isUtilityVisibleTo, UTILITY_LAUNCH_KEY } from '@/lib/utility-order-intent'
 import { triggerUtilityFulfillment, buildUtilityClientReference } from '@/lib/utility-fulfillment-dispatcher'
 
 /**
@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
         // ── Load the user and this service's settings ─────────────────────────
         const [userResult, settingsResult] = await Promise.all([
             supabase.from('users').select('role, first_name, last_name, email, phone_number').eq('id', userId).single(),
-            supabase.from('admin_settings').select('key, value').in('key', utilitySettingKeys(service)),
+            supabase.from('admin_settings').select('key, value').in('key', [...utilitySettingKeys(service), UTILITY_LAUNCH_KEY]),
         ])
 
         if (userResult.error || !userResult.data) {
@@ -56,6 +56,10 @@ export async function POST(request: NextRequest) {
 
         const settings: Record<string, string> = {}
         for (const row of (settingsResult.data || [])) settings[row.key] = row.value
+
+        if (!isUtilityVisibleTo(userData.role, settings)) {
+            return NextResponse.json({ error: 'Bill payments are not available yet.' }, { status: 403 })
+        }
 
         // ── Validate + verify + price (all server-side) ───────────────────────
         const built = await buildUtilityIntent({ service, accountNumber, amount, phone, email }, settings, userRole)

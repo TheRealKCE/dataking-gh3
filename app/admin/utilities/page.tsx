@@ -168,6 +168,7 @@ export default function AdminUtilitiesPage() {
     }), [orders])
 
     const autoMasterOn = settings['utility_auto_fulfillment_enabled'] === 'true'
+    const launchedOn = settings['utility_public_launch'] === 'true'
 
     return (
         <div className="space-y-6 pb-24">
@@ -338,6 +339,30 @@ export default function AdminUtilitiesPage() {
                         <div className="flex justify-center py-16"><Loader2 className="w-6 h-6 animate-spin text-muted-foreground" /></div>
                     ) : (
                         <>
+                            <div className={cn(
+                                'border-2 rounded-2xl p-5',
+                                launchedOn ? 'border-emerald-300 bg-emerald-50/50' : 'border-slate-300 bg-slate-50'
+                            )}>
+                                <div className="flex items-start justify-between gap-4">
+                                    <div>
+                                        <Label className="text-base font-bold flex items-center gap-2">
+                                            <Settings2 className="w-4 h-4" /> Open bill payments to everyone
+                                        </Label>
+                                        <p className="text-sm text-muted-foreground mt-1 max-w-xl">
+                                            While off, customers who tap Pay Bills see “Coming soon” and every
+                                            utility API refuses them — only admins can use it. The feature still has
+                                            to be deployed to production either way: a Mobile Money bill payment is
+                                            confirmed by a callback to the live domain, so a build that is not live
+                                            cannot complete one. Turn this on when the live tests are done.
+                                        </p>
+                                    </div>
+                                    <Switch
+                                        checked={launchedOn}
+                                        onCheckedChange={v => setSetting('utility_public_launch', String(v))}
+                                    />
+                                </div>
+                            </div>
+
                             <div className={cn(
                                 'border-2 rounded-2xl p-5',
                                 autoMasterOn ? 'border-emerald-300 bg-emerald-50/50' : 'border-amber-300 bg-amber-50/50'

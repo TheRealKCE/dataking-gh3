@@ -8,7 +8,7 @@ import { checkHubtelPromptLimit, recordHubtelPrompt } from '@/lib/hubtel-prompt-
 import { initiatePayment as payswitchInitiatePayment, PAYSWITCH_CHANNEL_MAP } from '@/lib/payswitch-payment-service'
 import { assignPayswitchTransactionId } from '@/lib/payswitch-reference'
 import { resolveProviderForScope, type PaymentProvider } from '@/lib/payment-provider'
-import { buildUtilityIntent, utilitySettingKeys } from '@/lib/utility-order-intent'
+import { buildUtilityIntent, utilitySettingKeys, isUtilityVisibleTo, UTILITY_LAUNCH_KEY } from '@/lib/utility-order-intent'
 
 /**
  * Direct-pay (MoMo / card) utility bill payment.
@@ -69,11 +69,18 @@ export async function POST(request: NextRequest) {
                 'paystack_fee_percent',
                 'agent_paystack_fee_percent',
                 'active_payment_provider_web',
+                UTILITY_LAUNCH_KEY,
             ]),
         ])
 
         const settings: Record<string, any> = {}
         for (const row of (settingsRows || [])) settings[row.key] = row.value
+
+        // Live in production but not yet open — a hidden page is not a closed one,
+        // and this is the route that moves money.
+        if (!isUtilityVisibleTo(profile?.role, settings)) {
+            return NextResponse.json({ error: 'Bill payments are not available yet.' }, { status: 403 })
+        }
 
         const userRole: 'agent' | 'customer' = profile?.role === 'agent' ? 'agent' : 'customer'
         const gateway: PaymentProvider = resolveProviderForScope(settings.active_payment_provider_web, 'web')
