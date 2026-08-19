@@ -29,6 +29,10 @@ export default function SubShopPage() {
   const { dbUser } = useAuth()
   const [shop, setShop] = useState<Shop | null>(null)
   const [loading, setLoading] = useState(true)
+  // Is the caller actually a sub-agent? A Lead who lands here (e.g. still signed
+  // in on a recruit's phone) would otherwise see their OWN main shop rendered as
+  // "your storefront" — which reads as "a shop already exists for me".
+  const [isSubAgent, setIsSubAgent] = useState<boolean | null>(null)
   // Set only when we could NOT determine whether a shop exists. Kept separate
   // from `shop === null` so a failed check never masquerades as "no shop yet"
   // and offers to create a second one.
@@ -69,6 +73,14 @@ export default function SubShopPage() {
 
   useEffect(() => {
     loadShop()
+  }, [])
+
+  useEffect(() => {
+    // 403 is the only answer that means "not a sub-agent". Anything else fails
+    // open so a blip never hides a real sub-agent's own shop.
+    fetch('/api/dashboard/sub/data', { cache: 'no-store' })
+      .then((r) => setIsSubAgent(r.status !== 403))
+      .catch(() => setIsSubAgent(true))
   }, [])
 
   // Prefilling the contact phone is a convenience — the shop check above no
@@ -139,8 +151,27 @@ export default function SubShopPage() {
   const btnOutline =
     'px-5 py-2 rounded-lg border border-gray-300 dark:border-gray-700 font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800'
 
-  if (loading) {
+  if (loading || isSubAgent === null) {
     return <div className="max-w-2xl mx-auto p-4 text-center text-gray-500 dark:text-gray-400 py-16">Loading…</div>
+  }
+
+  // ── Not a sub-agent ───────────────────────────────────────────────────
+  if (isSubAgent === false) {
+    return (
+      <div className="max-w-2xl mx-auto p-4 space-y-4">
+        <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">My Shop</h1>
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 text-yellow-900 text-sm">
+          This page belongs to the sub-agent portal, and this account is not a sub-agent.
+          If you are setting up a new sub-agent on this phone, sign out first and log in as them.
+        </div>
+        <a
+          href="/dashboard/shop"
+          className="inline-block px-5 py-2 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700"
+        >
+          Go to my shop
+        </a>
+      </div>
+    )
   }
 
   // ── Couldn't check ────────────────────────────────────────────────────
