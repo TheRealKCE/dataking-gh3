@@ -33,10 +33,32 @@ export default async function ShopSuccessPage({ params, searchParams }: Props) {
     // Fetch order details
     let order: any = null
     let isRc = false
+    let isAfa = false
     let rcVouchers: any[] = []
 
     if (ref) {
-        if (ref.startsWith('RC-')) {
+        if (ref.startsWith('AFA-SHOP-')) {
+            isAfa = true
+            const { data } = await (supabase
+                .from('afa_orders')
+                .select('full_name, phone, payment_amount, status, payment_status')
+                .eq('reference_code', ref)
+                .single() as any)
+
+            if (data) {
+                order = {
+                    guest_phone: data.phone,
+                    network: 'AFA',
+                    package_size: `AFA Registration — ${data.full_name}`,
+                    selling_price: data.payment_amount,
+                    // AFA has no supplier integration: an admin processes it by
+                    // hand, so the customer's outcome is driven by whether the
+                    // payment landed, not by the fulfilment status.
+                    status: data.payment_status === 'failed' ? 'failed' : 'pending',
+                    package_id: 'afa_registration',
+                }
+            }
+        } else if (ref.startsWith('RC-')) {
             isRc = true
             const { data } = await (supabase
                 .from('results_checker_orders')
@@ -73,7 +95,7 @@ export default async function ShopSuccessPage({ params, searchParams }: Props) {
     }
 
     const brandColor = shop?.brand_color || '#059669'
-    const isAirtime = !isRc && order?.package_id == null && !!order
+    const isAirtime = !isRc && !isAfa && order?.package_id == null && !!order
     const orderStatus = order?.status || 'pending'
     const isFailed = orderStatus === 'failed'
     const isPending = orderStatus === 'pending' || orderStatus === 'processing'
@@ -84,11 +106,22 @@ export default async function ShopSuccessPage({ params, searchParams }: Props) {
             return {
                 iconBg: 'bg-red-500',
                 Icon: XCircle,
-                title: 'Order Issue',
-                subtitle: isAirtime
-                    ? 'There was a problem processing your airtime order. Your payment was received but the order could not be completed.'
-                    : 'There was a problem processing your data bundle order. Your payment was received but the order could not be completed.',
+                title: isAfa ? 'Payment Issue' : 'Order Issue',
+                subtitle: isAfa
+                    ? 'Your AFA registration payment was not completed. Nothing has been charged for this application — please try again or contact the shop.'
+                    : isAirtime
+                        ? 'There was a problem processing your airtime order. Your payment was received but the order could not be completed.'
+                        : 'There was a problem processing your data bundle order. Your payment was received but the order could not be completed.',
                 statusColor: 'text-red-600',
+            }
+        }
+        if (isAfa) {
+            return {
+                iconBg: 'bg-sky-500',
+                Icon: Clock,
+                title: 'Application Received!',
+                subtitle: 'Your payment was successful and your AFA registration has been submitted for processing. The shop will contact you once it is complete.',
+                statusColor: 'text-sky-600',
             }
         }
         if (isAirtime) {
@@ -118,9 +151,12 @@ export default async function ShopSuccessPage({ params, searchParams }: Props) {
         }
     })()
 
+    const orderNoun = isAfa ? 'AFA registration' : isRc ? 'results checker voucher' : isAirtime ? 'airtime' : 'data'
     const whatsappText = isFailed
-        ? `Hi! I had an issue with my ${isAirtime ? 'airtime' : 'data'} order. Reference: ${ref || ''}. Please help.`
-        : `Hi! I just bought ${isAirtime ? 'airtime' : 'data'} from your shop. Reference: ${ref || ''}`
+        ? `Hi! I had an issue with my ${orderNoun} order. Reference: ${ref || ''}. Please help.`
+        : isAfa
+            ? `Hi! I just submitted an AFA registration through your shop. Reference: ${ref || ''}`
+            : `Hi! I just bought ${orderNoun} from your shop. Reference: ${ref || ''}`
 
     return (
         <div className="min-h-screen flex flex-col">

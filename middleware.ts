@@ -420,6 +420,12 @@ export async function middleware(request: NextRequest) {
         } else if (pathname === '/api/shop/initialize') {
             limiter = rateLimiters?.shopInitialize
             identifier = ip
+        } else if (pathname === '/api/shop/afa/initialize') {
+            // Guest AFA checkout writes applicant PII (name, ID number, DOB)
+            // on every call, before any payment is taken, so it needs the
+            // same per-IP ceiling as the data-bundle checkout.
+            limiter = rateLimiters?.shopInitialize
+            identifier = ip
         } else if (pathname === '/api/webhooks/paystack' || pathname === '/api/webhooks/payswitch') {
             // PaySwitch callbacks carry no signature, so the route re-queries the
             // gateway before crediting. Rate limiting keeps a flood of forged
@@ -447,6 +453,9 @@ export async function middleware(request: NextRequest) {
         } else if (pathname === '/api/shop/verify') {
             limiter = rateLimiters?.shopVerifyOrder
             identifier = ip
+        } else if (pathname === '/api/shop/afa/verify') {
+            limiter = rateLimiters?.shopVerifyOrder
+            identifier = ip
         } else if (pathname === '/api/user/upgrade/initialize') {
             limiter = rateLimiters?.userUpgrade
             identifier = authUser?.id ? `${authUser.id}-${ip}` : ip
@@ -454,6 +463,9 @@ export async function middleware(request: NextRequest) {
             limiter = rateLimiters?.userUpgrade
             identifier = authUser?.id ? `${authUser.id}-${ip}` : ip
         } else if (pathname === '/api/shop/pricing') {
+            limiter = rateLimiters?.shopPricing
+            identifier = authUser?.id ? `${authUser.id}-${ip}` : ip
+        } else if (pathname === '/api/shop/afa-pricing') {
             limiter = rateLimiters?.shopPricing
             identifier = authUser?.id ? `${authUser.id}-${ip}` : ip
         } else if (pathname === '/api/shop/withdraw') {

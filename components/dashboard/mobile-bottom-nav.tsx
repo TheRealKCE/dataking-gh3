@@ -204,7 +204,7 @@ const NAV_VARIANTS = {
                 { href: '/dashboard/data-packages?network=Special%20MTN%20Mashup', label: 'Special MTN Mashup', icon: Zap },
                 { href: '/dashboard/data-packages?network=EXPRESS%20MTN', label: 'EXPRESS MTN', icon: Zap },
                 { href: '/dashboard/results-checker', label: 'Results Checker', icon: Tag },
-                { href: '/dashboard/afa-orders', label: 'AFA Application', icon: BadgeCheck },
+                { href: '/dashboard/afa-orders', label: 'AFA Registration', icon: BadgeCheck },
             ],
             orders: [
                 { href: '/dashboard/my-orders', label: 'My Orders', icon: ClipboardList },

@@ -110,7 +110,12 @@ export function useAdminCounts() {
         const { count } = await (supabase
             .from('afa_orders')
             .select('*', { count: 'exact', head: true })
-            .eq('status', 'pending') as any)
+            .eq('status', 'pending')
+            // Matches the filter in /admin/afa-management: an abandoned or declined
+            // storefront checkout leaves a row behind that nobody has paid for, and
+            // it must not inflate the badge. Written as an allow-list because
+            // PostgREST's .neq() also drops NULLs (pre-migration rows).
+            .or('payment_status.is.null,payment_status.eq.completed') as any)
         setCounts(prev => ({ ...prev, pendingAfa: count || 0 }))
     }, [])
 

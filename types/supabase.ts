@@ -401,37 +401,64 @@ export interface Database {
             afa_orders: {
                 Row: {
                     id: string
-                    user_id: string
+                    /** Null for guest applications submitted through a storefront. */
+                    user_id: string | null
                     full_name: string
                     phone: string
                     ghana_card: string
+                    id_type: string | null
+                    id_number: string | null
                     location: string
                     region: string
                     occupation: string
                     date_of_birth?: string | null
                     status: 'pending' | 'processing' | 'completed' | 'cancelled'
                     notes: string | null
+                    payment_amount: number | null
+                    reference_code: string
+                    transaction_id: string | null
+                    // Storefront columns — null on dashboard applications.
+                    shop_id: string | null
+                    shop_name: string | null
+                    shop_markup: number | null
+                    cost_price: number | null
+                    customer_email: string | null
+                    source: 'dashboard' | 'storefront' | null
+                    payment_status: 'pending_payment' | 'completed' | 'failed' | null
                     created_at: string
                     updated_at: string
                 }
                 Insert: {
                     id?: string
-                    user_id: string
+                    user_id?: string | null
                     full_name: string
                     phone: string
                     ghana_card: string
+                    id_type?: string | null
+                    id_number?: string | null
                     location: string
                     region: string
                     occupation: string
                     date_of_birth?: string | null
                     status?: 'pending' | 'processing' | 'completed' | 'cancelled'
                     notes?: string | null
+                    payment_amount?: number | null
+                    reference_code: string
+                    transaction_id?: string | null
+                    shop_id?: string | null
+                    shop_name?: string | null
+                    shop_markup?: number | null
+                    cost_price?: number | null
+                    customer_email?: string | null
+                    source?: 'dashboard' | 'storefront' | null
+                    payment_status?: 'pending_payment' | 'completed' | 'failed' | null
                     created_at?: string
                     updated_at?: string
                 }
                 Update: {
                     status?: 'pending' | 'processing' | 'completed' | 'cancelled'
                     notes?: string | null
+                    payment_status?: 'pending_payment' | 'completed' | 'failed' | null
                     updated_at?: string
                 }
             }

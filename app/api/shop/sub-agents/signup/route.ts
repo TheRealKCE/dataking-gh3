@@ -57,6 +57,11 @@ function isEmailExistsError(message?: string | null): boolean {
   )
 }
 
+/** Shown whenever a Lead tries to join their own shop through their own link. */
+const OWN_SHOP_ERROR =
+  "This is your own shop's invite link — you can't join your own shop as a sub-agent. " +
+  'Share it with the person you are recruiting, and sign out first if you are testing it on their phone.'
+
 /**
  * POST /api/shop/sub-agents/signup
  *
@@ -159,6 +164,24 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // 1a. The invite decides which shop is being joined — never the shopId in
+    //     the request body, which would otherwise let anyone with any valid
+    //     invite enrol under a shop that never invited them.
+    const uplineShopId = invite.shop_id
+
+    const { data: uplineShop } = await supabase
+      .from('shop_profiles')
+      .select('id, owner_id')
+      .eq('id', uplineShopId)
+      .maybeSingle()
+
+    if (!uplineShop) {
+      return NextResponse.json(
+        { error: 'This invite is no longer valid. Ask your Lead for a new link.' },
+        { status: 400 }
+      )
+    }
+
     // 1b. Is this phone already spoken for? The unique index would fire inside
     //     the signup trigger, where GoTrue flattens it into an unactionable
     //     "Database error creating new user". Checking first lets us name the
@@ -169,6 +192,14 @@ export async function POST(request: NextRequest) {
       .select('id, email')
       .eq('phone_number', cleanPhone)
       .maybeSingle()
+
+    // A Lead testing their own link signs up with their own details, which ends
+    // with the Lead enrolled as a sub-agent of their own shop: the portal then
+    // shows their existing storefront on "My Shop", so every new recruit they
+    // hand the phone to believes a shop was already created for them.
+    if (phoneOwner && phoneOwner.id === uplineShop.owner_id) {
+      return NextResponse.json({ error: OWN_SHOP_ERROR }, { status: 400 })
+    }
 
     if (phoneOwner && String(phoneOwner.email || '').toLowerCase() !== email) {
       return NextResponse.json(
@@ -188,6 +219,7 @@ export async function POST(request: NextRequest) {
     //    (approval is gated by the Lead, not email verification).
     let userId: string | null = null
     let createdNewAuthUser = false
+    let reusedExistingAccount = false
 
     const { data: created, error: createErr } = await supabase.auth.admin.createUser({
       email,
@@ -222,19 +254,35 @@ export async function POST(request: NextRequest) {
 
       // Email already registered → resolve the existing account and continue
       // enrolling it as a sub-agent (idempotent retry of a half-finished signup).
-      // They re-submitted the form with a password, so re-affirm it.
+      //
+      // The password is NEVER touched here. Overwriting it on nothing more than
+      // a typed-in email handed anyone who knew an address the keys to that
+      // account — including its wallet. The account is re-used only when the
+      // phone matches it too, which is exactly the half-finished-signup case;
+      // anyone else is told to sign in with the account they already have.
       if (isEmailExistsError(message)) {
         const { data: existing } = await supabase
           .from('users')
-          .select('id')
+          .select('id, phone_number')
           .eq('email', email)
           .maybeSingle()
-        if (existing?.id) {
+
+        if (existing?.id && existing.id === uplineShop.owner_id) {
+          return NextResponse.json({ error: OWN_SHOP_ERROR }, { status: 400 })
+        }
+
+        if (existing?.id && String(existing.phone_number || '') === cleanPhone) {
           userId = existing.id
-          await supabase.auth.admin.updateUserById(userId, {
-            password,
-            email_confirm: true,
-          })
+          reusedExistingAccount = true
+        } else if (existing?.id) {
+          return NextResponse.json(
+            {
+              error:
+                'This email already has an account. Sign up with the phone number on that ' +
+                'account, or use a different email address.',
+            },
+            { status: 409 }
+          )
         }
       }
 
@@ -285,7 +333,7 @@ export async function POST(request: NextRequest) {
       .from('sub_agents')
       .insert({
         user_id: userId,
-        upline_shop_id: shopId,
+        upline_shop_id: uplineShopId,
         status: 'pending',
         joined_via_invite: inviteId,
       })
@@ -311,7 +359,11 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'Account created. Pending approval from your Lead.',
+      usedExistingAccount: reusedExistingAccount,
+      message: reusedExistingAccount
+        ? 'Your existing account has been linked. Log in with your current password — ' +
+          'your Lead still has to approve you.'
+        : 'Account created. Pending approval from your Lead.',
       userId,
       phone: cleanPhone,
     })
