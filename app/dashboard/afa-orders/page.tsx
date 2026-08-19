@@ -229,12 +229,20 @@ export default function AFAOrdersPage() {
         const timeout = setTimeout(() => controller.abort(), 8000)
         try {
             const res = await fetch(
-                `/api/admin-settings?keys=afa_price_customer,afa_price_agent&t=${Date.now()}`,
+                `/api/admin-settings?keys=afa_price_customer,afa_price_agent,afa_price_dealer&t=${Date.now()}`,
                 { cache: 'no-store', signal: controller.signal }
             )
             if (!res.ok) throw new Error(`Settings API returned ${res.status}`)
             const json = await res.json()
-            const priceKey = dbUser?.role === 'agent' ? 'afa_price_agent' : 'afa_price_customer'
+            // Must match afaPriceKeyForRole() in lib/afa-pricing.ts, which is what
+            // the server actually charges. Omitting the dealer branch showed
+            // dealers the customer price while their wallet was debited the
+            // dealer one.
+            const priceKey = dbUser?.role === 'agent'
+                ? 'afa_price_agent'
+                : dbUser?.role === 'dealer'
+                    ? 'afa_price_dealer'
+                    : 'afa_price_customer'
             const rawPrice = json?.[priceKey]
             const price = parseFloat(rawPrice)
             if (!rawPrice || isNaN(price) || price <= 0) {

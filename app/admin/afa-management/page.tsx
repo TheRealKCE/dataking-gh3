@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import {
     CheckCircle2, XCircle, Loader2, Eye, Download, Clock,
-    Copy, Check, ShieldCheck, Users, LayoutList, Search, Filter
+    Copy, Check, ShieldCheck, Users, LayoutList, Search, Filter, Store
 } from 'lucide-react'
 import {
     Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription
@@ -36,6 +36,10 @@ type AfarOrder = {
     notes?: string
     payment_amount?: number
     created_at: string
+    // Storefront orders only — dashboard applications leave these null.
+    shop_name?: string | null
+    source?: 'dashboard' | 'storefront' | null
+    payment_status?: 'pending_payment' | 'completed' | 'failed' | null
 }
 
 const STATUS_CONFIG: Record<string, { label: string; color: string; icon: any }> = {
@@ -89,6 +93,12 @@ export default function AdminAfaManagementPage() {
         const { data, error } = await (supabase
             .from('afa_orders') as any)
             .select('*')
+            // Storefront checkouts write the row before the customer approves the
+            // MoMo prompt, so abandoned and declined ones sit at 'pending_payment'
+            // / 'failed' forever. Only paid applications belong in this queue.
+            // Stated as an allow-list rather than .neq() because PostgREST's neq
+            // also drops NULLs, which would hide every pre-migration row.
+            .or('payment_status.is.null,payment_status.eq.completed')
             .order('created_at', { ascending: false })
         if (!error) setApplications(data || [])
         setLoading(false)
@@ -174,7 +184,9 @@ export default function AdminAfaManagementPage() {
                 `Submitted On     : ${format(new Date(app.created_at), 'dd MMM yyyy, hh:mm a')}`,
                 '',
                 '============================================',
-                'Submitted via ARHMS Dashboard',
+                app.source === 'storefront'
+                    ? `Submitted via Storefront — ${app.shop_name || 'Unknown shop'}`
+                    : 'Submitted via ARHMS Dashboard',
                 '============================================',
             ]
 
@@ -379,6 +391,12 @@ export default function AdminAfaManagementPage() {
                                                     <TableCell>
                                                         <div className="font-medium">{app.full_name}</div>
                                                         <div className="text-xs text-muted-foreground">{app.phone}</div>
+                                                        {app.source === 'storefront' && (
+                                                            <div className="mt-1 inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400">
+                                                                <Store className="w-3 h-3" />
+                                                                {app.shop_name || 'Storefront'}
+                                                            </div>
+                                                        )}
                                                     </TableCell>
                                                     <TableCell className="text-sm">
                                                         {app.id_type || 'Ghana Card'}
@@ -427,10 +445,18 @@ export default function AdminAfaManagementPage() {
                                                 <p className="font-medium truncate">{app.full_name}</p>
                                                 <p className="text-xs text-muted-foreground">{app.phone}</p>
                                                 <p className="text-xs text-muted-foreground mt-0.5">{app.id_type || 'Ghana Card'} • {app.location}</p>
-                                                <span className={`inline-flex items-center gap-1 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full mt-1 ${cfg.color}`}>
-                                                    <StatusIcon className="w-2.5 h-2.5" />
-                                                    {cfg.label}
-                                                </span>
+                                                <div className="flex flex-wrap items-center gap-1 mt-1">
+                                                    <span className={`inline-flex items-center gap-1 text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full ${cfg.color}`}>
+                                                        <StatusIcon className="w-2.5 h-2.5" />
+                                                        {cfg.label}
+                                                    </span>
+                                                    {app.source === 'storefront' && (
+                                                        <span className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400">
+                                                            <Store className="w-2.5 h-2.5" />
+                                                            {app.shop_name || 'Storefront'}
+                                                        </span>
+                                                    )}
+                                                </div>
                                             </div>
                                             <Button size="sm" variant="outline" onClick={() => setSelectedApp(app)}>
                                                 <Eye className="w-3.5 h-3.5" />
@@ -469,10 +495,18 @@ export default function AdminAfaManagementPage() {
 
                                 {/* Status Badge */}
                                 <div className="flex items-center justify-between py-1">
-                                    <span className={`inline-flex items-center gap-1.5 text-xs font-bold uppercase px-3 py-1 rounded-full ${cfg.color}`}>
-                                        <StatusIcon className="w-3.5 h-3.5" />
-                                        {cfg.label}
-                                    </span>
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <span className={`inline-flex items-center gap-1.5 text-xs font-bold uppercase px-3 py-1 rounded-full ${cfg.color}`}>
+                                            <StatusIcon className="w-3.5 h-3.5" />
+                                            {cfg.label}
+                                        </span>
+                                        {selectedApp.source === 'storefront' && (
+                                            <span className="inline-flex items-center gap-1.5 text-xs font-bold px-3 py-1 rounded-full bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400">
+                                                <Store className="w-3.5 h-3.5" />
+                                                {selectedApp.shop_name || 'Storefront'}
+                                            </span>
+                                        )}
+                                    </div>
                                     {selectedApp.payment_amount != null && (
                                         <span className="text-sm font-semibold text-muted-foreground">
                                             Fee Paid: GHS {selectedApp.payment_amount.toFixed(2)}

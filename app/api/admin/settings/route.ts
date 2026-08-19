@@ -8,6 +8,7 @@ import { PUBLIC_CONFIG_CACHE_TAG } from '@/lib/cache-tags'
 // Whitelist of keys that can be read/written via this generic endpoint
 const ALLOWED_KEYS = [
     'storefront_rc_enabled',
+    'storefront_afa_enabled',
     'storefront_airtime_enabled',
     'storefront_mashup_enabled',
     'shop_feature_enabled',

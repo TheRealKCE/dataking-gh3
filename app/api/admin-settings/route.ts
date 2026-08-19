@@ -69,6 +69,7 @@ export async function GET(request: Request) {
             'active_sms_provider',
             'rc_wallet_payment_enabled',
             'storefront_rc_enabled',
+            'storefront_afa_enabled',
             'classifieds_boost_fee_7d',
             'classifieds_boost_fee_14d',
             'classifieds_boost_fee_21d',

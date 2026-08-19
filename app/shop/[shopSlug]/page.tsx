@@ -78,6 +78,7 @@ export default async function ShopPage({ params }: Props) {
             'storefront_airtime_enabled',
             'storefront_mashup_enabled',
             'storefront_rc_enabled',
+            'storefront_afa_enabled',
             'storefront_marketplace_ad_enabled',
             'storefront_ussd_card_enabled',
             'ussd_dial_code',

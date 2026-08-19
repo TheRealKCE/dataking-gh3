@@ -11,8 +11,12 @@ import { NETWORK_ORDER, NetworkLogo, detectPayNetwork, type PayNetwork } from '@
 import {
     Phone, Mail, MessageCircle, ShoppingCart, Loader2,
     CheckCircle2, AlertCircle, X, Search, Zap, Smartphone, ChevronDown, Check, Menu, Bell,
-    History, TrendingUp, Coins, Calendar, CalendarRange, RefreshCw, Info, Clock, Copy, ArrowRight, AlertTriangle, Users, Target, Sparkles, Download, Share2, GraduationCap, Store
+    History, TrendingUp, Coins, Calendar, CalendarRange, RefreshCw, Info, Clock, Copy, ArrowRight, AlertTriangle, Users, Target, Sparkles, Download, Share2, GraduationCap, Store, BadgeCheck
 } from 'lucide-react'
+import {
+    ID_TYPES, REGIONS, AFA_REQUIRED_FIELDS, MIN_AFA_AGE,
+    validateId, maskIdNumber, ageFromDob, maxDobInputValue,
+} from '@/lib/afa-validation'
 import { toast } from 'sonner'
 import { ThemeToggle } from '@/components/ui/theme-toggle'
 import { CopyrightFooter } from '@/components/CopyrightFooter'
@@ -178,7 +182,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
     
     // Global State
     const [isSidebarOpen, setIsSidebarOpen] = useState(false)
-    const [activeTab, setActiveTab] = useState<'data' | 'airtime' | 'mashup' | 'results_checker'>('data')
+    const [activeTab, setActiveTab] = useState<'data' | 'airtime' | 'mashup' | 'results_checker' | 'afa'>('data')
     const [showAnnouncementModal, setShowAnnouncementModal] = useState(false)
     const [loading, setLoading] = useState(false)
     const [pageLoading, setPageLoading] = useState(true)
@@ -197,7 +201,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
     const [isConfirmingRegistration, setIsConfirmingRegistration] = useState(false)
     const [otpCode, setOtpCode] = useState('')
     const [otpReference, setOtpReference] = useState<string | null>(null)
-    const [otpOrderType, setOtpOrderType] = useState<'data' | 'airtime' | 'mashup' | 'results_checker'>('data')
+    const [otpOrderType, setOtpOrderType] = useState<'data' | 'airtime' | 'mashup' | 'results_checker' | 'afa'>('data')
 
     // Results Checker State
     const [rcTypes, setRcTypes] = useState<any[]>([])
@@ -205,6 +209,15 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
     const [rcEmail, setRcEmail] = useState('')
     const [selectedRc, setSelectedRc] = useState<any | null>(null)
     const [rcQuantity, setRcQuantity] = useState(1)
+
+    // AFA Registration State
+    const [afaConfig, setAfaConfig] = useState<{ enabled: boolean; selling_price: number } | null>(null)
+    const [afaForm, setAfaForm] = useState({
+        full_name: '', phone: '', id_type: 'Ghana Card', id_number: '',
+        date_of_birth: '', location: '', region: 'Greater Accra', notes: '',
+    })
+    const [afaEmail, setAfaEmail] = useState('')
+    const [afaIdError, setAfaIdError] = useState<string | null>(null)
 
     const { isInstallable, isInstalled, isIOS, installPwa } = usePwa()
 
@@ -238,6 +251,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
     const isGlobalAirtimeEnabled = adminSettings['storefront_airtime_enabled'] === 'true'
     const isGlobalMashupEnabled = adminSettings['storefront_mashup_enabled'] === 'true'
     const isGlobalRcEnabled = adminSettings['storefront_rc_enabled'] === 'true'
+    const isGlobalAfaEnabled = adminSettings['storefront_afa_enabled'] === 'true'
 
     // USSD short code — shown only once this shop has actually bought one, and
     // only while the admin leaves the card switched on globally.
@@ -260,6 +274,8 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
 
     const isShopAirtimeEnabled = isGlobalAirtimeEnabled && airtimeNetworks.length > 0
     const isShopRcEnabled = isGlobalRcEnabled && rcTypes.length > 0
+    // The owner must have priced AFA; /api/shop/afa/config returns enabled:false otherwise.
+    const isShopAfaEnabled = isGlobalAfaEnabled && !!afaConfig?.selling_price
 
     const [ussdCopied, setUssdCopied] = useState(false)
 
@@ -334,6 +350,15 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
     }, [shop.shop_slug, isGlobalRcEnabled])
 
     useEffect(() => {
+        if (isGlobalAfaEnabled) {
+            fetch(`/api/shop/afa/config?shopSlug=${shop.shop_slug}`)
+                .then(r => r.json())
+                .then(data => { if (data.enabled && data.selling_price > 0) setAfaConfig(data) })
+                .catch(() => {})
+        }
+    }, [shop.shop_slug, isGlobalAfaEnabled])
+
+    useEffect(() => {
         if (!announcement) return
 
         const seenKey = `announcement_seen_${shop.id}`
@@ -368,9 +393,12 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
             interval = setInterval(async () => {
                 try {
                     const isRcOrder = pollingRef.startsWith('RC-SHOP-')
+                    const isAfaOrder = pollingRef.startsWith('AFA-SHOP-')
                     const endpoint = isRcOrder
                         ? `/api/shop/rc/verify?ref=${pollingRef}&slug=${shop.shop_slug}`
-                        : `/api/shop/verify?ref=${pollingRef}&slug=${shop.shop_slug}`
+                        : isAfaOrder
+                            ? `/api/shop/afa/verify?ref=${pollingRef}&slug=${shop.shop_slug}`
+                            : `/api/shop/verify?ref=${pollingRef}&slug=${shop.shop_slug}`
                     const res = await fetch(endpoint, { headers: { 'Accept': 'application/json' } })
                     const data = await res.json()
 
@@ -798,6 +826,78 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
         }
     }
 
+    /** Client-side gate before paying — the server re-validates all of this. */
+    const afaValidationError = (): string | null => {
+        if (!afaConfig?.selling_price) return 'AFA registration is not available right now'
+        for (const field of AFA_REQUIRED_FIELDS) {
+            if (!String((afaForm as any)[field] || '').trim()) {
+                return 'Please fill in all required fields'
+            }
+        }
+        if (!/^(0\d{9}|233\d{9})$/.test(afaForm.phone.replace(/\s+/g, ''))) {
+            return 'Enter a valid phone number (0XXXXXXXXX)'
+        }
+        const idErr = validateId(afaForm.id_type, afaForm.id_number)
+        if (idErr) return idErr
+        const age = ageFromDob(afaForm.date_of_birth)
+        if (age === null) return 'Enter a valid date of birth'
+        if (age < MIN_AFA_AGE) return `Applicant must be at least ${MIN_AFA_AGE} years old`
+        return null
+    }
+
+    const handleBuyAfa = async () => {
+        const validationError = afaValidationError()
+        if (validationError) { toast.error(validationError); return }
+
+        const cleanPhone = afaForm.phone.replace(/\s+/g, '')
+
+        setLoading(true)
+        try {
+            const res = await fetch('/api/shop/afa/initialize', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    shopSlug: shop.shop_slug,
+                    formData: { ...afaForm, phone: cleanPhone },
+                    customerEmail: afaEmail.trim() || undefined,
+                    provider: webPaymentProvider,
+                })
+            })
+            const data = await res.json()
+            if (!res.ok || !data.success) {
+                setErrorMsg(rateLimitMessage(res) || data.error || 'Failed to initialize payment')
+                setLoading(false)
+                return
+            }
+
+            if (data.gateway === 'paystack') {
+                window.location.href = data.authorization_url
+                return
+            }
+
+            if (data.gateway === 'hubtel') {
+                toast.success(data.message || 'Payment prompt sent! Please approve on your phone.')
+                setPollingRef(data.reference)
+                setLoading(false)
+                return
+            }
+
+            try { localStorage.setItem('shop_last_phone', cleanPhone) } catch (_) { }
+            if (data.otpRequired) {
+                setOtpReference(data.reference)
+                setOtpOrderType('afa')
+                setOtpRequired(true)
+                setLoading(false)
+            } else {
+                toast.success(data.message || 'Payment prompt sent! Please approve on your phone.')
+                setPollingRef(data.reference)
+            }
+        } catch (err) {
+            toast.error('Network error. Please try again.')
+            setLoading(false)
+        }
+    }
+
     const handleVerifyOtp = async () => {
         if (!otpCode || otpCode.trim().length < 1) {
             toast.error('Please enter the OTP sent to your phone')
@@ -828,6 +928,13 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 otpCode: otpCode.trim(),
                 reference: otpReference,
                 provider: webPaymentProvider
+            } : otpOrderType === 'afa' ? {
+                shopSlug: shop.shop_slug,
+                formData: { ...afaForm, phone: afaForm.phone.replace(/\s+/g, '') },
+                customerEmail: afaEmail.trim() || undefined,
+                otpCode: otpCode.trim(),
+                reference: otpReference,
+                provider: webPaymentProvider
             } : {
                 shopSlug: shop.shop_slug,
                 packageId: selectedPackage?.id,
@@ -840,7 +947,11 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 provider: webPaymentProvider
             }
 
-            const endpoint = otpOrderType === 'results_checker' ? '/api/shop/rc/initialize' : '/api/shop/initialize'
+            const endpoint = otpOrderType === 'results_checker'
+                ? '/api/shop/rc/initialize'
+                : otpOrderType === 'afa'
+                    ? '/api/shop/afa/initialize'
+                    : '/api/shop/initialize'
             const res = await fetch(endpoint, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -1189,8 +1300,15 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 {/* Services Grid */}
                 <div className={cn(
                     "grid gap-3 mb-8 w-full",
-                    [true, isShopAirtimeEnabled, isShopRcEnabled].filter(Boolean).length === 3 ? "grid-cols-3" : 
-                    [true, isShopAirtimeEnabled, isShopRcEnabled].filter(Boolean).length === 2 ? "grid-cols-2" : "grid-cols-1"
+                    // Four services wrap to a 2x2 rather than squeezing into one row —
+                    // the tiles get unreadably narrow on a phone otherwise.
+                    (() => {
+                        const count = [true, isShopAirtimeEnabled, isShopRcEnabled, isShopAfaEnabled].filter(Boolean).length
+                        if (count >= 4) return "grid-cols-2"
+                        if (count === 3) return "grid-cols-3"
+                        if (count === 2) return "grid-cols-2"
+                        return "grid-cols-1"
+                    })()
                 )}>
                     {/* DATA Button */}
                     <button 
@@ -1241,6 +1359,24 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                                 <GraduationCap className={cn("w-6 h-6", activeTab === 'results_checker' ? "text-white" : "text-gray-400")} />
                             </div>
                             <span className="text-[10px] sm:text-[11px] font-black tracking-widest uppercase text-center">RESULTS CHECKER</span>
+                        </button>
+                    )}
+
+                    {/* AFA REGISTRATION Button */}
+                    {isShopAfaEnabled && (
+                        <button
+                            onClick={() => { setActiveTab('afa'); setIsAirtimeOpen(false) }}
+                            className={cn(
+                                "relative flex flex-col items-center justify-center gap-3 py-6 px-2 rounded-xl border-2 transition-all",
+                                activeTab === 'afa'
+                                    ? "bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-400 text-emerald-700 dark:text-emerald-400"
+                                    : "bg-white dark:bg-[#151c2c] border-gray-100 dark:border-gray-800 hover:border-gray-200 text-gray-500"
+                            )}
+                        >
+                            <div className={cn("w-12 h-12 rounded-xl flex items-center justify-center transition-colors", activeTab === 'afa' ? "bg-emerald-500 shadow-sm" : "bg-gray-100 dark:bg-gray-800")}>
+                                <BadgeCheck className={cn("w-6 h-6", activeTab === 'afa' ? "text-white" : "text-gray-400")} />
+                            </div>
+                            <span className="text-[10px] sm:text-[11px] font-black tracking-widest uppercase text-center">AFA REGISTRATION</span>
                         </button>
                     )}
                 </div>
@@ -1600,6 +1736,179 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                                 <p className="text-[10px] text-center text-muted-foreground">Direct MoMo Prompt</p>
                             </div>
                         )}
+                    </div>
+                )}
+
+                {/* ── AFA Registration Tab Content ── */}
+                {isShopAfaEnabled && activeTab === 'afa' && (
+                    <div className="animate-in fade-in slide-in-from-bottom-2 duration-300 space-y-4">
+                        <div className="p-4 rounded-2xl bg-sky-50 dark:bg-sky-950/20 border border-sky-100 dark:border-sky-900">
+                            <div className="flex items-start gap-3">
+                                <BadgeCheck className="w-5 h-5 text-sky-600 shrink-0 mt-0.5" />
+                                <div>
+                                    <p className="font-bold text-sm text-sky-900 dark:text-sky-300">AFA Membership Registration</p>
+                                    <p className="text-xs text-sky-700/80 dark:text-sky-400/80 mt-1">
+                                        Fill in the applicant&apos;s details exactly as they appear on their ID.
+                                        Registration is processed manually — you will be contacted once it is complete.
+                                    </p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="space-y-3 bg-white dark:bg-gray-900 rounded-2xl border border-gray-200 dark:border-gray-700 p-4">
+                            <div>
+                                <Label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 block mb-1.5">Full Name</Label>
+                                <Input
+                                    value={afaForm.full_name}
+                                    onChange={(e) => setAfaForm(prev => ({ ...prev, full_name: e.target.value }))}
+                                    placeholder="As shown on the ID"
+                                    className="rounded-xl"
+                                />
+                            </div>
+
+                            <div>
+                                <Label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 block mb-1.5">Phone Number</Label>
+                                <Input
+                                    type="tel" inputMode="tel"
+                                    value={afaForm.phone}
+                                    onChange={(e) => setAfaForm(prev => ({ ...prev, phone: e.target.value }))}
+                                    placeholder="0244123456"
+                                    className="rounded-xl"
+                                />
+                                <p className="text-[10px] text-muted-foreground mt-1 ml-1">The MoMo prompt is sent to this number.</p>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <Label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 block mb-1.5">ID Type</Label>
+                                    <select
+                                        value={afaForm.id_type}
+                                        onChange={(e) => {
+                                            // Re-mask under the new type so a part-typed number is not left
+                                            // in the previous type's format.
+                                            const nextType = e.target.value
+                                            const remasked = maskIdNumber(nextType, afaForm.id_number)
+                                            setAfaForm(prev => ({ ...prev, id_type: nextType, id_number: remasked }))
+                                            setAfaIdError(remasked ? validateId(nextType, remasked) : null)
+                                        }}
+                                        className="w-full h-10 px-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm"
+                                    >
+                                        {ID_TYPES.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                                    </select>
+                                </div>
+
+                                <div>
+                                    <Label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 block mb-1.5">ID Number</Label>
+                                    <Input
+                                        value={afaForm.id_number}
+                                        onChange={(e) => {
+                                            const masked = maskIdNumber(afaForm.id_type, e.target.value)
+                                            setAfaForm(prev => ({ ...prev, id_number: masked }))
+                                            setAfaIdError(masked ? validateId(afaForm.id_type, masked) : null)
+                                        }}
+                                        placeholder={ID_TYPES.find(t => t.value === afaForm.id_type)?.placeholder}
+                                        className={cn('rounded-xl', afaIdError && 'border-red-500')}
+                                    />
+                                    {afaIdError && <p className="text-[10px] text-red-600 mt-1 ml-1">{afaIdError}</p>}
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                <div>
+                                    <Label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 block mb-1.5">Date of Birth</Label>
+                                    <Input
+                                        type="date"
+                                        value={afaForm.date_of_birth}
+                                        max={maxDobInputValue()}
+                                        onChange={(e) => setAfaForm(prev => ({ ...prev, date_of_birth: e.target.value }))}
+                                        className="rounded-xl"
+                                    />
+                                    <p className="text-[10px] text-muted-foreground mt-1 ml-1">Applicant must be {MIN_AFA_AGE} or older.</p>
+                                </div>
+
+                                <div>
+                                    <Label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 block mb-1.5">Region</Label>
+                                    <select
+                                        value={afaForm.region}
+                                        onChange={(e) => setAfaForm(prev => ({ ...prev, region: e.target.value }))}
+                                        className="w-full h-10 px-3 rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-sm"
+                                    >
+                                        {REGIONS.map(r => <option key={r} value={r}>{r}</option>)}
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div>
+                                <Label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 block mb-1.5">Town / Location</Label>
+                                <Input
+                                    value={afaForm.location}
+                                    onChange={(e) => setAfaForm(prev => ({ ...prev, location: e.target.value }))}
+                                    placeholder="e.g. Madina"
+                                    className="rounded-xl"
+                                />
+                            </div>
+
+                            <div>
+                                <Label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 block mb-1.5">Email (optional)</Label>
+                                <Input
+                                    type="email"
+                                    value={afaEmail}
+                                    onChange={(e) => setAfaEmail(e.target.value)}
+                                    placeholder="you@example.com"
+                                    className="rounded-xl"
+                                />
+                            </div>
+                        </div>
+
+                        <div className="sticky bottom-4 bg-white dark:bg-gray-900 rounded-2xl shadow-2xl border border-gray-200 dark:border-gray-700 p-4 space-y-3">
+                            <div className="flex items-center justify-between">
+                                <div>
+                                    <p className="text-xs text-muted-foreground">Registration Fee</p>
+                                    <p className="font-bold text-sm">AFA Membership</p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-xs text-muted-foreground">Total</p>
+                                    <p className="font-black text-lg text-[var(--brand-color)]">
+                                        {formatCurrency(afaConfig!.selling_price)}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="space-y-1.5">
+                                <Label className="text-[10px] font-black text-gray-400 uppercase tracking-widest ml-1 block">Pay via</Label>
+                                <div className="flex gap-1 p-1 rounded-xl bg-gray-100 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 w-full">
+                                    {([
+                                        { id: 'moolre', label: 'Moolre' },
+                                        { id: 'hubtel', label: 'Hubtel' },
+                                        { id: 'paystack', label: 'Paystack' },
+                                    ] as const).map(({ id, label }) => (
+                                        <button
+                                            key={id}
+                                            type="button"
+                                            onClick={() => setWebPaymentProvider(id)}
+                                            className={cn(
+                                                'flex-1 py-1.5 px-2 rounded-lg text-xs font-bold transition-all',
+                                                webPaymentProvider === id
+                                                    ? 'bg-white shadow text-gray-900'
+                                                    : 'text-gray-500 hover:text-gray-700'
+                                            )}
+                                        >
+                                            {label}
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <button
+                                onClick={handleBuyAfa} disabled={loading}
+                                className="w-full py-3.5 rounded-xl text-white font-bold text-base flex items-center justify-center gap-2 transition-all active:scale-95 disabled:opacity-70 bg-[var(--brand-color)]"
+                            >
+                                {loading
+                                    ? <><Loader2 className="w-5 h-5 animate-spin" /> {pollingRef ? 'Waiting for Approval...' : 'Processing...'}</>
+                                    : <><BadgeCheck className="w-5 h-5" /> Pay {formatCurrency(afaConfig!.selling_price)}</>}
+                            </button>
+                            <p className="text-[10px] text-center text-muted-foreground">Direct MoMo Prompt</p>
+                        </div>
                     </div>
                 )}
 
@@ -1983,6 +2292,12 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                             <button onClick={() => { setIsSidebarOpen(false); setActiveTab('results_checker'); }} className={cn("mt-2 w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all shadow-sm border", activeTab === 'results_checker' ? "bg-blue-600 text-white border-blue-700" : "hover:bg-gray-100 dark:hover:bg-gray-900 text-gray-600 dark:text-gray-400 border-transparent")}>
                                 <GraduationCap className={cn("w-5 h-5", activeTab === 'results_checker' ? "text-white" : "text-blue-500")} /> <span className="font-bold flex-1 text-left">Result Checker</span>
                                 {activeTab === 'results_checker' && <Check className="w-4 h-4 text-white" />}
+                            </button>
+                        )}
+                        {isShopAfaEnabled && (
+                            <button onClick={() => { setIsSidebarOpen(false); setActiveTab('afa'); }} className={cn("mt-2 w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-all shadow-sm border", activeTab === 'afa' ? "bg-sky-600 text-white border-sky-700" : "hover:bg-gray-100 dark:hover:bg-gray-900 text-gray-600 dark:text-gray-400 border-transparent")}>
+                                <BadgeCheck className={cn("w-5 h-5", activeTab === 'afa' ? "text-white" : "text-sky-500")} /> <span className="font-bold flex-1 text-left">AFA Registration</span>
+                                {activeTab === 'afa' && <Check className="w-4 h-4 text-white" />}
                             </button>
                         )}
                         <div className="my-4 border-t border-gray-200 dark:border-gray-800" />

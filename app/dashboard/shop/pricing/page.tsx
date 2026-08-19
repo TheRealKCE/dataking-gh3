@@ -14,7 +14,7 @@ import { Badge } from '@/components/ui/badge'
 import { Label } from '@/components/ui/label'
 import {
     Tag, Save, Loader2, TrendingUp, AlertCircle, CheckCircle2,
-    Clock, XCircle, Lightbulb, Send, Lock, ArrowLeft, Sparkles, PhoneCall, GraduationCap
+    Clock, XCircle, Lightbulb, Send, Lock, ArrowLeft, Sparkles, PhoneCall, GraduationCap, BadgeCheck
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
@@ -76,7 +76,15 @@ export default function ShopPricingPage() {
     const [rcPricing, setRcPricing] = useState<Record<string, string>>({})
     const [storefrontRcEnabled, setStorefrontRcEnabled] = useState(false)
     const [rcLoadError, setRcLoadError] = useState<string | null>(null)
-    
+
+    // AFA registration — a single product, so one price rather than a map.
+    // Cost and cap come from the server (the owner's role price) so this page
+    // never has to re-derive them.
+    const [afaPrice, setAfaPrice] = useState('')
+    const [afaCost, setAfaCost] = useState<number | null>(null)
+    const [afaMaxProfit, setAfaMaxProfit] = useState<number | null>(null)
+    const [storefrontAfaEnabled, setStorefrontAfaEnabled] = useState(false)
+
     const [loading, setLoading] = useState(true)
     const [saving, setSaving] = useState(false)
     const [savingAirtime, setSavingAirtime] = useState(false)
@@ -114,7 +122,7 @@ export default function ShopPricingPage() {
                 at: shopData.airtime_fee_at?.toString() || ''
             })
 
-            const [pkgRes, priceRes, adminRes, rcTypesRes, rcPricingRes, rcSettingRes] = await Promise.all([
+            const [pkgRes, priceRes, adminRes, rcTypesRes, rcPricingRes, rcSettingRes, afaPricingRes] = await Promise.all([
                 (supabase.from('data_packages').select('*').eq('is_available', true).order('sort_order') as any),
                 ((supabase as any).from('shop_pricing').select('*').eq('shop_id', shopData.id)),
                 // Airtime caps only — a failure here must not take the whole page
@@ -122,7 +130,8 @@ export default function ShopPricingPage() {
                 fetch('/api/shop/pricing').then(res => res.json()).catch(() => ({})),
                 (supabase.from('results_checker_types').select('id, name, cost_price, agent_price, dealer_price, customer_price').eq('is_active', true).order('display_order') as any),
                 fetch(`/api/shop/rc-pricing?shopId=${shopData.id}`).then(res => res.json()).catch(() => ({ pricing: [] })),
-                fetch('/api/admin-settings?keys=storefront_rc_enabled').then(r => r.json()).catch(() => ({}))
+                fetch('/api/admin-settings?keys=storefront_rc_enabled,storefront_afa_enabled').then(r => r.json()).catch(() => ({})),
+                fetch(`/api/shop/afa-pricing?shopId=${shopData.id}`).then(res => res.json()).catch(() => ({ pricing: null }))
             ])
 
             setPackages(pkgRes.data || [])
@@ -130,6 +139,11 @@ export default function ShopPricingPage() {
             // Surface a failed type lookup instead of letting the section render empty.
             setRcLoadError(rcTypesRes.error?.message || null)
             setStorefrontRcEnabled(String(rcSettingRes?.storefront_rc_enabled) === 'true')
+            setStorefrontAfaEnabled(String(rcSettingRes?.storefront_afa_enabled) === 'true')
+
+            setAfaCost(typeof afaPricingRes?.cost_price === 'number' ? afaPricingRes.cost_price : null)
+            setAfaMaxProfit(typeof afaPricingRes?.max_profit === 'number' ? afaPricingRes.max_profit : null)
+            setAfaPrice(afaPricingRes?.pricing?.selling_price != null ? String(afaPricingRes.pricing.selling_price) : '')
 
             const adminFlags: Record<string, number> = {}
             for (const [key, value] of Object.entries(adminRes || {})) {
@@ -194,6 +208,23 @@ export default function ShopPricingPage() {
         const profit = getRcProfit(type, sellingStr)
         if (profit === null) return null
         return profit > 0 && profit <= maxProfit
+    }
+
+    // AFA settles against the owner's own role price — what they would pay
+    // registering from their own dashboard. /api/shop/afa-pricing returns that
+    // cost and the cap, so both come from the server rather than being re-derived.
+    const afaMax = afaMaxProfit ?? maxProfit
+
+    const getAfaProfit = (sellingStr: string) => {
+        const selling = parseFloat(sellingStr)
+        if (isNaN(selling) || afaCost === null) return null
+        return selling - afaCost
+    }
+
+    const isValidAfaPrice = (sellingStr: string) => {
+        const profit = getAfaProfit(sellingStr)
+        if (profit === null) return null
+        return profit > 0 && profit <= afaMax
     }
 
     const getMaxAirtimeProfit = (networkStr: string) => {
@@ -299,6 +330,23 @@ export default function ShopPricingPage() {
             return
         }
 
+        // Validate AFA explicitly
+        if (afaPrice && parseFloat(afaPrice) > 0) {
+            const afaProfit = getAfaProfit(afaPrice)
+            if (afaProfit === null) {
+                toast.error('AFA cost price could not be loaded. Please refresh and try again.')
+                return
+            }
+            if (afaProfit <= 0) {
+                toast.error('AFA Profit must be more than 0')
+                return
+            }
+            if (afaProfit > afaMax) {
+                toast.error(`AFA Profit cannot exceed GHS ${afaMax.toFixed(2)}`)
+                return
+            }
+        }
+
         // Validate Airtime explicitly alongside data package bundle
         for (const net of ['mtn', 'telecel', 'at']) {
             const max = getMaxAirtimeProfit(net)
@@ -325,7 +373,9 @@ export default function ShopPricingPage() {
                 sellingPrice: parseFloat(rcPricing[type.id])
             }))
 
-        if (rows.length === 0 && !airtimeFees.mtn && !airtimeFees.telecel && !airtimeFees.at && rcRows.length === 0) {
+        const afaRow = afaPrice && parseFloat(afaPrice) > 0 ? parseFloat(afaPrice) : null
+
+        if (rows.length === 0 && !airtimeFees.mtn && !airtimeFees.telecel && !airtimeFees.at && rcRows.length === 0 && afaRow === null) {
             toast.error('Please configure a price to save changes')
             return
         }
@@ -349,6 +399,16 @@ export default function ShopPricingPage() {
                 })
                 const rcData = await rcRes.json()
                 if (!rcRes.ok) throw new Error(rcData.error || 'Failed to submit RC pricing')
+            }
+
+            if (afaRow !== null) {
+                const afaRes = await fetch('/api/shop/afa-pricing', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ shopId: shop.id, sellingPrice: afaRow })
+                })
+                const afaData = await afaRes.json()
+                if (!afaRes.ok) throw new Error(afaData.error || 'Failed to submit AFA pricing')
             }
 
             toast.success('Your shop is now live! Customers can start buying.')
@@ -661,6 +721,102 @@ export default function ShopPricingPage() {
                             })}
                         </div>
                     )}
+                </div>
+            )}
+
+            {/* AFA Registration Section — one price, unlike the RC grid. Cost is
+                the owner's own role price, returned by /api/shop/afa-pricing so
+                this page never re-derives it. */}
+            {storefrontAfaEnabled && (
+                <div className="bg-gradient-to-br from-sky-50 to-indigo-50 dark:from-sky-950/20 dark:to-indigo-950/20 rounded-[2.5rem] p-6 md:p-8 border border-sky-100 dark:border-sky-900 shadow-sm relative overflow-hidden">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8 relative z-10">
+                        <div>
+                            <h2 className="text-xl font-black uppercase tracking-tighter text-sky-900 dark:text-sky-300 flex items-center gap-2">
+                                <BadgeCheck className="w-6 h-6" /> AFA Registration
+                            </h2>
+                            <p className="text-xs font-bold text-sky-700/70 dark:text-sky-400/70 uppercase tracking-widest mt-1 max-w-xl">
+                                Set what you charge for an AFA membership registration.
+                                It only appears on your storefront once you price it here.
+                            </p>
+                        </div>
+                        <Badge variant="outline" className={cn(
+                            "px-4 py-1.5 uppercase font-black tracking-widest shrink-0",
+                            afaPrice && isValidAfaPrice(afaPrice)
+                                ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400"
+                                : "bg-sky-100 text-sky-800 dark:bg-sky-900/30 dark:text-sky-400"
+                        )}>
+                            {afaPrice && isValidAfaPrice(afaPrice) ? 'Priced' : 'Not priced'}
+                        </Badge>
+                    </div>
+
+                    {afaCost === null ? (
+                        <div className="relative z-10 flex flex-col items-center text-center gap-2 py-10 px-4 rounded-[2rem] bg-white/70 dark:bg-slate-900/50 border border-sky-100 dark:border-sky-900">
+                            <AlertCircle className="w-8 h-8 text-sky-500" />
+                            <p className="font-black uppercase tracking-tight text-sky-900 dark:text-sky-300">
+                                AFA pricing unavailable
+                            </p>
+                            <p className="text-sm text-sky-700/80 dark:text-sky-400/80 max-w-md">
+                                We could not load your AFA cost price. Please refresh, and contact support if it keeps happening.
+                            </p>
+                        </div>
+                    ) : (() => {
+                        const finalSelling = parseFloat(afaPrice) || 0
+                        const profit = getAfaProfit(afaPrice)
+                        const valid = isValidAfaPrice(afaPrice)
+
+                        return (
+                            <div className="relative z-10 max-w-md">
+                                <div className={cn(
+                                    "flex flex-col p-6 rounded-[2rem] border-2 transition-all duration-300",
+                                    afaPrice && valid === false ? "border-red-400 bg-red-50/50 dark:border-red-900/30" :
+                                    afaPrice && valid === true ? "border-emerald-300 shadow-md bg-white dark:bg-slate-900" : "border-slate-200 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50"
+                                )}>
+                                    <div className="mb-6 space-y-2">
+                                        <h3 className="font-black text-xl tracking-tighter text-foreground">AFA Membership</h3>
+                                        <span className="inline-block text-[10px] font-black uppercase tracking-widest text-slate-500 bg-slate-100 dark:bg-slate-800 px-3 py-1 rounded-lg">
+                                            Cost: {formatCurrency(afaCost)}
+                                        </span>
+                                    </div>
+
+                                    <div className="mt-auto space-y-5">
+                                        <div>
+                                            <div className="flex justify-between mb-2">
+                                                <Label className="text-[10px] font-black uppercase tracking-widest text-slate-400">Selling Price</Label>
+                                                {afaPrice && valid === false && <span className="text-[10px] text-red-600 font-bold uppercase tracking-tight">Max Profit: {afaMax}</span>}
+                                            </div>
+                                            <div className="relative">
+                                                <span className="absolute left-4 top-1/2 -translate-y-1/2 font-black text-sm text-slate-400">GHS</span>
+                                                <Input
+                                                    type="number" inputMode="decimal" value={afaPrice}
+                                                    onChange={(e) => setAfaPrice(e.target.value)}
+                                                    placeholder={afaCost.toFixed(2)}
+                                                    className={cn(
+                                                        'h-14 rounded-2xl pl-14 text-xl font-black shadow-inner transition-colors',
+                                                        afaPrice && valid === false ? 'border-red-500 bg-red-50 text-red-900 focus:ring-red-400' :
+                                                        afaPrice && valid === true ? 'border-emerald-500 bg-emerald-50 text-emerald-900 dark:bg-emerald-900/20 dark:text-emerald-100' : 'bg-slate-50 dark:bg-slate-800 border-transparent'
+                                                    )}
+                                                />
+                                            </div>
+                                        </div>
+
+                                        <div className="bg-slate-50 dark:bg-slate-800/50 rounded-2xl p-4 space-y-3 border border-slate-100 dark:border-slate-800">
+                                            <div className="flex items-center justify-between">
+                                                <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Price tag</span>
+                                                <span className="font-black text-lg">{afaPrice && valid !== null ? formatCurrency(finalSelling) : '—'}</span>
+                                            </div>
+                                            <div className="h-px bg-slate-200 dark:bg-slate-700" />
+                                            <div className="flex items-center justify-between">
+                                                <span className={cn("text-[10px] font-black uppercase tracking-widest", valid ? "text-emerald-600" : "text-slate-400")}>Profit</span>
+                                                <span className={cn("font-black text-base", valid ? "text-emerald-500" : valid === false ? "text-red-500" : "text-slate-400")}>
+                                                    {afaPrice && valid !== null && profit !== null ? `${profit > 0 ? '+' : ''} ${formatCurrency(profit)}` : '—'}
+                                                </span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )
+                    })()}
                 </div>
             )}
 

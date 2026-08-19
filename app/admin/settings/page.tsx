@@ -32,6 +32,7 @@ export default function AdminSettingsPage() {
     const [afaPriceCustomer, setAfaPriceCustomer] = useState('15')
     const [afaPriceAgent, setAfaPriceAgent] = useState('15')
     const [afaPriceDealer, setAfaPriceDealer] = useState('15')
+    const [storefrontAfaEnabled, setStorefrontAfaEnabled] = useState(false)
     const [dealerPromoEnabled, setDealerPromoEnabled] = useState(false)
     const [landingRcOnlyEnabled, setLandingRcOnlyEnabled] = useState(false)
     const [supportEmail, setSupportEmail] = useState('')
@@ -107,6 +108,7 @@ export default function AdminSettingsPage() {
             setAfaPriceCustomer(settingsMap.afa_price_customer || '15')
             setAfaPriceAgent(settingsMap.afa_price_agent || '15')
             setAfaPriceDealer(settingsMap.afa_price_dealer || '15')
+            setStorefrontAfaEnabled(settingsMap.storefront_afa_enabled === 'true')
             setUssdDialCode(settingsMap.ussd_dial_code || '')
             setUssdActivationPriceCustomer(settingsMap.ussd_activation_price_customer || '50')
             setUssdActivationPriceAgent(settingsMap.ussd_activation_price_agent || '40')
@@ -182,6 +184,7 @@ export default function AdminSettingsPage() {
                 { key: 'afa_price_customer', value: afaPriceCustomer },
                 { key: 'afa_price_agent', value: afaPriceAgent },
                 { key: 'afa_price_dealer', value: afaPriceDealer },
+                { key: 'storefront_afa_enabled', value: String(storefrontAfaEnabled) },
                 { key: 'dealer_promo_enabled', value: String(dealerPromoEnabled) },
                 { key: 'landing_rc_only_enabled', value: String(landingRcOnlyEnabled) },
                 { key: 'support_email', value: supportEmail },
@@ -618,6 +621,16 @@ export default function AdminSettingsPage() {
                                     min="0"
                                 />
                                 <p className="text-xs text-muted-foreground">Fee charged to dealers for AFA application</p>
+                            </div>
+                            <div className="flex items-center justify-between p-4 border rounded-lg">
+                                <div className="space-y-0.5">
+                                    <Label className="text-base">Sell AFA on Storefronts</Label>
+                                    <p className="text-sm text-muted-foreground">
+                                        When ON, shop owners can price AFA registration and sell it to guests on their storefront.
+                                        Their cost is the role fee above; they keep the markup.
+                                    </p>
+                                </div>
+                                <Switch checked={storefrontAfaEnabled} onCheckedChange={setStorefrontAfaEnabled} />
                             </div>
                             <div className="flex items-center justify-between p-4 border rounded-lg">
                                 <div className="space-y-0.5">
