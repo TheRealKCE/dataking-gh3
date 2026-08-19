@@ -67,8 +67,11 @@ export function SystemAnnouncementModal({ initialAnnouncement = null }: { initia
         <AnnouncementModal
             open={isOpen}
             onOpenChange={setIsOpen}
-            tone="official"
-            badgeLabel="Official Notice"
+            // Both were pinned before tones were selectable, which is why every
+            // platform notice was amber. Fall back to that for rows predating the
+            // column so nothing changes look until an admin picks a tone.
+            tone={(announcement as any).tone || 'official'}
+            badgeLabel={(announcement as any).badge_label || 'Official Notice'}
             title={announcement.title}
             message={announcement.message}
             onDismiss={handleDismiss}

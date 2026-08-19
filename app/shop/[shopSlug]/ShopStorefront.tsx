@@ -31,6 +31,7 @@ import { Button } from '@/components/ui/button'
 import { Label } from '@/components/ui/label'
 import { MtnRegistrationDialog } from '@/components/dashboard/mtn-registration-dialog'
 import { AnnouncementModal } from '@/components/announcements/announcement-modal'
+import type { AnnouncementTone } from '@/lib/announcement-tones'
 
 const ShopPwaInstallPrompt = dynamic(() => import('@/components/ShopPwaInstallPrompt'), { ssr: false })
 
@@ -110,6 +111,10 @@ interface StorefrontAnnouncement {
     type: 'admin' | 'shop'
     message: string
     title?: string
+    /** Author's chosen colour. Absent on rows written before tones existed. */
+    tone?: string
+    /** Overrides the tone's default badge copy. */
+    badgeLabel?: string
 }
 
 // Order, logo marks and MoMo-prefix detection now come from lib/networks.tsx,
@@ -2004,12 +2009,15 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 </div>
             </div>
 
-            {/* ── Announcement Modal — colours come from the badge (admin = amber, shop = blue) ── */}
+            {/* ── Announcement Modal — the author picks the tone; type is only the
+                 fallback for rows written before tones existed ── */}
             {announcement && (
                 <AnnouncementModal
                     open={showAnnouncementModal}
                     onOpenChange={setShowAnnouncementModal}
-                    tone={announcement.type === 'admin' ? 'official' : 'shop'}
+                    tone={(announcement.tone as AnnouncementTone | undefined)
+                        ?? (announcement.type === 'admin' ? 'official' : 'shop')}
+                    badgeLabel={announcement.badgeLabel}
                     title={announcement.title}
                     message={announcement.message}
                     communityLink={shop.community_link}

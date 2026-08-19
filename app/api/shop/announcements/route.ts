@@ -46,7 +46,13 @@ export async function POST(req: Request) {
     const body = await req.json()
 
     const announcementSchema = z.object({
-        message: adminLongTextSchema
+        message: adminLongTextSchema,
+        // Optional so an existing client posting only `message` keeps working.
+        title: z.string().trim().max(80).optional(),
+        // Allowlisted rather than free text: the value is looked up in
+        // ANNOUNCEMENT_TONES to pick Tailwind classes, and an unknown tone would
+        // fall through to the default and silently ignore the owner's choice.
+        tone: z.enum(['official', 'shop', 'success', 'alert']).optional(),
     })
 
     const validation = announcementSchema.safeParse(body)
@@ -55,7 +61,7 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: 'Invalid input', details: errorDetails }, { status: 400 })
     }
 
-    const { message } = validation.data
+    const { message, title, tone } = validation.data
 
     // 1. Get shop ID
     const { data: shop } = await supabase
@@ -95,7 +101,9 @@ export async function POST(req: Request) {
         .from('shop_announcements')
         .insert({
             shop_id: shop.id,
+            title: title?.trim() || null,
             message: message.trim(),
+            tone: tone || 'shop',
             is_active: true
         })
         .select()
