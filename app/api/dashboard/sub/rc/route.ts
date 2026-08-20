@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { createRouteHandlerClient } from '@/lib/supabase-server'
-import {
-    resolveSubAgentContext,
-    SUB_INACTIVE_ERROR,
-    UPLINE_INELIGIBLE_ERROR,
-} from '@/lib/sub-agents'
+import { resolveSubAgentContext } from '@/lib/sub-agents'
 import { purchaseWithWallet } from '@/lib/vouchers/checkout'
 
 /**
@@ -29,13 +25,24 @@ interface SubRcContext {
     shopName?: string
 }
 
-/** Eligibility + upline identity. Shared gates, so blocked subs read one message. */
+/** Membership + upline identity. Mirrors the AFA route's gates exactly. */
 async function resolveSubRcContext(db: any, userId: string): Promise<SubRcContext> {
     const sub = await resolveSubAgentContext(db, userId)
 
     if (!sub.isSub) return { error: 'Not a sub-agent', status: 403 }
-    if (sub.status !== 'active') return { error: SUB_INACTIVE_ERROR, status: 403 }
-    if (!sub.uplineEligible) return { error: UPLINE_INELIGIBLE_ERROR, status: 403 }
+
+    // Gated on the sub's OWN membership only — not sub.uplineEligible. See the
+    // matching note in /api/dashboard/sub/afa: canOwnSubNetwork() fails for the
+    // role-'customer' Leads that make up most live shops.
+    if (sub.status !== 'active') {
+        return {
+            error: sub.status === 'suspended'
+                ? 'Your sub-agent account is suspended. Contact your Lead to be reinstated.'
+                : 'Your account is still awaiting approval from your Lead.',
+            status: 403,
+        }
+    }
+
     if (!sub.uplineShopId || !sub.uplineOwnerId) {
         return { error: 'Your upline shop could not be found. Please contact support.', status: 403 }
     }

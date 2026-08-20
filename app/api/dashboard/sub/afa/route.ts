@@ -1,11 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { createRouteHandlerClient } from '@/lib/supabase-server'
-import {
-    resolveSubAgentContext,
-    SUB_INACTIVE_ERROR,
-    UPLINE_INELIGIBLE_ERROR,
-} from '@/lib/sub-agents'
+import { resolveSubAgentContext } from '@/lib/sub-agents'
 import { validateAfaFormData } from '@/lib/afa-validation'
 import { resolveAfaCostPrice } from '@/lib/afa-pricing'
 import { creditShopRcProfit } from '@/lib/shop-service'
@@ -43,14 +39,28 @@ interface SubAfaContext {
  * shop_afa_pricing all sit behind RLS an ordinary caller cannot read.
  */
 async function resolveSubAfaContext(db: any, userId: string): Promise<SubAfaContext> {
-    // Membership, upline and the upline's LIVE eligibility. Shared with every
-    // other sub gate so a blocked sub always reads the same message — and so a
-    // Lead whose subscription lapsed stops backing their subs immediately.
     const sub = await resolveSubAgentContext(db, userId)
 
     if (!sub.isSub) return { error: 'Not a sub-agent', status: 403 }
-    if (sub.status !== 'active') return { error: SUB_INACTIVE_ERROR, status: 403 }
-    if (!sub.uplineEligible) return { error: UPLINE_INELIGIBLE_ERROR, status: 403 }
+
+    // Gated on the sub's OWN membership only.
+    //
+    // Deliberately NOT gated on sub.uplineEligible. canOwnSubNetwork() passes
+    // only lifetime agents and unexpired dealers, but almost every live Lead
+    // here is role 'customer' with no dealer subscription and their networks
+    // sell every day — so that check fails for working shops and leaves the sub
+    // staring at a state they cannot fix. The sub's own storefront and
+    // /api/shop/ussd/activate both reach the same conclusion; see the note in
+    // that route's activationBlockReason().
+    if (sub.status !== 'active') {
+        return {
+            error: sub.status === 'suspended'
+                ? 'Your sub-agent account is suspended. Contact your Lead to be reinstated.'
+                : 'Your account is still awaiting approval from your Lead.',
+            status: 403,
+        }
+    }
+
     if (!sub.uplineShopId || !sub.uplineOwnerId) {
         return { error: 'Your upline shop could not be found. Please contact support.', status: 403 }
     }
