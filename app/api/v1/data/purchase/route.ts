@@ -229,6 +229,7 @@ export async function POST(request: NextRequest) {
                 eazydata_networks: {} as Record<string, boolean>,
                 agentportal_networks: {} as Record<string, boolean>,
                 netpulse_networks: {} as Record<string, boolean>,
+                hendylinks_networks: {} as Record<string, boolean>,
             }
             if (settingsMap.fulfillment_settings) {
                 try {
@@ -241,6 +242,7 @@ export async function POST(request: NextRequest) {
                     fulfillmentSettings.eazydata_networks = parsed?.eazydata_networks || {}
                     fulfillmentSettings.agentportal_networks = parsed?.agentportal_networks || {}
                     fulfillmentSettings.netpulse_networks = parsed?.netpulse_networks || {}
+                    fulfillmentSettings.hendylinks_networks = parsed?.hendylinks_networks || {}
                 } catch { /* ignore — stays as empty, order stays pending */ }
             }
 
@@ -250,9 +252,10 @@ export async function POST(request: NextRequest) {
             const isEazyData = fulfillmentSettings.eazydata_networks[pkg.network] === true
             const isAgentPortal = fulfillmentSettings.agentportal_networks[pkg.network] === true
             const isNetPulse = fulfillmentSettings.netpulse_networks[pkg.network] === true
+            const isHendyLinks = fulfillmentSettings.hendylinks_networks[pkg.network] === true
 
             // Only attempt if EXACTLY one supplier is active for this network
-            const activeCount = [isDataKazina, isCodeCraft, isKingFlexy, isEazyData, isAgentPortal, isNetPulse].filter(Boolean).length
+            const activeCount = [isDataKazina, isCodeCraft, isKingFlexy, isEazyData, isAgentPortal, isNetPulse, isHendyLinks].filter(Boolean).length
             if (activeCount === 1) {
                 let result: { success: boolean; transactionId?: string; reference?: string; error?: string }
 
@@ -271,13 +274,16 @@ export async function POST(request: NextRequest) {
                 } else if (isNetPulse) {
                     const { fulfillOrder } = await import('@/lib/netpulse-service')
                     result = await fulfillOrder(pkg.network, cleanPhone, pkg.size, (order as any).id)
+                } else if (isHendyLinks) {
+                    const { fulfillOrder } = await import('@/lib/hendylinks-service')
+                    result = await fulfillOrder(pkg.network, cleanPhone, pkg.size, (order as any).id)
                 } else {
                     const { fulfillOrder } = await import('@/lib/fulfillment-service')
                     result = await fulfillOrder(pkg.network, cleanPhone, pkg.size, (order as any).id)
                 }
 
                 if (result.success) {
-                    const supplierLabel = isCodeCraft ? 'codecraft' : isKingFlexy ? 'kingflexy' : isEazyData ? 'eazydata' : isAgentPortal ? 'agentportal' : isNetPulse ? 'netpulse' : 'datakazina'
+                    const supplierLabel = isCodeCraft ? 'codecraft' : isKingFlexy ? 'kingflexy' : isEazyData ? 'eazydata' : isAgentPortal ? 'agentportal' : isNetPulse ? 'netpulse' : isHendyLinks ? 'hendylinks' : 'datakazina'
                     const orderUpdate: Record<string, any> = {
                         status: 'processing',
                         fulfillment_method: supplierLabel,
@@ -290,6 +296,7 @@ export async function POST(request: NextRequest) {
                         else if (isEazyData) orderUpdate.eazydata_reference = ref
                         else if (isAgentPortal) orderUpdate.agentportal_reference = ref
                         else if (isNetPulse) orderUpdate.netpulse_reference = ref
+                        else if (isHendyLinks) orderUpdate.hendylinks_reference = ref
                         else orderUpdate.dakazina_reference = ref
                     }
                     await (supabase.from('orders') as any).update(orderUpdate).eq('id', (order as any).id)
