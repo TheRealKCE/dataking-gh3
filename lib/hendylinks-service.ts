@@ -9,9 +9,15 @@ import { normaliseSupplierStatus } from '@/lib/order-status-display'
 //   • POST /api/orders takes { recipient_phone, network, size_gb }. We use the
 //     network+size form rather than data_plan_id so there is no catalogue map to
 //     keep in sync.
-//   • THERE IS NO IDEMPOTENCY KEY. Unlike every other supplier here, the create
-//     call accepts no reference of ours, so a re-send creates a SECOND order.
-//     reclaimRecentOrder() below is what stands in for it — see fulfillOrder.
+//   • THERE IS NO GUARANTEED IDEMPOTENCY. Unlike every other supplier here, a
+//     re-send may create a SECOND order. We do send `external_order_id`, which
+//     their /webhook/order-status docs advertise and their /api/orders docs are
+//     silent about — best-effort, and reclaimRecentOrder() below is what actually
+//     stands in for a real idempotency key. See fulfillOrder.
+//   • They document a SECOND order-placing endpoint, POST /webhook/order-status,
+//     which takes the api_key in the body and answers { status: "success" }
+//     instead of { success: true }. We use /api/orders (header auth) but parse
+//     both envelopes, so switching is a one-line change.
 //   • Their integer `order_id` is the only correlation key. It is what the
 //     completion webhook carries and what the reconciliation cron matches on, so
 //     it is stored (as text) in orders.hendylinks_reference.
@@ -58,32 +64,33 @@ interface RemoteOrder {
     recipientPhone: string
     sizeGb: number | null
     createdAt: number | null
+    /** Our own order id, when HendyLinks echoes the external_order_id we sent. */
+    externalOrderId: string | null
 }
 
 // ─── Network Resolver ──────────────────────────────────────────────────────────
 /**
  * Map an internal Arhms network name to HendyLinks' `network` value.
  * Internal names: "MTN", "Telecel", "AT-iShare", "AT-BigTime".
- * HendyLinks exposes a single "AirtelTigo" and does not distinguish iShare from
- * BigTime, so both map onto it — the same choice lib/netpulse-service.ts makes.
+ * HendyLinks documents its own set as MTN / TELECEL / AIRTELTIGO, and does not
+ * distinguish iShare from BigTime, so both AT variants map onto AIRTELTIGO —
+ * the same choice lib/netpulse-service.ts makes.
  *
- * Only "MTN" is confirmed against the live API; their docs never spell out the
- * Telecel or AirtelTigo strings. Kept as one table so correcting them is a
- * one-line change rather than a hunt.
+ * Kept as one table so a correction is a one-line change rather than a hunt.
  */
 const NETWORKS: Record<string, string> = {
     MTN: 'MTN',
-    Telecel: 'Telecel',
-    'AT-iShare': 'AirtelTigo',
-    'AT-BigTime': 'AirtelTigo',
+    Telecel: 'TELECEL',
+    'AT-iShare': 'AIRTELTIGO',
+    'AT-BigTime': 'AIRTELTIGO',
 }
 
 function resolveNetwork(network: string): string | null {
     if (NETWORKS[network]) return NETWORKS[network]
     // Loose fallbacks for slight naming variations.
     const n = (network || '').toUpperCase()
-    if (n.startsWith('AT')) return 'AirtelTigo'
-    if (n === 'TELECEL' || n === 'VODAFONE') return 'Telecel'
+    if (n.startsWith('AT')) return 'AIRTELTIGO'
+    if (n === 'TELECEL' || n === 'VODAFONE') return 'TELECEL'
     if (n.startsWith('MTN')) return 'MTN'
     return null
 }
@@ -154,12 +161,14 @@ function toRemoteOrder(raw: any): RemoteOrder | null {
     if (id === undefined || id === null) return null
     const sizeMb = Number(raw?.size_mb)
     const createdAt = Date.parse(raw?.created_at ?? '')
+    const externalId = raw?.external_order_id ?? raw?.externalOrderId
     return {
         id: String(id),
         status: String(raw?.status ?? ''),
         recipientPhone: normalizePhone(String(raw?.recipient_phone ?? '')),
         sizeGb: isNaN(sizeMb) || sizeMb <= 0 ? parseGigabytes(String(raw?.plan_name ?? '')) : sizeMb / 1024,
         createdAt: isNaN(createdAt) ? null : createdAt,
+        externalOrderId: externalId === undefined || externalId === null ? null : String(externalId),
     }
 }
 
@@ -196,10 +205,10 @@ async function fetchOrderHistory(limit: number, offset: number, timeoutMs: numbe
 }
 
 /**
- * Stand-in for the idempotency key HendyLinks does not offer.
+ * Stand-in for the idempotency guarantee HendyLinks does not give.
  *
- * Looks for an order we may have already placed for this exact recipient and
- * size within the last `withinMs`. Used in two places, both in fulfillOrder:
+ * Looks for an order we may already have placed. Used in two places, both in
+ * fulfillOrder:
  *
  *   1. After our own request errored or timed out — the request may well have
  *      landed and created an order before the connection dropped. This is the
@@ -207,14 +216,21 @@ async function fetchOrderHistory(limit: number, offset: number, timeoutMs: numbe
  *      picks it up and places a SECOND bundle, charging the wallet twice.
  *   2. Before placing at all, when the caller flags a retry.
  *
- * Matching on recipient + size (not on an id we chose) means a false positive is
- * survivable: any order it adopts delivers exactly the bundle this order needed,
- * to exactly the right number. The cost of a wrong adoption is bookkeeping —
- * our row points at a sibling order's id — not a customer left short. The cost
- * of NOT doing it is a duplicate bundle billed to us. Hence the deliberate
- * asymmetry: adopt readily, and keep the window tight.
+ * Two ways to match, in order of confidence:
+ *
+ *   • `external_order_id` — the order id we send with every create. An exact hit
+ *     is definitive, so no time window is applied to it. Their docs advertise
+ *     this field on /webhook/order-status but say nothing about it on
+ *     /api/orders, so it may simply be ignored; hence the fallback.
+ *   • recipient + size within `withinMs`. Heuristic, but a false positive is
+ *     survivable: any order it adopts delivers exactly the bundle this order
+ *     needed, to exactly the right number. The cost of a wrong adoption is
+ *     bookkeeping — our row points at a sibling order's id — not a customer left
+ *     short. The cost of NOT adopting is a duplicate bundle billed to us. Hence
+ *     the deliberate asymmetry: adopt readily, and keep the window tight.
  */
 async function reclaimRecentOrder(
+    orderId: string,
     recipientPhone: string,
     gigVolume: number,
     withinMs: number,
@@ -223,6 +239,10 @@ async function reclaimRecentOrder(
     try {
         const cutoff = Date.now() - withinMs
         const rows = await fetchOrderHistory(50, 0, timeoutMs)
+
+        const byExternalId = rows.find(o => o.externalOrderId !== null && o.externalOrderId === orderId)
+        if (byExternalId) return byExternalId
+
         return rows.find(o =>
             o.recipientPhone === recipientPhone
             && o.sizeGb !== null
@@ -282,7 +302,7 @@ export async function fulfillOrder(
         // the same bundle for the same number twice in a row would otherwise have
         // the second purchase silently collapsed into the first.
         if (opts.isRetry) {
-            const existing = await reclaimRecentOrder(normalizedPhone, gigVolume, 30 * 60_000, 10_000)
+            const existing = await reclaimRecentOrder(orderId, normalizedPhone, gigVolume, 30 * 60_000, 10_000)
             if (existing) {
                 console.warn(`[HendyLinks] Order ${orderId} already exists at supplier as #${existing.id} (status "${existing.status}") — adopting instead of re-placing.`)
                 return {
@@ -299,6 +319,13 @@ export async function fulfillOrder(
             recipient_phone: normalizedPhone,
             network: resolvedNetwork,
             size_gb: gigVolume,
+            // Their docs advertise external_order_id on /webhook/order-status and are
+            // silent about it here, so treat it as best-effort: if /api/orders honours
+            // it, reclaimRecentOrder gets an exact match instead of a phone+size guess.
+            // If it ignores it, nothing is lost. Watch for a 400 naming this field on
+            // the first live order — that would mean they validate strictly and it has
+            // to come out again.
+            external_order_id: orderId,
         }
 
         console.log(`[HendyLinks] Order ${orderId} | ${resolvedNetwork} | ${gigVolume}GB | recipient: ${normalizedPhone}`)
@@ -340,7 +367,7 @@ export async function fulfillOrder(
                 // Do NOT retry the POST blindly. With no idempotency key, a request
                 // that timed out may already have created an order — a straight retry
                 // would place a second one. Ask the supplier what it actually has.
-                const placed = await reclaimRecentOrder(normalizedPhone, gigVolume, 3 * 60_000, 8_000)
+                const placed = await reclaimRecentOrder(orderId, normalizedPhone, gigVolume, 3 * 60_000, 8_000)
                 if (placed) {
                     console.warn(`[HendyLinks] Attempt ${attempt} errored but order ${orderId} DID land as #${placed.id} — adopting.`)
                     recordSuccess()
@@ -382,8 +409,12 @@ export async function fulfillOrder(
 
         console.log(`[HendyLinks] API response:`, { status: response.status, order_id: data?.order_id })
 
-        // ── Success: { success: true, order_id, message } ───────────────────
-        if (response.ok && data?.success && data?.order_id !== undefined && data?.order_id !== null) {
+        // ── Success ─────────────────────────────────────────────────────────
+        // Two envelopes are documented: /api/orders answers { success: true, order_id },
+        // /webhook/order-status answers { status: "success", order_id }. Accept either,
+        // so this keeps working if the endpoints ever converge or we switch.
+        const claimsSuccess = data?.success === true || String(data?.status).toLowerCase() === 'success'
+        if (response.ok && claimsSuccess && data?.order_id !== undefined && data?.order_id !== null) {
             recordSuccess()
             const supplierOrderId = String(data.order_id)
             return {
