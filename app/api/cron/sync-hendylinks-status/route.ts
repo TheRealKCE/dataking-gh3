@@ -3,9 +3,25 @@ import { createServerClient } from '@/lib/supabase'
 import { fetchRecentOrderStatuses } from '@/lib/hendylinks-service'
 import { areCronJobsEnabled, cronDisabledResponse } from '@/lib/cron-control'
 
-// HendyLinks reconciliation cron — the SAFETY NET, not the primary channel.
-// app/api/webhooks/hendylinks is what normally closes orders out; this catches
-// anything a missed, delayed or mis-signed webhook left stuck in 'processing'.
+// HendyLinks reconciliation cron (driven by cron-job.org, every 5 min) — the
+// SAFETY NET, not the primary channel. app/api/webhooks/hendylinks is what
+// normally closes orders out; this catches anything a missed, delayed or
+// mis-signed webhook left stuck in 'processing'.
+//
+// Scheduling, in full:
+//   • cron-job.org → GET https://arhmsgh.com/api/cron/sync-hendylinks-status
+//     with header `Authorization: Bearer <CRON_SECRET>`. NEVER the www host —
+//     that 307s cross-host and the redirect strips the auth header, so the job
+//     goes red with a 401 that looks like a bad secret.
+//   • vercel.json also carries this path, as a belt-and-braces second trigger.
+//     Both running is safe: every write is guarded by .eq('status','processing'),
+//     so a second run over the same backlog is a no-op. Drop either one if the
+//     duplicated supplier reads ever matter.
+//
+// CRON_JOBS_ENABLED must be 'true' in the environment. When it is not, this
+// returns HTTP 200 {"disabled": true} — deliberately, so the scheduler does not
+// flag the job as failing — which means the console stays GREEN while nothing
+// reconciles. If orders sit in 'processing', check that flag first.
 //
 // Rules (supplier label → mapped status, see mapHendyLinksStatus):
 //   "completed"/"delivered"/"success" → completed : update order to completed
