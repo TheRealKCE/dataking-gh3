@@ -753,6 +753,15 @@ async function triggerShopFulfillment(
                 } catch (smsErr: any) {
                     console.error(`[Shop Order Processor] AT instant SMS failed for ${orderId}:`, smsErr?.message)
                 }
+            } else if (/MTN/i.test(network) && extra.size) {
+                // MTN is with the supplier now. Confirm receipt once, without quoting a
+                // delivery time. Airtime has its own SMS, so skip it here.
+                try {
+                    const { sendMtnOrderReceivedSMS } = await import('@/lib/sms-service')
+                    await sendMtnOrderReceivedSMS(phone, { network, size: extra.size })
+                } catch (smsErr: any) {
+                    console.error(`[Shop Order Processor] MTN order-received SMS failed for ${orderId}:`, smsErr?.message)
+                }
             }
 
         } else {

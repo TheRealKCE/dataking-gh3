@@ -218,6 +218,14 @@ export async function triggerFulfillment(orderId: string, network: string, user:
                     network: (order as any).network,
                     size: (order as any).size,
                 }).catch(err => console.error('[Fulfillment] AT instant SMS failed:', err))
+            } else if (/MTN/i.test(network)) {
+                // MTN is with the supplier now. Confirm receipt once, without quoting a
+                // delivery time — the retry cron must never re-send this.
+                const { sendMtnOrderReceivedSMS } = await import('@/lib/sms-service')
+                await sendMtnOrderReceivedSMS((order as any).phone_number, {
+                    network: (order as any).network,
+                    size: (order as any).size,
+                }).catch(err => console.error('[Fulfillment] MTN order-received SMS failed:', err))
             }
         } else {
             // Failure — keep order as pending (do not update orders table status)

@@ -269,8 +269,8 @@ export async function POST(request: NextRequest) {
                 //       .catch((err: Error) => console.error('[Purchase] Confirmation email failed:', err))
                 // }
 
-                // 2. No "order received" SMS — the customer only hears from us once
-                // the data actually lands.
+                // 2. No "order received" SMS from here — triggerFulfillment sends one
+                // once the supplier has actually accepted the order.
 
                 // 3. Send Admin Agent Alert
                 if (isAgent) {
