@@ -1,4 +1,5 @@
 import { createServerClient } from '@/lib/supabase'
+import { updateOrderWithColumnFallback } from '@/lib/order-update-fallback'
 
 /**
  * Routes a paid order to the active supplier for the given network.
@@ -182,26 +183,20 @@ export async function triggerFulfillment(orderId: string, network: string, user:
                 ordersUpdate.dakazina_reference = result.transactionId || result.reference
             }
 
-            const { error: updateError } = await (supabase.from('orders') as any)
-                .update(ordersUpdate)
-                .eq('id', orderId)
-
-            if (updateError) {
-                console.error(`[OrderPurchase] Failed to update order ${orderId} status:`, updateError.message)
-                // If the error is a check-constraint violation on fulfillment_method (migration not yet run),
-                // retry without that field so the order is not left stuck as 'pending'.
-                if (updateError.message?.includes('fulfillment_method_check') || updateError.code === '23514') {
-                    const { fulfillment_method: _drop, ...fallbackUpdate } = ordersUpdate
-                    const { error: retryError } = await (supabase.from('orders') as any)
-                        .update(fallbackUpdate)
-                        .eq('id', orderId)
-                    if (retryError) {
-                        console.error(`[OrderPurchase] Fallback update also failed for ${orderId}:`, retryError.message)
-                    } else {
-                        console.warn(`[OrderPurchase] Order ${orderId} marked processing WITHOUT fulfillment_method — run migration 20260528_add_kingflexy_fulfillment_method.sql in Supabase to fix constraint`)
-                    }
-                }
-            }
+            // The supplier has already been called and paid. Shed the optional columns
+            // rather than let one missing migration fail the whole write — an order left
+            // 'pending' here gets picked up by the refulfill cron and bought AGAIN.
+            // Reference columns first (added by the newest supplier migration), then
+            // fulfillment_method (guarded by orders_fulfillment_method_check, which the
+            // same migration widens). The status transition is what must survive.
+            await updateOrderWithColumnFallback(
+                supabase,
+                'orders',
+                { column: 'id', value: orderId },
+                ordersUpdate,
+                [...Object.keys(ordersUpdate).filter(k => k.endsWith('_reference')), 'fulfillment_method'],
+                '[OrderPurchase]'
+            )
 
             await (supabase.from('mtn_fulfillment_tracking') as any).insert({
                 order_id: orderId,

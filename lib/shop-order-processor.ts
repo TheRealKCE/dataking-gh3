@@ -1,4 +1,5 @@
 import { createServerClient } from './supabase'
+import { updateOrderWithColumnFallback } from './order-update-fallback'
 import { creditShopProfit } from './shop-service'
 import { resolveSubAgentContext } from './sub-agents'
 import { resolveOwnerCost } from './pricing/cost-basis'
@@ -714,7 +715,17 @@ async function triggerShopFulfillment(
                 updatePayload.hendylinks_reference = result.transactionId
             }
 
-            await db.from('shop_orders').update(updatePayload).eq('id', orderId)
+            // Both writes below were previously unchecked: a missing supplier reference
+            // column failed them silently and the order stayed 'pending' even though the
+            // bundle had been bought. Shed the reference rather than lose the transition.
+            await updateOrderWithColumnFallback(
+                db,
+                'shop_orders',
+                { column: 'id', value: orderId },
+                updatePayload,
+                Object.keys(updatePayload).filter(k => k.endsWith('_reference')),
+                '[Shop Order Processor]'
+            )
             const ordersUpdate: Record<string, string> = { status: 'processing' }
             if (isCodeCraftEnabled && result.transactionId) {
                 ordersUpdate.codecraft_reference = result.transactionId
@@ -740,7 +751,14 @@ async function triggerShopFulfillment(
                 ordersUpdate.hendylinks_reference = result.transactionId
                 ordersUpdate.fulfillment_method = 'hendylinks'
             }
-            await db.from('orders').update(ordersUpdate).eq('shop_order_id', orderId)
+            await updateOrderWithColumnFallback(
+                db,
+                'orders',
+                { column: 'shop_order_id', value: orderId },
+                ordersUpdate,
+                [...Object.keys(ordersUpdate).filter(k => k.endsWith('_reference')), 'fulfillment_method'],
+                '[Shop Order Processor]'
+            )
 
             if (!isCodeCraftEnabled && !isKingFlexyEnabled && !isEazyDataEnabled && !isAgentPortalEnabled && !isNetPulseEnabled && !isHendyLinksEnabled && (result.transactionId || result.reference)) {
                 const { error: refError } = await db
