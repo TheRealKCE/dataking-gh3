@@ -74,6 +74,7 @@ export async function POST(request: Request) {
         const eazydataNetworkSettings = dbFulfillmentSettings.eazydata_networks || {}
         const agentportalNetworkSettings = dbFulfillmentSettings.agentportal_networks || {}
         const netpulseNetworkSettings = dbFulfillmentSettings.netpulse_networks || {}
+        const hendylinksNetworkSettings = dbFulfillmentSettings.hendylinks_networks || {}
 
         // Construct query to find pending orders
         let query = supabaseAdmin
@@ -108,6 +109,7 @@ export async function POST(request: Request) {
         const { fulfillOrder: edFulfillOrder } = await import('@/lib/eazydata-service')
         const { fulfillOrder: apFulfillOrder } = await import('@/lib/agentportal-service')
         const { fulfillOrder: npFulfillOrder } = await import('@/lib/netpulse-service')
+        const { fulfillOrder: hlFulfillOrder } = await import('@/lib/hendylinks-service')
 
         // Process each pending order safely
         for (const order of pendingOrders) {
@@ -126,16 +128,17 @@ export async function POST(request: Request) {
             const isEazyDataEnabled = eazydataNetworkSettings[order.network] === true
             const isAgentPortalEnabled = agentportalNetworkSettings[order.network] === true
             const isNetPulseEnabled = netpulseNetworkSettings[order.network] === true
+            const isHendyLinksEnabled = hendylinksNetworkSettings[order.network] === true
 
             // No supplier enabled → skip
-            if (!isDataKazinaEnabled && !isCodeCraftEnabled && !isKingFlexyEnabled && !isEazyDataEnabled && !isAgentPortalEnabled && !isNetPulseEnabled) {
+            if (!isDataKazinaEnabled && !isCodeCraftEnabled && !isKingFlexyEnabled && !isEazyDataEnabled && !isAgentPortalEnabled && !isNetPulseEnabled && !isHendyLinksEnabled) {
                 console.log(`[ManualRefulfill] Skipping order ${order.id}: No active supplier for network ${order.network}.`)
                 skipped++
                 continue
             }
 
             // Multiple suppliers enabled → conflict guard, skip
-            const activeCount = [isDataKazinaEnabled, isCodeCraftEnabled, isKingFlexyEnabled, isEazyDataEnabled, isAgentPortalEnabled].filter(Boolean).length
+            const activeCount = [isDataKazinaEnabled, isCodeCraftEnabled, isKingFlexyEnabled, isEazyDataEnabled, isAgentPortalEnabled, isNetPulseEnabled, isHendyLinksEnabled].filter(Boolean).length
             if (activeCount > 1) {
                 console.error(`[ManualRefulfill] CONFLICT: Multiple suppliers active for ${order.network} on order ${order.id}. Skipping.`)
                 await sendAdminNewOrderAlert({
@@ -155,7 +158,7 @@ export async function POST(request: Request) {
             }
 
             // Determine which supplier will handle this order
-            const supplierLabel = isCodeCraftEnabled ? 'codecraft' : isKingFlexyEnabled ? 'kingflexy' : isEazyDataEnabled ? 'eazydata' : isAgentPortalEnabled ? 'agentportal' : isNetPulseEnabled ? 'netpulse' : 'datakazina'
+            const supplierLabel = isCodeCraftEnabled ? 'codecraft' : isKingFlexyEnabled ? 'kingflexy' : isEazyDataEnabled ? 'eazydata' : isAgentPortalEnabled ? 'agentportal' : isNetPulseEnabled ? 'netpulse' : isHendyLinksEnabled ? 'hendylinks' : 'datakazina'
 
             // ATOMIC LOCK: Try to update this specific order from 'pending' to 'processing'
             // If another process/request already took it, this will return 0 rows
@@ -196,6 +199,11 @@ export async function POST(request: Request) {
                 result = await apFulfillOrder(order.network, order.phone_number, order.size, order.id)
             } else if (isNetPulseEnabled) {
                 result = await npFulfillOrder(order.network, order.phone_number, order.size, order.id)
+            } else if (isHendyLinksEnabled) {
+                // isRetry: HendyLinks accepts no idempotency key, so a request that
+                // timed out may already have created an order. This makes the service
+                // check their history before placing another.
+                result = await hlFulfillOrder(order.network, order.phone_number, order.size, order.id, { isRetry: true })
             } else {
                 result = await fulfillOrder(order.network, order.phone_number, order.size, order.id)
             }
@@ -234,6 +242,7 @@ export async function POST(request: Request) {
                     else if (isEazyDataEnabled) refUpdate.eazydata_reference = result.transactionId
                     else if (isAgentPortalEnabled) refUpdate.agentportal_reference = result.transactionId
                     else if (isNetPulseEnabled) refUpdate.netpulse_reference = result.transactionId
+                    else if (isHendyLinksEnabled) refUpdate.hendylinks_reference = result.transactionId
                     else refUpdate.dakazina_reference = result.transactionId
                 }
                 if (Object.keys(refUpdate).length > 0) {
@@ -263,6 +272,9 @@ export async function POST(request: Request) {
                     }
                     if (isNetPulseEnabled && result.transactionId) {
                         shopOrderUpdate.netpulse_reference = result.transactionId
+                    }
+                    if (isHendyLinksEnabled && result.transactionId) {
+                        shopOrderUpdate.hendylinks_reference = result.transactionId
                     }
                     await supabaseAdmin
                         .from('shop_orders')

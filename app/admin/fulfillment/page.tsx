@@ -66,6 +66,7 @@ interface FulfillmentSettings {
     eazydata_networks: Record<string, boolean>
     agentportal_networks: Record<string, boolean>
     netpulse_networks: Record<string, boolean>
+    hendylinks_networks: Record<string, boolean>
 }
 
 const NETWORKS = ['MTN', 'Telecel', 'AT-iShare', 'AT-BigTime']
@@ -80,6 +81,7 @@ const SUPPLIER_KEYS = {
     eazydata: 'eazydata_networks',
     agentportal: 'agentportal_networks',
     netpulse: 'netpulse_networks',
+    hendylinks: 'hendylinks_networks',
 } as const
 
 type SupplierId = keyof typeof SUPPLIER_KEYS
@@ -120,7 +122,8 @@ export default function FulfillmentPage() {
         kingflexy_networks: NETWORKS.reduce((acc, n) => ({ ...acc, [n]: false }), {}),
         eazydata_networks: NETWORKS.reduce((acc, n) => ({ ...acc, [n]: false }), {}),
         agentportal_networks: NETWORKS.reduce((acc, n) => ({ ...acc, [n]: false }), {}),
-        netpulse_networks: NETWORKS.reduce((acc, n) => ({ ...acc, [n]: false }), {})
+        netpulse_networks: NETWORKS.reduce((acc, n) => ({ ...acc, [n]: false }), {}),
+        hendylinks_networks: NETWORKS.reduce((acc, n) => ({ ...acc, [n]: false }), {})
     })
     const [isSavingSettings, setIsSavingSettings] = useState(false)
 
@@ -131,6 +134,7 @@ export default function FulfillmentPage() {
     const [eazydataBalance, setEazydataBalance] = useState<{ amount: number; currency: string } | null>(null)
     const [agentportalBalance, setAgentportalBalance] = useState<{ amount: number; currency: string } | null>(null)
     const [netpulseBalance, setNetpulseBalance] = useState<{ amount: number; currency: string } | null>(null)
+    const [hendylinksBalance, setHendylinksBalance] = useState<{ amount: number; currency: string } | null>(null)
     const [isLoadingBalance, setIsLoadingBalance] = useState(false)
     // Per-supplier failure reason, keyed by the API prefix ('agentportal', ...; 'dakazina'
     // for the unprefixed one). Set when a supplier's balance call failed, so the card can
@@ -156,6 +160,10 @@ export default function FulfillmentPage() {
     // Sync NetPulse Status state
     const [isSyncingNetPulse, setIsSyncingNetPulse] = useState(false)
     const [netpulseSyncCooldown, setNetpulseSyncCooldown] = useState(false)
+
+    // Sync HendyLinks Status state
+    const [isSyncingHendyLinks, setIsSyncingHendyLinks] = useState(false)
+    const [hendylinksSyncCooldown, setHendylinksSyncCooldown] = useState(false)
 
     // Cron Settings state
     const [cronRefulfillEnabled, setCronRefulfillEnabled] = useState(false)
@@ -251,6 +259,7 @@ export default function FulfillmentPage() {
             const dbEazydataNetworks: Record<string, boolean> = dbFulfillmentSettings.eazydata_networks || {}
             const dbAgentportalNetworks: Record<string, boolean> = dbFulfillmentSettings.agentportal_networks || {}
             const dbNetpulseNetworks: Record<string, boolean> = dbFulfillmentSettings.netpulse_networks || {}
+            const dbHendylinksNetworks: Record<string, boolean> = dbFulfillmentSettings.hendylinks_networks || {}
 
             setSettings({
                 is_global_enabled: String(map.auto_fulfillment_enabled) !== 'false',
@@ -277,6 +286,10 @@ export default function FulfillmentPage() {
                 netpulse_networks: NETWORKS.reduce((acc, n) => ({
                     ...acc,
                     [n]: dbNetpulseNetworks[n] === true
+                }), {} as Record<string, boolean>),
+                hendylinks_networks: NETWORKS.reduce((acc, n) => ({
+                    ...acc,
+                    [n]: dbHendylinksNetworks[n] === true
                 }), {} as Record<string, boolean>)
             })
 
@@ -338,7 +351,7 @@ export default function FulfillmentPage() {
         try {
             const updates = [
                 { key: 'auto_fulfillment_enabled', value: String(newSettings.is_global_enabled) },
-                { key: 'fulfillment_settings', value: JSON.stringify({ networks: newSettings.networks, codecraft_networks: newSettings.codecraft_networks, kingflexy_networks: newSettings.kingflexy_networks, eazydata_networks: newSettings.eazydata_networks, agentportal_networks: newSettings.agentportal_networks, netpulse_networks: newSettings.netpulse_networks }) }
+                { key: 'fulfillment_settings', value: JSON.stringify({ networks: newSettings.networks, codecraft_networks: newSettings.codecraft_networks, kingflexy_networks: newSettings.kingflexy_networks, eazydata_networks: newSettings.eazydata_networks, agentportal_networks: newSettings.agentportal_networks, netpulse_networks: newSettings.netpulse_networks, hendylinks_networks: newSettings.hendylinks_networks }) }
             ]
 
             const { error } = await (supabase
@@ -521,6 +534,7 @@ export default function FulfillmentPage() {
             apply('eazydata', setEazydataBalance)
             apply('agentportal', setAgentportalBalance)
             apply('netpulse', setNetpulseBalance)
+            apply('hendylinks', setHendylinksBalance)
 
             setBalanceErrors(errors)
             const failed = Object.keys(errors)
@@ -599,6 +613,29 @@ export default function FulfillmentPage() {
             setIsSyncingNetPulse(false)
             setNetpulseSyncCooldown(true)
             setTimeout(() => setNetpulseSyncCooldown(false), 30000)
+        }
+    }
+
+    const handleSyncHendyLinks = async () => {
+        if (isSyncingHendyLinks || hendylinksSyncCooldown) return
+        setIsSyncingHendyLinks(true)
+        try {
+            const response = await fetch('/api/admin/fulfillment/sync-hendylinks', {
+                method: 'POST',
+            })
+            const result = await response.json()
+            if (!response.ok) {
+                toast.error('Sync failed: ' + (result.error || 'Unknown error'))
+            } else {
+                toast.success(`${result.checked} checked, ${result.updated} updated, ${result.failed} failed`)
+                await fetchOrders(true)
+            }
+        } catch (err: any) {
+            toast.error('Sync error: ' + err.message)
+        } finally {
+            setIsSyncingHendyLinks(false)
+            setHendylinksSyncCooldown(true)
+            setTimeout(() => setHendylinksSyncCooldown(false), 30000)
         }
     }
 
@@ -933,6 +970,34 @@ export default function FulfillmentPage() {
                     </CardContent>
                 </Card>
 
+                <Card className="bg-gradient-to-br from-teal-600 to-emerald-800 text-white border-none shadow-lg">
+                    <CardContent className="p-4 md:p-5">
+                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                            <div className="flex items-center gap-3">
+                                <div className="bg-white/20 p-2.5 rounded-lg">
+                                    <Server className="w-5 h-5 md:w-6 md:h-6" />
+                                </div>
+                                <div>
+                                    <p className="text-[10px] md:text-xs font-bold uppercase tracking-wider opacity-90">HendyLinks Balance</p>
+                                    <p className="text-2xl md:text-3xl font-black">
+                                        {renderBalance('hendylinks', hendylinksBalance)}
+                                    </p>
+                                </div>
+                            </div>
+                            <Button
+                                onClick={fetchBalance}
+                                disabled={isLoadingBalance}
+                                variant="secondary"
+                                size="sm"
+                                className="bg-white/20 hover:bg-white/30 text-white border-white/30"
+                            >
+                                <RefreshCw className={`w-4 h-4 mr-2 ${isLoadingBalance ? 'animate-spin' : ''}`} />
+                                Refresh
+                            </Button>
+                        </div>
+                    </CardContent>
+                </Card>
+
                 <Card className="bg-gradient-to-br from-blue-700 to-indigo-800 text-white border-none shadow-lg">
                     <CardContent className="p-4 md:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
                         <div className="flex items-center gap-3">
@@ -1068,6 +1133,34 @@ export default function FulfillmentPage() {
                                 : netpulseSyncCooldown
                                     ? <><RefreshCw className="w-4 h-4 mr-2" />Cooling down...</>
                                     : <><RefreshCw className="w-4 h-4 mr-2" />Sync NetPulse Status</>
+                            }
+                        </Button>
+                    </CardContent>
+                </Card>
+
+                <Card className="bg-gradient-to-br from-teal-700 to-emerald-900 text-white border-none shadow-lg">
+                    <CardContent className="p-4 md:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                        <div className="flex items-center gap-3">
+                            <div className="bg-white/20 p-2.5 rounded-lg">
+                                <RefreshCw className="w-5 h-5 md:w-6 md:h-6" />
+                            </div>
+                            <div>
+                                <p className="text-[10px] md:text-xs font-bold uppercase tracking-wider opacity-90">HendyLinks Status Sync</p>
+                                <p className="text-xs text-white/70 mt-0.5">Fallback for orders the completion webhook missed</p>
+                            </div>
+                        </div>
+                        <Button
+                            onClick={handleSyncHendyLinks}
+                            disabled={isSyncingHendyLinks || hendylinksSyncCooldown}
+                            variant="secondary"
+                            size="sm"
+                            className="bg-white/20 hover:bg-white/30 text-white border-white/30 disabled:opacity-50"
+                        >
+                            {isSyncingHendyLinks
+                                ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Syncing...</>
+                                : hendylinksSyncCooldown
+                                    ? <><RefreshCw className="w-4 h-4 mr-2" />Cooling down...</>
+                                    : <><RefreshCw className="w-4 h-4 mr-2" />Sync HendyLinks Status</>
                             }
                         </Button>
                     </CardContent>
@@ -1299,6 +1392,44 @@ export default function FulfillmentPage() {
                                         <div className={`w-1.5 h-1.5 rounded-full ${settings.netpulse_networks[net] ? 'bg-cyan-500' : 'bg-gray-300'}`} />
                                         <span className="font-bold text-cyan-600 dark:text-cyan-400">NetPulse</span>
                                         {settings.netpulse_networks[net] && <span className="text-cyan-500 font-semibold">· Active</span>}
+                                    </div>
+                                </CardContent>
+                            </Card>
+                        ))}
+                    </div>
+                </div>
+
+                {/* HendyLinks Row */}
+                <div>
+                    <div className="flex items-center gap-2 mb-2">
+                        <Server className="w-3.5 h-3.5 text-teal-500" />
+                        <span className="text-xs font-bold uppercase tracking-wide text-teal-700 dark:text-teal-400">HendyLinks Networks</span>
+                        <span className="text-[10px] text-muted-foreground">(enabling a network here auto-disables others for same network)</span>
+                    </div>
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4">
+                        {NETWORKS.map(net => (
+                            <Card key={`hendylinks-${net}`} className={`border-l-4 transition-colors ${settings.hendylinks_networks[net] ? 'border-l-teal-500' : 'border-l-gray-300 dark:border-l-gray-600'}`}>
+                                <CardContent className="p-3 md:p-4">
+                                    <div className="flex items-center justify-between mb-2">
+                                        <div className="flex items-center gap-2">
+                                            <Activity className={`w-3.5 h-3.5 ${settings.hendylinks_networks[net] ? 'text-teal-500' : 'text-gray-400'}`} />
+                                            <span className="font-semibold text-xs md:text-sm">{net}</span>
+                                        </div>
+                                        <Button
+                                            id={`hl-toggle-${net}`}
+                                            variant={settings.hendylinks_networks[net] ? 'outline' : 'default'}
+                                            size="sm"
+                                            className={`h-6 text-[10px] md:text-xs px-2 ${settings.hendylinks_networks[net] ? 'border-teal-500 text-teal-600' : ''}`}
+                                            onClick={() => toggleNetwork(net, 'hendylinks')}
+                                            disabled={isSavingSettings}
+                                        >
+                                            {settings.hendylinks_networks[net] ? 'Disconnect' : 'Connect'}
+                                        </Button>
+                                    </div>
+                                    <div className="text-[10px] text-muted-foreground flex items-center gap-1">
+                                        <div className={`w-1.5 h-1.5 rounded-full ${settings.hendylinks_networks[net] ? 'bg-teal-500' : 'bg-gray-300'}`} />
+                                        <span className="font-bold text-teal-600 dark:text-teal-400">HendyLinks</span>
+                                        {settings.hendylinks_networks[net] && <span className="text-teal-500 font-semibold">· Active</span>}
                                     </div>
                                 </CardContent>
                             </Card>

@@ -212,6 +212,7 @@ export interface Database {
                     eazydata_reference: string | null
                     agentportal_reference: string | null
                     netpulse_reference: string | null
+                    hendylinks_reference: string | null
                     error_message: string | null
                     download_batch_id: string | null
                     shop_order_id: string | null
@@ -233,6 +234,7 @@ export interface Database {
                     eazydata_reference?: string | null
                     agentportal_reference?: string | null
                     netpulse_reference?: string | null
+                    hendylinks_reference?: string | null
                     error_message?: string | null
                     download_batch_id?: string | null
                     shop_order_id?: string | null
@@ -246,6 +248,7 @@ export interface Database {
                     eazydata_reference?: string | null
                     agentportal_reference?: string | null
                     netpulse_reference?: string | null
+                    hendylinks_reference?: string | null
                     error_message?: string | null
                     download_batch_id?: string | null
                     shop_order_id?: string | null
