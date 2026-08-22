@@ -36,6 +36,7 @@ import { Label } from '@/components/ui/label'
 import { MtnRegistrationDialog } from '@/components/dashboard/mtn-registration-dialog'
 import { AnnouncementModal } from '@/components/announcements/announcement-modal'
 import type { AnnouncementTone } from '@/lib/announcement-tones'
+import { isUssdEnabled } from '@/lib/ussd-availability'
 
 const ShopPwaInstallPrompt = dynamic(() => import('@/components/ShopPwaInstallPrompt'), { ssr: false })
 
@@ -266,9 +267,12 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
     const isGlobalAfaEnabled = adminSettings['storefront_afa_enabled'] === 'true'
 
     // USSD short code — shown only once this shop has actually bought one, and
-    // only while the admin leaves the card switched on globally.
+    // only while the admin leaves the card switched on globally. The master
+    // switch is checked first: with USSD off the code does not answer, so
+    // advertising it would just send customers to a dead line.
     const ussdDialCode = adminSettings['ussd_dial_code'] || ''
     const isUssdCardEnabled =
+        isUssdEnabled(adminSettings) &&
         adminSettings['storefront_ussd_card_enabled'] !== 'false' &&
         shop.ussd_status === 'active' &&
         !!shop.ussd_code &&

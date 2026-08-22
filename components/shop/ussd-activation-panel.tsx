@@ -19,12 +19,14 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Skeleton } from '@/components/ui/skeleton'
 import {
-    Smartphone, ArrowLeft, Check, Wallet, Loader2, Copy, ShieldCheck, Signal, Store,
+    Smartphone, ArrowLeft, Check, Wallet, Loader2, Copy, ShieldCheck, Signal, Store, PowerOff,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
 interface ActivationInfo {
+    /** Master switch. False means the whole feature is off, for everyone. */
+    ussdEnabled: boolean
     hasShop: boolean
     eligible: boolean
     /** Why activation is blocked, straight from the API. Null when it isn't. */
@@ -170,6 +172,27 @@ export function UssdActivationPanel({
             <div className="space-y-6 pb-20 md:pb-6">
                 <Skeleton className="h-10 w-40" />
                 <Skeleton className="h-64 w-full rounded-3xl" />
+            </div>
+        )
+    }
+
+    // ── SWITCHED OFF ─────────────────────────────────────────────────────────
+    // Ahead of every other state: while USSD is off there is nothing to buy and
+    // an owner's existing code does not answer, so showing either would mislead.
+    if (info && !info.ussdEnabled) {
+        return (
+            <div className="space-y-6 pb-20 md:pb-6">
+                <Link href={backHref}><Button variant="ghost" className="gap-2"><ArrowLeft className="w-4 h-4" /> {backLabel}</Button></Link>
+                <Card>
+                    <CardContent className="py-12 text-center space-y-3">
+                        <PowerOff className="w-10 h-10 mx-auto text-muted-foreground" />
+                        <p className="font-bold">USSD is currently unavailable</p>
+                        <p className="text-sm text-muted-foreground max-w-sm mx-auto">
+                            Short codes are switched off for now. Your storefront is unaffected — customers can still
+                            buy from you online.
+                        </p>
+                    </CardContent>
+                </Card>
             </div>
         )
     }

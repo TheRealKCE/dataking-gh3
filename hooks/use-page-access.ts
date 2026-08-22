@@ -12,6 +12,11 @@ export interface PageAccessSettings {
     storefront: boolean
     airtime: boolean
     utilities: boolean
+    /**
+     * USSD master switch, not a page-access toggle — it rides here because this
+     * hook is the single settings fetch every nav already makes.
+     */
+    ussd: boolean
 }
 
 const PAGE_ROUTE_MAP: Record<string, keyof PageAccessSettings> = {
@@ -23,6 +28,8 @@ const PAGE_ROUTE_MAP: Record<string, keyof PageAccessSettings> = {
     '/dashboard/notifications': 'notifications',
     '/dashboard/profile': 'profile',
     '/dashboard/shop': 'shop',
+    '/dashboard/shop/ussd': 'ussd',
+    '/dashboard/sub/ussd': 'ussd',
     '/dashboard/airtime': 'airtime',
     '/dashboard/utilities': 'utilities',
 }
@@ -40,6 +47,10 @@ export function usePageAccess() {
         storefront: true,
         airtime: true,
         utilities: true,
+        // The only flag that starts closed: the others default open so a slow
+        // fetch does not blank the nav, but a USSD link shown for a second and
+        // then withdrawn is worse than one that never appears.
+        ussd: false,
     })
     const [loading, setLoading] = useState(true)
 
@@ -65,23 +76,28 @@ export function usePageAccess() {
                 storefront: settingsMap.page_access_storefront !== 'false',
                 airtime: settingsMap.page_access_airtime !== 'false',
                 utilities: settingsMap.page_access_utilities !== 'false',
+                ussd: settingsMap.ussd_enabled === 'true',
             })
         } catch (error) {
             console.error('Error fetching page access settings:', error)
-            // On error, default to all pages accessible
+            // On error, keep the defaults above: every page accessible, USSD off.
         } finally {
             setLoading(false)
         }
     }
 
     const isPageAccessible = (route: string): boolean => {
-        // Find best match allowing prefixes for shop routes
+        // Exact matches first: /dashboard/shop/ussd has its own switch, and the
+        // shop prefix below would otherwise swallow it.
+        const exact = PAGE_ROUTE_MAP[route]
+        if (exact) return pageAccess[exact]
+
+        // Then prefixes, so /dashboard/shop/pricing follows the shop toggle.
         if (route.startsWith('/dashboard/shop')) {
             return pageAccess.shop
         }
 
-        const pageKey = PAGE_ROUTE_MAP[route]
-        return pageKey ? pageAccess[pageKey] : true
+        return true
     }
 
     return { pageAccess, isPageAccessible, loading }

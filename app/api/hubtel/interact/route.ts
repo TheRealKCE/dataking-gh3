@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { waitUntil } from '@vercel/functions';
+import { isUssdEnabled, USSD_ENABLED_KEY, USSD_OFFLINE_MESSAGE } from '@/lib/ussd-availability';
 
 /**
  * Hubtel Programmable Services — Service Interaction URL
@@ -55,12 +56,60 @@ export async function GET() {
 
 const WELCOME_MESSAGE = 'Enter short code to continue:';
 
+/**
+ * ussd_enabled, cached per instance for a minute.
+ *
+ * This is the one route in the codebase where a millisecond can cost a sale —
+ * Hubtel hangs up at 10s and an initiation deliberately answers before touching
+ * the database. Reading the switch on every keypress would put a round trip back
+ * into that path for a value that changes about once a year, so an instance holds
+ * it briefly instead. The keep-warm cron keeps instances alive, so in practice
+ * this is read once a minute, not once a session; the price of the cache is that
+ * a flip in /admin/settings takes up to a minute to reach every instance.
+ */
+const USSD_FLAG_TTL_MS = 60_000;
+let ussdFlagCache: { enabled: boolean; at: number } | null = null;
+
+async function isUssdLive(): Promise<boolean> {
+    if (ussdFlagCache && Date.now() - ussdFlagCache.at < USSD_FLAG_TTL_MS) {
+        return ussdFlagCache.enabled;
+    }
+    try {
+        const { data } = await withTimeout(
+            getSupabaseAdmin()
+                .from('admin_settings')
+                .select('value')
+                .eq('key', USSD_ENABLED_KEY)
+                .maybeSingle(),
+            3000,
+            'ussd_enabled fetch timeout'
+        );
+        const enabled = isUssdEnabled({ [USSD_ENABLED_KEY]: data?.value });
+        ussdFlagCache = { enabled, at: Date.now() };
+        return enabled;
+    } catch (err) {
+        console.error('[Hubtel Interact] ussd_enabled read failed:', err);
+        // Prefer a stale answer over flapping; with no answer at all, stay shut.
+        // Every step past this point needs the same database, so a session we
+        // cannot verify is one we could not have fulfilled either.
+        return ussdFlagCache?.enabled ?? false;
+    }
+}
+
 export async function POST(req: Request) {
     const requestStartTime = Date.now();
     try {
         const body = await req.json();
         const { Mobile, SessionId, Type: RequestType, Message, Operator } = body;
         const requestType = String(RequestType || '').toLowerCase();
+
+        // Master switch, checked ahead of the fast path so a deactivated service
+        // never even draws a welcome screen. Fulfilment (/api/hubtel/fulfill) is
+        // deliberately left alone: no new charge can start once this returns, and
+        // anything Hubtel has already taken still has to be delivered.
+        if (!(await isUssdLive())) {
+            return respond(SessionId, 'release', USSD_OFFLINE_MESSAGE);
+        }
 
         // ULTRA-FAST PATH: Initiation — return hardcoded response, defer everything
         if (requestType === 'initiation' && SessionId) {
