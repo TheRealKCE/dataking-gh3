@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { generateReferenceCode } from '@/lib/utils'
 import { initiatePayment as hubtelInitiatePayment, HUBTEL_CHANNEL_MAP } from '@/lib/hubtel-payment-service'
 import { resolveSubAgentContext, type SubAgentContext } from '@/lib/sub-agents'
+import { isUssdEnabled, USSD_ENABLED_KEY, USSD_UNAVAILABLE_MESSAGE } from '@/lib/ussd-availability'
 
 /**
  * USSD short-code activation — a one-time, lifetime purchase.
@@ -70,7 +71,7 @@ async function loadContext() {
     const { data: settings } = await supabaseAdmin
         .from('admin_settings')
         .select('key, value')
-        .in('key', [...PRICE_KEYS, 'ussd_dial_code'])
+        .in('key', [...PRICE_KEYS, 'ussd_dial_code', USSD_ENABLED_KEY])
 
     const settingsMap: Record<string, any> = {}
     for (const row of (settings || [])) settingsMap[row.key] = row.value
@@ -114,10 +115,16 @@ export async function GET() {
         if ('error' in ctx) return NextResponse.json({ error: ctx.error }, { status: ctx.status })
 
         const { shop, role, price, settingsMap, sub } = ctx
-        const blockedReason = activationBlockReason(shop, sub)
+        const ussdEnabled = isUssdEnabled(settingsMap)
+        // The master switch outranks every per-shop gate: while USSD is off there
+        // is nothing to sell and nothing to dial, so it is the reason we give.
+        const blockedReason = ussdEnabled ? activationBlockReason(shop, sub) : USSD_UNAVAILABLE_MESSAGE
 
         return NextResponse.json({
             success: true,
+            // Callers hide the whole feature on this, rather than rendering a
+            // purchase page for a service that cannot be used.
+            ussdEnabled,
             hasShop: !!shop,
             eligible: !blockedReason,
             // Lets the portal explain the block instead of guessing at
@@ -142,6 +149,12 @@ export async function POST(request: Request) {
         if ('error' in ctx) return NextResponse.json({ error: ctx.error }, { status: ctx.status })
 
         const { authUser, supabaseAdmin, shop, price, settingsMap, sub } = ctx
+
+        // 503, not 400: nothing is wrong with the request or the caller — the
+        // service is switched off, and it may well be back.
+        if (!isUssdEnabled(settingsMap)) {
+            return NextResponse.json({ error: USSD_UNAVAILABLE_MESSAGE }, { status: 503 })
+        }
 
         const blockedReason = activationBlockReason(shop, sub)
         if (blockedReason) {

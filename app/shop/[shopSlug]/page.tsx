@@ -81,6 +81,7 @@ export default async function ShopPage({ params }: Props) {
             'storefront_afa_enabled',
             'storefront_marketplace_ad_enabled',
             'storefront_ussd_card_enabled',
+            'ussd_enabled',
             'ussd_dial_code',
             'airtime_fee_mtn_customer',
             'airtime_fee_mtn_agent',

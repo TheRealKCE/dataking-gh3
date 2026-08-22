@@ -57,6 +57,9 @@ export default function AdminSettingsPage() {
     const [referralMaxClaimsPerDay, setReferralMaxClaimsPerDay] = useState('25')
     const [referralClawbackOnRefund, setReferralClawbackOnRefund] = useState(true)
     const [skipGoogleOauthOtp, setSkipGoogleOauthOtp] = useState(false)
+    // Master switch. Starts closed to match isUssdEnabled(): if the row is
+    // missing the service is off, and the toggle should say so.
+    const [ussdEnabled, setUssdEnabled] = useState(false)
     const [ussdDialCode, setUssdDialCode] = useState('')
     const [ussdActivationPriceCustomer, setUssdActivationPriceCustomer] = useState('50')
     const [ussdActivationPriceAgent, setUssdActivationPriceAgent] = useState('40')
@@ -110,6 +113,7 @@ export default function AdminSettingsPage() {
             setAfaPriceAgent(settingsMap.afa_price_agent || '15')
             setAfaPriceDealer(settingsMap.afa_price_dealer || '15')
             setStorefrontAfaEnabled(settingsMap.storefront_afa_enabled === 'true')
+            setUssdEnabled(settingsMap.ussd_enabled === 'true')
             setUssdDialCode(settingsMap.ussd_dial_code || '')
             setUssdActivationPriceCustomer(settingsMap.ussd_activation_price_customer || '50')
             setUssdActivationPriceAgent(settingsMap.ussd_activation_price_agent || '40')
@@ -222,6 +226,7 @@ export default function AdminSettingsPage() {
                 { key: 'results_checker_only_mode', value: String(resultsCheckerOnly) },
                 { key: 'storefront_marketplace_ad_enabled', value: String(storefrontMarketplaceAd) },
                 // USSD short codes
+                { key: 'ussd_enabled', value: String(ussdEnabled) },
                 { key: 'ussd_dial_code', value: ussdDialCode },
                 { key: 'ussd_activation_price_customer', value: ussdActivationPriceCustomer },
                 { key: 'ussd_activation_price_agent', value: ussdActivationPriceAgent },
@@ -458,6 +463,18 @@ export default function AdminSettingsPage() {
                             </CardDescription>
                         </CardHeader>
                         <CardContent className="space-y-4">
+                            <div className="flex items-center justify-between rounded-lg border p-3">
+                                <div className="space-y-0.5">
+                                    <Label>USSD service enabled</Label>
+                                    <p className="text-xs text-muted-foreground">
+                                        Master switch. Off means callers who dial the code are told the service is
+                                        unavailable and hung up on, no shop can buy a short code, and every USSD link
+                                        and card disappears. Existing codes are kept, not cancelled — turning this back
+                                        on restores them. Takes up to a minute to reach the dial-in service.
+                                    </p>
+                                </div>
+                                <Switch checked={ussdEnabled} onCheckedChange={setUssdEnabled} />
+                            </div>
                             <div className="space-y-2">
                                 <Label>USSD Dial Code</Label>
                                 <Input

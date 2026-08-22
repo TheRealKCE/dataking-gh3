@@ -1,6 +1,7 @@
 import { unstable_cache } from 'next/cache'
 import { createClient, SupabaseClient } from '@supabase/supabase-js'
 import { PUBLIC_CONFIG_CACHE_TAG, PUBLIC_CONFIG_REVALIDATE_SECONDS } from '@/lib/cache-tags'
+import { isUssdEnabled, USSD_ENABLED_KEY } from '@/lib/ussd-availability'
 
 type TierId = '3d' | '14d' | '30d' | 'permanent'
 
@@ -30,6 +31,8 @@ export interface PublicConfigData {
     storefrontAirtimeSettings: Record<string, string>
     activeSystemAnnouncements: PublicAnnouncementData[]
     landingRcOnlyEnabled: boolean
+    /** USSD master switch, so navs can drop their short-code links. */
+    ussdEnabled: boolean
 }
 
 const PUBLIC_SETTING_KEYS = [
@@ -78,6 +81,7 @@ const PUBLIC_SETTING_KEYS = [
     'airtime_enabled_telecel',
     'airtime_enabled_at',
     'landing_rc_only_enabled',
+    USSD_ENABLED_KEY,
 ] as const
 
 const PAGE_ACCESS_KEYS = PUBLIC_SETTING_KEYS.filter(key => key.startsWith('page_access_'))
@@ -119,6 +123,9 @@ const fallbackConfig: PublicConfigData = {
     storefrontAirtimeSettings: {},
     activeSystemAnnouncements: [],
     landingRcOnlyEnabled: false,
+    // Matches isUssdEnabled(): when the config read fails we assume off, so a
+    // dead lookup cannot advertise a service that may not be answering.
+    ussdEnabled: false,
 }
 
 let publicConfigClient: SupabaseClient | null = null
@@ -219,6 +226,7 @@ async function fetchPublicConfig(): Promise<PublicConfigData> {
                 visible_on: announcement.visible_on,
             })),
             landingRcOnlyEnabled: settings.landing_rc_only_enabled === 'true',
+            ussdEnabled: isUssdEnabled(settings),
         }
     } catch {
         console.error('[PublicConfig] Unable to fetch public config; using fallback values')
@@ -228,7 +236,9 @@ async function fetchPublicConfig(): Promise<PublicConfigData> {
 
 export const getCachedPublicConfig = unstable_cache(
     fetchPublicConfig,
-    ['public-config-v2'],
+    // v3: added ussdEnabled. Bumped so a cache entry written by the previous
+    // deploy cannot answer with the field missing.
+    ['public-config-v3'],
     {
         revalidate: PUBLIC_CONFIG_REVALIDATE_SECONDS,
         tags: [PUBLIC_CONFIG_CACHE_TAG],

@@ -134,7 +134,10 @@ export default function ShopOverviewPage() {
         fetch('/api/shop/ussd/activate', { cache: 'no-store' })
             .then((r) => r.json())
             .then((d) => {
-                if (d?.success) setUssd({ status: d.status, shortCode: d.shortCode, dialCode: d.dialCode, price: d.price })
+                // ussdEnabled false leaves `ussd` null, which drops the whole
+                // card — an owner with an active code included, since the code
+                // does not answer while the service is switched off.
+                if (d?.success && d.ussdEnabled) setUssd({ status: d.status, shortCode: d.shortCode, dialCode: d.dialCode, price: d.price })
             })
             .catch(() => { })
 

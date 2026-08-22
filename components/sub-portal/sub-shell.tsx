@@ -12,6 +12,7 @@ import { usePathname } from 'next/navigation'
 import { useTheme } from 'next-themes'
 import { useAuth } from '@/contexts/auth-context'
 import type { BrandConfig } from '@/lib/brand-context'
+import { usePageAccess } from '@/hooks/use-page-access'
 import {
   LayoutDashboard,
   ShoppingCart,
@@ -49,6 +50,7 @@ const NAV = [
 export function SubPortalShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
   const { dbUser, signOut } = useAuth()
+  const { isPageAccessible } = usePageAccess()
   const { setTheme } = useTheme()
   const [open, setOpen] = useState(false)
   const [brand, setBrand] = useState<BrandConfig | null>(null)
@@ -137,7 +139,7 @@ export function SubPortalShell({ children }: { children: React.ReactNode }) {
 
         {/* Nav */}
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          {NAV.map((item) => {
+          {NAV.filter((item) => isPageAccessible(item.href)).map((item) => {
             const active = isActive(item)
             return (
               <Link

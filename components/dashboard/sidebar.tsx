@@ -565,7 +565,7 @@ export function DashboardSidebar() {
                                             "ml-4 pl-4 border-l space-y-0.5 mt-0.5",
                                             dbUser?.role === 'dealer' ? "border-white/10" : "border-border/30"
                                         )}>
-                                            {shopNavItems.map((item) => {
+                                            {shopNavItems.filter((item) => isPageAccessible(item.href)).map((item) => {
                                                 const isActive = isLinkActive(item.href)
                                                 return (
                                                     <Link key={item.href} href={item.href} onClick={() => {
