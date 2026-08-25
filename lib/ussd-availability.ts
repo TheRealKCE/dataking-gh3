@@ -9,6 +9,24 @@
 export const USSD_ENABLED_KEY = 'ussd_enabled'
 
 /**
+ * Hard block. USSD is closed by decision, not by configuration.
+ *
+ * The admin_settings switch was flipped off and USSD kept taking money — the
+ * toggle in /admin/settings only writes on Save, so it is easy to believe the
+ * service is shut when the stored value is still 'true'. Rather than keep
+ * chasing that, the answer no longer depends on the database at all.
+ *
+ * While this is true, `ussd_enabled` is ignored everywhere and no stored value,
+ * stale cache or unsaved form can reopen the service.
+ *
+ * TO REOPEN USSD: set this to false. The admin switch then works as before and
+ * decides on its own. Nothing else here needs changing, and short codes shops
+ * already bought are untouched throughout — this closes the door, it does not
+ * cancel anything.
+ */
+const USSD_HARD_DISABLED = true
+
+/**
  * Whether USSD is open for business.
  *
  * Fails CLOSED on purpose: a missing row, an unreachable admin_settings read, or
@@ -20,6 +38,7 @@ export const USSD_ENABLED_KEY = 'ussd_enabled'
 export function isUssdEnabled(
     settings: Record<string, string | null | undefined> | null | undefined
 ): boolean {
+    if (USSD_HARD_DISABLED) return false
     return settings?.[USSD_ENABLED_KEY] === 'true'
 }
 
