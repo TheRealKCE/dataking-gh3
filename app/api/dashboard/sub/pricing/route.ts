@@ -1,51 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { createRouteHandlerClient } from '@/lib/supabase-server'
+import { resolveSubPricingContext } from '@/lib/sub-pricing-context'
 
 /**
  * Sub-Agent storefront pricing.
  *
- * A sub prices each package on THEIR OWN storefront relative to what their Lead
- * (upline) charges: floor = the parent's retail selling_price, cap = parent
+ * A sub prices each package on THEIR OWN storefront relative to what the level
+ * above them charges: floor = that parent's retail selling_price, cap = parent
  * price + the sub's markup ceiling. Only packages the parent actually prices
  * are offered.
+ *
+ * Level-agnostic by construction — the parent comes from the caller's own
+ * sub_agents row — so a level-2 sub prices against their level-1 recruiter with
+ * no special casing, and their storefront goes live the moment they save.
  *
  * GET  → { needsShop?, items: [{ packageId, network, size, parentPrice, maxPrice, currentPrice }] }
  * POST → { items: [{ packageId, sellingPrice }] } (validated against the bounds)
  */
 
-const DEFAULT_CEILING = 5.0
-
-async function resolveContext(userId: string, db: any) {
-  // Must be a sub-agent
-  const { data: sub } = await db
-    .from('sub_agents')
-    .select('upline_shop_id, markup_ceiling')
-    .eq('user_id', userId)
-    .maybeSingle()
-  if (!sub) return { error: 'Not a sub-agent', status: 403 as const }
-
-  // Must own a shop
-  const { data: shop } = await db
-    .from('shop_profiles')
-    .select('id')
-    .eq('owner_id', userId)
-    .maybeSingle()
-
-  // Ceiling: sub's own markup_ceiling → platform default
-  let ceiling = sub.markup_ceiling != null ? Number(sub.markup_ceiling) : NaN
-  if (!Number.isFinite(ceiling)) {
-    const { data: setting } = await db
-      .from('admin_settings')
-      .select('value')
-      .eq('key', 'sub_markup_ceiling_default')
-      .maybeSingle()
-    ceiling = setting?.value != null ? Number(setting.value) : DEFAULT_CEILING
-    if (!Number.isFinite(ceiling)) ceiling = DEFAULT_CEILING
-  }
-
-  return { uplineShopId: sub.upline_shop_id, shopId: shop?.id ?? null, ceiling }
-}
+const resolveContext = (userId: string, db: any) => resolveSubPricingContext(db, userId)
 
 export async function GET() {
   try {
@@ -172,6 +146,33 @@ export async function POST(request: NextRequest) {
         selling_price: price,
         profit_margin: margin,
       })
+    }
+
+    // Carry each package's wholesale price across the rewrite.
+    //
+    // shop_pricing.sub_price is what THIS shop charges the level below them,
+    // set on a different screen (/api/shop/sub-pricing). The replace below
+    // would drop it on every retail save, silently wiping the whole downline's
+    // cost basis.
+    //
+    // It has to survive a delete-and-reinsert rather than becoming an upsert:
+    // protect_shop_pricing_updates() raises 'profit_margin cannot be changed
+    // after creation' on any UPDATE that moves profit_margin, and re-pricing
+    // always moves it. Replacing the row is what has always sidestepped that.
+    const { data: existing } = await db
+      .from('shop_pricing')
+      .select('package_id, sub_price')
+      .eq('shop_id', ctx.shopId)
+
+    const wholesale = new Map<string, number>(
+      (existing || [])
+        .filter((r: any) => r.sub_price != null)
+        .map((r: any) => [r.package_id, Number(r.sub_price)])
+    )
+
+    for (const row of rows) {
+      const kept = wholesale.get(row.package_id)
+      if (kept != null) (row as any).sub_price = kept
     }
 
     // Replace this shop's pricing atomically enough for our purposes.

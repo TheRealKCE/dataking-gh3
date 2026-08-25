@@ -21,6 +21,7 @@ import {
   BadgeCheck,
   GraduationCap,
   ClipboardList,
+  Crown,
   Tag,
   User,
   Download,
@@ -39,6 +40,10 @@ const NAV = [
   { href: '/dashboard/sub/storefront-orders', label: 'Store Orders', icon: ClipboardList },
   { href: '/dashboard/sub/orders', label: 'My Orders', icon: ShoppingCart },
   { href: '/dashboard/sub/shop', label: 'My Shop', icon: Store },
+  // Recruiting: only a level-1 sub sees this. A level-2 sub is the bottom of
+  // the network, and /api/shop/invites refuses them, so showing the entry would
+  // only lead to an error toast.
+  { href: '/dashboard/sub/sub-agents', label: 'My Sub-Agents', icon: Crown, recruitOnly: true },
   { href: '/dashboard/sub/ussd', label: 'USSD Code', icon: Smartphone },
   { href: '/dashboard/sub/afa', label: 'AFA Registration', icon: BadgeCheck },
   { href: '/dashboard/sub/rc', label: 'Results Checker', icon: GraduationCap },
@@ -55,6 +60,9 @@ export function SubPortalShell({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false)
   const [brand, setBrand] = useState<BrandConfig | null>(null)
   const [ownShopSlug, setOwnShopSlug] = useState<string | null>(null)
+  // Starts false so the recruiting entry only ever appears once the server has
+  // confirmed this sub may recruit — a level-2 sub never sees it flash.
+  const [canRecruit, setCanRecruit] = useState(false)
 
   // Follow the phone's light/dark setting inside the portal.
   useEffect(() => {
@@ -89,6 +97,7 @@ export function SubPortalShell({ children }: { children: React.ReactNode }) {
       .then((d) => {
         if (d?.brandConfig) setBrand(d.brandConfig)
         if (d?.ownShopSlug) setOwnShopSlug(d.ownShopSlug)
+        if (d?.canRecruit) setCanRecruit(true)
       })
       .catch(() => {})
   }, [])
@@ -139,7 +148,9 @@ export function SubPortalShell({ children }: { children: React.ReactNode }) {
 
         {/* Nav */}
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          {NAV.filter((item) => isPageAccessible(item.href)).map((item) => {
+          {NAV.filter((item) => isPageAccessible(item.href))
+            .filter((item) => !('recruitOnly' in item && item.recruitOnly) || canRecruit)
+            .map((item) => {
             const active = isActive(item)
             return (
               <Link

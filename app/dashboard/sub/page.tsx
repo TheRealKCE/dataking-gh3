@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import type { BrandConfig } from '@/lib/brand-context'
+import { ShopAnnouncementBox } from '@/components/dashboard/ShopAnnouncementBox'
 
 interface SubDashboardData {
   status: 'pending' | 'active' | 'suspended'
@@ -233,6 +234,15 @@ export default function SubDashboard() {
           </a>
         )}
       </div>
+
+      {/* Storefront announcement. A sub owns a shop like any other owner and
+          /api/shop/announcements has always authorised them by owner_id — the
+          editor was simply never mounted anywhere they could reach, so the
+          notice bar on their storefront was unusable. brandConfig.shopId is the
+          sub's OWN shop, not their upline's. */}
+      {brand?.shopId && (
+        <ShopAnnouncementBox shopId={brand.shopId} currentAnnouncement={null} />
+      )}
 
       {/* Support Info — the Lead's name is the headline; the phone only shows
           when it's a real number (Google signups carry a placeholder). */}
