@@ -9,7 +9,7 @@ import {
     submitOtp,
     toAsciiSafe,
 } from '@/lib/paystack-momo-service';
-import { buildUssdReference, putUssdOrder } from '@/lib/ussd-reference';
+import { buildUssdReference } from '@/lib/ussd-reference';
 import { logInitiate } from '@/lib/hubtel-payment-log';
 
 /**
@@ -533,7 +533,7 @@ export async function POST(req: Request) {
 
                 sessionData.chargedAmount = price;
                 // The candidate lists are only needed while browsing; dropping them
-                // keeps the persisted JSON small and the Redis mirror cheap.
+                // keeps the persisted JSON small on the write that blocks the response.
                 delete sessionData.allBundles;
                 delete sessionData.bundles;
                 delete sessionData.availableCheckers;
@@ -595,32 +595,31 @@ export async function POST(req: Request) {
                 sessionData.payerMsisdn = payerMsisdn;
                 sessionData.payerNetwork = payerNetwork;
 
-                // The mirror MUST land before the charge. A customer who approves
-                // instantly can have their webhook arrive in under two seconds, and a
-                // webhook that cannot resolve its reference has nothing to deliver.
+                // The order MUST be recorded before the charge. A customer who
+                // approves instantly can have their webhook arrive in seconds, and a
+                // webhook that cannot find its session has nothing to deliver.
+                //
+                // This was a Redis mirror until Upstash hit its request ceiling and
+                // every write began returning HTTP 400 — which, because we refuse to
+                // charge what we cannot record, stopped USSD selling altogether. The
+                // session row was always going to be needed for fulfilment, so it is
+                // now the only thing standing between the charge and the webhook, and
+                // there is no cache quota in front of a payment any more.
+                //
+                // 2.5s, not the 8s this step used to allow: the Paystack call still
+                // has to fit inside Hubtel's ~10s window after it.
                 try {
                     await withTimeout(
-                        putUssdOrder(reference, {
-                            sessionId: SessionId,
-                            mobile: session.mobile || Mobile,
-                            orderType,
-                            amount: price,
-                            data: sessionData,
-                        }),
-                        3000,
-                        'Order mirror timeout'
+                        save(SessionId, 'awaiting_payment', sessionData),
+                        2500,
+                        'Order save timeout'
                     );
-                } catch (mirrorError: any) {
+                } catch (saveError: any) {
                     // Refusing here is the safe end of the trade: no charge has gone
                     // out yet, so the customer keeps their money and can retry.
-                    console.error('[Hubtel Interact] Order mirror failed, refusing to charge:', mirrorError?.message);
+                    console.error('[Hubtel Interact] Order save failed, refusing to charge:', saveError?.message);
                     return respond(SessionId, 'release', 'System busy. Please dial again in a moment.');
                 }
-
-                // Postgres is now OFF the critical path — the mirror is what the
-                // webhook reads, and ensureUssdSession() rebuilds this row from it if
-                // the write has not landed by the time the money has.
-                saveAsync(SessionId, 'awaiting_payment', sessionData);
 
                 const chargeStart = Date.now();
                 const charge = await chargeMobileMoney({
@@ -1000,12 +999,11 @@ async function save(sessionId: string, nextStep: string, data: any) {
  * Fire-and-forget session save — responds to Hubtel immediately without blocking
  * on the DB write. Errors are logged but never surfaced to the user.
  *
- * Used for every step, including the `awaiting_payment` transition. That last one
- * used to be awaited, because the fulfil route read this row and nothing else. It
- * no longer has to be: the Redis mirror written in the confirm step is what the
- * webhook resolves against, and ensureUssdSession() rebuilds this row from the
- * mirror if the money arrives before the write does. The confirm screen cannot
- * afford both a blocking Postgres write and a Paystack call inside Hubtel's window.
+ * Used for every browsing step. NOT for the `awaiting_payment` transition, which
+ * the confirm step awaits: that row is the only record tying the charge about to
+ * go out to the order it pays for, and a charge we cannot match to a session is a
+ * customer debited for nothing. Fire-and-forget is fine for a menu redraw and
+ * quite wrong for that.
  */
 function saveAsync(sessionId: string, nextStep: string, data: any): void {
     waitUntil((async () => {

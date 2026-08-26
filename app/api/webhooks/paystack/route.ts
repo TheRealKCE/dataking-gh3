@@ -41,7 +41,15 @@ export async function POST(request: NextRequest) {
                 const { ensureUssdSession } = await import('@/lib/ussd-reference')
                 const { logCallback } = await import('@/lib/hubtel-payment-log')
 
-                const resolved = await ensureUssdSession(supabase, reference)
+                // Paystack echoes back the metadata the charge was created with, so
+                // it tells us which session it is settling. No mapping store needed —
+                // the reference is only the fallback, for a charge whose metadata did
+                // not survive.
+                const resolved = await ensureUssdSession(supabase, {
+                    sessionId: metadata?.session_id,
+                    orderType: metadata?.order_type,
+                    reference,
+                })
                 if (!resolved) {
                     // Money has moved and we cannot tell what it bought. Say so loudly
                     // and leave the row un-settled for a human — acking silently would
@@ -51,7 +59,7 @@ export async function POST(request: NextRequest) {
                         clientReference: reference,
                         status: 'failed',
                         amount: paidAmountKobo / 100,
-                        message: 'Paid but the USSD order could not be resolved (mirror expired).',
+                        message: 'Paid but the USSD session could not be found.',
                         raw: event.data,
                     })
                     return NextResponse.json({ received: true })

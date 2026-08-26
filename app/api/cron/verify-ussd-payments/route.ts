@@ -20,11 +20,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { verifyTransaction } from '@/lib/paystack-momo-service'
 import { logStatusCheck } from '@/lib/hubtel-payment-log'
-import { ensureUssdSession } from '@/lib/ussd-reference'
+import { resolveByReference } from '@/lib/ussd-reference'
 
 /** Give the webhook a head start before second-guessing it. */
 const MIN_AGE_MS = 3 * 60 * 1000
-/** Past this, the Redis mirror has expired and there is nothing left to fulfil. */
+/** Past this a charge is not coming good, and chasing it just reopens old rows. */
 const MAX_AGE_MS = 24 * 60 * 60 * 1000
 /** Keeps one invocation inside the function time limit. */
 const BATCH_LIMIT = 15
@@ -95,7 +95,9 @@ export async function GET(request: NextRequest) {
 
                 // Paid. Paystack's figure is authoritative over anything we stored.
                 const amountPaid = (verified.amountPesewas ?? 0) / 100
-                const resolved = await ensureUssdSession(supabase, reference)
+                // Only a reference here - no gateway metadata - so this goes
+                // through the session payload, which the confirm step records.
+                const resolved = await resolveByReference(supabase, reference)
 
                 if (!resolved) {
                     results.unresolvable++
@@ -104,7 +106,7 @@ export async function GET(request: NextRequest) {
                         clientReference: reference,
                         status: 'failed',
                         amount: amountPaid,
-                        message: 'Paid but the USSD order could not be resolved (mirror expired).',
+                        message: 'Paid but the USSD session could not be found.',
                         raw: verified.raw,
                     })
                     continue
