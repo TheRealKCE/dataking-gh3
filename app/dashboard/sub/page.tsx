@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import type { BrandConfig } from '@/lib/brand-context'
+import { ShopAnnouncementBox } from '@/components/dashboard/ShopAnnouncementBox'
 
 interface SubDashboardData {
   status: 'pending' | 'active' | 'suspended'
@@ -155,6 +156,35 @@ export default function SubDashboard() {
         )}
       </div>
 
+      {/* No storefront yet — the one thing a new sub must do.
+          A sub-agent sells through their OWN storefront, not their upline's, so
+          until this exists they have nothing to send customers to. It used to be
+          one of three equal tiles further down the page, which is easy to miss
+          on the screen a recruit lands on first. */}
+      {data && !data.ownShopSlug && (
+        <div className="rounded-lg border-2 border-dashed border-blue-300 bg-blue-50 dark:bg-blue-950/20 dark:border-blue-900 p-5">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+            <div className="text-4xl" aria-hidden="true">🏪</div>
+            <div className="flex-1 min-w-0">
+              <p className="font-bold text-blue-900 dark:text-blue-200">
+                You don&apos;t have a storefront yet
+              </p>
+              <p className="text-sm text-blue-800 dark:text-blue-300 mt-1">
+                Create your own shop to get a link you can share with customers. Your
+                prices and profit are yours — {data.uplineShop.shopName}&apos;s prices are
+                only the floor.
+              </p>
+            </div>
+            <a
+              href="/dashboard/sub/shop"
+              className="shrink-0 px-5 py-2.5 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 text-center"
+            >
+              Create my shop
+            </a>
+          </div>
+        </div>
+      )}
+
       {/* Wallet Balance (Prominent) */}
       <div
         className="rounded-lg shadow-lg p-8 text-white"
@@ -233,6 +263,15 @@ export default function SubDashboard() {
           </a>
         )}
       </div>
+
+      {/* Storefront announcement. A sub owns a shop like any other owner and
+          /api/shop/announcements has always authorised them by owner_id — the
+          editor was simply never mounted anywhere they could reach, so the
+          notice bar on their storefront was unusable. brandConfig.shopId is the
+          sub's OWN shop, not their upline's. */}
+      {brand?.shopId && (
+        <ShopAnnouncementBox shopId={brand.shopId} currentAnnouncement={null} />
+      )}
 
       {/* Support Info — the Lead's name is the headline; the phone only shows
           when it's a real number (Google signups carry a placeholder). */}

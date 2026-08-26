@@ -2,10 +2,7 @@ import { createServerClient } from './supabase'
 import { updateOrderWithColumnFallback } from './order-update-fallback'
 import { creditShopProfit } from './shop-service'
 import { resolveSubAgentContext } from './sub-agents'
-import { resolveOwnerCost } from './pricing/cost-basis'
-
-/** Money rounded to pesewas — every profit leg written to the ledger uses this. */
-const toPesewaPrecision = (value: number) => Math.round(value * 100) / 100
+import { resolveChainCosts, splitChainProfit } from './pricing/chain-cost'
 
 // In-memory lock to prevent race conditions between frontend verification and Paystack webhooks
 const processingLocks = new Set<string>();
@@ -96,11 +93,16 @@ export async function processShopOrder(
         // what keeps this change inert for the vast majority of orders.
         let parentShopId: string | null = null
         let parentProfit: number | null = null
+        // The root Lead, when the seller is a level-2 sub. Null at one or two
+        // levels, where the direct upline IS the root.
+        let grandparentShopId: string | null = null
+        let grandparentProfit: number | null = null
         /**
-         * Total margin on a sub order (selling − the LEAD's cost). The profit
-         * floor tests this instead of the sub's own leg: a zero sub leg is a
-         * legitimate outcome when the Lead raises their price after the sub set
-         * theirs, and rejecting there would fail an order already paid for.
+         * Total margin on a sub order (selling − the ROOT Lead's cost). The
+         * profit floor tests this instead of the sub's own leg: a zero leg at
+         * any level is a legitimate outcome when an upline raises their price
+         * after a downline set theirs, and rejecting there would fail an order
+         * the customer has already paid for.
          */
         let subTotalMargin: number | null = null
 
@@ -184,9 +186,11 @@ export async function processShopOrder(
             if (!shopPrice || !pkg) return { success: false, error: 'Price configuration missing' }
 
             const dbSellingPrice = parseFloat(shopPrice.selling_price)
-            // USSD carries no gateway fee: Hubtel charges the shelf price and takes
-            // its commission on its own side, so adding one here would make every
-            // USSD order fail the amount check below.
+            // USSD carries no gateway fee: the caller is charged exactly the shelf
+            // price and the gateway absorbs its cut at settlement, so adding one here
+            // would make every USSD order fail the amount check below. True of both
+            // collection paths - Hubtel took its commission on its own side, Paystack
+            // deducts its percentage from the payout.
             const paystackFee = metadata.channel === 'ussd'
                 ? 0
                 : Math.round(dbSellingPrice * (paystackFeePercent / 100) * 100) / 100
@@ -209,62 +213,52 @@ export async function processShopOrder(
             adminCostAtTime = parseFloat(pkg?.cost_price) || 0
 
             // ── SUB-AGENT SPLIT ──────────────────────────────────────────────
-            // A sub prices their storefront strictly above their Lead's retail
-            // price (enforced in /api/dashboard/sub/pricing), so the Lead's
-            // price — not the base package price — is the sub's cost basis.
-            // Without this the sub banks the entire margin and the Lead earns
-            // nothing on their own network's sales.
+            // A sub prices their storefront strictly above their upline's retail
+            // price (enforced in /api/dashboard/sub/pricing), so the UPLINE's
+            // price — not the base package price — is the seller's cost basis.
+            // Without this the seller banks the entire margin and the levels
+            // above earn nothing on their own network's sales.
+            //
+            // The network runs three levels, so this walks every ancestor: a
+            // level-2 sale owes its direct upline AND the root Lead. Pricing the
+            // direct upline at their platform role price — as the two-level code
+            // did — hands a level-1 sub the whole chain margin and pays the root
+            // nothing, silently.
             const subContext = await resolveSubAgentContext(db, shopProfile.owner_id)
 
-            if (subContext.isSub && subContext.uplineShopId) {
-                const { data: uplinePricing } = await db
-                    .from('shop_pricing')
-                    .select('selling_price, sub_price')
-                    .eq('shop_id', subContext.uplineShopId)
-                    .eq('package_id', metadata.package_id)
-                    .maybeSingle()
+            if (subContext.isSub && subContext.chain.length > 0) {
+                const levels = await resolveChainCosts(
+                    db,
+                    subContext.chain,
+                    metadata.package_id,
+                    {
+                        price: parseFloat(pkg?.price) || 0,
+                        agentPrice: pkg?.agent_price != null ? parseFloat(pkg.agent_price) : null,
+                        dealerPrice: pkg?.dealer_price != null ? parseFloat(pkg.dealer_price) : null,
+                    }
+                )
 
-                // sub_price is the Lead's explicit wholesale price when they set
-                // one; until then their retail price is the wholesale price.
-                const uplineCostRaw = uplinePricing?.sub_price ?? uplinePricing?.selling_price
-                const uplineCost = uplineCostRaw != null ? parseFloat(uplineCostRaw) : NaN
+                const split = splitChainProfit(dbSellingPrice, levels)
 
-                if (!Number.isFinite(uplineCost)) {
-                    // The Lead dropped this package after the sub priced it. Never
-                    // fail an order the customer has already paid for — fall back
-                    // to owner-role pricing with no upline attribution.
+                if (!split) {
+                    // An upline dropped this package after the seller priced it.
+                    // Never fail an order the customer has already paid for —
+                    // fall back to owner-role pricing with no attribution.
                     console.warn(
                         `[Shop Order Processor] Sub order with no upline price. Ref: ${reference}, shop: ${metadata.shop_id}, package: ${metadata.package_id}`
                     )
                 } else {
-                    const { data: uplineOwner } = await db
-                        .from('users')
-                        .select('role, agent_expires_at, dealer_expires_at')
-                        .eq('id', subContext.uplineOwnerId)
-                        .maybeSingle()
+                    verifiedCostPrice = split.sellerCost
+                    verifiedProfit = split.sellerProfit
+                    subTotalMargin = split.totalMargin
 
-                    const uplineOwnerCost = resolveOwnerCost(
-                        {
-                            price: parseFloat(pkg?.price) || 0,
-                            agentPrice: pkg?.agent_price != null ? parseFloat(pkg.agent_price) : null,
-                            dealerPrice: pkg?.dealer_price != null ? parseFloat(pkg.dealer_price) : null,
-                        },
-                        {
-                            role: (uplineOwner as any)?.role || 'customer',
-                            agentExpiresAt: (uplineOwner as any)?.agent_expires_at ?? null,
-                            dealerExpiresAt: (uplineOwner as any)?.dealer_expires_at ?? null,
-                        }
-                    )
+                    parentShopId = levels[0].shopId
+                    parentProfit = split.ancestorProfits[0] ?? 0
 
-                    // Clamped so neither leg can go negative if the Lead's price
-                    // has moved past the sub's since the sub last priced.
-                    const splitPoint = Math.min(uplineCost, dbSellingPrice)
-
-                    parentShopId = subContext.uplineShopId
-                    verifiedCostPrice = uplineCost
-                    verifiedProfit = toPesewaPrecision(dbSellingPrice - splitPoint)
-                    parentProfit = toPesewaPrecision(Math.max(0, splitPoint - uplineOwnerCost))
-                    subTotalMargin = toPesewaPrecision(dbSellingPrice - uplineOwnerCost)
+                    if (levels[1]) {
+                        grandparentShopId = levels[1].shopId
+                        grandparentProfit = split.ancestorProfits[1] ?? 0
+                    }
                 }
             }
         }
@@ -342,13 +336,34 @@ export async function processShopOrder(
                 // Only sent for sub orders, so an ordinary shop's insert is
                 // byte-for-byte what it was before this feature.
                 ...(parentShopId ? { parent_shop_id: parentShopId, parent_profit: parentProfit } : {}),
+                // Level-2 sales only — the root Lead sitting above the seller's
+                // own upline. Shed on failure below.
+                ...(grandparentShopId
+                    ? { grandparent_shop_id: grandparentShopId, grandparent_profit: grandparentProfit }
+                    : {}),
             }
-            
-            const { data: newOrder, error: createError } = await db
-                .from('shop_orders')
-                .insert(payload)
-                .select('id')
-                .single()
+
+            const insertOrder = (row: Record<string, any>) =>
+                db.from('shop_orders').insert(row).select('id').single()
+
+            let { data: newOrder, error: createError } = await insertOrder(payload)
+
+            if (createError && grandparentShopId) {
+                // The customer has already paid. A DB that predates
+                // migrations/20260825_sub_agent_level_3.sql rejects the whole
+                // row for the sake of two columns — so drop the root Lead's
+                // attribution and keep the order. That costs one manual credit
+                // an admin can repair; failing here costs the bundle.
+                console.error(
+                    `[Shop Order Processor] Insert failed carrying grandparent attribution ` +
+                    `(${createError.message}). Retrying without it — apply ` +
+                    `migrations/20260825_sub_agent_level_3.sql. Ref: ${reference}`
+                )
+                const { grandparent_shop_id, grandparent_profit, ...withoutGrandparent } = payload as any
+                const retry = await insertOrder(withoutGrandparent)
+                newOrder = retry.data
+                createError = retry.error
+            }
 
             if (createError) {
                 console.error('[Shop Order Processor] Failed to create shop order:', createError)

@@ -72,6 +72,26 @@ export async function POST(req: Request) {
         const adminSettings: Record<string, string> = {}
         for (const row of (adminSettingsData as any) || []) adminSettings[row.key] = String(row.value)
 
+        // A sub-agent's data prices are bounded by their upline's, not by the
+        // role-based cap below. This route would let them out of that bound
+        // entirely — /dashboard/shop/pricing is reachable from the sub portal —
+        // so send them to the screen that enforces it. Airtime fees fall
+        // through: those are mirrored from the parent, not bounded by them.
+        if (items && Array.isArray(items) && items.length > 0) {
+            const { data: subMembership } = await adminDb
+                .from('sub_agents')
+                .select('id')
+                .eq('user_id', authUser.id)
+                .maybeSingle()
+
+            if (subMembership) {
+                return NextResponse.json(
+                    { error: 'Set your data prices from your own Pricing page, where your upline’s price is the floor.' },
+                    { status: 403 }
+                )
+            }
+        }
+
         // Strict Backend Validation for Data Packages
         if (items && Array.isArray(items)) {
             for (const item of items) {
@@ -90,6 +110,34 @@ export async function POST(req: Request) {
                 }
                 
                 item.shop_id = shopId
+            }
+
+            // Carry each package's wholesale price across the rewrite.
+            //
+            // shop_pricing.sub_price is what this shop charges its sub-agents,
+            // set on a different screen (/api/shop/sub-pricing). Clearing the
+            // rows would drop it on every retail save, silently wiping the
+            // whole downline's cost basis.
+            //
+            // It has to survive a delete-and-reinsert rather than becoming an
+            // upsert: protect_shop_pricing_updates() raises 'profit_margin
+            // cannot be changed after creation' on any UPDATE that moves
+            // profit_margin, and re-pricing always moves it. Replacing the row
+            // is what has always sidestepped that.
+            const { data: existingPricing } = await supabase
+                .from('shop_pricing')
+                .select('package_id, sub_price')
+                .eq('shop_id', shopId)
+
+            const wholesaleByPackage = new Map<string, number>(
+                ((existingPricing as any[]) || [])
+                    .filter((row: any) => row.sub_price != null)
+                    .map((row: any) => [row.package_id, Number(row.sub_price)])
+            )
+
+            for (const item of items) {
+                const kept = wholesaleByPackage.get(item.package_id)
+                if (kept != null) item.sub_price = kept
             }
 
             // Clear existing pricing to prevent duplicates

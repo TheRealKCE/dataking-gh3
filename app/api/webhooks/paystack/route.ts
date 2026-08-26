@@ -29,6 +29,82 @@ export async function POST(request: NextRequest) {
             const { reference, amount: paidAmountKobo } = event.data
             const metadata = event.data.metadata
 
+            // o. USSD SALES: USSD- references are in-session USSD purchases paid by
+            // Paystack Mobile Money. Checked FIRST because, like SHOP-, they have no
+            // wallet_payments row to look up — a USSD caller has no account, so there
+            // is no user_id or wallet_id for that table's NOT NULL columns.
+            //
+            // These used to never reach this webhook at all: Hubtel collected them via
+            // AddToCart and reported to /api/hubtel/fulfill. That endpoint still works
+            // for anything in flight, but this is the live path now.
+            if (reference && reference.startsWith('USSD-')) {
+                const { ensureUssdSession } = await import('@/lib/ussd-reference')
+                const { logCallback } = await import('@/lib/hubtel-payment-log')
+
+                // Paystack echoes back the metadata the charge was created with, so
+                // it tells us which session it is settling. No mapping store needed —
+                // the reference is only the fallback, for a charge whose metadata did
+                // not survive.
+                const resolved = await ensureUssdSession(supabase, {
+                    sessionId: metadata?.session_id,
+                    orderType: metadata?.order_type,
+                    reference,
+                })
+                if (!resolved) {
+                    // Money has moved and we cannot tell what it bought. Say so loudly
+                    // and leave the row un-settled for a human — acking silently would
+                    // bury it.
+                    console.error('[PaystackWebhook] USSD order could not be resolved:', reference)
+                    await logCallback({
+                        clientReference: reference,
+                        status: 'failed',
+                        amount: paidAmountKobo / 100,
+                        message: 'Paid but the USSD session could not be found.',
+                        raw: event.data,
+                    })
+                    return NextResponse.json({ received: true })
+                }
+
+                // Paystack reports gross pesewas, which is exactly what both fulfillers
+                // want — no gross-vs-net reconstruction like the Hubtel path needed.
+                const amountPaid = paidAmountKobo / 100
+                const deferredWork: Array<() => Promise<void>> = []
+
+                const result = resolved.orderType === 'data'
+                    ? await (await import('@/lib/ussd-data-fulfillment')).fulfillUSSDDataBySession({
+                        sessionId: resolved.sessionId,
+                        referenceCode: reference,
+                        amountPaid,
+                        deferredWork,
+                    })
+                    : await (await import('@/lib/ussd-rc-fulfillment')).fulfillUSSDRCBySession({
+                        sessionId: resolved.sessionId,
+                        referenceCode: reference,
+                        amountPaid,
+                        deferredWork,
+                    })
+
+                await logCallback({
+                    clientReference: reference,
+                    status: result.success ? 'success' : 'failed',
+                    amount: amountPaid,
+                    transactionId: event.data.id ? String(event.data.id) : null,
+                    payerMsisdn: metadata?.payer_msisdn ?? null,
+                    message: result.success ? null : `Paid but fulfilment failed: ${result.error ?? 'unknown error'}`,
+                    raw: event.data,
+                })
+
+                if (!result.success) {
+                    console.error('[PaystackWebhook] USSD fulfilment failed:', reference, result.error)
+                }
+
+                for (const task of deferredWork) {
+                    await task().catch(() => {})
+                }
+
+                return NextResponse.json({ received: true })
+            }
+
             // o. SHOP ORDERS: References starting with SHOP- are storefront guest orders.
             // They are NOT stored in wallet_payments, so we must handle them separately
             // before the DB lookup to avoid "Payment not found" errors.

@@ -24,6 +24,11 @@ export type HubtelLogStage = 'initiate' | 'callback' | 'status_check' | 'fulfill
  */
 export function flowFromReference(reference: string): string {
     const ref = reference || ''
+    // USSD- must be tested before RC-/DATA-: a USSD sale is 'USSD-RC-…' or
+    // 'USSD-DATA-…' and belongs to the USSD flow, not the web voucher or data flow.
+    // (startsWith is anchored, so these could not actually collide — the ordering is
+    // for the reader, and for whoever loosens one of these tests later.)
+    if (ref.startsWith('USSD-')) return 'ussd'
     if (ref.startsWith('SHOP-')) return 'shop'
     if (ref.startsWith('RC-')) return 'results_checker'
     if (ref.startsWith('DATA-')) return 'data'

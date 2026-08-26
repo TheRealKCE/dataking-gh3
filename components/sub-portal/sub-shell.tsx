@@ -21,6 +21,7 @@ import {
   BadgeCheck,
   GraduationCap,
   ClipboardList,
+  Crown,
   Tag,
   User,
   Download,
@@ -39,6 +40,8 @@ const NAV = [
   { href: '/dashboard/sub/storefront-orders', label: 'Store Orders', icon: ClipboardList },
   { href: '/dashboard/sub/orders', label: 'My Orders', icon: ShoppingCart },
   { href: '/dashboard/sub/shop', label: 'My Shop', icon: Store },
+  // Recruiting. Hidden only from a level-2 sub — see recruitBlocked below.
+  { href: '/dashboard/sub/sub-agents', label: 'My Sub-Agents', icon: Crown, recruitOnly: true },
   { href: '/dashboard/sub/ussd', label: 'USSD Code', icon: Smartphone },
   { href: '/dashboard/sub/afa', label: 'AFA Registration', icon: BadgeCheck },
   { href: '/dashboard/sub/rc', label: 'Results Checker', icon: GraduationCap },
@@ -55,6 +58,16 @@ export function SubPortalShell({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false)
   const [brand, setBrand] = useState<BrandConfig | null>(null)
   const [ownShopSlug, setOwnShopSlug] = useState<string | null>(null)
+  // Hidden ONLY for a level-2 sub, who is the bottom of the network and can
+  // never recruit. Everyone else sees the entry.
+  //
+  // This deliberately does not hide on membership status. A pending sub is
+  // exactly the person exploring the portal, and hiding the feature from them
+  // makes it undiscoverable rather than merely unavailable — they cannot tell
+  // "not yet" from "not a thing". The page and /api/shop/invites both refuse a
+  // sub who is not active, with a message that says why. Default false so a
+  // slow or failed lookup shows the entry rather than swallowing it.
+  const [recruitBlocked, setRecruitBlocked] = useState(false)
 
   // Follow the phone's light/dark setting inside the portal.
   useEffect(() => {
@@ -89,6 +102,9 @@ export function SubPortalShell({ children }: { children: React.ReactNode }) {
       .then((d) => {
         if (d?.brandConfig) setBrand(d.brandConfig)
         if (d?.ownShopSlug) setOwnShopSlug(d.ownShopSlug)
+        // Only a confirmed depth of 2+ hides it. An older payload with no
+        // depth field leaves the entry visible.
+        if (typeof d?.depth === 'number' && d.depth >= 2) setRecruitBlocked(true)
       })
       .catch(() => {})
   }, [])
@@ -139,7 +155,9 @@ export function SubPortalShell({ children }: { children: React.ReactNode }) {
 
         {/* Nav */}
         <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          {NAV.filter((item) => isPageAccessible(item.href)).map((item) => {
+          {NAV.filter((item) => isPageAccessible(item.href))
+            .filter((item) => !('recruitOnly' in item && item.recruitOnly) || !recruitBlocked)
+            .map((item) => {
             const active = isActive(item)
             return (
               <Link
