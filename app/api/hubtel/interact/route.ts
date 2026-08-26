@@ -120,19 +120,29 @@ async function getUssdFlags(): Promise<UssdFlags> {
             'ussd flags fetch timeout'
         );
 
-        const settings: Record<string, string> = {};
+        const raw: Record<string, unknown> = {};
         for (const row of (data || [])) {
-            // admin_settings.value has been written both JSON-quoted and bare over
-            // the years; strip the quotes the same way resolveProvider() does.
-            settings[row.key] = String(row.value ?? '').trim().replace(/^"+|"+$/g, '').trim();
+            raw[row.key] = row.value;
         }
 
+        // admin_settings.value has been written both JSON-quoted and bare over the
+        // years; strip the quotes the same way resolveProvider() does.
+        const providerRaw = String(raw[USSD_PAYMENT_PROVIDER_KEY] ?? '')
+            .trim()
+            .replace(/^"+|"+$/g, '')
+            .trim()
+            .toLowerCase();
+
         const flags: UssdFlags = {
-            enabled: isUssdEnabled({ [USSD_ENABLED_KEY]: settings[USSD_ENABLED_KEY] }),
+            // The RAW value goes to isUssdEnabled, deliberately. It answers true only
+            // for the exact string 'true', and normalising first would widen that: a
+            // JSONB boolean true arrives here as JS true, which String() would turn
+            // into 'true' and open a service the strict check keeps shut. This is the
+            // one switch in the codebase whose whole job is failing closed, and it is
+            // now the only gate in front of live money.
+            enabled: isUssdEnabled({ [USSD_ENABLED_KEY]: raw[USSD_ENABLED_KEY] as any }),
             // Paystack unless someone has deliberately named hubtel.
-            paymentProvider: settings[USSD_PAYMENT_PROVIDER_KEY]?.toLowerCase() === 'hubtel'
-                ? 'hubtel'
-                : 'paystack',
+            paymentProvider: providerRaw === 'hubtel' ? 'hubtel' : 'paystack',
         };
         ussdFlagCache = { flags, at: Date.now() };
         return flags;

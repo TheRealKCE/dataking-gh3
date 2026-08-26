@@ -22,21 +22,50 @@
  * user_id and wallet_id NOT NULL, and a USSD caller has neither — they never signed
  * up. hubtel_payment_logs carries the audit trail instead.
  */
-import { Redis } from '@upstash/redis'
-
 /**
- * Lazily constructed, unlike the eager client in lib/payswitch-reference.ts.
+ * Upstash over its REST API with plain fetch, rather than the @upstash/redis SDK
+ * every other module here uses.
  *
- * This module is imported by app/api/hubtel/interact/route.ts, which runs on the
- * edge. Redis.fromEnv() throws when the Upstash vars are unset, and at module
- * scope that throw happens at import time - taking down every USSD session,
- * including the one that only wanted to read the master switch and hang up
- * politely. Deferring it means a misconfiguration breaks payment and nothing else.
+ * The SDK resolves to its Node build inside the edge bundle and reaches for
+ * process.version, which the Edge Runtime does not provide. The build only warns
+ * - @supabase/supabase-js trips the same check on this very route and has run in
+ * production for months - but this is the one write standing between a customer
+ * being charged and their order being findable. Precedent is not the same as
+ * certainty, and the whole client we need is two calls.
+ *
+ * Same two env vars the SDK reads, so nothing else about the setup changes.
  */
-let redisClient: Redis | null = null
-function getRedis(): Redis {
-    if (!redisClient) redisClient = Redis.fromEnv()
-    return redisClient
+function restEndpoint(): { url: string; token: string } {
+    const url = process.env.UPSTASH_REDIS_REST_URL
+    const token = process.env.UPSTASH_REDIS_REST_TOKEN
+    if (!url || !token) {
+        throw new Error('Missing env var(s): UPSTASH_REDIS_REST_URL, UPSTASH_REDIS_REST_TOKEN')
+    }
+    return { url: url.replace(/\/+$/, ''), token }
+}
+
+async function redisSet(key: string, value: string, ttlSeconds: number): Promise<void> {
+    const { url, token } = restEndpoint()
+    const res = await fetch(`${url}/set/${encodeURIComponent(key)}?EX=${ttlSeconds}`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: value,
+        signal: AbortSignal.timeout(2500),
+    })
+    if (!res.ok) {
+        throw new Error(`Upstash SET failed: HTTP ${res.status}`)
+    }
+}
+
+async function redisGet(key: string): Promise<string | null> {
+    const { url, token } = restEndpoint()
+    const res = await fetch(`${url}/get/${encodeURIComponent(key)}`, {
+        headers: { Authorization: `Bearer ${token}` },
+        signal: AbortSignal.timeout(5000),
+    })
+    if (!res.ok) throw new Error(`Upstash GET failed: HTTP ${res.status}`)
+    const json: any = await res.json()
+    return json?.result ?? null
 }
 
 /** Matches the TTL the shop and PaySwitch reference maps already use. */
@@ -65,17 +94,18 @@ export interface UssdOrderSnapshot {
  * cannot resolve its reference has nothing to deliver.
  */
 export async function putUssdOrder(reference: string, snapshot: UssdOrderSnapshot): Promise<void> {
-    await getRedis().set(mapKey(reference), JSON.stringify(snapshot), { ex: REF_MAP_TTL_SECONDS })
+    await redisSet(mapKey(reference), JSON.stringify(snapshot), REF_MAP_TTL_SECONDS)
 }
 
 /** Reads the mirror back. Returns null when the key has expired or was never written. */
 export async function getUssdOrder(reference: string): Promise<UssdOrderSnapshot | null> {
     try {
-        const raw = await getRedis().get<string | UssdOrderSnapshot>(mapKey(reference))
+        const raw = await redisGet(mapKey(reference))
         if (!raw) return null
-        // Upstash deserialises JSON payloads for us on some client versions and
-        // hands back the raw string on others. Accept both.
-        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw
+        // The REST API hands back exactly the string we stored, so this is always a
+        // parse. Guarded anyway: a truncated or hand-edited value must return null
+        // and let the caller refuse, not throw halfway through settling a payment.
+        const parsed = JSON.parse(raw)
         return parsed?.sessionId ? (parsed as UssdOrderSnapshot) : null
     } catch (err) {
         console.error('[UssdRef] Could not read order mirror:', err)

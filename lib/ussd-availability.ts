@@ -9,22 +9,25 @@
 export const USSD_ENABLED_KEY = 'ussd_enabled'
 
 /**
- * Hard block. USSD is closed by decision, not by configuration.
+ * Hard block. Now lifted: /admin/settings decides again.
  *
- * The admin_settings switch was flipped off and USSD kept taking money — the
- * toggle in /admin/settings only writes on Save, so it is easy to believe the
- * service is shut when the stored value is still 'true'. Rather than keep
- * chasing that, the answer no longer depends on the database at all.
+ * The history matters, because it is the reason this constant exists at all. The
+ * admin switch was flipped off and USSD kept taking money — the toggle only writes
+ * on Save, so it was easy to believe the service was shut while the stored value
+ * was still 'true'. The answer was taken away from the database entirely until
+ * that could be trusted again.
  *
- * While this is true, `ussd_enabled` is ignored everywhere and no stored value,
- * stale cache or unsaved form can reopen the service.
+ * Lifting it is therefore only safe alongside a known stored value, which is why
+ * migration 20260826000000_ussd_reopen_gate.sql force-writes ussd_enabled to
+ * 'false' rather than leaving whatever was there. Removing this block without
+ * pinning that value would hand the service back to the same unverified string
+ * that caused the problem.
  *
- * TO REOPEN USSD: set this to false. The admin switch then works as before and
- * decides on its own. Nothing else here needs changing, and short codes shops
- * already bought are untouched throughout — this closes the door, it does not
- * cancel anything.
+ * TO CLOSE USSD AGAIN IN A HURRY: set this back to true. It outranks the database,
+ * every cache and any unsaved form, and takes effect on deploy. Short codes shops
+ * have already bought are untouched either way — this is a door, not a cancellation.
  */
-const USSD_HARD_DISABLED = true
+const USSD_HARD_DISABLED = false
 
 /**
  * Whether USSD is open for business.
