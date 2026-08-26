@@ -16,12 +16,15 @@
 
 -- Which gateway collects for a USSD sale.
 --
--- Seeded 'paystack' because that is what the code now does by default. The value
+-- Seeded 'paystack' because that is what the code now does by default. Note the
+-- doubled quotes: value is JSONB, so a bare 'paystack' is not valid JSON and the
+-- insert is rejected outright. Every consumer compares this as a string, so it is
+-- stored as a JSON string, matching 20260813_referral_bonuses.sql. The value
 -- exists so the previous behaviour is one setting away rather than one deploy
 -- away: set it to 'hubtel' and the confirm step returns AddToCart exactly as
 -- before. Anything other than 'hubtel' reads as 'paystack'.
 INSERT INTO public.admin_settings (key, value) VALUES
-    ('ussd_payment_provider', 'paystack')
+    ('ussd_payment_provider', '"paystack"')
 ON CONFLICT (key) DO NOTHING;
 
 -- The reconciliation sweep (/api/cron/verify-ussd-payments) reads pending USSD
