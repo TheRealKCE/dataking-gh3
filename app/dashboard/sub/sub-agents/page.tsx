@@ -12,5 +12,5 @@ import SubAgentsManager from '@/components/shop/sub-agents-manager'
  * to break.
  */
 export default function SubPortalSubAgentsPage() {
-  return <SubAgentsManager />
+  return <SubAgentsManager pricingHref="/dashboard/sub/sub-pricing" />
 }

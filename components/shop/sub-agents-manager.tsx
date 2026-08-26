@@ -31,10 +31,20 @@ interface Tab {
  * owner_id, and PATCH authorises on "am I the upline", which is equally true
  * of a sub who has recruited.
  */
-export default function SubAgentsManager() {
+export default function SubAgentsManager({
+  pricingHref = '/dashboard/shop/sub-pricing',
+}: {
+  /** Where "Set their prices" goes — differs per portal. */
+  pricingHref?: string
+} = {}) {
   const [subs, setSubs] = useState<SubAgent[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  // Recruiting hangs off a shop: /api/shop/sub-agents resolves the caller's
+  // shop by owner_id and 404s without one. That is a normal state for a new
+  // sub, not a failure, so it gets its own message rather than a red banner
+  // reading "Shop not found".
+  const [needsShop, setNeedsShop] = useState(false)
   const [selectedTab, setSelectedTab] = useState<'all' | 'pending' | 'active' | 'suspended'>('all')
   const [showInviteForm, setShowInviteForm] = useState(false)
   const [selectedSub, setSelectedSub] = useState<SubAgent | null>(null)
@@ -55,6 +65,11 @@ export default function SubAgentsManager() {
       setLoading(true)
       const response = await fetch('/api/shop/sub-agents')
       const data = await response.json()
+
+      if (response.status === 404) {
+        setNeedsShop(true)
+        return
+      }
 
       if (!response.ok) {
         setError(data.error || 'Failed to load sub-agents')
@@ -89,12 +104,23 @@ export default function SubAgentsManager() {
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Sub-Agents</h1>
           <p className="text-gray-600 mt-1">Manage your sub-agent network</p>
         </div>
-        <button
-          onClick={() => setShowInviteForm(!showInviteForm)}
-          className="w-full sm:w-auto shrink-0 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold"
-        >
-          + Generate Invite Link
-        </button>
+        <div className="flex flex-col sm:flex-row gap-2 shrink-0">
+          {/* Recruiting and pricing a downline are the same job, so the link
+              belongs next to the invite button rather than buried in Pricing,
+              which is about what your own customers pay. */}
+          <a
+            href={pricingHref}
+            className="w-full sm:w-auto px-4 py-2 rounded-lg border border-blue-600 text-blue-700 hover:bg-blue-50 font-semibold text-center"
+          >
+            Set their prices
+          </a>
+          <button
+            onClick={() => setShowInviteForm(!showInviteForm)}
+            className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold"
+          >
+            + Generate Invite Link
+          </button>
+        </div>
       </div>
 
       {/* Quick Stats */}
@@ -145,6 +171,14 @@ export default function SubAgentsManager() {
         <div className="text-center py-8">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
           <p className="text-gray-600 mt-2">Loading...</p>
+        </div>
+      ) : needsShop ? (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">
+          <p className="font-semibold text-blue-900">Create your storefront first</p>
+          <p className="text-blue-800 text-sm mt-1">
+            Your sub-agents sell from prices you set on your own shop, so you need one
+            before you can recruit. Open <strong>My Shop</strong> to create it.
+          </p>
         </div>
       ) : error ? (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-800">

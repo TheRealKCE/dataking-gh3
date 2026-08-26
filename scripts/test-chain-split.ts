@@ -164,4 +164,77 @@ for (const tc of testCases) {
 }
 
 console.log(`\n=== ${passed} passed, ${failed} failed ===`)
-process.exit(failed > 0 ? 1 : 0)
+
+// ─── Property test: money is neither created nor destroyed ─────────────────
+//
+// Each leg is rounded to pesewas independently, so three roundings could in
+// principle sum to less than the chain margin — a fraction of a pesewa lost on
+// every sale, which is exactly the kind of thing that never shows up in a
+// spot-check and shows up in reconciliation months later.
+//
+// Prices are all NUMERIC(12,2), so this sweeps 2dp values and asserts the legs
+// reconstruct the margin exactly, and that no leg is ever negative.
+
+const round2 = (n: number) => Math.round(n * 100) / 100
+const randomPrice = (min: number, max: number) =>
+    round2(min + Math.random() * (max - min))
+
+let propPassed = 0
+let propFailed = 0
+
+console.log('\n=== Property: legs sum to the chain margin ===\n')
+
+for (let i = 0; i < 20000; i++) {
+    // A healthy chain: platform cost < root wholesale < mid wholesale < retail.
+    const rootCost = randomPrice(1, 20)
+    const rootWholesale = round2(rootCost + randomPrice(0.01, 5))
+    const midWholesale = round2(rootWholesale + randomPrice(0.01, 5))
+    // Deliberately allow retail BELOW the seller's cost sometimes, to exercise
+    // the clamp as well as the happy path.
+    const retail = round2(midWholesale + randomPrice(-2, 5))
+
+    const levels: ChainLevel[] = [
+        { ...level(midWholesale, rootWholesale, 'l1') },
+        { ...level(rootWholesale, rootCost, 'l0') },
+    ]
+
+    const split = splitChainProfit(retail, levels)
+    if (!split) {
+        propFailed++
+        console.log(`FAIL: null split for retail=${retail}`)
+        break
+    }
+
+    const legs = [split.sellerProfit, ...split.ancestorProfits]
+
+    if (legs.some((l) => l < 0)) {
+        propFailed++
+        console.log(`FAIL: negative leg. retail=${retail} legs=[${legs.join(', ')}]`)
+        break
+    }
+
+    const sum = round2(legs.reduce((a, b) => a + b, 0))
+    if (sum !== split.totalMargin) {
+        propFailed++
+        console.log(
+            `FAIL: legs sum ${sum} != totalMargin ${split.totalMargin}. ` +
+            `retail=${retail} mid=${midWholesale} root=${rootWholesale} cost=${rootCost}`
+        )
+        break
+    }
+
+    // On a healthy chain the margin is exactly retail - platform cost.
+    if (retail >= midWholesale && split.totalMargin !== round2(retail - rootCost)) {
+        propFailed++
+        console.log(
+            `FAIL: totalMargin ${split.totalMargin} != retail-cost ${round2(retail - rootCost)}`
+        )
+        break
+    }
+
+    propPassed++
+}
+
+console.log(`${propPassed} random chains checked, ${propFailed} failed`)
+
+process.exit(failed > 0 || propFailed > 0 ? 1 : 0)
