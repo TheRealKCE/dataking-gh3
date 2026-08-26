@@ -31,7 +31,12 @@ interface Tab {
  * owner_id, and PATCH authorises on "am I the upline", which is equally true
  * of a sub who has recruited.
  */
-export default function SubAgentsManager() {
+export default function SubAgentsManager({
+  pricingHref = '/dashboard/shop/sub-pricing',
+}: {
+  /** Where "Set their prices" goes — differs per portal. */
+  pricingHref?: string
+} = {}) {
   const [subs, setSubs] = useState<SubAgent[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -99,12 +104,23 @@ export default function SubAgentsManager() {
           <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">Sub-Agents</h1>
           <p className="text-gray-600 mt-1">Manage your sub-agent network</p>
         </div>
-        <button
-          onClick={() => setShowInviteForm(!showInviteForm)}
-          className="w-full sm:w-auto shrink-0 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold"
-        >
-          + Generate Invite Link
-        </button>
+        <div className="flex flex-col sm:flex-row gap-2 shrink-0">
+          {/* Recruiting and pricing a downline are the same job, so the link
+              belongs next to the invite button rather than buried in Pricing,
+              which is about what your own customers pay. */}
+          <a
+            href={pricingHref}
+            className="w-full sm:w-auto px-4 py-2 rounded-lg border border-blue-600 text-blue-700 hover:bg-blue-50 font-semibold text-center"
+          >
+            Set their prices
+          </a>
+          <button
+            onClick={() => setShowInviteForm(!showInviteForm)}
+            className="w-full sm:w-auto px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-semibold"
+          >
+            + Generate Invite Link
+          </button>
+        </div>
       </div>
 
       {/* Quick Stats */}
