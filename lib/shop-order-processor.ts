@@ -186,9 +186,11 @@ export async function processShopOrder(
             if (!shopPrice || !pkg) return { success: false, error: 'Price configuration missing' }
 
             const dbSellingPrice = parseFloat(shopPrice.selling_price)
-            // USSD carries no gateway fee: Hubtel charges the shelf price and takes
-            // its commission on its own side, so adding one here would make every
-            // USSD order fail the amount check below.
+            // USSD carries no gateway fee: the caller is charged exactly the shelf
+            // price and the gateway absorbs its cut at settlement, so adding one here
+            // would make every USSD order fail the amount check below. True of both
+            // collection paths - Hubtel took its commission on its own side, Paystack
+            // deducts its percentage from the payout.
             const paystackFee = metadata.channel === 'ussd'
                 ? 0
                 : Math.round(dbSellingPrice * (paystackFeePercent / 100) * 100) / 100
