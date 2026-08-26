@@ -35,6 +35,11 @@ export default function SubAgentsManager() {
   const [subs, setSubs] = useState<SubAgent[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  // Recruiting hangs off a shop: /api/shop/sub-agents resolves the caller's
+  // shop by owner_id and 404s without one. That is a normal state for a new
+  // sub, not a failure, so it gets its own message rather than a red banner
+  // reading "Shop not found".
+  const [needsShop, setNeedsShop] = useState(false)
   const [selectedTab, setSelectedTab] = useState<'all' | 'pending' | 'active' | 'suspended'>('all')
   const [showInviteForm, setShowInviteForm] = useState(false)
   const [selectedSub, setSelectedSub] = useState<SubAgent | null>(null)
@@ -55,6 +60,11 @@ export default function SubAgentsManager() {
       setLoading(true)
       const response = await fetch('/api/shop/sub-agents')
       const data = await response.json()
+
+      if (response.status === 404) {
+        setNeedsShop(true)
+        return
+      }
 
       if (!response.ok) {
         setError(data.error || 'Failed to load sub-agents')
@@ -145,6 +155,14 @@ export default function SubAgentsManager() {
         <div className="text-center py-8">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
           <p className="text-gray-600 mt-2">Loading...</p>
+        </div>
+      ) : needsShop ? (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">
+          <p className="font-semibold text-blue-900">Create your storefront first</p>
+          <p className="text-blue-800 text-sm mt-1">
+            Your sub-agents sell from prices you set on your own shop, so you need one
+            before you can recruit. Open <strong>My Shop</strong> to create it.
+          </p>
         </div>
       ) : error ? (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-800">
