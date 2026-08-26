@@ -21,7 +21,19 @@
 -- ============================================================
 
 INSERT INTO public.admin_settings (key, value)
-VALUES ('ussd_enabled', 'false')
+VALUES ('ussd_enabled', '"false"')
 ON CONFLICT (key) DO UPDATE
-    SET value = 'false',
+    SET value = '"false"',
         updated_at = NOW();
+
+-- TO REOPEN USSD LATER, mind the quoting. value is JSONB and isUssdEnabled()
+-- answers true only for the exact STRING 'true':
+--
+--   Admin UI (/admin/settings)  -> correct, writes a JSON string. Use this.
+--   SET value = '"true"'        -> correct, JSON string "true".
+--   SET value = 'true'          -> WRONG. Valid JSON, but a boolean, which reads
+--                                  back as JS true and never equals 'true'. USSD
+--                                  stays shut and looks broken rather than off.
+--
+-- The strictness is deliberate and predates this file: a switch whose job is to
+-- stop a live service taking money has to fail closed on anything ambiguous.
