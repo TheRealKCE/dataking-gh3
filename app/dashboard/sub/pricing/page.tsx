@@ -7,6 +7,12 @@
  * the level directly above them: floor = that parent's retail price, cap =
  * parent price + the sub's markup ceiling.
  *
+ * Data carries one extra rule. What a sub PAYS for a bundle is their parent's
+ * wholesale sub_price, which the parent may set above their own retail price —
+ * so the data floor is whichever is higher, the parent's shelf price or this
+ * sub's cost plus the minimum margin. The server sends that as `minPrice`
+ * rather than having this screen re-derive it.
+ *
  * All three products live here — data, Results Checker and AFA — because all
  * three tiles only render on a storefront that has priced them. Saving marks
  * the shop's pricing approved server-side, so the storefront goes live at once
@@ -24,6 +30,10 @@ interface DataItem {
   network: string
   size: string
   parentPrice: number
+  /** What this sub is charged per order — their parent's wholesale price. */
+  myCost: number
+  /** Lowest price they may set: above the parent's shelf AND above their cost. */
+  minPrice: number
   maxPrice: number
   currentPrice: number | null
 }
@@ -46,62 +56,82 @@ interface AfaPricing {
 type Tab = 'data' | 'rc' | 'afa'
 type Message = { type: 'ok' | 'err'; text: string } | null
 
+const round2 = (value: number) => Math.round(value * 100) / 100
+
+/** Why a price is out of bounds, or null when it is fine. */
+function priceRejection(value: string, myCost: number, minPrice: number, maxPrice: number) {
+  const val = parseFloat(value || '')
+  if (!Number.isFinite(val)) return 'Enter a price.'
+  if (val < minPrice) {
+    return val < myCost
+      ? `You pay ₵${myCost.toFixed(2)} for this — selling at ₵${val.toFixed(2)} loses money. Minimum ₵${minPrice.toFixed(2)}.`
+      : `Minimum ₵${minPrice.toFixed(2)}.`
+  }
+  if (val > maxPrice) return `Maximum ₵${maxPrice.toFixed(2)}.`
+  return null
+}
+
 /** Shared row: a product, its bounds, a price input and the resulting profit. */
 function PriceRow({
   title,
-  parentPrice,
+  myCost,
+  minPrice,
   maxPrice,
   value,
   onChange,
 }: {
   title: string
-  parentPrice: number
+  myCost: number
+  minPrice: number
   maxPrice: number
   value: string
   onChange: (next: string) => void
 }) {
   const val = parseFloat(value || '0')
-  const profit = Number.isFinite(val) ? val - parentPrice : 0
-  // Matches the server, which rejects a price equal to the parent's: the
-  // profit_margin column requires a positive margin.
-  const outOfRange = !Number.isFinite(val) || val <= parentPrice || val > maxPrice
+  // Profit is measured from what this sub actually pays, which is not always
+  // the parent's shelf price once the parent sets a wholesale price.
+  const profit = Number.isFinite(val) ? val - myCost : 0
+  const why = priceRejection(value, myCost, minPrice, maxPrice)
 
   return (
-    <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-4 flex items-center gap-4">
-      <div className="min-w-0 flex-1">
-        <p className="font-semibold text-gray-900 dark:text-gray-100">{title}</p>
-        <p className="text-xs text-gray-500 dark:text-gray-400">
-          Parent ₵{parentPrice.toFixed(2)} · max ₵{maxPrice.toFixed(2)}
-        </p>
-      </div>
-      <div className="w-28 shrink-0">
-        <div className="relative">
-          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">₵</span>
-          <input
-            type="number"
-            step="0.01"
-            min={parentPrice}
-            max={maxPrice}
-            value={value ?? ''}
-            onChange={(e) => onChange(e.target.value)}
-            className={`w-full pl-6 pr-2 py-2 rounded-lg border text-right focus:ring-2 focus:outline-none dark:bg-gray-800 dark:text-gray-100 ${
-              outOfRange
-                ? 'border-red-400 focus:ring-red-400'
-                : 'border-gray-300 dark:border-gray-700 focus:ring-blue-500'
+    <div className="bg-white dark:bg-gray-900 rounded-lg shadow p-4">
+      <div className="flex items-center gap-4">
+        <div className="min-w-0 flex-1">
+          <p className="font-semibold text-gray-900 dark:text-gray-100">{title}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400">
+            You pay ₵{myCost.toFixed(2)} · sell ₵{minPrice.toFixed(2)}–₵{maxPrice.toFixed(2)}
+          </p>
+        </div>
+        <div className="w-28 shrink-0">
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">₵</span>
+            <input
+              type="number"
+              step="0.01"
+              min={minPrice}
+              max={maxPrice}
+              value={value ?? ''}
+              onChange={(e) => onChange(e.target.value)}
+              className={`w-full pl-6 pr-2 py-2 rounded-lg border text-right focus:ring-2 focus:outline-none dark:bg-gray-800 dark:text-gray-100 ${
+                why
+                  ? 'border-red-400 focus:ring-red-400'
+                  : 'border-gray-300 dark:border-gray-700 focus:ring-blue-500'
+              }`}
+            />
+          </div>
+        </div>
+        <div className="w-20 shrink-0 text-right">
+          <p className="text-xs text-gray-500 dark:text-gray-400">Profit</p>
+          <p
+            className={`font-bold ${
+              profit > 0 ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'
             }`}
-          />
+          >
+            ₵{(profit > 0 ? profit : 0).toFixed(2)}
+          </p>
         </div>
       </div>
-      <div className="w-20 shrink-0 text-right">
-        <p className="text-xs text-gray-500 dark:text-gray-400">Profit</p>
-        <p
-          className={`font-bold ${
-            profit > 0 ? 'text-green-600 dark:text-green-400' : 'text-gray-500 dark:text-gray-400'
-          }`}
-        >
-          ₵{(profit > 0 ? profit : 0).toFixed(2)}
-        </p>
-      </div>
+      {why && <p className="text-xs text-red-600 dark:text-red-400 mt-2">{why}</p>}
     </div>
   )
 }
@@ -151,8 +181,11 @@ export default function SubPricingPage() {
           setCeiling(dataRes.d.ceiling || 0)
           const list: DataItem[] = dataRes.d.items || []
           setItems(list)
+          // Seed at the floor, not at the parent's price: the parent's price is
+          // itself out of bounds, so seeding there left every row red and the
+          // Save button disabled before the sub had touched anything.
           setPrices(
-            Object.fromEntries(list.map((it) => [it.packageId, String(it.currentPrice ?? it.parentPrice)]))
+            Object.fromEntries(list.map((it) => [it.packageId, String(it.currentPrice ?? it.minPrice)]))
           )
         }
 
@@ -160,13 +193,15 @@ export default function SubPricingPage() {
           const list: RcItem[] = rcRes.d.items || []
           setRcItems(list)
           setRcPrices(
-            Object.fromEntries(list.map((it) => [it.rcTypeId, String(it.currentPrice ?? it.parentPrice)]))
+            Object.fromEntries(
+              list.map((it) => [it.rcTypeId, String(it.currentPrice ?? round2(it.parentPrice + 0.01))])
+            )
           )
         }
 
         if (afaRes?.ok && afaRes.d.parentPrice != null) {
           setAfa(afaRes.d)
-          setAfaPrice(String(afaRes.d.currentPrice ?? afaRes.d.parentPrice))
+          setAfaPrice(String(afaRes.d.currentPrice ?? round2(afaRes.d.parentPrice + 0.01)))
         }
       } catch {
         setMsg({ type: 'err', text: 'Something went wrong' })
@@ -222,11 +257,6 @@ export default function SubPricingPage() {
   const saveAfa = () =>
     post('/api/dashboard/sub/afa-pricing', { sellingPrice: parseFloat(afaPrice || '0') }, 'AFA price saved.')
 
-  const outOfRange = (value: string, floor: number, cap: number) => {
-    const v = parseFloat(value || '0')
-    return !Number.isFinite(v) || v <= floor || v > cap
-  }
-
   if (loading) {
     return <div className="max-w-3xl mx-auto p-4 py-16 text-center text-gray-500 dark:text-gray-400">Loading pricing…</div>
   }
@@ -254,17 +284,43 @@ export default function SubPricingPage() {
     { id: 'afa', label: 'AFA', count: afa ? 1 : 0 },
   ]
 
-  const dataInvalid = items.some((it) => outOfRange(prices[it.packageId], it.parentPrice, it.maxPrice))
-  const rcInvalid = rcItems.some((it) => outOfRange(rcPrices[it.rcTypeId], it.parentPrice, it.maxPrice))
-  const afaInvalid = !afa || outOfRange(afaPrice, afa.parentPrice, afa.maxPrice)
+  // Report the first bad row rather than disabling Save into silence — a greyed
+  // button with no reason reads as "my price won't save".
+  const firstRejection = (
+    rows: { label: string; why: string | null }[]
+  ): string | null => {
+    const bad = rows.find((r) => r.why)
+    return bad ? `${bad.label}: ${bad.why}` : null
+  }
+
+  const dataProblem = firstRejection(
+    items.map((it) => ({
+      label: `${it.network} · ${it.size}`,
+      why: priceRejection(prices[it.packageId] ?? '', it.myCost, it.minPrice, it.maxPrice),
+    }))
+  )
+  const rcProblem = firstRejection(
+    rcItems.map((it) => ({
+      label: it.name,
+      why: priceRejection(
+        rcPrices[it.rcTypeId] ?? '',
+        it.parentPrice,
+        round2(it.parentPrice + 0.01),
+        it.maxPrice
+      ),
+    }))
+  )
+  const afaProblem = afa
+    ? priceRejection(afaPrice, afa.parentPrice, round2(afa.parentPrice + 0.01), afa.maxPrice)
+    : 'AFA is not available to price yet.'
 
   return (
     <div className="max-w-3xl mx-auto p-4 space-y-4">
       <div>
         <h1 className="text-2xl font-bold text-gray-900 dark:text-gray-100">Set your prices</h1>
         <p className="text-gray-600 dark:text-gray-400 mt-1">
-          Price each item between your Lead's price and ₵{ceiling.toFixed(2)} above it.
-          Your profit is the difference.
+          Each item shows what you pay and the range you may sell it in — up to
+          ₵{ceiling.toFixed(2)} of markup. Your profit is the difference.
         </p>
       </div>
 
@@ -311,7 +367,8 @@ export default function SubPricingPage() {
                 <PriceRow
                   key={it.packageId}
                   title={`${it.network} · ${it.size}`}
-                  parentPrice={it.parentPrice}
+                  myCost={it.myCost}
+                  minPrice={it.minPrice}
                   maxPrice={it.maxPrice}
                   value={prices[it.packageId] ?? ''}
                   onChange={(next) => setPrices((p) => ({ ...p, [it.packageId]: next }))}
@@ -320,8 +377,8 @@ export default function SubPricingPage() {
             </div>
             <div className="sticky bottom-0 py-3 bg-gray-50 dark:bg-gray-950">
               <button
-                onClick={saveData}
-                disabled={saving || dataInvalid}
+                onClick={() => (dataProblem ? setMsg({ type: 'err', text: dataProblem }) : saveData())}
+                disabled={saving}
                 className="w-full px-5 py-3 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 disabled:opacity-50"
               >
                 {saving ? 'Saving…' : 'Save prices'}
@@ -345,7 +402,8 @@ export default function SubPricingPage() {
                 <PriceRow
                   key={it.rcTypeId}
                   title={it.name}
-                  parentPrice={it.parentPrice}
+                  myCost={it.parentPrice}
+                  minPrice={round2(it.parentPrice + 0.01)}
                   maxPrice={it.maxPrice}
                   value={rcPrices[it.rcTypeId] ?? ''}
                   onChange={(next) => setRcPrices((p) => ({ ...p, [it.rcTypeId]: next }))}
@@ -354,8 +412,8 @@ export default function SubPricingPage() {
             </div>
             <div className="sticky bottom-0 py-3 bg-gray-50 dark:bg-gray-950">
               <button
-                onClick={saveRc}
-                disabled={saving || rcInvalid}
+                onClick={() => (rcProblem ? setMsg({ type: 'err', text: rcProblem }) : saveRc())}
+                disabled={saving}
                 className="w-full px-5 py-3 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 disabled:opacity-50"
               >
                 {saving ? 'Saving…' : 'Save Results Checker prices'}
@@ -377,7 +435,8 @@ export default function SubPricingPage() {
             <div className="space-y-2">
               <PriceRow
                 title="AFA Registration"
-                parentPrice={afa.parentPrice}
+                myCost={afa.parentPrice}
+                minPrice={round2(afa.parentPrice + 0.01)}
                 maxPrice={afa.maxPrice}
                 value={afaPrice}
                 onChange={setAfaPrice}
@@ -385,8 +444,8 @@ export default function SubPricingPage() {
             </div>
             <div className="sticky bottom-0 py-3 bg-gray-50 dark:bg-gray-950">
               <button
-                onClick={saveAfa}
-                disabled={saving || afaInvalid}
+                onClick={() => (afaProblem ? setMsg({ type: 'err', text: afaProblem }) : saveAfa())}
+                disabled={saving}
                 className="w-full px-5 py-3 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 disabled:opacity-50"
               >
                 {saving ? 'Saving…' : 'Save AFA price'}
