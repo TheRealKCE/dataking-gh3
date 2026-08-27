@@ -9,9 +9,20 @@
  *   selling_price  what a customer buying from YOUR storefront pays
  *   sub_price      what a sub-agent below you pays   ← this screen
  *
- * Your sub keeps whatever they add on top of sub_price. So the gap between your
- * cost and the price set here is what you earn per downline sale, and the gap
- * between here and your own retail price is the room your sub has to work with.
+ * Your sub keeps whatever they add on top of sub_price, so the gap between your
+ * cost and the price set here is what you earn per downline sale.
+ *
+ * There is a floor and no ceiling. The old ceiling was your own retail price,
+ * which quietly bricked the screen for anyone selling on a thin retail margin:
+ * retail at cost + ₵0.50 against a ₵0.50 minimum wholesale margin puts the
+ * floor and the ceiling on the same pesewa, so every value but one was rejected
+ * — and because Save merely greyed itself out, it looked like the price simply
+ * would not save. You may now charge a downline more than your shelf price;
+ * selling to someone who resells is not the same trade as selling to a walk-in.
+ *
+ * Whatever is set here becomes the sub's cost, and their own pricing screen
+ * floors them at that cost plus the minimum margin, so they can never be pushed
+ * into selling underwater — that is what `theirRoom` reports.
  *
  * Mounted by both portals — a Lead pricing their subs, and a level-1 sub
  * pricing their own recruits. /api/shop/sub-pricing resolves the caller's cost
@@ -20,6 +31,9 @@
  */
 
 import { useEffect, useState } from 'react'
+// Same floor the level below is held to, so "their room" is the real number
+// rather than this screen's guess at it.
+import { subFloorFor } from '@/lib/sub-pricing-context'
 
 interface Item {
     packageId: string
@@ -27,7 +41,7 @@ interface Item {
     size: string
     /** What the caller pays for this package. */
     myCost: number
-    /** The caller's own retail price — the ceiling. */
+    /** The caller's own retail price. Context for the sub's margin, not a cap. */
     myPrice: number
     /** myCost plus the platform minimum margin. */
     minPrice: number
@@ -73,15 +87,45 @@ export default function SubWholesalePricing({ backHref }: { backHref?: string })
         })()
     }, [])
 
-    // Blank is valid and meaningful: readers fall back to the retail price.
-    const invalid = (it: Item) => {
+    /**
+     * Why a row cannot be saved, or null when it can.
+     *
+     * Blank is valid and meaningful: readers fall back to the retail price.
+     * The only rule left is the floor — the platform's minimum margin over what
+     * this package costs you.
+     */
+    const rejection = (it: Item): string | null => {
         const raw = prices[it.packageId]
-        if (raw === '' || raw == null) return false
+        if (raw === '' || raw == null) return null
         const v = parseFloat(raw)
-        return !Number.isFinite(v) || v < it.minPrice || v > it.myPrice
+        if (!Number.isFinite(v)) return 'Enter an amount, or leave it blank.'
+        if (v < it.minPrice) {
+            return `At least ₵${it.minPrice.toFixed(2)} — you pay ₵${it.myCost.toFixed(
+                2
+            )} plus the ₵${minMargin.toFixed(2)} minimum margin.`
+        }
+        return null
     }
 
     const save = async () => {
+        // Never fail silently. The button used to disable itself the moment any
+        // row was out of bounds, so a rejected price looked like a dead Save.
+        const rejected = items
+            .map((it) => ({ it, why: rejection(it) }))
+            .filter((row): row is { it: Item; why: string } => row.why !== null)
+
+        if (rejected.length > 0) {
+            const { it, why } = rejected[0]
+            setMsg({
+                type: 'err',
+                text:
+                    rejected.length === 1
+                        ? `${it.network} · ${it.size}: ${why}`
+                        : `${rejected.length} prices are too low, starting with ${it.network} · ${it.size}: ${why}`,
+            })
+            return
+        }
+
         setSaving(true)
         setMsg(null)
         try {
@@ -145,8 +189,6 @@ export default function SubWholesalePricing({ backHref }: { backHref?: string })
         )
     }
 
-    const anyInvalid = items.some(invalid)
-
     return (
         <div className="max-w-3xl mx-auto p-4 space-y-4">
             <div>
@@ -157,8 +199,9 @@ export default function SubWholesalePricing({ backHref }: { backHref?: string })
                     when they resell.
                 </p>
                 <p className="text-gray-500 dark:text-gray-500 text-sm mt-2">
-                    At least ₵{minMargin.toFixed(2)} above your cost, and no higher than your
-                    own selling price. Leave blank to charge them your retail price.
+                    At least ₵{minMargin.toFixed(2)} above your cost. You may go above your own
+                    selling price — your sub then prices from what they pay you, not from your
+                    shelf. Leave blank to charge them your retail price.
                 </p>
             </div>
 
@@ -179,60 +222,80 @@ export default function SubWholesalePricing({ backHref }: { backHref?: string })
                     const raw = prices[it.packageId]
                     const v = parseFloat(raw || '')
                     const myProfit = Number.isFinite(v) ? v - it.myCost : 0
-                    const theirRoom = Number.isFinite(v) ? it.myPrice - v : 0
-                    const bad = invalid(it)
+                    // The margin your sub is guaranteed: their own screen floors
+                    // them at subFloorFor(), so the gap between that floor and
+                    // what they pay you is the least they can make per sale.
+                    const theirRoom = Number.isFinite(v)
+                        ? subFloorFor(it.myPrice, v, minMargin) - v
+                        : 0
+                    const why = rejection(it)
+                    const aboveRetail = Number.isFinite(v) && !why && v > it.myPrice
 
                     return (
                         <div
                             key={it.packageId}
-                            className="bg-white dark:bg-gray-900 rounded-lg shadow p-4 flex items-center gap-4"
+                            className="bg-white dark:bg-gray-900 rounded-lg shadow p-4"
                         >
-                            <div className="min-w-0 flex-1">
-                                <p className="font-semibold text-gray-900 dark:text-gray-100">
-                                    {it.network} · {it.size}
-                                </p>
-                                <p className="text-xs text-gray-500 dark:text-gray-400">
-                                    You pay ₵{it.myCost.toFixed(2)} · you sell at ₵{it.myPrice.toFixed(2)}
-                                </p>
-                            </div>
-                            <div className="w-28 shrink-0">
-                                <div className="relative">
-                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
-                                        ₵
-                                    </span>
-                                    <input
-                                        type="number"
-                                        step="0.01"
-                                        min={it.minPrice}
-                                        max={it.myPrice}
-                                        placeholder={it.myPrice.toFixed(2)}
-                                        value={raw ?? ''}
-                                        onChange={(e) =>
-                                            setPrices((p) => ({ ...p, [it.packageId]: e.target.value }))
-                                        }
-                                        className={`w-full pl-6 pr-2 py-2 rounded-lg border text-right focus:ring-2 focus:outline-none dark:bg-gray-800 dark:text-gray-100 ${
-                                            bad
-                                                ? 'border-red-400 focus:ring-red-400'
-                                                : 'border-gray-300 dark:border-gray-700 focus:ring-blue-500'
+                            <div className="flex items-center gap-4">
+                                <div className="min-w-0 flex-1">
+                                    <p className="font-semibold text-gray-900 dark:text-gray-100">
+                                        {it.network} · {it.size}
+                                    </p>
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">
+                                        You pay ₵{it.myCost.toFixed(2)} · you sell at ₵{it.myPrice.toFixed(2)}
+                                    </p>
+                                </div>
+                                <div className="w-28 shrink-0">
+                                    <div className="relative">
+                                        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
+                                            ₵
+                                        </span>
+                                        <input
+                                            type="number"
+                                            step="0.01"
+                                            min={it.minPrice}
+                                            placeholder={it.myPrice.toFixed(2)}
+                                            value={raw ?? ''}
+                                            onChange={(e) =>
+                                                setPrices((p) => ({ ...p, [it.packageId]: e.target.value }))
+                                            }
+                                            className={`w-full pl-6 pr-2 py-2 rounded-lg border text-right focus:ring-2 focus:outline-none dark:bg-gray-800 dark:text-gray-100 ${
+                                                why
+                                                    ? 'border-red-400 focus:ring-red-400'
+                                                    : 'border-gray-300 dark:border-gray-700 focus:ring-blue-500'
+                                            }`}
+                                        />
+                                    </div>
+                                </div>
+                                <div className="w-24 shrink-0 text-right">
+                                    <p className="text-xs text-gray-500 dark:text-gray-400">You earn</p>
+                                    <p
+                                        className={`font-bold ${
+                                            myProfit > 0
+                                                ? 'text-green-600 dark:text-green-400'
+                                                : 'text-gray-500 dark:text-gray-400'
                                         }`}
-                                    />
+                                    >
+                                        ₵{(myProfit > 0 ? myProfit : 0).toFixed(2)}
+                                    </p>
+                                    <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">
+                                        their room ₵{(theirRoom > 0 ? theirRoom : 0).toFixed(2)}
+                                    </p>
                                 </div>
                             </div>
-                            <div className="w-24 shrink-0 text-right">
-                                <p className="text-xs text-gray-500 dark:text-gray-400">You earn</p>
-                                <p
-                                    className={`font-bold ${
-                                        myProfit > 0
-                                            ? 'text-green-600 dark:text-green-400'
-                                            : 'text-gray-500 dark:text-gray-400'
-                                    }`}
-                                >
-                                    ₵{(myProfit > 0 ? myProfit : 0).toFixed(2)}
+
+                            {/* Say it on the row itself. A red outline alone never
+                                explained which bound was missed. */}
+                            {why && (
+                                <p className="text-xs text-red-600 dark:text-red-400 mt-2">{why}</p>
+                            )}
+                            {aboveRetail && (
+                                <p className="text-xs text-amber-600 dark:text-amber-400 mt-2">
+                                    Above your own ₵{it.myPrice.toFixed(2)} — your sub-agents pay more
+                                    for this bundle than your storefront customers do, and will sell it
+                                    from ₵{subFloorFor(it.myPrice, v, minMargin).toFixed(2)} up.
                                 </p>
-                                <p className="text-[11px] text-gray-400 dark:text-gray-500 mt-0.5">
-                                    their room ₵{(theirRoom > 0 ? theirRoom : 0).toFixed(2)}
-                                </p>
-                            </div>
+                            )}
                         </div>
                     )
                 })}
@@ -249,7 +312,7 @@ export default function SubWholesalePricing({ backHref }: { backHref?: string })
                 )}
                 <button
                     onClick={save}
-                    disabled={saving || anyInvalid}
+                    disabled={saving}
                     className="flex-1 px-5 py-3 rounded-lg bg-blue-600 text-white font-semibold hover:bg-blue-700 disabled:opacity-50"
                 >
                     {saving ? 'Saving…' : 'Save sub-agent prices'}
