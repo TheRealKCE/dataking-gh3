@@ -8,6 +8,7 @@ import {
     DEPTH_LIMIT_ERROR,
     SUB_INACTIVE_ERROR,
 } from '@/lib/sub-agents'
+import { resolveMinSubMargin } from '@/lib/sub-pricing-context'
 
 /**
  * Wholesale pricing — what a recruiter charges the level below them.
@@ -22,24 +23,16 @@ import {
  * level-1 sub sets what their own recruits pay. The floor is whatever the
  * caller themselves pays — resolved through the chain, so a sub is floored at
  * their Lead's wholesale price rather than at the platform's role price.
+ *
+ * There is no ceiling. Wholesale used to be capped at the caller's own retail
+ * price, which made the screen unusable for anyone selling on a thin retail
+ * margin: price retail at cost + ₵0.50 with a ₵0.50 minimum wholesale margin
+ * and the floor and the cap land on the same pesewa, so every value but one
+ * was rejected. Selling to a sub who resells is a different trade from selling
+ * to a walk-in customer, so a recruiter may charge more than their shelf price.
+ * What keeps that honest is the level below: /api/dashboard/sub/pricing floors
+ * a sub at their own cost, never merely at their parent's retail.
  */
-
-const MIN_SUB_MARGIN_FALLBACK = 0.5
-
-/** The platform's minimum spread between a level's cost and its wholesale price. */
-async function resolveMinSubMargin(db: any): Promise<number> {
-    for (const table of ['shop_global_settings', 'admin_settings']) {
-        const { data } = await db
-            .from(table)
-            .select('value')
-            .eq('key', 'sub_min_margin')
-            .maybeSingle()
-
-        const candidate = data?.value != null ? Number(data.value) : NaN
-        if (Number.isFinite(candidate) && candidate >= 0) return candidate
-    }
-    return MIN_SUB_MARGIN_FALLBACK
-}
 
 /**
  * The caller's shop, plus what they pay for each package.
@@ -172,7 +165,12 @@ export async function GET() {
                     size: pkg.size,
                     /** What the caller pays — the floor for their wholesale price. */
                     myCost,
-                    /** The caller's own retail price — the ceiling. */
+                    /**
+                     * The caller's own retail price. Context, not a bound —
+                     * it decides how much margin the level below is left with,
+                     * since a sub's storefront floor is the higher of this and
+                     * their own cost.
+                     */
                     myPrice: retail,
                     minPrice: Math.round((myCost + minMargin) * 100) / 100,
                     currentSubPrice: row.sub_price != null ? Number(row.sub_price) : null,
@@ -257,20 +255,6 @@ export async function POST(request: NextRequest) {
                         error:
                             `Wholesale price must be at least ₵${(myCost + minMargin).toFixed(2)} ` +
                             `— your own cost plus the ₵${minMargin.toFixed(2)} minimum margin.`,
-                    },
-                    { status: 400 }
-                )
-            }
-
-            // Above their retail price and the level below cannot price above
-            // their own cost while staying under this shop's price — they would
-            // have nothing to sell.
-            if (subPrice > retail) {
-                return NextResponse.json(
-                    {
-                        error:
-                            `Wholesale price cannot exceed your own selling price of ₵${retail.toFixed(2)}. ` +
-                            `Your sub-agents would have no margin left.`,
                     },
                     { status: 400 }
                 )
