@@ -16,6 +16,14 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Separator } from '@/components/ui/separator'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogHeader,
+    DialogTitle,
+    DialogFooter
+} from '@/components/ui/dialog'
+import {
     Wallet,
     Plus,
     ArrowUpRight,
@@ -661,6 +669,48 @@ function WalletContent() {
                     )}
                 </CardContent>
             </Card>
+
+            {/* Moolre per-transaction OTP Dialog */}
+            <Dialog open={otpRequired} onOpenChange={(open) => !open && setOtpRequired(false)}>
+                <DialogContent className="sm:max-w-md">
+                    <DialogHeader>
+                        <DialogTitle>OTP Verification</DialogTitle>
+                        <DialogDescription>
+                            Please enter the OTP sent to your phone to complete the payment.
+                        </DialogDescription>
+                    </DialogHeader>
+                    <div className="flex flex-col space-y-4 py-4">
+                        <div className="space-y-2">
+                            <Label htmlFor="otp">Enter OTP</Label>
+                            <Input
+                                id="otp"
+                                type="text"
+                                placeholder="Enter code"
+                                value={otpCode}
+                                onChange={(e) => setOtpCode(e.target.value)}
+                                className="h-12 text-center text-2xl tracking-widest font-bold"
+                            />
+                        </div>
+                    </div>
+                    <DialogFooter className="sm:justify-end">
+                        <Button
+                            type="button"
+                            variant="secondary"
+                            onClick={() => setOtpRequired(false)}
+                        >
+                            Cancel
+                        </Button>
+                        <Button
+                            type="button"
+                            onClick={handleVerifyOtp}
+                            disabled={isProcessing || !otpCode}
+                            className="bg-blue-600 hover:bg-blue-700"
+                        >
+                            {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Verify & Continue'}
+                        </Button>
+                    </DialogFooter>
+                </DialogContent>
+            </Dialog>
 
         </div>
     )
