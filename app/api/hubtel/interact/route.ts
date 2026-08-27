@@ -691,11 +691,7 @@ export async function POST(req: Request) {
                         // purpose: a charge whose fate we do not know may still take
                         // the customer's money, and telling them it failed is how we
                         // end up owing a delivery nobody is expecting.
-                        return respond(
-                            SessionId,
-                            'release',
-                            'Approve the payment prompt on your phone. You will get an SMS once it is done.'
-                        );
+                        return respond(SessionId, 'release', approvalInstruction(payerNetwork));
                 }
             }
 
@@ -961,6 +957,29 @@ function normalizeGhanaPhone(input: string): string | null {
     }
 
     return /^0[235]\d{8}$/.test(digits) ? digits : null;
+}
+
+/**
+ * What we tell a caller once the charge is away.
+ *
+ * "Wait for the prompt" was not enough. Of the first eleven live charges, three
+ * were accepted by Paystack and then expired unapproved, and the caller's report
+ * was simply that no prompt arrived. On MTN Ghana a merchant-initiated debit
+ * often does not surface a prompt on its own; it waits in the approvals menu
+ * until the customer goes and gets it. A caller who does not know that has no way
+ * to complete a payment we have already asked for.
+ *
+ * Deliberately no menu numbers. They differ across handsets and MTN has moved
+ * them before, and a confidently wrong instruction is worse than a vague one.
+ *
+ * ASCII only and inside one ~160-character screen: a non-ASCII character makes
+ * the Hubtel call throw, and an over-long message is truncated mid-word.
+ */
+function approvalInstruction(network: string | null): string {
+    if (network === 'MTN') {
+        return 'Approve the prompt to pay. No prompt? Dial *170#, choose My Approvals. You get an SMS when done.';
+    }
+    return 'Approve the payment prompt on your phone. You will get an SMS once it is done.';
 }
 
 /**
