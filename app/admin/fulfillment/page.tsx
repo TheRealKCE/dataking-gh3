@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -184,10 +184,30 @@ export default function FulfillmentPage() {
         }
     }, [dbUser])
 
+    /**
+     * Search only reaches the fetch once typing stops.
+     *
+     * Every keystroke used to start its own paginated walk. The early ones are
+     * the broad ones — a single "0" matches almost every row, so that walk pages
+     * through up to MAX_ORDERS_LOADED orders while the full number comes back in
+     * one request. The broad walk therefore finished LAST and overwrote the
+     * narrow result, leaving the table showing matches for the first character
+     * typed. It looked like the search box did nothing.
+     */
+    const [debouncedSearch, setDebouncedSearch] = useState('')
+    useEffect(() => {
+        const timer = setTimeout(() => setDebouncedSearch(searchQuery), 350)
+        return () => clearTimeout(timer)
+    }, [searchQuery])
+
+    /** Which fetchOrders walk owns the table, and the one still on the wire. */
+    const fetchSeq = useRef(0)
+    const inFlight = useRef<AbortController | null>(null)
+
     // Reset when filters change
     useEffect(() => {
         fetchOrders(true)
-    }, [networkFilter, statusFilter, dateFilter, customDate, searchQuery]) // eslint-disable-line react-hooks/exhaustive-deps
+    }, [networkFilter, statusFilter, dateFilter, customDate, debouncedSearch]) // eslint-disable-line react-hooks/exhaustive-deps
 
     // Determine Date Range
     const getDateRange = () => {
@@ -209,6 +229,13 @@ export default function FulfillmentPage() {
         } else if (dateFilter === 'month') {
             start = new Date(now.getFullYear(), now.getMonth(), 1)
             end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)
+        } else if (dateFilter === 'last30') {
+            // A rolling window, deliberately NOT the calendar month. On the 1st
+            // "This Month" is hours old and legitimately empty, which reads as a
+            // broken page; this always spans real trading. Kept separate so the
+            // Total Cost tile under "This Month" still reconciles month-end.
+            start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29)
+            end = new Date() // up to now
         } else if (dateFilter === 'custom' && customDate) {
             // customDate is YYYY-MM-DD string
             const dateParts = customDate.split('-').map(Number)
@@ -225,6 +252,7 @@ export default function FulfillmentPage() {
         if (dateFilter === 'yesterday') return "Yesterday"
         if (dateFilter === 'week') return "This Week"
         if (dateFilter === 'month') return "This Month"
+        if (dateFilter === 'last30') return "Last 30 Days"
         if (dateFilter === 'custom') return customDate || "Custom"
         return "All Time"
     }
@@ -444,6 +472,14 @@ export default function FulfillmentPage() {
     }
 
     const fetchOrders = async (isNewFilter = false) => {
+        // Only the newest walk may touch state. Debouncing thins the requests
+        // out but does not order them: a broad search still outruns a narrow one
+        // typed after it, and whichever lands last would otherwise win.
+        const seq = ++fetchSeq.current
+        inFlight.current?.abort()
+        const controller = new AbortController()
+        inFlight.current = controller
+
         setIsLoadingOrders(true)
         try {
             const { start, end } = getDateRange()
@@ -451,7 +487,7 @@ export default function FulfillmentPage() {
             let url = `/api/admin/fulfillment?network=${networkFilter}&status=${statusFilter}&limit=${FETCH_CHUNK}`
             if (start) url += `&startDate=${start.toISOString()}`
             if (end) url += `&endDate=${end.toISOString()}`
-            if (searchQuery) url += `&search=${encodeURIComponent(searchQuery)}`
+            if (debouncedSearch) url += `&search=${encodeURIComponent(debouncedSearch)}`
 
             // The API returns one page at a time. Walk every page of the range so
             // the stat tiles and the Total Cost cover the whole day rather than
@@ -463,7 +499,7 @@ export default function FulfillmentPage() {
             let fetched = 0
 
             while (true) {
-                const response = await fetch(`${url}&offset=${fetched}`)
+                const response = await fetch(`${url}&offset=${fetched}`, { signal: controller.signal })
                 if (!response.ok) {
                     const errorData = await response.json()
                     throw new Error(errorData.error || 'Failed to fetch orders')
@@ -488,14 +524,19 @@ export default function FulfillmentPage() {
                 }
             }
 
+            if (seq !== fetchSeq.current) return // a newer search has taken over
+
             setOrders(collected)
             setOrdersCount(total || collected.length)
             setIsTruncated(truncated)
         } catch (error: any) {
+            // Superseded by a newer search — expected, not a failure to report.
+            if (error?.name === 'AbortError') return
             console.error('Fetch orders error:', error)
             toast.error('Failed to fetch orders: ' + error.message)
         } finally {
-            setIsLoadingOrders(false)
+            // Leave the spinner to whichever walk is still current.
+            if (seq === fetchSeq.current) setIsLoadingOrders(false)
         }
     }
 
@@ -767,6 +808,21 @@ export default function FulfillmentPage() {
             </div>
         )
     }
+
+    // Unfinished orders now come back regardless of age — see the open/closed
+    // split in /api/admin/fulfillment. Money has to re-apply the window here, or
+    // "This Month" would quietly absorb every stuck order from earlier months and
+    // stop matching what the period is reconciled against.
+    const { start: rangeStart, end: rangeEnd } = getDateRange()
+    const isInRange = (order: Order) => {
+        if (!rangeStart && !rangeEnd) return true
+        const at = new Date(order.created_at).getTime()
+        if (rangeStart && at < rangeStart.getTime()) return false
+        if (rangeEnd && at > rangeEnd.getTime()) return false
+        return true
+    }
+    const rangeCost = orders.reduce((acc, o) => (isInRange(o) ? acc + (o.price || 0) : acc), 0)
+    const carriedOver = orders.filter(o => !isInRange(o)).length
 
     return (
         <div className="px-2 py-4 md:p-8 max-w-[1400px] mx-auto space-y-6">
@@ -1584,6 +1640,7 @@ export default function FulfillmentPage() {
                                         { id: 'yesterday', label: 'Yesterday' },
                                         { id: 'week', label: 'This Week' },
                                         { id: 'month', label: 'This Month' },
+                                        { id: 'last30', label: 'Last 30 Days' },
                                         { id: 'all', label: 'All Time' },
                                         { id: 'custom', label: 'Custom' }
                                     ].map(range => (
@@ -1655,7 +1712,9 @@ export default function FulfillmentPage() {
 
                                     <div className="col-span-2 p-2.5 md:p-3 bg-primary/5 dark:bg-primary/10 rounded-lg border border-primary/20">
                                         <div className="flex items-baseline justify-between gap-2">
-                                            <p className="text-[9px] md:text-[10px] text-primary font-bold uppercase">{dateRangeLabel()}&apos;s Orders</p>
+                                            {/* Not possessive: it has to read for "Last 30 Days"
+                                                and "All Time" too, where "'s" does not work. */}
+                                            <p className="text-[9px] md:text-[10px] text-primary font-bold uppercase">Orders · {dateRangeLabel()}</p>
                                             {isLoadingOrders && <span className="text-[9px] text-muted-foreground">loading…</span>}
                                         </div>
                                         <p className="text-2xl md:text-3xl font-black text-primary leading-tight">{ordersCount}</p>
@@ -1666,6 +1725,13 @@ export default function FulfillmentPage() {
                                         ) : (
                                             <p className="text-[9px] text-muted-foreground">
                                                 All {orders.length} order{orders.length === 1 ? '' : 's'} loaded below
+                                            </p>
+                                        )}
+                                        {carriedOver > 0 && (
+                                            // Say it plainly: these sit outside the chosen dates and are
+                                            // shown anyway because they are still owed to a customer.
+                                            <p className="text-[9px] text-amber-600 dark:text-amber-500 font-bold">
+                                                includes {carriedOver} still outstanding from before {dateRangeLabel().toLowerCase()}
                                             </p>
                                         )}
                                     </div>
@@ -1692,8 +1758,10 @@ export default function FulfillmentPage() {
                                     </div>
                                     <div className="p-2 md:p-2.5 bg-emerald-50 dark:bg-emerald-900/10 rounded-lg border border-emerald-100 dark:border-emerald-900/20">
                                         <p className="text-[9px] md:text-[10px] text-emerald-700 dark:text-emerald-400 font-bold uppercase">Total Cost</p>
+                                        {/* Deliberately rangeCost, not every loaded order: carried-over
+                                            outstanding work must not land in this period's figure. */}
                                         <p className="text-sm md:text-base font-black text-emerald-600 dark:text-emerald-500 truncate">
-                                            GHS {orders.reduce((acc, curr) => acc + (curr.price || 0), 0).toFixed(2)}
+                                            GHS {rangeCost.toFixed(2)}
                                         </p>
                                     </div>
                                 </div>
@@ -1785,7 +1853,27 @@ export default function FulfillmentPage() {
                                 <div className="text-center py-20 border-2 border-dashed rounded-xl m-2">
                                     <Package className="w-12 h-12 mx-auto text-muted-foreground/30 mb-3" />
                                     <h3 className="text-sm font-bold">No Records Found</h3>
-                                    <p className="text-muted-foreground text-xs">Try adjusting your filters.</p>
+                                    {debouncedSearch && dateFilter !== 'all' ? (
+                                        // A search runs inside the date range, so a beneficiary
+                                        // whose order sits outside it comes back empty and reads
+                                        // as a broken search box. Name the range, and offer the
+                                        // one filter that would actually find them.
+                                        <>
+                                            <p className="text-muted-foreground text-xs">
+                                                Nothing matching &ldquo;{debouncedSearch}&rdquo; in {dateRangeLabel()}.
+                                            </p>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="h-7 text-[10px] mt-3"
+                                                onClick={() => setDateFilter('all')}
+                                            >
+                                                Search all time instead
+                                            </Button>
+                                        </>
+                                    ) : (
+                                        <p className="text-muted-foreground text-xs">Try adjusting your filters.</p>
+                                    )}
                                 </div>
                             ) : (
                                 <div className="space-y-3">
