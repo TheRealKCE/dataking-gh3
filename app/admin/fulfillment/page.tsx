@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useAuth } from '@/contexts/auth-context'
 import { supabase } from '@/lib/supabase'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -184,10 +184,30 @@ export default function FulfillmentPage() {
         }
     }, [dbUser])
 
+    /**
+     * Search only reaches the fetch once typing stops.
+     *
+     * Every keystroke used to start its own paginated walk. The early ones are
+     * the broad ones — a single "0" matches almost every row, so that walk pages
+     * through up to MAX_ORDERS_LOADED orders while the full number comes back in
+     * one request. The broad walk therefore finished LAST and overwrote the
+     * narrow result, leaving the table showing matches for the first character
+     * typed. It looked like the search box did nothing.
+     */
+    const [debouncedSearch, setDebouncedSearch] = useState('')
+    useEffect(() => {
+        const timer = setTimeout(() => setDebouncedSearch(searchQuery), 350)
+        return () => clearTimeout(timer)
+    }, [searchQuery])
+
+    /** Which fetchOrders walk owns the table, and the one still on the wire. */
+    const fetchSeq = useRef(0)
+    const inFlight = useRef<AbortController | null>(null)
+
     // Reset when filters change
     useEffect(() => {
         fetchOrders(true)
-    }, [networkFilter, statusFilter, dateFilter, customDate, searchQuery]) // eslint-disable-line react-hooks/exhaustive-deps
+    }, [networkFilter, statusFilter, dateFilter, customDate, debouncedSearch]) // eslint-disable-line react-hooks/exhaustive-deps
 
     // Determine Date Range
     const getDateRange = () => {
@@ -444,6 +464,14 @@ export default function FulfillmentPage() {
     }
 
     const fetchOrders = async (isNewFilter = false) => {
+        // Only the newest walk may touch state. Debouncing thins the requests
+        // out but does not order them: a broad search still outruns a narrow one
+        // typed after it, and whichever lands last would otherwise win.
+        const seq = ++fetchSeq.current
+        inFlight.current?.abort()
+        const controller = new AbortController()
+        inFlight.current = controller
+
         setIsLoadingOrders(true)
         try {
             const { start, end } = getDateRange()
@@ -451,7 +479,7 @@ export default function FulfillmentPage() {
             let url = `/api/admin/fulfillment?network=${networkFilter}&status=${statusFilter}&limit=${FETCH_CHUNK}`
             if (start) url += `&startDate=${start.toISOString()}`
             if (end) url += `&endDate=${end.toISOString()}`
-            if (searchQuery) url += `&search=${encodeURIComponent(searchQuery)}`
+            if (debouncedSearch) url += `&search=${encodeURIComponent(debouncedSearch)}`
 
             // The API returns one page at a time. Walk every page of the range so
             // the stat tiles and the Total Cost cover the whole day rather than
@@ -463,7 +491,7 @@ export default function FulfillmentPage() {
             let fetched = 0
 
             while (true) {
-                const response = await fetch(`${url}&offset=${fetched}`)
+                const response = await fetch(`${url}&offset=${fetched}`, { signal: controller.signal })
                 if (!response.ok) {
                     const errorData = await response.json()
                     throw new Error(errorData.error || 'Failed to fetch orders')
@@ -488,14 +516,19 @@ export default function FulfillmentPage() {
                 }
             }
 
+            if (seq !== fetchSeq.current) return // a newer search has taken over
+
             setOrders(collected)
             setOrdersCount(total || collected.length)
             setIsTruncated(truncated)
         } catch (error: any) {
+            // Superseded by a newer search — expected, not a failure to report.
+            if (error?.name === 'AbortError') return
             console.error('Fetch orders error:', error)
             toast.error('Failed to fetch orders: ' + error.message)
         } finally {
-            setIsLoadingOrders(false)
+            // Leave the spinner to whichever walk is still current.
+            if (seq === fetchSeq.current) setIsLoadingOrders(false)
         }
     }
 
@@ -1785,7 +1818,27 @@ export default function FulfillmentPage() {
                                 <div className="text-center py-20 border-2 border-dashed rounded-xl m-2">
                                     <Package className="w-12 h-12 mx-auto text-muted-foreground/30 mb-3" />
                                     <h3 className="text-sm font-bold">No Records Found</h3>
-                                    <p className="text-muted-foreground text-xs">Try adjusting your filters.</p>
+                                    {debouncedSearch && dateFilter !== 'all' ? (
+                                        // A search runs inside the date range, so a beneficiary
+                                        // whose order sits outside it comes back empty and reads
+                                        // as a broken search box. Name the range, and offer the
+                                        // one filter that would actually find them.
+                                        <>
+                                            <p className="text-muted-foreground text-xs">
+                                                Nothing matching &ldquo;{debouncedSearch}&rdquo; in {dateRangeLabel()}.
+                                            </p>
+                                            <Button
+                                                variant="outline"
+                                                size="sm"
+                                                className="h-7 text-[10px] mt-3"
+                                                onClick={() => setDateFilter('all')}
+                                            >
+                                                Search all time instead
+                                            </Button>
+                                        </>
+                                    ) : (
+                                        <p className="text-muted-foreground text-xs">Try adjusting your filters.</p>
+                                    )}
                                 </div>
                             ) : (
                                 <div className="space-y-3">
