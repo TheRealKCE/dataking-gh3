@@ -229,6 +229,13 @@ export default function FulfillmentPage() {
         } else if (dateFilter === 'month') {
             start = new Date(now.getFullYear(), now.getMonth(), 1)
             end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999)
+        } else if (dateFilter === 'last30') {
+            // A rolling window, deliberately NOT the calendar month. On the 1st
+            // "This Month" is hours old and legitimately empty, which reads as a
+            // broken page; this always spans real trading. Kept separate so the
+            // Total Cost tile under "This Month" still reconciles month-end.
+            start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 29)
+            end = new Date() // up to now
         } else if (dateFilter === 'custom' && customDate) {
             // customDate is YYYY-MM-DD string
             const dateParts = customDate.split('-').map(Number)
@@ -245,6 +252,7 @@ export default function FulfillmentPage() {
         if (dateFilter === 'yesterday') return "Yesterday"
         if (dateFilter === 'week') return "This Week"
         if (dateFilter === 'month') return "This Month"
+        if (dateFilter === 'last30') return "Last 30 Days"
         if (dateFilter === 'custom') return customDate || "Custom"
         return "All Time"
     }
@@ -1617,6 +1625,7 @@ export default function FulfillmentPage() {
                                         { id: 'yesterday', label: 'Yesterday' },
                                         { id: 'week', label: 'This Week' },
                                         { id: 'month', label: 'This Month' },
+                                        { id: 'last30', label: 'Last 30 Days' },
                                         { id: 'all', label: 'All Time' },
                                         { id: 'custom', label: 'Custom' }
                                     ].map(range => (
@@ -1688,7 +1697,9 @@ export default function FulfillmentPage() {
 
                                     <div className="col-span-2 p-2.5 md:p-3 bg-primary/5 dark:bg-primary/10 rounded-lg border border-primary/20">
                                         <div className="flex items-baseline justify-between gap-2">
-                                            <p className="text-[9px] md:text-[10px] text-primary font-bold uppercase">{dateRangeLabel()}&apos;s Orders</p>
+                                            {/* Not possessive: it has to read for "Last 30 Days"
+                                                and "All Time" too, where "'s" does not work. */}
+                                            <p className="text-[9px] md:text-[10px] text-primary font-bold uppercase">Orders · {dateRangeLabel()}</p>
                                             {isLoadingOrders && <span className="text-[9px] text-muted-foreground">loading…</span>}
                                         </div>
                                         <p className="text-2xl md:text-3xl font-black text-primary leading-tight">{ordersCount}</p>
