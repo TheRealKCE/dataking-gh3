@@ -25,11 +25,31 @@ export async function GET(request: NextRequest) {
         // Use service role client to bypass RLS
         const supabase = createServerClient()
 
+        // Unfinished work is never hidden by the date range.
+        //
+        // An order sits in 'processing' precisely BECAUSE it has not finished, so
+        // it is nearly always older than the window being looked at. Date-scoping
+        // the fulfilment queue therefore hides the exact orders that still need
+        // action — on the 1st of a month "This Month" is a few hours wide and
+        // shows nothing outstanding at all. Finished orders stay date-scoped, so
+        // the Total Cost tile still reconciles against the period.
+        const OPEN_STATUSES = ['pending', 'processing']
+        const CLOSED_STATUSES = ['completed', 'failed']
+
+        // 'verifying' is a held 'processing' order — still open work.
+        const viewingOpenOnly = status === 'verifying' || OPEN_STATUSES.includes(status || '')
+        const viewingEverything = !status || status === 'All'
+        const hasDateBounds = Boolean(startDate || endDate)
+
         // `supplier_status` is a later migration than this route. Selected through a
         // flag so that a DB without it degrades to the old column list instead of
         // PostgREST rejecting the whole query and blanking the fulfillment list —
         // the same trade the NetPulse cron makes on the write side.
-        const buildQuery = (withSupplierStatus: boolean) => {
+        //
+        // `splitDates` carries the same idea for the open/closed date split: it can
+        // be switched off to fall back to plain date bounds if PostgREST rejects
+        // the composite filter, rather than leaving the queue blank.
+        const buildQuery = (withSupplierStatus: boolean, splitDates = true) => {
             let q = supabase
                 .from('orders')
                 .select(`
@@ -73,11 +93,23 @@ export async function GET(request: NextRequest) {
                 q = q.eq('network', network)
             }
 
-            if (startDate) {
-                q = q.gte('created_at', startDate)
-            }
-            if (endDate) {
-                q = q.lte('created_at', endDate)
+            if (viewingOpenOnly) {
+                // A work queue, not a report — show everything outstanding.
+            } else if (viewingEverything && splitDates && hasDateBounds) {
+                // Open orders regardless of age, closed ones only within the range.
+                // Timestamps are double-quoted: an ISO string carries ':' and '.',
+                // which PostgREST would otherwise read as filter punctuation.
+                const closed = [`status.in.(${CLOSED_STATUSES.join(',')})`]
+                if (startDate) closed.push(`created_at.gte."${startDate}"`)
+                if (endDate) closed.push(`created_at.lte."${endDate}"`)
+                q = q.or(`status.in.(${OPEN_STATUSES.join(',')}),and(${closed.join(',')})`)
+            } else {
+                if (startDate) {
+                    q = q.gte('created_at', startDate)
+                }
+                if (endDate) {
+                    q = q.lte('created_at', endDate)
+                }
             }
 
             if (search) {
@@ -87,12 +119,22 @@ export async function GET(request: NextRequest) {
             return q.order('created_at', { ascending: false }).range(offset, offset + limit - 1)
         }
 
+        let supplierStatusOk = true
         let { data: rawOrders, error: fetchError, count } = await buildQuery(true)
 
         // 42703 = undefined_column: the migration has not been applied here.
         if (fetchError?.code === '42703') {
             console.warn('[FulfillmentFetch] supplier_status missing — retrying without it')
+            supplierStatusOk = false
             ;({ data: rawOrders, error: fetchError, count } = await buildQuery(false))
+        }
+
+        // The open/closed date split is the one clause PostgREST could reject.
+        // Degrade to plain date bounds — the old behaviour — rather than handing
+        // the fulfilment centre an empty list and an error toast.
+        if (fetchError && viewingEverything && hasDateBounds) {
+            console.warn('[FulfillmentFetch] split date filter rejected — falling back to plain bounds:', fetchError.message)
+            ;({ data: rawOrders, error: fetchError, count } = await buildQuery(supplierStatusOk, false))
         }
 
         if (fetchError) {

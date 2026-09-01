@@ -809,6 +809,21 @@ export default function FulfillmentPage() {
         )
     }
 
+    // Unfinished orders now come back regardless of age — see the open/closed
+    // split in /api/admin/fulfillment. Money has to re-apply the window here, or
+    // "This Month" would quietly absorb every stuck order from earlier months and
+    // stop matching what the period is reconciled against.
+    const { start: rangeStart, end: rangeEnd } = getDateRange()
+    const isInRange = (order: Order) => {
+        if (!rangeStart && !rangeEnd) return true
+        const at = new Date(order.created_at).getTime()
+        if (rangeStart && at < rangeStart.getTime()) return false
+        if (rangeEnd && at > rangeEnd.getTime()) return false
+        return true
+    }
+    const rangeCost = orders.reduce((acc, o) => (isInRange(o) ? acc + (o.price || 0) : acc), 0)
+    const carriedOver = orders.filter(o => !isInRange(o)).length
+
     return (
         <div className="px-2 py-4 md:p-8 max-w-[1400px] mx-auto space-y-6">
             {/* Header Section */}
@@ -1712,6 +1727,13 @@ export default function FulfillmentPage() {
                                                 All {orders.length} order{orders.length === 1 ? '' : 's'} loaded below
                                             </p>
                                         )}
+                                        {carriedOver > 0 && (
+                                            // Say it plainly: these sit outside the chosen dates and are
+                                            // shown anyway because they are still owed to a customer.
+                                            <p className="text-[9px] text-amber-600 dark:text-amber-500 font-bold">
+                                                includes {carriedOver} still outstanding from before {dateRangeLabel().toLowerCase()}
+                                            </p>
+                                        )}
                                     </div>
 
                                     <div className="p-2 md:p-2.5 bg-amber-50 dark:bg-amber-900/10 rounded-lg border border-amber-100 dark:border-amber-900/20 italic">
@@ -1736,8 +1758,10 @@ export default function FulfillmentPage() {
                                     </div>
                                     <div className="p-2 md:p-2.5 bg-emerald-50 dark:bg-emerald-900/10 rounded-lg border border-emerald-100 dark:border-emerald-900/20">
                                         <p className="text-[9px] md:text-[10px] text-emerald-700 dark:text-emerald-400 font-bold uppercase">Total Cost</p>
+                                        {/* Deliberately rangeCost, not every loaded order: carried-over
+                                            outstanding work must not land in this period's figure. */}
                                         <p className="text-sm md:text-base font-black text-emerald-600 dark:text-emerald-500 truncate">
-                                            GHS {orders.reduce((acc, curr) => acc + (curr.price || 0), 0).toFixed(2)}
+                                            GHS {rangeCost.toFixed(2)}
                                         </p>
                                     </div>
                                 </div>
