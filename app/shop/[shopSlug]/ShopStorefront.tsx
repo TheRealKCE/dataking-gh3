@@ -209,9 +209,12 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
     const [otpRequired, setOtpRequired] = useState(false)
 
     // Set when the beneficiary's MTN number isn't registered yet. Nothing has been
-    // charged at this point — the guest either accepts the wait or backs out.
+    // charged at this point, and on the storefront there is no way past it — the guest
+    // either enters a different number or leaves. See /api/shop/initialize for why the
+    // storefront refuses where the dashboard offers to hold the order.
     const [registrationPrompt, setRegistrationPrompt] = useState<{ numbers: string[] } | null>(null)
-    const [isConfirmingRegistration, setIsConfirmingRegistration] = useState(false)
+    /** Focused when the guest picks "Try another number", so the fix is one tap away. */
+    const beneficiaryRef = useRef<HTMLInputElement>(null)
     const [otpCode, setOtpCode] = useState('')
     const [otpReference, setOtpReference] = useState<string | null>(null)
     const [otpOrderType, setOtpOrderType] = useState<'data' | 'airtime' | 'mashup' | 'results_checker' | 'afa'>('data')
@@ -553,7 +556,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
             : 'Too many payment attempts right now. Please wait a moment and try again.'
     }
 
-    const handleBuyData = async (opts?: { acknowledgeRegistration?: boolean }) => {
+    const handleBuyData = async () => {
         if (!selectedPackage) { toast.error('Select a package first'); return }
         if (!phone.trim()) { toast.error('Enter the beneficiary number'); return }
 
@@ -584,7 +587,6 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                     payerNetwork: payNetwork,
                     guestEmail: email.trim() || undefined,
                     provider: webPaymentProvider,
-                    ...(opts?.acknowledgeRegistration ? { acknowledgeRegistration: true } : {}),
                 }),
             })
             const data = await res.json()
@@ -2110,6 +2112,7 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                                         Beneficiary number <span className="font-semibold text-gray-400">(gets the data)</span>
                                     </Label>
                                     <input
+                                        ref={beneficiaryRef}
                                         type="tel" inputMode="numeric" value={phone}
                                         onChange={(e) => setPhone(e.target.value)}
                                         placeholder="0241234567"
@@ -2491,21 +2494,20 @@ export default function ShopStorefront({ shop, packages, adminSettings, initialA
                 </div>
             </div>
 
-            {/* Beneficiary's MTN number is not registered — asked before any charge. */}
+            {/* Beneficiary's MTN number is not registered — refused before any charge.
+                No confirm handler: on the storefront there is nothing to agree to. */}
             <MtnRegistrationDialog
                 open={!!registrationPrompt}
                 numbers={registrationPrompt?.numbers}
-                isSubmitting={isConfirmingRegistration}
-                onConfirm={async () => {
-                    setIsConfirmingRegistration(true)
-                    try {
-                        setRegistrationPrompt(null)
-                        await handleBuyData({ acknowledgeRegistration: true })
-                    } finally {
-                        setIsConfirmingRegistration(false)
-                    }
-                }}
                 onCancel={() => setRegistrationPrompt(null)}
+                onCloseAutoFocus={(event) => {
+                    // The purchase sheet is still open behind the dialog, so put the
+                    // cursor where the guest has to act. Done here rather than in
+                    // onCancel because Radix restores focus to the Pay button on close,
+                    // and that restore would run last and undo it.
+                    event.preventDefault()
+                    beneficiaryRef.current?.focus()
+                }}
             />
         </div>
     )

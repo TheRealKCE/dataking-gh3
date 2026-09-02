@@ -5,7 +5,6 @@ import {
 } from '@/lib/api-auth'
 import { sendPushToAdmins } from '@/lib/web-push'
 import { generateReferenceCode } from '@/lib/utils'
-import { checkMtnRegistration, MTN_NOT_REGISTERED, REGISTRATION_WAIT_TEXT } from '@/lib/mtn-registration-gate'
 
 const ENDPOINT = '/api/v1/data/purchase'
 
@@ -89,29 +88,11 @@ export async function POST(request: NextRequest) {
         return apiError(404, `No available package found for ${network} ${volume_gb}.`)
     }
 
-    // ── MTN REGISTRATION GATE ────────────────────────────────────────────────
-    // Before the wallet is touched. Integrators opt in per request by sending
-    // acknowledge_registration: true, which is the API equivalent of the dialog
-    // a dashboard buyer sees.
-    const registrationGate = await checkMtnRegistration(supabase, cleanPhone, pkg.network)
-
-    if (registrationGate.gated && body.acknowledge_registration !== true) {
-        logApiRequest({ apiKeyId, userId, endpoint: ENDPOINT, method: 'POST', statusCode: 409, responseTimeMs: Date.now() - startTime, ip, errorMessage: 'MTN number not registered' })
-        return NextResponse.json({
-            success: false,
-            error: {
-                code: 409,
-                message: `This MTN number is not registered yet. Registration takes ${REGISTRATION_WAIT_TEXT}. Retry with acknowledge_registration: true to place the order anyway — it will be held and delivered automatically once the number is enabled.`,
-                type: MTN_NOT_REGISTERED,
-            },
-            registration: {
-                recipient: registrationGate.normalizedNumber,
-                estimated_wait: REGISTRATION_WAIT_TEXT,
-            },
-        }, { status: 409 })
-    }
-
-    const heldForRegistration = registrationGate.gated
+    // NOTE: the MTN registration gate deliberately does NOT run here. This endpoint no
+    // longer returns 409 MTN_NOT_REGISTERED at all, and acknowledge_registration is
+    // accepted but ignored, so integrators still sending it are unaffected. An
+    // unregistered recipient takes the fulfillment-time path — see
+    // app/api/orders/purchase/route.ts for the full reasoning.
 
     // Pricing: agent price if active agent, else retail
     const { data: userExpiry } = await supabase
@@ -166,8 +147,6 @@ export async function POST(request: NextRequest) {
             fulfillment_method: 'auto',
             source:             'api',
             api_key_id:         apiKeyId,
-            awaiting_registration: heldForRegistration,
-            registration_submitted_at: heldForRegistration ? new Date().toISOString() : null,
         })
         .select()
         .single()
@@ -202,16 +181,7 @@ export async function POST(request: NextRequest) {
     // async work as soon as the HTTP response is sent.
     let fulfillmentStatus: 'pending' | 'processing' = 'pending'
 
-    // Held for registration — the whitelist would reject a supplier call, so skip it
-    // entirely. One SMS now; agentportal-mtn-verify delivers the order once MTN enables
-    // the number, and must not re-send this on every retry.
-    if (heldForRegistration) {
-        const { sendMtnVerificationPendingSMS } = await import('@/lib/sms-service')
-        await sendMtnVerificationPendingSMS(cleanPhone, {
-            network: pkg.network,
-            size: pkg.size,
-        }).catch((err: Error) => console.error('[v1/purchase] Verification-pending SMS failed:', err))
-    } else try {
+    try {
         const { data: settingsData } = await supabase
             .from('admin_settings')
             .select('key, value')
@@ -321,6 +291,5 @@ export async function POST(request: NextRequest) {
         recipient:      cleanPhone,
         amount_charged: priceToCharge,
         wallet_balance: newBalance,
-        awaiting_registration: heldForRegistration,
     })
 }

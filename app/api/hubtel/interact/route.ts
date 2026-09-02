@@ -2,6 +2,12 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@supabase/supabase-js';
 import { waitUntil } from '@vercel/functions';
 import { isUssdEnabled, USSD_ENABLED_KEY, USSD_OFFLINE_MESSAGE } from '@/lib/ussd-availability';
+import {
+    checkMtnRegistrationStrict,
+    isMtnPackageNetwork,
+    USSD_NOT_REGISTERED_MESSAGE,
+    USSD_REGISTRATION_UNVERIFIABLE_MESSAGE,
+} from '@/lib/mtn-registration-gate';
 import { detectNetwork } from '@/lib/phone-validation';
 import {
     chargeMobileMoney,
@@ -91,20 +97,27 @@ const USSD_FLAG_TTL_MS = 60_000;
 /** admin_settings key naming which gateway collects for a USSD sale. */
 const USSD_PAYMENT_PROVIDER_KEY = 'ussd_payment_provider';
 
+/** Shared with every other surface — the same switch the admin fulfillment page writes. */
+const MTN_GATE_KEY = 'mtn_registration_gate_enabled';
+
 interface UssdFlags {
     enabled: boolean;
     /** 'paystack' (we collect) | 'hubtel' (AddToCart, the pre-Paystack path). */
     paymentProvider: 'paystack' | 'hubtel';
+    /** Refuse MTN data orders to numbers that are not registered yet. */
+    mtnGateEnabled: boolean;
 }
 
 let ussdFlagCache: { flags: UssdFlags; at: number } | null = null;
 
 /**
- * Both USSD switches in one round trip.
+ * Every USSD switch in one round trip.
  *
  * They are read together because this is the one route where a millisecond costs a
- * sale, and two sequential lookups would put two round trips into Hubtel's window
- * for values that change about once a year.
+ * sale, and sequential lookups would put extra round trips into Hubtel's window
+ * for values that change about once a year. The MTN gate rides along for the same
+ * reason — it is needed mid-session, on a keypress, where a second lookup would cost
+ * more than the check it guards.
  */
 async function getUssdFlags(): Promise<UssdFlags> {
     if (ussdFlagCache && Date.now() - ussdFlagCache.at < USSD_FLAG_TTL_MS) {
@@ -115,7 +128,7 @@ async function getUssdFlags(): Promise<UssdFlags> {
             getSupabaseAdmin()
                 .from('admin_settings')
                 .select('key, value')
-                .in('key', [USSD_ENABLED_KEY, USSD_PAYMENT_PROVIDER_KEY]),
+                .in('key', [USSD_ENABLED_KEY, USSD_PAYMENT_PROVIDER_KEY, MTN_GATE_KEY]),
             3000,
             'ussd flags fetch timeout'
         );
@@ -143,6 +156,12 @@ async function getUssdFlags(): Promise<UssdFlags> {
             enabled: isUssdEnabled({ [USSD_ENABLED_KEY]: raw[USSD_ENABLED_KEY] as any }),
             // Paystack unless someone has deliberately named hubtel.
             paymentProvider: providerRaw === 'hubtel' ? 'hubtel' : 'paystack',
+            // Read exactly as loadGateSettings() reads it, so this route and the web
+            // routes can never disagree about whether the gate is on. Deliberately NOT
+            // isUssdEnabled(): that helper's extra strictness belongs to the switch that
+            // stops the service, and applying it here would be borrowing a rule from an
+            // unrelated decision.
+            mtnGateEnabled: String(raw[MTN_GATE_KEY]) === 'true',
         };
         ussdFlagCache = { flags, at: Date.now() };
         return flags;
@@ -151,7 +170,13 @@ async function getUssdFlags(): Promise<UssdFlags> {
         // Prefer a stale answer over flapping; with no answer at all, stay shut.
         // Every step past this point needs the same database, so a session we
         // cannot verify is one we could not have fulfilled either.
-        return ussdFlagCache?.flags ?? { enabled: false, paymentProvider: 'paystack' };
+        //
+        // mtnGateEnabled defaults to false here, unlike `enabled` above. Deploying must
+        // not turn a check ON that the admin has not switched on, and this branch only
+        // runs when we could not read the setting at all — the same reasoning as
+        // loadGateSettings(), which also treats an unreadable setting as off.
+        return ussdFlagCache?.flags
+            ?? { enabled: false, paymentProvider: 'paystack', mtnGateEnabled: false };
     }
 }
 
@@ -511,6 +536,37 @@ export async function POST(req: Request) {
                 }
 
                 sessionData.recipientMobile = recipientMobile;
+
+                // ── MTN REGISTRATION GATE ────────────────────────────────────────
+                // Here, and not at 'confirm': this is the last step where no money is
+                // in motion and both the bundle and the recipient are known. 'confirm'
+                // already spends its budget on the Paystack charge.
+                //
+                // Unlike every web surface, this fails CLOSED — a USSD caller cannot be
+                // warned, cannot be shown a held order, and cannot be reached once the
+                // line drops. See checkMtnRegistrationStrict for the full reasoning.
+                //
+                // isMtnPackageNetwork, not === 'MTN', so 'Special MTN Mashup' and
+                // 'EXPRESS MTN' stay exempt: they are fulfilled by hand and the
+                // whitelist has no bearing on whether they can be delivered.
+                if (sessionData.orderType === 'data' && isMtnPackageNetwork(sessionData.network)) {
+                    const gate = await checkMtnRegistrationStrict(
+                        getSupabaseAdmin(),
+                        recipientMobile,
+                        sessionData.network,
+                        { enabled: ussdFlags.mtnGateEnabled }
+                    );
+                    if (gate.blocked) {
+                        endSession(SessionId);
+                        return respond(
+                            SessionId,
+                            'release',
+                            gate.reason === 'unregistered'
+                                ? USSD_NOT_REGISTERED_MESSAGE
+                                : USSD_REGISTRATION_UNVERIFIABLE_MESSAGE
+                        );
+                    }
+                }
 
                 saveAsync(SessionId, 'confirm', sessionData);
                 return respond(
