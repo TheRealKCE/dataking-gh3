@@ -134,6 +134,17 @@ const nextConfig: NextConfig = {
                     { key: 'Access-Control-Max-Age',       value: '86400' },
                 ],
             },
+            // Developer API v2 — same open CORS. Both versions are excluded from the
+            // middleware matcher, so this is the only place their CORS is set.
+            {
+                source: '/api/v2/:path*',
+                headers: [
+                    { key: 'Access-Control-Allow-Origin',  value: '*' },
+                    { key: 'Access-Control-Allow-Methods', value: 'GET, POST, OPTIONS' },
+                    { key: 'Access-Control-Allow-Headers', value: 'Content-Type, Authorization' },
+                    { key: 'Access-Control-Max-Age',       value: '86400' },
+                ],
+            },
             // Security headers for application routes. Cache policy is set per route/API.
             {
                 source: '/:path*',

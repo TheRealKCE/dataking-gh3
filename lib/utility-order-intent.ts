@@ -89,13 +89,20 @@ function round2(n: number): number {
 }
 
 /**
+ * The fee bands a bill can be priced at. 'api' is the Commission Services API, whose
+ * rate ships at 0 — a partner there pays the bill and earns from the commission
+ * wallet instead of being charged a markup and handed part of it back.
+ */
+export type UtilityFeeBand = 'agent' | 'customer' | 'api'
+
+/**
  * @param settings  admin_settings rows already loaded by the caller, keyed by name.
- * @param userRole  'agent' or 'customer' — decides which fee rate applies.
+ * @param userRole  which fee band applies.
  */
 export async function buildUtilityIntent(
     input: UtilityIntentInput,
     settings: Record<string, string>,
-    userRole: 'agent' | 'customer'
+    userRole: UtilityFeeBand
 ): Promise<UtilityIntentResult> {
     // ── Service ──────────────────────────────────────────────────────────────
     if (!isUtilityService(input.service)) {
@@ -165,7 +172,11 @@ export async function buildUtilityIntent(
     }
 
     // ── Fee ──────────────────────────────────────────────────────────────────
-    const feeRate = parseFloat(settings[`utility_fee_${service}_${userRole}`] || '2')
+    // The default differs by band on purpose. If the settings row is missing, a human
+    // buyer falls back to the 2% the migration ships, but an API partner falls back to
+    // 0 — silently charging a commission partner a markup they were never quoted is a
+    // worse failure than under-charging them.
+    const feeRate = parseFloat(settings[`utility_fee_${service}_${userRole}`] || (userRole === 'api' ? '0' : '2'))
     const feeAmount = round2(billAmount * (feeRate / 100))
     const totalPaid = round2(billAmount + feeAmount)
 
@@ -195,6 +206,7 @@ export function utilitySettingKeys(service: string): string[] {
         `utility_enabled_${service}`,
         `utility_fee_${service}_customer`,
         `utility_fee_${service}_agent`,
+        `utility_fee_${service}_api`,
         `utility_min_amount_${service}`,
         `utility_max_amount_${service}`,
     ]

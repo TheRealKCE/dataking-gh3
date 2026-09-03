@@ -774,7 +774,11 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
     matcher: [
-        // Exclude static files and /api/v1/* (v1 CORS handled via next.config.ts, auth via route handlers)
-        '/((?!_next/static|_next/image|favicon.ico|api/v1|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2)$).*)'
+        // Exclude static files and the developer API (/api/v1, /api/v2). Their CORS is
+        // set in next.config.ts and their auth is the API key, checked in the route
+        // handlers. Running the middleware over them would reject any browser-side
+        // call from a partner's own domain via the origin allowlist below, and charge
+        // every server-to-server request for a Supabase session lookup it never uses.
+        '/((?!_next/static|_next/image|favicon.ico|api/v1|api/v2|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|woff|woff2)$).*)'
     ],
 }

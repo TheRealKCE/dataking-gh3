@@ -13,6 +13,8 @@
 import { createServerClient } from '@/lib/supabase'
 import { sendAirtimeCompletedSMS } from '@/lib/sms-service'
 import { sendPushToUser } from '@/lib/web-push'
+import { creditCommissionForOrder } from '@/lib/commission-earning'
+import { queueApiWebhook } from '@/lib/api-webhook'
 
 export type AirtimeFinalStatus = 'processing' | 'completed' | 'failed'
 
@@ -68,6 +70,33 @@ export async function finalizeAirtimeOrder(
     if (updateError) {
         console.error('[AirtimeCompletion] Update error:', updateError)
         return { success: false, error: updateError.message }
+    }
+
+    // ── Commission ───────────────────────────────────────────────────────────
+    // Placed here rather than in the API route because all three callers of this
+    // function — dispatcher, Hubtel callback, admin button — must earn identically.
+    // A no-op unless the order was placed with a Commission Services key.
+    if (status === 'completed') {
+        await creditCommissionForOrder({ source: 'airtime', orderId })
+    }
+
+    // Tell the partner, if this order came from an API key with a webhook configured.
+    // Terminal states only — 'processing' is not news.
+    if (status !== 'processing' && existing.api_key_id) {
+        await queueApiWebhook({
+            apiKeyId: existing.api_key_id,
+            payload: {
+                event:          `airtime.${status}`,
+                reference:      existing.reference_code,
+                order_id:       existing.id,
+                status,
+                network:        existing.network,
+                recipient:      existing.beneficiary_phone,
+                airtime_amount: Number(existing.airtime_amount ?? 0),
+                total_paid:     Number(existing.total_paid ?? 0),
+                note:           note ?? null,
+            },
+        })
     }
 
     // ── Storefront sync ──────────────────────────────────────────────────────
