@@ -12,9 +12,16 @@
  * verify-payswitch-payments: a global cron kill switch must not be able to strand
  * a customer's money.
  *
- * Pending work is read from hubtel_payment_logs rather than wallet_payments,
+ * Pending SALES are read from hubtel_payment_logs rather than wallet_payments,
  * because a USSD caller has no account and therefore no wallet_payments row (that
  * table needs user_id and wallet_id NOT NULL).
+ *
+ * Short-code ACTIVATIONS are the opposite case and are swept separately below: the
+ * buyer is a signed-in shop owner, so the charge does have a wallet_payments row.
+ * They landed here when activation moved from Hubtel to Paystack — the row's
+ * provider changed to 'paystack', which put it outside verify-hubtel-payments, and
+ * nothing else was watching. A shop can pay GHS 40 and never get a code if the
+ * webhook is lost, so the net has to follow the money.
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
@@ -44,6 +51,8 @@ export async function GET(request: NextRequest) {
         stillPending: 0,
         failed: 0,
         unresolvable: 0,
+        activationsChecked: 0,
+        activationsSettled: 0,
         errors: [] as string[],
         totalTimeMs: 0,
     }
@@ -157,6 +166,64 @@ export async function GET(request: NextRequest) {
     } catch (err: any) {
         console.error('[CronUssd] Sweep failed:', err)
         results.errors.push(`sweep: ${err?.message ?? 'unknown'}`)
+    }
+
+    // ── SHORT-CODE ACTIVATIONS ───────────────────────────────────────────────────
+    // Its own try block: a failure sweeping activations must not discard the sales
+    // results already collected above.
+    try {
+        const { data: pendingActivations, error: activationError } = await (supabase
+            .from('wallet_payments') as any)
+            .select('reference, total_amount')
+            .eq('status', 'pending')
+            .eq('provider', 'paystack')
+            .like('reference', 'ussd_activation_%')
+            .lt('created_at', new Date(Date.now() - MIN_AGE_MS).toISOString())
+            .gt('created_at', new Date(Date.now() - MAX_AGE_MS).toISOString())
+            .order('created_at', { ascending: true })
+            .limit(BATCH_LIMIT)
+
+        if (activationError) {
+            console.error('[CronUssd] wallet_payments query error:', activationError)
+            results.errors.push(`activations query: ${activationError.message}`)
+        }
+
+        for (const row of (pendingActivations || [])) {
+            const reference = String(row.reference)
+            results.activationsChecked++
+
+            try {
+                const verified = await verifyTransaction(reference)
+
+                // Only 'paid' acts. A 'failed' row is deliberately left pending rather
+                // than marked failed: unlike the sales sweep there is nothing to
+                // release, and an abandoned prompt the buyer approves late should
+                // still mint the code it paid for.
+                if (verified.outcome !== 'paid') continue
+
+                const { processCompletedUssdActivation } = await import('@/lib/payments')
+                const settled = await processCompletedUssdActivation(reference, {
+                    reference,
+                    // Paystack's figure is authoritative over anything we stored.
+                    amount: verified.amountPesewas ?? Math.round(Number(row.total_amount) * 100),
+                    metadata: { recovered_by: 'verify-ussd-payments' },
+                })
+
+                if (settled?.success) {
+                    results.activationsSettled++
+                    console.log('[CronUssd] Activation recovered:', reference)
+                } else {
+                    results.errors.push(`${reference}: ${settled?.error ?? 'activation settle failed'}`)
+                    console.error('[CronUssd] Paid activation would not settle:', reference, settled?.error)
+                }
+            } catch (err: any) {
+                console.error('[CronUssd] Activation error on', reference, err?.message)
+                results.errors.push(`${reference}: ${err?.message ?? 'unknown'}`)
+            }
+        }
+    } catch (err: any) {
+        console.error('[CronUssd] Activation sweep failed:', err)
+        results.errors.push(`activation sweep: ${err?.message ?? 'unknown'}`)
     }
 
     results.totalTimeMs = Date.now() - startTime
